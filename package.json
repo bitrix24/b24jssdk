@@ -1,0 +1,28 @@
+{
+	"name": "@bitrix24/b24jssdk",
+	"version": "0.0.0",
+	"author": "Bitrix",
+	"license": "MIT",
+	"description": "Bitrix24 REST API JS SDK",
+	"main": "index.js",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/bitrix24/b24jssdk.git"
+	},
+	"private": true,
+	"workspaces": [
+		"packages/*"
+	],
+	"keywords": [
+		"bitrix24",
+		"restapi"
+	],
+	"scripts": {
+	},
+	"dependencies": {
+	},
+	"devDependencies": {
+		"ts-node": "^10.0.0",
+		"typescript": "^5.4.3"
+	}
+}

@@ -1,23 +1,43 @@
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# dependencies
+/node_modules
+/packages/**/node_modules
+/playgrounds/**/node_modules
 
-# Logs
+# testing
+/coverage
+/packages/**/coverage
+/playgrounds/**/coverage
+
+# logs
 logs
 *.log
+/packages/**/*.log
+/playgrounds/**/*.log
 
-# IDEs and editors
+# misc
 .vscode
 .idea
 .DS_Store
+*.pem
+.cache
 Thumbs.db
 
-# Build directories
-dist/
-public/
-asset/
+# production
+/dist
+/packages/**/dist
+/playgrounds/**/dist
 
 # TypeScript
 *.tsbuildinfo
+
+# local env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# vercel
+.vercel
+
+.todo.md
+/@todo/

@@ -1,0 +1,48 @@
+{
+	"name": "@b24/jssdk",
+	"version": "1.1.2",
+	"author": "Bitrix",
+	"license": "MIT",
+	"description": "Bitrix24 REST API JS SDK",
+	"keywords": [
+		"bitrix24",
+		"restapi"
+	],
+	"main": "dist/index.cjs",
+	"typings": "dist/index.d.ts",
+	"module": "dist/b24-jssdk.esm.js",
+	"files": [
+		"README.md",
+		"dist"
+	],
+	"exports": {
+		"types": {
+			"import": "./dist/index.d.ts",
+			"require": "./dist/index.d.cts"
+		},
+		"import": "./dist/b24-jssdk.esm.js",
+		"require": "./dist/index.cjs"
+	},
+	"type": "module",
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/bitrix24/b24jssdk.git",
+		"directory": "packages/@b24-jssdk"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+	},
+	"dependencies": {
+		"axios": "^1.7.2",
+		"qs": "^6.12.1",
+		"@types/qs": "^6.9.15"
+	},
+	"devDependencies": {
+	}
+}

@@ -1,0 +1,51 @@
+{
+	"include": ["src"],
+	"exclude": ["node_modules", "dist", "test"],
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "esnext",
+		"allowJs": true,
+		"resolveJsonModule": true,
+		"moduleDetection": "force",
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"moduleResolution": "Bundler",
+		"useDefineForClassFields": true,
+		"noImplicitThis": true,
+		"declaration": true,
+		"declarationDir": "dist/types",
+		"esModuleInterop": true,
+		"lib": [
+			"ESNext",
+			"dom",
+			"dom.iterable",
+			"webworker"
+		],
+		"jsx": "preserve",
+		"jsxImportSource": "vue",
+		"types": [],
+		"declarationMap": false,
+		"outDir": "./dist/esm",
+		"sourceMap": false,
+		"noEmit": true,
+		"strict": true,
+		"noImplicitAny": true,
+		"strictNullChecks": true,
+		"strictFunctionTypes": true,
+		"alwaysStrict": true,
+		"noUnusedLocals": false,
+		"noUnusedParameters": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUncheckedIndexedAccess": false,
+		"noImplicitOverride": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"allowSyntheticDefaultImports": true,
+		"forceConsistentCasingInFileNames": true,
+		"skipLibCheck": true
+	},
+	"tsc-alias": {
+		"resolveFullPaths": true,
+		"verbose": true
+	}
+}

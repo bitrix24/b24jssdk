@@ -1,0 +1,34 @@
+{
+	"name": "@bitrix24/b24jssdk-playground",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"directories": {
+		"example": "examples"
+	},
+	"scripts": {
+		"prebuild": "npm run build --workspace=@bitrix24/b24jssdk",
+		"predev": "npm run build --workspace=@bitrix24/b24jssdk",
+		"dev:serve": "vite serve",
+		"dev": "npm-run-all -p dev:*",
+		"build": "NODE_ENV=production vite build",
+		"clean": "rimraf --glob ./dist"
+	},
+	"dependencies": {
+		"@bitrix24/b24jssdk": "*",
+		"@bitrix24/b24icons-vue": "^0.1.1",
+		"@bitrix24/b24style": "^0.1.2",
+		"@tailwindcss/forms": "^0.5.7",
+		"@tailwindcss/typography": "^0.5.2",
+		"tailwindcss": "^3.4.11",
+		"autoprefixer": "^10.4.20",
+		"postcss": "^8.4.47",
+		"vue": "^3.4.27",
+		"vue-router": "^4.3.2"
+	},
+	"devDependencies": {
+		"@vitejs/plugin-vue": "^5.0.5",
+		"vite": "^5.2.12",
+		"npm-run-all": "^4.1.5"
+	}
+}

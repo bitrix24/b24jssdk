@@ -73,19 +73,19 @@ B24.callBatch(
 	commands,
 	true
 )
-	.then((response: Result) => {
-		data = response.getData();
-		logger.info('response >> ', data);
-		
-		dataList.value = data.CompanyList.items || [];
-		isProcessLoadB24.value = false;
-		
-		logger.info('init >> stop ');
-	})
-	.catch((error: Error|string) => {
-		result.addError(error);
-		logger.error(error);
-	});
+.then((response: Result) => {
+	data = response.getData();
+	logger.info('response >> ', data);
+	
+	dataList.value = data.CompanyList.items || [];
+	isProcessLoadB24.value = false;
+	
+	logger.info('init >> stop ');
+})
+.catch((error: Error|string) => {
+	result.addError(error);
+	logger.error(error);
+});
 // endregion ////
 
 logger.info('>> stop ');

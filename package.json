@@ -22,9 +22,7 @@
 		"build": "npm-run-all -s build:*",
 		"build:jssdk-unbuild": "npm run --workspace=@bitrix24/b24jssdk build",
 		
-		"playground-jssdk": "npm-run-all -s playground-jssdk:*",
-		"playground-jssdk:build": "npm run build",
-		"playground-jssdk:run-dev": "npm run --workspace=@bitrix24/b24jssdk-playground dev"
+		"playground-jssdk": "npm run --workspace=@bitrix24/b24jssdk-playground dev"
 	},
 	"dependencies": {
 	},

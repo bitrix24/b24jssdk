@@ -2,6 +2,7 @@
 import { ref, reactive, computed, type Ref } from 'vue'
 import Search1Icon from '@bitrix24/b24icons-vue/main/Search1Icon'
 import AlertIcon from '@bitrix24/b24icons-vue/button/AlertIcon'
+import b24HookConfig from '../config';
 
 import {
 	B24Hook,
@@ -11,14 +12,8 @@ import {
 	EnumCrmEntityTypeId
 } from '@bitrix24/b24jssdk';
 
-const b24HookParams = {
-	b24Url: 'https://tst-6.bitrix24.by',
-	userId: 1,
-	secret: 'k32t88hn3azpmwv3'
-};
-
 const B24: B24Hook = new B24Hook(
-	b24HookParams
+	b24HookConfig
 );
 
 const logger = LoggerBrowser.build('Demo 2');
@@ -42,7 +37,7 @@ const problemMessageList = computed(() => {
 
 async function openSlider (id: number): Promise<void> {
 	window.open(
-		`${b24HookParams.b24Url}/crm/company/details/${id}/`
+		`${b24HookConfig.b24Url}/crm/company/details/${id}/`
 	);
 	
 	return Promise.resolve();

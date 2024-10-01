@@ -9,8 +9,8 @@
 	"scripts": {
 		"prebuild": "npm run build --workspace=@bitrix24/b24jssdk",
 		"predev": "npm run build --workspace=@bitrix24/b24jssdk",
-		"dev:serve": "vite serve",
 		"dev": "npm-run-all -p dev:*",
+		"dev:serve": "vite serve",
 		"build": "NODE_ENV=production vite build",
 		"clean": "rimraf --glob ./dist"
 	},

@@ -59,6 +59,11 @@ Thumbs.db
 .env.development.local
 .env.test.local
 .env.production.local
+/playgrounds/**/*.env
+/playgrounds/**/*.env.local
+/playgrounds/**/*.env.development.local
+/playgrounds/**/*.env.test.local
+/playgrounds/**/*.env.production.local
 
 # testing
 reports

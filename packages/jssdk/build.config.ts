@@ -3,22 +3,21 @@
  */
 import { existsSync, promises as fsp } from 'node:fs'
 import { resolve } from 'pathe'
-
-import { defineBuildConfig} from 'unbuild'
+import { defineBuildConfig } from 'unbuild'
 
 export default defineBuildConfig([
 	{
+		entries: [
+			'./src/index'
+		],
+		outDir: 'dist',
+		clean: true,
 		declaration: true,
 		sourcemap: true,
 		stub: false,
-		outDir: 'dist',
-		entries: ['./src/index'],
 		rollup: {
 			esbuild: {
-				/**
-				 * @todo on this
-				 */
-				//minify: true,
+				minify: true,
 				target: 'esnext',
 			},
 			emitCJS: false,
@@ -26,19 +25,23 @@ export default defineBuildConfig([
 		},
 		hooks: {
 			async 'rollup:done'(ctx) {
-				// Generate CommonJS stub
 				await writeCJSStub(ctx.options.outDir)
 			},
 		}
 	}
 ])
 
+/**
+ * Generate CommonJS stub
+ * @param distDir
+ */
 async function writeCJSStub(distDir: string) {
 	const cjsStubFile = resolve(distDir, 'index.cjs')
 	if (existsSync(cjsStubFile)) {
 		return
 	}
-	const cjsStub = `module.exports = function(...args) {
+	const cjsStub =
+`module.exports = function(...args) {
   return import('./index.mjs').then(m => m.default.call(this, ...args))
 }
 `

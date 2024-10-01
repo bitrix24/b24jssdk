@@ -1,0 +1,14 @@
+{
+	"name": "@bitrix24/b24jssdk-docs",
+	"private": true,
+	"version": "0.0.0",
+	"description": "",
+	"type": "module",
+	"devDependencies": {
+		"mini-svg-data-uri": "^1.4.4"
+	},
+	"dependencies": {
+		"@bitrix24/b24icons-vue": "^0.1.1",
+		"@vueuse/core": "^11.1.0"
+	}
+}

@@ -49,6 +49,8 @@ Thumbs.db
 /dist
 /packages/**/dist
 /playgrounds/**/dist
+docs/.vitepress/dist
+docs/.vitepress/cache
 
 # TypeScript
 *.tsbuildinfo

@@ -18,6 +18,7 @@
 		"@bitrix24/b24jssdk": "*",
 		"@bitrix24/b24icons-vue": "^0.1.1",
 		"@bitrix24/b24style": "^0.1.2",
+		"@headlessui/vue": "^1.7.23",
 		"@tailwindcss/forms": "^0.5.7",
 		"@tailwindcss/typography": "^0.5.2",
 		"tailwindcss": "^3.4.11",

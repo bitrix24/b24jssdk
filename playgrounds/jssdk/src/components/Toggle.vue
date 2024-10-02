@@ -1,7 +1,7 @@
 <script lang="ts">
-import { computed, defineComponent, ref } from 'vue'
+import { computed, defineComponent } from 'vue'
 import type { PropType } from 'vue'
-import { Switch as HSwitch, provideUseId } from '@headlessui/vue'
+import { Switch as HSwitch } from '@headlessui/vue'
 
 export default defineComponent({
 	components: {

@@ -1,7 +1,7 @@
 /**
  * Returns scroll info
  */
-export default (): {scrollWidth: number, scrollHeight: number} => {
+const useScrollSize = (): {scrollWidth: number, scrollHeight: number} => {
 	return {
 		scrollWidth: Math.max(
 			document.documentElement.scrollWidth,
@@ -13,3 +13,5 @@ export default (): {scrollWidth: number, scrollHeight: number} => {
 		)
 	};
 }
+
+export default useScrollSize

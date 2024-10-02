@@ -1,5 +1,5 @@
 import { MessageManager, MessageCommands } from "./message";
-import { useScrollSize } from "../tools";
+import useScrollSize from "../tools/scrollSize";
 
 
 /**

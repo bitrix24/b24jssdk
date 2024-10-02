@@ -1,9 +1,3 @@
-/**
- * @todo fix this
- */
-// const isDevelopment = process.env["NODE_ENV"] === 'development';
-const isDevelopment = true;
-
 export enum LoggerType
 {
 	desktop = 'desktop',
@@ -97,7 +91,8 @@ export class LoggerBrowser
 	};
 
 	static build(
-		title: string
+		title: string,
+		isDevelopment: boolean = false
 	): LoggerBrowser
 	{
 		const logger = new LoggerBrowser(title);
@@ -150,7 +145,7 @@ export class LoggerBrowser
 	// endregion ////
 	
 	// region Config ////
-	setConfig(types: LoggerType[])
+	setConfig(types: LoggerType[]): void
 	{
 		for(let type of types)
 		{
@@ -158,7 +153,7 @@ export class LoggerBrowser
 		}
 	}
 	
-	enable(type: LoggerType)
+	enable(type: LoggerType): boolean
 	{
 		if (typeof this.#types[type] === 'undefined')
 		{
@@ -170,7 +165,7 @@ export class LoggerBrowser
 		return true;
 	}
 	
-	disable(type: LoggerType)
+	disable(type: LoggerType): boolean
 	{
 		if (typeof this.#types[type] === 'undefined')
 		{
@@ -182,22 +177,22 @@ export class LoggerBrowser
 		return true;
 	}
 	
-	isEnabled(type: LoggerType)
+	isEnabled(type: LoggerType): boolean
 	{
 		return this.#types[type];
 	}
 	// endregion ////
 	
 	// region Functions ////
-	desktop(...params: any[])
+	desktop(...params: any[]): void
 	{
 		if (this.isEnabled(LoggerType.desktop))
 		{
-			console.log(...[...this.#getStyle(LoggerType.desktop), this.#title, ...params]);
+			console.log(...[...this.#getStyle(LoggerType.desktop), ...params]);
 		}
 	}
 	
-	log(...params: any[])
+	log(...params: any[]): void
 	{
 		if (this.isEnabled(LoggerType.log))
 		{
@@ -205,7 +200,7 @@ export class LoggerBrowser
 		}
 	}
 	
-	info(...params: any[])
+	info(...params: any[]): void
 	{
 		if (this.isEnabled(LoggerType.info))
 		{
@@ -213,7 +208,7 @@ export class LoggerBrowser
 		}
 	}
 	
-	warn(...params: any[])
+	warn(...params: any[]): void
 	{
 		if (this.isEnabled(LoggerType.warn))
 		{
@@ -221,7 +216,7 @@ export class LoggerBrowser
 		}
 	}
 	
-	error(...params: any[])
+	error(...params: any[]): void
 	{
 		if (this.isEnabled(LoggerType.error))
 		{
@@ -229,7 +224,7 @@ export class LoggerBrowser
 		}
 	}
 	
-	trace(...params: any[])
+	trace(...params: any[]): void
 	{
 		if (this.isEnabled(LoggerType.trace))
 		{

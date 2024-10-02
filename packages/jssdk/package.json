@@ -19,6 +19,13 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.mjs",
 			"require": "./dist/index.cjs"
+		},
+		"./package.json": {
+			"default": "./package.json"
+		},
+		"./logger/*": {
+			"types": "./dist/logger/*.d.ts",
+			"default": "./dist/logger/*.mjs"
 		}
 	},
 	"main": "./dist/index.cjs",
@@ -27,7 +34,8 @@
 	"files": [
 		"README.md",
 		"LICENSE",
-		"dist"
+		"dist",
+		"package.json"
 	],
 	"sideEffects": false,
 	"engines": {

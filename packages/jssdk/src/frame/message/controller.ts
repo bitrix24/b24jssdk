@@ -1,10 +1,11 @@
 import {
-	useUniqId,
 	LoggerBrowser,
 	LoggerType,
 	MessageCommands,
 	AppFrame
 } from '../../index';
+
+import useUniqId from "../../tools/uniqId";
 
 interface PromiseHandlers
 {

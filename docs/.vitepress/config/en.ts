@@ -9,7 +9,8 @@ export const en = defineConfig({
 		nav: nav(),
 		
 		sidebar: {
-			'/guide/': { base: '/guide/', items: sidebarGuide() }
+			'/guide/': { base: '/guide/', items: sidebarGuide() },
+			'/reference/': { base: '/reference/', items: sidebarReference() }
 		},
 		
 		editLink: {
@@ -28,6 +29,7 @@ export const en = defineConfig({
 function nav(): DefaultTheme.NavItem[] {
 	return [
 		{text: 'Quickstart', link: '/guide/getting-started'},
+		{text: 'Reference', link: '/reference/logger-browser'},
 		{
 			text: configParams.version,
 			items: [
@@ -49,6 +51,18 @@ function sidebarGuide(): DefaultTheme.SidebarItem[] {
 			items: [
 				{ text: 'Getting Started', link: 'getting-started' },
 				{ text: 'Vue', link: 'vue' }
+			]
+		},
+	]
+}
+
+function sidebarReference(): DefaultTheme.SidebarItem[] {
+	return [
+		{
+			text: 'Logger',
+			collapsed: false,
+			items: [
+				{ text: 'Logger for browser', link: 'logger-browser' },
 			]
 		},
 	]

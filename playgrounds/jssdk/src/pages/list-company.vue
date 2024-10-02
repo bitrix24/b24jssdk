@@ -16,7 +16,7 @@ const B24: B24Hook = new B24Hook(
 	b24HookConfig
 );
 
-const logger = LoggerBrowser.build('Demo 2');
+const logger = LoggerBrowser.build('Demo: List Company');
 const result: IResult = reactive(new Result());
 const isProcessLoadB24: Ref<boolean> = ref(true);
 

@@ -1,5 +1,6 @@
 import { AbstractB24 } from '../core/abstractB24';
-import { B24LangList, Http } from "../core";
+import { Http } from "../core/http";
+import { B24LangList } from "../core/language/list";
 import { LoggerBrowser, LoggerType } from "../logger/browser";
 import { PropertiesManager } from "./properties";
 import { PlacementManager } from "./placement";

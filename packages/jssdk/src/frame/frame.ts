@@ -1,4 +1,4 @@
-import { B24LangList } from "../core";
+import { B24LangList } from "../core/language/list";
 import type {
 	B24FrameQueryParams,
 	MessageInitData

@@ -59,6 +59,14 @@ function sidebarGuide(): DefaultTheme.SidebarItem[] {
 function sidebarReference(): DefaultTheme.SidebarItem[] {
 	return [
 		{
+			text: 'Core',
+			collapsed: false,
+			items: [
+				{ text: 'Result', link: 'core-result' },
+				{ text: 'Language List', link: 'core-lang-list' },
+			]
+		},
+		{
 			text: 'Logger',
 			collapsed: false,
 			items: [

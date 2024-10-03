@@ -1,6 +1,6 @@
 import { AbstractB24 } from '../core/abstractB24';
 import { LoggerBrowser, LoggerType } from "../logger/browser";
-import { Http } from "../core";
+import { Http } from "../core/http";
 import { AuthHookManager } from "./auth";
 import type {
 	B24HookParams

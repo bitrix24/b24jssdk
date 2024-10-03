@@ -8,18 +8,24 @@ export enum B24LangList
 	en = 'en',
 	de = 'de',
 	la = 'la',
+	
 	br = 'br',
 	fr = 'fr',
 	it = 'it',
+	
 	pl = 'pl',
 	ru = 'ru',
 	ua = 'ua',
+	
 	tr = 'tr',
 	sc = 'sc',
 	tc = 'tc',
+	
 	ja = 'ja',
 	vn = 'vn',
 	id = 'id',
+	
 	ms = 'ms',
 	th = 'th',
+	ar = 'ar',
 }

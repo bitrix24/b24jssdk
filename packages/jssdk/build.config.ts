@@ -29,6 +29,9 @@ export default defineBuildConfig({
 		'./src/logger/browser',
 		'./src/tools/scrollSize',
 		'./src/tools/uniqId',
+		'./src/core/result',
+		'./src/core/abstractB24',
+		'./src/core/language/list',
 	],
 	outDir: 'dist',
 	clean: true,
@@ -37,7 +40,7 @@ export default defineBuildConfig({
 	stub: false,
 	rollup: {
 		esbuild: {
-			minify: false,
+			minify: true,
 			target: 'esnext',
 		},
 		emitCJS: false,

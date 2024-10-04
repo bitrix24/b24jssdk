@@ -5,7 +5,7 @@ import type {
 	AuthData,
 	RefreshAuthData,
 	MessageInitData
-} from "../types";
+} from "../types/auth";
 
 /**
  * Authorization Manager

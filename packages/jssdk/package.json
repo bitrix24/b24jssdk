@@ -23,6 +23,18 @@
 			"import": "./dist/index.mjs",
 			"require": "./dist/index.cjs"
 		},
+		"./tools/*": {
+			"types": "./dist/tools/*.d.ts",
+			"default": "./dist/tools/*.mjs"
+		},
+		"./types/*": {
+			"types": "./dist/types/*.d.ts",
+			"default": "./dist/types/*.mjs"
+		},
+		"./types/crm": {
+			"types": "./dist/types/crm/index.d.ts",
+			"default": "./dist/types/crm/index.mjs"
+		},
 		"./logger/*": {
 			"types": "./dist/logger/*.d.ts",
 			"default": "./dist/logger/*.mjs"
@@ -31,9 +43,17 @@
 			"types": "./dist/core/*.d.ts",
 			"default": "./dist/core/*.mjs"
 		},
+		"./core/http/*": {
+			"types": "./dist/core/http/*.d.ts",
+			"default": "./dist/core/http/*.mjs"
+		},
 		"./core/language/*": {
 			"types": "./dist/core/language/*.d.ts",
 			"default": "./dist/core/language/*.mjs"
+		},
+		"./hook": {
+			"types": "./dist/hook/index.d.ts",
+			"default": "./dist/hook/index.mjs"
 		}
 	},
 	"main": "./dist/index.cjs",

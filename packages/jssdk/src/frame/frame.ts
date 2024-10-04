@@ -2,7 +2,7 @@ import { B24LangList } from "../core/language/list";
 import type {
 	B24FrameQueryParams,
 	MessageInitData
-} from "../types";
+} from "../types/auth";
 
 /**
  * Application Frame Data Manager

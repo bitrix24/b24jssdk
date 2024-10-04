@@ -2,11 +2,8 @@ import { Result, type IResult } from "../result";
 import { AjaxError } from "./ajaxError";
 import { default as Http } from "./controller";
 
-import type {
-	NumberString,
-	GetPayload,
-	Payload
-} from "../../types";
+import type { NumberString } from "../../types/common";
+import type { GetPayload, Payload } from "../../types/payloads";
 
 export type AjaxQuery = {
 	method: string,
@@ -112,5 +109,4 @@ export class AjaxResult
 		
 		return Promise.resolve(false);
 	}
-	
 }

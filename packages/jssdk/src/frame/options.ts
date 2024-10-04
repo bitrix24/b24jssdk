@@ -1,7 +1,6 @@
 import { MessageManager, MessageCommands } from "./message";
 import type {
-	MessageInitData,
-	listOptions
+	MessageInitData
 } from "../types";
 
 /**
@@ -10,8 +9,8 @@ import type {
 export class OptionsManager
 {
 	#messageManager: MessageManager;
-	#appOptions: null | listOptions = null;
-	#userOptions: null | listOptions = null;
+	#appOptions: null | Record<string, any> = null;
+	#userOptions: null | Record<string, any> = null;
 	
 	constructor(
 		messageManager: MessageManager
@@ -28,12 +27,12 @@ export class OptionsManager
 	{
 		if(!!data.APP_OPTIONS)
 		{
-			this.#appOptions = data.APP_OPTIONS as listOptions;
+			this.#appOptions = data.APP_OPTIONS as Record<string, any>;
 		}
 		
 		if(!!data.USER_OPTIONS)
 		{
-			this.#userOptions = data.USER_OPTIONS as listOptions;
+			this.#userOptions = data.USER_OPTIONS as Record<string, any>;
 		}
 		
 		return this;

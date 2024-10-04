@@ -1,6 +1,6 @@
-import { AbstractB24 } from '../core/abstractB24';
-import { Http } from "../core/http";
 import { B24LangList } from "../core/language/list";
+import { AbstractB24 } from '../core/abstractB24';
+import Http from "../core/http/controller";
 import { LoggerBrowser, LoggerType } from "../logger/browser";
 import { PropertiesManager } from "./properties";
 import { PlacementManager } from "./placement";
@@ -14,7 +14,7 @@ import { MessageManager, MessageCommands } from "./message";
 import type {
 	MessageInitData,
 	B24FrameQueryParams
-} from "../types";
+} from "../types/auth";
 
 /**
  * B24 Manager. Replacement api.bitrix24.com
@@ -42,10 +42,6 @@ export class B24Frame
 	)
 	{
 		super();
-		this.logger = LoggerBrowser.build(`B24Frame:controller`);
-		this.logger.disable(LoggerType.log);
-		// this.logger.disable(LoggerType.info); ////
-		// this.logger.disable(LoggerType.warn); ////
 		
 		this.#appFrame = new AppFrame(queryParams);
 		
@@ -167,7 +163,7 @@ export class B24Frame
 		)
 		.then((data: MessageInitData) => {
 			
-			this.logger.log('init data:', data);
+			this.getLogger().log('init data:', data);
 			
 			this.#appFrame.initData(data);
 			this.#authManager.initData(data);

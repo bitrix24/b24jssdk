@@ -1,5 +1,9 @@
-import type {NumberString} from "./common";
-import type {listOptions} from "./options";
+import type { NumberString } from "./common";
+
+export type AuthError = {
+	readonly error: 'invalid_token'|'expired_token'|string
+	readonly error_description: string
+}
 
 /**
  * Parameters for hook
@@ -41,10 +45,10 @@ export type MessageInitData = RefreshAuthData & {
 	LANG: string;
 	MEMBER_ID: string;
 	IS_ADMIN: boolean;
-	APP_OPTIONS: listOptions;
-	USER_OPTIONS: listOptions;
+	APP_OPTIONS: Record<string, any>;
+	USER_OPTIONS: Record<string, any>;
 	PLACEMENT: string;
-	PLACEMENT_OPTIONS: listOptions;
+	PLACEMENT_OPTIONS: Record<string, any>;
 	INSTALL: boolean;
 	FIRST_RUN: boolean;
 }

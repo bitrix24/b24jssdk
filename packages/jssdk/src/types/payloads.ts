@@ -1,8 +1,3 @@
-export type AuthError = {
-	readonly error: 'invalid_token'|'expired_token'|string
-	readonly error_description: string
-}
-
 export type PayloadTime = {
 	readonly start: number
 	readonly finish: number

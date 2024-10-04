@@ -1,10 +1,8 @@
-import { Result } from "./result";
-import { Http, type AjaxResult } from "./http";
-import { LoggerBrowser, LoggerType } from "../logger/browser";
-
-import type {
-	ListPayload
-} from "../types";
+import { Result } from "./result"
+import Http from "./http/controller"
+import { AjaxResult } from "./http/ajaxResult"
+import { LoggerBrowser, LoggerType } from "../logger/browser"
+import type { ListPayload } from "../types/payloads"
 
 export abstract class AbstractB24
 {
@@ -12,14 +10,12 @@ export abstract class AbstractB24
 	
 	protected _isInit: boolean = false;
 	protected _http: null|Http = null;
-	protected logger: LoggerBrowser;
+	protected _logger: null|LoggerBrowser = null;
 	
 	// region Init ////
-	constructor()
+	protected constructor()
 	{
 		this._isInit = false;
-		this.logger = LoggerBrowser.build(`AbstractB24:controller`);
-		this.logger.disable(LoggerType.log);
 	}
 	
 	get isInit(): boolean
@@ -36,6 +32,32 @@ export abstract class AbstractB24
 	destroy()
 	{
 	
+	}
+	
+	setLogger(logger: LoggerBrowser): void
+	{
+		this._logger = logger
+	}
+	
+	getLogger(): LoggerBrowser
+	{
+		if(null === this._logger)
+		{
+			this._logger = LoggerBrowser.build(
+				`NullLogger`
+			)
+			
+			this._logger.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: false,
+				[LoggerType.warn]: false,
+				[LoggerType.error]: false,
+				[LoggerType.trace]: false,
+			})
+		}
+		
+		return this._logger;
 	}
 	// endregion ////
 	

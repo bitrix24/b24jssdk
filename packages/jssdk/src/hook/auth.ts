@@ -1,8 +1,4 @@
-import type {
-	AuthActions,
-	AuthData,
-	B24HookParams
-} from "../types";
+import type { AuthActions, AuthData, B24HookParams } from "../types/auth";
 
 /**
  * Authorization Manager

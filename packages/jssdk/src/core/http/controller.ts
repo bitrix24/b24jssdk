@@ -1,24 +1,15 @@
-import { LoggerBrowser } from "../../logger/browser";
-import { default as RestrictionManager } from "./restrictionManager";
-import { Result } from "../result";
-import { AjaxError } from "./ajaxError";
-import { AjaxResult } from "./ajaxResult";
+import {LoggerBrowser, LoggerType} from "../../logger/browser"
+import { default as RestrictionManager } from "./restrictionManager"
+import { Result } from "../result"
+import { AjaxError } from "./ajaxError"
+import { AjaxResult } from "./ajaxResult"
 
-import type {
-	AjaxQuery,
-	AjaxResultParams
-} from "./ajaxResult";
+import type { AjaxQuery, AjaxResultParams } from "./ajaxResult"
+import type { AuthActions, AuthData, AuthError } from "../../types/auth"
+import type { BatchPayload } from "../../types/payloads"
 
-import type {
-	AuthActions,
-	AuthData,
-	AuthError,
-	BatchPayload,
-} from "../../types";
-
-
-import axios, { type AxiosInstance, AxiosError } from 'axios';
-import qs from 'qs';
+import axios, { type AxiosInstance, AxiosError } from 'axios'
+import qs from 'qs'
 
 type AjaxResponse = {
 	status: number,
@@ -35,7 +26,7 @@ export default class Http
 	#clientAxios: AxiosInstance;
 	#authActions: AuthActions;
 	#restrictionManager: RestrictionManager;
-	private logger: LoggerBrowser;
+	private _logger: null|LoggerBrowser = null;
 	
 	constructor(
 		baseURL: string,
@@ -43,8 +34,6 @@ export default class Http
 		options?: null|{}
 	)
 	{
-		this.logger = LoggerBrowser.build('b24frame:http');
-		
 		this.#clientAxios = axios.create({
 			baseURL: baseURL,
 			headers: {},
@@ -53,6 +42,32 @@ export default class Http
 		
 		this.#authActions = authActions;
 		this.#restrictionManager = new RestrictionManager();
+	}
+	
+	setLogger(logger: LoggerBrowser): void
+	{
+		this._logger = logger
+	}
+	
+	getLogger(): LoggerBrowser
+	{
+		if(null === this._logger)
+		{
+			this._logger = LoggerBrowser.build(
+				`NullLogger`
+			)
+			
+			this._logger.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: false,
+				[LoggerType.warn]: false,
+				[LoggerType.error]: false,
+				[LoggerType.trace]: false,
+			})
+		}
+		
+		return this._logger;
 	}
 	
 	isString(item: any): boolean
@@ -316,7 +331,7 @@ export default class Http
 						].includes(response.error)
 					)
 					{
-						this.logger.info(`refreshAuth >> ${response.error} >>>`);
+						this.getLogger().info(`refreshAuth >> ${response.error} >>>`);
 						
 						authData = await this.#authActions.refreshAuth();
 						await this.#restrictionManager.check();

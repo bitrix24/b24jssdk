@@ -1,10 +1,8 @@
-import { AbstractB24 } from '../core/abstractB24';
-import { LoggerBrowser, LoggerType } from "../logger/browser";
-import { Http } from "../core/http";
-import { AuthHookManager } from "./auth";
-import type {
-	B24HookParams
-} from "../types";
+import { AbstractB24 } from '../core/abstractB24'
+import Http from "../core/http/controller"
+import { AuthHookManager } from "./auth"
+import type { B24HookParams } from "../types/auth"
+import { LoggerBrowser } from "../logger/browser";
 
 /**
  * B24.Hook Manager.
@@ -22,10 +20,6 @@ export class B24Hook
 	)
 	{
 		super();
-		this.logger = LoggerBrowser.build(`B24Frame:controller`);
-		this.logger.disable(LoggerType.log);
-		// this.logger.disable(LoggerType.info); ////
-		// this.logger.disable(LoggerType.warn); ////
 		
 		this.#authHookManager = new AuthHookManager(
 			b24HookParams
@@ -38,6 +32,12 @@ export class B24Hook
 		);
 		
 		this._isInit = true;
+	}
+	
+	override setLogger(logger: LoggerBrowser): void
+	{
+		super.setLogger(logger);
+		this.getHttpClient().setLogger(this.getLogger());
 	}
 	// endregion ////
 	

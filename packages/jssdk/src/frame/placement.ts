@@ -1,5 +1,5 @@
 import { LoggerBrowser } from "../logger/browser";
-import type { MessageInitData } from "../types";
+import type { MessageInitData } from "../types/auth";
 
 /**
  * Placement Manager
@@ -31,21 +31,7 @@ export class PlacementManager
 		this.#title = data.PLACEMENT || 'DEFAULT';
 		const options = data.PLACEMENT_OPTIONS;
 		
-		if(options instanceof Object)
-		{
-			this.#options = Object.freeze(options);
-		}
-		else
-		{
-			this.logger.error(
-				new Error('not init by PLACEMENT_OPTIONS'),
-				{
-					PLACEMENT: data.PLACEMENT,
-					PLACEMENT_OPTIONS: data.PLACEMENT_OPTIONS,
-				}
-			);
-			this.#options = Object.freeze({});
-		}
+		this.#options = Object.freeze(options);
 		
 		return this;
 	}

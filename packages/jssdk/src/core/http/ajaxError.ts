@@ -1,4 +1,3 @@
-
 export type AnswerError = {
 	error: string;
 	errorDescription: string;

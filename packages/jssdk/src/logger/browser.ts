@@ -145,11 +145,11 @@ export class LoggerBrowser
 	// endregion ////
 	
 	// region Config ////
-	setConfig(types: LoggerType[]): void
+	setConfig(types: Record<string|LoggerType, boolean>): void
 	{
-		for(let type of types)
+		for (const type in types)
 		{
-			this.#types[type] = !!type;
+			this.#types[(type as LoggerType)] = (types[type] as boolean);
 		}
 	}
 	

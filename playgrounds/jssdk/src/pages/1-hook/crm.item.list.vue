@@ -14,8 +14,6 @@ import { ISODate } from "@bitrix24/b24jssdk/types/common"
 import Info from "../../components/Info.vue"
 import { useDateFormatter } from "../../composables/useDateFormatter"
 
-import {type AuthError } from '@bitrix24/b24jssdk/types/auth'
-
 const { formatDate } = useDateFormatter();
 
 const logger = LoggerBrowser.build(
@@ -148,8 +146,6 @@ const actionCompanyList = async (): Promise<void> => {
 				createdTime: new Date(item.createdTime as ISODate)
 			}
 		});
-		
-		
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)

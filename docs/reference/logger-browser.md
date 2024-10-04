@@ -56,7 +56,7 @@ Creates and configures a new instance of `LoggerBrowser`:
 
 
 ### Management
-- `setConfig(types: LoggerType[]): void`: Sets allowed message types.
+- `setConfig(types: Record<string|LoggerType, boolean>): void`: Sets allowed message types.
 - `enable(type: LoggerType): boolean`: Enables a specific message type. Returns `true` if successful, `false` otherwise.
 - `disable(type: LoggerType): boolean`: Disables a specific message type. Returns `true` if successful, `false` otherwise.
 - `isEnabled(type: LoggerType): boolean`: Checks if the specified log type is enabled. Returns `true` if enabled, `false` otherwise.
@@ -100,5 +100,5 @@ logger.error('This is an error message.');
 This example demonstrates the basic use of `LoggerBrowser` for creating a structured and customizable log in the browser.
 
 ::: tip
-You can test the logger in the [sandbox](https://github.com/bitrix24/b24jssdk/blob/main/playgrounds/jssdk/src/pages/logger.vue).
+You can test the logger in the [sandbox](https://github.com/bitrix24/b24jssdk/blob/main/playgrounds/jssdk/src/pages/3-tools/use-logger.vue).
 :::

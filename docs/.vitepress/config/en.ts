@@ -59,11 +59,27 @@ function sidebarGuide(): DefaultTheme.SidebarItem[] {
 function sidebarReference(): DefaultTheme.SidebarItem[] {
 	return [
 		{
+			text: 'Usage',
+			collapsed: false,
+			items: [
+				{text: 'Hook', link: 'hook' },
+			]
+		},
+		{
 			text: 'Core',
 			collapsed: false,
 			items: [
 				{ text: 'Result', link: 'core-result' },
 				{ text: 'Language List', link: 'core-lang-list' },
+			]
+		},
+		{
+			text: 'Data Types',
+			collapsed: false,
+			items: [
+				{ text: 'Common', link: 'types-common' },
+				{ text: 'CRM Entity Type', link: 'types-crm-entity' },
+				{ text: 'For Authorization', link: 'types-auth' },
 			]
 		},
 		{

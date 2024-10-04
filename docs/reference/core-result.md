@@ -218,5 +218,5 @@ This example demonstrates how to use the `Result` class to store data and handle
   - The logger will output the error message `['Some error 1']` because `proc1` adds an error to the result.
 
 ::: tip
-You can test the `Result` in the [sandbox](https://github.com/bitrix24/b24jssdk/blob/main/playgrounds/jssdk/src/pages/core-result.vue).
+You can test the `Result` in the [sandbox](https://github.com/bitrix24/b24jssdk/blob/main/playgrounds/jssdk/src/pages/2-core/use-result.vue).
 :::

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { defineComponent } from 'vue'
 import { useRouter } from 'vue-router'
-import InterconnectionIcon from "@bitrix24/b24icons-vue/crm/InterconnectionIcon"
 
 let Examples = defineComponent({
 	props: ['routes'],
@@ -23,16 +22,17 @@ let routes = router
 				<li v-for="{ children, meta, path } in routes">
 					
 					<template v-if="children.length > 0">
-						<h3 class="text-xl">{{ meta.name }}</h3>
+						<h3 class="text-h4 mt-4 mb-1">{{ meta.name }}:</h3>
 						<component v-for="vnode in slots.default({ routes: children, slots })" :is="vnode" />
 					</template>
 					<template v-else>
-						<router-link :key="path" :to="path" class="font-normal">
-							<div class="flex flex-row items-center justify-start gap-2">
-								<InterconnectionIcon class="size-6"/>
-								<div>{{ meta.name }}</div>
-							</div>
-						</router-link>
+						<ul class="list-disc list-inside">
+							<li class="">
+								<router-link :key="path" :to="path" class="font-normal">
+									{{ meta.name }}
+								</router-link>
+							</li>
+						</ul>
 					</template>
 				</li>
 			</ul>

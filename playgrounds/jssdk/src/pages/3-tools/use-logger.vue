@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk/logger/browser';
-import Toggle from '../components/Toggle.vue'
-import CodeIcon from '@bitrix24/b24icons-vue/common-service/CodeIcon'
+import Info from '../../components/Info.vue'
+import Toggle from '../../components/Toggle.vue'
 import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
 import SendIcon from '@bitrix24/b24icons-vue/main/SendIcon'
 
@@ -118,10 +118,7 @@ const loggerTypeList: ComputedRef<LoggerTypeList[]> = computed<LoggerTypeList[]>
 <template>
 	<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">LoggerBrowser</h1>
 	<p>Testing the logger.</p>
-	<div class="mt-2 py-2 rounded text-warning-background-on border-l-2 border-l-warning-link bg-warning-background pl-2 flex flex-row flex-nowrap gap-4 items-center justify-self-auto">
-		<CodeIcon class="w-8 h-8" />
-		<div class="">To view the result, open the developer console.</div>
-	</div>
+	<Info>To view the result, open the developer console.</Info>
 	
 	<div class="mt-12 sm:grid sm:grid-cols-3 sm:divide-x sm:divide-base-100">
 		<div class="sm:pr-5 mt-0 flex flex-col flex-nowrap gap-4">

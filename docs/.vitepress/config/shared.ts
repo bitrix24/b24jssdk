@@ -13,7 +13,7 @@ const customAlias: any = [
 ];
 
 export const shared = defineConfig({
-	title: '@bitrix24/b24icons',
+	title: '@bitrix24/b24jssdk',
 	
 	lastUpdated: true,
 	cleanUrls: false,
@@ -26,9 +26,10 @@ export const shared = defineConfig({
 		['meta', { name: 'theme-color', content: '#5f67ee' }],
 		['meta', { property: 'og:type', content: 'website' }],
 		['meta', { property: 'og:locale', content: 'en' }],
-		['meta', { property: 'og:title', content: '@bitrix24/b24icons | Bitrix24 SVG icons for development web-applications' }],
-		['meta', { property: 'og:site_name', content: '@bitrix24/b24icons' }],
-		['meta', { property: 'og:image', content: `${configParams.domain}${configParams.baseFolder}bitrix24_b24icons.jpg` }],
+		['meta', { property: 'og:title', content: '@bitrix24/b24jssdk | Bitrix24 REST API JS SDK' }],
+		['meta', { property: 'og:site_name', content: '@bitrix24/b24jssdk' }],
+		// @todo fix this ////
+		//['meta', { property: 'og:image', content: `${configParams.domain}${configParams.baseFolder}bitrix24_b24jssdk.jpg` }],
 		['meta', { property: 'og:url', content: `${configParams.domain}${configParams.baseFolder}` }],
 	],
 	

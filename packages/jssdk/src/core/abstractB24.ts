@@ -174,13 +174,7 @@ export abstract class AbstractB24
 	 */
 	async *fetchListMethod(
 		method: string,
-		params: {
-			moduleId?: string,
-			select?: string[]|{[key: string]: any},
-			order?: any,
-			filter?: any,
-			start?: number
-		} = {},
+		params: any = {},
 		idKey: string = 'ID',
 		customKeyForResult: null|string = null
 	): AsyncGenerator<any[]>

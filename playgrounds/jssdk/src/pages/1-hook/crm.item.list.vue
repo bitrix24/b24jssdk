@@ -11,6 +11,7 @@ import { B24Hook } from '@bitrix24/b24jssdk/hook'
 import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk/types/crm'
 import useUniqId from "@bitrix24/b24jssdk/tools/uniqId"
 import { ISODate } from "@bitrix24/b24jssdk/types/common"
+
 import Info from "../../components/Info.vue"
 import { useDateFormatter } from "../../composables/useDateFormatter"
 

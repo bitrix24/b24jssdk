@@ -6,7 +6,9 @@ import { B24Hook } from '@bitrix24/b24jssdk/hook'
 import type {GetPayload, ListPayload} from '@bitrix24/b24jssdk/types/payloads';
 // import type { UserBrief } from '@bitrix24/b24jssdk/types/users/entities';
 import { AjaxResult } from "@bitrix24/b24jssdk/core/http/ajaxResult";
-import {EnumCrmEntityTypeId} from "@bitrix24/b24jssdk/dist/types/crm";
+import {EnumCrmEntityTypeId} from "@bitrix24/b24jssdk/types/crm";
+
+import Info from "../../components/Info.vue";
 
 // region init ////
 const logger = LoggerBrowser.build('page:install');
@@ -140,11 +142,13 @@ async function fetchListAll()
 	console.clear();
 	
 	fetchListLoader.value = '0';
-	let generator = B24.fetchList(
+	let generator = B24.fetchListMethod(
 		'crm.item.list',
 		{
 			entityTypeId: EnumCrmEntityTypeId.company,
 		},
+		'id',
+		'__items'
 	);
 	
 	let ttl = 0;
@@ -207,20 +211,21 @@ async function callBatch()
 </script>
 
 <template>
-	<ClientOnly>
-		<div v-if="result.isSuccess">
-			<h3>{{ status.title }}</h3>
-			<h4>{{ status.message }}</h4>
-			<button type="button" class="px-5 py-3 bg-red-500 text-primary-background-on" @click="count++">{{ count }}</button>
-			<button type="button" class="px-5 py-3 bg-red-500 text-primary-background-on" @click="Action">makeSomeActions {{listCrmEntity}} / {{listCalToMax}}</button>
-			<button type="button" class="px-5 py-3 bg-primary text-primary-background-on" @click="makeSomeActionsAll">makeSomeActionsAll {{listCalToMaxAll}}</button>
-			<button type="button" class="px-5 py-3 bg-warning text-warning-background-on" @click="crmEntityListAll">crmEntityListAll {{crmEntityListAllLoader}}</button>
-			<button type="button" class="px-5 py-3 bg-warning text-warning-background-on" @click="fetchListAll">fetchListAll {{fetchListLoader}}</button>
-			<button type="button" class="px-5 py-3 bg-warning text-warning-background-on" @click="callBatch">callBatch</button>
-		</div>
-		<div v-if="!result.isSuccess">
-			<h3 class="text-red-500">error</h3>
-			<pre>{{ result }}</pre>
-		</div>
-	</ClientOnly>
+	<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">Test</h1>
+	<Info>You need to set environment variables in the <code>.env.local</code> file</Info>
+	
+	<div v-if="result.isSuccess">
+		<h3>{{ status.title }}</h3>
+		<h4>{{ status.message }}</h4>
+		<button type="button" class="px-5 py-3 bg-red-500 text-primary-background-on" @click="count++">{{ count }}</button>
+		<button type="button" class="px-5 py-3 bg-red-500 text-primary-background-on" @click="Action">makeSomeActions {{listCrmEntity}} / {{listCalToMax}}</button>
+		<button type="button" class="px-5 py-3 bg-primary text-primary-background-on" @click="makeSomeActionsAll">makeSomeActionsAll {{listCalToMaxAll}}</button>
+		<button type="button" class="px-5 py-3 bg-warning text-warning-background-on" @click="crmEntityListAll">crmEntityListAll {{crmEntityListAllLoader}}</button>
+		<button type="button" class="px-5 py-3 bg-warning text-warning-background-on" @click="fetchListAll">fetchListAll {{fetchListLoader}}</button>
+		<button type="button" class="px-5 py-3 bg-warning text-warning-background-on" @click="callBatch">callBatch</button>
+	</div>
+	<div v-if="!result.isSuccess">
+		<h3 class="text-red-500">error</h3>
+		<pre>{{ result }}</pre>
+	</div>
 </template>

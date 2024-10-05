@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, type Ref } from 'vue'
+import B24HookConfig from '../../config'
 import Search1Icon from '@bitrix24/b24icons-vue/main/Search1Icon'
 import AlertIcon from '@bitrix24/b24icons-vue/button/AlertIcon'
-import b24HookConfig from '../../config'
 import FileDownloadIcon from '@bitrix24/b24icons-vue/main/FileDownloadIcon'
 import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
 
@@ -42,9 +42,10 @@ const problemMessageList = computed(() => {
 	
 	return problemMessageList;
 })
+
 const openSlider = async (id: number): Promise<void> => {
 	window.open(
-		`${b24HookConfig.b24Url}/crm/company/details/${id}/`
+		`${B24HookConfig.b24Url}/crm/company/details/${id}/`
 	);
 	
 	return Promise.resolve();
@@ -53,7 +54,7 @@ const openSlider = async (id: number): Promise<void> => {
 logger.info('>> start ')
 
 const B24 = new B24Hook(
-	b24HookConfig
+	B24HookConfig
 )
 
 B24.setLogger(logger)

@@ -46,7 +46,7 @@ let crmEntityListAllLoader = ref('');
 let fetchListLoader = ref('');
 
 // region Actions ////
-let listCallToMax = ref(2);
+let listCallToMax = ref(200);
 const makeSelectItemsList_v1 = async () =>
 {
 	
@@ -374,7 +374,6 @@ onMounted(() =>
 		You need to set environment variables in the <code>.env.local</code> file.<br>
 		Scopes: <code>user_brief</code>, <code>crm</code>
 	</Info>
-	<Info>To view query results, open the developer console.</Info>
 	<div class="mt-10 flex flex-col sm:flex-row gap-10">
 		<div class="basis-1/4 flex flex-col gap-y-6">
 			<button
@@ -447,7 +446,7 @@ onMounted(() =>
 							:max="status.progress.max"
 						>
 							<template #indicator="{ percent }">
-								<div class="text-right min-w-[40px] text-xs" :style="{ width: `${percent}%` }">
+								<div class="text-right min-w-[60px] text-xs" :style="{ width: `${percent}%` }">
 									<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
 								</div>
 							</template>
@@ -458,10 +457,12 @@ onMounted(() =>
 					<h3 class="text-red-500">error</h3>
 					<pre>{{ result }}</pre>
 				</div>
+				<Info v-show="status.isProcess">To view query results, open the developer console.</Info>
 			</div>
 			<div class="">
 				<canvas ref="chartCanvas"></canvas>
 			</div>
+			
 		</div>
 	</div>
 </template>

@@ -7,6 +7,7 @@ export default {
 	content: [
 		'./docs/.vitepress/**/*.{js,ts,vue}',
 		'./docs/*.md',
+		'./docs/reference/**/*.md'
 	],
 	theme: {
 		extend: {},

@@ -30,6 +30,7 @@ export default defineBuildConfig({
 		'./src/types/auth',
 		'./src/types/payloads',
 		'./src/types/crm/index',
+		'./src/types/user',
 		'./src/logger/browser',
 		'./src/tools/scrollSize',
 		'./src/tools/uniqId',

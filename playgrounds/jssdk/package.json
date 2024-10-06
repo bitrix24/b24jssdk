@@ -15,21 +15,23 @@
 		"clean": "rimraf --glob ./dist"
 	},
 	"dependencies": {
-		"@bitrix24/b24jssdk": "*",
 		"@bitrix24/b24icons-vue": "^0.1.1",
+		"@bitrix24/b24jssdk": "*",
 		"@bitrix24/b24style": "^0.1.2",
 		"@headlessui/vue": "^1.7.23",
 		"@tailwindcss/forms": "^0.5.7",
 		"@tailwindcss/typography": "^0.5.2",
-		"tailwindcss": "^3.4.11",
 		"autoprefixer": "^10.4.20",
+		"chart.js": "^4.4.4",
 		"postcss": "^8.4.47",
+		"tailwindcss": "^3.4.11",
 		"vue": "^3.4.27",
-		"vue-router": "^4.3.2"
+		"vue-router": "^4.3.2",
+		"tailwind-merge": "^2.5.3"
 	},
 	"devDependencies": {
 		"@vitejs/plugin-vue": "^5.0.5",
-		"vite": "^5.2.12",
-		"npm-run-all": "^4.1.5"
+		"npm-run-all": "^4.1.5",
+		"vite": "^5.2.12"
 	}
 }

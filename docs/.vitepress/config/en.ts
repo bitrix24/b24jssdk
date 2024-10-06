@@ -80,6 +80,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 				{ text: 'Common', link: 'types-common' },
 				{ text: 'CRM Entity Type', link: 'types-crm-entity' },
 				{ text: 'For Authorization', link: 'types-auth' },
+				{ text: 'User', link: 'types-user' },
 			]
 		},
 		{

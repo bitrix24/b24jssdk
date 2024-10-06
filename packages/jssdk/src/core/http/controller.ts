@@ -38,15 +38,16 @@ export default class Http
 			baseURL: baseURL,
 			headers: {},
 			...options ?? {}
-		});
+		})
 		
-		this.#authActions = authActions;
-		this.#restrictionManager = new RestrictionManager();
+		this.#authActions = authActions
+		this.#restrictionManager = new RestrictionManager()
 	}
 	
 	setLogger(logger: LoggerBrowser): void
 	{
 		this._logger = logger
+		this.#restrictionManager.setLogger(this.getLogger());
 	}
 	
 	getLogger(): LoggerBrowser

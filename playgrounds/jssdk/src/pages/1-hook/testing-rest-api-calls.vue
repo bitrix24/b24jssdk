@@ -3,17 +3,17 @@ import { ref, reactive, computed, type Ref, onMounted } from 'vue'
 import B24HookConfig from '../../config'
 import TrashBinIcon from "@bitrix24/b24icons-vue/main/TrashBinIcon";
 import SendIcon from "@bitrix24/b24icons-vue/main/SendIcon";
+import ParallelQueueIcon from '@bitrix24/b24icons-vue/main/ParallelQueueIcon'
+import SequentialQueueIcon from '@bitrix24/b24icons-vue/main/SequentialQueueIcon'
+import SpeedMeterIcon from '@bitrix24/b24icons-vue/main/SpeedMeterIcon'
+import SendContactIcon from '@bitrix24/b24icons-vue/crm/SendContactIcon'
+
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
-import type {GetPayload, ListPayload} from '@bitrix24/b24jssdk/types/payloads';
-import type { UserBrief } from '@bitrix24/b24jssdk/types/user';
-import { AjaxResult } from "@bitrix24/b24jssdk/core/http/ajaxResult";
-import { EnumCrmEntityTypeId } from "@bitrix24/b24jssdk/types/crm";
-
+import { EnumCrmEntityTypeId } from "@bitrix24/b24jssdk/types/crm"
+import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters"
 import Info from "../../components/Info.vue";
 import ProgressBar from "../../components/ProgressBar.vue";
-
-import { Chart, ChartOptions, registerables } from 'chart.js';
 
 // region init ////
 const logger = LoggerBrowser.build(
@@ -21,136 +21,237 @@ const logger = LoggerBrowser.build(
 	true
 )
 
+const { formatterDateTime, formatterNumber } = useFormatter('en-US')
+
 const result: IResult = reactive(new Result());
 const B24 = new B24Hook(
 	B24HookConfig
 )
-B24.setLogger(logger)
+B24.setLogger(LoggerBrowser.build(
+	'Core',
+	true
+))
 
 const status = ref({
 	isProcess: false,
 	title: 'Specify what we will test',
 	messages: [],
 	progress: {
+		animation: false,
+		indicator: true,
 		value: 0,
 		max: 0
+	},
+	time: {
+		start: null,
+		stop: null,
+		diff: null,
 	}
 });
 // endregion ////
 
-let listCallToMaxAll = ref(10);
 let listCrmEntity = ref(0);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-let crmEntityListAllLoader = ref('');
 let fetchListLoader = ref('');
 
 // region Actions ////
-let listCallToMax = ref(200);
+const consoleClear = () => {
+	console.clear()
+}
+
+const reInitStatus = () => {
+	status.value.isProcess = false
+	status.value.title = 'Specify what we will test'
+	status.value.messages = []
+	status.value.progress.animation = false
+	status.value.progress.indicator = true
+	status.value.progress.value = 0
+	status.value.progress.max = 0
+	status.value.time.start = null
+	status.value.time.stop = null
+	status.value.time.diff = null
+}
+
+let listCallToMax = ref(10);
 const makeSelectItemsList_v1 = async () =>
 {
-	
-	status.value.isProcess = true
-	status.value.title = 'Testing Sequential Calls'
-	status.value.messages = []
-	status.value.messages.push('In a loop, we call B24.callMethod one by one.')
-	status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
-	status.value.progress.value = 0;
-	status.value.progress.max = listCallToMax.value;
-	
-	listCrmEntity.value = listCallToMax.value;
-	while(listCrmEntity.value > 0)
-	{
-		listCrmEntity.value--;
-		status.value.progress.value = status.value.progress.max - listCrmEntity.value;
-		logger.log(`>> Testing Sequential Calls >>> ${ status.value.progress.value } / ${ status.value.progress.max }`);
+	return new Promise((resolve) => {
+		reInitStatus()
+		status.value.isProcess = true
+		status.value.title = 'Testing Sequential Calls'
+		status.value.messages.push('In a loop, we call B24.callMethod one by one.')
+		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
+		status.value.progress.value = 0
+		status.value.progress.max = listCallToMax.value
+		status.value.time.start = new Date()
 		
-		await B24.callMethod(
-			'user.current'
-		);
-	}
-	
-	listCallToMax.value = listCallToMax.value * 2;
-	status.value.isProcess = false
-}
-
-async function makeSomeActionsAll()
-{
-	const list = [];
-	listCrmEntity.value = listCallToMaxAll.value;
-	
-	console.clear();
-	console.log('>> ', listCrmEntity.value);
-	
-	while(listCrmEntity.value > 0)
-	{
-		listCrmEntity.value--;
-		list.push(B24.callMethod(
-			'user.current',
-			{}
-		))
-	}
-	
-	await Promise.all(list);
-	
-	listCallToMaxAll.value = listCallToMaxAll.value * 2;
-}
-
-async function crmEntityListAll()
-{
-	console.clear();
-	crmEntityListAllLoader.value = '0%';
-	B24.callListMethod(
-		'crm.item.list',
+		return resolve(null)
+	})
+	.then(async () => {
+		let iterator = status.value.progress.max
+		while(iterator > 0)
 		{
-			entityTypeId: EnumCrmEntityTypeId.company,
-		},
-		(progress: number) =>
-		{
-			crmEntityListAllLoader.value = `${progress}%`;
-		}
-	)
-		.then((response) =>
-		{
-			crmEntityListAllLoader.value = `ttl: ${response.getData().length}`;
-		});
-}
-
-async function fetchListAll()
-{
-	console.clear();
-	
-	fetchListLoader.value = '0';
-	let generator = B24.fetchListMethod(
-		'crm.item.list',
-		{
-			entityTypeId: EnumCrmEntityTypeId.company,
-		},
-		'id',
-		'items'
-	);
-	
-	let ttl = 0;
-	for await (let entities of generator)
-	{
-		for(let entity of entities)
-		{
-			ttl++;
-			fetchListLoader.value = `ttl: ${ttl} ...`;
-			console.log('Crm Entity:', entity);
+			iterator--
+			status.value.progress.value++
+			logger.log(`>> Testing Sequential Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
 			
-			await sleep(10);
+			await B24.callMethod(
+				'user.current'
+			)
 		}
-	}
-	
-	fetchListLoader.value = `ttl: ${ttl}`;
+	})
+	.then(() => {
+		listCallToMax.value = listCallToMax.value * 2
+		status.value.isProcess = false
+		status.value.time.stop = new Date()
+		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
+	})
 }
 
-async function callBatch()
+let listCallToMaxAll = ref(10);
+async function makeSelectItemsList_v2()
+{
+	return new Promise((resolve) => {
+		reInitStatus()
+		status.value.isProcess = true
+		status.value.title = 'Testing Parallel Calls'
+		status.value.messages.push('We use Promise.all. We send all calls at once.')
+		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
+		status.value.progress.value = 0
+		status.value.progress.max = listCallToMaxAll.value
+		status.value.time.start = new Date()
+		
+		return resolve(null)
+	})
+	.then(async () => {
+		const list = [];
+		let iterator = status.value.progress.max
+		
+		while(iterator > 0)
+		{
+			iterator--
+			list.push(
+				B24.callMethod(
+					'user.current',
+					{}
+				).finally(() => {
+					status.value.progress.value++
+					logger.log(`>> Testing Parallel Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
+				})
+			)
+		}
+		
+		await Promise.all(list)
+	})
+	.then(() => {
+		listCallToMaxAll.value = listCallToMaxAll.value * 2
+		
+		status.value.isProcess = false
+		status.value.time.stop = new Date()
+		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
+	})
+}
+
+async function makeSelectItemsList_v3()
+{
+	const itemsSelect = [];
+	return new Promise((resolve) => {
+		reInitStatus()
+		status.value.isProcess = true
+		status.value.title = 'Getting All Elements'
+		status.value.messages.push('We call the queries sequentially one after another and get the entire list of elements.')
+		status.value.messages.push('This is not an optimal implementation for receiving large amounts of data.')
+		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
+		status.value.progress.value = 0
+		status.value.progress.max = 100
+		status.value.time.start = new Date()
+		
+		return resolve(null)
+	})
+	.then(async () => {
+		return B24.callListMethod(
+			'crm.item.list',
+			{
+				entityTypeId: EnumCrmEntityTypeId.company,
+			},
+			(progress: number) => {
+				status.value.progress.value = progress
+				logger.log(`>> Getting All Elements >>> ${ status.value.progress.value }`)
+			},
+			'items'
+		)
+		.then((response) => {
+			const ttl = response.getData().length
+			logger.log(`>> Getting All Elements >>> ttl: ${ ttl }`)
+			status.value.messages.push(`...`)
+			status.value.messages.push(`It was chosen: ${ formatterNumber.format(ttl) } elements`)
+		})
+	})
+	.then(() => {
+		status.value.isProcess = false
+		status.value.time.stop = new Date()
+		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
+	})
+}
+
+async function makeSelectItemsList_v4()
+{
+	return new Promise((resolve) => {
+		reInitStatus()
+		status.value.isProcess = true
+		status.value.title = 'Retrieve Large Volumes of Data'
+		status.value.messages.push('Using Bitrix24 recommendations, we make a specific sequence of calls.')
+		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
+		status.value.progress.animation = true
+		status.value.progress.indicator = false
+		status.value.progress.value = 0
+		status.value.progress.max = 0
+		status.value.time.start = new Date()
+		
+		return resolve(null)
+	})
+	.then(async () => {
+		let generator = B24.fetchListMethod(
+			'crm.item.list',
+			{
+				entityTypeId: EnumCrmEntityTypeId.company,
+				select: [
+					'id',
+					'title'
+				]
+			},
+			'id',
+			'items'
+		)
+		
+		let ttl = 0
+		status.value.progress.value = 1
+		
+		for await (let entities of generator)
+		{
+			for(let entity of entities)
+			{
+				ttl++;
+				logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ ttl } ...`, entity)
+			}
+		}
+		
+		status.value.messages.push(`...`)
+		status.value.messages.push(`It was chosen: ${ formatterNumber.format(ttl) } elements`)
+	})
+	.then(() => {
+		status.value.progress.value = 2
+		status.value.isProcess = false
+		status.value.time.stop = new Date()
+		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
+	})
+}
+
+async function makeSelectItemsList_v5()
 {
 	try
 	{
-		
 		let calls = [
 			['crm.item.get', {id: 2880}],
 			['crm.item.get', {id: 8}],
@@ -165,6 +266,19 @@ async function callBatch()
 		console.log('Response array:', response);
 		alert('res1');
 		
+	}
+	catch(error)
+	{
+		alert(`Error: ${error.message} -> ${error.linenumber}`);
+		console.log(error.stack);
+	}
+	
+}
+
+async function makeSelectItemsList_v6()
+{
+	try
+	{
 		// A batch of requests in the form of an object with a maximum number of commands in a request of 50
 		let callsV2 = {
 			get_lead: ['crm.lead.get', {id: 2}],
@@ -173,14 +287,15 @@ async function callBatch()
 		};
 		
 		// We send a request packet as an object
-		response = await B24.callBatch(
+		let response = await B24.callBatch(
 			callsV2,
 			false
 		);
 		console.log('Response object:', response);
 		alert('res2');
 		
-	}catch(error)
+	}
+	catch(error)
 	{
 		alert(`Error: ${error.message} -> ${error.linenumber}`);
 		console.log(error.stack);
@@ -189,245 +304,83 @@ async function callBatch()
 }
 
 // endregion ////
-
-// region Chart ////
-Chart.register(...registerables);
-
-const chartCanvas = ref < HTMLCanvasElement | null > (null);
-const promisesState = ref < string[] > ([]);
-let chartInstance: Chart | null = null;
-
-const initializeChart = () =>
-{
-	if(chartCanvas.value)
-	{
-		const ctx = chartCanvas.value.getContext('2d');
-		if(ctx)
-		{
-			chartInstance = new Chart(ctx, {
-				type: 'bar',
-				data: {
-					labels: promisesState.value.map((_, index) => `Promise ${index + 1}`),
-					datasets: [
-						{
-							label: 'Promise States',
-							data: promisesState.value.map(state =>
-							{
-								switch(state)
-								{
-									case 'fulfilled':
-										return 1;
-									case 'rejected':
-										return -1;
-									case 'paused':
-										return 0.5;
-									default:
-										return 0;
-								}
-							}),
-							backgroundColor: promisesState.value.map(state =>
-							{
-								switch(state)
-								{
-									case 'fulfilled':
-										return 'green';
-									case 'rejected':
-										return 'red';
-									case 'paused':
-										return 'orange';
-									default:
-										return 'gray';
-								}
-							}),
-						},
-					],
-				},
-				options: {
-					animation: {
-						duration: 1000,
-						easing: 'easeInOutQuad',
-					},
-					scales: {
-						y: {
-							beginAtZero: true,
-							ticks: {
-								callback: (value) =>
-								{
-									switch(value)
-									{
-										case 1:
-											return 'Fulfilled';
-										case 0.5:
-											return 'Paused';
-										case 0:
-											return 'Pending';
-										case -1:
-											return 'Rejected';
-										default:
-											return '';
-									}
-								},
-							},
-						},
-					},
-				} as ChartOptions,
-			});
-		}
-	}
-};
-
-const updateChart = () =>
-{
-	if(chartInstance)
-	{
-		chartInstance.data.labels = promisesState.value.map((_, index) => `Promise ${index + 1}`);
-		chartInstance.data.datasets[0].data = promisesState.value.map(state =>
-		{
-			switch(state)
-			{
-				case 'fulfilled':
-					return 1;
-				case 'rejected':
-					return -1;
-				case 'paused':
-					return 0.5;
-				default:
-					return 0;
-			}
-		});
-		chartInstance.data.datasets[0].backgroundColor = promisesState.value.map(state =>
-		{
-			switch(state)
-			{
-				case 'fulfilled':
-					return 'green';
-				case 'rejected':
-					return 'red';
-				case 'paused':
-					return 'orange';
-				default:
-					return 'gray';
-			}
-		});
-		chartInstance.update();
-	}
-};
-
-const executePromises = async () =>
-{
-	const promises = Array.from({length: 10}, (_, index) =>
-		new Promise((resolve, reject) =>
-		{
-			const delay = Math.random() * 3000;
-			setTimeout(() =>
-			{
-				if(Math.random() > 0.5)
-				{
-					promisesState.value[index] = 'paused';
-					updateChart();
-					setTimeout(() =>
-					{
-						Math.random() > 0.5 ? resolve(`Result ${index + 1}`) : reject(`Error ${index + 1}`);
-					}, 1000);
-				}
-				else
-				{
-					Math.random() > 0.5 ? resolve(`Result ${index + 1}`) : reject(`Error ${index + 1}`);
-				}
-			}, delay);
-		})
-			.then(() =>
-			{
-				promisesState.value[index] = 'fulfilled';
-				updateChart();
-			})
-			.catch(() =>
-			{
-				promisesState.value[index] = 'rejected';
-				updateChart();
-			})
-	);
-	
-	promisesState.value = Array(promises.length).fill('pending');
-	updateChart();
-	
-	await Promise.all(promises.map((promise, index) =>
-		promise.finally(() =>
-		{
-			updateChart();
-		})
-	));
-};
-
-onMounted(() =>
-{
-	initializeChart();
-	executePromises();
-});
-// endregion ////
-
 </script>
 
 <template>
 	<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">Testing Rest-Api Calls</h1>
 	<Info>
 		You need to set environment variables in the <code>.env.local</code> file.<br>
-		Scopes: <code>user_brief</code>, <code>crm</code>
+		Scopes: <code>user_brief</code>, <code>crm</code><br><br>
+		To view query results, open the developer console.
+	</Info>
+	<Info>
+		Bitrix24 only considers the IP address from which the REST request is made. In other words, if your server hosts several applications that all work with the same Bitrix24, the request intensity limit will be shared among all applications. Keep this feature in mind when designing.<br>
+		<a href="https://apidocs.bitrix24.com/limits.html" target="_blank" class="underline text-warning-link/60 hover:text-warning-link">Learn more</a>
+	</Info>
+	<Info>
+		Check out the Bitrix24 <a href="https://apidocs.bitrix24.com/api-reference/performance/huge-data.html" target="_blank" class="mt-1.5 underline text-warning-link/60 hover:text-warning-link">recommendations</a> for receiving large amounts of data.
 	</Info>
 	<div class="mt-10 flex flex-col sm:flex-row gap-10">
 		<div class="basis-1/4 flex flex-col gap-y-6">
 			<button
 				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2"
+				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
 				@click="makeSelectItemsList_v1"
 				:disabled="status.isProcess"
 			>
-				<SendIcon class="size-6"/>
+				<SequentialQueueIcon class="size-6"/>
 				<div class="text-nowrap truncate">one by one</div>
+				<div v-show="listCallToMax > 0"
+				     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
+					{{ listCallToMax }}
+				</div>
 			</button>
 			<button
 				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2"
-				@click="makeSomeActionsAll"
+				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+				@click="makeSelectItemsList_v2"
+				:disabled="status.isProcess"
 			>
-				<SendIcon class="size-6"/>
-				<div class="text-nowrap truncate">make Some ActionsAll</div>
-				<div
-					class="text-3xs w-auto rounded z-10 absolute right-0 -top-2.5 px-2.5 py-0.5 bg-alert-background-on text-alert-on">
+				<ParallelQueueIcon class="size-6"/>
+				<div class="text-nowrap truncate">parallel</div>
+				<div v-show="listCallToMaxAll > 0"
+				     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
 					{{ listCallToMaxAll }}
 				</div>
 			</button>
 			<button
 				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2"
-				@click="crmEntityListAll"
+				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+				@click="makeSelectItemsList_v3"
+				:disabled="status.isProcess"
 			>
-				<SendIcon class="size-6"/>
-				<div class="text-nowrap truncate">crmEntityListAll</div>
-				<div v-show="crmEntityListAllLoader.length > 0"
-				     class="text-3xs w-auto rounded z-10 absolute right-0 -top-2.5 px-2.5 py-0.5 bg-alert-background-on text-alert-on">
-					{{ crmEntityListAllLoader }}
-				</div>
+				<SendContactIcon class="size-6"/>
+				<div class="text-nowrap truncate">get all elements</div>
+			</button>
+			<button
+				type="button"
+				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+				@click="makeSelectItemsList_v4"
+				:disabled="status.isProcess"
+			>
+				<SpeedMeterIcon class="size-6"/>
+				<div class="text-nowrap truncate">get large volumes</div>
 			</button>
 			<button
 				type="button"
 				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2"
-				@click="fetchListAll"
+				@click="makeSelectItemsList_v5"
 			>
 				<SendIcon class="size-6"/>
-				<div class="text-nowrap truncate">fetchListAll</div>
-				<div v-show="fetchListLoader.length > 0"
-				     class="text-3xs w-auto rounded z-10 absolute right-0 -top-2.5 px-2.5 py-0.5 bg-alert-background-on text-alert-on">
-					{{ fetchListLoader }}
-				</div>
+				<div class="text-nowrap truncate">makeSelectItemsList_v5</div>
 			</button>
 			<button
 				type="button"
 				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2"
-				@click="callBatch"
+				@click="makeSelectItemsList_v6"
 			>
 				<SendIcon class="size-6"/>
-				<div class="text-nowrap truncate">callBatch</div>
+				<div class="text-nowrap truncate">makeSelectItemsList_v6</div>
 			</button>
 		</div>
 		<div class="flex-1">
@@ -437,16 +390,22 @@ onMounted(() =>
 					<h3 class="text-h3 mb-1">{{ status.title }}</h3>
 					<ul class="text-txt-md">
 						<li v-for="(message, index) in status.messages" :key="index">{{ message }}</li>
+						<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time.start, 'H:i:s') }}</li>
+						<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time.stop, 'H:i:s') }}</li>
+						<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time.diff) }} ms</li>
 					</ul>
 					
 					<div class="mt-2" v-show="status.isProcess">
 						<ProgressBar
-							indicator
+							:animation="status.progress.animation"
+							:indicator="status.progress.indicator"
 							:value="status.progress.value"
 							:max="status.progress.max"
 						>
-							<template #indicator="{ percent }">
-								<div class="text-right min-w-[60px] text-xs" :style="{ width: `${percent}%` }">
+							<template
+								v-if="status.progress.indicator"
+								#indicator="{ percent }">
+								<div class="text-right min-w-[60px] text-xs w-full">
 									<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
 								</div>
 							</template>
@@ -454,15 +413,10 @@ onMounted(() =>
 					</div>
 				</div>
 				<div v-else>
-					<h3 class="text-red-500">error</h3>
+					<h3 class="text-h3 mb-1 text-alert-text">Error</h3>
 					<pre>{{ result }}</pre>
 				</div>
-				<Info v-show="status.isProcess">To view query results, open the developer console.</Info>
 			</div>
-			<div class="">
-				<canvas ref="chartCanvas"></canvas>
-			</div>
-			
 		</div>
 	</div>
 </template>

@@ -6,6 +6,17 @@ type RestrictionManagerParams = {
 	amount: number
 }
 
+/**
+ * @link https://apidocs.bitrix24.com/limits.html
+ *
+ * It is important to know that the intensity is tracked separately for each Bitrix24 account.
+ * In other words, if your application uses REST too intensively on one account and hits the limits, it will not affect the application's operation on another account.
+ * This means that users on different accounts can use your solutions with varying intensity, allowing you to make the application logic quite flexible.
+ *
+ * On the other hand, Bitrix24 only considers the IP address from which the REST request is made.
+ * In other words, if your server hosts several applications that all work with the same Bitrix24, the request intensity limit will be shared among all applications.
+ * Keep this feature in mind when designing.
+ */
 export default class RestrictionManager
 {
 	#param: RestrictionManagerParams;

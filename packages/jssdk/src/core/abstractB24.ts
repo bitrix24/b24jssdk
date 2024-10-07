@@ -92,15 +92,14 @@ export abstract class AbstractB24
 	 * @param  {string} method Query method
 	 * @param  {object} params Request parameters
 	 * @param {null|Function} progress Processing steps
-	 *
+	 * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
 	 * @return {object} Promise
-	 *
-	 * @see https://dev.1c-bitrix.ru/rest_help/js_library/rest/callMethod.php BX24.callMethod
 	 */
 	async callListMethod(
 		method: string,
 		params: object = {},
-		progress: null|Function = null
+		progress: null|Function = null,
+		customKeyForResult: null|string = null
 	): Promise<Result>
 	{
 		const result = new Result();
@@ -117,52 +116,64 @@ export abstract class AbstractB24
 		)
 		.then(async(response) =>
 		{
-			let list: any[] = [];
+			let list: any[] = []
 			
-			let resultData = (response.getData() as ListPayload<any>).result;
-			if(!!resultData?.items)
+			let resultData = undefined;
+			if(null !== customKeyForResult)
 			{
-				resultData = resultData.items;
+				resultData = (response.getData() as ListPayload<any>).result[customKeyForResult] as [];
+			}
+			else
+			{
+				resultData = (response.getData() as ListPayload<any>).result as [];
 			}
 			
-			list = list.concat(resultData);
+			list = list.concat(resultData)
 			if(response.isMore())
 			{
 				let responseLoop: false|AjaxResult = response;
 				while(true)
 				{
-					responseLoop = await responseLoop.getNext(this.getHttpClient());
+					responseLoop = await responseLoop.getNext(this.getHttpClient())
 					
 					if(responseLoop === false)
 					{
-						break;
+						break
 					}
 					
-					resultData = (responseLoop.getData() as ListPayload<any>).result;
-					if(!!resultData?.items)
+					let resultData = undefined;
+					if(null !== customKeyForResult)
 					{
-						resultData = resultData.items;
+						resultData = (responseLoop.getData() as ListPayload<any>).result[customKeyForResult] as [];
+					}
+					else
+					{
+						resultData = (responseLoop.getData() as ListPayload<any>).result as [];
 					}
 					
-					list = list.concat(resultData.result);
+					list = list.concat(resultData)
 					
 					if(!!progress)
 					{
-						let total = responseLoop.getTotal();
-						progress(total > 0 ? Math.round(100 * list.length / total) : 100);
+						let total = responseLoop.getTotal()
+						progress(total > 0 ? Math.round(100 * list.length / total) : 100)
 					}
 				}
 			}
 			
-			result.setData(list);
+			result.setData(list)
+			if(!!progress)
+			{
+				progress(100);
+			}
 			
-			return Promise.resolve(result);
+			return Promise.resolve(result)
 		});
 	}
 	
 	/**
 	 * Calls a REST service list method with the specified parameters and returns a generator object.
-	 * Implements the fast algorithm described in {@see https://dev.1c-bitrix.ru/rest_help/rest_sum/start.php}
+	 * Implements the fast algorithm described in {@see https://apidocs.bitrix24.com/api-reference/performance/huge-data.html}
 	 *
 	 * @param {string} method Query method
 	 * @param {object} params Request parameters
@@ -170,7 +181,6 @@ export abstract class AbstractB24
 	 * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
 	 *
 	 * @return {AsyncGenerator} Generator
-	 * @see https://dev.1c-bitrix.ru/rest_help/js_library/rest/callMethod.php BX24.callMethod
 	 */
 	async *fetchListMethod(
 		method: string,
@@ -246,108 +256,6 @@ export abstract class AbstractB24
 			calls,
 			isHaltOnError
 		);
-	}
-	
-	async callLongBatch(
-		calls: any[],
-		isHaltOnError: boolean = true,
-		progress: null|Function = null
-	): Promise<Result>
-	{
-		const result = new Result();
-		
-		let list: any[] = [];
-		let total = calls.length;
-		let counter = 0;
-		let start = 0;
-		
-		if(!!progress)
-		{
-			progress(0);
-		}
-		
-		do
-		{
-			let end = start + AbstractB24.batchSize;
-			let chunk = calls.slice(start, end);
-			
-			if(chunk.length < 1)
-			{
-				break;
-			}
-			let response = await this.callBatch(
-				chunk,
-				isHaltOnError
-			);
-			
-			counter += chunk.length;
-			list = list.concat(response.getData());
-			
-			if(!!progress)
-			{
-				progress(
-					total > 0
-						? Math.round(100 * counter / total)
-						: 100
-				);
-			}
-			
-			start = end;
-			if(start >= total)
-			{
-				break;
-			}
-			
-		} while(true);
-		
-		result.setData(list);
-		
-		return Promise.resolve(result);
-	}
-	
-	async *fetchLongBatch(
-		calls: any[],
-		isHaltOnError: boolean = true,
-		progress: null|Function = null
-	)
-	{
-		let total = calls.length;
-		let counter = 0;
-		let start = 0;
-		
-		if(!!progress)
-		{
-			progress(0);
-		}
-		
-		do {
-			let end = start + AbstractB24.batchSize;
-			let chunk = calls.slice(start, end);
-			
-			let list = await this.callBatch(
-				chunk,
-				isHaltOnError
-			);
-			
-			counter += chunk.length;
-			if(!!progress)
-			{
-				progress(
-					total > 0
-						? Math.round(100 * counter / total)
-						: 100
-				);
-			}
-			
-			yield list;
-			
-			start = end;
-			if(start >= total)
-			{
-				break;
-			}
-			
-		} while(true);
 	}
 	// endregion ////
 	

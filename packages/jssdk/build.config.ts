@@ -33,6 +33,8 @@ export default defineBuildConfig({
 		'./src/types/user',
 		'./src/logger/browser',
 		'./src/tools/scrollSize',
+		'./src/tools/scrollSize',
+		'./src/tools/useFormatters',
 		'./src/tools/uniqId',
 		'./src/core/result',
 		'./src/core/abstractB24',

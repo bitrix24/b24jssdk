@@ -10,12 +10,12 @@ import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
 import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk/types/crm'
 import useUniqId from "@bitrix24/b24jssdk/tools/uniqId"
+import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters"
 import { ISODate } from "@bitrix24/b24jssdk/types/common"
 
 import Info from "../../components/Info.vue"
-import { useDateFormatter } from "../../composables/useDateFormatter"
 
-const { formatDate } = useDateFormatter();
+const { formatterDateTime } = useFormatter('en-US')
 
 const logger = LoggerBrowser.build(
 	'Demo: crm.items.list',
@@ -222,7 +222,7 @@ logger.info('>> stop ')
 						</div>
 					</td>
 					<td class="px-3 py-2 border border-gray-400">
-						{{ formatDate(company.createdTime, 'Y-m-d H:i:s') }}
+						{{ formatterDateTime.formatDate(company.createdTime, 'Y-m-d H:i:s') }}
 					</td>
 				</tr>
 				</tbody>

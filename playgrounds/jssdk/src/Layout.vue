@@ -58,7 +58,12 @@
 						</g>
 					</svg>
 				</router-link>
-				<span class="font-normal text-gray-500">Playground</span>
+				<div class="hidden sm:flex sm:flex-row gap-2 text-gray-500">
+					<span class="font-normal hover:text-info-text hover:underline"><a href="https://bitrix24.github.io/b24style/reference/colors.html" target="_blank">@bitrix24/b24style</a></span>
+					<span> | </span>
+					<span class="font-normal hover:text-info-text hover:underline"><a href="https://bitrix24.github.io/b24icons/guide/icons.html" target="_blank">@bitrix24/b24icons</a></span>
+					<span class="pl-4 font-normal">Playground</span>
+				</div>
 			</div>
 			</div>
 		</header>

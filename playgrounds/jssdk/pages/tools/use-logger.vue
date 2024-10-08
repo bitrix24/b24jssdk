@@ -6,6 +6,10 @@ import Toggle from '../../components/Toggle.vue'
 import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
 import SendIcon from '@bitrix24/b24icons-vue/main/SendIcon'
 
+definePageMeta({
+	layout: "page"
+})
+
 const isDevelopment: Ref<boolean> = ref(import.meta.env?.DEV === true);
 const debugMessage: Ref<string> = ref('This is a test message for debugging.');
 
@@ -13,10 +17,6 @@ const logger = LoggerBrowser.build(
 	'Demo: Logger',
 	isDevelopment.value
 );
-
-logger.info({
-	meta: import.meta.env,
-});
 
 function clearConsole(): void
 {
@@ -123,7 +123,7 @@ const loggerTypeList: ComputedRef<LoggerTypeList[]> = computed<LoggerTypeList[]>
 	<div class="mt-12 sm:grid sm:grid-cols-3 sm:divide-x sm:divide-base-100">
 		<div class="sm:pr-5 mt-0 flex flex-col flex-nowrap gap-4">
 			<textarea
-				class="border border-gray-200 rounded px-4 pt-2 min-h-24 w-full"
+				class="resize-none border border-gray-200 rounded px-4 pt-2 min-h-24 w-full"
 				v-model="debugMessage"
 				placeholder="Enter a message for the log"
 			></textarea>
@@ -148,13 +148,13 @@ const loggerTypeList: ComputedRef<LoggerTypeList[]> = computed<LoggerTypeList[]>
 		</div>
 		<div class="sm:pl-5 mt-12 sm:mt-0 col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 			<div
-				class="p-5 border border-base-30 rounded-md shadow-md sm:rounded-md"
+				class="px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
 				v-for="(type) in loggerTypeList"
 				:key="type.index"
 			>
 				<div class="px-4 sm:px-0">
-					<h3 class="text-kg font-semibold leading-6 text-base-900">{{ type.index }}</h3>
-					<p class="min-h-12 mt-1 max-w-2xl text-sm leading-5 text-base-500">{{ type.description }}</p>
+					<h3 class="text-h5 font-semibold">{{ type.index }}</h3>
+					<p class="min-h-12 mt-1 max-w-2xl text-xs leading-5">{{ type.description }}</p>
 				</div>
 				<div class="mt-4 border-t border-base-100">
 					<dl class="divide-y divide-base-100">

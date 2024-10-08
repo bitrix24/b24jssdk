@@ -16,6 +16,7 @@
 logs
 *.log
 /packages/**/*.log
+/playgrounds/**/logs
 /playgrounds/**/*.log
 npm-debug.log*
 yarn-debug.log*
@@ -32,6 +33,7 @@ yarn-error.log*
 *.iml
 .idea
 .DS_Store
+.fleet
 .AppleDouble
 .LSOverride
 .AppleDB
@@ -49,6 +51,11 @@ Thumbs.db
 /dist
 /packages/**/dist
 /playgrounds/**/dist
+/playgrounds/**/.cache
+/playgrounds/**/.nitro
+/playgrounds/**/.nuxt
+/playgrounds/**/.data
+/playgrounds/**/.output
 docs/.vitepress/dist
 docs/.vitepress/cache
 
@@ -61,11 +68,12 @@ docs/.vitepress/cache
 .env.development.local
 .env.test.local
 .env.production.local
-/playgrounds/**/*.env
-/playgrounds/**/*.env.local
-/playgrounds/**/*.env.development.local
-/playgrounds/**/*.env.test.local
-/playgrounds/**/*.env.production.local
+/playgrounds/**/.env
+/playgrounds/**/.env.local
+/playgrounds/**/.env.development.local
+/playgrounds/**/.env.test.local
+/playgrounds/**/.env.production.local
+!/playgrounds/**/.env.local.example
 
 # testing
 reports

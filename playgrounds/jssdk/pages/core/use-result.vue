@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { Result } from '@bitrix24/b24jssdk/core/result'
 import { LoggerBrowser } from '@bitrix24/b24jssdk/logger/browser';
-import CodeIcon from "@bitrix24/b24icons-vue/common-service/CodeIcon"
 import Info from "../../components/Info.vue";
+
+definePageMeta({
+	layout: "page"
+})
 
 const logger = LoggerBrowser.build(
 	'Demo: Result',
@@ -90,10 +93,5 @@ else
 
 <template>
 	<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">Result</h1>
-	
-	<div class="mt-2 py-2 rounded text-warning-background-on border-l-2 border-l-warning-link bg-warning-background pl-2 flex flex-row flex-nowrap gap-4 items-center justify-self-auto">
-		<CodeIcon class="w-8 h-8" />
-		<Info>To view the result, open the developer console.</Info>
-	</div>
-	
+	<Info>To view the result, open the developer console.</Info>
 </template>

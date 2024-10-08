@@ -15,7 +15,11 @@ import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters"
 import Info from "../../components/Info.vue";
 import ProgressBar from "../../components/ProgressBar.vue";
 import useUniqId from "@bitrix24/b24jssdk/tools/uniqId";
-import {UserBrief} from "@bitrix24/b24jssdk/types/user";
+import { type UserBrief} from "@bitrix24/b24jssdk/types/user";
+
+definePageMeta({
+	layout: "page"
+})
 
 // region Init ////
 const logger = LoggerBrowser.build(
@@ -444,119 +448,121 @@ const problemMessageList = (result: IResult) => {
 </script>
 
 <template>
-	<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">Testing Rest-Api Calls</h1>
-	<Info>
-		You need to set environment variables in the <code>.env.local</code> file.<br>
-		Scopes: <code>user_brief</code>, <code>crm</code><br><br>
-		To view query results, open the developer console.
-	</Info>
-	<div class="mt-10 flex flex-col sm:flex-row gap-10">
-		<div class="basis-1/4 flex flex-col gap-y-6">
-			<button
-				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
-				@click="makeSelectItemsList_v1"
-				:disabled="status.isProcess"
-			>
-				<SequentialQueueIcon class="size-6"/>
-				<div class="text-nowrap truncate">one by one</div>
-				<div v-show="listCallToMax > 0"
-				     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
-					{{ listCallToMax }}
+	<ClientOnly>
+		<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">Testing Rest-Api Calls</h1>
+		<Info>
+			You need to set environment variables in the <code>.env.local</code> file.<br>
+			Scopes: <code>user_brief</code>, <code>crm</code><br><br>
+			To view query results, open the developer console.
+		</Info>
+		<div class="mt-10 flex flex-col sm:flex-row gap-10">
+			<div class="basis-1/4 flex flex-col gap-y-6">
+				<button
+					type="button"
+					class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+					@click="makeSelectItemsList_v1"
+					:disabled="status.isProcess"
+				>
+					<SequentialQueueIcon class="size-6"/>
+					<div class="text-nowrap truncate">one by one</div>
+					<div v-show="listCallToMax > 0"
+					     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
+						{{ listCallToMax }}
+					</div>
+				</button>
+				<button
+					type="button"
+					class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+					@click="makeSelectItemsList_v2"
+					:disabled="status.isProcess"
+				>
+					<ParallelQueueIcon class="size-6"/>
+					<div class="text-nowrap truncate">parallel</div>
+					<div v-show="listCallToMaxAll > 0"
+					     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
+						{{ listCallToMaxAll }}
+					</div>
+				</button>
+				<button
+					type="button"
+					class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+					@click="makeSelectItemsList_v3"
+					:disabled="status.isProcess"
+				>
+					<SendContactIcon class="size-6"/>
+					<div class="text-nowrap truncate">get all elements</div>
+				</button>
+				<button
+					type="button"
+					class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+					@click="makeSelectItemsList_v4"
+					:disabled="status.isProcess"
+				>
+					<SpeedMeterIcon class="size-6"/>
+					<div class="text-nowrap truncate">get large volumes</div>
+				</button>
+				<button
+					type="button"
+					class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+					@click="makeSelectItemsList_v5"
+					:disabled="status.isProcess"
+				>
+					<CompanyIcon class="size-6"/>
+					<div class="text-nowrap truncate">batch creation</div>
+					<div v-show="needAdd > 0"
+					     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
+						{{ needAdd }}
+					</div>
+				</button>
+				<button
+					type="button"
+					class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+					@click="makeSelectItemsList_v6"
+					:disabled="status.isProcess"
+				>
+					<SendIcon class="size-6"/>
+					<div class="text-nowrap truncate">batch fetch</div>
+				</button>
+			</div>
+			<div class="flex-1">
+				<div class="px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
+					<h3 class="text-h5 font-semibold">{{ status.title }}</h3>
+					<ul class="text-xs mt-sm2" v-show="status.messages.length > 0">
+						<li v-for="(message, index) in status.messages" :key="index">{{ message }}</li>
+						<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time.start, 'H:i:s') }}</li>
+						<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time.stop, 'H:i:s') }}</li>
+						<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time.diff) }} ms</li>
+						<li class="mt-2 pl-2 text-base-800 font-bold" v-show="null !== status.resultInfo">{{ status.resultInfo }}</li>
+					</ul>
+					
+					<div class="mt-2" v-show="status.isProcess">
+						<div class="mt-2 pl-0.5 text-4xs text-blue-500" v-show="status.processInfo">{{ status.processInfo }}</div>
+						<ProgressBar
+							:animation="status.progress.animation"
+							:indicator="status.progress.indicator"
+							:value="status.progress.value"
+							:max="status.progress.max"
+						>
+							<template
+								v-if="status.progress.indicator"
+								#indicator="{ percent }">
+								<div class="text-right min-w-[60px] text-xs w-full">
+									<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
+								</div>
+							</template>
+						</ProgressBar>
+					</div>
 				</div>
-			</button>
-			<button
-				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
-				@click="makeSelectItemsList_v2"
-				:disabled="status.isProcess"
-			>
-				<ParallelQueueIcon class="size-6"/>
-				<div class="text-nowrap truncate">parallel</div>
-				<div v-show="listCallToMaxAll > 0"
-				     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
-					{{ listCallToMaxAll }}
-				</div>
-			</button>
-			<button
-				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
-				@click="makeSelectItemsList_v3"
-				:disabled="status.isProcess"
-			>
-				<SendContactIcon class="size-6"/>
-				<div class="text-nowrap truncate">get all elements</div>
-			</button>
-			<button
-				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
-				@click="makeSelectItemsList_v4"
-				:disabled="status.isProcess"
-			>
-				<SpeedMeterIcon class="size-6"/>
-				<div class="text-nowrap truncate">get large volumes</div>
-			</button>
-			<button
-				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
-				@click="makeSelectItemsList_v5"
-				:disabled="status.isProcess"
-			>
-				<CompanyIcon class="size-6"/>
-				<div class="text-nowrap truncate">batch creation</div>
-				<div v-show="needAdd > 0"
-				     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
-					{{ needAdd }}
-				</div>
-			</button>
-			<button
-				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
-				@click="makeSelectItemsList_v6"
-				:disabled="status.isProcess"
-			>
-				<SendIcon class="size-6"/>
-				<div class="text-nowrap truncate">batch fetch</div>
-			</button>
-		</div>
-		<div class="flex-1">
-			<div class="px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1">
-				<h3 class="text-h5 font-semibold">{{ status.title }}</h3>
-				<ul class="text-xs mt-sm2" v-show="status.messages.length > 0">
-					<li v-for="(message, index) in status.messages" :key="index">{{ message }}</li>
-					<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time.start, 'H:i:s') }}</li>
-					<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time.stop, 'H:i:s') }}</li>
-					<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time.diff) }} ms</li>
-					<li class="mt-2 pl-2 text-base-800 font-bold" v-show="null !== status.resultInfo">{{ status.resultInfo }}</li>
-				</ul>
-				
-				<div class="mt-2" v-show="status.isProcess">
-					<div class="mt-2 pl-0.5 text-4xs text-blue-500" v-show="status.processInfo">{{ status.processInfo }}</div>
-					<ProgressBar
-						:animation="status.progress.animation"
-						:indicator="status.progress.indicator"
-						:value="status.progress.value"
-						:max="status.progress.max"
-					>
-						<template
-							v-if="status.progress.indicator"
-							#indicator="{ percent }">
-							<div class="text-right min-w-[60px] text-xs w-full">
-								<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
-							</div>
-						</template>
-					</ProgressBar>
+				<div
+					class="mt-6 text-alert-text px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
+					v-if="!result.isSuccess"
+				>
+					<h3 class="text-h5 font-semibold">Error</h3>
+					<ul class="text-txt-md mt-sm2">
+						<li v-for="(problem, index) in problemMessageList(result)" :key="index">{{ problem }}</li>
+					</ul>
 				</div>
 			</div>
-			<div
-				class="mt-6 text-alert-text px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1"
-				v-if="!result.isSuccess"
-			>
-				<h3 class="text-h5 font-semibold">Error</h3>
-				<ul class="text-txt-md mt-sm2">
-					<li v-for="(problem, index) in problemMessageList(result)" :key="index">{{ problem }}</li>
-				</ul>
-			</div>
 		</div>
-	</div>
+	</ClientOnly>
 </template>

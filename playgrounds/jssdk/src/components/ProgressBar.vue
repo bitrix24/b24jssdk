@@ -264,7 +264,8 @@ export default defineComponent({
 </template>
 
 <style scoped>
-progress:indeterminate {
+progress:indeterminate
+{
 	@apply relative;
 	
 	&:after {
@@ -280,66 +281,23 @@ progress:indeterminate {
 	&::-moz-progress-bar {
 		@apply bg-current;
 	}
-	
-	&.bar-animation-carousel {
-		&:after {
-			animation: carousel 2s ease-in-out infinite;
-		}
-		
-		&::-webkit-progress-value {
-			animation: carousel 2s ease-in-out infinite;
-		}
-		
-		&::-moz-progress-bar {
-			animation: carousel 2s ease-in-out infinite;
-		}
+}
+
+progress:indeterminate.bar-animation-carousel {
+	&:after {
+		animation: carousel 2s ease-in-out infinite;
 	}
 	
-	&.bar-animation-carousel-inverse {
-		&:after {
-			animation: carousel-inverse 2s ease-in-out infinite;
-		}
-		
-		&::-webkit-progress-value {
-			animation: carousel-inverse 2s ease-in-out infinite;
-		}
-		
-		&::-moz-progress-bar {
-			animation: carousel-inverse 2s ease-in-out infinite;
-		}
+	&::-webkit-progress-value {
+		animation: carousel 2s ease-in-out infinite;
 	}
 	
-	&.bar-animation-swing {
-		&:after {
-			animation: swing 3s ease-in-out infinite;
-		}
-		
-		&::-webkit-progress-value {
-			animation: swing 3s ease-in-out infinite;
-		}
-		
-		&::-moz-progress-bar {
-			animation: swing 3s ease-in-out infinite;
-		}
-	}
-	
-	&.bar-animation-elastic {
-		&::after {
-			animation: elastic 3s ease-in-out infinite;
-		}
-		
-		&::-webkit-progress-value {
-			animation: elastic 3s ease-in-out infinite;
-		}
-		
-		&::-moz-progress-bar {
-			animation: elastic 3s ease-in-out infinite;
-		}
+	&::-moz-progress-bar {
+		animation: carousel 2s ease-in-out infinite;
 	}
 }
 
 @keyframes carousel {
-	
 	0%,
 	100% {
 		width: 50%
@@ -351,54 +309,6 @@ progress:indeterminate {
 	
 	100% {
 		transform: translateX(200%)
-	}
-}
-
-@keyframes carousel-inverse {
-	
-	0%,
-	100% {
-		width: 50%
-	}
-	
-	0% {
-		transform: translateX(200%)
-	}
-	
-	100% {
-		transform: translateX(-100%)
-	}
-}
-
-@keyframes swing {
-	
-	0%,
-	100% {
-		width: 50%
-	}
-	
-	0%,
-	100% {
-		transform: translateX(-25%)
-	}
-	
-	50% {
-		transform: translateX(125%)
-	}
-}
-
-@keyframes elastic {
-	
-	/* Firefox doesn't do "margin: 0 auto", we have to play with margin-left */
-	0%,
-	100% {
-		width: 50%;
-		margin-left: 25%;
-	}
-	
-	50% {
-		width: 90%;
-		margin-left: 5%
 	}
 }
 </style>

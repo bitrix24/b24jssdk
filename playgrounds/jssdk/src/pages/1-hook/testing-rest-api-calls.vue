@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, reactive, computed, type Ref, onMounted } from 'vue'
 import B24HookConfig from '../../config'
-import TrashBinIcon from "@bitrix24/b24icons-vue/main/TrashBinIcon";
 import SendIcon from "@bitrix24/b24icons-vue/main/SendIcon";
 import ParallelQueueIcon from '@bitrix24/b24icons-vue/main/ParallelQueueIcon'
 import SequentialQueueIcon from '@bitrix24/b24icons-vue/main/SequentialQueueIcon'
 import SpeedMeterIcon from '@bitrix24/b24icons-vue/main/SpeedMeterIcon'
 import SendContactIcon from '@bitrix24/b24icons-vue/crm/SendContactIcon'
+import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
 
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
@@ -14,8 +14,10 @@ import { EnumCrmEntityTypeId } from "@bitrix24/b24jssdk/types/crm"
 import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters"
 import Info from "../../components/Info.vue";
 import ProgressBar from "../../components/ProgressBar.vue";
+import useUniqId from "@bitrix24/b24jssdk/tools/uniqId";
+import {UserBrief} from "@bitrix24/b24jssdk/types/user";
 
-// region init ////
+// region Init ////
 const logger = LoggerBrowser.build(
 	'Demo: Testing Rest-Api Calls',
 	true
@@ -23,19 +25,18 @@ const logger = LoggerBrowser.build(
 
 const { formatterDateTime, formatterNumber } = useFormatter('en-US')
 
-const result: IResult = reactive(new Result());
 const B24 = new B24Hook(
 	B24HookConfig
 )
-B24.setLogger(LoggerBrowser.build(
-	'Core',
-	true
-))
+B24.setLogger(LoggerBrowser.build('Core', true))
 
+let result: IResult = reactive(new Result())
 const status = ref({
 	isProcess: false,
 	title: 'Specify what we will test',
 	messages: [],
+	processInfo: null,
+	resultInfo: null,
 	progress: {
 		animation: false,
 		indicator: true,
@@ -50,20 +51,19 @@ const status = ref({
 });
 // endregion ////
 
-let listCrmEntity = ref(0);
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-let fetchListLoader = ref('');
-
 // region Actions ////
 const consoleClear = () => {
 	console.clear()
 }
 
 const reInitStatus = () => {
+	result = reactive(new Result())
+	
 	status.value.isProcess = false
 	status.value.title = 'Specify what we will test'
 	status.value.messages = []
+	status.value.processInfo = null
+	status.value.resultInfo = null
 	status.value.progress.animation = false
 	status.value.progress.indicator = true
 	status.value.progress.value = 0
@@ -80,7 +80,7 @@ const makeSelectItemsList_v1 = async () =>
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'Testing Sequential Calls'
-		status.value.messages.push('In a loop, we call B24.callMethod one by one.')
+		status.value.messages.push(`In the loop we call B24.callMethod one after another ${listCallToMax.value} times.`)
 		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
 		status.value.progress.value = 0
 		status.value.progress.max = listCallToMax.value
@@ -103,6 +103,12 @@ const makeSelectItemsList_v1 = async () =>
 	})
 	.then(() => {
 		listCallToMax.value = listCallToMax.value * 2
+	})
+	.catch((error: Error|string) => {
+		result.addError(error)
+		logger.error(error)
+	})
+	.finally(() => {
 		status.value.isProcess = false
 		status.value.time.stop = new Date()
 		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
@@ -116,7 +122,7 @@ async function makeSelectItemsList_v2()
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'Testing Parallel Calls'
-		status.value.messages.push('We use Promise.all. We send all calls at once.')
+		status.value.messages.push(`We use Promise.all. We send ${listCallToMaxAll.value} calls at once.`)
 		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
 		status.value.progress.value = 0
 		status.value.progress.max = listCallToMaxAll.value
@@ -146,7 +152,12 @@ async function makeSelectItemsList_v2()
 	})
 	.then(() => {
 		listCallToMaxAll.value = listCallToMaxAll.value * 2
-		
+	})
+	.catch((error: Error|string) => {
+		result.addError(error)
+		logger.error(error)
+	})
+	.finally(() => {
 		status.value.isProcess = false
 		status.value.time.stop = new Date()
 		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
@@ -155,7 +166,6 @@ async function makeSelectItemsList_v2()
 
 async function makeSelectItemsList_v3()
 {
-	const itemsSelect = [];
 	return new Promise((resolve) => {
 		reInitStatus()
 		status.value.isProcess = true
@@ -184,11 +194,14 @@ async function makeSelectItemsList_v3()
 		.then((response) => {
 			const ttl = response.getData().length
 			logger.log(`>> Getting All Elements >>> ttl: ${ ttl }`)
-			status.value.messages.push(`...`)
-			status.value.messages.push(`It was chosen: ${ formatterNumber.format(ttl) } elements`)
+			status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
 		})
 	})
-	.then(() => {
+	.catch((error: Error|string) => {
+		result.addError(error)
+		logger.error(error)
+	})
+	.finally(() => {
 		status.value.isProcess = false
 		status.value.time.stop = new Date()
 		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
@@ -203,10 +216,11 @@ async function makeSelectItemsList_v4()
 		status.value.title = 'Retrieve Large Volumes of Data'
 		status.value.messages.push('Using Bitrix24 recommendations, we make a specific sequence of calls.')
 		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
+		
+		status.value.processInfo = '?'
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
-		status.value.progress.value = 0
-		status.value.progress.max = 0
+		status.value.progress.value = null
 		status.value.time.start = new Date()
 		
 		return resolve(null)
@@ -226,7 +240,6 @@ async function makeSelectItemsList_v4()
 		)
 		
 		let ttl = 0
-		status.value.progress.value = 1
 		
 		for await (let entities of generator)
 		{
@@ -234,75 +247,199 @@ async function makeSelectItemsList_v4()
 			{
 				ttl++;
 				logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ ttl } ...`, entity)
+				
+				status.value.processInfo = `[id:${entity.id}] ${entity.title}`
 			}
 		}
-		
-		status.value.messages.push(`...`)
-		status.value.messages.push(`It was chosen: ${ formatterNumber.format(ttl) } elements`)
+		status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
 	})
-	.then(() => {
-		status.value.progress.value = 2
+	.catch((error: Error|string) => {
+		result.addError(error)
+		logger.error(error)
+	})
+	.finally(() => {
 		status.value.isProcess = false
 		status.value.time.stop = new Date()
 		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
+		status.value.processInfo = null
 	})
 }
 
+let needAdd = ref(10);
 async function makeSelectItemsList_v5()
 {
-	try
+	if(needAdd.value < 1)
 	{
-		let calls = [
-			['crm.item.get', {id: 2880}],
-			['crm.item.get', {id: 8}],
-			['crm.item.get', {id: 6}]
-		];
-		
-		// We send a request packet as an array
-		let response = await B24.callBatch(
-			calls,
-			false
-		);
-		console.log('Response array:', response);
-		alert('res1');
-		
+		needAdd.value = 5
 	}
-	catch(error)
+	else if(needAdd.value > 50)
 	{
-		alert(`Error: ${error.message} -> ${error.linenumber}`);
-		console.log(error.stack);
+		needAdd.value = 5
 	}
 	
+	return new Promise((resolve) => {
+		reInitStatus()
+		status.value.isProcess = true
+		status.value.title = 'Testing the batch processing work'
+		status.value.messages.push(`There will be one request. However, it contains ${needAdd.value} commands to create an entities.`)
+		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
+		
+		status.value.progress.animation = true
+		status.value.progress.indicator = false
+		status.value.progress.value = null
+		status.value.time.start = new Date()
+		
+		return resolve(null)
+	})
+	.then(() => {
+		let commands = []
+		
+		let iterator = 0
+		while(iterator < needAdd.value)
+		{
+			iterator++
+			commands.push({
+				method: 'crm.item.add',
+				params: {
+					entityTypeId: EnumCrmEntityTypeId.company,
+					fields: {
+						title: useUniqId(),
+						comments: '[B]Auto generate[/B] from [URL=https://bitrix24.github.io/b24jssdk/]@bitrix24/b24jssdk-playground[/URL]'
+					}
+				}
+			})
+		}
+		
+		logger.info('Testing the batch processing work >> send >>> ', commands)
+		return B24.callBatch(
+			commands,
+			true
+		)
+	})
+	.then((response: Result) => {
+		let data: any = response.getData()
+		logger.info('Testing the batch processing work >> response >>> ', data)
+		
+		status.value.resultInfo = `It was add: ${ needAdd.value } elements`
+	})
+	.then(() => {
+		needAdd.value = needAdd.value + 10
+		if(needAdd.value > 50)
+		{
+			needAdd.value = 5
+		}
+	})
+	.catch((error: Error|string) => {
+		result.addError(error)
+		logger.error(error)
+	})
+	.finally(() => {
+		status.value.isProcess = false
+		status.value.time.stop = new Date()
+		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
+		status.value.processInfo = null
+	})
 }
 
 async function makeSelectItemsList_v6()
 {
-	try
-	{
-		// A batch of requests in the form of an object with a maximum number of commands in a request of 50
-		let callsV2 = {
-			get_lead: ['crm.lead.get', {id: 2}],
-			get_company: ['crm.company.get', {id: '$result[get_lead][COMPANY_ID]'}],
-			get_contact: ['crm.contact.get', {id: '$result[get_lead][CONTACT_ID]'}]
-		};
+	const promptEntityId = prompt(
+		'Please provide your company Id'
+	)
+	
+	const needEntityId = Number(promptEntityId)
+	
+	return new Promise((resolve) => {
+		reInitStatus()
+		status.value.isProcess = true
+		status.value.title = 'Testing the batch fetch work'
+		status.value.messages.push(`The entity and its responsible person data will be selected.`)
+		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
 		
-		// We send a request packet as an object
-		let response = await B24.callBatch(
-			callsV2,
-			false
-		);
-		console.log('Response object:', response);
-		alert('res2');
+		status.value.progress.animation = true
+		status.value.progress.indicator = false
+		status.value.progress.value = null
+		status.value.time.start = new Date()
 		
-	}
-	catch(error)
-	{
-		alert(`Error: ${error.message} -> ${error.linenumber}`);
-		console.log(error.stack);
-	}
+		return resolve(null)
+	})
+	.then(() => {
+		
+		if(Number.isNaN(needEntityId))
+		{
+			return Promise.reject(new Error('Wrong entity Id'))
+		}
+		
+		let commands = {
+			getCompany: {
+				method: 'crm.item.get',
+				params: {
+					entityTypeId: EnumCrmEntityTypeId.company,
+					id: needEntityId
+				}
+			},
+			getAssigned: {
+				method: 'user.get',
+				params: {
+					ID: '$result[getCompany][item][assignedById]'
+				}
+			}
+		}
+		
+		logger.info('Testing the batch fetch work >> send >>> ', commands)
+		return B24.callBatch(
+			commands,
+			true
+		)
+	})
+	.then((response: Result) => {
+		let data: any = response.getData()
+		logger.info('Testing the batch fetch work >> response >>> ', data)
+		
+		const assigned = data.getAssigned[0] as UserBrief | null
+		
+		let assignedInfo = ''
+		if(!!assigned)
+		{
+			assignedInfo = [
+				`id: ${assigned.ID}`,
+				assigned.ACTIVE ? 'active' : 'not active',
+				assigned.LAST_NAME,
+				assigned.NAME,
+			].join(' ')
+		}
+		
+		status.value.resultInfo = `entityId: ${data.getCompany.item?.id || '?'}; assigned: ${assignedInfo}`
+	})
+	.catch((error: Error|string) => {
+		result.addError(error)
+		logger.error(error)
+	})
+	.finally(() => {
+		status.value.isProcess = false
+		status.value.time.stop = new Date()
+		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
+		status.value.processInfo = null
+	})
 	
 }
+// endregion ////
 
+// region Error ////
+const problemMessageList = (result: IResult) => {
+	let problemMessageList: string[] = [];
+	const problem = result.getErrorMessages();
+	if( typeof (problem || '') === 'string' )
+	{
+		problemMessageList.push(problem.toString());
+	}
+	else if(Array.isArray(problem))
+	{
+		problemMessageList = problemMessageList.concat(problem);
+	}
+	
+	return problemMessageList;
+}
 // endregion ////
 </script>
 
@@ -312,13 +449,6 @@ async function makeSelectItemsList_v6()
 		You need to set environment variables in the <code>.env.local</code> file.<br>
 		Scopes: <code>user_brief</code>, <code>crm</code><br><br>
 		To view query results, open the developer console.
-	</Info>
-	<Info>
-		Bitrix24 only considers the IP address from which the REST request is made. In other words, if your server hosts several applications that all work with the same Bitrix24, the request intensity limit will be shared among all applications. Keep this feature in mind when designing.<br>
-		<a href="https://apidocs.bitrix24.com/limits.html" target="_blank" class="underline text-warning-link/60 hover:text-warning-link">Learn more</a>
-	</Info>
-	<Info>
-		Check out the Bitrix24 <a href="https://apidocs.bitrix24.com/api-reference/performance/huge-data.html" target="_blank" class="mt-1.5 underline text-warning-link/60 hover:text-warning-link">recommendations</a> for receiving large amounts of data.
 	</Info>
 	<div class="mt-10 flex flex-col sm:flex-row gap-10">
 		<div class="basis-1/4 flex flex-col gap-y-6">
@@ -368,34 +498,43 @@ async function makeSelectItemsList_v6()
 			</button>
 			<button
 				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2"
+				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
 				@click="makeSelectItemsList_v5"
+				:disabled="status.isProcess"
 			>
-				<SendIcon class="size-6"/>
-				<div class="text-nowrap truncate">makeSelectItemsList_v5</div>
+				<CompanyIcon class="size-6"/>
+				<div class="text-nowrap truncate">batch creation</div>
+				<div v-show="needAdd > 0"
+				     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
+					{{ needAdd }}
+				</div>
 			</button>
 			<button
 				type="button"
-				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2"
+				class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
 				@click="makeSelectItemsList_v6"
+				:disabled="status.isProcess"
 			>
 				<SendIcon class="size-6"/>
-				<div class="text-nowrap truncate">makeSelectItemsList_v6</div>
+				<div class="text-nowrap truncate">batch fetch</div>
 			</button>
 		</div>
 		<div class="flex-1">
 			<div
-				class="p-5 border border-base-30 rounded-md shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1">
-				<div v-if="result.isSuccess">
+				class="p-5 border border-base-30 rounded-md shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1"
+			>
+				<div>
 					<h3 class="text-h3 mb-1">{{ status.title }}</h3>
 					<ul class="text-txt-md">
 						<li v-for="(message, index) in status.messages" :key="index">{{ message }}</li>
 						<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time.start, 'H:i:s') }}</li>
 						<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time.stop, 'H:i:s') }}</li>
 						<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time.diff) }} ms</li>
+						<li class="mt-2 pl-2 text-base-800 font-bold" v-show="null !== status.resultInfo">{{ status.resultInfo }}</li>
 					</ul>
 					
 					<div class="mt-2" v-show="status.isProcess">
+						<div class="mt-2 pl-0.5 text-4xs text-blue-500" v-show="status.processInfo">{{ status.processInfo }}</div>
 						<ProgressBar
 							:animation="status.progress.animation"
 							:indicator="status.progress.indicator"
@@ -412,10 +551,15 @@ async function makeSelectItemsList_v6()
 						</ProgressBar>
 					</div>
 				</div>
-				<div v-else>
-					<h3 class="text-h3 mb-1 text-alert-text">Error</h3>
-					<pre>{{ result }}</pre>
-				</div>
+			</div>
+			<div
+				class="mt-6 p-5 border border-base-30 rounded-md shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1"
+				v-if="!result.isSuccess"
+			>
+				<h3 class="text-h3 mb-1 text-alert-text">Error</h3>
+				<ul class="text-txt-md text-alert-text">
+					<li v-for="(problem, index) in problemMessageList(result)" :key="index">{{ problem }}</li>
+				</ul>
 			</div>
 		</div>
 	</div>

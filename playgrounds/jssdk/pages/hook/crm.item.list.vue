@@ -56,8 +56,6 @@ const openSlider = async (id: number): Promise<void> => {
 	return Promise.resolve();
 }
 
-logger.info('>> start ')
-
 const B24 = new B24Hook(
 	B24HookConfig
 )
@@ -164,14 +162,12 @@ const actionCompanyList = async (): Promise<void> => {
 }
 
 actionCompanyList()
-logger.info('>> stop ')
 </script>
 
 <template>
 	<ClientOnly>
 		<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">List Company</h1>
 		<Info>You need to set environment variables in the <code>.env.local</code> file</Info>
-		
 		<div class="mt-6 flex flex-col lg:flex-row gap-2">
 			<button
 				type="button"

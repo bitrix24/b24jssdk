@@ -217,7 +217,7 @@ async function makeSelectItemsList_v4()
 		status.value.messages.push('Using Bitrix24 recommendations, we make a specific sequence of calls.')
 		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
 		
-		status.value.processInfo = '?'
+		status.value.processInfo = 'processing'
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
@@ -520,44 +520,40 @@ const problemMessageList = (result: IResult) => {
 			</button>
 		</div>
 		<div class="flex-1">
-			<div
-				class="p-5 border border-base-30 rounded-md shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1"
-			>
-				<div>
-					<h3 class="text-h3 mb-1">{{ status.title }}</h3>
-					<ul class="text-txt-md">
-						<li v-for="(message, index) in status.messages" :key="index">{{ message }}</li>
-						<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time.start, 'H:i:s') }}</li>
-						<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time.stop, 'H:i:s') }}</li>
-						<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time.diff) }} ms</li>
-						<li class="mt-2 pl-2 text-base-800 font-bold" v-show="null !== status.resultInfo">{{ status.resultInfo }}</li>
-					</ul>
-					
-					<div class="mt-2" v-show="status.isProcess">
-						<div class="mt-2 pl-0.5 text-4xs text-blue-500" v-show="status.processInfo">{{ status.processInfo }}</div>
-						<ProgressBar
-							:animation="status.progress.animation"
-							:indicator="status.progress.indicator"
-							:value="status.progress.value"
-							:max="status.progress.max"
-						>
-							<template
-								v-if="status.progress.indicator"
-								#indicator="{ percent }">
-								<div class="text-right min-w-[60px] text-xs w-full">
-									<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
-								</div>
-							</template>
-						</ProgressBar>
-					</div>
+			<div class="px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1">
+				<h3 class="text-h5 font-semibold">{{ status.title }}</h3>
+				<ul class="text-xs mt-sm2" v-show="status.messages.length > 0">
+					<li v-for="(message, index) in status.messages" :key="index">{{ message }}</li>
+					<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time.start, 'H:i:s') }}</li>
+					<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time.stop, 'H:i:s') }}</li>
+					<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time.diff) }} ms</li>
+					<li class="mt-2 pl-2 text-base-800 font-bold" v-show="null !== status.resultInfo">{{ status.resultInfo }}</li>
+				</ul>
+				
+				<div class="mt-2" v-show="status.isProcess">
+					<div class="mt-2 pl-0.5 text-4xs text-blue-500" v-show="status.processInfo">{{ status.processInfo }}</div>
+					<ProgressBar
+						:animation="status.progress.animation"
+						:indicator="status.progress.indicator"
+						:value="status.progress.value"
+						:max="status.progress.max"
+					>
+						<template
+							v-if="status.progress.indicator"
+							#indicator="{ percent }">
+							<div class="text-right min-w-[60px] text-xs w-full">
+								<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
+							</div>
+						</template>
+					</ProgressBar>
 				</div>
 			</div>
 			<div
-				class="mt-6 p-5 border border-base-30 rounded-md shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1"
+				class="mt-6 text-alert-text px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1"
 				v-if="!result.isSuccess"
 			>
-				<h3 class="text-h3 mb-1 text-alert-text">Error</h3>
-				<ul class="text-txt-md text-alert-text">
+				<h3 class="text-h5 font-semibold">Error</h3>
+				<ul class="text-txt-md mt-sm2">
 					<li v-for="(problem, index) in problemMessageList(result)" :key="index">{{ problem }}</li>
 				</ul>
 			</div>

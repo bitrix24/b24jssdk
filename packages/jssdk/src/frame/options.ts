@@ -1,7 +1,5 @@
 import { MessageManager, MessageCommands } from "./message";
-import type {
-	MessageInitData
-} from "../types";
+import type { MessageInitData } from "../types/auth";
 
 /**
  * Manager for working with application settings via communication with the parent window

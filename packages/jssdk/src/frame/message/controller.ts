@@ -1,9 +1,7 @@
-import {
-	LoggerBrowser,
-	LoggerType,
-	MessageCommands,
-	AppFrame
-} from '../../index';
+import { LoggerBrowser, LoggerType } from '../../index';
+
+import { MessageCommands } from './commands';
+import { AppFrame } from '../frame';
 
 import useUniqId from "../../tools/uniqId";
 

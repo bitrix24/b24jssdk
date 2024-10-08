@@ -1,13 +1,16 @@
-import { B24Frame } from "./controller";
+import { B24Frame } from "./controller"
 import type {
-	GenderString,
+	GenderString
+} from "../types/common"
+
+import type {
 	TypeApp,
 	TypeB24Form,
 	TypeEnumAppStatus,
 	TypeLicense,
 	TypePayment,
 	TypeUser
-} from "../types";
+} from "../types/properties";
 
 /**
  * Characteristics of B24 and the current user

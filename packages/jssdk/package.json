@@ -54,6 +54,10 @@
 		"./hook": {
 			"types": "./dist/hook/index.d.ts",
 			"default": "./dist/hook/index.mjs"
+		},
+		"./frame": {
+			"types": "./dist/frame/index.d.ts",
+			"default": "./dist/frame/index.mjs"
 		}
 	},
 	"main": "./dist/index.cjs",

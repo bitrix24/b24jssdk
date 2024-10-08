@@ -1,8 +1,6 @@
-import { AppFrame } from "./frame";
-import { MessageManager, MessageCommands } from "./message";
-import type {
-	StatusClose
-} from "../types";
+import { AppFrame } from "./frame"
+import { MessageManager, MessageCommands } from "./message"
+import type { StatusClose } from "../types/slider"
 
 /**
  * Sliders Manager

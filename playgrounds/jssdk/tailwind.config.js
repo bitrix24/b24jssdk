@@ -12,7 +12,6 @@ export default {
 		require('@bitrix24/b24style')({
 			logs: false,
 			useLocalFonts: false,
-		}),
-		require('@tailwindcss/typography')
+		})
 	]
 }

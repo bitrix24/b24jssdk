@@ -150,4 +150,35 @@ export class ParentManager
 			height,
 		);
 	}
+	
+	/**
+	 * Set page title.
+	 * @param title
+	 *
+	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/setTitle.php
+	 */
+	async setTitle(
+		title: string
+	): Promise<any>
+	{
+		return this.#messageManager.send(
+			MessageCommands.setTitle,
+			{
+				title: title.toString()
+			}
+		);
+	}
+	
+	/**
+	 * Reload the page with the application (the whole page, not just the frame).
+	 *
+	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/reloadWindow.php
+	 */
+	async reloadWindow(): Promise<any>
+	{
+		return this.#messageManager.send(
+			MessageCommands.reloadWindow,
+			{}
+		);
+	}
 }

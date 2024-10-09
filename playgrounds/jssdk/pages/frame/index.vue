@@ -68,52 +68,51 @@ const { formatterDateTime, formatterNumber } = useFormatter('en-US')
 
 onMounted(async (): Promise<void> => {
 	return (():Promise<B24Frame> => new Promise((resolve, reject) => {
-			let b24Frame: null|B24Frame = null;
-			
-			let queryParams: B24FrameQueryParams = {
-				DOMAIN: null,
-				PROTOCOL: false,
-				APP_SID: null,
-				LANG: null
-			}
-			
-			logger.log('init', {
-				windowName: window.name || '?'
-			})
-			
-			if(!!window.name)
-			{
-				let q = window.name.split('|');
-				queryParams.DOMAIN = q[0];
-				queryParams.PROTOCOL = (parseInt(q[1]) || 0) === 1;
-				queryParams.APP_SID = q[2];
-				queryParams.LANG = null;
-			}
-			
-			if(!queryParams.DOMAIN || !queryParams.APP_SID)
-			{
-				reject(new Error('Unable to initialize Bitrix24Frame library!'));
-			}
-			b24Frame = new B24Frame(
-				queryParams
-			);
-			
-			b24Frame.init()
-				.then(() => {
-					logger.log(`b24Frame:mounted`)
-					resolve(b24Frame as B24Frame)
-				})
-				.catch((error) => {
-					reject(error);
-				})
+		let b24Frame: null|B24Frame = null;
+		
+		let queryParams: B24FrameQueryParams = {
+			DOMAIN: null,
+			PROTOCOL: false,
+			APP_SID: null,
+			LANG: null
+		}
+		
+		logger.log('init', {
+			windowName: window.name || '?'
 		})
-	)()
+		
+		if(!!window.name)
+		{
+			let q = window.name.split('|');
+			queryParams.DOMAIN = q[0];
+			queryParams.PROTOCOL = (parseInt(q[1]) || 0) === 1;
+			queryParams.APP_SID = q[2];
+			queryParams.LANG = null;
+		}
+		
+		if(!queryParams.DOMAIN || !queryParams.APP_SID)
+		{
+			reject(new Error('Unable to initialize Bitrix24Frame library!'));
+		}
+		b24Frame = new B24Frame(
+			queryParams
+		);
+		
+		b24Frame.init()
+		.then(() => {
+			logger.log(`b24Frame:mounted`)
+			resolve(b24Frame as B24Frame)
+		})
+		.catch((error) => {
+			reject(error);
+		})
+	}))()
 	.then((b24Frame: B24Frame): void => {
 		B24 = b24Frame
 		B24.setLogger(LoggerBrowser.build('Core', true))
 		isInit.value = true
 	})
-	 .then(() => {
+	.then(() => {
 		 B24.parent.setTitle('[playgrounds] Testing Frame')
 	 })
 	.catch((error: Error|string) => {
@@ -173,6 +172,7 @@ const makeReloadWindow = async () => {
 	})
 }
 // endregion ////
+
 // region Error ////
 const problemMessageList = (result: IResult) => {
 	let problemMessageList: string[] = [];
@@ -189,7 +189,6 @@ const problemMessageList = (result: IResult) => {
 	return problemMessageList;
 }
 // endregion ////
-
 </script>
 
 <template>

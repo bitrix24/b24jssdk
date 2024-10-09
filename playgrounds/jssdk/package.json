@@ -1,30 +1,32 @@
 {
-  "name": "@bitrix24/b24jssdk-playground",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
-  },
-  "dependencies": {
-    "@bitrix24/b24icons-vue": "^0.1.1",
-    "@bitrix24/b24jssdk": "*",
-    "@bitrix24/b24style": "^0.1.2",
-    "@headlessui/vue": "^1.7.23",
-    "@tailwindcss/forms": "^0.5.7",
-    "@tailwindcss/typography": "^0.5.2",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.11",
-    "tailwind-merge": "^2.5.3",
-    "nuxt": "^3.13.0",
-    "vue": "latest",
-    "vue-router": "latest"
-  },
-  "devDependencies": {
-  }
+	"name": "@bitrix24/b24jssdk-playground",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"prebuild": "npm run build --workspace=@bitrix24/b24jssdk",
+		"build": "nuxt build",
+		"predev": "npm run build --workspace=@bitrix24/b24jssdk",
+		"dev": "nuxt dev",
+		"generate": "nuxt generate",
+		"preview": "nuxt preview",
+		"postinstall": "nuxt prepare"
+	},
+	"dependencies": {
+		"@bitrix24/b24icons-vue": "^0.1.1",
+		"@bitrix24/b24jssdk": "*",
+		"@bitrix24/b24style": "^0.1.2",
+		"@headlessui/vue": "^1.7.23",
+		"@tailwindcss/forms": "^0.5.7",
+		"@tailwindcss/typography": "^0.5.2",
+		"autoprefixer": "^10.4.20",
+		"postcss": "^8.4.47",
+		"tailwindcss": "^3.4.11",
+		"tailwind-merge": "^2.5.3",
+		"nuxt": "^3.13.0",
+		"vue": "latest",
+		"vue-router": "latest"
+	},
+	"devDependencies": {
+	}
 }

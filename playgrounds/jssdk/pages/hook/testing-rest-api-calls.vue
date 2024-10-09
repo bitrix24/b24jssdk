@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, type Ref, onMounted } from 'vue'
+import { ref, reactive, type Ref } from 'vue'
 import B24HookConfig from '../../config'
 import SendIcon from "@bitrix24/b24icons-vue/main/SendIcon";
 import ParallelQueueIcon from '@bitrix24/b24icons-vue/main/ParallelQueueIcon'
@@ -7,6 +7,7 @@ import SequentialQueueIcon from '@bitrix24/b24icons-vue/main/SequentialQueueIcon
 import SpeedMeterIcon from '@bitrix24/b24icons-vue/main/SpeedMeterIcon'
 import SendContactIcon from '@bitrix24/b24icons-vue/crm/SendContactIcon'
 import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
+import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
 
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
@@ -35,7 +36,27 @@ const B24 = new B24Hook(
 B24.setLogger(LoggerBrowser.build('Core', true))
 
 let result: IResult = reactive(new Result())
-const status = ref({
+
+interface IStatus {
+	isProcess: boolean,
+	title: string,
+	messages: string[],
+	processInfo: null|string,
+	resultInfo: null|string,
+	progress: {
+		animation: boolean,
+		indicator: boolean,
+		value: null|number,
+		max: null|number
+	},
+	time: {
+		start: null|Date,
+		stop: null|Date,
+		diff: null|number
+	}
+}
+
+const status: Ref<IStatus> = ref({
 	isProcess: false,
 	title: 'Specify what we will test',
 	messages: [],
@@ -52,11 +73,24 @@ const status = ref({
 		stop: null,
 		diff: null,
 	}
-});
+} as IStatus);
 // endregion ////
 
 // region Actions ////
-const consoleClear = () => {
+const stopMakeProcess = () => {
+	status.value.isProcess = false
+	status.value.time.stop = new Date()
+	if(
+		status.value.time.stop
+		&& status.value.time.start
+	)
+	{
+		status.value.time.diff = Math.abs(status.value.time.stop.getTime() - status.value.time.start.getTime())
+	}
+	status.value.processInfo = null
+}
+
+const clearConsole = () => {
 	console.clear()
 }
 
@@ -77,7 +111,7 @@ const reInitStatus = () => {
 	status.value.time.diff = null
 }
 
-let listCallToMax = ref(10);
+let listCallToMax: Ref<number> = ref(10);
 const makeSelectItemsList_v1 = async () =>
 {
 	return new Promise((resolve) => {
@@ -92,34 +126,33 @@ const makeSelectItemsList_v1 = async () =>
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		let iterator = status.value.progress.max
-		while(iterator > 0)
-		{
-			iterator--
-			status.value.progress.value++
-			logger.log(`>> Testing Sequential Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
-			
-			await B24.callMethod(
-				'user.current'
-			)
-		}
-	})
-	.then(() => {
-		listCallToMax.value = listCallToMax.value * 2
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		logger.error(error)
-	})
-	.finally(() => {
-		status.value.isProcess = false
-		status.value.time.stop = new Date()
-		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
-	})
+		.then(async () => {
+			let iterator = status.value.progress.max || 0
+			while(iterator > 0)
+			{
+				iterator--
+				if(null !== status.value.progress.value)
+				{
+					status.value.progress.value++
+				}
+				logger.log(`>> Testing Sequential Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
+				
+				await B24.callMethod(
+					'user.current'
+				)
+			}
+		})
+		.then(() => {
+			listCallToMax.value = listCallToMax.value * 2
+		})
+		.catch((error: Error|string) => {
+			result.addError(error)
+			logger.error(error)
+		})
+		.finally(() => {stopMakeProcess()})
 }
 
-let listCallToMaxAll = ref(10);
+let listCallToMaxAll: Ref<number> = ref(10);
 async function makeSelectItemsList_v2()
 {
 	return new Promise((resolve) => {
@@ -134,38 +167,34 @@ async function makeSelectItemsList_v2()
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		const list = [];
-		let iterator = status.value.progress.max
-		
-		while(iterator > 0)
-		{
-			iterator--
-			list.push(
-				B24.callMethod(
-					'user.current',
-					{}
-				).finally(() => {
-					status.value.progress.value++
-					logger.log(`>> Testing Parallel Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
-				})
-			)
-		}
-		
-		await Promise.all(list)
-	})
-	.then(() => {
-		listCallToMaxAll.value = listCallToMaxAll.value * 2
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		logger.error(error)
-	})
-	.finally(() => {
-		status.value.isProcess = false
-		status.value.time.stop = new Date()
-		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
-	})
+		.then(async () => {
+			const list = [];
+			let iterator = status.value.progress.max || 0
+			
+			while(iterator > 0)
+			{
+				iterator--
+				list.push(
+					B24.callMethod(
+						'user.current',
+						{}
+					).finally(() => {
+						(status.value.progress.value as number)++
+						logger.log(`>> Testing Parallel Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
+					})
+				)
+			}
+			
+			await Promise.all(list)
+		})
+		.then(() => {
+			listCallToMaxAll.value = listCallToMaxAll.value * 2
+		})
+		.catch((error: Error|string) => {
+			result.addError(error)
+			logger.error(error)
+		})
+		.finally(() => {stopMakeProcess()})
 }
 
 async function makeSelectItemsList_v3()
@@ -183,33 +212,29 @@ async function makeSelectItemsList_v3()
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		return B24.callListMethod(
-			'crm.item.list',
-			{
-				entityTypeId: EnumCrmEntityTypeId.company,
-			},
-			(progress: number) => {
-				status.value.progress.value = progress
-				logger.log(`>> Getting All Elements >>> ${ status.value.progress.value }`)
-			},
-			'items'
-		)
-		.then((response) => {
-			const ttl = response.getData().length
-			logger.log(`>> Getting All Elements >>> ttl: ${ ttl }`)
-			status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
+		.then(async () => {
+			return B24.callListMethod(
+				'crm.item.list',
+				{
+					entityTypeId: EnumCrmEntityTypeId.company,
+				},
+				(progress: number) => {
+					status.value.progress.value = progress
+					logger.log(`>> Getting All Elements >>> ${ status.value.progress.value }`)
+				},
+				'items'
+			)
+				.then((response) => {
+					const ttl = response.getData().length
+					logger.log(`>> Getting All Elements >>> ttl: ${ ttl }`)
+					status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
+				})
 		})
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		logger.error(error)
-	})
-	.finally(() => {
-		status.value.isProcess = false
-		status.value.time.stop = new Date()
-		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
-	})
+		.catch((error: Error|string) => {
+			result.addError(error)
+			logger.error(error)
+		})
+		.finally(() => {stopMakeProcess()})
 }
 
 async function makeSelectItemsList_v4()
@@ -229,44 +254,39 @@ async function makeSelectItemsList_v4()
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		let generator = B24.fetchListMethod(
-			'crm.item.list',
+		.then(async () => {
+			let generator = B24.fetchListMethod(
+				'crm.item.list',
+				{
+					entityTypeId: EnumCrmEntityTypeId.company,
+					select: [
+						'id',
+						'title'
+					]
+				},
+				'id',
+				'items'
+			)
+			
+			let ttl = 0
+			
+			for await (let entities of generator)
 			{
-				entityTypeId: EnumCrmEntityTypeId.company,
-				select: [
-					'id',
-					'title'
-				]
-			},
-			'id',
-			'items'
-		)
-		
-		let ttl = 0
-		
-		for await (let entities of generator)
-		{
-			for(let entity of entities)
-			{
-				ttl++;
-				logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ ttl } ...`, entity)
-				
-				status.value.processInfo = `[id:${entity.id}] ${entity.title}`
+				for(let entity of entities)
+				{
+					ttl++;
+					logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ ttl } ...`, entity)
+					
+					status.value.processInfo = `[id:${entity.id}] ${entity.title}`
+				}
 			}
-		}
-		status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		logger.error(error)
-	})
-	.finally(() => {
-		status.value.isProcess = false
-		status.value.time.stop = new Date()
-		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
-		status.value.processInfo = null
-	})
+			status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
+		})
+		.catch((error: Error|string) => {
+			result.addError(error)
+			logger.error(error)
+		})
+		.finally(() => {stopMakeProcess()})
 }
 
 let needAdd = ref(10);
@@ -295,54 +315,49 @@ async function makeSelectItemsList_v5()
 		
 		return resolve(null)
 	})
-	.then(() => {
-		let commands = []
-		
-		let iterator = 0
-		while(iterator < needAdd.value)
-		{
-			iterator++
-			commands.push({
-				method: 'crm.item.add',
-				params: {
-					entityTypeId: EnumCrmEntityTypeId.company,
-					fields: {
-						title: useUniqId(),
-						comments: '[B]Auto generate[/B] from [URL=https://bitrix24.github.io/b24jssdk/]@bitrix24/b24jssdk-playground[/URL]'
+		.then(() => {
+			let commands = []
+			
+			let iterator = 0
+			while(iterator < needAdd.value)
+			{
+				iterator++
+				commands.push({
+					method: 'crm.item.add',
+					params: {
+						entityTypeId: EnumCrmEntityTypeId.company,
+						fields: {
+							title: useUniqId(),
+							comments: '[B]Auto generate[/B] from [URL=https://bitrix24.github.io/b24jssdk/]@bitrix24/b24jssdk-playground[/URL]'
+						}
 					}
-				}
-			})
-		}
-		
-		logger.info('Testing the batch processing work >> send >>> ', commands)
-		return B24.callBatch(
-			commands,
-			true
-		)
-	})
-	.then((response: Result) => {
-		let data: any = response.getData()
-		logger.info('Testing the batch processing work >> response >>> ', data)
-		
-		status.value.resultInfo = `It was add: ${ needAdd.value } elements`
-	})
-	.then(() => {
-		needAdd.value = needAdd.value + 10
-		if(needAdd.value > 50)
-		{
-			needAdd.value = 5
-		}
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		logger.error(error)
-	})
-	.finally(() => {
-		status.value.isProcess = false
-		status.value.time.stop = new Date()
-		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
-		status.value.processInfo = null
-	})
+				})
+			}
+			
+			logger.info('Testing the batch processing work >> send >>> ', commands)
+			return B24.callBatch(
+				commands,
+				true
+			)
+		})
+		.then((response: Result) => {
+			let data: any = response.getData()
+			logger.info('Testing the batch processing work >> response >>> ', data)
+			
+			status.value.resultInfo = `It was add: ${ needAdd.value } elements`
+		})
+		.then(() => {
+			needAdd.value = needAdd.value + 10
+			if(needAdd.value > 50)
+			{
+				needAdd.value = 5
+			}
+		})
+		.catch((error: Error|string) => {
+			result.addError(error)
+			logger.error(error)
+		})
+		.finally(() => {stopMakeProcess()})
 }
 
 async function makeSelectItemsList_v6()
@@ -367,65 +382,59 @@ async function makeSelectItemsList_v6()
 		
 		return resolve(null)
 	})
-	.then(() => {
-		
-		if(Number.isNaN(needEntityId))
-		{
-			return Promise.reject(new Error('Wrong entity Id'))
-		}
-		
-		let commands = {
-			getCompany: {
-				method: 'crm.item.get',
-				params: {
-					entityTypeId: EnumCrmEntityTypeId.company,
-					id: needEntityId
-				}
-			},
-			getAssigned: {
-				method: 'user.get',
-				params: {
-					ID: '$result[getCompany][item][assignedById]'
+		.then(() => {
+			
+			if(Number.isNaN(needEntityId))
+			{
+				return Promise.reject(new Error('Wrong entity Id'))
+			}
+			
+			let commands = {
+				getCompany: {
+					method: 'crm.item.get',
+					params: {
+						entityTypeId: EnumCrmEntityTypeId.company,
+						id: needEntityId
+					}
+				},
+				getAssigned: {
+					method: 'user.get',
+					params: {
+						ID: '$result[getCompany][item][assignedById]'
+					}
 				}
 			}
-		}
-		
-		logger.info('Testing the batch fetch work >> send >>> ', commands)
-		return B24.callBatch(
-			commands,
-			true
-		)
-	})
-	.then((response: Result) => {
-		let data: any = response.getData()
-		logger.info('Testing the batch fetch work >> response >>> ', data)
-		
-		const assigned = data.getAssigned[0] as UserBrief | null
-		
-		let assignedInfo = ''
-		if(!!assigned)
-		{
-			assignedInfo = [
-				`id: ${assigned.ID}`,
-				assigned.ACTIVE ? 'active' : 'not active',
-				assigned.LAST_NAME,
-				assigned.NAME,
-			].join(' ')
-		}
-		
-		status.value.resultInfo = `entityId: ${data.getCompany.item?.id || '?'}; assigned: ${assignedInfo}`
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		logger.error(error)
-	})
-	.finally(() => {
-		status.value.isProcess = false
-		status.value.time.stop = new Date()
-		status.value.time.diff = Math.abs(status.value.time.stop - status.value.time.start)
-		status.value.processInfo = null
-	})
-	
+			
+			logger.info('Testing the batch fetch work >> send >>> ', commands)
+			return B24.callBatch(
+				commands,
+				true
+			)
+		})
+		.then((response: Result) => {
+			let data: any = response.getData()
+			logger.info('Testing the batch fetch work >> response >>> ', data)
+			
+			const assigned = data.getAssigned[0] as UserBrief | null
+			
+			let assignedInfo = ''
+			if(!!assigned)
+			{
+				assignedInfo = [
+					`id: ${assigned.ID}`,
+					assigned.ACTIVE ? 'active' : 'not active',
+					assigned.LAST_NAME,
+					assigned.NAME,
+				].join(' ')
+			}
+			
+			status.value.resultInfo = `entityId: ${data.getCompany.item?.id || '?'}; assigned: ${assignedInfo}`
+		})
+		.catch((error: Error|string) => {
+			result.addError(error)
+			logger.error(error)
+		})
+		.finally(() => {stopMakeProcess()})
 }
 // endregion ////
 
@@ -445,6 +454,7 @@ const problemMessageList = (result: IResult) => {
 	return problemMessageList;
 }
 // endregion ////
+
 </script>
 
 <template>
@@ -526,12 +536,23 @@ const problemMessageList = (result: IResult) => {
 			</div>
 			<div class="flex-1">
 				<div class="px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
-					<h3 class="text-h5 font-semibold">{{ status.title }}</h3>
+					<div class="w-full flex items-center justify-between">
+						<h3 class="text-h5 font-semibold">{{ status.title }}</h3>
+						<button
+							type="button"
+							class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded pl-1 pr-3 py-1.5 leading-none text-3xs font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+							@click="clearConsole"
+						>
+							<TrashBinIcon class="size-4"/>
+							<div class="text-nowrap truncate">Clear console</div>
+						</button>
+					</div>
+					
 					<ul class="text-xs mt-sm2" v-show="status.messages.length > 0">
 						<li v-for="(message, index) in status.messages" :key="index">{{ message }}</li>
-						<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time.start, 'H:i:s') }}</li>
-						<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time.stop, 'H:i:s') }}</li>
-						<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time.diff) }} ms</li>
+						<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time?.start || new Date, 'H:i:s') }}</li>
+						<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time?.stop || new Date, 'H:i:s') }}</li>
+						<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time?.diff || 0) }} ms</li>
 						<li class="mt-2 pl-2 text-base-800 font-bold" v-show="null !== status.resultInfo">{{ status.resultInfo }}</li>
 					</ul>
 					
@@ -540,12 +561,13 @@ const problemMessageList = (result: IResult) => {
 						<ProgressBar
 							:animation="status.progress.animation"
 							:indicator="status.progress.indicator"
-							:value="status.progress.value"
-							:max="status.progress.max"
+							:value="status.progress?.value || 0"
+							:max="status.progress?.max || 0"
 						>
 							<template
 								v-if="status.progress.indicator"
-								#indicator="{ percent }">
+								#indicator
+							>
 								<div class="text-right min-w-[60px] text-xs w-full">
 									<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
 								</div>

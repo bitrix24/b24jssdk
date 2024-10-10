@@ -6,6 +6,7 @@ import type {
 export type TypeUser = {
 	readonly isAdmin: boolean;
 	
+	readonly id: null|number;
 	readonly lastName: null|string;
 	readonly name: null|string;
 	

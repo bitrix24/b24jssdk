@@ -46,6 +46,7 @@ export class PropertiesManager
 			let data = response.getData();
 			
 			this.#user = {
+				id: Number(data.GetProfile.ID),
 				isAdmin: data.GetProfile.ADMIN === true,
 				
 				lastName: data.GetProfile?.LAST_NAME || '',

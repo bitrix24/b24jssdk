@@ -4,6 +4,7 @@ import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { B24Frame } from '@bitrix24/b24jssdk/frame'
 import type {B24FrameQueryParams} from "@bitrix24/b24jssdk/types/auth";
 import Info from "../../components/Info.vue";
+import Avatar from "../../components/Avatar.vue";
 import BtnSpinnerIcon from '@bitrix24/b24icons-vue/button-specialized/BtnSpinnerIcon'
 import ProgressBar from "~/components/ProgressBar.vue";
 import TrashBinIcon from "@bitrix24/b24icons-vue/main/TrashBinIcon";
@@ -65,6 +66,7 @@ const status: Ref<IStatus> = ref({
 
 let result: IResult = reactive(new Result())
 const { formatterDateTime, formatterNumber } = useFormatter('en-US')
+const { t, locales, setLocale } = useI18n()
 
 onMounted(async (): Promise<void> => {
 	return (():Promise<B24Frame> => new Promise((resolve, reject) => {
@@ -110,6 +112,19 @@ onMounted(async (): Promise<void> => {
 	.then((b24Frame: B24Frame): void => {
 		B24 = b24Frame
 		B24.setLogger(LoggerBrowser.build('Core', true))
+		const appB24Lang = B24.getLang();
+		
+		if(locales.value.filter(i => i.code === appB24Lang).length > 0)
+		{
+			setLocale(appB24Lang);
+			
+			logger.log('setLocale >>>', appB24Lang);
+		}
+		else
+		{
+			logger.warn('not support locale >>>', appB24Lang);
+		}
+		
 		isInit.value = true
 	})
 	.then(() => {
@@ -157,7 +172,6 @@ const reInitStatus = () => {
 	status.value.time.diff = null
 }
 
-
 const makeReloadWindow = async () => {
 	if(!isInit.value)
 	{
@@ -171,6 +185,14 @@ const makeReloadWindow = async () => {
 		logger.error(error);
 	})
 }
+
+const makeOpenSliderForUser = async(userId: number) => {
+	return B24.slider.openPath(
+		B24.slider.getUrl(`/company/personal/user/${userId}/`),
+		950
+	)
+}
+
 // endregion ////
 
 // region Error ////
@@ -202,11 +224,7 @@ const problemMessageList = (result: IResult) => {
 	</div>
 	<div v-else>
 		<ClientOnly>
-			<Info>
-				Scopes: <code>user_brief</code>, <code>crm</code><br><br>
-				To view query results, open the developer console.
-			</Info>
-			<div class="mt-10 flex flex-col sm:flex-row gap-10">
+			<div class="mt-2 flex flex-col sm:flex-row gap-10">
 				<div class="basis-1/4 flex flex-col gap-y-6">
 					<button
 						type="button"
@@ -217,15 +235,42 @@ const problemMessageList = (result: IResult) => {
 						<Refresh7Icon class="size-6"/>
 						<div class="text-nowrap truncate">Reload window</div>
 					</button>
+					
+					<Info class="mt-6">
+						Scopes: <code>user_brief</code>, <code>crm</code><br><br>
+						To view query results, open the developer console.
+					</Info>
 				</div>
 				<div class="flex-1">
-					<div class="px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
+					<div class="px-lg2 py-sm2 border border-base-100 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
+						<div class="flex items-center gap-4">
+							<Avatar
+								:src="B24.properties.userInfo?.photo || ''"
+								:alt="B24.properties.userInfo.lastName || 'user' "
+							/>
+							<div class="font-medium dark:text-white" >
+								<div class="hover:underline hover:text-info-link cursor-pointer" @click="makeOpenSliderForUser(B24.properties.userInfo.id || 0)">{{ [
+									B24.properties.userInfo.lastName,
+									B24.properties.userInfo.name,
+								].join(' ') }}</div>
+								<div class="text-sm text-gray-500 dark:text-gray-400">{{
+									B24.properties.userInfo.isAdmin ? 'Admin' : 'NotAdmin'
+								}} at {{ B24.properties.hostName.replace('https://', '') }}</div>
+							</div>
+						</div>
+					</div>
+					<div class="mt-6 px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
 						<h3 class="text-h5 font-semibold">{{ B24.properties.hostName }}</h3>
+						<div>
+							some message <br>
+							{{ $t('alert_title') }} <br>
+							{{ $t('error') }}
+						</div>
 						<ul class="text-xs mt-sm2">
 							<li class="mt-2 pl-2 text-base-600" >user: {{ [
-	                            B24.properties.userInfo.lastName,
-	                            B24.properties.userInfo.name,
-	                            B24.properties.userInfo.isAdmin ? 'Admin' : 'NotAdmin',
+								B24.properties.userInfo.lastName,
+								B24.properties.userInfo.name,
+								B24.properties.userInfo.isAdmin ? 'Admin' : 'NotAdmin',
 							].join(' ') }}</li>
 							<!-- li><img
 								class="rounded-full w-auto h-10"
@@ -301,5 +346,6 @@ const problemMessageList = (result: IResult) => {
 				<div><Forward3Icon class="mt-4 size-6 rotate-90" /></div>
 			</div>
 		</ClientOnly>
+		
 	</div>
 </template>

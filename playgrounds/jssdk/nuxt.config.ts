@@ -25,4 +25,33 @@ export default defineNuxtConfig({
 			autoprefixer: {},
 		},
 	},
+	modules: [
+		'@nuxtjs/i18n'
+	],
+	i18n: {
+		detectBrowserLanguage: false,
+		strategy: 'no_prefix',
+		lazy: true,
+		langDir: 'locales',
+		locales: [
+			{
+				code: 'tr',
+				iso: 'tr_TR',
+				name: 'Türkçe',
+				file: 'tr-TR.json',
+			},
+			{
+				code: 'en',
+				iso: 'en_US',
+				name: 'English',
+				file: 'en-US.json',
+			},
+			
+		],
+		/**
+		 * @memo defaultLocale mast be last at locales[]
+		 * @see https://i18n.nuxtjs.org/docs/v7/strategies#no_prefix
+		 */
+		defaultLocale: 'en',
+	},
 })

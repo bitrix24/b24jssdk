@@ -1,3 +1,3 @@
 # @bitrix24/b24jssdk-nuxt
 
-Test version.
+Bitrix24 REST API JS SDK for nuxt

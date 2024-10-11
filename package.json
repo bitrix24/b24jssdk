@@ -23,6 +23,7 @@
 	"scripts": {
 		"build": "npm-run-all -s build:*",
 		"build:jssdk-unbuild": "npm run --workspace=@bitrix24/b24jssdk build",
+		"build:jssdk-nuxt-release": "npm run --workspace=@bitrix24/b24jssdk-nuxt release",
 		"playground-jssdk": "npm run --workspace=@bitrix24/b24jssdk-playground dev",
 		"docs:dev": "vitepress dev docs",
 		"docs:build": "vitepress build docs",

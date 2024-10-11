@@ -36,13 +36,11 @@ export default defineNuxtConfig({
 		locales: [
 			{
 				code: 'tr',
-				iso: 'tr_TR',
 				name: 'Türkçe',
 				file: 'tr-TR.json',
 			},
 			{
 				code: 'en',
-				iso: 'en_US',
 				name: 'English',
 				file: 'en-US.json',
 			},

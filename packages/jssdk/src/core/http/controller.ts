@@ -63,7 +63,7 @@ export default class Http
 				[LoggerType.log]: false,
 				[LoggerType.info]: false,
 				[LoggerType.warn]: false,
-				[LoggerType.error]: false,
+				[LoggerType.error]: true,
 				[LoggerType.trace]: false,
 			})
 		}

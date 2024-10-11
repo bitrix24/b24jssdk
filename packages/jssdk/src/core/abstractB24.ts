@@ -18,6 +18,9 @@ export abstract class AbstractB24
 		this._isInit = false;
 	}
 	
+	/**
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-functions/bx24-init.html
+	 */
 	get isInit(): boolean
 	{
 		return this._isInit;
@@ -37,6 +40,7 @@ export abstract class AbstractB24
 	setLogger(logger: LoggerBrowser): void
 	{
 		this._logger = logger
+		this.getHttpClient().setLogger(this.getLogger());
 	}
 	
 	getLogger(): LoggerBrowser
@@ -52,7 +56,7 @@ export abstract class AbstractB24
 				[LoggerType.log]: false,
 				[LoggerType.info]: false,
 				[LoggerType.warn]: false,
-				[LoggerType.error]: false,
+				[LoggerType.error]: true,
 				[LoggerType.trace]: false,
 			})
 		}
@@ -69,9 +73,9 @@ export abstract class AbstractB24
 	 * @param {object} params
 	 * @param {number} start
 	 *
-	 * @return {object} Promise
+	 * @return {Promise}
 	 *
-	 * @see https://dev.1c-bitrix.ru/rest_help/js_library/rest/callMethod.php BX24.callMethod
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
 	 */
 	callMethod(
 		method: string,
@@ -93,7 +97,7 @@ export abstract class AbstractB24
 	 * @param  {object} params Request parameters
 	 * @param {null|Function} progress Processing steps
 	 * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
-	 * @return {object} Promise
+	 * @return {Promise}
 	 */
 	async callListMethod(
 		method: string,
@@ -218,7 +222,7 @@ export abstract class AbstractB24
 			
 			yield data;
 			
-			if(data.length < 50)
+			if(data.length < AbstractB24.batchSize)
 			{
 				break;
 			}
@@ -243,9 +247,10 @@ export abstract class AbstractB24
 	 * calls = [{method:method,params:params},[method,params]];
 	 * calls = {call_id:[method,params],...};
 	 * @param  {boolean} isHaltOnError Abort package execution when an error occurs
-	 * @return {object} Promise
 	 *
-	 * @see https://dev.1c-bitrix.ru/rest_help/js_library/rest/callBatch.php BX24.callBatch
+	 * @return {Promise} Promise
+	 *
+	 * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
 	 */
 	callBatch(
 		calls: Array<any>|object,

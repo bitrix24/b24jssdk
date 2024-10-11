@@ -1,0 +1,72 @@
+{
+	"name": "@bitrix24/b24jssdk-nuxt",
+	"version": "0.1.0",
+	"author": "Bitrix",
+	"license": "MIT",
+	"description": "Bitrix24 REST API JS SDK for Nuxt",
+	"keywords": [
+		"bitrix24",
+		"restapi",
+		"nuxt"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/bitrix24/b24jssdk.git",
+		"directory": "packages/jssdk-nuxt"
+	},
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/types.d.ts",
+			"import": "./dist/module.mjs",
+			"require": "./dist/module.cjs"
+		}
+	},
+	"main": "./dist/module.cjs",
+	"types": "./dist/types.d.ts",
+	"files": [
+		"README.md",
+		"LICENSE",
+		"dist"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"prepack": "nuxt-module-build build",
+		"dev": "nuxi dev playground",
+		"dev:build": "nuxi build playground",
+		"dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
+		"_release": "npm run lint && npm run test && npm run prepack",
+		"release": "npm run test && npm run prepack",
+		"lint": "eslint .",
+		"test": "vitest run",
+		"test:watch": "vitest watch",
+		"test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+	},
+	"dependencies": {
+		"@nuxt/kit": "^3.13.0",
+		"defu": "^6.1.4",
+		"consola": "^3.2.3",
+		"@bitrix24/b24jssdk": "*"
+	},
+	"peerDependencies": {},
+	"devDependencies": {
+		"@nuxt/devtools": "^1.4.1",
+		"@nuxt/eslint-config": "^0.5.5",
+		"@nuxt/module-builder": "^0.8.3",
+		"@nuxt/schema": "^3.13.1",
+		"@nuxt/test-utils": "^3.14.1",
+		"@types/node": "^22.5.3",
+		"eslint": "^9.9.1",
+		"nuxt": "^3.13.1",
+		"typescript": "latest",
+		"vitest": "^2.0.5",
+		"vue-tsc": "^2.1.4",
+		"@bitrix24/b24style": "^0.1.2",
+		"tailwindcss": "^3.4.11",
+		"autoprefixer": "^10.4.20",
+		"postcss": "^8.4.47"
+	},
+	"resolutions": {}
+}

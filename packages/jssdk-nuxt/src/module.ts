@@ -1,6 +1,6 @@
 import {defu} from 'defu'
 import {defineNuxtModule, addPlugin, useNuxt, createResolver} from '@nuxt/kit'
-import logger, {LogLevels} from './logger/server'
+import logger, { LogLevels } from './logger/server'
 
 export interface ModuleOptions
 {
@@ -45,7 +45,7 @@ export default defineNuxtModule<ModuleOptions>({
 		 */
 		logger.withTag('setup').start('Start @bitrix24/b24jssdk-nuxt ...');
 		
-		const resolver = createResolver(import.meta.url);
+		const resolver = createResolver( import.meta.url );
 		
 		// Plugins ////
 		addPlugin({

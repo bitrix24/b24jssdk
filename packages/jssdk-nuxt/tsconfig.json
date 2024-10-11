@@ -3,6 +3,11 @@
   "exclude": [
     "dist",
     "node_modules",
-    "playground",
-  ]
+    "playground"
+  ],
+  "compilerOptions": {
+    
+    "target": "ESNext",
+    "moduleDetection": "force"
+  }
 }

@@ -16,4 +16,8 @@ export enum MessageCommands
 	openApplication = 'openApplication',
 	closeApplication = 'closeApplication',
 	openPath = 'openPath',
+	imCallTo = 'imCallTo',
+	imPhoneTo = 'imPhoneTo',
+	imOpenMessenger = 'imOpenMessenger',
+	imOpenHistory = 'imOpenHistory',
 }

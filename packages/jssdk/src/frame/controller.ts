@@ -1,7 +1,7 @@
 import { B24LangList } from "../core/language/list";
 import { AbstractB24 } from '../core/abstractB24';
 import Http from "../core/http/controller";
-import { LoggerBrowser, LoggerType } from "../logger/browser";
+import { LoggerBrowser } from "../logger/browser";
 import { PropertiesManager } from "./properties";
 import { PlacementManager } from "./placement";
 import { AuthManager } from "./auth";
@@ -73,6 +73,12 @@ export class B24Frame
 		);
 		
 		this._isInit = false;
+	}
+	
+	override setLogger(logger: LoggerBrowser): void
+	{
+		super.setLogger(logger)
+		this.#messageManager.setLogger(this.getLogger())
 	}
 	
 	get isFirstRun(): boolean
@@ -220,7 +226,7 @@ export class B24Frame
 	/**
 	 * Signals that the installer or application setup has finished running.
 	 *
-	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/system/installFinish.php
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-functions/bx24-install-finish.html
 	 */
 	async installFinish(): Promise<any>
 	{
@@ -238,16 +244,57 @@ export class B24Frame
 	
 	// region Get ////
 	/**
+	 * Returns the sid of the application relative to the parent window like this `9c33468728e1d2c8c97562475edfd96`
+	 */
+	getAppSid(): string
+	{
+		if(!this.isInit)
+		{
+			this.#errorNoInit('getAppSid')
+		}
+		
+		return this.#appFrame.getAppSid()
+	}
+	
+	/**
+	 * Get the account address BX24 ( https://name.bitrix24.com )
+	 */
+	getTargetOrigin(): string
+	{
+		if(!this.isInit)
+		{
+			this.#errorNoInit('getTargetOrigin')
+		}
+		
+		return this.#appFrame.getTargetOrigin()
+	}
+	
+	/**
+	 * Get the account address BX24 with Path ( https://name.bitrix24.com/rest )
+	 */
+	getTargetOriginWithPath(): string
+	{
+		if(!this.isInit)
+		{
+			this.#errorNoInit('getTargetOriginWithPath')
+		}
+		
+		return this.#appFrame.getTargetOriginWithPath()
+	}
+	
+	/**
 	 * Returns the localization of the B24 interface
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-get-lang.html
 	 */
 	getLang(): B24LangList
 	{
 		if(!this.isInit)
 		{
-			this.#errorNoInit('getLang');
+			this.#errorNoInit('getLang')
 		}
 		
-		return this.#appFrame.getLang();
+		return this.#appFrame.getLang()
 	}
 	// endregion ////
 	

@@ -53,6 +53,8 @@ export class AuthManager
 	
 	/**
 	 * Returns authorization data
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-functions/bx24-get-auth.html
 	 */
 	getAuthData(): false|AuthData
 	{
@@ -69,6 +71,8 @@ export class AuthManager
 	
 	/**
 	 * Updates authorization data through the parent window
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-functions/bx24-refresh-auth.html
 	 */
 	async refreshAuth(): Promise<AuthData>
 	{
@@ -89,7 +93,8 @@ export class AuthManager
 	
 	/**
 	 * Determines whether the current user has administrator rights
-	 * @see https://dev.1c-bitrix.ru/rest_help/js_library/additional/isAdmin.php
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-is-admin.html
 	 */
 	get isAdmin(): boolean
 	{

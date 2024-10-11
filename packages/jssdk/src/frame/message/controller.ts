@@ -31,23 +31,41 @@ export class MessageManager
 {
 	#appFrame: AppFrame;
 	#callbackPromises: Map<string, PromiseHandlers>;
-	
-	logger: LoggerBrowser;
+	protected _logger: null|LoggerBrowser = null;
 	
 	constructor(
 		appFrame: AppFrame
 	)
 	{
-		this.logger = LoggerBrowser.build('b24frame:message');
-		
-		this.logger.disable(LoggerType.desktop);
-		this.logger.disable(LoggerType.log);
-		//this.logger.disable(LoggerType.info);
-		//this.logger.disable(LoggerType.warn);
-		
 		this.#appFrame = appFrame;
 		
 		this.#callbackPromises = new Map();
+	}
+	
+	setLogger(logger: LoggerBrowser): void
+	{
+		this._logger = logger
+	}
+	
+	getLogger(): LoggerBrowser
+	{
+		if(null === this._logger)
+		{
+			this._logger = LoggerBrowser.build(
+				`NullLogger`
+			)
+			
+			this._logger.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: false,
+				[LoggerType.warn]: false,
+				[LoggerType.error]: true,
+				[LoggerType.trace]: false,
+			})
+		}
+		
+		return this._logger;
 	}
 	
 	// region Events ////
@@ -117,7 +135,7 @@ export class MessageManager
 				cmd += ':' + listParams.filter(Boolean).join(':');
 			}
 			
-			this.logger.log(`send to ${this.#appFrame.getTargetOrigin()}`, {cmd});
+			this.getLogger().log(`send to ${this.#appFrame.getTargetOrigin()}`, {cmd});
 			
 			parent.postMessage(
 				cmd,
@@ -132,7 +150,7 @@ export class MessageManager
 						
 						if(this.#callbackPromises.has(keyPromise))
 						{
-							this.logger.warn(
+							this.getLogger().warn(
 								`Action ${command.toString()} stop by timeout`
 							);
 							
@@ -161,7 +179,7 @@ export class MessageManager
 		
 		if(!!event.data)
 		{
-			this.logger.log(`get from ${event.origin}`, {
+			this.getLogger().log(`get from ${event.origin}`, {
 				data: event.data
 			});
 			

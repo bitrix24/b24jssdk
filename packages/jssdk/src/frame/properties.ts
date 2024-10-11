@@ -14,7 +14,8 @@ import type {
 
 /**
  * Characteristics of B24 and the current user
- * @link https://dev.1c-bitrix.ru/rest_help/general/app_info.php
+ * @link https://apidocs.bitrix24.com/api-reference/common/system/app-info.html
+ * @link https://apidocs.bitrix24.com/api-reference/common/users/profile.html
  */
 export class PropertiesManager
 {

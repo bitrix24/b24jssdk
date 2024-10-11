@@ -64,7 +64,7 @@ export class AppFrame
 	}
 	
 	/**
-	 * Returns the sid of the application relative to the parent window
+	 * Returns the sid of the application relative to the parent window like this `9c33468728e1d2c8c97562475edfd96`
 	 */
 	getAppSid(): string
 	{
@@ -77,13 +77,16 @@ export class AppFrame
 	}
 	
 	/**
-	 * Returns the URL of the parent window (B24)
+	 * Get the account address BX24 ( https://name.bitrix24.com )
 	 */
 	getTargetOrigin(): string
 	{
 		return `${this.#protocol ? 'https' : 'http'}://${this.#domain}`;
 	}
 	
+	/**
+	 * Get the account address BX24 with Path ( https://name.bitrix24.com/rest )
+	 */
 	getTargetOriginWithPath(): string
 	{
 		return this.getTargetOrigin() + (this.#path ?? '');
@@ -91,6 +94,9 @@ export class AppFrame
 	
 	/**
 	 * Returns the localization of the B24 interface
+	 * @return {B24LangList} - default B24LangList.en
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-get-lang.html
 	 */
 	getLang(): B24LangList
 	{

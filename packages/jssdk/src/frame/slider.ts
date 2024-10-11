@@ -19,11 +19,19 @@ export class SliderManager
 		this.#messageManager = messageManager;
 	}
 	
-	getUrl(path: string = '/'): URL
+	/**
+	 * Returns the URL relative to the domain name and path
+	 */
+	getUrl(
+		path: string = '/'
+	): URL
 	{
 		return new URL(path, this.#appFrame.getTargetOrigin());
 	}
 	
+	/**
+	 * Get the account address BX24
+	 */
 	getTargetOrigin(): string
 	{
 		return this.#appFrame.getTargetOrigin();
@@ -32,7 +40,7 @@ export class SliderManager
 	/**
 	 * When the method is called, a pop-up window with the application frame will be opened.
 	 *
-	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/openApplication.php
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-open-application.html
 	 */
 	async openSliderAppPage(params: any = {}): Promise<any>
 	{
@@ -84,8 +92,11 @@ export class SliderManager
 	
 	/**
 	 * Opens the specified path inside the portal in the slider.
+	 * @param {URL} url
+	 * @param {number} width - Number in the range from 1640 to 1200, from 1200 to 950, from 950 to 900, from 900 ...
+	 * @return {Promise<StatusClose>}
 	 *
-	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/openPath.php
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-open-path.html
 	 * @memo /^\/(crm\/(deal|lead|contact|company|type)|marketplace|company\/personal\/user\/[0-9]+|workgroups\/group\/[0-9]+)\//
 	 */
 	async openPath(

@@ -5,7 +5,7 @@ import useScrollSize from "../tools/scrollSize";
 /**
  * Parent window manager
  *
- * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/index.php
+ * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/
  */
 export class ParentManager
 {
@@ -21,15 +21,17 @@ export class ParentManager
 	/**
 	 * The method closes the open modal window with the application
 	 *
-	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/closeapplication.php
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-close-application.html
 	 */
-	async closeApplication(): Promise<any>
+	async closeApplication(): Promise<void>
 	{
 		return this.#messageManager.send(
 			MessageCommands.closeApplication,
 			{
 				/**
-				 * @memo Нет cмысла - будет закрыто все и таймаут не сможет ничего сделать
+				 * @memo There is no point - everything will be closed and timeout will not be able to do anything
 				 */
 				isSafely: false
 			}
@@ -38,14 +40,17 @@ export class ParentManager
 	
 	/**
 	 * Sets the size of the frame containing the application to the size of the frame's content.
-	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/fitWindow.php
+	 *
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-fit-window.html
 	 *
 	 * @memo in certain situations it may not be executed (placement of the main window after installing the application), in this case isSafely mode will work
 	 */
 	fitWindow(): Promise<any>
 	{
 		let width = '100%';
-		let height = useScrollSize().scrollHeight;
+		let height = this.getScrollSize().scrollHeight;
 		
 		return this.#messageManager.send(
 			MessageCommands.resizeWindow,
@@ -59,14 +64,20 @@ export class ParentManager
 	
 	/**
 	 * Sets the size of the frame containing the application to the size of the frame's content.
-	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/resizeWindow.php
+	 *
+	 * @param {number} width
+	 * @param {number} height
+	 *
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-resize-window.html
 	 *
 	 * @memo in certain situations it may not be executed, in this case isSafely mode will be triggered
 	 */
 	resizeWindow(
 		width: number,
 		height: number
-	): Promise<any>
+	): Promise<void>
 	{
 		if(width > 0 && height > 0)
 		{
@@ -86,19 +97,20 @@ export class ParentManager
 	}
 	
 	/**
-	 * Automatically resize document.body of frame with application according to frame content dimensions
+	 * Automatically resize `document.body` of frame with application according to frame content dimensions
 	 * If you pass appNode, the height will be calculated relative to it
 	 *
 	 * @param {HTMLElement|null} appNode
-	 * @param {Number|null} minHeight
-	 * @param {Number|null} minWidth
-	 * @return {Promise<any>}
+	 * @param {number} minHeight
+	 * @param {number} minWidth
+	 *
+	 * @return {Promise<void>}
 	 */
 	async resizeWindowAuto(
 		appNode: null|HTMLElement = null,
 		minHeight: number = 0,
 		minWidth: number = 0
-	): Promise<any>
+	): Promise<void>
 	{
 		const body = document.body;
 		//const html = document.documentElement;
@@ -143,7 +155,6 @@ export class ParentManager
 		 * @memo something is wrong with the build - I loaded delta - the scroll jumped constantly
 		 */
 		height = height + 4;
-		// console.log({ width, height }); ////
 		
 		return this.resizeWindow(
 			width,
@@ -152,33 +163,190 @@ export class ParentManager
 	}
 	
 	/**
-	 * Set page title.
-	 * @param title
+	 * This function returns the inner dimensions of the application frame
 	 *
-	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/setTitle.php
+	 * @return {Promise<{scrollWidth: number; scrollHeight: number}>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-get-scroll-size.html
 	 */
-	async setTitle(
-		title: string
-	): Promise<any>
+	getScrollSize(): {
+		scrollWidth: number;
+		scrollHeight: number
+	}
 	{
+		return useScrollSize()
+	}
+	
+	/**
+	 * Scrolls the parent window
+	 *
+	 * @param {number} scroll should specify the vertical scrollbar position (0 - scroll to the very top)
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-scroll-parent-window.html
+	 */
+	async scrollParentWindow(
+		scroll: number
+	): Promise<void>
+	{
+		if(!Number.isInteger(scroll))
+		{
+			return Promise.reject(new Error('Wrong scroll number'))
+		}
+		
+		if(scroll < 0)
+		{
+			scroll = 0
+		}
+		
 		return this.#messageManager.send(
-			MessageCommands.setTitle,
+			MessageCommands.setScroll,
 			{
-				title: title.toString()
+				scroll,
+				isSafely: true
 			}
-		);
+		)
 	}
 	
 	/**
 	 * Reload the page with the application (the whole page, not just the frame).
 	 *
-	 * @link https://dev.1c-bitrix.ru/rest_help/js_library/additional/reloadWindow.php
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-reload-window.html
 	 */
-	async reloadWindow(): Promise<any>
+	async reloadWindow(): Promise<void>
 	{
 		return this.#messageManager.send(
 			MessageCommands.reloadWindow,
-			{}
+			{
+				isSafely: true
+			}
 		);
+	}
+	
+	/**
+	 * Set Page Title
+	 *
+	 * @param {string} title
+	 *
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-set-title.html
+	 */
+	async setTitle(
+		title: string
+	): Promise<void>
+	{
+		return this.#messageManager.send(
+			MessageCommands.setTitle,
+			{
+				title: title.toString(),
+				isSafely: true
+			}
+		);
+	}
+	
+	/**
+	 * Initiates a call via internal communication
+	 *
+	 * @param {number} userId The identifier of the account user
+	 * @param {boolean} isVideo true - video call, false - audio call. Optional parameter.
+	 *
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-call-to.html
+	 */
+	async imCallTo(
+		userId: number,
+		isVideo: boolean = true
+	): Promise<void>
+	{
+		return this.#messageManager.send(
+			MessageCommands.imCallTo,
+			{
+				userId,
+				video: isVideo,
+				isSafely: true
+			}
+		)
+	}
+	
+	/**
+	 * Makes a call to the phone number
+	 *
+	 * @param {string} phone Phone number. The number can be in the format: `xxxxxxxxxxx` or `x (xxx) xxx-xx-xx`
+	 *
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-phone-to.html
+	 */
+	async imPhoneTo(
+		phone: string
+	): Promise<void>
+	{
+		return this.#messageManager.send(
+			MessageCommands.imPhoneTo,
+			{
+				phone,
+				isSafely: true
+			}
+		)
+	}
+	
+	/**
+	 * Opens the messenger window
+	 * userId or chatXXX - chat, where XXX is the chat identifier, which can simply be a number.
+	 * sgXXX - group chat, where XXX is the social network group number (the chat must be enabled in this group).
+	 *
+	 * XXXX** - open line, where XXX is the code obtained via the Rest method imopenlines.network.join.
+	 *
+	 * If nothing is passed, the chat interface will open with the last opened dialog.
+	 *
+	 * @param {number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined} dialogId
+	 *
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-open-messenger.html
+	 * @link https://dev.1c-bitrix.ru/learning/course/index.php?COURSE_ID=93&LESSON_ID=20152&LESSON_PATH=7657.7883.8025.20150.20152
+	 *
+	 */
+	async imOpenMessenger(
+		dialogId: number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined
+	): Promise<void>
+	{
+		return this.#messageManager.send(
+			MessageCommands.imOpenMessenger,
+			{
+				dialogId: dialogId,
+				isSafely: true
+			}
+		)
+	}
+	
+	/**
+	 * Opens the history window
+	 * Identifier of the dialog:
+	 *
+	 * userId or chatXXX - chat, where XXX is the chat identifier, which can simply be a number.
+	 * imol|XXXX - open line, where XXX is the session number of the open line.
+	 *
+	 * @param {number|`chat${number}`|`imol|${number}`} dialogId
+	 *
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-open-history.html
+	 */
+	async imOpenHistory(
+		dialogId: number|`chat${number}`|`imol|${number}`
+	): Promise<void>
+	{
+		return this.#messageManager.send(
+			MessageCommands.imOpenHistory,
+			{
+				dialogId: dialogId,
+				isSafely: true
+			}
+		)
 	}
 }

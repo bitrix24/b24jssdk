@@ -1,4 +1,3 @@
-import { LoggerBrowser } from "../logger/browser";
 import type { MessageInitData } from "../types/auth";
 
 /**
@@ -9,17 +8,12 @@ import type { MessageInitData } from "../types/auth";
  */
 export class PlacementManager
 {
-	#title: string = '';
-	#options: object = {};
-	
-	private logger: LoggerBrowser;
+	#title: string = ''
+	#options: object = {}
 	
 	constructor()
 	{
-		this.logger = LoggerBrowser.build('b24frame:placementManager');
-		// this.logger.disable(LoggerType.log); ////
-		// this.logger.disable(LoggerType.info); ////
-		// this.logger.disable(LoggerType.warn); ////
+	
 	}
 	
 	/**

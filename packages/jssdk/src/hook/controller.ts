@@ -36,8 +36,7 @@ export class B24Hook
 	
 	override setLogger(logger: LoggerBrowser): void
 	{
-		super.setLogger(logger);
-		this.getHttpClient().setLogger(this.getLogger());
+		super.setLogger(logger)
 	}
 	// endregion ////
 	

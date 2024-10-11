@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * @todo show error if open not in iframe
+ */
 import { ref, reactive, type Ref, onMounted } from 'vue'
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { B24Frame } from '@bitrix24/b24jssdk/frame'
@@ -10,6 +13,11 @@ import ProgressBar from "~/components/ProgressBar.vue";
 import TrashBinIcon from "@bitrix24/b24icons-vue/main/TrashBinIcon";
 import Refresh7Icon from '@bitrix24/b24icons-vue/actions/Refresh7Icon'
 import Forward3Icon from '@bitrix24/b24icons-vue/actions/Forward3Icon'
+import CallChatIcon from '@bitrix24/b24icons-vue/main/CallChatIcon'
+import VideoAndChatIcon from '@bitrix24/b24icons-vue/main/VideoAndChatIcon'
+import TelephonyHandset6Icon from '@bitrix24/b24icons-vue/main/TelephonyHandset6Icon'
+import MessengerIcon from '@bitrix24/b24icons-vue/social/MessengerIcon'
+import DialogueIcon from '@bitrix24/b24icons-vue/crm/DialogueIcon'
 
 import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters";
 
@@ -112,7 +120,8 @@ onMounted(async (): Promise<void> => {
 	.then((b24Frame: B24Frame): void => {
 		B24 = b24Frame
 		B24.setLogger(LoggerBrowser.build('Core', true))
-		const appB24Lang = B24.getLang();
+		
+		const appB24Lang = B24.getLang()
 		
 		if(locales.value.filter(i => i.code === appB24Lang).length > 0)
 		{
@@ -128,7 +137,7 @@ onMounted(async (): Promise<void> => {
 		isInit.value = true
 	})
 	.then(() => {
-		 B24.parent.setTitle('[playgrounds] Testing Frame')
+		B24.parent.setTitle('[playgrounds] Testing Frame')
 	 })
 	.catch((error: Error|string) => {
 		result.addError(error);
@@ -193,6 +202,78 @@ const makeOpenSliderForUser = async(userId: number) => {
 	)
 }
 
+const makeImCallTo = async(
+	isVideo: boolean = true
+) => {
+	const promptUserId = prompt(
+		'Please provide userId'
+	)
+	
+	const userId = Number(promptUserId)
+	
+	return B24.parent.imCallTo(
+		userId,
+		isVideo
+	)
+}
+
+const makeImPhoneTo = async() => {
+	const promptPhone = prompt(
+		'Please provide phone'
+	)
+	
+	const phone = String(promptPhone)
+	
+	return B24.parent.imPhoneTo(
+		phone
+	)
+}
+
+const makeImOpenMessenger = async() => {
+	const promptDialogId = prompt(
+		'Please provide dialogId (number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined)'
+	)
+	
+	let dialogId = String(promptDialogId)
+	
+	if(dialogId.length < 1)
+	{
+		dialogId = undefined
+	}
+	else if(
+		!dialogId.startsWith('chat')
+		&& !dialogId.startsWith('imol')
+		&& !dialogId.startsWith('sg')
+	)
+	{
+		dialogId = Number(dialogId)
+	}
+	
+	
+	return B24.parent.imOpenMessenger(
+		dialogId
+	)
+}
+
+const makeImOpenHistory = async() => {
+	const promptDialogId = prompt(
+		'Please provide dialogId (number|`chat${number}`|`imol|${number})'
+	)
+	
+	let dialogId = String(promptDialogId)
+	if(
+		!dialogId.startsWith('chat')
+		&& !dialogId.startsWith('imol')
+	)
+	{
+		dialogId = Number(dialogId)
+	}
+	
+	
+	return B24.parent.imOpenHistory(
+		dialogId
+	)
+}
 // endregion ////
 
 // region Error ////
@@ -234,6 +315,51 @@ const problemMessageList = (result: IResult) => {
 					>
 						<Refresh7Icon class="size-6"/>
 						<div class="text-nowrap truncate">Reload window</div>
+					</button>
+					<button
+						type="button"
+						class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+						@click="makeImCallTo(true)"
+						:disabled="status.isProcess"
+					>
+						<VideoAndChatIcon class="size-6"/>
+						<div class="text-nowrap truncate">Video call</div>
+					</button>
+					<button
+						type="button"
+						class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+						@click="makeImCallTo(false)"
+						:disabled="status.isProcess"
+					>
+						<CallChatIcon class="size-6"/>
+						<div class="text-nowrap truncate">Voice call</div>
+					</button>
+					<button
+						type="button"
+						class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+						@click="makeImPhoneTo"
+						:disabled="status.isProcess"
+					>
+						<TelephonyHandset6Icon class="size-6"/>
+						<div class="text-nowrap truncate">Telephony</div>
+					</button>
+					<button
+						type="button"
+						class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+						@click="makeImOpenMessenger"
+						:disabled="status.isProcess"
+					>
+						<MessengerIcon class="size-6"/>
+						<div class="text-nowrap truncate">Open Messenger</div>
+					</button>
+					<button
+						type="button"
+						class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded border border-base-500 pl-1 pr-3 py-2 text-sm font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+						@click="makeImOpenHistory"
+						:disabled="status.isProcess"
+					>
+						<DialogueIcon class="size-6"/>
+						<div class="text-nowrap truncate">Open History</div>
 					</button>
 					
 					<Info class="mt-6">

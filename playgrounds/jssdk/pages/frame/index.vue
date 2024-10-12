@@ -5,12 +5,12 @@
 import { ref, reactive, type Ref, onMounted } from 'vue'
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { B24Frame } from '@bitrix24/b24jssdk/frame'
-import type {B24FrameQueryParams} from "@bitrix24/b24jssdk/types/auth";
-import Info from "../../components/Info.vue";
-import Avatar from "../../components/Avatar.vue";
+import type { B24FrameQueryParams } from '@bitrix24/b24jssdk/types/auth'
+import Info from "../../components/Info.vue"
+import Avatar from "../../components/Avatar.vue"
 import BtnSpinnerIcon from '@bitrix24/b24icons-vue/button-specialized/BtnSpinnerIcon'
-import ProgressBar from "~/components/ProgressBar.vue";
-import TrashBinIcon from "@bitrix24/b24icons-vue/main/TrashBinIcon";
+import ProgressBar from "~/components/ProgressBar.vue"
+import TrashBinIcon from "@bitrix24/b24icons-vue/main/TrashBinIcon"
 import Refresh7Icon from '@bitrix24/b24icons-vue/actions/Refresh7Icon'
 import Forward3Icon from '@bitrix24/b24icons-vue/actions/Forward3Icon'
 import CallChatIcon from '@bitrix24/b24icons-vue/main/CallChatIcon'
@@ -19,7 +19,7 @@ import TelephonyHandset6Icon from '@bitrix24/b24icons-vue/main/TelephonyHandset6
 import MessengerIcon from '@bitrix24/b24icons-vue/social/MessengerIcon'
 import DialogueIcon from '@bitrix24/b24icons-vue/crm/DialogueIcon'
 
-import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters";
+import useFormatter from '@bitrix24/b24jssdk/tools/useFormatters'
 
 definePageMeta({
 	layout: "app"
@@ -31,8 +31,11 @@ const logger = LoggerBrowser.build(
 	true
 )
 
-let B24: B24Frame;
+let B24: B24Frame
 const isInit: Ref<boolean> = ref(false)
+let result: IResult = reactive(new Result())
+const { formatterDateTime, formatterNumber } = useFormatter('en-US')
+const { locales, setLocale } = useI18n()
 
 interface IStatus {
 	isProcess: boolean,
@@ -72,77 +75,60 @@ const status: Ref<IStatus> = ref({
 	}
 } as IStatus);
 
-let result: IResult = reactive(new Result())
-const { formatterDateTime, formatterNumber } = useFormatter('en-US')
-const { t, locales, setLocale } = useI18n()
+const initializeB24Frame = async (): Promise<B24Frame> => {
+	const queryParams: B24FrameQueryParams = {
+		DOMAIN: null,
+		PROTOCOL: false,
+		APP_SID: null,
+		LANG: null
+	}
+	
+	if(window.name)
+	{
+		const [domain, protocol, appSid] = window.name.split('|');
+		queryParams.DOMAIN = domain;
+		queryParams.PROTOCOL = parseInt(protocol) === 1;
+		queryParams.APP_SID = appSid;
+		queryParams.LANG = null;
+	}
+	
+	if(!queryParams.DOMAIN || !queryParams.APP_SID)
+	{
+		throw new Error('Unable to initialize Bitrix24Frame library!');
+	}
+	
+	const b24Frame = new B24Frame(queryParams)
+	await b24Frame.init()
+	logger.log('b24Frame:mounted')
+	return b24Frame
+}
 
-onMounted(async (): Promise<void> => {
-	return (():Promise<B24Frame> => new Promise((resolve, reject) => {
-		let b24Frame: null|B24Frame = null;
-		
-		let queryParams: B24FrameQueryParams = {
-			DOMAIN: null,
-			PROTOCOL: false,
-			APP_SID: null,
-			LANG: null
-		}
-		
-		logger.log('init', {
-			windowName: window.name || '?'
-		})
-		
-		if(!!window.name)
-		{
-			let q = window.name.split('|');
-			queryParams.DOMAIN = q[0];
-			queryParams.PROTOCOL = (parseInt(q[1]) || 0) === 1;
-			queryParams.APP_SID = q[2];
-			queryParams.LANG = null;
-		}
-		
-		if(!queryParams.DOMAIN || !queryParams.APP_SID)
-		{
-			reject(new Error('Unable to initialize Bitrix24Frame library!'));
-		}
-		b24Frame = new B24Frame(
-			queryParams
-		);
-		
-		b24Frame.init()
-		.then(() => {
-			logger.log(`b24Frame:mounted`)
-			resolve(b24Frame as B24Frame)
-		})
-		.catch((error) => {
-			reject(error);
-		})
-	}))()
-	.then((b24Frame: B24Frame): void => {
-		B24 = b24Frame
+onMounted(async () => {
+	try
+	{
+		B24 = await initializeB24Frame()
 		B24.setLogger(LoggerBrowser.build('Core', true))
-		
 		const appB24Lang = B24.getLang()
 		
 		if(locales.value.filter(i => i.code === appB24Lang).length > 0)
 		{
-			setLocale(appB24Lang);
-			
-			logger.log('setLocale >>>', appB24Lang);
+			setLocale(appB24Lang)
+			logger.log('setLocale >>>', appB24Lang)
 		}
 		else
 		{
-			logger.warn('not support locale >>>', appB24Lang);
+			logger.warn('not support locale >>>', appB24Lang)
 		}
 		
-		isInit.value = true
-	})
-	.then(() => {
 		B24.parent.setTitle('[playgrounds] Testing Frame')
-	 })
-	.catch((error: Error|string) => {
-		result.addError(error);
-		logger.error(error);
-	})
+		
+		isInit.value = true
+	}
+	catch(error: any)
+	{
+		result.addError(error)
+		logger.error(error)
+	}
 })
 // endregion ////
 
@@ -234,7 +220,7 @@ const makeImOpenMessenger = async() => {
 		'Please provide dialogId (number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined)'
 	)
 	
-	let dialogId = String(promptDialogId)
+	let dialogId: any = String(promptDialogId)
 	
 	if(dialogId.length < 1)
 	{
@@ -249,7 +235,6 @@ const makeImOpenMessenger = async() => {
 		dialogId = Number(dialogId)
 	}
 	
-	
 	return B24.parent.imOpenMessenger(
 		dialogId
 	)
@@ -260,7 +245,7 @@ const makeImOpenHistory = async() => {
 		'Please provide dialogId (number|`chat${number}`|`imol|${number})'
 	)
 	
-	let dialogId = String(promptDialogId)
+	let dialogId: any = String(promptDialogId)
 	if(
 		!dialogId.startsWith('chat')
 		&& !dialogId.startsWith('imol')
@@ -268,7 +253,6 @@ const makeImOpenHistory = async() => {
 	{
 		dialogId = Number(dialogId)
 	}
-	
 	
 	return B24.parent.imOpenHistory(
 		dialogId
@@ -393,16 +377,6 @@ const problemMessageList = (result: IResult) => {
 							{{ $t('error') }}
 						</div>
 						<ul class="text-xs mt-sm2">
-							<li class="mt-2 pl-2 text-base-600" >user: {{ [
-								B24.properties.userInfo.lastName,
-								B24.properties.userInfo.name,
-								B24.properties.userInfo.isAdmin ? 'Admin' : 'NotAdmin',
-							].join(' ') }}</li>
-							<!-- li><img
-								class="rounded-full w-auto h-10"
-								v-if="(B24.properties.userInfo?.photo || '').length > 0"
-								:src="B24.properties.userInfo?.photo || ''"
-							></li -->
 							<li class="mt-2 pl-2 text-base-600" >lang: {{ B24.properties.licenseInfo.languageId }}</li>
 							<li class="mt-2 pl-2 text-base-600" >license: {{ B24.properties.licenseInfo.license }}</li>
 							<li class="mt-2 pl-2 text-base-600" >licensePrevious: {{ B24.properties.licenseInfo.licensePrevious }}</li>

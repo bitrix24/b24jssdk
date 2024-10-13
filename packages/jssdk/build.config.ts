@@ -45,6 +45,7 @@ export default defineBuildConfig({
 		'./src/core/http/controller',
 		'./src/hook/index',
 		'./src/frame/index',
+		'./src/helper/characteristicsManager',
 	],
 	outDir: 'dist',
 	clean: true,

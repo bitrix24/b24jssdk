@@ -58,6 +58,10 @@
 		"./frame": {
 			"types": "./dist/frame/index.d.ts",
 			"default": "./dist/frame/index.mjs"
+		},
+		"./helper/*": {
+			"types": "./dist/helper/*.d.ts",
+			"default": "./dist/helper/*.mjs"
 		}
 	},
 	"main": "./dist/index.cjs",

@@ -1,8 +1,8 @@
-import { AbstractB24 } from '../core/abstractB24'
-import Http from "../core/http/controller"
-import { AuthHookManager } from "./auth"
-import type { B24HookParams } from "../types/auth"
-import { LoggerBrowser } from "../logger/browser";
+import { AbstractB24, type IB24 } from '../core/abstractB24'
+import Http from '../core/http/controller'
+import { AuthHookManager } from './auth'
+import type { B24HookParams } from '../types/auth'
+import { LoggerBrowser } from '../logger/browser'
 
 /**
  * B24.Hook Manager.
@@ -11,27 +11,28 @@ import { LoggerBrowser } from "../logger/browser";
  */
 export class B24Hook
 	extends AbstractB24
+	implements IB24
 {
-	readonly #authHookManager: AuthHookManager;
+	readonly #authHookManager: AuthHookManager
 	
 	// region Init ////
 	constructor(
 		b24HookParams: B24HookParams,
 	)
 	{
-		super();
+		super()
 		
 		this.#authHookManager = new AuthHookManager(
 			b24HookParams
-		);
+		)
 		
 		this._http = new Http(
 			this.#authHookManager.getTargetOriginWithPath(),
 			this.#authHookManager,
 			this._getHttpOptions(),
-		);
+		)
 		
-		this._isInit = true;
+		this._isInit = true
 	}
 	
 	override setLogger(logger: LoggerBrowser): void
@@ -41,6 +42,26 @@ export class B24Hook
 	// endregion ////
 	
 	// region Core ////
+	// endregion ////
+	
+	// region Get ////
+	/**
+	 * Get the account address BX24 ( https://name.bitrix24.com )
+	 */
+	override getTargetOrigin(): string
+	{
+		this._ensureInitialized()
+		return this.#authHookManager.getTargetOrigin()
+	}
+	
+	/**
+	 * Get the account address BX24 with Path ( https://name.bitrix24.com/rest/1/xxxxx )
+	 */
+	override getTargetOriginWithPath(): string
+	{
+		this._ensureInitialized()
+		return this.#authHookManager.getTargetOriginWithPath()
+	}
 	// endregion ////
 	
 	// region Tools ////

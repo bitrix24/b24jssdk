@@ -39,6 +39,17 @@ export class AuthHookManager
 		return Promise.resolve(this.getAuthData() as AuthData);
 	}
 	
+	/**
+	 * Get the account address BX24 ( https://name.bitrix24.com )
+	 */
+	getTargetOrigin(): string
+	{
+		return `${this.#b24HookParams.b24Url}`;
+	}
+	
+	/**
+	 * Get the account address BX24 with Path ( https://name.bitrix24.com/rest/1/xxxxx )
+	 */
 	getTargetOriginWithPath(): string
 	{
 		return `${this.#b24HookParams.b24Url}/rest/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`;

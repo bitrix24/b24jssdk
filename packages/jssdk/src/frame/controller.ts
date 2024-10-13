@@ -1,20 +1,19 @@
-import { B24LangList } from "../core/language/list";
-import { AbstractB24 } from '../core/abstractB24';
-import Http from "../core/http/controller";
-import { LoggerBrowser } from "../logger/browser";
-import { PropertiesManager } from "./properties";
-import { PlacementManager } from "./placement";
-import { AuthManager } from "./auth";
-import { AppFrame } from "./frame";
-import { OptionsManager } from "./options";
-import { ParentManager } from "./parent";
-import { SliderManager } from "./slider";
-import { MessageManager, MessageCommands } from "./message";
+import { B24LangList } from "../core/language/list"
+import { AbstractB24, type IB24 } from '../core/abstractB24'
+import Http from "../core/http/controller"
+import { LoggerBrowser } from "../logger/browser"
+import { PlacementManager } from "./placement"
+import { AuthManager } from "./auth"
+import { AppFrame } from "./frame"
+import { OptionsManager } from "./options"
+import { ParentManager } from "./parent"
+import { SliderManager } from "./slider"
+import { MessageManager, MessageCommands } from "./message"
 
 import type {
 	MessageInitData,
 	B24FrameQueryParams
-} from "../types/auth";
+} from "../types/auth"
 
 /**
  * B24 Manager. Replacement api.bitrix24.com
@@ -23,56 +22,52 @@ import type {
  */
 export class B24Frame
 	extends AbstractB24
+	implements IB24
 {
-	#isInstallMode: boolean = false;
-	#isFirstRun: boolean = false;
+	#isInstallMode: boolean = false
+	#isFirstRun: boolean = false
 	
-	readonly #appFrame: AppFrame;
-	readonly #placementManager: PlacementManager;
-	readonly #messageManager: MessageManager;
-	readonly #authManager: AuthManager;
-	readonly #optionsManager: OptionsManager;
-	readonly #parent: ParentManager;
-	readonly #slider: SliderManager;
-	readonly #properties: PropertiesManager;
+	readonly #appFrame: AppFrame
+	readonly #placementManager: PlacementManager
+	readonly #messageManager: MessageManager
+	readonly #authManager: AuthManager
+	readonly #optionsManager: OptionsManager
+	readonly #parent: ParentManager
+	readonly #slider: SliderManager
 	
 	// region Init ////
 	constructor(
 		queryParams: B24FrameQueryParams,
 	)
 	{
-		super();
+		super()
 		
-		this.#appFrame = new AppFrame(queryParams);
+		this.#appFrame = new AppFrame(queryParams)
 		
-		this.#placementManager = new PlacementManager();
+		this.#placementManager = new PlacementManager()
 		
-		this.#messageManager = new MessageManager(this.#appFrame);
-		this.#messageManager.subscribe();
+		this.#messageManager = new MessageManager(this.#appFrame)
+		this.#messageManager.subscribe()
 		
 		this.#authManager = new AuthManager(
 			this.#appFrame,
 			this.#messageManager
-		);
+		)
 		
 		this.#optionsManager = new OptionsManager(
 			this.#messageManager
-		);
+		)
 		
 		this.#parent = new ParentManager(
 			this.#messageManager
-		);
+		)
 		
 		this.#slider = new SliderManager(
 			this.#appFrame,
 			this.#messageManager
-		);
+		)
 		
-		this.#properties = new PropertiesManager(
-			this.#appFrame.getTargetOrigin()
-		);
-		
-		this._isInit = false;
+		this._isInit = false
 	}
 	
 	override setLogger(logger: LoggerBrowser): void
@@ -83,82 +78,44 @@ export class B24Frame
 	
 	get isFirstRun(): boolean
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('isFirstRun');
-		}
-		
-		return this.#isFirstRun;
+		this._ensureInitialized()
+		return this.#isFirstRun
 	}
 	
 	get isInstallMode(): boolean
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('isInstallMode');
-		}
-		
-		return this.#isInstallMode;
+		this._ensureInitialized()
+		return this.#isInstallMode
 	}
 	
 	get parent(): ParentManager
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('parent');
-		}
-		
-		return this.#parent;
+		this._ensureInitialized()
+		return this.#parent
 	}
 	
 	get auth(): AuthManager
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('auth');
-		}
-		
-		return this.#authManager;
+		this._ensureInitialized()
+		return this.#authManager
 	}
 	
 	get slider(): SliderManager
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('slider');
-		}
-		
-		return this.#slider;
-	}
-	
-	get properties(): PropertiesManager
-	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('properties');
-		}
-		
-		return this.#properties;
+		this._ensureInitialized()
+		return this.#slider
 	}
 	
 	get placement(): PlacementManager
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('placement');
-		}
-		
-		return this.#placementManager;
+		this._ensureInitialized()
+		return this.#placementManager
 	}
 	
 	get options(): OptionsManager
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('options');
-		}
-		
-		return this.#optionsManager;
+		this._ensureInitialized()
+		return this.#optionsManager
 	}
 	
 	override async init(): Promise<void>
@@ -169,21 +126,21 @@ export class B24Frame
 		)
 		.then((data: MessageInitData) => {
 			
-			this.getLogger().log('init data:', data);
+			this.getLogger().log('init data:', data)
 			
-			this.#appFrame.initData(data);
-			this.#authManager.initData(data);
-			this.#placementManager.initData(data);
-			this.#optionsManager.initData(data);
+			this.#appFrame.initData(data)
+			this.#authManager.initData(data)
+			this.#placementManager.initData(data)
+			this.#optionsManager.initData(data)
 			
-			this.#isInstallMode = data.INSTALL;
-			this.#isFirstRun = data.FIRST_RUN;
+			this.#isInstallMode = data.INSTALL
+			this.#isFirstRun = data.FIRST_RUN
 			
 			this._http = new Http(
 				this.#appFrame.getTargetOriginWithPath(),
 				this.#authManager,
 				this._getHttpOptions(),
-			);
+			)
 			
 			if(this.#isFirstRun)
 			{
@@ -196,19 +153,13 @@ export class B24Frame
 					{
 						install: true
 					}
-				);
+				)
 			}
 			
-			return Promise.resolve();
-		})
-		.then(() => {
-			this._isInit = true;
+			this._isInit = true
 			
-			return this.#properties.loadData(this);
+			return Promise.resolve()
 		})
-		.then(() => {
-			return Promise.resolve();
-		});
 	}
 	
 	/**
@@ -217,8 +168,8 @@ export class B24Frame
 	 */
 	override destroy()
 	{
-		super.destroy();
-		this.#messageManager.unsubscribe();
+		super.destroy()
+		this.#messageManager.unsubscribe()
 	}
 	// endregion ////
 	
@@ -232,54 +183,42 @@ export class B24Frame
 	{
 		if(!this.isInstallMode)
 		{
-			return Promise.reject(new Error('Application was previously installed. You cannot call installFinish'));
+			return Promise.reject(new Error('Application was previously installed. You cannot call installFinish'))
 		}
 		
 		return this.#messageManager.send(
 			MessageCommands.setInstallFinish,
 			{}
-		);
+		)
 	}
 	// endregion ////
 	
 	// region Get ////
 	/**
-	 * Returns the sid of the application relative to the parent window like this `9c33468728e1d2c8c97562475edfd96`
-	 */
-	getAppSid(): string
-	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('getAppSid')
-		}
-		
-		return this.#appFrame.getAppSid()
-	}
-	
-	/**
 	 * Get the account address BX24 ( https://name.bitrix24.com )
 	 */
-	getTargetOrigin(): string
+	override getTargetOrigin(): string
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('getTargetOrigin')
-		}
-		
+		this._ensureInitialized()
 		return this.#appFrame.getTargetOrigin()
 	}
 	
 	/**
 	 * Get the account address BX24 with Path ( https://name.bitrix24.com/rest )
 	 */
-	getTargetOriginWithPath(): string
+	override getTargetOriginWithPath(): string
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('getTargetOriginWithPath')
-		}
-		
+		this._ensureInitialized()
 		return this.#appFrame.getTargetOriginWithPath()
+	}
+	
+	/**
+	 * Returns the sid of the application relative to the parent window like this `9c33468728e1d2c8c97562475edfd96`
+	 */
+	getAppSid(): string
+	{
+		this._ensureInitialized()
+		return this.#appFrame.getAppSid()
 	}
 	
 	/**
@@ -289,35 +228,8 @@ export class B24Frame
 	 */
 	getLang(): B24LangList
 	{
-		if(!this.isInit)
-		{
-			this.#errorNoInit('getLang')
-		}
-		
+		this._ensureInitialized()
 		return this.#appFrame.getLang()
-	}
-	// endregion ////
-	
-	// region Tools ////
-	/**
-	 * Generates Promise.reject() if the object is not initialized
-	 * @private
-	 *
-	 *
-	 */
-	#rejectNoInit()
-	{
-		return Promise.reject(new Error('B24Frame not init.'));
-	}
-	
-	/**
-	 * Generates an object not initialized error
-	 * @param info
-	 * @private
-	 */
-	#errorNoInit(info?: string): string
-	{
-		throw new Error(`B24Frame not init ${info ?? ''}`);
 	}
 	// endregion ////
 }

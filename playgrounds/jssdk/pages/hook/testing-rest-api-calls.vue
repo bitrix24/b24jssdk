@@ -10,13 +10,18 @@ import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
 import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
 
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
+import { type IB24 } from '@bitrix24/b24jssdk/core/abstractB24'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
+import { CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
 import { EnumCrmEntityTypeId } from "@bitrix24/b24jssdk/types/crm"
 import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters"
 import Info from "../../components/Info.vue";
 import ProgressBar from "../../components/ProgressBar.vue";
 import useUniqId from "@bitrix24/b24jssdk/tools/uniqId";
 import { type UserBrief} from "@bitrix24/b24jssdk/types/user";
+import {computedAsync} from "@vueuse/core";
+import {LoadDataType} from "@bitrix24/b24jssdk/types/characteristics";
+import Avatar from "~/components/Avatar.vue";
 
 definePageMeta({
 	layout: "page"
@@ -30,9 +35,7 @@ const logger = LoggerBrowser.build(
 
 const { formatterDateTime, formatterNumber } = useFormatter('en-US')
 
-const B24 = new B24Hook(
-	B24HookConfig
-)
+const B24 = new B24Hook( B24HookConfig )
 B24.setLogger(LoggerBrowser.build('Core', true))
 
 let result: IResult = reactive(new Result())
@@ -73,7 +76,22 @@ const status: Ref<IStatus> = ref({
 		stop: null,
 		diff: null,
 	}
-} as IStatus);
+} as IStatus)
+
+const b24Characteristics = computedAsync(
+	async () => {
+		const B24Characteristics = new CharacteristicsManager(B24 as unknown as IB24)
+		await B24Characteristics.loadData([
+			LoadDataType.Profile
+		])
+		
+		return B24Characteristics;
+	},
+	null,
+	{
+		lazy: true
+	}
+)
 // endregion ////
 
 // region Actions ////
@@ -436,6 +454,15 @@ async function makeSelectItemsList_v6()
 		})
 		.finally(() => {stopMakeProcess()})
 }
+
+const makeOpenSliderForUser = async(userId: number) => {
+	
+	window.open(
+		`${B24HookConfig.b24Url}/company/personal/user/${userId}/`
+	)
+	
+	return Promise.resolve()
+}
 // endregion ////
 
 // region Error ////
@@ -535,7 +562,30 @@ const problemMessageList = (result: IResult) => {
 				</button>
 			</div>
 			<div class="flex-1">
-				<div class="px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
+				<div
+					v-if="b24Characteristics"
+					class="px-lg2 py-sm2 border border-base-100 rounded-lg col-auto md:col-span-2 lg:col-span-1 bg-white"
+				>
+					<div class="flex items-center gap-4">
+						<Avatar
+							:src="b24Characteristics.userInfo.photo || ''"
+							:alt="b24Characteristics.userInfo.lastName || 'user' "
+						/>
+						<div class="font-medium dark:text-white" >
+							<div
+								class="hover:underline hover:text-info-link cursor-pointer"
+								@click="makeOpenSliderForUser(b24Characteristics.userInfo.id || 0)"
+							>{{ [
+								b24Characteristics.userInfo.lastName,
+								b24Characteristics.userInfo.name,
+							].join(' ') }}</div>
+							<div class="text-sm text-gray-500 dark:text-gray-400">{{
+									b24Characteristics.userInfo.isAdmin ? 'Admin' : 'NotAdmin'
+								}} at {{ b24Characteristics.hostName.replace('https://', '') }}</div>
+						</div>
+					</div>
+				</div>
+				<div class="mt-6 px-lg2 py-sm2 border border-base-100 rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
 					<div class="w-full flex items-center justify-between">
 						<h3 class="text-h5 font-semibold">{{ status.title }}</h3>
 						<button

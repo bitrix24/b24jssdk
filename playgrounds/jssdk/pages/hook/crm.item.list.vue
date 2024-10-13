@@ -51,9 +51,9 @@ const problemMessageList = computed(() => {
 const openSlider = async (id: number): Promise<void> => {
 	window.open(
 		`${B24HookConfig.b24Url}/crm/company/details/${id}/`
-	);
+	)
 	
-	return Promise.resolve();
+	return Promise.resolve()
 }
 
 const B24 = new B24Hook(
@@ -90,7 +90,6 @@ const actionCompanyAdd = async (needAdd: number = 10): Promise<void> => {
 		})
 	}
 	
-	logger.info('send >> ', commands)
 	let data: any
 	isProcessLoadB24.value = true
 	
@@ -130,7 +129,6 @@ const actionCompanyList = async (): Promise<void> => {
 		}
 	}
 	
-	logger.info('send >> ', commands)
 	let data: any
 	
 	isProcessLoadB24.value = true

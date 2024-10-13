@@ -3,6 +3,11 @@ import type {
 	GenderString
 } from "./common";
 
+export enum LoadDataType {
+	App = 'app',
+	Profile = 'profile',
+}
+
 export type TypeUser = {
 	readonly isAdmin: boolean;
 	

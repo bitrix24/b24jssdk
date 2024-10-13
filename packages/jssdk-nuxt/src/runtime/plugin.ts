@@ -2,7 +2,7 @@ import { defineNuxtPlugin } from '#app'
 import { ref, watchEffect } from 'vue'
 import { LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk'
 
-import type {B24FrameQueryParams} from "@bitrix24/b24jssdk/types/auth";
+import type { B24FrameQueryParams } from "@bitrix24/b24jssdk/types/auth";
 import { B24Frame } from '@bitrix24/b24jssdk/frame'
 
 export type whileB24InitCallback = (b24Frame: B24Frame) => void;

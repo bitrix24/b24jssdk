@@ -200,7 +200,7 @@ Use - `B24.auth`
 - BX24.isAdmin - **✔**`B24.properties.userInfo.isAdmin` | `B24.auth.isAdmin`
 - BX24.getLang - **✔**`B24.getLang`
 - BX24.resizeWindow - `B24.parent.resizeWindow` | `B24.parent.resizeWindowAuto`
-- BX24.fitWindow - `B24.parent.fitWindow`
+- BX24.fitWindow - **✔**`B24.parent.fitWindow`
 - BX24.getScrollSize - `B24.parent.getScrollSize`
 - BX24.scrollParentWindow - `B24.parent.scrollParentWindow`
 - BX24.reloadWindow - **✔**`B24.parent.reloadWindow`
@@ -215,6 +215,7 @@ Use - `B24.auth`
 - BX24.openPath - **✔**`B24.slider.openPath`
 - BX24.openApplication - `B24.slider.openSliderAppPage`
 - BX24.closeApplication - `B24.parent.closeApplication`
+- ? BX24.showAppForm - `@wtf` **?** `B24.slider.showAppForm`
 
 - BX24.proxy - `@deprecate`
 - BX24.proxyContext - `@deprecate`
@@ -224,10 +225,10 @@ Use - `B24.auth`
 
 ## System Dialogues
 [ory.Api](https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-dialogues/index.html)
-- BX24.selectUser - `@todo`
-- BX24.selectUsers - `@todo`
-- BX24.selectAccess - `@todo`
-- BX24.selectCRM - `@todo`
+- BX24.selectUser - **✔**`B24.dialog.selectUser`
+- BX24.selectUsers - @problem{close} **✔**`B24.dialog.selectUsers`
+- BX24.selectAccess - @problem{close} **✔**`B24.dialog.selectAccess`
+- BX24.selectCRM - @problem{close|invoice|order} **✔**`B24.dialog.selectCRM`
 
 ## Options
 [ory.Api](https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/options/index.html)
@@ -237,15 +238,27 @@ Use - `B24.auth`
 - BX24.appOption.get - `B24.options.appGet`
 
 ## Properties
-- `B24.properties.licenseInfo`
-- `B24.properties.paymentInfo`
-- `B24.properties.appInfo`
-- `B24.properties.hostName`
-- `B24.properties.userInfo`
-- `B24.properties.forB24Form`
+
+```js
+const B24Characteristics = new CharacteristicsManager(B24)
+await B24Characteristics.loadData([
+	LoadDataType.Profile,
+	LoadDataType.App
+])
+```
+
+- `CharacteristicsManager.licenseInfo`
+- `CharacteristicsManager.paymentInfo`
+- `CharacteristicsManager.appInfo`
+- `CharacteristicsManager.hostName`
+- `CharacteristicsManager.userInfo`
+- `CharacteristicsManager.forB24Form`
+- `@todo` currency
 
 ## Placement
+
 - `B24.placement` - `@todo`
 
-## Push && Pull
+## Push & Pull
+
 - `@todo`

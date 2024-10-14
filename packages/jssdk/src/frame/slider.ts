@@ -189,4 +189,15 @@ export class SliderManager
 			});
 		});
 	}
+	
+	async showAppForm(params: any): Promise<void>
+	{
+		return this.#messageManager.send(
+			MessageCommands.showAppForm,
+			{
+				params: params,
+				isSafely: true
+			}
+		)
+	}
 }

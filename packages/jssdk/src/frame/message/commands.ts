@@ -20,4 +20,8 @@ export enum MessageCommands
 	imPhoneTo = 'imPhoneTo',
 	imOpenMessenger = 'imOpenMessenger',
 	imOpenHistory = 'imOpenHistory',
+	selectUser = 'selectUser',
+	selectAccess = 'selectAccess',
+	selectCRM = 'selectCRM',
+	showAppForm = 'showAppForm',
 }

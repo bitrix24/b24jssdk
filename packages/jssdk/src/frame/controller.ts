@@ -1,24 +1,26 @@
-import { B24LangList } from "../core/language/list"
+import { LoggerBrowser } from '../logger/browser'
 import { AbstractB24, type IB24 } from '../core/abstractB24'
-import Http from "../core/http/controller"
-import { LoggerBrowser } from "../logger/browser"
-import { PlacementManager } from "./placement"
-import { AuthManager } from "./auth"
-import { AppFrame } from "./frame"
-import { OptionsManager } from "./options"
-import { ParentManager } from "./parent"
-import { SliderManager } from "./slider"
-import { MessageManager, MessageCommands } from "./message"
+import Http from '../core/http/controller'
+import { AppFrame } from './frame'
+import { MessageManager, MessageCommands } from './message'
+import { B24LangList } from '../core/language/list'
+import { AuthManager } from './auth'
+import { ParentManager } from './parent'
+import { OptionsManager } from './options'
+import { DialogManager } from './dialog';
+import { SliderManager } from './slider'
+import { PlacementManager } from './placement'
 
 import type {
 	MessageInitData,
 	B24FrameQueryParams
-} from "../types/auth"
+} from '../types/auth'
 
 /**
  * B24 Manager. Replacement api.bitrix24.com
  *
  * @link https://api.bitrix24.com/api/v1/
+ * @see /bitrix/js/rest/applayout.js
  */
 export class B24Frame
 	extends AbstractB24
@@ -28,12 +30,13 @@ export class B24Frame
 	#isFirstRun: boolean = false
 	
 	readonly #appFrame: AppFrame
-	readonly #placementManager: PlacementManager
 	readonly #messageManager: MessageManager
 	readonly #authManager: AuthManager
+	readonly #parentManager: ParentManager
 	readonly #optionsManager: OptionsManager
-	readonly #parent: ParentManager
-	readonly #slider: SliderManager
+	readonly #dialogManager: DialogManager
+	readonly #sliderManager: SliderManager
+	readonly #placementManager: PlacementManager
 	
 	// region Init ////
 	constructor(
@@ -44,28 +47,15 @@ export class B24Frame
 		
 		this.#appFrame = new AppFrame(queryParams)
 		
-		this.#placementManager = new PlacementManager()
-		
 		this.#messageManager = new MessageManager(this.#appFrame)
 		this.#messageManager.subscribe()
 		
-		this.#authManager = new AuthManager(
-			this.#appFrame,
-			this.#messageManager
-		)
-		
-		this.#optionsManager = new OptionsManager(
-			this.#messageManager
-		)
-		
-		this.#parent = new ParentManager(
-			this.#messageManager
-		)
-		
-		this.#slider = new SliderManager(
-			this.#appFrame,
-			this.#messageManager
-		)
+		this.#authManager = new AuthManager( this.#appFrame, this.#messageManager )
+		this.#parentManager = new ParentManager( this.#messageManager )
+		this.#optionsManager = new OptionsManager( this.#messageManager )
+		this.#dialogManager = new DialogManager( this.#messageManager )
+		this.#sliderManager = new SliderManager( this.#appFrame, this.#messageManager )
+		this.#placementManager = new PlacementManager()
 		
 		this._isInit = false
 	}
@@ -91,7 +81,7 @@ export class B24Frame
 	get parent(): ParentManager
 	{
 		this._ensureInitialized()
-		return this.#parent
+		return this.#parentManager
 	}
 	
 	get auth(): AuthManager
@@ -103,7 +93,7 @@ export class B24Frame
 	get slider(): SliderManager
 	{
 		this._ensureInitialized()
-		return this.#slider
+		return this.#sliderManager
 	}
 	
 	get placement(): PlacementManager
@@ -116,6 +106,12 @@ export class B24Frame
 	{
 		this._ensureInitialized()
 		return this.#optionsManager
+	}
+	
+	get dialog(): DialogManager
+	{
+		this._ensureInitialized()
+		return this.#dialogManager
 	}
 	
 	override async init(): Promise<void>
@@ -144,9 +140,8 @@ export class B24Frame
 			
 			if(this.#isFirstRun)
 			{
-				
 				/**
-				 * @memo Writes the fact of the 1st launch to app_options
+				 * @memo Writes the fact of the 1st launch to `app_options`
 				 */
 				return this.#messageManager.send(
 					MessageCommands.setInstall,
@@ -168,8 +163,8 @@ export class B24Frame
 	 */
 	override destroy()
 	{
-		super.destroy()
 		this.#messageManager.unsubscribe()
+		super.destroy()
 	}
 	// endregion ////
 	

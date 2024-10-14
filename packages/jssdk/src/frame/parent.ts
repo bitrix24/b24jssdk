@@ -275,7 +275,7 @@ export class ParentManager
 	/**
 	 * Makes a call to the phone number
 	 *
-	 * @param {string} phone Phone number. The number can be in the format: `xxxxxxxxxxx` or `x (xxx) xxx-xx-xx`
+	 * @param {string} phone Phone number. The number can be in the format: `+44 20 1234 5678` or `x (xxx) xxx-xx-xx`
 	 *
 	 * @return {Promise<void>}
 	 *

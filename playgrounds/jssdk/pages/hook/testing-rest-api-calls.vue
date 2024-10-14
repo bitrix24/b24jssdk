@@ -400,59 +400,59 @@ async function makeSelectItemsList_v6()
 		
 		return resolve(null)
 	})
-		.then(() => {
-			
-			if(Number.isNaN(needEntityId))
-			{
-				return Promise.reject(new Error('Wrong entity Id'))
-			}
-			
-			let commands = {
-				getCompany: {
-					method: 'crm.item.get',
-					params: {
-						entityTypeId: EnumCrmEntityTypeId.company,
-						id: needEntityId
-					}
-				},
-				getAssigned: {
-					method: 'user.get',
-					params: {
-						ID: '$result[getCompany][item][assignedById]'
-					}
+	.then(() => {
+		
+		if(Number.isNaN(needEntityId))
+		{
+			return Promise.reject(new Error('Wrong entity Id'))
+		}
+		
+		let commands = {
+			getCompany: {
+				method: 'crm.item.get',
+				params: {
+					entityTypeId: EnumCrmEntityTypeId.company,
+					id: needEntityId
+				}
+			},
+			getAssigned: {
+				method: 'user.get',
+				params: {
+					ID: '$result[getCompany][item][assignedById]'
 				}
 			}
-			
-			logger.info('Testing the batch fetch work >> send >>> ', commands)
-			return B24.callBatch(
-				commands,
-				true
-			)
-		})
-		.then((response: Result) => {
-			let data: any = response.getData()
-			logger.info('Testing the batch fetch work >> response >>> ', data)
-			
-			const assigned = data.getAssigned[0] as UserBrief | null
-			
-			let assignedInfo = ''
-			if(!!assigned)
-			{
-				assignedInfo = [
-					`id: ${assigned.ID}`,
-					assigned.ACTIVE ? 'active' : 'not active',
-					assigned.LAST_NAME,
-					assigned.NAME,
-				].join(' ')
-			}
-			
-			status.value.resultInfo = `entityId: ${data.getCompany.item?.id || '?'}; assigned: ${assignedInfo}`
-		})
-		.catch((error: Error|string) => {
-			result.addError(error)
-			logger.error(error)
-		})
-		.finally(() => {stopMakeProcess()})
+		}
+		
+		logger.info('Testing the batch fetch work >> send >>> ', commands)
+		return B24.callBatch(
+			commands,
+			true
+		)
+	})
+	.then((response: Result) => {
+		let data: any = response.getData()
+		logger.info('Testing the batch fetch work >> response >>> ', data)
+		
+		const assigned = data.getAssigned[0] as UserBrief | null
+		
+		let assignedInfo = ''
+		if(!!assigned)
+		{
+			assignedInfo = [
+				`id: ${assigned.ID}`,
+				assigned.ACTIVE ? 'active' : 'not active',
+				assigned.LAST_NAME,
+				assigned.NAME,
+			].join(' ')
+		}
+		
+		status.value.resultInfo = `entityId: ${data.getCompany.item?.id || '?'}; assigned: ${assignedInfo}`
+	})
+	.catch((error: Error|string) => {
+		result.addError(error)
+		logger.error(error)
+	})
+	.finally(() => {stopMakeProcess()})
 }
 
 const makeOpenSliderForUser = async(userId: number) => {

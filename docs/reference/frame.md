@@ -108,7 +108,7 @@ function updateUI()
 ### Vue
 ```vue [page.vue]
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { LoggerBrowser } from '@bitrix24/b24jssdk';
 import { B24Frame } from '@bitrix24/b24jssdk/frame';
 import type { B24FrameQueryParams } from '@bitrix24/b24jssdk/types/auth';
@@ -155,6 +155,13 @@ onMounted(async () => {
 	catch (error)
 	{
 		logger.error(error);
+	}
+});
+
+onUnmounted(() => {
+	if(isInit.value)
+	{
+		B24.destroy();
 	}
 });
 </script>

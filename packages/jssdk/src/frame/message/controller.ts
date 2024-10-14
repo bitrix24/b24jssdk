@@ -32,6 +32,7 @@ export class MessageManager
 	#appFrame: AppFrame;
 	#callbackPromises: Map<string, PromiseHandlers>;
 	protected _logger: null|LoggerBrowser = null;
+	private runCallbackHandler: OmitThisParameter<(event: MessageEvent) => void>;
 	
 	constructor(
 		appFrame: AppFrame
@@ -40,6 +41,8 @@ export class MessageManager
 		this.#appFrame = appFrame;
 		
 		this.#callbackPromises = new Map();
+		
+		this.runCallbackHandler = this._runCallback.bind(this);
 	}
 	
 	setLogger(logger: LoggerBrowser): void
@@ -76,7 +79,7 @@ export class MessageManager
 	{
 		window.addEventListener(
 			'message',
-			this.#runCallback.bind(this)
+			this.runCallbackHandler
 		);
 	}
 	
@@ -87,14 +90,14 @@ export class MessageManager
 	{
 		window.removeEventListener(
 			'message',
-			this.#runCallback.bind(this)
+			this.runCallbackHandler
 		);
 	}
 	// endregion ////
 	
 	/**
 	 * Send message to parent window
-	 * The answer (if) we will get in #runCallback
+	 * The answer (if) we will get in _runCallback
 	 *
 	 * @param command
 	 * @param params
@@ -170,7 +173,7 @@ export class MessageManager
 	 * @param event
 	 * @private
 	 */
-	#runCallback(event: MessageEvent): void
+	public _runCallback(event: MessageEvent): void
 	{
 		if(event.origin !== this.#appFrame.getTargetOrigin())
 		{
@@ -204,8 +207,6 @@ export class MessageManager
 				}
 				
 				this.#callbackPromises.delete(cmd.id);
-				
-				
 				
 				promise.resolve(cmd.args);
 				// promise.reject(cmd.args); ////

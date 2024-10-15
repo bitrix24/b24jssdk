@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters";
+import { useFormatter } from "@bitrix24/b24jssdk/tools/useFormatters";
 
 definePageMeta({
 	layout: "page"

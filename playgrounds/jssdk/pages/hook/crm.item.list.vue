@@ -10,7 +10,7 @@ import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
 import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk/types/crm'
 import useUniqId from "@bitrix24/b24jssdk/tools/uniqId"
-import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters"
+import { useFormatter } from "@bitrix24/b24jssdk/tools/useFormatters"
 import { type ISODate } from "@bitrix24/b24jssdk/types/common"
 
 import Info from "../../components/Info.vue"

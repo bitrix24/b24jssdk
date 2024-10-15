@@ -14,7 +14,7 @@ import { type IB24 } from '@bitrix24/b24jssdk/core/abstractB24'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
 import { CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
 import { EnumCrmEntityTypeId } from "@bitrix24/b24jssdk/types/crm"
-import useFormatter from "@bitrix24/b24jssdk/tools/useFormatters"
+import { useFormatter } from "@bitrix24/b24jssdk/tools/useFormatters"
 import Info from "../../components/Info.vue";
 import ProgressBar from "../../components/ProgressBar.vue";
 import useUniqId from "@bitrix24/b24jssdk/tools/uniqId";
@@ -78,7 +78,7 @@ const status: Ref<IStatus> = ref({
 	}
 } as IStatus)
 
-const b24Characteristics = computedAsync(
+const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync(
 	async () => {
 		const B24Characteristics = new CharacteristicsManager(B24 as unknown as IB24)
 		await B24Characteristics.loadData([
@@ -568,19 +568,19 @@ const problemMessageList = (result: IResult) => {
 				>
 					<div class="flex items-center gap-4">
 						<Avatar
-							:src="b24Characteristics.userInfo.photo || ''"
-							:alt="b24Characteristics.userInfo.lastName || 'user' "
+							:src="b24Characteristics.profileInfo.data.photo || ''"
+							:alt="b24Characteristics.profileInfo.data.lastName || 'user' "
 						/>
 						<div class="font-medium dark:text-white" >
 							<div
 								class="hover:underline hover:text-info-link cursor-pointer"
-								@click="makeOpenSliderForUser(b24Characteristics.userInfo.id || 0)"
+								@click="makeOpenSliderForUser(b24Characteristics.profileInfo.data.id || 0)"
 							>{{ [
-								b24Characteristics.userInfo.lastName,
-								b24Characteristics.userInfo.name,
+								b24Characteristics.profileInfo.data.lastName,
+								b24Characteristics.profileInfo.data.name,
 							].join(' ') }}</div>
 							<div class="text-sm text-gray-500 dark:text-gray-400">{{
-									b24Characteristics.userInfo.isAdmin ? 'Admin' : 'NotAdmin'
+									b24Characteristics.profileInfo.data.isAdmin ? 'Admin' : 'NotAdmin'
 								}} at {{ b24Characteristics.hostName.replace('https://', '') }}</div>
 						</div>
 					</div>

@@ -13,7 +13,7 @@ import type { B24FrameQueryParams } from '@bitrix24/b24jssdk/types/auth'
 import Info from "../../components/Info.vue"
 import SpinnerIcon from '@bitrix24/b24icons-vue/specialized/SpinnerIcon'
 import LetCatInIcon from '@bitrix24/b24icons-vue/specialized/LetCatInIcon'
-
+import UserGroupIcon from '@bitrix24/b24icons-vue/common-b24/UserGroupIcon'
 import Avatar from "../../components/Avatar.vue"
 import ProgressBar from "~/components/ProgressBar.vue"
 import TrashBinIcon from "@bitrix24/b24icons-vue/main/TrashBinIcon"
@@ -25,7 +25,8 @@ import TelephonyHandset6Icon from '@bitrix24/b24icons-vue/main/TelephonyHandset6
 import MessengerIcon from '@bitrix24/b24icons-vue/social/MessengerIcon'
 import DialogueIcon from '@bitrix24/b24icons-vue/crm/DialogueIcon'
 
-import useFormatter from '@bitrix24/b24jssdk/tools/useFormatters'
+import { useFormatter } from '@bitrix24/b24jssdk/tools/useFormatters'
+import type {Currency} from "@bitrix24/b24jssdk/dist/types/characteristics";
 
 definePageMeta({
 	layout: "app"
@@ -138,6 +139,8 @@ onMounted(async () => {
 		 */
 		b24Characteristics.value
 		
+		isInit.value = true
+		
 		await makeFitWindow()
 	}
 	catch(error: any)
@@ -154,15 +157,18 @@ onUnmounted(() => {
 	}
 })
 
-const b24Characteristics = computedAsync (
+const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync (
 	async () => {
 		const B24Characteristics = new CharacteristicsManager(B24 as unknown as IB24)
 		await B24Characteristics.loadData([
 			LoadDataType.Profile,
-			LoadDataType.App
+			LoadDataType.App,
+			LoadDataType.Currency,
+			LoadDataType.AppOptions,
+			LoadDataType.UserOptions,
 		])
 		
-		isInit.value = true
+		await makeFitWindow()
 		
 		return B24Characteristics;
 	},
@@ -264,7 +270,7 @@ const makeImCallTo = async (isVideo: boolean = true) => {
 		
 		if(selectedUser)
 		{
-			if(Number(selectedUser.id) === (b24Characteristics.value?.userInfo.id || 0))
+			if(Number(selectedUser.id) === (b24Characteristics.value?.profileInfo.data.id || 0))
 			{
 				return Promise.reject(new Error('You can\'t make a call to yourself'))
 			}
@@ -304,6 +310,11 @@ const makeImPhoneTo = async () => {
 			'Please provide phone'
 		)
 		
+		if(null === promptPhone)
+		{
+			return Promise.resolve()
+		}
+		
 		const phone = String(promptPhone)
 		
 		if(phone.length < 1)
@@ -339,6 +350,11 @@ const makeImOpenMessenger = async () => {
 		const promptDialogId = prompt(
 			'Please provide dialogId (number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined)'
 		)
+		
+		if(null === promptDialogId)
+		{
+			return Promise.resolve()
+		}
 		
 		let dialogId: any = String(promptDialogId)
 		
@@ -381,7 +397,7 @@ const makeImOpenMessengerWithYourself = async () => {
 	})
 	.then(async () => {
 		return B24.parent.imOpenMessenger(
-			(b24Characteristics.value?.userInfo.id || 0)
+			(b24Characteristics.value?.profileInfo.data.id || 0)
 		)
 	})
 	.catch((error: Error|string) => {
@@ -396,7 +412,13 @@ const makeImOpenHistory = async () => {
 		'Please provide dialogId (number|`chat${number}`|`imol|${number})'
 	)
 	
+	if(null === promptDialogId)
+	{
+		return Promise.resolve()
+	}
+	
 	let dialogId: any = String(promptDialogId)
+	
 	if(
 		!dialogId.startsWith('chat')
 		&& !dialogId.startsWith('imol')
@@ -405,6 +427,7 @@ const makeImOpenHistory = async () => {
 		dialogId = Number(dialogId)
 	}
 	
+	debugger
 	return B24.parent.imOpenHistory(
 		dialogId
 	)
@@ -450,6 +473,9 @@ const makeSelectUsers = async () => {
 	.finally(() => {stopMakeProcess()})
 }
 
+/**
+ * @deprecated
+ */
 const makeSelectAccess = async () => {
 	return new Promise((resolve) => {
 		reInitStatus()
@@ -498,6 +524,9 @@ const makeSelectAccess = async () => {
 	.finally(() => {stopMakeProcess()})
 }
 
+/**
+ * @deprecated
+ */
 const makeSelectCRM = async () => {
 	return new Promise((resolve) => {
 		reInitStatus()
@@ -535,7 +564,7 @@ const makeSelectCRM = async () => {
 		
 		for(const entity in selectedCRMEntity.company)
 		{
-			let selectedEntity = selectedCRMEntity.company[entity] as SelectedCRMEntity
+			let selectedEntity = selectedCRMEntity.company[Number(entity)] as unknown as SelectedCRMEntity
 			list.push([
 				`[id: ${selectedEntity.id}]`,
 				`${selectedEntity.type} ${selectedEntity.title}`,
@@ -544,7 +573,7 @@ const makeSelectCRM = async () => {
 		
 		for(const entity in selectedCRMEntity.lead)
 		{
-			let selectedEntity = selectedCRMEntity.lead[entity] as SelectedCRMEntity
+			let selectedEntity = selectedCRMEntity.lead[Number(entity)] as unknown as SelectedCRMEntity
 			list.push([
 				`[id: ${selectedEntity.id}]`,
 				`${selectedEntity.type} ${selectedEntity.title}`,
@@ -553,7 +582,7 @@ const makeSelectCRM = async () => {
 		
 		for(const entity in selectedCRMEntity.contact)
 		{
-			let selectedEntity = selectedCRMEntity.contact[entity] as SelectedCRMEntity
+			let selectedEntity = selectedCRMEntity.contact[Number(entity)] as unknown as SelectedCRMEntity
 			list.push([
 				`[id: ${selectedEntity.id}]`,
 				`${selectedEntity.type} ${selectedEntity.title}`,
@@ -562,7 +591,7 @@ const makeSelectCRM = async () => {
 		
 		for(const entity in selectedCRMEntity.deal)
 		{
-			let selectedEntity = selectedCRMEntity.deal[entity] as SelectedCRMEntity
+			let selectedEntity = selectedCRMEntity.deal[Number(entity)] as unknown as SelectedCRMEntity
 			list.push([
 				`[id: ${selectedEntity.id}]`,
 				`${selectedEntity.type} ${selectedEntity.title}`,
@@ -571,7 +600,7 @@ const makeSelectCRM = async () => {
 		
 		for(const entity in selectedCRMEntity.deal)
 		{
-			let selectedEntity = selectedCRMEntity.deal[entity] as SelectedCRMEntity
+			let selectedEntity = selectedCRMEntity.deal[Number(entity)] as unknown as SelectedCRMEntity
 			list.push([
 				`[id: ${selectedEntity.id}]`,
 				`${selectedEntity.type} ${selectedEntity.title}`,
@@ -580,7 +609,7 @@ const makeSelectCRM = async () => {
 		
 		for(const entity in selectedCRMEntity.quote)
 		{
-			let selectedEntity = selectedCRMEntity.quote[entity] as SelectedCRMEntity
+			let selectedEntity = selectedCRMEntity.quote[Number(entity)] as unknown as SelectedCRMEntity
 			list.push([
 				`[id: ${selectedEntity.id}]`,
 				`${selectedEntity.type} ${selectedEntity.title}`,
@@ -601,6 +630,9 @@ const makeSelectCRM = async () => {
 	.finally(() => {stopMakeProcess()})
 }
 
+/**
+ * @deprecated
+ */
 const makeShowAppForm = async () => {
 	return new Promise((resolve) => {
 		reInitStatus()
@@ -626,8 +658,6 @@ const makeShowAppForm = async () => {
 	})
 	.finally(() => {stopMakeProcess()})
 }
-
-
 // endregion ////
 
 // region Error ////
@@ -678,12 +708,12 @@ const problemMessageList = (result: IResult) => {
 						<div
 							v-if="b24Characteristics"
 							class="px-lg2 py-sm2 border border-base-100 rounded-lg hover:shadow-md hover:-translate-y-px col-auto md:col-span-2 lg:col-span-1 bg-white cursor-pointer"
-							@click.stop="makeOpenSliderForUser(b24Characteristics.userInfo.id || 0)"
+							@click.stop="makeOpenSliderForUser(b24Characteristics.profileInfo.data.id || 0)"
 						>
 							<div class="flex items-center gap-4">
 								<Avatar
-									:src="b24Characteristics.userInfo.photo || ''"
-									:alt="b24Characteristics.userInfo.lastName || 'user' "
+									:src="b24Characteristics.profileInfo.data.photo || ''"
+									:alt="b24Characteristics.profileInfo.data.lastName || 'user' "
 								/>
 								<div class="font-medium dark:text-white" >
 									<div class="text-nowrap text-xs text-gray-500 dark:text-gray-400">
@@ -691,12 +721,12 @@ const problemMessageList = (result: IResult) => {
 									</div>
 									<div class="text-nowrap hover:underline hover:text-info-link">
 										{{ [
-										b24Characteristics.userInfo.lastName,
-										b24Characteristics.userInfo.name,
+										b24Characteristics.profileInfo.data.lastName,
+										b24Characteristics.profileInfo.data.name,
 									].join(' ') }}
 									</div>
 									<div class="text-xs text-base-800 dark:text-gray-400 flex flex-row gap-x-2">
-										<span>{{ b24Characteristics.userInfo.isAdmin ? 'Administrator' : '' }}</span>
+										<span>{{ b24Characteristics.profileInfo.data.isAdmin ? 'Administrator' : '' }}</span>
 										<span
 											class="text-nowrap hover:underline hover:text-info-link"
 											@click.stop="makeImOpenMessengerWithYourself()"
@@ -713,11 +743,11 @@ const problemMessageList = (result: IResult) => {
 							:disabled="status.isProcess"
 						>
 							<div class="rounded-full text-base-900 bg-base-100 p-1">
-								<Refresh7Icon class="size-5"/>
+								<UserGroupIcon class="size-5"/>
 							</div>
-							<div class="text-nowrap truncate">@problem Select users</div>
+							<div class="text-nowrap truncate">Select users</div>
 						</button>
-						<button
+						<!--button
 							type="button"
 							class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
 							@click="makeSelectAccess"
@@ -727,8 +757,8 @@ const problemMessageList = (result: IResult) => {
 								<Refresh7Icon class="size-5"/>
 							</div>
 							<div class="text-nowrap truncate">@problem Select access</div>
-						</button>
-						<button
+						</button-->
+						<!--button
 							type="button"
 							class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
 							@click="makeSelectCRM"
@@ -738,8 +768,8 @@ const problemMessageList = (result: IResult) => {
 								<Refresh7Icon class="size-5"/>
 							</div>
 							<div class="text-nowrap truncate">@problem Select CRM</div>
-						</button>
-						<button
+						</button-->
+						<!--button
 							type="button"
 							class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
 							@click="makeShowAppForm"
@@ -749,7 +779,7 @@ const problemMessageList = (result: IResult) => {
 								<Refresh7Icon class="size-5"/>
 							</div>
 							<div class="text-nowrap truncate">@problem makeShowAppForm</div>
-						</button>
+						</button-->
 						<button
 							type="button"
 							class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
@@ -881,14 +911,42 @@ const problemMessageList = (result: IResult) => {
 							class="mt-4 px-lg2 py-sm2 border border-base-100 rounded-lg col-auto md:col-span-2 lg:col-span-1 bg-white"
 						>
 							<ul class="text-xs mt-sm2 text-base-600">
-								<li>lang: {{ b24Characteristics.licenseInfo.languageId }}</li>
-								<li>license: {{ b24Characteristics.licenseInfo.license }}</li>
-								<li>licensePrevious: {{ b24Characteristics.licenseInfo.licensePrevious }}</li>
-								<li>licenseType: {{ b24Characteristics.licenseInfo.licenseType }}</li>
-								<li>licenseFamily: {{ b24Characteristics.licenseInfo.licenseFamily }}</li>
-								<li>isSelfHosted: {{ b24Characteristics.licenseInfo.isSelfHosted ? 'Y' : 'N' }}</li>
-								<li>isExpired: {{ b24Characteristics.paymentInfo.isExpired ? 'Y' : 'N' }}</li>
-								<li>days: {{ b24Characteristics.paymentInfo.days }}</li>
+								<li>lang: {{ b24Characteristics.licenseInfo.data.languageId }}</li>
+								<li>license: {{ b24Characteristics.licenseInfo.data.license }}</li>
+								<li>licensePrevious: {{ b24Characteristics.licenseInfo.data.licensePrevious }}</li>
+								<li>licenseType: {{ b24Characteristics.licenseInfo.data.licenseType }}</li>
+								<li>licenseFamily: {{ b24Characteristics.licenseInfo.data.licenseFamily }}</li>
+								<li>isSelfHosted: {{ b24Characteristics.licenseInfo.data.isSelfHosted ? 'Y' : 'N' }}</li>
+								<li>isExpired: {{ b24Characteristics.paymentInfo.data.isExpired ? 'Y' : 'N' }}</li>
+								<li>days: {{ b24Characteristics.paymentInfo.data.days }}</li>
+								<li>baseCurrency: {{ b24Characteristics.currency.baseCurrency }}</li>
+								<li>
+									<hr>
+									FullName: <span v-html="b24Characteristics.currency.getCurrencyFullName(b24Characteristics.currency.baseCurrency)"></span><br>
+									Literal: <span v-html="b24Characteristics.currency.getCurrencyLiteral(b24Characteristics.currency.baseCurrency)"></span><br>
+									format_isClearSpace_False: <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, b24Characteristics.currency.baseCurrency, formatterNumber, false)"></span><br>
+									format_isClearSpace_True:  <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, b24Characteristics.currency.baseCurrency, formatterNumber, true)"></span><br>
+									<hr>
+									FullName: <span v-html="b24Characteristics.currency.getCurrencyFullName('EUR')"></span><br>
+									Literal: <span v-html="b24Characteristics.currency.getCurrencyLiteral('EUR')"></span><br>
+									format_isClearSpace_False: <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, 'EUR', formatterNumber, false)"></span><br>
+									format_isClearSpace_True:  <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, 'EUR', formatterNumber, true)"></span><br>
+									<hr>
+									FullName: <span v-html="b24Characteristics.currency.getCurrencyFullName('CNY')"></span><br>
+									Literal: <span v-html="b24Characteristics.currency.getCurrencyLiteral('CNY')"></span><br>
+									format_isClearSpace_False: <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, 'CNY', formatterNumber, false)"></span><br>
+									format_isClearSpace_True:  <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, 'CNY', formatterNumber, true)"></span><br>
+									<hr>
+									FullName: <span v-html="b24Characteristics.currency.getCurrencyFullName('BRL')"></span><br>
+									Literal: <span v-html="b24Characteristics.currency.getCurrencyLiteral('BRL')"></span><br>
+									format_isClearSpace_False: <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, 'BRL', formatterNumber, false)"></span><br>
+									format_isClearSpace_True:  <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, 'BRL', formatterNumber, true)"></span><br>
+									<hr>
+									FullName: <span v-html="b24Characteristics.currency.getCurrencyFullName('INR')"></span><br>
+									Literal: <span v-html="b24Characteristics.currency.getCurrencyLiteral('INR')"></span><br>
+									format_isClearSpace_False: <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, 'INR', formatterNumber, false)"></span><br>
+									format_isClearSpace_True:  <span class="font-bold text-md" v-html="b24Characteristics.currency.format(123456.789, 'INR', formatterNumber, true)"></span><br>
+								</li>
 							</ul>
 						</div>
 					</div>

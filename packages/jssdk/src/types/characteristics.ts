@@ -6,6 +6,9 @@ import type {
 export enum LoadDataType {
 	App = 'app',
 	Profile = 'profile',
+	Currency = 'currency',
+	AppOptions = 'appOptions',
+	UserOptions = 'userOptions'
 }
 
 export type TypeUser = {
@@ -140,4 +143,19 @@ export type TypeB24Form = {
 	readonly c_name: string,
 	readonly c_last_name: string,
 	readonly hostname: string
+}
+
+export type Currency = {
+	amount: number
+	amountCnt: number
+	isBase: boolean
+	currency: string
+	dateUpdate: Date
+	decimals: number
+	decPoint: string
+	formatString: string
+	fullName: string
+	lid: string
+	sort: number
+	thousandsSep?: string
 }

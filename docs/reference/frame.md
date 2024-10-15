@@ -250,9 +250,13 @@ Use - `B24.auth`
 const B24Characteristics = new CharacteristicsManager(B24)
 await B24Characteristics.loadData([
 	LoadDataType.Profile,
-	LoadDataType.App
+	LoadDataType.App,
+	LoadDataType.Currency,
+	LoadDataType.AppOptions,
+	LoadDataType.UserOptions,
 ])
 ```
+**+/-** process
 
 - `CharacteristicsManager.licenseInfo`
 - `CharacteristicsManager.paymentInfo`
@@ -260,7 +264,9 @@ await B24Characteristics.loadData([
 - `CharacteristicsManager.hostName`
 - `CharacteristicsManager.userInfo`
 - `CharacteristicsManager.forB24Form`
-- `@todo` currency
+- `CharacteristicsManager.currency`
+- `CharacteristicsManager.appOptions`
+- `CharacteristicsManager.userOptions`
 
 ## Placement
 

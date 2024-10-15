@@ -91,11 +91,11 @@ export type SelectedCRMEntity = {
 }
 
 export type SelectedCRM = {
-	lead?: SelectedCRMEntity & { id: `L_${number}` }[],
-	contact?: SelectedCRMEntity & { id: `C_${number}`, image: string }[],
-	company?: SelectedCRMEntity & { id: `CO_${number}`, image: string }[],
-	deal?: SelectedCRMEntity & { id: `D_${number}` }[],
-	quote?: SelectedCRMEntity & { id: `Q_${number}` }[],
+	lead?: (SelectedCRMEntity & { id: `L_${number}` })[],
+	contact?: (SelectedCRMEntity & { id: `C_${number}`, image: string })[],
+	company?: (SelectedCRMEntity & { id: `CO_${number}`, image: string })[],
+	deal?: (SelectedCRMEntity & { id: `D_${number}` })[],
+	quote?: (SelectedCRMEntity & { id: `Q_${number}` })[],
 }
 
 /**
@@ -151,6 +151,7 @@ export class DialogManager
 	}
 	
 	/**
+	 * @deprecated
 	 * Method displays a standard access permission selection dialog
 	 *
 	 * @param {string[]} blockedAccessPermissions
@@ -162,6 +163,7 @@ export class DialogManager
 		blockedAccessPermissions: string[] = []
 	): Promise<SelectedAccess[]>
 	{
+		console.warn(`@deprecated selectAccess`)
 		return this.#messageManager.send(
 			MessageCommands.selectAccess,
 			{
@@ -171,19 +173,19 @@ export class DialogManager
 	}
 	
 	/**
+	 * @deprecated
 	 * Method invokes the system dialog for selecting a CRM entity
 	 *
 	 * @param {SelectCRMParams} params
 	 * @return {Promise<SelectedCRM>}
 	 *
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-dialogues/bx24-select-crm.html
-	 *
-	 * @todo test selectCRMParams (invoice, order, myCompany ...)
 	 */
 	async selectCRM(
 		params?: SelectCRMParams
 	): Promise<SelectedCRM>
 	{
+		console.warn(`@deprecated selectCRM`)
 		return this.#messageManager.send(
 			MessageCommands.selectCRM,
 			{

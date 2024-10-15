@@ -1,7 +1,7 @@
+import { LoggerBrowser, LoggerType } from "../logger/browser"
 import { Result } from "./result"
 import Http from "./http/controller"
 import { AjaxResult } from "./http/ajaxResult"
-import { LoggerBrowser, LoggerType } from "../logger/browser"
 import type { ListPayload } from "../types/payloads"
 
 export interface IB24

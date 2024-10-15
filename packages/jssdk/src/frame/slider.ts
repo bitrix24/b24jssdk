@@ -190,8 +190,13 @@ export class SliderManager
 		});
 	}
 	
+	/**
+	 * @deprecated
+	 * @param params
+	 */
 	async showAppForm(params: any): Promise<void>
 	{
+		console.warn(`@deprecated showAppForm`)
 		return this.#messageManager.send(
 			MessageCommands.showAppForm,
 			{

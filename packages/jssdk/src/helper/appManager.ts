@@ -1,5 +1,5 @@
 import { AbstractHelper } from './abstractHelper'
-import type { TypeApp } from '../types/characteristics'
+import { StatusDescriptions, type TypeApp } from '../types/characteristics'
 
 export class AppManager
 	extends AbstractHelper
@@ -22,5 +22,10 @@ export class AppManager
 		}
 		
 		return this._data
+	}
+	
+	get statusCode(): string
+	{
+		return StatusDescriptions[this.data.status as keyof typeof StatusDescriptions] || 'Unknown status'
 	}
 }

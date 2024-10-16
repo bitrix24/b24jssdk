@@ -85,10 +85,7 @@ export class CharacteristicsManager
 	{
 		if(null === this._logger)
 		{
-			this._logger = LoggerBrowser.build(
-				`NullLogger`
-			)
-			
+			this._logger = LoggerBrowser.build(`NullLogger`)
 			this._logger.setConfig({
 				[LoggerType.desktop]: false,
 				[LoggerType.log]: false,

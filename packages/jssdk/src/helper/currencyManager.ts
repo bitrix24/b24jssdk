@@ -123,9 +123,9 @@ export class CurrencyManager
 		|| ''
 	}
 	
-	get currencyList(): Map<string, Currency>
+	get currencyList(): string[]
 	{
-		return this.data.currencyList
+		return Array.from(this.data.currencyList.keys())
 	}
 	// endregion ////
 	

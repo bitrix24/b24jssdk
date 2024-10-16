@@ -19,6 +19,7 @@ export abstract class AbstractHelper
 	protected _logger: null|LoggerBrowser = null
 	protected _data: any = null
 	
+	// region Init ////
 	constructor(b24: IB24)
 	{
 		this._b24 = b24
@@ -49,6 +50,7 @@ export abstract class AbstractHelper
 		
 		return this._logger
 	}
+	// endregion ////
 	
 	/**
 	 * Initializes the data received

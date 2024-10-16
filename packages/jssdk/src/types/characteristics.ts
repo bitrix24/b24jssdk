@@ -44,9 +44,18 @@ export const EnumAppStatus = {
 	
 	// subscription application ////
 	Subscription: 'S',
-} as const;
+} as const
 
-export type TypeEnumAppStatus = keyof typeof EnumAppStatus;
+export const StatusDescriptions: Record<typeof EnumAppStatus[keyof typeof EnumAppStatus], string> = {
+	[EnumAppStatus.Free]: 'Free',
+	[EnumAppStatus.Demo]: 'Demo',
+	[EnumAppStatus.Trial]: 'Trial',
+	[EnumAppStatus.Paid]: 'Paid',
+	[EnumAppStatus.Local]: 'Local',
+	[EnumAppStatus.Subscription]: 'Subscription',
+}
+
+export type TypeEnumAppStatus = keyof typeof EnumAppStatus
 
 /**
  * @link https://dev.1c-bitrix.ru/rest_help/general/app_info.php
@@ -158,4 +167,14 @@ export type Currency = {
 	lid: string
 	sort: number
 	thousandsSep?: string
+}
+
+export enum TypeOption {
+	NotSet = 'notSet',
+	JsonArray = 'jsonArray',
+	JsonObject = 'jsonObject',
+	FloatVal = 'float',
+	IntegerVal = 'integer',
+	BoolYN = 'boolYN',
+	StringVal = 'string',
 }

@@ -33,12 +33,7 @@ export const restoreDate = (
 	const regexPattern = Object.keys(formatTokens).reduce((pattern, token) => {
 		return pattern.replace(token, formatTokens[token])
 	}, escapedFormat)
-	console.log(
-		dateString,
-		template,
-		escapedFormat,
-		regexPattern
-	)
+
 	const regex = new RegExp(`^${regexPattern}$`)
 	const match = dateString.match(regex)
 	

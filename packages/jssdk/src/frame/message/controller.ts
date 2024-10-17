@@ -1,15 +1,15 @@
-import { LoggerBrowser, LoggerType } from '../../index';
+import { LoggerBrowser, LoggerType } from '../../index'
 
-import { MessageCommands } from './commands';
-import { AppFrame } from '../frame';
+import { MessageCommands } from './commands'
+import { AppFrame } from '../frame'
 
-import useUniqId from "../../tools/uniqId";
+import Text from "../../tools/text"
 
 interface PromiseHandlers
 {
-	resolve: (value: any) => void;
-	reject: (reason?: any) => void;
-	timeoutId: any;
+	resolve: (value: any) => void
+	reject: (reason?: any) => void
+	timeoutId: any
 }
 
 /**
@@ -29,20 +29,20 @@ export interface SendParams {
  */
 export class MessageManager
 {
-	#appFrame: AppFrame;
-	#callbackPromises: Map<string, PromiseHandlers>;
-	protected _logger: null|LoggerBrowser = null;
-	private runCallbackHandler: OmitThisParameter<(event: MessageEvent) => void>;
+	#appFrame: AppFrame
+	#callbackPromises: Map<string, PromiseHandlers>
+	protected _logger: null|LoggerBrowser = null
+	private runCallbackHandler: OmitThisParameter<(event: MessageEvent) => void>
 	
 	constructor(
 		appFrame: AppFrame
 	)
 	{
-		this.#appFrame = appFrame;
+		this.#appFrame = appFrame
 		
-		this.#callbackPromises = new Map();
+		this.#callbackPromises = new Map()
 		
-		this.runCallbackHandler = this._runCallback.bind(this);
+		this.runCallbackHandler = this._runCallback.bind(this)
 	}
 	
 	setLogger(logger: LoggerBrowser): void
@@ -68,7 +68,7 @@ export class MessageManager
 			})
 		}
 		
-		return this._logger;
+		return this._logger
 	}
 	
 	// region Events ////
@@ -80,7 +80,7 @@ export class MessageManager
 		window.addEventListener(
 			'message',
 			this.runCallbackHandler
-		);
+		)
 	}
 	
 	/**
@@ -91,7 +91,7 @@ export class MessageManager
 		window.removeEventListener(
 			'message',
 			this.runCallbackHandler
-		);
+		)
 	}
 	// endregion ////
 	
@@ -109,10 +109,10 @@ export class MessageManager
 	{
 		return new Promise((resolve, reject) => {
 			
-			let cmd: string|{};
-			const promiseHandler: PromiseHandlers = { resolve, reject, timeoutId: null };
+			let cmd: string|{}
+			const promiseHandler: PromiseHandlers = { resolve, reject, timeoutId: null }
 			
-			const keyPromise = this.#setCallbackPromise(promiseHandler);
+			const keyPromise = this.#setCallbackPromise(promiseHandler)
 			
 			if(command.toString().indexOf(':') >= 0)
 			{
@@ -121,29 +121,29 @@ export class MessageManager
 					params: !!params ? params : '',
 					callback: keyPromise,
 					appSid: this.#appFrame.getAppSid()
-				};
+				}
 			}
 			else
 			{
 				/**
 				 * @memo: delete after rest 22.0.0
 				 */
-				cmd = command.toString();
+				cmd = command.toString()
 				let listParams = [
 					!!params ? JSON.stringify(params) : null,
 					keyPromise,
 					this.#appFrame.getAppSid()
-				];
+				]
 				
-				cmd += ':' + listParams.filter(Boolean).join(':');
+				cmd += ':' + listParams.filter(Boolean).join(':')
 			}
 			
-			this.getLogger().log(`send to ${this.#appFrame.getTargetOrigin()}`, {cmd});
+			this.getLogger().log(`send to ${this.#appFrame.getTargetOrigin()}`, {cmd})
 			
 			parent.postMessage(
 				cmd,
 				this.#appFrame.getTargetOrigin()
-			);
+			)
 			
 			if(params?.isSafely)
 			{
@@ -155,16 +155,16 @@ export class MessageManager
 						{
 							this.getLogger().warn(
 								`Action ${command.toString()} stop by timeout`
-							);
+							)
 							
-							this.#callbackPromises.delete(keyPromise);
-							resolve({isSafely: true});
+							this.#callbackPromises.delete(keyPromise)
+							resolve({isSafely: true})
 						}
 					},
 					parseInt(String(params?.safelyTime || 900))
-				);
+				)
 			}
-		});
+		})
 	}
 	
 	/**
@@ -177,16 +177,16 @@ export class MessageManager
 	{
 		if(event.origin !== this.#appFrame.getTargetOrigin())
 		{
-			return;
+			return
 		}
 		
 		if(!!event.data)
 		{
 			this.getLogger().log(`get from ${event.origin}`, {
 				data: event.data
-			});
+			})
 			
-			let tmp = event.data.split(':');
+			let tmp = event.data.split(':')
 			
 			const cmd: { id: string, args: any } = {
 				id: tmp[0],
@@ -195,21 +195,21 @@ export class MessageManager
 			
 			if(!!cmd.args)
 			{
-				cmd.args = JSON.parse(cmd.args);
+				cmd.args = JSON.parse(cmd.args)
 			}
 			
 			if(this.#callbackPromises.has(cmd.id))
 			{
-				const promise = this.#callbackPromises.get(cmd.id) as PromiseHandlers;
+				const promise = this.#callbackPromises.get(cmd.id) as PromiseHandlers
 				if(!!promise.timeoutId)
 				{
-					clearTimeout(promise.timeoutId);
+					clearTimeout(promise.timeoutId)
 				}
 				
-				this.#callbackPromises.delete(cmd.id);
+				this.#callbackPromises.delete(cmd.id)
 				
-				promise.resolve(cmd.args);
-				// promise.reject(cmd.args); ////
+				promise.resolve(cmd.args)
+				// promise.reject(cmd.args) ////
 			}
 		}
 	}
@@ -224,13 +224,13 @@ export class MessageManager
 	 */
 	#setCallbackPromise(promiseHandler: PromiseHandlers): string
 	{
-		let key = useUniqId();
+		let key = Text.getUniqId()
 		
 		this.#callbackPromises.set(
 			key,
 			promiseHandler
-		);
+		)
 		
-		return key;
+		return key
 	}
 }

@@ -9,7 +9,7 @@ import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
 import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk/types/crm'
-import useUniqId from "@bitrix24/b24jssdk/tools/uniqId"
+import Text from "@bitrix24/b24jssdk/tools/text"
 import { useFormatter } from "@bitrix24/b24jssdk/tools/useFormatters"
 import { type ISODate } from "@bitrix24/b24jssdk/types/common"
 
@@ -83,7 +83,7 @@ const actionCompanyAdd = async (needAdd: number = 10): Promise<void> => {
 			params: {
 				entityTypeId: EnumCrmEntityTypeId.company,
 				fields: {
-					title: useUniqId(),
+					title: Text.getUniqId(),
 					comments: '[B]Auto generate[/B] from [URL=https://bitrix24.github.io/b24jssdk/]@bitrix24/b24jssdk-playground[/URL]'
 				}
 			}

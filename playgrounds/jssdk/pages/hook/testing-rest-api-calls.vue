@@ -17,7 +17,7 @@ import { EnumCrmEntityTypeId } from "@bitrix24/b24jssdk/types/crm"
 import { useFormatter } from "@bitrix24/b24jssdk/tools/useFormatters"
 import Info from "../../components/Info.vue";
 import ProgressBar from "../../components/ProgressBar.vue";
-import useUniqId from "@bitrix24/b24jssdk/tools/uniqId";
+import Text from "@bitrix24/b24jssdk/tools/text";
 import { type UserBrief} from "@bitrix24/b24jssdk/types/user";
 import {computedAsync} from "@vueuse/core";
 import {LoadDataType} from "@bitrix24/b24jssdk/types/characteristics";
@@ -345,7 +345,7 @@ async function makeSelectItemsList_v5()
 					params: {
 						entityTypeId: EnumCrmEntityTypeId.company,
 						fields: {
-							title: useUniqId(),
+							title: Text.getUniqId(),
 							comments: '[B]Auto generate[/B] from [URL=https://bitrix24.github.io/b24jssdk/]@bitrix24/b24jssdk-playground[/URL]'
 						}
 					}

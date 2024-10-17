@@ -2,7 +2,7 @@
 /**
  * @todo show error if open not in iframe
  */
-import { ref, type Ref, onMounted, onUnmounted } from 'vue'
+import {ref, type Ref, onMounted, onUnmounted, watch, nextTick} from 'vue'
 import { computedAsync } from '@vueuse/core'
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { type IB24 } from '@bitrix24/b24jssdk/core/abstractB24'
@@ -245,6 +245,7 @@ const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync (
 const makeFitWindow = async () => {
 	window.setTimeout(() => {
 		B24.parent.fitWindow()
+		//B24.parent.resizeWindowAuto()
 	}, 200)
 }
 
@@ -806,6 +807,12 @@ const problemMessageList = (result: IResult) => {
 	return problemMessageList;
 }
 // endregion ////
+
+watch(defTabIndex, async () => {
+	await nextTick()
+	
+	await B24.parent.fitWindow()
+})
 
 </script>
 

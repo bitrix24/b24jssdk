@@ -1,5 +1,5 @@
-import { MessageManager, MessageCommands } from "./message";
-import useScrollSize from "../tools/scrollSize";
+import { MessageManager, MessageCommands } from './message'
+import useScrollSize from '../tools/scrollSize'
 
 
 /**
@@ -9,13 +9,13 @@ import useScrollSize from "../tools/scrollSize";
  */
 export class ParentManager
 {
-	#messageManager: MessageManager;
+	#messageManager: MessageManager
 	
 	constructor(
 		messageManager: MessageManager
 	)
 	{
-		this.#messageManager = messageManager;
+		this.#messageManager = messageManager
 	}
 	
 	/**
@@ -35,7 +35,7 @@ export class ParentManager
 				 */
 				isSafely: false
 			}
-		);
+		)
 	}
 	
 	/**
@@ -49,8 +49,8 @@ export class ParentManager
 	 */
 	fitWindow(): Promise<any>
 	{
-		let width = '100%';
-		let height = this.getScrollSize().scrollHeight;
+		let width = '100%'
+		let height = this.getScrollSize().scrollHeight
 		
 		return this.#messageManager.send(
 			MessageCommands.resizeWindow,
@@ -59,7 +59,7 @@ export class ParentManager
 				height,
 				isSafely: true
 			}
-		);
+		)
 	}
 	
 	/**
@@ -88,12 +88,12 @@ export class ParentManager
 					height,
 					isSafely: true
 				}
-			);
+			)
 		}
 		
 		return Promise.reject(new Error(
 			`Wrong width:number = ${width} or height:number = ${height}`
-		));
+		))
 	}
 	
 	/**
@@ -112,8 +112,8 @@ export class ParentManager
 		minWidth: number = 0
 	): Promise<void>
 	{
-		const body = document.body;
-		//const html = document.documentElement;
+		const body = document.body
+		//const html = document.documentElement
 		
 		let width = Math.max(
 			body.scrollWidth,
@@ -122,11 +122,11 @@ export class ParentManager
 			//html.clientWidth,
 			//html.scrollWidth,
 			//html.offsetWidth
-		);
+		)
 		
 		if(minWidth > 0)
 		{
-			width = Math.max(minWidth, width);
+			width = Math.max(minWidth, width)
 		}
 		
 		let height = Math.max(
@@ -136,30 +136,25 @@ export class ParentManager
 			//html.clientHeight,
 			//html.scrollHeight,
 			//html.offsetHeight
-		);
+		)
 		
 		if(!!appNode)
 		{
 			height = Math.max(
 				appNode.scrollHeight,
 				appNode.offsetHeight,
-			);
+			)
 		}
 		
 		if(minHeight > 0)
 		{
-			height = Math.max(minHeight, height);
+			height = Math.max(minHeight, height)
 		}
-		
-		/**
-		 * @memo something is wrong with the build - I loaded delta - the scroll jumped constantly
-		 */
-		height = height + 4;
 		
 		return this.resizeWindow(
 			width,
 			height,
-		);
+		)
 	}
 	
 	/**
@@ -170,7 +165,7 @@ export class ParentManager
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-get-scroll-size.html
 	 */
 	getScrollSize(): {
-		scrollWidth: number;
+		scrollWidth: number
 		scrollHeight: number
 	}
 	{
@@ -222,7 +217,7 @@ export class ParentManager
 			{
 				isSafely: true
 			}
-		);
+		)
 	}
 	
 	/**
@@ -244,7 +239,7 @@ export class ParentManager
 				title: title.toString(),
 				isSafely: true
 			}
-		);
+		)
 	}
 	
 	/**

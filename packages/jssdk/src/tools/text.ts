@@ -104,35 +104,6 @@ export default class Text
 		return ['true', 'y', '1', 1, true, ...trueValues].includes(transformedValue)
 	}
 	
-	static numberFormat(
-		number: number,
-		decimals: number = 0,
-		decPoint: string = '.',
-		thousandsSep: string = ','
-	): string
-	{
-		const n = !Number.isFinite(number) ? 0 : number
-		const fractionDigits = !Number.isFinite(decimals) ? 0 : Math.abs(decimals)
-		
-		const toFixedFix = (n: number, fractionDigits: number): number => {
-			const k = Math.pow(10, fractionDigits)
-			return Math.round(n * k) / k
-		}
-		
-		let s = (fractionDigits ? toFixedFix(n, fractionDigits) : Math.round(n)).toString().split('.')
-		
-		if (s[0].length > 3) {
-			s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, thousandsSep)
-		}
-		
-		if ((s[1] || '').length < fractionDigits) {
-			s[1] = s[1] || ''
-			s[1] += new Array(fractionDigits - s[1].length + 1).join('0')
-		}
-		
-		return s.join(decPoint)
-	}
-
 	static toCamelCase(str: string): string
 	{
 		if (!Type.isStringFilled(str))
@@ -186,5 +157,126 @@ export default class Text
 		}
 
 		return str[0].toUpperCase() + str.substring(1)
+	}
+	
+	static numberFormat(
+		number: number,
+		decimals: number = 0,
+		decPoint: string = '.',
+		thousandsSep: string = ','
+	): string
+	{
+		const n = !Number.isFinite(number) ? 0 : number
+		const fractionDigits = !Number.isFinite(decimals) ? 0 : Math.abs(decimals)
+		
+		const toFixedFix = (n: number, fractionDigits: number): number => {
+			const k = Math.pow(10, fractionDigits)
+			return Math.round(n * k) / k
+		}
+		
+		let s = (fractionDigits ? toFixedFix(n, fractionDigits) : Math.round(n)).toString().split('.')
+		
+		if (s[0].length > 3) {
+			s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, thousandsSep)
+		}
+		
+		if ((s[1] || '').length < fractionDigits) {
+			s[1] = s[1] || ''
+			s[1] += new Array(fractionDigits - s[1].length + 1).join('0')
+		}
+		
+		return s.join(decPoint)
+	}
+	
+	/**
+	 * Convert string to Date
+	 *
+	 * @param {string} dateString
+	 * @param {string} template
+	 * @returns {Date}
+	 *
+	 * console.log(Text.toDate('2023-10-04', 'Y-m-d')); // Wed Oct 04 2023 00:00:00 GMT+0000
+	 * console.log(Text.toDate('04.10.2023', 'd.m.Y')); // Wed Oct 04 2023 00:00:00 GMT+0000
+	 * console.log(Text.toDate('2023-10-04 14:05:56', 'Y-m-d H:i:s')); // Wed Oct 04 2023 14:05:56 GMT+0000
+	 * console.log(Text.toDate('2023-10-04T14:05:56+03:00', 'Y-m-dTH:i:sZ')); // Wed Oct 04 2023 11:05:56 GMT+0000
+	 */
+	static toDate (
+		dateString: string,
+		template: string = 'Y-m-dTH:i:sZ'
+	): Date
+	{
+		const formatTokens: Record<string, string> = {
+			d: '(\\d{2})',
+			Y: '(\\d{4})',
+			m: '(\\d{2})',
+			H: '(\\d{2})',
+			i: '(\\d{2})',
+			s: '(\\d{2})',
+			T: 'T',
+			Z: '([+-]\\d{2}:\\d{2})'
+		}
+		
+		const escapedFormat = template.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+		const regexPattern = Object.keys(formatTokens).reduce((pattern, token) => {
+			return pattern.replace(token, formatTokens[token])
+		}, escapedFormat)
+		
+		const regex = new RegExp(`^${regexPattern}$`)
+		const match = dateString.match(regex)
+		
+		if(!match)
+		{
+			throw new Error('Date string does not match the format')
+		}
+		
+		const dateComponents: Record<string, number> = {
+			Y: 0,
+			m: 1,
+			d: 1,
+			H: 0,
+			i: 0,
+			s: 0
+		}
+		
+		// Start from 1 because match[0] is the full match
+		let index = 1
+		for(const token of template)
+		{
+			if(formatTokens[token])
+			{
+				dateComponents[token] = parseInt(match[index++], 10)
+			}
+		}
+		
+		// Adjust month index for JavaScript Date (0-based)
+		dateComponents['m'] -= 1
+		
+		// Handle timezone offset if present
+		if(template.includes('Z') && match[index])
+		{
+			const timezoneOffset = match[index]
+			const [hoursOffset, minutesOffset] = timezoneOffset.split(':').map(Number)
+			const totalOffsetMinutes = hoursOffset * 60 + minutesOffset
+			const offsetSign = timezoneOffset.startsWith('+') ? -1 : 1
+			const offsetInMilliseconds = offsetSign * totalOffsetMinutes * 60 * 1000
+			
+			return new Date(Date.UTC(
+				dateComponents['Y'],
+				dateComponents['m'],
+				dateComponents['d'],
+				dateComponents['H'],
+				dateComponents['i'],
+				dateComponents['s']
+			) + offsetInMilliseconds)
+		}
+		
+		return new Date(Date.UTC(
+			dateComponents['Y'],
+			dateComponents['m'],
+			dateComponents['d'],
+			dateComponents['H'],
+			dateComponents['i'],
+			dateComponents['s']
+		))
 	}
 }

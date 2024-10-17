@@ -56,7 +56,11 @@ export abstract class AbstractHelper
 	 * Initializes the data received
 	 * @param data
 	 */
-	abstract initData(data: any): void
+	async initData(data: any): Promise<void>
+	{
+		this.getLogger().log(data)
+		return Promise.reject(new Error('Rewrite this function'))
+	}
 	
 	abstract get data(): any
 }

@@ -9,7 +9,7 @@ export class LicenseManager
 	/**
 	 * @inheritDoc
 	 */
-	initData(data: TypeLicense): void
+	override async initData(data: TypeLicense): Promise<void>
 	{
 		this._data = data
 	}

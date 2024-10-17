@@ -6,9 +6,7 @@ import { PaymentManager } from './paymentManager'
 import { LicenseManager } from './licenseManager'
 import { CurrencyManager } from './currencyManager'
 import { OptionsManager } from './optionsManager'
-import { LoadDataType } from '../types/characteristics'
-import type { GenderString } from '../types/common'
-
+import { LoadDataType, TypeSpecificUrl } from '../types/characteristics'
 import type {
 	TypeApp,
 	TypeB24Form,
@@ -17,6 +15,8 @@ import type {
 	TypePayment,
 	TypeUser
 } from '../types/characteristics'
+import type { GenderString } from '../types/common'
+
 
 /**
  * A universal class that is used to manage the initial application data
@@ -40,6 +40,7 @@ export class CharacteristicsManager
 	constructor(b24: IB24)
 	{
 		this._b24 = b24
+		this.setLogger(this._b24.getLogger())
 	}
 	
 	setLogger(logger: LoggerBrowser): void
@@ -142,14 +143,14 @@ export class CharacteristicsManager
 			
 			if(data[`get_${LoadDataType.App}`])
 			{
-				this._app = this.parseAppData(data[`get_${LoadDataType.App}`])
-				this._payment = this.parsePaymentData(data[`get_${LoadDataType.App}`])
-				this._license = this.parseLicenseData(data[`get_${LoadDataType.App}`])
+				this._app = await this.parseAppData(data[`get_${LoadDataType.App}`])
+				this._payment = await this.parsePaymentData(data[`get_${LoadDataType.App}`])
+				this._license = await this.parseLicenseData(data[`get_${LoadDataType.App}`])
 			}
 			
 			if(data[`get_${LoadDataType.Profile}`])
 			{
-				this._profile = this.parseUserData(data[`get_${LoadDataType.Profile}`])
+				this._profile = await this.parseUserData(data[`get_${LoadDataType.Profile}`])
 			}
 			
 			if(
@@ -157,7 +158,7 @@ export class CharacteristicsManager
 				&& data[`get_${LoadDataType.Currency}_1`]
 			)
 			{
-				this._currency = this.parseCurrencyData({
+				this._currency = await this.parseCurrencyData({
 					currencyBase: data[`get_${LoadDataType.Currency}_0`],
 					currencyList: data[`get_${LoadDataType.Currency}_1`]
 				})
@@ -165,12 +166,12 @@ export class CharacteristicsManager
 			
 			if(data[`get_${LoadDataType.AppOptions}`])
 			{
-				this._appOptions = this.parseOptionsData(data[`get_${LoadDataType.AppOptions}`])
+				this._appOptions = await this.parseOptionsData(data[`get_${LoadDataType.AppOptions}`])
 			}
 			
 			if(data[`get_${LoadDataType.UserOptions}`])
 			{
-				this._userOptions = this.parseOptionsData(data[`get_${LoadDataType.UserOptions}`])
+				this._userOptions = await this.parseOptionsData(data[`get_${LoadDataType.UserOptions}`])
 			}
 			
 			this._isInit = true
@@ -182,11 +183,11 @@ export class CharacteristicsManager
 		}
 	}
 	
-	private parseUserData(profileData: any): ProfileManager
+	private async parseUserData(profileData: any): Promise<ProfileManager>
 	{
 		const manager = new ProfileManager(this._b24)
 		manager.setLogger(this.getLogger())
-		manager.initData({
+		return manager.initData({
 			id: Number(profileData.ID),
 			isAdmin: profileData.ADMIN === true,
 			lastName: profileData?.LAST_NAME || '',
@@ -196,39 +197,45 @@ export class CharacteristicsManager
 			TimeZone: profileData?.TIME_ZONE || '',
 			TimeZoneOffset: profileData?.TIME_ZONE_OFFSET,
 		} as TypeUser)
-		return manager
+		.then(() => {
+			return manager
+		})
 	}
 	
-	private parseAppData(appData: any): AppManager
+	private async parseAppData(appData: any): Promise<AppManager>
 	{
 		const manager = new AppManager(this._b24)
 		manager.setLogger(this.getLogger())
-		manager.initData({
+		return manager.initData({
 			id: parseInt(appData.ID),
 			code: appData.CODE,
 			version: parseInt(appData.VERSION),
 			status: appData.STATUS as TypeEnumAppStatus,
 			isInstalled: appData.INSTALLED as boolean,
 		} as TypeApp)
-		return manager
+		.then(() => {
+			return manager
+		})
 	}
 	
-	private parsePaymentData(appData: any): PaymentManager
+	private async parsePaymentData(appData: any): Promise<PaymentManager>
 	{
 		const manager = new PaymentManager(this._b24)
 		manager.setLogger(this.getLogger())
-		manager.initData({
+		return manager.initData({
 			isExpired: appData.PAYMENT_EXPIRED === 'Y',
 			days: parseInt(appData.DAYS || '0'),
 		} as TypePayment)
-		return manager
+		.then(() => {
+			return manager
+		})
 	}
 	
-	private parseLicenseData(appData: any): LicenseManager
+	private async parseLicenseData(appData: any): Promise<LicenseManager>
 	{
 		const manager = new LicenseManager(this._b24)
 		manager.setLogger(this.getLogger())
-		manager.initData({
+		return manager.initData({
 			languageId: appData.LANGUAGE_ID,
 			license: appData.LICENSE,
 			licensePrevious: appData.LICENSE_PREVIOUS,
@@ -236,23 +243,29 @@ export class CharacteristicsManager
 			licenseFamily: appData.LICENSE_FAMILY,
 			isSelfHosted: appData.LICENSE.includes('selfhosted')
 		} as TypeLicense)
-		return manager
+		.then(() => {
+			return manager
+		})
 	}
 	
-	private parseCurrencyData(currencyData: any): CurrencyManager
+	private async parseCurrencyData(currencyData: any): Promise<CurrencyManager>
 	{
 		const manager = new CurrencyManager(this._b24)
 		manager.setLogger(this.getLogger())
-		manager.initData(currencyData)
-		return manager
+		return manager.initData(currencyData)
+		.then(() => {
+			return manager
+		})
 	}
 	
-	private parseOptionsData(optionsData: any): OptionsManager
+	private async parseOptionsData(optionsData: any): Promise<OptionsManager>
 	{
 		const manager = new OptionsManager(this._b24)
 		manager.setLogger(this.getLogger())
-		manager.initData(optionsData)
-		return manager
+		return manager.initData(optionsData)
+		.then(() => {
+			return manager
+		})
 	}
 	// endregion ////
 	
@@ -378,6 +391,50 @@ export class CharacteristicsManager
 		}
 		
 		return this._userOptions
+	}
+	// endregion ////
+	
+	// region Custom SelfHosted && Cloud ////
+	get isSelfHosted(): boolean
+	{
+		return this.licenseInfo.data.isSelfHosted
+	}
+	
+	/**
+	 * Returns the increment step of fields of type ID
+	 * @memo in cloud step = 2 in box step = 1
+	 *
+	 * @returns {number}
+	 */
+	get primaryKeyIncrementValue(): number
+	{
+		if(this.isSelfHosted)
+		{
+			return 1
+		}
+		
+		return 2
+	}
+	
+	/**
+	 * Defines specific URLs for a Bitrix24 box or cloud
+	 */
+	get b24SpecificUrl(): Record<keyof typeof TypeSpecificUrl, string>
+	{
+		if(this.isSelfHosted)
+		{
+			return {
+				[TypeSpecificUrl.MainSettings]: '/configs/',
+				[TypeSpecificUrl.UfList]: '/configs/userfield_list.php',
+				[TypeSpecificUrl.UfPage]: '/configs/userfield.php'
+			}
+		}
+		
+		return {
+			[TypeSpecificUrl.MainSettings]: '/settings/configs/',
+			[TypeSpecificUrl.UfList]: '/settings/configs/userfield_list.php',
+			[TypeSpecificUrl.UfPage]: '/settings/configs/userfield.php'
+		}
 	}
 	// endregion ////
 	

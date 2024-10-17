@@ -9,7 +9,7 @@ export class ProfileManager
 	/**
 	 * @inheritDoc
 	 */
-	initData(data: TypeUser): void
+	override async initData(data: TypeUser): Promise<void>
 	{
 		this._data = data
 	}

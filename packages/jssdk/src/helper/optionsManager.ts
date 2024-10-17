@@ -58,7 +58,7 @@ export class OptionsManager
 	/**
 	 * @inheritDoc
 	 */
-	initData(data: any): void
+	override async initData(data: any): Promise<void>
 	{
 		this.reset()
 		

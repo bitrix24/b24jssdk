@@ -9,7 +9,7 @@ export class PaymentManager
 	/**
 	 * @inheritDoc
 	 */
-	initData(data: TypePayment): void
+	override async initData(data: TypePayment): Promise<void>
 	{
 		this._data = data
 	}

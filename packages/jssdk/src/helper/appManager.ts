@@ -9,7 +9,7 @@ export class AppManager
 	/**
 	 * @inheritDoc
 	 */
-	initData(data: TypeApp): void
+	override async initData(data: TypeApp): Promise<void>
 	{
 		this._data = data
 	}

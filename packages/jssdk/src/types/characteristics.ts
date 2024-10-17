@@ -1,6 +1,7 @@
 import type {
 	BoolString,
-	GenderString
+	GenderString,
+	NumberString
 } from "./common";
 
 export enum LoadDataType {
@@ -135,8 +136,13 @@ export type TypeLicense = {
 	 * flag indicating whether it is a box (true) or a cloud (false)
 	 */
 	readonly isSelfHosted: boolean;
-	
 }
+
+export const TypeSpecificUrl = {
+	MainSettings: 'MainSettings',
+	UfList: 'UfList',
+	UfPage: 'UfPage'
+} as const
 
 export type TypeB24Form = {
 	
@@ -157,11 +163,21 @@ export type TypeB24Form = {
 	readonly hostname: string
 }
 
+export type CurrencyFormat = {
+	decimals: number
+	decPoint: string
+	formatString: string
+	fullName: string
+	isHideZero: boolean
+	thousandsSep?: string
+	thousandsVariant?: 'N'|'D'|'C'|'S'|'B'|'OWN'|string
+}
+
 export type Currency = {
 	amount: number
 	amountCnt: number
 	isBase: boolean
-	currency: string
+	currencyCode: string
 	dateUpdate: Date
 	decimals: number
 	decPoint: string
@@ -169,7 +185,8 @@ export type Currency = {
 	fullName: string
 	lid: string
 	sort: number
-	thousandsSep?: string
+	thousandsSep?: string,
+	lang: Record<string, CurrencyFormat>
 }
 
 export enum TypeOption {

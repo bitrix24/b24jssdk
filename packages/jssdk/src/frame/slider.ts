@@ -7,16 +7,16 @@ import type { StatusClose } from "../types/slider"
  */
 export class SliderManager
 {
-	#appFrame: AppFrame;
-	#messageManager: MessageManager;
+	#appFrame: AppFrame
+	#messageManager: MessageManager
 	
 	constructor(
 		appFrame: AppFrame,
 		messageManager: MessageManager
 	)
 	{
-		this.#appFrame = appFrame;
-		this.#messageManager = messageManager;
+		this.#appFrame = appFrame
+		this.#messageManager = messageManager
 	}
 	
 	/**
@@ -26,7 +26,7 @@ export class SliderManager
 		path: string = '/'
 	): URL
 	{
-		return new URL(path, this.#appFrame.getTargetOrigin());
+		return new URL(path, this.#appFrame.getTargetOrigin())
 	}
 	
 	/**
@@ -34,7 +34,7 @@ export class SliderManager
 	 */
 	getTargetOrigin(): string
 	{
-		return this.#appFrame.getTargetOrigin();
+		return this.#appFrame.getTargetOrigin()
 	}
 	
 	/**
@@ -47,7 +47,7 @@ export class SliderManager
 		return this.#messageManager.send(
 			MessageCommands.openApplication,
 			params
-		);
+		)
 	}
 	
 	/**
@@ -80,13 +80,13 @@ export class SliderManager
 			else
 			{
 				// 1640 /////
-				return '/crm/deal/../..';
+				return '/crm/deal/../..'
 			}
 			// endregion ////
 		}
 		else
 		{
-			return '/crm/deal/../..';
+			return '/crm/deal/../..'
 		}
 	}
 	
@@ -104,9 +104,9 @@ export class SliderManager
 		width: number = 1640
 	): Promise<StatusClose>
 	{
-		const openSliderUrl = new URL(url);
-		openSliderUrl.searchParams.set('IFRAME', 'Y');
-		openSliderUrl.searchParams.set('IFRAME_TYPE', 'SIDE_SLIDER');
+		const openSliderUrl = new URL(url)
+		openSliderUrl.searchParams.set('IFRAME', 'Y')
+		openSliderUrl.searchParams.set('IFRAME_TYPE', 'SIDE_SLIDER')
 		
 		/**
 		 * We are trying to open the slider
@@ -130,37 +130,37 @@ export class SliderManager
 				if(response?.errorCode === 'METHOD_NOT_SUPPORTED_ON_DEVICE')
 				{
 					return new Promise((resolve, reject) => {
-						const windowObjectReference = window.open(url, '_blank');
+						const windowObjectReference = window.open(url, '_blank')
 						if(!windowObjectReference)
 						{
-							reject(new Error('Error open window'));
-							return;
+							reject(new Error('Error open window'))
+							return
 						}
 						
-						let iterator = 0;
+						let iterator = 0
 						// 5 min ////
-						let iteratorMax = 1_000 * 60 * 5;
+						let iteratorMax = 1_000 * 60 * 5
 						let waitCloseWindow = window.setInterval(() => {
-							iterator = iterator + 1;
+							iterator = iterator + 1
 							
 							if(windowObjectReference.closed)
 							{
-								clearInterval(waitCloseWindow);
+								clearInterval(waitCloseWindow)
 								resolve({
 									isOpenAtNewWindow: true,
 									isClose: true,
-								});
+								})
 							}
 							else if(iterator > iteratorMax)
 							{
-								clearInterval(waitCloseWindow);
+								clearInterval(waitCloseWindow)
 								resolve({
 									isOpenAtNewWindow: true,
 									isClose: false,
-								});
+								})
 							}
-						}, 1_000);
-					});
+						}, 1_000)
+					})
 				}
 				else
 				{
@@ -180,14 +180,14 @@ export class SliderManager
 				return Promise.resolve({
 					isOpenAtNewWindow: false,
 					isClose: true,
-				});
+				})
 			}
 			
 			return Promise.resolve({
 				isOpenAtNewWindow: false,
 				isClose: false,
-			});
-		});
+			})
+		})
 	}
 	
 	/**

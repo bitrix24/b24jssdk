@@ -1,30 +1,30 @@
-import { LoggerBrowser, LoggerType } from "../logger/browser"
-import { Result } from "./result"
-import Http from "./http/controller"
-import { AjaxResult } from "./http/ajaxResult"
-import type { ListPayload } from "../types/payloads"
+import { LoggerBrowser, LoggerType } from '../logger/browser'
+import { Result } from './result'
+import Http from './http/controller'
+import { AjaxResult } from './http/ajaxResult'
+import type { ListPayload } from '../types/payloads'
 
 export interface IB24
 {
 	/**
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-functions/bx24-init.html
 	 */
-	readonly isInit: boolean;
-	init(): Promise<void>;
-	destroy(): void;
+	readonly isInit: boolean
+	init(): Promise<void>
+	destroy(): void
 	
-	setLogger(logger: LoggerBrowser): void;
-	getLogger(): LoggerBrowser;
+	setLogger(logger: LoggerBrowser): void
+	getLogger(): LoggerBrowser
 	
 	/**
 	 * Get the account address BX24 ( https://name.bitrix24.com )
 	 */
-	getTargetOrigin(): string;
+	getTargetOrigin(): string
 	
 	/**
 	 * Get the account address BX24 ( https://name.bitrix24.com/rest )
 	 */
-	getTargetOriginWithPath(): string;
+	getTargetOriginWithPath(): string
 	
 	/**
 	 * Calls a REST service method with the specified parameters
@@ -37,7 +37,7 @@ export interface IB24
 	 *
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
 	 */
-	callMethod(method: string, params?: object, start?: number): Promise<AjaxResult>;
+	callMethod(method: string, params?: object, start?: number): Promise<AjaxResult>
 	
 	/**
 	 * Calls a REST service list method with the specified parameters
@@ -53,7 +53,7 @@ export interface IB24
 		params?: object,
 		progress?: Function | null,
 		customKeyForResult?: string | null
-	): Promise<Result>;
+	): Promise<Result>
 	
 	/**
 	 * Calls a REST service list method with the specified parameters and returns a generator object.
@@ -71,42 +71,55 @@ export interface IB24
 		params?: any,
 		idKey?: string,
 		customKeyForResult?: string | null
-	): AsyncGenerator<any[]>;
+	): AsyncGenerator<any[]>
 	
 	/**
 	 * Calls a batch request with a maximum number of commands of no more than 50
 	 *
 	 * @param  {array|object} calls Request packet
-	 * calls = [[method,params],[method,params]];
-	 * calls = [{method:method,params:params},[method,params]];
-	 * calls = {call_id:[method,params],...};
+	 * calls = [[method,params],[method,params]]
+	 * calls = [{method:method,params:params},[method,params]]
+	 * calls = {call_id:[method,params],...}
 	 * @param  {boolean} isHaltOnError Abort package execution when an error occurs
 	 *
 	 * @return {Promise} Promise
 	 *
 	 * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
 	 */
-	callBatch(calls: Array<any> | object, isHaltOnError?: boolean): Promise<Result>;
+	callBatch(calls: Array<any> | object, isHaltOnError?: boolean): Promise<Result>
+	
+	/**
+	 * Calls a batch request with any number of commands
+	 *
+	 * @param  {array} calls Request packet
+	 * calls = [[method,params],[method,params]]
+	 * @param  {boolean} isHaltOnError Abort package execution when an error occurs
+	 *
+	 * @return {Promise} Promise
+	 *
+	 * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
+	 */
+	callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result>
 	
 	/**
 	 * Returns Http client for requests
 	 */
-	getHttpClient(): Http;
+	getHttpClient(): Http
 }
 
 export abstract class AbstractB24
 	implements IB24
 {
-	static readonly batchSize = 50;
+	static readonly batchSize = 50
 	
-	protected _isInit: boolean = false;
-	protected _http: null|Http = null;
-	protected _logger: null|LoggerBrowser = null;
+	protected _isInit: boolean = false
+	protected _http: null|Http = null
+	protected _logger: null|LoggerBrowser = null
 	
 	// region Init ////
 	protected constructor()
 	{
-		this._isInit = false;
+		this._isInit = false
 	}
 	
 	/**
@@ -114,13 +127,13 @@ export abstract class AbstractB24
 	 */
 	get isInit(): boolean
 	{
-		return this._isInit;
+		return this._isInit
 	}
 	
 	async init(): Promise<void>
 	{
-		this._isInit = true;
-		return Promise.resolve();
+		this._isInit = true
+		return Promise.resolve()
 	}
 	
 	destroy()
@@ -131,7 +144,7 @@ export abstract class AbstractB24
 	setLogger(logger: LoggerBrowser): void
 	{
 		this._logger = logger
-		this.getHttpClient().setLogger(this.getLogger());
+		this.getHttpClient().setLogger(this.getLogger())
 	}
 	
 	getLogger(): LoggerBrowser
@@ -152,7 +165,7 @@ export abstract class AbstractB24
 			})
 		}
 		
-		return this._logger;
+		return this._logger
 	}
 	// endregion ////
 	
@@ -180,7 +193,7 @@ export abstract class AbstractB24
 			method,
 			params,
 			start
-		);
+		)
 	}
 	
 	/**
@@ -193,11 +206,11 @@ export abstract class AbstractB24
 		customKeyForResult: null|string = null
 	): Promise<Result>
 	{
-		const result = new Result();
+		const result = new Result()
 		
 		if(!!progress)
 		{
-			progress(0);
+			progress(0)
 		}
 		
 		return this.callMethod(
@@ -209,20 +222,20 @@ export abstract class AbstractB24
 		{
 			let list: any[] = []
 			
-			let resultData = undefined;
+			let resultData = undefined
 			if(null !== customKeyForResult)
 			{
-				resultData = (response.getData() as ListPayload<any>).result[customKeyForResult] as [];
+				resultData = (response.getData() as ListPayload<any>).result[customKeyForResult] as []
 			}
 			else
 			{
-				resultData = (response.getData() as ListPayload<any>).result as [];
+				resultData = (response.getData() as ListPayload<any>).result as []
 			}
 			
 			list = list.concat(resultData)
 			if(response.isMore())
 			{
-				let responseLoop: false|AjaxResult = response;
+				let responseLoop: false|AjaxResult = response
 				while(true)
 				{
 					responseLoop = await responseLoop.getNext(this.getHttpClient())
@@ -232,14 +245,14 @@ export abstract class AbstractB24
 						break
 					}
 					
-					let resultData = undefined;
+					let resultData = undefined
 					if(null !== customKeyForResult)
 					{
-						resultData = (responseLoop.getData() as ListPayload<any>).result[customKeyForResult] as [];
+						resultData = (responseLoop.getData() as ListPayload<any>).result[customKeyForResult] as []
 					}
 					else
 					{
-						resultData = (responseLoop.getData() as ListPayload<any>).result as [];
+						resultData = (responseLoop.getData() as ListPayload<any>).result as []
 					}
 					
 					list = list.concat(resultData)
@@ -255,11 +268,11 @@ export abstract class AbstractB24
 			result.setData(list)
 			if(!!progress)
 			{
-				progress(100);
+				progress(100)
 			}
 			
 			return Promise.resolve(result)
-		});
+		})
 	}
 	
 	/**
@@ -272,56 +285,56 @@ export abstract class AbstractB24
 		customKeyForResult: null|string = null
 	): AsyncGenerator<any[]>
 	{
-		params.order = params.order || {};
-		params.filter = params.filter || {};
-		params.start = -1;
+		params.order = params.order || {}
+		params.filter = params.filter || {}
+		params.start = -1
 		
-		let moreIdKey = `>${idKey}`;
+		let moreIdKey = `>${idKey}`
 		
-		params.order[idKey] = 'ASC';
-		params.filter[moreIdKey] = 0;
+		params.order[idKey] = 'ASC'
+		params.filter[moreIdKey] = 0
 		
 		do
 		{
-			let result = await this.callMethod(method, params, params.start);
-			let data = undefined;
+			let result = await this.callMethod(method, params, params.start)
+			let data = undefined
 			if(null !== customKeyForResult)
 			{
-				data = result.getData().result[customKeyForResult] as [];
+				data = result.getData().result[customKeyForResult] as []
 			}
 			else
 			{
-				data = result.getData().result as [];
+				data = result.getData().result as []
 			}
 			
 			if(data.length === 0)
 			{
-				break;
+				break
 			}
 			
-			yield data;
+			yield data
 			
 			if(data.length < AbstractB24.batchSize)
 			{
-				break;
+				break
 			}
 			
-			const value =  data[ data.length - 1 ];
+			const value =  data[ data.length - 1 ]
 			if(
 				value
 				&& idKey in value
 			)
 			{
-				params.filter[ moreIdKey ] = value[ idKey ];
+				params.filter[ moreIdKey ] = value[ idKey ]
 			}
 			
-		} while(true);
+		} while(true)
 	}
 	
 	/**
 	 * @inheritDoc
 	 */
-	callBatch(
+	async callBatch(
 		calls: Array<any>|object,
 		isHaltOnError: boolean = true
 	): Promise<Result>
@@ -329,7 +342,47 @@ export abstract class AbstractB24
 		return this.getHttpClient().batch(
 			calls,
 			isHaltOnError
-		);
+		)
+	}
+	
+	chunkArray<T>(array: T[], chunkSize: number = 50): T[][]
+	{
+		const result: T[][] = []
+		for(let i = 0; i < array.length; i += chunkSize)
+		{
+			const chunk = array.slice(i, i + chunkSize)
+			result.push(chunk)
+		}
+		return result
+	}
+	
+	/**
+	 * @inheritDoc
+	 */
+	async callBatchByChunk(
+		calls: Array<any>,
+		isHaltOnError: boolean = true
+	): Promise<Result>
+	{
+		const result = new Result()
+		
+		const data = []
+		const chunks = this.chunkArray(calls, AbstractB24.batchSize)
+		
+		try
+		{
+			for(const chunkRequest of chunks)
+			{
+				const response = await this.callBatch(chunkRequest, isHaltOnError)
+				data.push(...response.getData())
+			}
+		}
+		catch(error: any)
+		{
+			return Promise.reject(error)
+		}
+		
+		return Promise.resolve(result.setData(data))
 	}
 	// endregion ////
 	
@@ -344,10 +397,10 @@ export abstract class AbstractB24
 			|| !(this._http instanceof Http)
 		)
 		{
-			throw new Error(`Http not init`);
+			throw new Error(`Http not init`)
 		}
 		
-		return this._http;
+		return this._http
 	}
 	
 	/**
@@ -356,7 +409,7 @@ export abstract class AbstractB24
 	 */
 	protected _getHttpOptions(): null|{}
 	{
-		return null;
+		return null
 	}
 
 	/**
@@ -367,7 +420,7 @@ export abstract class AbstractB24
 	{
 		if(!this._isInit)
 		{
-			throw new Error('B24 not initialized');
+			throw new Error('B24 not initialized')
 		}
 	}
 	// endregion ////

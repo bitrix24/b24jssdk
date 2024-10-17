@@ -103,6 +103,35 @@ export default class Text
 		const transformedValue = Type.isString(value) ? value.toLowerCase() : value
 		return ['true', 'y', '1', 1, true, ...trueValues].includes(transformedValue)
 	}
+	
+	static numberFormat(
+		number: number,
+		decimals: number = 0,
+		decPoint: string = '.',
+		thousandsSep: string = ','
+	): string
+	{
+		const n = !Number.isFinite(number) ? 0 : number
+		const fractionDigits = !Number.isFinite(decimals) ? 0 : Math.abs(decimals)
+		
+		const toFixedFix = (n: number, fractionDigits: number): number => {
+			const k = Math.pow(10, fractionDigits)
+			return Math.round(n * k) / k
+		}
+		
+		let s = (fractionDigits ? toFixedFix(n, fractionDigits) : Math.round(n)).toString().split('.')
+		
+		if (s[0].length > 3) {
+			s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, thousandsSep)
+		}
+		
+		if ((s[1] || '').length < fractionDigits) {
+			s[1] = s[1] || ''
+			s[1] += new Array(fractionDigits - s[1].length + 1).join('0')
+		}
+		
+		return s.join(decPoint)
+	}
 
 	static toCamelCase(str: string): string
 	{

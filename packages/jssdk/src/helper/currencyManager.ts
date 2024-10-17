@@ -1,7 +1,6 @@
 import { AbstractHelper, UnhandledMatchError } from './abstractHelper'
 import type { BoolString, ISODate, NumberString } from "../types/common"
 import type { Currency, CurrencyFormat } from '../types/characteristics'
-import { restoreDate } from '../tools/useFormatters'
 import Type from '../tools/type'
 import Text from '../tools/text'
 
@@ -68,17 +67,6 @@ export class CurrencyManager
 		}
 	}
 	
-	chunkArray<T>(array: T[], chunkSize: number = 50): T[][]
-	{
-		const result: T[][] = [];
-		for(let i = 0; i < array.length; i += chunkSize)
-		{
-			const chunk = array.slice(i, i + chunkSize);
-			result.push(chunk);
-		}
-		return result;
-	}
-
 	async loadData(): Promise<void>
 	{
 		const batchRequest: {
@@ -100,13 +88,8 @@ export class CurrencyManager
 		
 		try
 		{
-			const data = []
-			const chunks = this.chunkArray(batchRequest)
-			for(const chunkRequest of chunks)
-			{
-				const response = await this._b24.callBatch(chunkRequest)
-				data.push(...response.getData())
-			}
+			const response = await this._b24.callBatchByChunk(batchRequest, true)
+			const data = response.getData()
 			
 			data.forEach((row: CurrencyInit) => {
 				if(typeof row.LANG === 'undefined')
@@ -201,7 +184,7 @@ export class CurrencyManager
 					amountCnt: parseInt(row.AMOUNT_CNT),
 					isBase: row.BASE === 'Y',
 					currencyCode: row.CURRENCY,
-					dateUpdate: restoreDate(row.DATE_UPDATE),
+					dateUpdate: Text.toDate(row.DATE_UPDATE),
 					decimals: parseInt(row.DECIMALS),
 					decPoint: row.DEC_POINT,
 					formatString: row.FORMAT_STRING,

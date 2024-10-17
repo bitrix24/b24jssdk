@@ -23,10 +23,10 @@ type AjaxResponse = {
  */
 export default class Http
 {
-	#clientAxios: AxiosInstance;
-	#authActions: AuthActions;
-	#restrictionManager: RestrictionManager;
-	private _logger: null|LoggerBrowser = null;
+	#clientAxios: AxiosInstance
+	#authActions: AuthActions
+	#restrictionManager: RestrictionManager
+	private _logger: null|LoggerBrowser = null
 	
 	constructor(
 		baseURL: string,
@@ -47,7 +47,7 @@ export default class Http
 	setLogger(logger: LoggerBrowser): void
 	{
 		this._logger = logger
-		this.#restrictionManager.setLogger(this.getLogger());
+		this.#restrictionManager.setLogger(this.getLogger())
 	}
 	
 	getLogger(): LoggerBrowser
@@ -68,7 +68,7 @@ export default class Http
 			})
 		}
 		
-		return this._logger;
+		return this._logger
 	}
 	
 	isString(item: any): boolean
@@ -81,7 +81,7 @@ export default class Http
 					|| item instanceof String
 				)
 				: false
-			);
+			)
 	}
 	
 	async batch(
@@ -89,53 +89,53 @@ export default class Http
 		isHaltOnError: boolean = true
 	): Promise<Result>
 	{
-		const isArrayMode = Array.isArray(calls);
-		let cmd: any = isArrayMode ? [] : {};
-		let cnt = 0;
+		const isArrayMode = Array.isArray(calls)
+		let cmd: any = isArrayMode ? [] : {}
+		let cnt = 0
 		
 		const processRow = (row: any, index: string|number) => {
-			let method = null;
-			let params = null;
+			let method = null
+			let params = null
 			
 			if(Array.isArray(row))
 			{
-				method = row[0];
-				params = row[1];
+				method = row[0]
+				params = row[1]
 			}
 			else if(!!row.method)
 			{
-				method = row.method;
-				params = row.params;
+				method = row.method
+				params = row.params
 			}
 			
 			if(!!method)
 			{
-				cnt++;
+				cnt++
 				
-				let data = method + '?' + qs.stringify(params);
+				let data = method + '?' + qs.stringify(params)
 				if(isArrayMode || Array.isArray(cmd))
 				{
-					cmd.push(data);
+					cmd.push(data)
 				}
 				else
 				{
-					cmd[index] = data;
+					cmd[index] = data
 				}
 			}
-		};
+		}
 		
 		if(isArrayMode)
 		{
-			calls.forEach((item, index) => processRow(item, index));
+			calls.forEach((item, index) => processRow(item, index))
 		}
 		else
 		{
-			Object.entries(calls).forEach(([index, item]) => processRow(item, index));
+			Object.entries(calls).forEach(([index, item]) => processRow(item, index))
 		}
 		
 		if(cnt < 1)
 		{
-			return Promise.resolve(new Result());
+			return Promise.resolve(new Result())
 		}
 		
 		return this.call(
@@ -147,8 +147,8 @@ export default class Http
 		)
 		.then((response: AjaxResult) => {
 			
-			const responseResult = (response.getData() as BatchPayload<unknown>).result;
-			const results: any = isArrayMode ? [] : {};
+			const responseResult = (response.getData() as BatchPayload<unknown>).result
+			const results: any = isArrayMode ? [] : {}
 			
 			const processResponse = (row: string, index: string|number) => {
 				
@@ -159,7 +159,7 @@ export default class Http
 					|| typeof responseResult.result_error[index] !== 'undefined'
 				)
 				{
-					let q = row.split('?');
+					let q = row.split('?')
 					
 					let data = new AjaxResult(
 						{
@@ -181,99 +181,98 @@ export default class Http
 							start: 0
 						} as AjaxQuery,
 						response.getStatus(),
-					);
+					)
 					
 					if(isArrayMode || Array.isArray(results))
 					{
-						results.push(data);
+						results.push(data)
 					}
 					else
 					{
-						results[index] = data;
+						results[index] = data
 					}
 				}
-			};
+			}
 		
 			if(Array.isArray(cmd))
 			{
-				cmd.forEach((item, index) => processResponse(item, index));
+				cmd.forEach((item, index) => processResponse(item, index))
 			}
 			else
 			{
 				Object.entries(cmd).forEach(([index, item]) => processResponse(
 					item as string,
 					index
-				));
+				))
 			}
 			
-			let dataResult;
+			let dataResult
 			
 			const initError = (result: AjaxResult): AjaxError => {
 				return new AjaxError({
-						status: 0,
-						answerError: {
-							error: result.getErrorMessages().join('; '),
-							errorDescription: `batch ${result.getQuery().method}: ${qs.stringify(result.getQuery().params, {encode: false})}`,
-						},
-						cause: result.getErrors().next().value
-					}
-				);
-			};
+					status: 0,
+					answerError: {
+						error: result.getErrorMessages().join('; '),
+						errorDescription: `batch ${result.getQuery().method}: ${qs.stringify(result.getQuery().params, {encode: false})}`,
+					},
+					cause: result.getErrors().next().value
+				})
+			}
 
-			const result = new Result();
+			const result = new Result()
 			
 			if(isArrayMode || Array.isArray(results))
 			{
-				dataResult = [];
+				dataResult = []
 
 				for(let data of (results as AjaxResult[]))
 				{
 					if (data.getStatus() !== 200 || !data.isSuccess)
 					{
-						const error = initError(data);
+						const error = initError(data)
 						
 						if (!isHaltOnError && !data.isSuccess)
 						{
 							result.addError(error)
-							continue;
+							continue
 						}
 						
-						return Promise.reject(error);
+						return Promise.reject(error)
 					}
 					
-					dataResult.push(data.getData().result);
+					dataResult.push(data.getData().result)
 				}
 			}
 			else
 			{
-				dataResult = {};
+				dataResult = {}
 
 				for(let key of Object.keys(results))
 				{
-					let data: AjaxResult = results[key];
+					let data: AjaxResult = results[key]
 
 					if (data.getStatus() !== 200 || !data.isSuccess)
 					{
-						const error = initError(data);
+						const error = initError(data)
 						
 						if (!isHaltOnError && !data.isSuccess)
 						{
 							result.addError(error)
-							continue;
+							continue
 						}
 
-						return Promise.reject(error);
+						return Promise.reject(error)
 					}
 
 					// @ts-ignore
-					dataResult[key] = data.getData().result;
+					dataResult[key] = data.getData().result
 				}
 			}
 			
-			result.setData(dataResult);
+			result.setData(dataResult)
 			
-			return Promise.resolve(result);
-		});
+			return Promise.resolve(result)
+		})
 	}
 	
 	/**
@@ -291,25 +290,25 @@ export default class Http
 		start: number = 0
 	): Promise<AjaxResult>
 	{
-		let authData = this.#authActions.getAuthData();
+		let authData = this.#authActions.getAuthData()
 		if(authData === false)
 		{
-			authData = await this.#authActions.refreshAuth();
+			authData = await this.#authActions.refreshAuth()
 		}
 		
-		await this.#restrictionManager.check();
+		await this.#restrictionManager.check()
 		
 		return this.#clientAxios.post(
 			this.#prepareMethod(method),
 			this.#prepareParams(authData, params, start),
 		)
 		.then(
-			(response: { data: AjaxResultParams; status: any; }): Promise<AjaxResponse> => {
-				const payload = response.data as AjaxResultParams;
+			(response: { data: AjaxResultParams; status: any }): Promise<AjaxResponse> => {
+				const payload = response.data as AjaxResultParams
 				return Promise.resolve({
 					status: response.status,
 					payload: payload
-				} as AjaxResponse);
+				} as AjaxResponse)
 			},
 			async (problem: AxiosError) =>
 			{
@@ -322,8 +321,8 @@ export default class Http
 					&& problem.response.status === 401
 				)
 				{
-					let response;
-					response = (problem.response.data as AuthError);
+					let response
+					response = (problem.response.data as AuthError)
 					
 					if(
 						[
@@ -332,26 +331,26 @@ export default class Http
 						].includes(response.error)
 					)
 					{
-						this.getLogger().info(`refreshAuth >> ${response.error} >>>`);
+						this.getLogger().info(`refreshAuth >> ${response.error} >>>`)
 						
-						authData = await this.#authActions.refreshAuth();
-						await this.#restrictionManager.check();
+						authData = await this.#authActions.refreshAuth()
+						await this.#restrictionManager.check()
 						
 						return this.#clientAxios.post(
 							this.#prepareMethod(method),
 							this.#prepareParams(authData, params, start),
 						)
-						.then(async(response: { data: AjaxResultParams; status: any; }): Promise<AjaxResponse> =>
+						.then(async(response: { data: AjaxResultParams; status: any }): Promise<AjaxResponse> =>
 						{
-							const payload = response.data as AjaxResultParams;
+							const payload = response.data as AjaxResultParams
 							return Promise.resolve({
 								status: response.status,
 								payload: payload
-							} as AjaxResponse);
-						});
+							} as AjaxResponse)
+						})
 					}
 				}
-				return Promise.reject(problem);
+				return Promise.reject(problem)
 			}
 
 		)
@@ -364,10 +363,10 @@ export default class Http
 					start
 				} as AjaxQuery,
 				response.status,
-			);
+			)
 			
-			return Promise.resolve(result);
-		});
+			return Promise.resolve(result)
+		})
 	}
 	
 	/**
@@ -385,13 +384,13 @@ export default class Http
 		start: number = 0
 	): object
 	{
-		let result = Object.assign({}, params);
+		let result = Object.assign({}, params)
 		
 		if(!!result.data)
 		{
 			if(!!result.data.start)
 			{
-				delete result.data.start;
+				delete result.data.start
 			}
 		}
 		
@@ -400,12 +399,12 @@ export default class Http
 		 */
 		if(authData.refresh_token !== 'hook')
 		{
-			result.auth = authData.access_token;
+			result.auth = authData.access_token
 		}
 		
-		result.start = start;
+		result.start = start
 		
-		return result;
+		return result
 	}
 	
 	/**
@@ -416,6 +415,6 @@ export default class Http
 	 */
 	#prepareMethod(method: string): string
 	{
-		return `${encodeURIComponent(method)}.json`;
+		return `${encodeURIComponent(method)}.json`
 	}
 }

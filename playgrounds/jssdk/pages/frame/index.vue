@@ -6,6 +6,7 @@ import { ref, type Ref, onMounted, onUnmounted } from 'vue'
 import { computedAsync } from '@vueuse/core'
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import { type IB24 } from '@bitrix24/b24jssdk/core/abstractB24'
+import { B24LangList } from '@bitrix24/b24jssdk/core/language/list'
 import { B24Frame, type SelectedUser, type SelectCRMParams, type SelectedCRMEntity, type SelectedAccess } from '@bitrix24/b24jssdk/frame'
 import { CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
 import { LoadDataType } from '@bitrix24/b24jssdk/types/characteristics'
@@ -49,6 +50,7 @@ const appDataRevision: Ref<number> = ref(0)
 let result: IResult = reactive(new Result())
 const { formatterDateTime, formatterNumber } = useFormatter('en-US')
 const { t, locales, setLocale } = useI18n()
+const b24CurrentLang: Ref<string> = ref(B24LangList.en)
 
 interface IStatus {
 	isProcess: boolean,
@@ -118,7 +120,7 @@ const initializeB24Frame = async (): Promise<B24Frame> => {
 	return b24Frame
 }
 
-const defTabIndex = ref(4)
+const defTabIndex = ref(5)
 const valueForCurrency = ref(123456.789)
 const tabsItems = [
 	{
@@ -135,6 +137,11 @@ const tabsItems = [
 		key: 'licenseInfo',
 		label: 'License & Payment',
 		content: 'Designation of the plan with the region indicated as a prefix'
+	},
+	{
+		key: 'specific',
+		label: 'Specific',
+		content: 'List of specific parameters for box and cloud'
 	},
 	{
 		key: 'forB24Form',
@@ -158,21 +165,22 @@ onMounted(async () => {
 	{
 		B24 = await initializeB24Frame()
 		B24.setLogger(LoggerBrowser.build('Core', true))
-		const appB24Lang = B24.getLang()
+		b24CurrentLang.value = B24.getLang()
 		
-		if(locales.value.filter(i => i.code === appB24Lang).length > 0)
+		if(locales.value.filter(i => i.code === b24CurrentLang.value).length > 0)
 		{
-			setLocale(appB24Lang)
-			logger.log('setLocale >>>', appB24Lang)
+			setLocale(b24CurrentLang.value)
+			logger.log('setLocale >>>', b24CurrentLang.value)
 		}
 		else
 		{
-			logger.warn('not support locale >>>', appB24Lang)
+			logger.warn('not support locale >>>', b24CurrentLang.value)
 		}
 		
 		await B24.parent.setTitle('[playgrounds] Testing Frame')
 		
 		B24Characteristics = new CharacteristicsManager(B24 as unknown as IB24)
+		
 		isInit.value = true
 		
 		await makeFitWindow()
@@ -229,6 +237,7 @@ const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync (
 		lazy: true
 	}
 )
+
 // endregion ////
 
 // region Actions ////
@@ -348,6 +357,25 @@ const makeOpenSliderAddCurrency = async () => {
 		}
 		logger.warn(response)
 	})
+}
+
+const makeOpenPage = async (url: string) => {
+	return B24.slider.openPath(
+		B24.slider.getUrl(url),
+		950
+	)
+}
+
+const makeOpenUfList = async (url: string) => {
+	
+	const path = B24.slider.getUrl(url)
+	path.searchParams.set('moduleId', 'crm')
+	path.searchParams.set('entityId', 'CRM_DEAL')
+	
+	return B24.slider.openPath(
+		path,
+		950
+	)
 }
 
 const makeImCallTo = async (isVideo: boolean = true) => {
@@ -778,6 +806,7 @@ const problemMessageList = (result: IResult) => {
 	return problemMessageList;
 }
 // endregion ////
+
 </script>
 
 <template>
@@ -791,7 +820,7 @@ const problemMessageList = (result: IResult) => {
 	</div>
 	<div v-else>
 		<div
-			v-if="!isInit"
+			v-if="!isInit || !b24Characteristics"
 			class="absolute top-0 bottom-0 left-0 right-0 flex flex-col justify-center items-center"
 		>
 			<div class="absolute z-10 text-info">
@@ -799,12 +828,48 @@ const problemMessageList = (result: IResult) => {
 			</div>
 		</div>
 		<div v-else>
-			<Info>
-				Scopes: <code>user_brief</code>, <code>crm</code><br><br>
-				To view query results, open the developer console.
-			</Info>
 			<ClientOnly>
-				<div class="mt-6" v-if="b24Characteristics">
+				<div class="p-4 flex items-center justify-start">
+					<div class="flex items-center">
+						<div
+							v-if="b24Characteristics"
+							class="mt-2 px-lg2 py-sm2 border border-base-100 rounded-lg hover:shadow-md hover:-translate-y-px col-auto md:col-span-2 lg:col-span-1 bg-white cursor-pointer"
+							@click.stop="makeOpenSliderForUser(b24Characteristics.profileInfo.data.id || 0)"
+						>
+							<div class="flex items-center gap-4">
+								<Avatar
+									:src="b24Characteristics.profileInfo.data.photo || ''"
+									:alt="b24Characteristics.profileInfo.data.lastName || 'user' "
+								/>
+								<div class="font-medium dark:text-white" >
+									<div class="text-nowrap text-xs text-base-500 dark:text-base-400">
+										{{ b24Characteristics.hostName.replace('https://', '') }}
+									</div>
+									<div class="text-nowrap hover:underline hover:text-info-link">
+										{{ [
+										b24Characteristics.profileInfo.data.lastName,
+										b24Characteristics.profileInfo.data.name,
+									].join(' ') }}
+									</div>
+									<div class="text-xs text-base-800 dark:text-base-400 flex flex-row gap-x-2">
+										<span>{{ b24Characteristics.profileInfo.data.isAdmin ? 'Administrator' : '' }}</span>
+										<span
+											class="text-nowrap hover:underline hover:text-info-link"
+											@click.stop="makeImOpenMessengerWithYourself()"
+										>My notes</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="ml-4 w-0 flex-1">
+						<Info>
+							Scopes: <code>user_brief</code>, <code>crm</code><br><br>
+							To view query results, open the developer console.
+						</Info>
+					</div>
+				</div>
+				<div class="mt-2" v-if="b24Characteristics">
 					<Tabs
 						:items="tabsItems"
 						v-model="defTabIndex"
@@ -893,6 +958,49 @@ const problemMessageList = (result: IResult) => {
 											</div>
 										</dl>
 									</div>
+									<div v-else-if="item.key === 'specific'" class="space-y-3">
+										<dl class="divide-y divide-base-100">
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">flag indicating whether it is a box or a cloud</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Characteristics.isSelfHosted ? 'Y' : 'N' }}</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">the increment step of fields of type ID</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Characteristics.primaryKeyIncrementValue }}</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">specific URLs for a box or cloud</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													<ul role="list" class="divide-y divide-base-100">
+														<li class="flex items-center justify-start pb-4 pl-0 pr-5 text-sm leading-1">
+															<div class="flex items-center">
+																<div class="truncate font-medium">MainSettings</div>
+															</div>
+															<div class="ml-4 flex-shrink-0">
+																<div class="cursor-pointer underline hover:text-info-link" @click.stop="makeOpenPage(b24Characteristics.b24SpecificUrl.MainSettings)">{{ b24Characteristics.b24SpecificUrl.MainSettings }}</div>
+															</div>
+														</li>
+														<li class="flex items-center justify-start py-4 pl-0 pr-5 text-sm leading-1">
+															<div class="flex items-center">
+																<div class="truncate font-medium">UfList</div>
+															</div>
+															<div class="ml-4 flex-shrink-0">
+																<div class="cursor-pointer underline hover:text-info-link" @click.stop="makeOpenUfList(b24Characteristics.b24SpecificUrl.UfList)">{{ b24Characteristics.b24SpecificUrl.UfList }}</div>
+															</div>
+														</li>
+														<li class="flex items-center justify-start py-4 pl-0 pr-5 text-sm leading-1">
+															<div class="flex items-center">
+																<div class="truncate font-medium">UfPage</div>
+															</div>
+															<div class="ml-4 flex-shrink-0">
+																{{ b24Characteristics.b24SpecificUrl.UfPage }}
+															</div>
+														</li>
+													</ul>
+												</dd>
+											</div>
+										</dl>
+									</div>
 									<div v-else-if="item.key === 'forB24Form'" class="space-y-3">
 										<dl class="divide-y divide-base-100">
 											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -948,7 +1056,7 @@ const problemMessageList = (result: IResult) => {
 															<input
 																type="number"
 																v-model.number="valueForCurrency"
-																class="border border-gray-300 text-gray-900 rounded block w-full p-2.5"
+																class="border border-base-300 text-base-900 rounded block w-full p-2.5"
 															>
 														</div>
 														<div class="flex-1">{{ b24Characteristics.currency.baseCurrency }}</div>
@@ -967,10 +1075,10 @@ const problemMessageList = (result: IResult) => {
 													>
 														<EditIcon class="size-6" />
 													</button>
-													<div class="flex-1">{{ currencyCode }} • <span v-html="b24Characteristics.currency.getCurrencyFullName(currencyCode)"></span> • <span v-html="b24Characteristics.currency.getCurrencyLiteral(currencyCode)"></span></div>
+													<div class="flex-1">{{ currencyCode }} • <span v-html="b24Characteristics.currency.getCurrencyFullName(currencyCode, b24CurrentLang)"></span> • <span v-html="b24Characteristics.currency.getCurrencyLiteral(currencyCode)"></span></div>
 												</dt>
 												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-													<span v-html="b24Characteristics.currency.format(valueForCurrency, currencyCode, formatterNumber, false)"></span>
+													<span v-html="b24Characteristics.currency.format(valueForCurrency, currencyCode, b24CurrentLang)"></span>
 												</dd>
 											</div>
 										</dl>
@@ -978,37 +1086,6 @@ const problemMessageList = (result: IResult) => {
 									<div v-else-if="item.key === 'test'" class="space-y-3">
 										<div class="mt-6 flex flex-col sm:flex-row gap-10">
 											<div class="basis-1/6 flex flex-col gap-y-2">
-												<div
-													v-if="b24Characteristics"
-													class="px-lg2 py-sm2 border border-base-100 rounded-lg hover:shadow-md hover:-translate-y-px col-auto md:col-span-2 lg:col-span-1 bg-white cursor-pointer"
-													@click.stop="makeOpenSliderForUser(b24Characteristics.profileInfo.data.id || 0)"
-												>
-													<div class="flex items-center gap-4">
-														<Avatar
-															:src="b24Characteristics.profileInfo.data.photo || ''"
-															:alt="b24Characteristics.profileInfo.data.lastName || 'user' "
-														/>
-														<div class="font-medium dark:text-white" >
-															<div class="text-nowrap text-xs text-gray-500 dark:text-gray-400">
-																{{ b24Characteristics.hostName.replace('https://', '') }}
-															</div>
-															<div class="text-nowrap hover:underline hover:text-info-link">
-																{{ [
-																b24Characteristics.profileInfo.data.lastName,
-																b24Characteristics.profileInfo.data.name,
-															].join(' ') }}
-															</div>
-															<div class="text-xs text-base-800 dark:text-gray-400 flex flex-row gap-x-2">
-																<span>{{ b24Characteristics.profileInfo.data.isAdmin ? 'Administrator' : '' }}</span>
-																<span
-																	class="text-nowrap hover:underline hover:text-info-link"
-																	@click.stop="makeImOpenMessengerWithYourself()"
-																>My notes</span>
-															</div>
-														</div>
-													</div>
-												</div>
-												
 												<button
 													type="button"
 													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"

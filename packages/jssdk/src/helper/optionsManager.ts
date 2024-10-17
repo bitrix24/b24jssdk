@@ -1,6 +1,7 @@
 import {AbstractHelper} from './abstractHelper'
-import type {IB24} from "../core/abstractB24"
-import {TypeOption} from "../types/characteristics"
+import type {IB24} from '../core/abstractB24'
+import {TypeOption} from '../types/characteristics'
+import Type from "../tools/type"
 
 export class OptionsManager
 	extends AbstractHelper
@@ -18,36 +19,30 @@ export class OptionsManager
 			TypeOption.IntegerVal,
 			TypeOption.BoolYN,
 			TypeOption.StringVal
-		];
+		]
 	}
 	
-	static prepareArrayList(list: any)
+	static prepareArrayList(list: any): any[]
 	{
-		if(
-			1 > 2
-			//!BX.Type.isArray(list)
-			//&& BX.Type.isObject(list)
-		)
+		if(Type.isArray(list))
+		{
+			return list
+		}
+		
+		if(Type.isObject(list))
 		{
 			return Array.from(Object.values(list))
 		}
 		
-		return list
+		return []
 	}
 	// endregion ////
 	
 	constructor(b24: IB24)
 	{
 		super(b24)
+		
 		this._data = new Map()
-	}
-	
-	/**
-	 * @inheritDoc
-	 */
-	initData(data: any): void
-	{
-		console.log(data)
 	}
 	
 	get data(): Map<string, any>
@@ -58,137 +53,136 @@ export class OptionsManager
 	reset()
 	{
 		this.data.clear()
-		return this
 	}
 	
-	bindValue(options: any)
+	/**
+	 * @inheritDoc
+	 */
+	initData(data: any): void
 	{
 		this.reset()
 		
-		Object.entries(options).forEach(([key, value]) => {
-			this.data.set(
-				key,
-				value
-			)
-		})
-		
-		return this
+		if(Type.isObject(data))
+		{
+			Object.entries(data).forEach(([key, value]) => {
+				this.data.set(
+					key,
+					value
+				)
+			})
+		}
 	}
 	
 	// region Get ////
-	getJsonArray(key: string, defValue = [])
+	getJsonArray(key: string, defValue: any[] = []): any[]
 	{
 		if(!this.data.has(key))
 		{
-			return defValue;
+			return defValue
 		}
 		
-		let data = this.data.get(key);
+		let data = this.data.get(key)
 		
 		try
 		{
-			data = JSON.parse(data);
+			data = JSON.parse(data)
+			
 			if(
-				1 > 2
-				//!BX.Type.isArray(data)
-				//&& !BX.Type.isObject(data)
+				!Type.isArray(data)
+				&& !Type.isObject(data)
 			)
 			{
-				data = defValue;
+				data = defValue
 			}
 		}
 		catch(error)
 		{
-			//this.logger.error(error);
-			data = defValue;
+			this.getLogger().error(error)
+			data = defValue
 		}
 		
-		return OptionsManager.prepareArrayList(data);
+		return OptionsManager.prepareArrayList(data)
 	}
 	
-	getJsonObject(key = '', defValue = {})
+	getJsonObject(key: string, defValue: Object = {}): Object
 	{
 		if(!this.data.has(key))
 		{
-			return defValue;
+			return defValue
 		}
 		
-		let data = this.data.get(key);
+		let data = this.data.get(key)
 		
 		try
 		{
-			data = JSON.parse(data);
+			data = JSON.parse(data)
 		}
 		catch(error)
 		{
-			//this.logger.error(error);
-			data = defValue;
+			this.getLogger().error(error)
+			data = defValue
 		}
 		
-		if(
-			1 > 2
-			//!BX.Type.isObject(data)
-		)
+		if(!Type.isObject(data))
 		{
-			data = {};
+			data = defValue
 		}
 		
-		return data;
+		return data
 	}
 	
-	getFloat(key = '', defValue = 0.0)
+	getFloat(key: string, defValue: number = 0.0): number
 	{
 		if(!this.data.has(key))
 		{
-			return defValue;
+			return defValue
 		}
 		
-		return parseFloat(this.data.get(key));
+		return parseFloat(this.data.get(key))
 	}
 	
-	getInt(key = '', defValue = 0)
+	getInt(key: string, defValue: number = 0): number
 	{
 		if(!this.data.has(key))
 		{
-			return defValue;
+			return defValue
 		}
 		
-		return parseInt(this.data.get(key));
+		return parseInt(this.data.get(key))
 	}
 	
-	getBoolYN(key = '', defValue = true)
+	getBoolYN(key: string, defValue: boolean = true): boolean
 	{
 		if(!this.data.has(key))
 		{
-			return defValue;
+			return defValue
 		}
 		
-		return this.data.get(key) === 'Y';
+		return this.data.get(key) === 'Y'
 	}
 	
-	getBoolNY(key = '', defValue = false)
+	getBoolNY(key: string, defValue: boolean = false): boolean
 	{
 		if(!this.data.has(key))
 		{
-			return defValue;
+			return defValue
 		}
 		
-		return this.data.get(key) === 'Y';
+		return this.data.get(key) === 'Y'
 	}
 	
-	getString(key = '', defValue = '')
+	getString(key: string, defValue: string = ''): string
 	{
 		if(!this.data.has(key))
 		{
-			return defValue;
+			return defValue
 		}
 		
-		return this.data.get(key);
+		return this.data.get(key).toString()
 	}
 	// endregion ////
 	
 	// region Tools ////
-	
 	encode(value: any): string
 	{
 		return JSON.stringify(value)
@@ -199,27 +193,21 @@ export class OptionsManager
 		defaultValue: any
 	): any
 	{
-		let result: any = null
-		
 		try
 		{
 			if(data.length > 0)
 			{
-				result = JSON.parse(data)
+				return JSON.parse(data)
 			}
-			else
-			{
-				result = defaultValue
-			}
+			
+			return defaultValue
 		}
 		catch(error)
 		{
-			console.warn('Not parse data', error)
-			result = defaultValue()
+			this.getLogger().warn(error, data)
 		}
 		
-		return result
-		
+		return defaultValue
 	}
 	// endregion ////
 }

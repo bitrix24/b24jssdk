@@ -145,12 +145,15 @@ export type TypeB24Form = {
 	
 	readonly payment_expired: BoolString,
 	readonly days: number,
+	
 	/**
 	 * B24 tariff plan identifier (if cloud)
 	 */
 	readonly b24_plan: string,
+	
 	readonly c_name: string,
 	readonly c_last_name: string,
+	
 	readonly hostname: string
 }
 

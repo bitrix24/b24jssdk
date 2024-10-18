@@ -1,129 +1,207 @@
-import { Utils } from './utils'
+import Text from '../tools/text'
 import { AbstractConnector } from './abstractConnector'
+import { ConnectionType } from '../types/pull'
+import type { ConnectorConfig } from '../types/pull'
 
 export class WebSocketConnector
 	extends AbstractConnector
 {
-	constructor(config)
+	private _socket: null|WebSocket
+	
+	private readonly _onSocketOpenHandler: () => void
+	private readonly _onSocketCloseHandler: (event: CloseEvent) => void
+	private readonly _onSocketErrorHandler: (event: Event) => void
+	private readonly _onSocketMessageHandler: (event: MessageEvent) => void
+	
+	constructor(config: ConnectorConfig)
 	{
 		super(config)
-		this.connectionType = ConnectionType.WebSocket;
-		this.socket = null;
 		
-		this.onSocketOpenHandler = this.onSocketOpen.bind(this);
-		this.onSocketCloseHandler = this.onSocketClose.bind(this);
-		this.onSocketErrorHandler = this.onSocketError.bind(this);
-		this.onSocketMessageHandler = this.onSocketMessage.bind(this);
+		this._connectionType = ConnectionType.WebSocket
+		this._socket = null
+		
+		this._onSocketOpenHandler = this._onSocketOpen.bind(this)
+		this._onSocketCloseHandler = this._onSocketClose.bind(this)
+		this._onSocketErrorHandler = this._onSocketError.bind(this)
+		this._onSocketMessageHandler = this._onSocketMessage.bind(this)
 	}
 	
-	connect()
+	override destroy()
 	{
-		if (this.socket)
-		{
-			if (this.socket.readyState === 1)
-			{
-				// already connected
-				return true;
-			}
-			else
-			{
-				this.socket.removeEventListener('open', this.onSocketOpenHandler);
-				this.socket.removeEventListener('close', this.onSocketCloseHandler);
-				this.socket.removeEventListener('error', this.onSocketErrorHandler);
-				this.socket.removeEventListener('message', this.onSocketMessageHandler);
-				
-				this.socket.close();
-				this.socket = null;
-			}
-		}
+		super.destroy()
 		
-		this.createSocket();
-	}
-	
-	disconnect(code, message)
-	{
-		if (this.socket !== null)
+		if(this._socket)
 		{
-			this.socket.removeEventListener('open', this.onSocketOpenHandler);
-			this.socket.removeEventListener('close', this.onSocketCloseHandler);
-			this.socket.removeEventListener('error', this.onSocketErrorHandler);
-			this.socket.removeEventListener('message', this.onSocketMessageHandler);
-			
-			this.socket.close(code, message);
+			this._socket.close()
+			this._socket = null
 		}
-		this.socket = null;
-		this.disconnectCode = code;
-		this.disconnectReason = message;
-		this.connected = false;
-	}
-	
-	createSocket()
-	{
-		if (this.socket)
-		{
-			throw new Error("Socket already exists");
-		}
-		
-		if (!this.path)
-		{
-			throw new Error("Websocket connection path is not defined");
-		}
-		
-		this.socket = new WebSocket(this.path);
-		this.socket.binaryType = 'arraybuffer';
-		
-		this.socket.addEventListener('open', this.onSocketOpenHandler);
-		this.socket.addEventListener('close', this.onSocketCloseHandler);
-		this.socket.addEventListener('error', this.onSocketErrorHandler);
-		this.socket.addEventListener('message', this.onSocketMessageHandler);
 	}
 	
 	/**
-	 * Sends some data to the server via websocket connection.
-	 * @param {ArrayBuffer} buffer Data to send.
-	 * @return {boolean}
+	 * @inheritDoc
 	 */
-	send(buffer)
+	override connect(): void
 	{
-		if (!this.socket || this.socket.readyState !== 1)
+		if(this._socket)
 		{
-			console.error(Utils.getDateForLog() + ": Pull: WebSocket is not connected");
-			return false;
+			if(this._socket.readyState === 1)
+			{
+				/**
+				 * @memo already connected
+				 */
+				return
+			}
+			else
+			{
+				this.clearEventListener()
+				
+				this._socket.close()
+				this._socket = null
+			}
 		}
 		
-		this.socket.send(buffer);
-		return true;
+		this._createSocket()
 	}
 	
-	onSocketOpen()
+	/**
+	 * @inheritDoc
+	 * @param code
+	 * @param reason
+	 */
+	override disconnect(
+		code: number,
+		reason: string
+	): void
+	{
+		if(this._socket !== null)
+		{
+			this.clearEventListener()
+			
+			this._socket.close(
+				code,
+				reason
+			)
+		}
+		this._socket = null;
+		this._disconnectCode = code
+		this._disconnectReason = reason
+		this.connected = false
+	}
+	
+	/**
+	 * Via websocket connection
+	 * @inheritDoc
+	 */
+	override send(
+		buffer: ArrayBuffer
+	): boolean
+	{
+		if(
+			!this._socket
+			|| this._socket.readyState !== 1
+		)
+		{
+			console.error(new Error(
+				`${Text.getDateForLog()}: Pull: WebSocket is not connected`
+			))
+			
+			return false
+		}
+		
+		this._socket.send(buffer)
+		return true
+	}
+	
+	// region Event Handlers ////
+	private _onSocketOpen(): void
 	{
 		this.connected = true;
 	}
 	
-	onSocketClose(e)
+	private _onSocketClose(event: CloseEvent)
 	{
-		this.socket = null;
-		this.disconnectCode = e.code;
-		this.disconnectReason = e.reason;
-		this.connected = false;
+		this._socket = null
+		this._disconnectCode = Number(event.code)
+		this._disconnectReason = event.reason;
+		this.connected = false
 	}
 	
-	onSocketError(e)
+	private _onSocketError(event: Event): void
 	{
-		this.callbacks.onError(e);
+		this._callbacks.onError(new Error(
+			`Socket error: ${event}`
+		))
 	}
 	
-	onSocketMessage(e)
+	private _onSocketMessage(event: MessageEvent): void
 	{
-		this.callbacks.onMessage(e.data);
+		this._callbacks.onMessage(
+			event.data
+		)
 	}
+	// endregion ////
 	
-	destroy()
+	// region Tools ////
+	private clearEventListener(): void
 	{
-		if (this.socket)
+		if(this._socket)
 		{
-			this.socket.close();
-			this.socket = null;
+			this._socket.removeEventListener(
+				'open',
+				this._onSocketOpenHandler
+			)
+			
+			this._socket.removeEventListener(
+				'close',
+				this._onSocketCloseHandler
+			)
+			
+			this._socket.removeEventListener(
+				'error',
+				this._onSocketErrorHandler
+			)
+			
+			this._socket.removeEventListener(
+				'message',
+				this._onSocketMessageHandler
+			)
 		}
 	}
+	
+	private _createSocket(): void
+	{
+		if(this._socket)
+		{
+			throw new Error('Socket already exists')
+		}
+		
+		if(!this.connectionPath)
+		{
+			throw new Error('Websocket connection path is not defined')
+		}
+		
+		this._socket = new WebSocket(this.connectionPath)
+		this._socket.binaryType = 'arraybuffer'
+		
+		this._socket.addEventListener(
+			'open',
+			this._onSocketOpenHandler
+		)
+		
+		this._socket.addEventListener(
+			'close',
+			this._onSocketCloseHandler
+		)
+		
+		this._socket.addEventListener(
+			'error',
+			this._onSocketErrorHandler
+		)
+		
+		this._socket.addEventListener(
+			'message',
+			this._onSocketMessageHandler
+		)
+	}
+	// endregion ////
 }

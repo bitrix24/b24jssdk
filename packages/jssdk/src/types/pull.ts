@@ -1,5 +1,7 @@
-const REVISION = 19; // api revision - check module/pull/include.php
-const LONG_POLLING_TIMEOUT = 60;
+/**
+ * @memo api revision - check module/pull/include.php
+ */
+const REVISION = 19
 const RESTORE_WEBSOCKET_TIMEOUT = 30 * 60;
 const CONFIG_TTL = 24 * 60 * 60;
 const CONFIG_CHECK_INTERVAL = 60 * 1000;
@@ -9,7 +11,23 @@ const OFFLINE_STATUS_DELAY = 5000;
 const LS_SESSION = "bx-pull-session";
 const LS_SESSION_CACHE_TIME = 20;
 
+export type ConnectorCallbacks = {
+	onOpen: () => void,
+	onDisconnect: (response: {
+		code: number,
+		reason: string
+	}) => void,
+	onError: (error: Error) => void,
+	onMessage: (response: string|ArrayBuffer) => void,
+}
+
+export type ConnectorConfig = ConnectorCallbacks & {
+	// @todo fix ////
+	parent: any
+}
+
 export enum ConnectionType {
+	Undefined = 'undefined',
 	WebSocket = 'webSocket',
 	LongPolling = 'longPolling'
 }

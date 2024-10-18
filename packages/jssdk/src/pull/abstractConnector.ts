@@ -1,22 +1,51 @@
-import {Utils} from "./utils";
+import Type from '../tools/type'
+import { ConnectionType } from '../types/pull'
+import type {
+	ConnectorCallbacks,
+	ConnectorConfig
+} from '../types/pull'
 
-export class AbstractConnector
+/**
+ * @todo add logger
+ * @todo fix _parent
+ */
+export abstract class AbstractConnector
 {
-	_connected = false;
-	connectionType = "";
+	protected _connected: boolean = false
 	
-	disconnectCode = '';
-	disconnectReason = '';
+	protected _connectionType: ConnectionType
 	
-	constructor(config)
+	protected _disconnectCode: number = 0
+	protected _disconnectReason: string = ''
+	
+	protected _parent
+	
+	protected _callbacks: ConnectorCallbacks
+	
+	protected constructor(config: ConnectorConfig)
 	{
-		this.parent = config.parent;
-		this.callbacks = {
-			onOpen: Utils.isFunction(config.onOpen) ? config.onOpen : function () {},
-			onDisconnect: Utils.isFunction(config.onDisconnect) ? config.onDisconnect : function () {},
-			onError: Utils.isFunction(config.onError) ? config.onError : function () {},
-			onMessage: Utils.isFunction(config.onMessage) ? config.onMessage : function () {}
-		};
+		this._parent = config.parent
+		this._connectionType = ConnectionType.Undefined
+		
+		this._callbacks = {
+			onOpen: Type.isFunction(config.onOpen)
+				? config.onOpen
+				: () => {},
+			onDisconnect: Type.isFunction(config.onDisconnect)
+				? config.onDisconnect
+				: () => {},
+			onError: Type.isFunction(config.onError)
+				? config.onError
+				: () => {},
+			onMessage: Type.isFunction(config.onMessage)
+				? config.onMessage
+				: () => {}
+		}
+	}
+	
+	destroy(): void
+	{
+	
 	}
 	
 	get connected()
@@ -26,28 +55,62 @@ export class AbstractConnector
 	
 	set connected(value)
 	{
-		if (value == this._connected)
+		if(value == this._connected)
 		{
-			return;
+			return
 		}
 		
-		this._connected = value;
+		this._connected = value
 		
-		if (this._connected)
+		if(this._connected)
 		{
-			this.callbacks.onOpen();
+			this._callbacks.onOpen()
 		}
 		else
 		{
-			this.callbacks.onDisconnect({
+			this._callbacks.onDisconnect({
 				code: this.disconnectCode,
 				reason: this.disconnectReason
-			});
+			})
 		}
 	}
 	
-	get path()
+	get disconnectCode(): number
 	{
-		return this.parent.getConnectionPath(this.connectionType);
+		return this._disconnectCode
 	}
+	
+	get disconnectReason(): string
+	{
+		return this._disconnectReason
+	}
+	
+	get connectionPath(): string
+	{
+		return this._parent.getConnectionPath(
+			this._connectionType
+		)
+	}
+	
+	/**
+	 * Make connect to the server
+	 */
+	abstract connect(): void
+	
+	/**
+	 * Make disconnect from the server
+	 * @param code
+	 * @param reason
+	 */
+	abstract disconnect(
+		code: number,
+		reason: string
+	): void
+	
+	/**
+	 * Sends some data to the server
+	 * @param {ArrayBuffer} buffer Data to send.
+	 * @return {boolean}
+	 */
+	abstract send(buffer: ArrayBuffer): boolean
 }

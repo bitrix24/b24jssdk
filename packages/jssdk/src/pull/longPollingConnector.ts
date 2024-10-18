@@ -1,170 +1,226 @@
-import { Utils } from './utils'
+import Type from '../tools/type'
+import Text from '../tools/text'
 import { AbstractConnector } from './abstractConnector'
+import { ConnectionType } from '../types/pull'
+import type { ConnectorConfig } from '../types/pull'
 
-class LongPollingConnector extends AbstractConnector
+const LONG_POLLING_TIMEOUT = 60
+
+class LongPollingConnector
+	extends AbstractConnector
 {
-	constructor(config)
+	private _active: boolean
+	
+	private _requestTimeout: null|number
+	private _failureTimeout: null|number
+	private readonly _xhr: XMLHttpRequest
+	private _requestAborted: boolean
+	
+	constructor(config: ConnectorConfig)
 	{
 		super(config);
 		
-		this.active = false;
-		this.connectionType = ConnectionType.LongPolling;
-		this.requestTimeout = null;
-		this.failureTimeout = null;
-		this.xhr = this.createXhr();
-		this.requestAborted = false;
+		this._active = false
+		this._connectionType = ConnectionType.LongPolling
+		
+		this._requestTimeout = null
+		this._failureTimeout = null
+		this._xhr = this.createXhr()
+		this._requestAborted = false
 	}
 	
-	createXhr()
+	/**
+	 * @inheritDoc
+	 */
+	override connect(): void
 	{
-		const result = new XMLHttpRequest();
-		if (this.parent.isProtobufSupported() && !this.parent.isJsonRpc())
-		{
-			result.responseType = "arraybuffer";
-		}
-		result.addEventListener("readystatechange", this.onXhrReadyStateChange.bind(this));
-		return result;
+		this._active = true
+		this.performRequest()
 	}
 	
-	connect()
+	/**
+	 * @inheritDoc
+	 * @param code
+	 * @param reason
+	 */
+	override disconnect(
+		code: number,
+		reason: string
+	): void
 	{
-		this.active = true;
-		this.performRequest();
-	}
-	
-	disconnect(code, reason)
-	{
-		this.active = false;
+		this._active = false
 		
-		if (this.failureTimeout)
+		this.clearTimeOut()
+		
+		if(this._xhr)
 		{
-			clearTimeout(this.failureTimeout);
-			this.failureTimeout = null;
-		}
-		if (this.requestTimeout)
-		{
-			clearTimeout(this.requestTimeout);
-			this.requestTimeout = null;
+			this._requestAborted = true
+			this._xhr.abort()
 		}
 		
-		if (this.xhr)
-		{
-			this.requestAborted = true;
-			this.xhr.abort();
-		}
-		
-		this.disconnectCode = code;
-		this.disconnectReason = reason;
+		this._disconnectCode = code
+		this._disconnectReason = reason
 		this.connected = false;
 	}
 	
-	performRequest()
+	private performRequest(): void
 	{
-		if (!this.active)
+		if(!this._active)
 		{
-			return;
+			return
 		}
 		
-		if (!this.path)
+		if(!this.connectionPath)
 		{
-			throw new Error("Long polling connection path is not defined");
-		}
-		if (this.xhr.readyState !== 0 && this.xhr.readyState !== 4)
-		{
-			return;
+			throw new Error('Long polling connection path is not defined')
 		}
 		
-		clearTimeout(this.failureTimeout);
-		clearTimeout(this.requestTimeout);
+		if(
+			this._xhr.readyState !== 0
+			&& this._xhr.readyState !== 4
+		)
+		{
+			return
+		}
 		
-		this.failureTimeout = setTimeout(() => { this.connected = true }, 5000);
-		this.requestTimeout = setTimeout(this.onRequestTimeout.bind(this), LONG_POLLING_TIMEOUT * 1000);
+		this.clearTimeOut()
 		
-		this.xhr.open("GET", this.path);
-		this.xhr.send();
+		this._failureTimeout = setTimeout(
+			() => {
+				this.connected = true
+			},
+			5_000
+		);
+		this._requestTimeout = setTimeout(
+			this.onRequestTimeout.bind(this),
+			LONG_POLLING_TIMEOUT * 1_000
+		);
+		
+		this._xhr.open('GET', this.connectionPath)
+		this._xhr.send()
 	}
 	
-	onRequestTimeout()
+	private onRequestTimeout()
 	{
-		this.requestAborted = true;
-		this.xhr.abort();
-		this.performRequest();
+		this._requestAborted = true
+		this._xhr.abort()
+		this.performRequest()
 	}
 	
-	onXhrReadyStateChange()
+	private onXhrReadyStateChange(): void
 	{
-		if (this.xhr.readyState === 4)
+		if(this._xhr.readyState === 4)
 		{
-			if (!this.requestAborted || this.xhr.status == 200)
+			if(
+				!this._requestAborted
+				|| this._xhr.status == 200
+			)
 			{
-				this.onResponse(this.xhr.response);
+				this.onResponse(this._xhr.response)
 			}
-			this.requestAborted = false;
+			
+			this._requestAborted = false
 		}
 	}
 	
 	/**
-	 * Sends some data to the server via http request.
-	 * @param {ArrayBuffer} buffer Data to send.
-	 * @return {bool}
+	 * Via http request
+	 * @inheritDoc
 	 */
-	send(buffer)
+	override send(
+		buffer: ArrayBuffer
+	): boolean
 	{
-		const path = this.parent.getPublicationPath();
-		if (!path)
+		const path = this._parent.getPublicationPath()
+		if(!path)
 		{
-			console.error(Utils.getDateForLog() + ": Pull: publication path is empty");
+			console.error(new Error(
+				`${Text.getDateForLog()}: Pull: publication path is empty`
+			))
 			return false;
 		}
 		
-		let xhr = new XMLHttpRequest();
-		xhr.open("POST", path);
-		xhr.send(buffer);
+		const xhr = new XMLHttpRequest()
+		xhr.open('POST', path)
+		xhr.send(buffer)
+		
+		return true
 	}
 	
-	onResponse(response)
+	private onResponse(response: any): void
 	{
-		if (this.failureTimeout)
-		{
-			clearTimeout(this.failureTimeout);
-			this.failureTimeout = 0;
-		}
-		if (this.requestTimeout)
-		{
-			clearTimeout(this.requestTimeout);
-			this.requestTimeout = 0;
-		}
+		this.clearTimeOut()
 		
-		if (this.xhr.status == 200)
+		if(this._xhr.status === 200)
 		{
-			this.connected = true;
-			if (Utils.isNotEmptyString(response) || (response instanceof ArrayBuffer))
+			this.connected = true
+			if(
+				Type.isStringFilled(response)
+				|| (response instanceof ArrayBuffer)
+			)
 			{
-				this.callbacks.onMessage(response);
+				this._callbacks.onMessage(response)
 			}
 			else
 			{
-				this.parent.session.mid = null;
+				this._parent.session.mid = null
 			}
-			this.performRequest();
+			this.performRequest()
 		}
-		else if (this.xhr.status == 304)
+		else if(this._xhr.status === 304)
 		{
-			this.connected = true;
-			if (this.xhr.getResponseHeader("Expires") === "Thu, 01 Jan 1973 11:11:01 GMT")
+			this.connected = true
+			if(this._xhr.getResponseHeader('Expires') === 'Thu, 01 Jan 1973 11:11:01 GMT')
 			{
-				const lastMessageId = this.xhr.getResponseHeader("Last-Message-Id");
-				if (Utils.isNotEmptyString(lastMessageId))
+				const lastMessageId = this._xhr.getResponseHeader('Last-Message-Id')
+				if(Type.isStringFilled(lastMessageId))
 				{
-					this.parent.setLastMessageId(lastMessageId);
+					this._parent.setLastMessageId(lastMessageId)
 				}
 			}
-			this.performRequest();
+			this.performRequest()
 		}
 		else
 		{
-			this.callbacks.onError('Could not connect to the server');
-			this.connected = false;
+			this._callbacks.onError(new Error(
+				'Could not connect to the server'
+			))
+			
+			this.connected = false
 		}
 	}
+	
+	// region Tools ////
+	private clearTimeOut(): void
+	{
+		if(this._failureTimeout)
+		{
+			clearTimeout(this._failureTimeout)
+			this._failureTimeout = null
+		}
+		
+		if(this._requestTimeout)
+		{
+			clearTimeout(this._requestTimeout)
+			this._requestTimeout = null
+		}
+	}
+	
+	private createXhr(): XMLHttpRequest
+	{
+		const result = new XMLHttpRequest()
+		if(
+			this._parent.isProtobufSupported()
+			&& !this._parent.isJsonRpc()
+		)
+		{
+			result.responseType = 'arraybuffer'
+		}
+		result.addEventListener(
+			'readystatechange',
+			this.onXhrReadyStateChange.bind(this)
+		)
+		return result;
+	}
+	// endregion ////
 }

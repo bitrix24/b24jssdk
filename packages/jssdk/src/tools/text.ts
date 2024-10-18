@@ -279,4 +279,31 @@ export default class Text
 			dateComponents['s']
 		))
 	}
+	
+	static getDateForLog(): string
+	{
+		const d = new Date()
+		
+		return `${d.getFullYear()}-${Text.lpad(d.getMonth().toString(), 2, '0')}-${Text.lpad(d.getDate().toString(), 2, '0')} ${Text.lpad(d.getHours().toString(), 2, '0')}:${Text.lpad(d.getMinutes().toString(), 2, '0')}`
+	}
+	
+	static lpad(
+		str: string,
+		length: number,
+		chr: string = ' '
+	): string
+	{
+		if(str.length > length)
+		{
+			return str
+		}
+	
+		let result = ''
+		for (let i = 0; i < (length - str.length); i++)
+		{
+			result += chr
+		}
+		
+		return result + str
+	}
 }

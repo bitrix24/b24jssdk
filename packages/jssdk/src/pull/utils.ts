@@ -212,28 +212,4 @@ export const Utils = {
 		
 		return _obj;
 	},
-	
-	getDateForLog: function () {
-		const d = new Date();
-		
-		return d.getFullYear() + "-" + Utils.lpad(d.getMonth(), 2, '0') + "-" + Utils.lpad(d.getDate(), 2, '0') + " " + Utils.lpad(d.getHours(), 2, '0') + ":" + Utils.lpad(d.getMinutes(), 2, '0');
-	},
-	
-	lpad: function (str, length, chr) {
-		str = str.toString();
-		chr = chr || ' ';
-		
-		if (str.length > length)
-		{
-			return str;
-		}
-		
-		let result = '';
-		for (let i = 0; i < length - str.length; i++)
-		{
-			result += chr;
-		}
-		
-		return result + str;
-	}
 }

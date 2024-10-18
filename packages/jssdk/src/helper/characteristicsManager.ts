@@ -1,5 +1,5 @@
 import {LoggerBrowser, LoggerType} from '../logger/browser'
-import { type IB24 } from '../core/abstractB24'
+import type { TypeB24 } from '../types/b24'
 import { ProfileManager } from './profileManager'
 import { AppManager } from './appManager'
 import { PaymentManager } from './paymentManager'
@@ -23,7 +23,7 @@ import type { GenderString } from '../types/common'
  */
 export class CharacteristicsManager
 {
-	private readonly _b24: IB24
+	private readonly _b24: TypeB24
 	protected _logger: null|LoggerBrowser = null
 	private _isInit: boolean = false
 	
@@ -37,7 +37,7 @@ export class CharacteristicsManager
 	private _appOptions: OptionsManager|null = null
 	private _userOptions: OptionsManager|null = null
 	
-	constructor(b24: IB24)
+	constructor(b24: TypeB24)
 	{
 		this._b24 = b24
 		this.setLogger(this._b24.getLogger())

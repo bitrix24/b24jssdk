@@ -1,32 +1,78 @@
+import { LoggerBrowser, LoggerType } from '../logger/browser'
 import { ErrorNotConnected, ErrorTimeout } from './errors'
-import { Utils } from './utils'
+import Type from '../tools/type'
+import Text from '../tools/text'
+import {
+	type JsonRpcRequest,
+	ListRpcError,
+	type RpcRequest,
+	type TypeConnector,
+	type TypeJsonRpcConfig
+} from '../types/pull'
+import type { RpcCommand, RpcCommandResult, TypeRpcResponseAwaiters } from '../types/pull'
+
+const JSON_RPC_VERSION = '2.0'
 
 export class JsonRpc
 {
-	idCounter = 0;
+	private _logger: null|LoggerBrowser = null
 	
-	handlers = {};
-	rpcResponseAwaiters = new Map();
+	private _connector: TypeConnector
+	private _idCounter: number = 0
 	
-	constructor(options)
+	private _handlers: Record<string, (params: any) => RpcCommandResult> = {}
+	
+	private _rpcResponseAwaiters: Map<number, TypeRpcResponseAwaiters> = new Map()
+	
+	constructor(options: TypeJsonRpcConfig)
 	{
-		this.connector = options.connector;
-		if (Utils.isPlainObject(options.handlers))
+		this._connector = options.connector
+		
+		if(Type.isPlainObject(options.handlers))
 		{
-			for (let method in options.handlers)
+			for(let method in options.handlers)
 			{
 				this.handle(method, options.handlers[method]);
 			}
 		}
 	}
 	
+	setLogger(logger: LoggerBrowser): void
+	{
+		this._logger = logger
+	}
+	
+	getLogger(): LoggerBrowser
+	{
+		if(null === this._logger)
+		{
+			this._logger = LoggerBrowser.build(
+				`NullLogger`
+			)
+			
+			this._logger.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: false,
+				[LoggerType.warn]: false,
+				[LoggerType.error]: true,
+				[LoggerType.trace]: false,
+			})
+		}
+		
+		return this._logger
+	}
+	
 	/**
 	 * @param {string} method
 	 * @param {function} handler
 	 */
-	handle(method, handler)
+	handle(
+		method: string,
+		handler: (params: any) => RpcCommandResult
+	)
 	{
-		this.handlers[method] = handler;
+		this._handlers[method] = handler;
 	}
 	
 	/**
@@ -37,104 +83,146 @@ export class JsonRpc
 	 * @param {int} timeout
 	 * @returns {Promise}
 	 */
-	executeOutgoingRpcCommand(method, params, timeout)
+	async executeOutgoingRpcCommand(
+		method: string,
+		params: object,
+		timeout: number = 5
+	): Promise<void>
 	{
-		if (!timeout)
-		{
-			timeout = 5;
-		}
 		return new Promise((resolve, reject) => {
-			const request = this.createRequest(method, params);
+			const request = this.createRequest(method, params)
 			
-			if (!this.connector.send(JSON.stringify(request)))
+			if(!this._connector.send(
+				JSON.stringify(request)
+			))
 			{
-				reject(new ErrorNotConnected('websocket is not connected'));
+				reject(new ErrorNotConnected('websocket is not connected'))
 			}
 			
-			const t = setTimeout(() => {
-				this.rpcResponseAwaiters.delete(request.id);
-				reject(new ErrorTimeout('no response'));
-			}, timeout * 1000);
-			this.rpcResponseAwaiters.set(request.id, {resolve, reject, timeout: t});
+			const timeoutHandler = setTimeout(
+				() => {
+					this._rpcResponseAwaiters.delete(request.id)
+					reject(new ErrorTimeout('no response'))
+				},
+				timeout * 1_000
+			)
+			
+			this._rpcResponseAwaiters.set(
+				request.id,
+				{
+					resolve,
+					reject,
+					timeout: timeoutHandler
+				} as TypeRpcResponseAwaiters
+			)
 		})
 	}
 	
 	/**
-	 * Executes array or rpc commands. Returns array of promises, each promise will be resolved individually.
+	 * Executes array or rpc commands.
+	 * Returns array of promises, each promise will be resolved individually.
 	 *
 	 * @param {JsonRpcRequest[]} batch
 	 * @returns {Promise[]}
 	 */
-	executeOutgoingRpcBatch(batch)
+	private executeOutgoingRpcBatch(batch: JsonRpcRequest[]): Promise<any>[]
 	{
-		let requests = [];
-		let promises = [];
-		batch.forEach(({method, params, id}) => {
-			const request = this.createRequest(method, params, id);
-			requests.push(request);
-			promises.push(new Promise((resolve, reject) => this.rpcResponseAwaiters.set(request.id, {
-				resolve,
-				reject
-			})));
-		});
+		let requests: RpcRequest[] = []
+		let promises: Promise<any>[] = []
 		
-		this.connector.send(JSON.stringify(requests));
-		return promises;
+		batch.forEach(({ method, params, id }) => {
+			const request = this.createRequest(method, params, id)
+			requests.push(request)
+			promises.push(new Promise((resolve, reject) => this._rpcResponseAwaiters.set(
+				request.id,
+				{
+					resolve,
+					reject
+				} as TypeRpcResponseAwaiters
+			)))
+		})
+		
+		this._connector.send(JSON.stringify(requests));
+		return promises
 	}
 	
-	processRpcResponse(response)
+	private processRpcResponse(response: RpcCommandResult): void
 	{
-		if ("id" in response && this.rpcResponseAwaiters.has(response.id))
+		if (
+			'id' in response
+			&& this._rpcResponseAwaiters.has(Number(response.id))
+		)
 		{
-			const awaiter = this.rpcResponseAwaiters.get(response.id)
-			if ("result" in response)
+			const awaiter = this._rpcResponseAwaiters.get(Number(response.id))
+			if(awaiter)
 			{
-				awaiter.resolve(response.result)
-			}
-			else if ("error" in response)
-			{
-				awaiter.reject(response.error)
-			}
-			else
-			{
-				awaiter.reject(new Error("wrong response structure"))
+				if('result' in response)
+				{
+					awaiter.resolve(response.result)
+				}
+				else if('error' in response)
+				{
+					awaiter.reject(response?.error || 'error')
+				}
+				else
+				{
+					awaiter.reject("wrong response structure")
+				}
+				
+				clearTimeout(awaiter.timeout)
+				this._rpcResponseAwaiters.delete(Number(response.id))
 			}
 			
-			clearTimeout(awaiter.timeout)
-			this.rpcResponseAwaiters.delete(response.id)
+			return
 		}
-		else
-		{
-			console.error("Received rpc response with unknown id", response)
-		}
+		
+		this.getLogger().error(
+			new Error(
+				`${Text.getDateForLog()}: Pull: Received rpc response with unknown id`
+			),
+			response
+		)
 	}
 	
-	parseJsonRpcMessage(message)
+	parseJsonRpcMessage(message: string): RpcCommandResult[]|RpcCommandResult|void
 	{
 		let decoded
 		try
 		{
 			decoded = JSON.parse(message);
-		} catch (e)
+		}
+		catch (error)
 		{
-			console.error(Utils.getDateForLog() + ": Pull: Could not decode json rpc message", e);
+			this.getLogger().error(
+				new Error(
+					`${Text.getDateForLog()}: Pull: Could not decode json rpc message`
+				),
+				error
+			)
+			
+			return
 		}
 		
-		if (Utils.isArray(decoded))
+		if(Type.isArray(decoded))
 		{
 			return this.executeIncomingRpcBatch(decoded);
 		}
-		else if (Utils.isJsonRpcRequest(decoded))
+		else if(Type.isJsonRpcRequest(decoded))
 		{
 			return this.executeIncomingRpcCommand(decoded);
 		}
-		else if (Utils.isJsonRpcResponse(decoded))
+		else if(Type.isJsonRpcResponse(decoded))
 		{
 			return this.processRpcResponse(decoded);
 		}
 		else
 		{
-			console.error(Utils.getDateForLog() + ": Pull: unknown rpc packet", decoded);
+			this.getLogger().error(
+				new Error(
+					`${Text.getDateForLog()}: Pull: unknown rpc packet`
+				),
+				decoded
+			)
 		}
 	}
 	
@@ -145,32 +233,34 @@ export class JsonRpc
 	 * @param {object} params
 	 * @returns {object}
 	 */
-	executeIncomingRpcCommand({method, params})
+	private executeIncomingRpcCommand({ method, params }: RpcCommand): RpcCommandResult
 	{
-		if (method in this.handlers)
+		if (method in this._handlers)
 		{
-			return this.handlers[method].call(this, params)
+			return this._handlers[method].call(this, params || {})
 		}
 		
 		return {
-			"error": RpcError.MethodNotFound
-		}
+			jsonrpc: JSON_RPC_VERSION,
+			error: ListRpcError.MethodNotFound
+		} as RpcCommandResult
 	}
 	
-	executeIncomingRpcBatch(batch)
+	private executeIncomingRpcBatch(batch: RpcCommand[]): RpcCommandResult[]
 	{
-		let result = [];
+		let result: RpcCommandResult[] = []
+		
 		for (let command of batch)
 		{
-			if ("jsonrpc" in command)
+			if ('jsonrpc' in command)
 			{
-				if ("method" in command)
+				if ('method' in command)
 				{
 					let commandResult = this.executeIncomingRpcCommand(command)
 					if (commandResult)
 					{
-						commandResult["jsonrpc"] = JSON_RPC_VERSION;
-						commandResult["id"] = command["id"];
+						commandResult['jsonrpc'] = JSON_RPC_VERSION;
+						commandResult['id'] = command["id"];
 						
 						result.push(commandResult)
 					}
@@ -182,46 +272,51 @@ export class JsonRpc
 			}
 			else
 			{
-				console.error(Utils.getDateForLog() + ": Pull: unknown rpc command in batch", command);
+				this.getLogger().error(
+					new Error(
+						`${Text.getDateForLog()}: Pull: unknown rpc command in batch`
+					),
+					command
+				)
+				
 				result.push({
-					"jsonrpc": "2.0",
-					"error": RpcError.InvalidRequest,
-				})
+					jsonrpc: JSON_RPC_VERSION,
+					error: ListRpcError.InvalidRequest,
+				} as RpcCommandResult)
 			}
 		}
 		
 		return result;
 	}
 	
-	nextId()
+	private nextId(): number
 	{
-		return ++this.idCounter;
+		return ++this._idCounter
 	}
 	
-	createPublishRequest(messageBatch)
+	private createPublishRequest(messageBatch: string[]): RpcRequest[]
 	{
-		let result = messageBatch.map(message => this.createRequest('publish', message));
-		
-		if (result.length === 0)
-		{
-			return result[0]
-		}
-		
-		return result;
+		return messageBatch.map(
+			message => this.createRequest('publish', message)
+		)
 	}
 	
-	createRequest(method, params, id)
+	private createRequest(
+		method: string,
+		params: any,
+		id?: number
+	): RpcRequest
 	{
-		if (!id)
+		if(!id)
 		{
 			id = this.nextId()
 		}
 		
 		return {
 			jsonrpc: JSON_RPC_VERSION,
-			method: method,
-			params: params,
-			id: id
-		}
+			method,
+			params,
+			id
+		} as RpcRequest
 	}
 }

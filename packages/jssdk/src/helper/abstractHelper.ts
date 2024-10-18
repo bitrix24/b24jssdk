@@ -1,5 +1,5 @@
 import { LoggerBrowser, LoggerType } from '../logger/browser'
-import type { IB24 } from '../core/abstractB24'
+import type { TypeB24 } from '../types/b24'
 
 export class UnhandledMatchError
 	extends Error
@@ -15,12 +15,12 @@ export class UnhandledMatchError
 
 export abstract class AbstractHelper
 {
-	protected _b24: IB24
+	protected _b24: TypeB24
 	protected _logger: null|LoggerBrowser = null
 	protected _data: any = null
 	
 	// region Init ////
-	constructor(b24: IB24)
+	constructor(b24: TypeB24)
 	{
 		this._b24 = b24
 	}

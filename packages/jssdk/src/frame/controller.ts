@@ -1,5 +1,6 @@
 import { LoggerBrowser } from '../logger/browser'
-import { AbstractB24, type IB24 } from '../core/abstractB24'
+import { AbstractB24 } from '../core/abstractB24'
+import type { TypeB24 } from '../types/b24'
 import Http from '../core/http/controller'
 import { AppFrame } from './frame'
 import { MessageManager, MessageCommands } from './message'
@@ -24,7 +25,7 @@ import type {
  */
 export class B24Frame
 	extends AbstractB24
-	implements IB24
+	implements TypeB24
 {
 	#isInstallMode: boolean = false
 	#isFirstRun: boolean = false
@@ -138,11 +139,11 @@ export class B24Frame
 				this._getHttpOptions(),
 			)
 			
+			/**
+			 * @memo Writes the fact of the 1st launch to `app_options`
+			 */
 			if(this.#isFirstRun)
 			{
-				/**
-				 * @memo Writes the fact of the 1st launch to `app_options`
-				 */
 				return this.#messageManager.send(
 					MessageCommands.setInstall,
 					{

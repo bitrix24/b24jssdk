@@ -1,10 +1,9 @@
-import { LoggerBrowser, LoggerType } from "../../logger/browser";
-
-type RestrictionManagerParams = {
-	sleep: number
-	speed: number
-	amount: number
-}
+import { LoggerBrowser, LoggerType } from '../../logger/browser'
+import {
+	RestrictionManagerParamsBase,
+	RestrictionManagerParamsForEnterprise,
+	type TypeRestrictionManagerParams
+} from '../../types/http'
 
 /**
  * @link https://apidocs.bitrix24.com/limits.html
@@ -19,22 +18,18 @@ type RestrictionManagerParams = {
  */
 export default class RestrictionManager
 {
-	#param: RestrictionManagerParams;
-	#lastDecrement: number;
-	#currentAmount: number;
+	#params: TypeRestrictionManagerParams
+	#lastDecrement: number
+	#currentAmount: number
 	
-	private _logger: null|LoggerBrowser = null;
+	private _logger: null|LoggerBrowser = null
 	
 	constructor()
 	{
-		this.#param = {
-			sleep: 1_000,
-			speed: 0.001,
-			amount: 30
-		};
+		this.#params = RestrictionManagerParamsBase
 		
-		this.#currentAmount = 0;
-		this.#lastDecrement = 0;
+		this.#currentAmount = 0
+		this.#lastDecrement = 0
 	}
 	
 	setLogger(logger: LoggerBrowser): void
@@ -60,7 +55,21 @@ export default class RestrictionManager
 			})
 		}
 		
-		return this._logger;
+		return this._logger
+	}
+	
+	get params(): TypeRestrictionManagerParams
+	{
+		return { ...this.#params }
+	}
+	
+	set params(params: TypeRestrictionManagerParams)
+	{
+		this.#params = params
+		
+		this.getLogger().log(
+			`new restriction manager params`, params
+		)
 	}
 	
 	check(
@@ -68,70 +77,70 @@ export default class RestrictionManager
 	): Promise<null>
 	{
 		return new Promise(resolve => {
-			this.#decrementStorage();
+			this.#decrementStorage()
 			
 			if(this.#checkStorage())
 			{
-				this.getLogger().log(`>> no sleep >>> ${hash}`, this.#getStorageStatus());
-				this.#incrementStorage();
+				this.getLogger().log(`>> no sleep >>> ${hash}`, this.#getStorageStatus())
+				this.#incrementStorage()
 				
-				return resolve(null);
+				return resolve(null)
 			}
 			else
 			{
 				const sleep = (callback: Function) => {
-					this.getLogger().info(`>> go sleep >>> ${hash}`, this.#getStorageStatus());
+					this.getLogger().info(`>> go sleep >>> ${hash}`, this.#getStorageStatus())
 					setTimeout(() => {
 						callback();
-					}, this.#param.sleep);
+					}, this.#params.sleep)
 				};
 				
 				const wait = () => {
-					this.#decrementStorage();
+					this.#decrementStorage()
 					if(!this.#checkStorage())
 					{
-						sleep(wait);
+						sleep(wait)
 					}
 					else
 					{
-						this.getLogger().info(`<< stop sleep <<< ${hash}`, this.#getStorageStatus());
-						this.#incrementStorage();
-						return resolve(null);
+						this.getLogger().info(`<< stop sleep <<< ${hash}`, this.#getStorageStatus())
+						this.#incrementStorage()
+						return resolve(null)
 					}
 				};
 				
-				sleep(wait);
+				sleep(wait)
 			}
 		});
 	}
 	
 	#getStorageStatus()
 	{
-		return `${this.#currentAmount.toFixed(4)} from ${this.#param.amount}`
+		return `${this.#currentAmount.toFixed(4)} from ${this.#params.amount}`
 	}
 	
 	#decrementStorage(): void
 	{
 		if(this.#lastDecrement > 0)
 		{
-			this.#currentAmount -= ((new Date()).valueOf() - this.#lastDecrement) * this.#param.speed;
+			this.#currentAmount -= ((new Date()).valueOf() - this.#lastDecrement) * this.#params.speed
 			
 			if(this.#currentAmount < 0)
 			{
-				this.#currentAmount = 0;
+				this.#currentAmount = 0
 			}
 		}
 		
-		this.#lastDecrement = (new Date()).valueOf();
+		this.#lastDecrement = (new Date()).valueOf()
 	}
 	
 	#incrementStorage(): void
 	{
-		this.#currentAmount++;
+		this.#currentAmount++
 	}
 	
 	#checkStorage(): boolean
 	{
-		return this.#currentAmount < this.#param.amount;
+		return this.#currentAmount < this.#params.amount
 	}
 }

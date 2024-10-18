@@ -1,6 +1,6 @@
 import {AbstractHelper} from './abstractHelper'
-import type {IB24} from '../core/abstractB24'
-import {TypeOption} from '../types/characteristics'
+import type { TypeB24 } from '../types/b24'
+import { TypeOption } from '../types/characteristics'
 import Type from "../tools/type"
 
 export class OptionsManager
@@ -38,7 +38,7 @@ export class OptionsManager
 	}
 	// endregion ////
 	
-	constructor(b24: IB24)
+	constructor(b24: TypeB24)
 	{
 		super(b24)
 		

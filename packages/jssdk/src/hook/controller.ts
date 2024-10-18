@@ -1,8 +1,9 @@
-import { AbstractB24, type IB24 } from '../core/abstractB24'
+import { LoggerBrowser } from '../logger/browser'
+import { AbstractB24 } from '../core/abstractB24'
+import type { TypeB24 } from '../types/b24'
 import Http from '../core/http/controller'
 import { AuthHookManager } from './auth'
 import type { B24HookParams } from '../types/auth'
-import { LoggerBrowser } from '../logger/browser'
 
 /**
  * B24.Hook Manager.
@@ -11,7 +12,7 @@ import { LoggerBrowser } from '../logger/browser'
  */
 export class B24Hook
 	extends AbstractB24
-	implements IB24
+	implements TypeB24
 {
 	readonly #authHookManager: AuthHookManager
 	
@@ -29,7 +30,7 @@ export class B24Hook
 		this._http = new Http(
 			this.#authHookManager.getTargetOriginWithPath(),
 			this.#authHookManager,
-			this._getHttpOptions(),
+			this._getHttpOptions()
 		)
 		
 		this._isInit = true

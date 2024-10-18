@@ -1,16 +1,44 @@
-import type { StorageManagerParams } from '../types/pull'
+import { LoggerBrowser, LoggerType } from '../logger/browser'
+import type { StorageManagerParams, TypeStorageManager } from '../types/pull'
 
 export class StorageManager
+	implements TypeStorageManager
 {
+	private _logger: null|LoggerBrowser = null
+	
 	private readonly userId: number
 	private readonly siteId: string
 	
-	constructor(params: StorageManagerParams)
+	constructor(params: StorageManagerParams = {})
 	{
-		params = params || {};
-		
 		this.userId = params.userId ? params.userId : 0
 		this.siteId = params.siteId ? params.siteId : 'none'
+	}
+	
+	setLogger(logger: LoggerBrowser): void
+	{
+		this._logger = logger
+	}
+	
+	getLogger(): LoggerBrowser
+	{
+		if(null === this._logger)
+		{
+			this._logger = LoggerBrowser.build(
+				`NullLogger`
+			)
+			
+			this._logger.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: false,
+				[LoggerType.warn]: false,
+				[LoggerType.error]: true,
+				[LoggerType.trace]: false,
+			})
+		}
+		
+		return this._logger
 	}
 	
 	set(
@@ -20,20 +48,20 @@ export class StorageManager
 	{
 		if (typeof window.localStorage === 'undefined')
 		{
-			console.error('undefined window.localStorage')
+			this.getLogger().error(new Error('undefined window.localStorage'))
 			return
 		}
 		
-		if (typeof value != 'string')
+		if(typeof value !== 'string')
 		{
 			if(value)
 			{
-				value = JSON.stringify(value);
+				value = JSON.stringify(value)
 			}
 		}
 		
 		window.localStorage.setItem(
-			this.getKey(name),
+			this._getKey(name),
 			value
 		)
 	}
@@ -43,12 +71,12 @@ export class StorageManager
 		defaultValue: any
 	): any
 	{
-		if (typeof window.localStorage === 'undefined')
+		if(typeof window.localStorage === 'undefined')
 		{
-			return defaultValue || null;
+			return defaultValue || null
 		}
 		
-		const result = window.localStorage.getItem(this.getKey(name))
+		const result = window.localStorage.getItem(this._getKey(name))
 		if(result === null)
 		{
 			return defaultValue || null
@@ -59,18 +87,18 @@ export class StorageManager
 	
 	remove(name: string): void
 	{
-		if (typeof window.localStorage === 'undefined')
+		if(typeof window.localStorage === 'undefined')
 		{
-			console.error('undefined window.localStorage')
+			this.getLogger().error(new Error('undefined window.localStorage'))
 			return
 		}
 		
 		return window.localStorage.removeItem(
-			this.getKey(name)
+			this._getKey(name)
 		)
 	}
 	
-	getKey(name: string): string
+	private _getKey(name: string): string
 	{
 		return `@bitrix24/b24jssdk-pull-${this.userId}-${this.siteId}-${name}`
 	}
@@ -80,6 +108,6 @@ export class StorageManager
 		userKey: string
 	): boolean
 	{
-		return eventKey === this.getKey(userKey)
+		return eventKey === this._getKey(userKey)
 	}
 }

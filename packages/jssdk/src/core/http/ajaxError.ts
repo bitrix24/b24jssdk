@@ -1,11 +1,11 @@
 export type AnswerError = {
-	error: string;
-	errorDescription: string;
+	error: string,
+	errorDescription: string
 }
 
 export type AjaxErrorParams = {
-	status: number;
-	answerError: AnswerError;
+	status: number,
+	answerError: AnswerError,
 	cause?: Error
 }
 
@@ -15,33 +15,42 @@ export type AjaxErrorParams = {
 export class AjaxError
 	extends Error
 {
-	override cause: null|Error;
-	status: number;
-	answerError: AnswerError;
+	override cause: null|Error
+	private _status: number
+	private _answerError: AnswerError
 	
 	constructor(params: AjaxErrorParams)
 	{
-		const message = `${params.answerError.error}${!!params.answerError.errorDescription ? ': ' + params.answerError.errorDescription : ''}`;
-		super(message);
-		this.cause = params.cause || null;
-		this.name = this.constructor.name;
+		const message = `${params.answerError.error}${
+			!!params.answerError.errorDescription
+			? ': ' + params.answerError.errorDescription
+			: ''
+		}`
 		
-		this.status = params.status;
-		this.answerError = params.answerError;
+		super(message)
+		this.cause = params.cause || null
+		this.name = this.constructor.name
+		
+		this._status = params.status
+		this._answerError = params.answerError
 	}
 	
-	getAnswerError(): AnswerError
+	get answerError(): AnswerError
 	{
-		return this.answerError;
+		return this._answerError
 	}
 	
-	getStatus()
+	get status(): number
 	{
-		return this.status;
+		return this._status
 	}
 	
-	override toString()
+	override toString(): string
 	{
-		return `${this.answerError.error}${!!this.answerError.errorDescription ? ': ' + this.answerError.errorDescription : ''} (${this.status})`;
+		return `${this.answerError.error}${
+			!!this.answerError.errorDescription
+			? ': ' + this.answerError.errorDescription
+			: ''
+		} (${this.status})`
 	}
 }

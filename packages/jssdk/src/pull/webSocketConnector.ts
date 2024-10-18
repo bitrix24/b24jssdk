@@ -82,7 +82,7 @@ export class WebSocketConnector
 				reason
 			)
 		}
-		this._socket = null;
+		this._socket = null
 		this._disconnectCode = code
 		this._disconnectReason = reason
 		this.connected = false
@@ -93,7 +93,7 @@ export class WebSocketConnector
 	 * @inheritDoc
 	 */
 	override send(
-		buffer: ArrayBuffer
+		buffer: ArrayBuffer|string
 	): boolean
 	{
 		if(
@@ -101,7 +101,7 @@ export class WebSocketConnector
 			|| this._socket.readyState !== 1
 		)
 		{
-			console.error(new Error(
+			this.getLogger().error(new Error(
 				`${Text.getDateForLog()}: Pull: WebSocket is not connected`
 			))
 			
@@ -115,14 +115,14 @@ export class WebSocketConnector
 	// region Event Handlers ////
 	private _onSocketOpen(): void
 	{
-		this.connected = true;
+		this.connected = true
 	}
 	
 	private _onSocketClose(event: CloseEvent)
 	{
 		this._socket = null
 		this._disconnectCode = Number(event.code)
-		this._disconnectReason = event.reason;
+		this._disconnectReason = event.reason
 		this.connected = false
 	}
 	

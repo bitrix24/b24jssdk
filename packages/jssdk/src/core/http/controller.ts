@@ -1,11 +1,11 @@
-import {LoggerBrowser, LoggerType} from "../../logger/browser"
-import { default as RestrictionManager } from "./restrictionManager"
-import { Result } from "../result"
-import { AjaxError } from "./ajaxError"
-import { AjaxResult } from "./ajaxResult"
-
-import type { AjaxQuery, AjaxResultParams } from "./ajaxResult"
-import type { AuthActions, AuthData, AuthError } from "../../types/auth"
+import { LoggerBrowser, LoggerType } from '../../logger/browser'
+import type {TypeHttp, TypeRestrictionManagerParams} from '../../types/http'
+import { default as RestrictionManager } from './restrictionManager'
+import { Result } from '../result'
+import { AjaxError } from './ajaxError'
+import { AjaxResult } from './ajaxResult'
+import type { AjaxQuery, AjaxResultParams } from './ajaxResult'
+import type { AuthActions, AuthData, AuthError } from '../../types/auth'
 import type { BatchPayload } from "../../types/payloads"
 
 import axios, { type AxiosInstance, AxiosError } from 'axios'
@@ -22,6 +22,7 @@ type AjaxResponse = {
  * @link https://dev.1c-bitrix.ru/rest_help/
  */
 export default class Http
+	implements TypeHttp
 {
 	#clientAxios: AxiosInstance
 	#authActions: AuthActions
@@ -71,17 +72,14 @@ export default class Http
 		return this._logger
 	}
 	
-	isString(item: any): boolean
+	setRestrictionManagerParams(params: TypeRestrictionManagerParams): void
 	{
-		return item === ''
-			? true
-			: (item
-				? (
-					typeof (item) == "string"
-					|| item instanceof String
-				)
-				: false
-			)
+		this.#restrictionManager.params = params
+	}
+	
+	getRestrictionManagerParams(): TypeRestrictionManagerParams
+	{
+		return this.#restrictionManager.params
 	}
 	
 	async batch(

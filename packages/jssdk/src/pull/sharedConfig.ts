@@ -1,119 +1,199 @@
-import { Utils } from "./utils";
+import { LoggerBrowser, LoggerType } from '../logger/browser'
+import Type from '../tools/type'
+import Text from '../tools/text'
+import { StorageManager } from './storageManager'
+import type {SharedConfigCallbacks, SharedConfigParams, TypeStorageManager} from '../types/pull'
+
+enum LsKeys {
+	WebsocketBlocked = 'bx-pull-websocket-blocked',
+	LongPollingBlocked = 'bx-pull-longpolling-blocked',
+	LoggingEnabled = 'bx-pull-logging-enabled'
+}
 
 export class SharedConfig
 {
-	constructor(params)
+	private _logger: null|LoggerBrowser = null
+	private readonly _storage: TypeStorageManager
+	private _ttl: number = 24 * 60 * 60
+	private _callbacks: SharedConfigCallbacks
+	
+	constructor(params: SharedConfigParams = {})
 	{
 		params = params || {};
-		this.storage = params.storage || new StorageManager();
+		this._storage = params.storage || new StorageManager();
 		
-		this.ttl = 24 * 60 * 60;
+		this._callbacks = {
+			onWebSocketBlockChanged: Type.isFunction(params.onWebSocketBlockChanged)
+				? params.onWebSocketBlockChanged
+				: () => {}
+		} as SharedConfigCallbacks
 		
-		this.lsKeys = {
-			websocketBlocked: 'bx-pull-websocket-blocked',
-			longPollingBlocked: 'bx-pull-longpolling-blocked',
-			loggingEnabled: 'bx-pull-logging-enabled'
-		};
-		
-		this.callbacks = {
-			onWebSocketBlockChanged: (Utils.isFunction(params.onWebSocketBlockChanged) ? params.onWebSocketBlockChanged : function () {})
-		};
-		
-		if (this.storage)
+		if(this._storage)
 		{
-			window.addEventListener('storage', this.onLocalStorageSet.bind(this));
+			window.addEventListener(
+				'storage',
+				this.onLocalStorageSet.bind(this)
+			)
 		}
 	}
 	
-	onLocalStorageSet(params)
+	setLogger(logger: LoggerBrowser): void
+	{
+		this._logger = logger
+	}
+	
+	getLogger(): LoggerBrowser
+	{
+		if(null === this._logger)
+		{
+			this._logger = LoggerBrowser.build(
+				`NullLogger`
+			)
+			
+			this._logger.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: false,
+				[LoggerType.warn]: false,
+				[LoggerType.error]: true,
+				[LoggerType.trace]: false,
+			})
+		}
+		
+		return this._logger
+	}
+	
+	private onLocalStorageSet(params: StorageEvent): void
 	{
 		if (
-			this.storage.compareKey(params.key, this.lsKeys.websocketBlocked)
-			&& params.newValue != params.oldValue
+			(this._storage as StorageManager).compareKey(
+				params.key || '',
+				LsKeys.WebsocketBlocked
+			)
+			&& params.newValue !== params.oldValue
 		)
 		{
-			this.callbacks.onWebSocketBlockChanged({
+			this._callbacks.onWebSocketBlockChanged({
 				isWebSocketBlocked: this.isWebSocketBlocked()
 			})
 		}
 	}
 	
-	isWebSocketBlocked()
+	isWebSocketBlocked(): boolean
 	{
-		if (!this.storage)
+		if(!this._storage)
 		{
-			return false;
+			return false
 		}
 		
-		return this.storage.get(this.lsKeys.websocketBlocked, 0) > Utils.getTimestamp();
+		return this._storage.get(LsKeys.WebsocketBlocked, 0) > (new Date()).getTime()
 	}
 	
-	setWebSocketBlocked(isWebSocketBlocked)
+	setWebSocketBlocked(isWebSocketBlocked: boolean): boolean
 	{
-		if (!this.storage)
+		if(!this._storage)
 		{
-			return false;
+			return false
 		}
 		
 		try
 		{
-			this.storage.set(this.lsKeys.websocketBlocked, (isWebSocketBlocked ? Utils.getTimestamp() + this.ttl : 0));
-		} catch (e)
-		{
-			console.error(Utils.getDateForLog() + " Pull: Could not save WS_blocked flag in local storage. Error: ", e);
+			this._storage.set(
+				LsKeys.WebsocketBlocked,
+				(isWebSocketBlocked ? (new Date()).getTime() + this._ttl : 0)
+			)
 		}
-	}
-	
-	isLongPollingBlocked()
-	{
-		if (!this.storage)
+		catch(error)
 		{
-			return false;
-		}
-		
-		return this.storage.get(this.lsKeys.longPollingBlocked, 0) > Utils.getTimestamp();
-	}
-	
-	setLongPollingBlocked(isLongPollingBlocked)
-	{
-		if (!this.storage)
-		{
-			return false;
+			this.getLogger().error(new Error(
+				`${Text.getDateForLog()}: Pull: Could not save WS_blocked flag in local storage. Error: `
+			), error)
+			
+			return false
 		}
 		
-		try
-		{
-			this.storage.set(this.lsKeys.longPollingBlocked, (isLongPollingBlocked ? Utils.getTimestamp() + this.ttl : 0));
-		} catch (e)
-		{
-			console.error(Utils.getDateForLog() + " Pull: Could not save LP_blocked flag in local storage. Error: ", e);
-		}
+		return true
 	}
 	
-	isLoggingEnabled()
+	isLongPollingBlocked(): boolean
 	{
-		if (!this.storage)
+		if(!this._storage)
 		{
-			return false;
+			return false
 		}
 		
-		return this.storage.get(this.lsKeys.loggingEnabled, 0) > Utils.getTimestamp();
+		return this._storage.get(LsKeys.LongPollingBlocked, 0) > (new Date()).getTime()
 	}
 	
-	setLoggingEnabled(isLoggingEnabled)
+	setLongPollingBlocked(isLongPollingBlocked: boolean)
 	{
-		if (!this.storage)
+		if(!this._storage)
 		{
-			return false;
+			return false
 		}
 		
 		try
 		{
-			this.storage.set(this.lsKeys.loggingEnabled, (isLoggingEnabled ? Utils.getTimestamp() + this.ttl : 0));
-		} catch (e)
-		{
-			console.error("LocalStorage error: ", e);
-			return false;
+			this._storage.set(
+				LsKeys.LongPollingBlocked,
+				(isLongPollingBlocked ? (new Date()).getTime() + this._ttl : 0)
+			)
 		}
+		catch(error)
+		{
+			this.getLogger().error(
+				new Error(
+					`${Text.getDateForLog()}: Pull: Could not save LP_blocked flag in local storage. Error: `
+				),
+				error
+			)
+			
+			return false
+		}
+		
+		return true
 	}
+	
+	isLoggingEnabled(): boolean
+	{
+		if (!this._storage)
+		{
+			return false
+		}
+		
+		return this._storage.get(LsKeys.LoggingEnabled, 0) > this.getTimestamp()
+	}
+	
+	setLoggingEnabled(isLoggingEnabled: boolean): boolean
+	{
+		if(!this._storage)
+		{
+			return false
+		}
+		
+		try
+		{
+			this._storage.set(
+				LsKeys.LoggingEnabled,
+				(isLoggingEnabled ? this.getTimestamp() + this._ttl : 0)
+			)
+		}
+		catch(error)
+		{
+			this.getLogger().error(new Error(
+				`${Text.getDateForLog()}: LocalStorage error: `
+			), error)
+			
+			return false
+		}
+		
+		return true
+	}
+	
+	// region Tools ////
+	getTimestamp(): number
+	{
+		return (new Date()).getTime()
+	}
+	// endregion ////
 }

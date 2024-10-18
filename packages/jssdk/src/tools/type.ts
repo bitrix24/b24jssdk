@@ -99,7 +99,35 @@ export default class Type
 			Function.prototype.toString.call(ctor) === objectCtorString
 		)
 	}
+	
+	static isJsonRpcRequest(value: any): boolean
+	{
+		return (
+			typeof (value) === 'object'
+			&& value
+			&& 'jsonrpc' in value
+			&& Type.isStringFilled(value.jsonrpc)
+			&& 'method' in value
+			&& Type.isStringFilled(value.method)
+		)
+	}
 
+	static isJsonRpcResponse(value: any): boolean
+	{
+		return (
+			typeof (value) === "object"
+			&& value
+			&& 'jsonrpc' in value
+			&& Type.isStringFilled(value.jsonrpc)
+			&& 'id' in value
+			&& (
+				'result' in value
+				|| 'error' in value
+			)
+		)
+	}
+	
+	
 	/**
 	 * Checks that value is boolean
 	 * @param value

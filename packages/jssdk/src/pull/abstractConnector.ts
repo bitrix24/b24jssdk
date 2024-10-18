@@ -1,16 +1,17 @@
+import { LoggerBrowser, LoggerType } from '../logger/browser'
 import Type from '../tools/type'
-import { ConnectionType } from '../types/pull'
+import {ConnectionType, type TypeConnector} from '../types/pull'
 import type {
+	ConnectorParent,
 	ConnectorCallbacks,
 	ConnectorConfig
 } from '../types/pull'
 
-/**
- * @todo add logger
- * @todo fix _parent
- */
 export abstract class AbstractConnector
+	implements TypeConnector
 {
+	private _logger: null|LoggerBrowser = null
+	
 	protected _connected: boolean = false
 	
 	protected _connectionType: ConnectionType
@@ -18,7 +19,7 @@ export abstract class AbstractConnector
 	protected _disconnectCode: number = 0
 	protected _disconnectReason: string = ''
 	
-	protected _parent
+	protected _parent: ConnectorParent
 	
 	protected _callbacks: ConnectorCallbacks
 	
@@ -40,7 +41,33 @@ export abstract class AbstractConnector
 			onMessage: Type.isFunction(config.onMessage)
 				? config.onMessage
 				: () => {}
+		} as ConnectorCallbacks
+	}
+	
+	setLogger(logger: LoggerBrowser): void
+	{
+		this._logger = logger
+	}
+	
+	getLogger(): LoggerBrowser
+	{
+		if(null === this._logger)
+		{
+			this._logger = LoggerBrowser.build(
+				`NullLogger`
+			)
+			
+			this._logger.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: false,
+				[LoggerType.warn]: false,
+				[LoggerType.error]: true,
+				[LoggerType.trace]: false,
+			})
 		}
+		
+		return this._logger
 	}
 	
 	destroy(): void
@@ -109,8 +136,8 @@ export abstract class AbstractConnector
 	
 	/**
 	 * Sends some data to the server
-	 * @param {ArrayBuffer} buffer Data to send.
+	 * @param {ArrayBuffer|string} buffer Data to send.
 	 * @return {boolean}
 	 */
-	abstract send(buffer: ArrayBuffer): boolean
+	abstract send(buffer: ArrayBuffer|string): boolean
 }

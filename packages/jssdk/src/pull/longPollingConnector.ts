@@ -18,7 +18,7 @@ class LongPollingConnector
 	
 	constructor(config: ConnectorConfig)
 	{
-		super(config);
+		super(config)
 		
 		this._active = false
 		this._connectionType = ConnectionType.LongPolling
@@ -60,7 +60,7 @@ class LongPollingConnector
 		
 		this._disconnectCode = code
 		this._disconnectReason = reason
-		this.connected = false;
+		this.connected = false
 	}
 	
 	private performRequest(): void
@@ -90,11 +90,12 @@ class LongPollingConnector
 				this.connected = true
 			},
 			5_000
-		);
+		)
+		
 		this._requestTimeout = setTimeout(
 			this.onRequestTimeout.bind(this),
 			LONG_POLLING_TIMEOUT * 1_000
-		);
+		)
 		
 		this._xhr.open('GET', this.connectionPath)
 		this._xhr.send()
@@ -128,16 +129,16 @@ class LongPollingConnector
 	 * @inheritDoc
 	 */
 	override send(
-		buffer: ArrayBuffer
+		buffer: ArrayBuffer|string
 	): boolean
 	{
 		const path = this._parent.getPublicationPath()
 		if(!path)
 		{
-			console.error(new Error(
+			this.getLogger().error(new Error(
 				`${Text.getDateForLog()}: Pull: publication path is empty`
 			))
-			return false;
+			return false
 		}
 		
 		const xhr = new XMLHttpRequest()
@@ -175,7 +176,7 @@ class LongPollingConnector
 				const lastMessageId = this._xhr.getResponseHeader('Last-Message-Id')
 				if(Type.isStringFilled(lastMessageId))
 				{
-					this._parent.setLastMessageId(lastMessageId)
+					this._parent.setLastMessageId(lastMessageId || '')
 				}
 			}
 			this.performRequest()
@@ -209,6 +210,7 @@ class LongPollingConnector
 	private createXhr(): XMLHttpRequest
 	{
 		const result = new XMLHttpRequest()
+		
 		if(
 			this._parent.isProtobufSupported()
 			&& !this._parent.isJsonRpc()
@@ -216,11 +218,13 @@ class LongPollingConnector
 		{
 			result.responseType = 'arraybuffer'
 		}
+		
 		result.addEventListener(
 			'readystatechange',
 			this.onXhrReadyStateChange.bind(this)
 		)
-		return result;
+		
+		return result
 	}
 	// endregion ////
 }

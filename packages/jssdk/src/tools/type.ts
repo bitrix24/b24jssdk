@@ -16,10 +16,18 @@ export default class Type
 	 * Checks that value is string
 	 * @param value
 	 * @return {boolean}
+	 *
+	 * @memo get from pull.client.Utils
 	 */
 	static isString(value: any): boolean
 	{
-		return typeof value === 'string'
+		return value === ''
+			? true
+			: (
+				value
+				? (typeof (value) === 'string' || value instanceof String)
+				: false
+			)
 	}
 
 	/**
@@ -36,10 +44,14 @@ export default class Type
 	 * Checks that value is function
 	 * @param value
 	 * @return {boolean}
+	 *
+	 * @memo get from pull.client.Utils
 	 */
 	static isFunction(value: any): boolean
 	{
-		return typeof value === 'function'
+		return value === null
+			? false
+			: (typeof (value) === 'function' || value instanceof Function)
 	}
 
 	/**

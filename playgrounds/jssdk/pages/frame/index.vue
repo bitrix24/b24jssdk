@@ -5,7 +5,7 @@
 import {ref, type Ref, onMounted, onUnmounted, watch, nextTick} from 'vue'
 import { computedAsync } from '@vueuse/core'
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
-import { type IB24 } from '@bitrix24/b24jssdk/core/abstractB24'
+import type { TypeB24 } from '@bitrix24/b24jssdk/types/b24'
 import { B24LangList } from '@bitrix24/b24jssdk/core/language/list'
 import { B24Frame, type SelectedUser, type SelectCRMParams, type SelectedCRMEntity, type SelectedAccess } from '@bitrix24/b24jssdk/frame'
 import { CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
@@ -51,6 +51,46 @@ let result: IResult = reactive(new Result())
 const { formatterDateTime, formatterNumber } = useFormatter('en-US')
 const { t, locales, setLocale } = useI18n()
 const b24CurrentLang: Ref<string> = ref(B24LangList.en)
+
+const defTabIndex = ref(5)
+const valueForCurrency = ref(123456.789)
+const tabsItems = [
+	{
+		key: 'lang',
+		label: 'I18n',
+		content: 'Demonstrates the output of language messages depending on the locale of Bitrix24'
+	},
+	{
+		key: 'appInfo',
+		label: 'App',
+		content: 'Information about the application'
+	},
+	{
+		key: 'licenseInfo',
+		label: 'License & Payment',
+		content: 'Designation of the plan with the region indicated as a prefix'
+	},
+	{
+		key: 'specific',
+		label: 'Specific',
+		content: 'List of specific parameters for box and cloud'
+	},
+	{
+		key: 'forB24Form',
+		label: 'Form Fields',
+		content: 'Examples of fields for the feedback form'
+	},
+	{
+		key: 'currency',
+		label: 'Currency',
+		content: 'List of currencies created in Bitrix24'
+	},
+	{
+		key: 'test',
+		label: 'Test',
+		content: '@todo'
+	}
+]
 
 interface IStatus {
 	isProcess: boolean,
@@ -120,46 +160,6 @@ const initializeB24Frame = async (): Promise<B24Frame> => {
 	return b24Frame
 }
 
-const defTabIndex = ref(5)
-const valueForCurrency = ref(123456.789)
-const tabsItems = [
-	{
-		key: 'lang',
-		label: 'I18n',
-		content: 'Demonstrates the output of language messages depending on the locale of Bitrix24'
-	},
-	{
-		key: 'appInfo',
-		label: 'App',
-		content: 'Information about the application'
-	},
-	{
-		key: 'licenseInfo',
-		label: 'License & Payment',
-		content: 'Designation of the plan with the region indicated as a prefix'
-	},
-	{
-		key: 'specific',
-		label: 'Specific',
-		content: 'List of specific parameters for box and cloud'
-	},
-	{
-		key: 'forB24Form',
-		label: 'Form Fields',
-		content: 'Examples of fields for the feedback form'
-	},
-	{
-		key: 'currency',
-		label: 'Currency',
-		content: 'List of currencies created in Bitrix24'
-	},
-	{
-		key: 'test',
-		label: 'Test',
-		content: '@todo'
-	}
-]
-
 onMounted(async () => {
 	try
 	{
@@ -179,7 +179,7 @@ onMounted(async () => {
 		
 		await B24.parent.setTitle('[playgrounds] Testing Frame')
 		
-		B24Characteristics = new CharacteristicsManager(B24 as unknown as IB24)
+		B24Characteristics = new CharacteristicsManager(B24 as unknown as TypeB24)
 		
 		isInit.value = true
 		
@@ -223,12 +223,12 @@ const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync (
 			LoadDataType.UserOptions,
 		])
 		
-		await makeFitWindow()
-		
 		if(!isInit.value)
 		{
 			isInit.value = true
 		}
+		
+		await makeFitWindow()
 		
 		return B24Characteristics;
 	},

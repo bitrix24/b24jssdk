@@ -10,7 +10,7 @@ import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
 import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
 
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
-import { type IB24 } from '@bitrix24/b24jssdk/core/abstractB24'
+import type { TypeB24 } from '@bitrix24/b24jssdk/types/b24'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
 import { CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
 import { EnumCrmEntityTypeId } from "@bitrix24/b24jssdk/types/crm"
@@ -80,7 +80,7 @@ const status: Ref<IStatus> = ref({
 
 const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync(
 	async () => {
-		const B24Characteristics = new CharacteristicsManager(B24 as unknown as IB24)
+		const B24Characteristics = new CharacteristicsManager(B24 as unknown as TypeB24)
 		await B24Characteristics.loadData([
 			LoadDataType.Profile
 		])

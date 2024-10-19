@@ -63,6 +63,11 @@ export class WebSocketConnector
 		this._createSocket()
 	}
 	
+	get socket(): null|WebSocket
+	{
+		return this._socket
+	}
+	
 	/**
 	 * @inheritDoc
 	 * @param code

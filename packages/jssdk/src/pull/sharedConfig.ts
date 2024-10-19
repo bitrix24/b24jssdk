@@ -2,13 +2,7 @@ import { LoggerBrowser, LoggerType } from '../logger/browser'
 import Type from '../tools/type'
 import Text from '../tools/text'
 import { StorageManager } from './storageManager'
-import type {SharedConfigCallbacks, SharedConfigParams, TypeStorageManager} from '../types/pull'
-
-enum LsKeys {
-	WebsocketBlocked = 'bx-pull-websocket-blocked',
-	LongPollingBlocked = 'bx-pull-longpolling-blocked',
-	LoggingEnabled = 'bx-pull-logging-enabled'
-}
+import { LsKeys, type SharedConfigCallbacks, type SharedConfigParams, type TypeStorageManager} from '../types/pull'
 
 export class SharedConfig
 {

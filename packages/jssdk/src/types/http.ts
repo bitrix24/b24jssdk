@@ -20,6 +20,9 @@ export type TypeHttp = {
 	setRestrictionManagerParams(params: TypeRestrictionManagerParams): void
 	
 	getRestrictionManagerParams(): TypeRestrictionManagerParams
+	
+	setLogTag(logTag?: string): void
+	clearLogTag(): void
 }
 
 export type TypeRestrictionManagerParams = {

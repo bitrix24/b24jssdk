@@ -29,6 +29,8 @@ export default class Http
 	#restrictionManager: RestrictionManager
 	private _logger: null|LoggerBrowser = null
 	
+	#logTag: string = ''
+	
 	constructor(
 		baseURL: string,
 		authActions: AuthActions,
@@ -80,6 +82,16 @@ export default class Http
 	getRestrictionManagerParams(): TypeRestrictionManagerParams
 	{
 		return this.#restrictionManager.params
+	}
+	
+	setLogTag(logTag: string): void
+	{
+		this.#logTag = logTag
+	}
+	
+	clearLogTag(): void
+	{
+		this.#logTag = ''
 	}
 	
 	async batch(
@@ -298,7 +310,7 @@ export default class Http
 		
 		return this.#clientAxios.post(
 			this.#prepareMethod(method),
-			this.#prepareParams(authData, params, start),
+			this.#prepareParams(authData, params, start)
 		)
 		.then(
 			(response: { data: AjaxResultParams; status: any }): Promise<AjaxResponse> => {
@@ -383,6 +395,11 @@ export default class Http
 	): object
 	{
 		let result = Object.assign({}, params)
+		
+		if(this.#logTag.length > 0)
+		{
+			result.logTag = this.#logTag
+		}
 		
 		if(!!result.data)
 		{

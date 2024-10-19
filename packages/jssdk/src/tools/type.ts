@@ -127,7 +127,6 @@ export default class Type
 		)
 	}
 	
-	
 	/**
 	 * Checks that value is boolean
 	 * @param value

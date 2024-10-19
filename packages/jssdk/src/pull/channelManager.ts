@@ -1,85 +1,135 @@
-import { Utils } from './utils'
+import { LoggerBrowser, LoggerType } from '../logger/browser'
+import { AjaxResult } from '../core/http/ajaxResult'
+import type { TypeChanel, TypeChannelManagerParams, TypePublicIdDescriptor } from '../types/pull'
+import type { TypeB24 } from '../types/b24'
+import type { Payload } from '../types/payloads'
 
 export class ChannelManager
 {
-	constructor(params)
+	private _logger: null|LoggerBrowser = null
+	private _publicIds: Map<number, TypeChanel>
+	private _restClient: TypeB24
+	private _getPublicListMethod: string
+	
+	constructor(params: TypeChannelManagerParams)
 	{
-		this.publicIds = {};
+		this._publicIds = new Map()
 		
-		this.restClient = typeof params.restClient !== "undefined" ? params.restClient : BX.rest;
+		this._restClient = params.b24
+		this._getPublicListMethod = params.getPublicListMethod
+	}
+	
+	setLogger(logger: LoggerBrowser): void
+	{
+		this._logger = logger
+	}
+	
+	getLogger(): LoggerBrowser
+	{
+		if(null === this._logger)
+		{
+			this._logger = LoggerBrowser.build(
+				`NullLogger`
+			)
+			
+			this._logger.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: false,
+				[LoggerType.warn]: false,
+				[LoggerType.error]: true,
+				[LoggerType.trace]: false,
+			})
+		}
 		
-		this.getPublicListMethod = params.getPublicListMethod;
+		return this._logger
 	}
 	
 	/**
-	 *
 	 * @param {Array} users Array of user ids.
 	 * @return {Promise}
 	 */
-	getPublicIds(users)
+	async getPublicIds(users: number[]): Promise<Record<number, TypeChanel>>
 	{
-		const now = new Date();
-		let result = {};
-		let unknownUsers = [];
+		const now = new Date()
 		
-		for (let i = 0; i < users.length; i++)
-		{
-			const userId = users[i];
-			if (this.publicIds[userId] && this.publicIds[userId]['end'] > now)
+		let result: Record<number, TypeChanel> = {}
+		let unknownUsers: number[] = []
+		
+		users.forEach((userId) => {
+			const chanel = this._publicIds.get(userId)
+			
+			if(
+				chanel
+				&& chanel.end > now
+			)
 			{
-				result[userId] = this.publicIds[userId];
+				result[chanel.userId] = chanel
 			}
 			else
 			{
-				unknownUsers.push(userId);
+				unknownUsers.push(userId)
 			}
-		}
+		})
 		
-		if (unknownUsers.length === 0)
+		if(unknownUsers.length === 0)
 		{
-			return Promise.resolve(result);
+			return Promise.resolve(result)
 		}
 		
+		/**
+		 * @memo we not use Promise.reject()
+		 */
 		return new Promise((resolve) => {
-			this.restClient.callMethod(this.getPublicListMethod, {users: unknownUsers}).then((response) => {
-				if (response.error())
+			this._restClient.callMethod(
+				this._getPublicListMethod,
 				{
-					return resolve({});
+					users: unknownUsers
 				}
+			)
+			.then((response: AjaxResult) => {
+				const data = (response.getData() as Payload<TypePublicIdDescriptor>).result
 				
-				const data = response.data();
-				this.setPublicIds(Utils.objectValues(data));
+				/**
+				 * @todo fix this
+				 */
+				debugger
+				this._setPublicIds(Object.values(data))
+				
 				unknownUsers.forEach((userId) => {
-					result[userId] = this.publicIds[userId];
-				});
+					const chanel = this._publicIds.get(userId)
+					if(chanel)
+					{
+						result[chanel.userId] = chanel
+					}
+				})
 				
-				resolve(result);
-			});
+				resolve(result)
+			})
+			.catch((error: Error|string) => {
+				this.getLogger().error(error)
+				return resolve({})
+			})
 		})
 	}
 	
 	/**
-	 *
-	 * @param {object[]} publicIds
-	 * @param {integer} publicIds.user_id
-	 * @param {string} publicIds.public_id
-	 * @param {string} publicIds.signature
-	 * @param {Date} publicIds.start
-	 * @param {Date} publicIds.end
+	 * @param {TypePublicIdDescriptor[]} publicIds
 	 */
-	setPublicIds(publicIds)
+	private _setPublicIds(publicIds: TypePublicIdDescriptor[]): void
 	{
-		for (let i = 0; i < publicIds.length; i++)
-		{
-			const publicIdDescriptor = publicIds[i];
-			const userId = publicIdDescriptor.user_id;
-			this.publicIds[userId] = {
-				userId: userId,
-				publicId: publicIdDescriptor.public_id,
-				signature: publicIdDescriptor.signature,
-				start: new Date(publicIdDescriptor.start),
-				end: new Date(publicIdDescriptor.end)
-			}
-		}
+		publicIds.forEach((publicIdDescriptor: TypePublicIdDescriptor) => {
+			const userId = Number(publicIdDescriptor.user_id)
+			this._publicIds.set(
+				userId,
+				{
+					userId: userId,
+					publicId: publicIdDescriptor.public_id,
+					signature: publicIdDescriptor.signature,
+					start: new Date(Number(publicIdDescriptor.start)),
+					end: new Date(Number(publicIdDescriptor.end))
+				} as TypeChanel
+			)
+		})
 	};
 }

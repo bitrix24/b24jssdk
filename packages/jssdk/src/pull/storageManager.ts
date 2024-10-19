@@ -1,4 +1,5 @@
 import { LoggerBrowser, LoggerType } from '../logger/browser'
+import Text from '../tools/text'
 import type { StorageManagerParams, TypeStorageManager } from '../types/pull'
 
 export class StorageManager
@@ -11,7 +12,7 @@ export class StorageManager
 	
 	constructor(params: StorageManagerParams = {})
 	{
-		this.userId = params.userId ? params.userId : 0
+		this.userId = params.userId ? Text.toInteger(params.userId) : 0
 		this.siteId = params.siteId ? params.siteId : 'none'
 	}
 	

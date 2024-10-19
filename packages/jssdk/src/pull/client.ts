@@ -1,183 +1,321 @@
+import { LoggerBrowser, LoggerType } from '../logger/browser'
 import { Utils } from './utils'
+import Type from '../tools/type'
+import Text from '../tools/text'
+import { StorageManager } from './storageManager'
 import { JsonRpc } from './jsonRpc'
+import { SharedConfig } from './sharedConfig'
+import { ChannelManager } from './channelManager'
+import type { TypeB24 } from '../types/b24'
 import {
 	CloseReasons,
-	ConnectionType, EmptyConfig, JSON_RPC_PING, JSON_RPC_PONG, PING_TIMEOUT,
-	PullStatus, RpcMethod,
+	ConnectionType,
+	JSON_RPC_PING,
+	JSON_RPC_PONG,
+	PullStatus,
+	RpcMethod,
 	SenderType,
 	ServerMode,
 	SubscriptionType,
-	SystemCommands
-} from "../types/pull";
+	SystemCommands,
+	LsKeys,
+	type StorageManagerParams,
+	type TypePullClientParams,
+	type TypePullClientSession,
+	type TypeStorageManager,
+	type SharedConfigParams,
+	type TypeChannelManagerParams,
+	type TypeConnector,
+	type RpcError,
+	type TypePullClientConfig
+} from '../types/pull'
+import type {AjaxResult} from "../core/http/ajaxResult";
+import type {Payload} from "../types/payloads";
+import type {NumberString} from "../types/common";
+import {WebSocketConnector} from "./webSocketConnector";
+import type {AjaxError} from "../core/http/ajaxError";
 
+/**
+ * @memo api revision - check module/pull/include.php
+ */
+const REVISION = 19
+const RESTORE_WEBSOCKET_TIMEOUT = 30 * 60
+const OFFLINE_STATUS_DELAY = 5_000
+export const PING_TIMEOUT = 10
+
+const EmptyConfig = {
+	api: {},
+	channels: {},
+	publicChannels: {},
+	server: {timeShift: 0},
+	clientId: null,
+	jwt: null,
+	exp: 0
+} as TypePullClientConfig
+
+/**
+ * @todo fix logic for _loggingEnabled
+ */
 export class PullClient
 {
-	constructor(params)
+	// region Params ////
+	private _logger: null|LoggerBrowser = null
+	private _restClient: TypeB24
+	private _status: PullStatus
+	private _context: string
+	private readonly _guestMode: boolean
+	private readonly _guestUserId: number
+	private _userId: number
+	
+	private _configGetMethod: string
+	private _getPublicListMethod: string
+	
+	private _siteId: string
+	private _enabled: boolean
+	
+	private _unloading: boolean = false
+	private _starting: boolean = false
+	private _debug: boolean = false
+	private _connectionAttempt: number = 0
+	private _connectionType: ConnectionType = ConnectionType.WebSocket
+	private _reconnectTimeout: null|number = null
+	private _restartTimeout: null|number = null
+	private _restoreWebSocketTimeout: null|number = null
+	
+	private _skipStorageInit: boolean
+	private _skipCheckRevision: boolean
+	
+	// @todo fix this ////
+	private _subscribers: Record<string, any> = {}
+	// @todo fix this ////
+	private _watchTagsQueue: Map<string, boolean> = new Map()
+	private _watchUpdateInterval: number = 1_740_000
+	private _watchForceUpdateInterval: number = 5_000
+	private _configTimestamp: number = 0
+	private _session: TypePullClientSession = {
+		mid: null,
+		tag: null,
+		time: null,
+		history: {},
+		lastMessageIds: [],
+		messageCount: 0
+	}
+	
+	private _connectors: Record<ConnectionType, null|TypeConnector> = {
+		[ConnectionType.Undefined]: null,
+		[ConnectionType.WebSocket]: null,
+		[ConnectionType.LongPolling]: null
+	}
+	
+	private _isSecure: boolean
+	
+	// @todo fix this ////
+	private _config: null|TypePullClientConfig = null
+	
+	private _storage: null|TypeStorageManager = null
+	private _sharedConfig: SharedConfig
+	private _channelManager: ChannelManager
+	private _jsonRpcAdapter: null|JsonRpc = null
+	
+	// @todo fix this ////
+	private _notificationPopup: null = null
+	
+	// timers ////
+	private _checkInterval: null|number = null
+	private _offlineTimeout: null|number = null
+	private _watchUpdateTimeout: null|number = null
+	
+	private _pingWaitTimeout: null|number = null
+	
+	// manual stop workaround ////
+	private _isManualDisconnect: boolean = false
+	
+	private _loggingEnabled: boolean = false
+	
+	// bound event handlers ////
+	private _onPingTimeoutHandler: () => void
+	
+	// @todo fix this ////
+	// [userId] => array of callbacks
+	private _userStatusCallbacks = {}
+	
+	private _connectPromise: null|{
+		resolve: (response: any) => void,
+		reject: (error: string|RpcError) => void,
+	} = null
+	// endregion ////
+	
+	constructor(params: TypePullClientParams)
 	{
-		params = params || {};
-
-		if (params.restApplication)
+		this._restClient = params.b24
+		this._status = PullStatus.Offline
+		this._context = 'master'
+		
+		// region RestApplication ////
+		if(params.restApplication)
 		{
-			if (typeof params.configGetMethod === 'undefined')
+			if(typeof params.configGetMethod === 'undefined')
 			{
-				params.configGetMethod = 'pull.application.config.get';
+				params.configGetMethod = 'pull.application.config.get'
 			}
+			
 			if (typeof params.skipCheckRevision === 'undefined')
 			{
-				params.skipCheckRevision = true;
+				params.skipCheckRevision = true
 			}
-			if (typeof params.restApplication === 'string')
+			
+			if(Type.isStringFilled(params.restApplication))
 			{
-				params.siteId = params.restApplication;
+				params.siteId = params.restApplication
 			}
-
-			params.serverEnabled = true;
+			
+			params.serverEnabled = true
 		}
-
-		this._status = PullStatus.Offline;
-
-		this.context = 'master';
-
-		this.guestMode = params.guestMode ? params.guestMode : (typeof BX.message !== 'undefined' && BX.message.pull_guest_mode ? BX.message.pull_guest_mode === 'Y' : false);
-		this.guestUserId = params.guestUserId ? params.guestUserId : (typeof BX.message !== 'undefined' && BX.message.pull_guest_user_id ? parseInt(BX.message.pull_guest_user_id, 10) : 0);
-		if (this.guestMode && this.guestUserId)
+		// endregion ////
+		
+		// region Params ////
+		this._guestMode = params.guestMode
+			? Text.toBoolean(params.guestMode)
+			: false
+		
+		this._guestUserId = params.guestUserId ?
+			Text.toInteger(params.guestUserId)
+			: 0
+		
+		if(
+			this._guestMode
+			&& this._guestUserId > 0
+		)
 		{
-			this.userId = this.guestUserId;
+			this._userId = this._guestUserId;
 		}
 		else
 		{
-			this.userId = params.userId ? params.userId : (typeof BX.message !== 'undefined' && BX.message.USER_ID ? BX.message.USER_ID : 0);
+			this._guestMode = false
+			this._userId = params.userId
+				? Text.toInteger(params.userId)
+				: 0
 		}
 
-		this.siteId = params.siteId ? params.siteId : (typeof BX.message !== 'undefined' && BX.message.SITE_ID ? BX.message.SITE_ID : 'none');
-		this.restClient = typeof params.restClient !== "undefined" ? params.restClient : new BX.RestClient(this.getRestClientOptions());
-
-		this.enabled = typeof params.serverEnabled !== 'undefined' ? (params.serverEnabled === 'Y' || params.serverEnabled === true) : (typeof BX.message !== 'undefined' && BX.message.pull_server_enabled === 'Y');
-		this.unloading = false;
-		this.starting = false;
-		this.debug = false;
-		this.connectionAttempt = 0;
-		this.connectionType = ConnectionType.WebSocket;
-		this.reconnectTimeout = null;
-		this.restartTimeout = null;
-		this.restoreWebSocketTimeout = null;
-
-		this.configGetMethod = typeof params.configGetMethod !== 'string'
+		this._siteId = params.siteId
+			? params.siteId
+			: 'none'
+		
+		this._enabled = !Type.isUndefined(params.serverEnabled)
+			? (params.serverEnabled === true)
+			: true
+		
+		this._configGetMethod = !Type.isStringFilled(params.configGetMethod)
 			? 'pull.config.get'
-			: params.configGetMethod;
-		this.getPublicListMethod = typeof params.getPublicListMethod !== 'string'
+			: params.configGetMethod || ''
+		
+		this._getPublicListMethod = !Type.isStringFilled(params.getPublicListMethod)
 			? 'pull.channel.public.list'
-			: params.getPublicListMethod;
-
-		this.skipStorageInit = params.skipStorageInit === true;
-
-		this.skipCheckRevision = params.skipCheckRevision === true;
-
-		this._subscribers = {};
-
-		this.watchTagsQueue = {};
-		this.watchUpdateInterval = 1740000;
-		this.watchForceUpdateInterval = 5000;
-
-		if (typeof params.configTimestamp !== 'undefined')
+			: params.getPublicListMethod || ''
+		
+		
+		this._skipStorageInit = params.skipStorageInit === true
+		this._skipCheckRevision = params.skipCheckRevision === true;
+		
+		if(!Type.isUndefined(params.configTimestamp))
 		{
-			this.configTimestamp = Number(params.configTimestamp);
+			this._configTimestamp = Text.toInteger(params.configTimestamp);
 		}
-		else if (typeof BX.message !== 'undefined' && BX.message.pull_config_timestamp)
+		// endregion ////
+		
+		this._isSecure = document.location.href.indexOf('https') === 0
+		
+		if(
+			this._userId
+			&& !this._skipStorageInit
+		)
 		{
-			this.configTimestamp = Number(BX.message.pull_config_timestamp);
-		}
-		else
-		{
-			this.configTimestamp = 0;
-		}
-
-		this.session = {
-			mid: null,
-			tag: null,
-			time: null,
-			history: {},
-			lastMessageIds: [],
-			messageCount: 0
-		};
-
-		this._connectors = {
-			webSocket: null,
-			longPolling: null
-		};
-
-		this.isSecure = document.location.href.indexOf('https') === 0;
-		this.config = null;
-
-		this.storage = null;
-
-		if (this.userId && !this.skipStorageInit)
-		{
-			this.storage = new StorageManager({
-				userId: this.userId,
-				siteId: this.siteId
-			});
+			this._storage = new StorageManager({
+				userId: this._userId,
+				siteId: this._siteId
+			} as StorageManagerParams);
 		}
 
-		this.sharedConfig = new SharedConfig({
+		this._sharedConfig = new SharedConfig({
 			onWebSocketBlockChanged: this.onWebSocketBlockChanged.bind(this),
-			storage: this.storage
-		});
-		this.channelManager = new ChannelManager({
-			restClient: this.restClient,
-			getPublicListMethod: this.getPublicListMethod
-		});
+			storage: this._storage
+		} as SharedConfigParams)
+		
+		this._channelManager = new ChannelManager({
+			b24: this._restClient,
+			getPublicListMethod: this._getPublicListMethod
+		} as TypeChannelManagerParams)
+		
+		this._loggingEnabled = this._sharedConfig.isLoggingEnabled()
 
-		this.notificationPopup = null;
-
-		// timers
-		this.checkInterval = null;
-		this.offlineTimeout = null;
-
-		this.pingWaitTimeout = null;
-
-		// manual stop workaround
-		this.isManualDisconnect = false;
-
-		this.loggingEnabled = this.sharedConfig.isLoggingEnabled();
-
-		// bound event handlers
-		this.onPingTimeoutHandler = this.onPingTimeout.bind(this);
-
-		this.userStatusCallbacks = {}; // [userId] => array of callbacks
+		// bound event handlers ////
+		this._onPingTimeoutHandler = this.onPingTimeout.bind(this)
 	}
-
-	get connector()
+	
+	setLogger(logger: LoggerBrowser): void
 	{
-		return this._connectors[this.connectionType];
+		this._logger = logger
+		this._jsonRpcAdapter?.setLogger(this.getLogger())
+		this._storage?.setLogger(this.getLogger())
+		this._sharedConfig.setLogger(this.getLogger())
+		this._channelManager.setLogger(this.getLogger())
+		
+		this._connectors.webSocket?.setLogger(this.getLogger())
+		this._connectors.longPolling?.setLogger(this.getLogger())
 	}
-
-	get status()
+	
+	getLogger(): LoggerBrowser
+	{
+		if(null === this._logger)
+		{
+			this._logger = LoggerBrowser.build(
+				`NullLogger`
+			)
+			
+			this._logger.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: false,
+				[LoggerType.warn]: false,
+				[LoggerType.error]: true,
+				[LoggerType.trace]: false,
+			})
+		}
+		
+		return this._logger
+	}
+	
+	get connector(): null|TypeConnector
+	{
+		return this._connectors[this._connectionType];
+	}
+	
+	get status(): PullStatus
 	{
 		return this._status;
 	}
 
-	set status(status)
+	set status(status: PullStatus)
 	{
-		if (this._status === status)
+		if(this._status === status)
 		{
-			return;
+			return
 		}
 
 		this._status = status;
-		if (this.offlineTimeout)
+		if(this._offlineTimeout)
 		{
-			clearTimeout(this.offlineTimeout)
-			this.offlineTimeout = null;
+			clearTimeout(this._offlineTimeout)
+			this._offlineTimeout = null
 		}
 
-		if (status === PullStatus.Offline)
+		if(status === PullStatus.Offline)
 		{
-			this.sendPullStatusDelayed(status, OFFLINE_STATUS_DELAY);
+			this.sendPullStatusDelayed(status, OFFLINE_STATUS_DELAY)
 		}
 		else
 		{
-			this.sendPullStatus(status);
+			this.sendPullStatus(status)
 		}
 	}
 
@@ -440,7 +578,7 @@ export class PullClient
 			BX.desktop.addCustomEvent("BXLoginSuccess", () => this.restart(1000, "desktop login"));
 		}
 
-		this.jsonRpcAdapter = new JsonRpc({
+		this._jsonRpcAdapter = new JsonRpc({
 			connector: this._connectors.webSocket,
 			handlers: {
 				"incoming.message": this.handleRpcIncomingMessage.bind(this),
@@ -514,18 +652,20 @@ export class PullClient
 			this.loadConfig("client_start").then(
 				(config) => {
 					this.setConfig(config, allowConfigCaching);
-					this.init();
-					this.updateWatch();
-					this.startCheckConfig();
-					this.connect().then(
+					this.init()
+					this.updateWatch()
+					this.startCheckConfig()
+					
+					this.connect()
+					.then(
 						() => resolve(true),
 						error => reject(error)
-					);
+					)
 				},
 				(error) => {
-					this.starting = false;
-					this.status = PullStatus.Offline;
-					this.stopCheckConfig();
+					this._starting = false
+					this.status = PullStatus.Offline
+					this.stopCheckConfig()
 					console.error(Utils.getDateForLog() + ': Pull: could not read push-server config. ', error);
 					reject(error);
 				}
@@ -865,7 +1005,8 @@ export class PullClient
 					userIds: unresolved,
 					sendToQueueSever: true
 				}
-				this.restClient.callMethod('pull.api.user.getLastSeen', params).then(response => {
+				this._restClient.callMethod('pull.api.user.getLastSeen', params)
+					.then(response => {
 					let data = response.data();
 					for (let userId in data)
 					{
@@ -902,115 +1043,175 @@ export class PullClient
 
 	scheduleRestart(disconnectCode, disconnectReason, restartDelay)
 	{
-		clearTimeout(this.restartTimeout);
-		if (!restartDelay || restartDelay < 1)
+		if(this._restartTimeout)
 		{
-			restartDelay = Math.ceil(Math.random() * 30) + 5;
+			clearTimeout(this._restartTimeout)
+			this._restartTimeout = null
+		}
+		
+		if(
+			!restartDelay
+			|| restartDelay < 1
+		)
+		{
+			restartDelay = Math.ceil(Math.random() * 30) + 5
 		}
 
-		this.restartTimeout = setTimeout(
+		this._restartTimeout = setTimeout(
 			() => this.restart(disconnectCode, disconnectReason),
 			restartDelay * 1000
-		);
+		)
 	}
 
-	restart(disconnectCode, disconnectReason)
+	public restart(
+		disconnectCode:number|CloseReasons = CloseReasons.NORMAL_CLOSURE,
+		disconnectReason: string = 'manual restart'
+	): void
 	{
-		if (!disconnectCode)
+		if(this._restartTimeout)
 		{
-			disconnectCode = CloseReasons.NORMAL_CLOSURE;
+			clearTimeout(this._restartTimeout)
+			this._restartTimeout = null
 		}
-		if (!disconnectReason)
+		
+		this.getLogger().log(`${Text.getDateForLog()}: Pull: restarting with code ${disconnectCode}`)
+		
+		this.disconnect(
+			disconnectCode,
+			disconnectReason
+		)
+		
+		if(this._storage)
 		{
-			disconnectReason = 'manual restart'
+			this._storage.remove(LsKeys.PullConfig)
 		}
-		clearTimeout(this.restartTimeout);
-		console.warn(Utils.getDateForLog() + ': Pull: restarting with code ' + disconnectCode)
-		this.disconnect(disconnectCode, disconnectReason);
-		if (this.storage)
-		{
-			this.storage.remove('bx-pull-config');
-		}
-		this.config = null;
+		
+		this._config = null
 
-		const loadConfigReason = disconnectCode + '_' + disconnectReason.replaceAll(' ', '_');
-		this.loadConfig(loadConfigReason).then(
+		const loadConfigReason = `${disconnectCode}_${disconnectReason.replaceAll(' ', '_')}`
+		this.loadConfig(loadConfigReason)
+		.then(
 			(config) => {
-				this.setConfig(config, true);
-				this.updateWatch();
-				this.startCheckConfig();
-				this.connect().catch(error => console.error(error));
+				this.setConfig(config, true)
+				this.updateWatch()
+				this.startCheckConfig()
+				this.connect()
+				.catch(error => {
+					this.getLogger().error(error)
+				})
 			},
 			(error) => {
-				console.error(Utils.getDateForLog() + ': Pull: could not read push-server config', error);
-				this.status = PullStatus.Offline;
-
-				clearTimeout(this.reconnectTimeout);
-				if (error.status == 401 || error.status == 403)
+				this.getLogger().log(`${Text.getDateForLog()}: Pull: could not read push-server config `, error)
+				
+				this.status = PullStatus.Offline
+				if(this._reconnectTimeout)
 				{
-					this.stopCheckConfig();
-
-					if (BX && BX.onCustomEvent)
-					{
-						BX.onCustomEvent(window, 'onPullError', ['AUTHORIZE_ERROR']);
-					}
+					clearTimeout(this._reconnectTimeout)
+					this._reconnectTimeout = null
+				}
+				
+				if(
+					error?.status == 401
+					|| error?.status == 403
+				)
+				{
+					this.stopCheckConfig()
+					this.onCustomEvent('onPullError', ['AUTHORIZE_ERROR'])
 				}
 			}
-		);
+		)
 	}
-
-	loadConfig(logTag)
+	
+	// region Config ////
+	/**
+	 * @param logTag
+	 * @private
+	 */
+	private async loadConfig(logTag?: string): Promise<TypePullClientConfig>
 	{
-		if (!this.config)
+		if(!this._config)
 		{
-			this.config = Object.assign({}, EmptyConfig);
+			this._config = Object.assign({}, EmptyConfig)
 
-			let config;
-			if (this.storage)
+			let config: any
+			if(this._storage)
 			{
-				config = this.storage.get('bx-pull-config');
+				config = this._storage.get(LsKeys.PullConfig, null)
 			}
-			if (this.isConfigActual(config) && this.checkRevision(config.api.revision_web))
+			
+			if(
+				this.isConfigActual(config)
+				&& this.checkRevision(config.api.revision_web)
+			)
 			{
-				return Promise.resolve(config);
+				return Promise.resolve(config)
 			}
-			else if (this.storage)
+			else if(this._storage)
 			{
-				this.storage.remove('bx-pull-config')
+				this._storage.remove(LsKeys.PullConfig)
 			}
 		}
-		else if (this.isConfigActual(this.config) && this.checkRevision(this.config.api.revision_web))
+		else if(
+			this.isConfigActual(this._config)
+			&& this.checkRevision(this._config.api.revision_web)
+		)
 		{
-			return Promise.resolve(this.config);
+			return Promise.resolve(this._config);
 		}
 		else
 		{
-			this.config = Object.assign({}, EmptyConfig);
+			this._config = Object.assign({}, EmptyConfig)
 		}
 
 		return new Promise((resolve, reject) => {
-			this.restClient.callMethod(this.configGetMethod, {'CACHE': 'N'}, undefined, undefined, logTag).then((response) => {
-				const data = response.data();
-				let timeShift;
-
-				timeShift = Math.floor((Utils.getTimestamp() - new Date(data.serverTime).getTime()) / 1000);
-				delete data.serverTime;
+			
+			this._restClient.getHttpClient().setLogTag(logTag)
+			
+			this._restClient.callMethod(
+				this._configGetMethod,
+				{
+					CACHE: 'N'
+				}
+			)
+			.then((response) => {
+				/**
+				 * @todo test this
+				 */
+				debugger
+				const data = response.getData().result
+				
+				let timeShift
+				timeShift = Math.floor(((new Date()).getTime() - new Date(data.serverTime).getTime()) / 1000)
+				
+				delete data.serverTime
 
 				let config = Object.assign({}, data);
-				config.server.timeShift = timeShift;
+				config.server.timeShift = timeShift
 
-				resolve(config);
-			}).catch((response) => {
-				const error = response.error();
-				if (error.getError().error == "AUTHORIZE_ERROR" || error.getError().error == "WRONG_AUTH_TYPE")
+				resolve(config)
+			})
+			.catch((response: AjaxError) => {
+				/**
+				 * @todo test this
+				 */
+				debugger
+				
+				if (
+					response.answerError.error === 'AUTHORIZE_ERROR'
+					|| response.answerError.error === 'WRONG_AUTH_TYPE'
+				)
 				{
-					error.status = 403;
+					response.status = 403;
 				}
-				reject(error);
-			});
+				
+				reject(response)
+			})
+			.finally(() => {
+				this._restClient.getHttpClient().clearLogTag()
+			})
 		})
 	}
-
+	
 	isConfigActual(config)
 	{
 		if (!Utils.isPlainObject(config))
@@ -1123,35 +1324,47 @@ export class PullClient
 			}
 		}
 	}
-
-	isWebSocketSupported()
+	// endregion ////
+	
+	// region Is* ////
+	public isWebSocketSupported(): boolean
 	{
-		return typeof (window.WebSocket) !== "undefined";
+		return typeof (window.WebSocket) !== "undefined"
 	}
 
-	isWebSocketAllowed()
+	public isWebSocketAllowed(): boolean
 	{
-		if (this.sharedConfig.isWebSocketBlocked())
+		if(this._sharedConfig.isWebSocketBlocked())
 		{
-			return false;
+			return false
 		}
 
-		return this.isWebSocketEnabled();
+		return this.isWebSocketEnabled()
 	}
-
-	isWebSocketEnabled()
+	
+	public isWebSocketEnabled(): boolean
 	{
-		if (!this.isWebSocketSupported())
+		if(!this.isWebSocketSupported())
 		{
-			return false;
+			return false
 		}
-
-		return (this.config && this.config.server && this.config.server.websocket_enabled === true);
+		
+		if(!this._config)
+		{
+			return false
+		}
+		
+		if(!this._config.server)
+		{
+			return false
+		}
+		
+		return this._config.server.websocket_enabled
 	}
 
-	isPublishingSupported()
+	public isPublishingSupported(): boolean
 	{
-		return this.getServerVersion() > 3;
+		return this.getServerVersion() > 3
 	}
 
 	isPublishingEnabled()
@@ -1178,125 +1391,169 @@ export class PullClient
 	{
 		return (this.getServerMode() == ServerMode.Shared)
 	}
-
-	disconnect(disconnectCode, disconnectReason)
+	// endregion ////
+	
+	private disconnect(
+		disconnectCode: number,
+		disconnectReason: string
+	): void
 	{
-		if (this.connector)
+		if(this.connector)
 		{
-			this.isManualDisconnect = true;
-			this.connector.disconnect(disconnectCode, disconnectReason);
+			this._isManualDisconnect = true
+			this.connector.disconnect(
+				disconnectCode,
+				disconnectReason
+			)
 		}
 	}
 
-	stop(disconnectCode, disconnectReason)
+	public stop(
+		disconnectCode: number|CloseReasons,
+		disconnectReason: string
+	): void
 	{
-		this.disconnect(disconnectCode, disconnectReason);
-		this.stopCheckConfig();
+		this.disconnect(
+			disconnectCode,
+			disconnectReason
+		)
+		
+		this.stopCheckConfig()
+	}
+	
+	public reconnect(
+		disconnectCode: number|CloseReasons,
+		disconnectReason: string,
+		delay: number = 1
+	): void
+	{
+		this.disconnect(
+			disconnectCode,
+			disconnectReason
+		)
+;
+		this.scheduleReconnect(
+			delay
+		)
 	}
 
-	reconnect(disconnectCode, disconnectReason, delay)
+	public restoreWebSocketConnection(): void
 	{
-		this.disconnect(disconnectCode, disconnectReason);
-
-		delay = delay || 1;
-		this.scheduleReconnect(delay);
-	}
-
-	restoreWebSocketConnection()
-	{
-		if (this.connectionType == ConnectionType.WebSocket)
+		if(this._connectionType === ConnectionType.WebSocket)
 		{
-			return true;
+			return
 		}
 
-		this._connectors.webSocket.connect();
+		this._connectors.webSocket?.connect()
 	}
 
-	scheduleReconnect(connectionDelay)
+	private scheduleReconnect(connectionDelay: number = 0): void
 	{
-		if (!this.enabled)
+		if(!this._enabled)
 		{
-			return false;
+			return
 		}
 
-		if (!connectionDelay)
+		if(!connectionDelay)
 		{
-			// never fallback to long polling
-			// TODO remove long polling support later
-			/*if (this.connectionAttempt > 3 && this.connectionType === ConnectionType.WebSocket && !this.sharedConfig.isLongPollingBlocked())
+			/**
+			 * never fallback to long polling
+			 * @todo remove long polling support later
+			 */
+			/*/
+			if(
+				this._connectionAttempt > 3
+				&& this._connectionType === ConnectionType.WebSocket
+				&& !this._sharedConfig.isLongPollingBlocked()
+			)
 			{
-				// Websocket seems to be closed by network filter. Trying to fallback to long polling
-				this.sharedConfig.setWebSocketBlocked(true);
-				this.connectionType = ConnectionType.LongPolling;
-				this.connectionAttempt = 1;
-				connectionDelay = 1;
+				// Websocket seems to be closed by network filter. Trying to fall back to long polling ////
+				this._sharedConfig.setWebSocketBlocked(true)
+				this._connectionType = ConnectionType.LongPolling
+				this._connectionAttempt = 1
+				connectionDelay = 1
 			}
-			else*/
+			else
+			//*/
 			{
-				connectionDelay = this.getConnectionAttemptDelay(this.connectionAttempt);
+				connectionDelay = this.getConnectionAttemptDelay(this._connectionAttempt)
 			}
 		}
-		if (this.reconnectTimeout)
+		if(this._reconnectTimeout)
 		{
-			clearTimeout(this.reconnectTimeout);
+			clearTimeout(this._reconnectTimeout)
+			this._reconnectTimeout = null
 		}
 
-		this.logToConsole('Pull: scheduling reconnection in ' + connectionDelay + ' seconds; attempt # ' + this.connectionAttempt);
+		this.logToConsole(
+			`Pull: scheduling reconnection in ${ connectionDelay } seconds; attempt # ${ this._connectionAttempt }`
+		);
 
-		this.reconnectTimeout = setTimeout(
+		this._reconnectTimeout = setTimeout(
 			() => {
-				this.connect().catch(error => {
-					console.error(error)
+				this.connect()
+				.catch(error => {
+					this.getLogger().error(error)
 				})
 			},
-			connectionDelay * 1000);
+			connectionDelay * 1_000
+		)
 	}
-
-	scheduleRestoreWebSocketConnection()
+	
+	private scheduleRestoreWebSocketConnection(): void
 	{
-		this.logToConsole('Pull: scheduling restoration of websocket connection in ' + RESTORE_WEBSOCKET_TIMEOUT + ' seconds');
+		this.logToConsole(
+			`Pull: scheduling restoration of websocket connection in ${RESTORE_WEBSOCKET_TIMEOUT} seconds`
+		);
 
-		if (this.restoreWebSocketTimeout)
+		if(this._restoreWebSocketTimeout)
 		{
-			return;
+			return
 		}
 
-		this.restoreWebSocketTimeout = setTimeout(() => {
-			this.restoreWebSocketTimeout = 0;
-			this.restoreWebSocketConnection();
-		}, RESTORE_WEBSOCKET_TIMEOUT * 1000);
+		this._restoreWebSocketTimeout = setTimeout(() =>
+			{
+				this._restoreWebSocketTimeout = 0
+				this.restoreWebSocketConnection()
+			},
+			RESTORE_WEBSOCKET_TIMEOUT * 1_000
+		)
 	}
 
 	/**
 	 * @returns {Promise}
 	 */
-	connect()
+	private async connect(): Promise<void>
 	{
-		if (!this.enabled)
+		if(!this._enabled)
 		{
-			return Promise.reject();
+			return Promise.reject()
 		}
-		if (this.connector.connected)
+		if(this.connector?.connected)
 		{
-			return Promise.resolve();
-		}
-
-		if (this.reconnectTimeout)
-		{
-			clearTimeout(this.reconnectTimeout);
+			return Promise.resolve()
 		}
 
-		this.status = PullStatus.Connecting;
-		this.connectionAttempt++;
+		if(this._reconnectTimeout)
+		{
+			clearTimeout(this._reconnectTimeout)
+			this._reconnectTimeout = null
+		}
+
+		this.status = PullStatus.Connecting
+		this._connectionAttempt++
 		return new Promise((resolve, reject) => {
-			this._connectPromise = {resolve, reject}
-			this.connector.connect();
+			this._connectPromise = {
+				resolve,
+				reject
+			}
+			this.connector?.connect()
 		})
 	}
 
 	onIncomingMessage(message)
 	{
-		if (this.isJsonRpc())
+		if(this.isJsonRpc())
 		{
 			(message === JSON_RPC_PING) ? this.onJsonRpcPing() : this.jsonRpcAdapter.parseJsonRpcMessage(message);
 		}
@@ -1582,7 +1839,7 @@ export class PullClient
 
 		if (message.extra.server_time_unix)
 		{
-			message.extra.server_time_ago = ((Utils.getTimestamp() - (message.extra.server_time_unix * 1000)) / 1000) - (this.config.server.timeShift ? this.config.server.timeShift : 0);
+			message.extra.server_time_ago = (((new Date()).getTime() - (message.extra.server_time_unix * 1000)) / 1000) - (this.config.server.timeShift ? this.config.server.timeShift : 0);
 			message.extra.server_time_ago = message.extra.server_time_ago > 0 ? message.extra.server_time_ago : 0;
 		}
 
@@ -1591,12 +1848,9 @@ export class PullClient
 		{
 			if (message.extra.sender && message.extra.sender.type === SenderType.Client)
 			{
-				if (typeof BX.onCustomEvent !== 'undefined')
-				{
-					BX.onCustomEvent(window, 'onPullClientEvent-' + moduleId, [command, message.params, message.extra], true);
-					BX.onCustomEvent(window, 'onPullClientEvent', [moduleId, command, message.params, message.extra], true);
-				}
-
+				this.onCustomEvent('onPullClientEvent-' + moduleId, [command, message.params, message.extra], true)
+				this.onCustomEvent('onPullClientEvent', [moduleId, command, message.params, message.extra], true)
+				
 				this.emit({
 					type: SubscriptionType.Client,
 					moduleId: moduleId,
@@ -1615,11 +1869,8 @@ export class PullClient
 			{
 				if (message.extra.server_time_ago < 240)
 				{
-					if (typeof BX.onCustomEvent !== 'undefined')
-					{
-						BX.onCustomEvent(window, 'onPullOnlineEvent', [command, message.params, message.extra], true);
-					}
-
+					this.onCustomEvent('onPullOnlineEvent', [command, message.params, message.extra], true)
+					
 					this.emit({
 						type: SubscriptionType.Online,
 						data: {
@@ -1637,12 +1888,9 @@ export class PullClient
 			}
 			else
 			{
-				if (typeof BX.onCustomEvent !== 'undefined')
-				{
-					BX.onCustomEvent(window, 'onPullEvent-' + moduleId, [command, message.params, message.extra], true);
-					BX.onCustomEvent(window, 'onPullEvent', [moduleId, command, message.params, message.extra], true);
-				}
-
+				this.onCustomEvent('onPullEvent-' + moduleId, [command, message.params, message.extra], true)
+				this.onCustomEvent('onPullEvent', [moduleId, command, message.params, message.extra], true)
+				
 				this.emit({
 					type: SubscriptionType.Server,
 					moduleId: moduleId,
@@ -1676,15 +1924,7 @@ export class PullClient
 			this.checkRevision(message.extra.revision_web);
 		}
 	}
-
-	logToConsole(message, force)
-	{
-		if (this.loggingEnabled || force)
-		{
-			console.log(Utils.getDateForLog() + ': ' + message);
-		}
-	}
-
+	
 	logMessage(message)
 	{
 		if (!this.debug)
@@ -1731,8 +1971,12 @@ export class PullClient
 
 		if (isWebSocketBlocked && this.connectionType === ConnectionType.WebSocket && !this.isConnected())
 		{
-			clearTimeout(this.reconnectTimeout);
-
+			if(this._reconnectTimeout)
+			{
+				clearTimeout(this._reconnectTimeout)
+				this._reconnectTimeout = null
+			}
+			
 			this.connectionAttempt = 0;
 			this.connectionType = ConnectionType.LongPolling;
 			this.scheduleReconnect(1);
@@ -1821,7 +2065,7 @@ export class PullClient
 
 		console.error(Utils.getDateForLog() + ": Pull: WebSocket connection error", e);
 		this.scheduleReconnect();
-		if (this._connectPromise)
+		if(this._connectPromise)
 		{
 			this._connectPromise.reject();
 		}
@@ -1890,17 +2134,25 @@ export class PullClient
 
 		this.scheduleReconnect(15);
 	}
-
-	onOffline()
+	
+	// region Events.Status /////
+	public onOffline(): void
 	{
-		this.disconnect("1000", "offline");
+		this.disconnect(
+			CloseReasons.NORMAL_CLOSURE,
+			'offline'
+		)
 	}
 
-	onOnline()
+	public onOnline(): void
 	{
-		this.connect();
+		this.connect()
+		.catch(error => {
+			this.getLogger().error(error)
+		})
 	}
-
+	// endregion ////
+	
 	handleInternalPullEvent(command, message)
 	{
 		switch (command.toUpperCase())
@@ -1949,12 +2201,12 @@ export class PullClient
 			{
 				this.showNotification(BX.message('PULL_OLD_REVISION'));
 			}
-			this.disconnect(CloseReasons.NORMAL_CLOSURE, 'check_revision');
-
-			if (typeof BX.onCustomEvent !== 'undefined')
-			{
-				BX.onCustomEvent(window, 'onPullRevisionUp', [serverRevision, REVISION]);
-			}
+			this.disconnect(
+				CloseReasons.NORMAL_CLOSURE,
+				'check_revision'
+			)
+			
+			this.onCustomEvent('onPullRevisionUp', [serverRevision, REVISION])
 
 			this.emit({
 				type: SubscriptionType.Revision,
@@ -2004,63 +2256,73 @@ export class PullClient
 		this.notificationPopup.show();
 	}
 
-	getRevision()
+	// region Get ////
+	public getRevision(): number|null
 	{
-		return (this.config && this.config.api) ? this.config.api.revision_web : null;
+		return (this._config && this._config.api) ? this._config.api.revision_web : null
 	}
 
-	getServerVersion()
+	public getServerVersion(): number
 	{
-		return (this.config && this.config.server) ? this.config.server.version : 0;
+		return (this._config && this._config.server) ? this._config.server.version : 0
 	}
 
-	getServerMode()
+	public getServerMode(): string|null
 	{
-		return (this.config && this.config.server) ? this.config.server.mode : null;
+		return (this._config && this._config.server) ? this._config.server.mode : null;
 	}
 
-	getConfig()
+	public getConfig(): null|TypePullClientConfig
 	{
-		return this.config;
+		return this._config;
 	}
 
-	getDebugInfo()
+	public getDebugInfo(): any
 	{
-		if (!JSON || !JSON.stringify)
+		if(!JSON || !JSON.stringify)
 		{
-			return false;
+			return {}
 		}
 
-		let configDump;
-		if (this.config && this.config.channels)
+		let configDump
+		if(this._config && this._config.channels)
 		{
 			configDump = {
-				"ChannelID": (this.config.channels.private ? this.config.channels.private.id : "n/a"),
-				"ChannelDie": (this.config.channels.private ? this.config.channels.private.end : "n/a"),
-				"ChannelDieShared": ("shared" in this.config.channels ? this.config.channels.shared.end : "n/a"),
-			};
+				ChannelID: this._config.channels.private?.id || "n/a",
+				ChannelDie: this._config.channels.private?.end || "n/a",
+				ChannelDieShared: this._config.channels.shared?.end || "n/a"
+			}
 		}
 		else
 		{
-			configDump = {"Config error": "config is not loaded"}
+			configDump = {
+				ConfigError: 'config is not loaded'
+			}
 		}
 
-		let websocketMode = "-";
-		if (this._connectors.webSocket && this._connectors.webSocket.socket)
+		let websocketMode = '-'
+		if(
+			this._connectors.webSocket
+			&& (this._connectors.webSocket as WebSocketConnector)?.socket
+		)
 		{
-			if (this.isJsonRpc())
+			if(this.isJsonRpc())
 			{
-				websocketMode = "json-rpc"
+				websocketMode = 'json-rpc'
 			}
 			else
 			{
-				websocketMode = (this._connectors.webSocket.socket.url.search("binaryMode=true") != -1 ? "protobuf" : "text")
+				websocketMode = (
+					(this._connectors.webSocket as WebSocketConnector)?.socket?.url.search('binaryMode=true') != -1
+						? 'protobuf'
+						: 'text'
+				)
 			}
 		}
 
 		return {
-			"UserId": this.userId + (this.userId > 0 ? '' : '(guest)'),
-			"Guest userId": (this.guestMode && this.guestUserId !== 0 ? this.guestUserId : "-"),
+			"UserId": this._userId + (this._userId > 0 ? '' : '(guest)'),
+			"Guest userId": (this._guestMode && this._guestUserId !== 0 ? this._guestUserId : "-"),
 			"Browser online": (navigator.onLine ? 'Y' : 'N'),
 			"Connect": (this.isConnected() ? 'Y' : 'N'),
 			"Server type": (this.isSharedMode() ? 'cloud' : 'local'),
@@ -2068,40 +2330,18 @@ export class PullClient
 			"WebSocket connected": (this._connectors.webSocket && this._connectors.webSocket.connected ? 'Y' : 'N'),
 			"WebSocket mode": websocketMode,
 
-			"Try connect": (this.reconnectTimeout ? 'Y' : 'N'),
-			"Try number": (this.connectionAttempt),
+			"Try connect": (this._reconnectTimeout ? 'Y' : 'N'),
+			"Try number": (this._connectionAttempt),
 
-			"Path": (this.connector ? this.connector.path : '-'),
+			"Path": (this.connector?.connectionPath || '-'),
 			...configDump,
 
-			"Last message": (this.session.mid > 0 ? this.session.mid : '-'),
-			"Session history": this.session.history,
-			"Watch tags": this.watchTagsQueue,
+			"Last message": (this._session.mid ? this._session.mid : '-'),
+			"Session history": this._session.history,
+			"Watch tags": this._watchTagsQueue.entries(),
 		}
 	}
-
-	enableLogging(loggingFlag)
-	{
-		if (loggingFlag === undefined)
-		{
-			loggingFlag = true;
-		}
-		loggingFlag = loggingFlag === true;
-
-		this.sharedConfig.setLoggingEnabled(loggingFlag);
-		this.loggingEnabled = loggingFlag;
-	}
-
-	capturePullEvent(debugFlag)
-	{
-		if (debugFlag === undefined)
-		{
-			debugFlag = true;
-		}
-
-		this.debug = debugFlag;
-	}
-
+	
 	getConnectionPath(connectionType)
 	{
 		let path;
@@ -2203,149 +2443,253 @@ export class PullClient
 
 		return path + '?' + Utils.buildQueryString(params);
 	}
-
-	/**
-	 * Returns reconnect delay in seconds
-	 * @param attemptNumber
-	 * @return {number}
-	 */
-	getConnectionAttemptDelay(attemptNumber)
+	// endregion ////
+	
+	// region PullStatus ////
+	private sendPullStatusDelayed(
+		status: PullStatus,
+		delay: number
+	): void
 	{
-		let result;
-		if (attemptNumber < 1)
+		if(this._offlineTimeout)
 		{
-			result = 0.5;
+			clearTimeout(this._offlineTimeout)
+			this._offlineTimeout = null
 		}
-		else if (attemptNumber < 3)
-		{
-			result = 15;
-		}
-		else if (attemptNumber < 5)
-		{
-			result = 45;
-		}
-		else if (attemptNumber < 10)
-		{
-			result = 600;
-		}
-		else
-		{
-			result = 3600;
-		}
-
-		return result + (result * Math.random() * 0.2);
-	}
-
-	sendPullStatusDelayed(status, delay)
-	{
-		if (this.offlineTimeout)
-		{
-			clearTimeout(this.offlineTimeout)
-		}
-		this.offlineTimeout = setTimeout(
+		
+		this._offlineTimeout = setTimeout(
 			() => {
-				this.offlineTimeout = null;
+				this._offlineTimeout = null;
 				this.sendPullStatus(status);
 			},
 			delay
 		)
 	}
 
-	sendPullStatus(status)
+	private sendPullStatus(
+		status: PullStatus
+	): void
 	{
-		if (this.unloading)
+		if(this._unloading)
 		{
-			return;
+			return
 		}
-
-		if (typeof BX.onCustomEvent !== 'undefined')
-		{
-			BX.onCustomEvent(window, 'onPullStatus', [status]);
-		}
-
+		
+		this.onCustomEvent('onPullStatus', [status])
+		
 		this.emit({
 			type: SubscriptionType.Status,
 			data: {
 				status: status
 			}
-		});
+		})
 	}
-
-	extendWatch(tag, force)
+	// endregion ////
+	
+	// region _watchTagsQueue ////
+	extendWatch(
+		tagId: string,
+		force: boolean = false
+	)
 	{
-		if (!tag || this.watchTagsQueue[tag])
+		if(this._watchTagsQueue.get(tagId))
 		{
-			return false;
+			return
 		}
 
-		this.watchTagsQueue[tag] = true;
-		if (force)
+		this._watchTagsQueue.set(tagId, true)
+		if(force)
 		{
-			this.updateWatch(force);
+			this.updateWatch(force)
 		}
 	}
 
-	updateWatch(force)
+	private updateWatch(force: boolean = false): void
 	{
-		clearTimeout(this.watchUpdateTimeout);
-		this.watchUpdateTimeout = setTimeout(() => {
-			const watchTags = Object.keys(this.watchTagsQueue);
-			if (watchTags.length > 0)
-			{
-				this.restClient.callMethod('pull.watch.extend', {tags: watchTags}, (result) => {
-					if (result.error())
-					{
-						this.updateWatch();
-
-						return false;
-					}
-
-					const updatedTags = result.data();
-
-					for (let tagId in updatedTags)
-					{
-						if (updatedTags.hasOwnProperty(tagId) && !updatedTags[tagId])
+		if(this._watchUpdateTimeout)
+		{
+			clearTimeout(this._watchUpdateTimeout)
+			this._watchUpdateTimeout = null
+		}
+		
+		this._watchUpdateTimeout = setTimeout(
+			() => {
+				/**
+				 * @todo test this
+				 */
+				debugger
+				const watchTags = Array.from(this._watchTagsQueue.keys())
+				
+				if(watchTags.length > 0)
+				{
+					this._restClient.callMethod(
+						'pull.watch.extend',
 						{
-							this.clearWatch(tagId);
+							tags: watchTags
 						}
-					}
-					this.updateWatch();
-				})
-			}
-			else
-			{
-				this.updateWatch();
-			}
-		}, force ? this.watchForceUpdateInterval : this.watchUpdateInterval);
+					)
+					.then((response: AjaxResult) => {
+						
+						/**
+						 * @todo test this
+						 */
+						debugger
+						const updatedTags: NumberString[] = (response.getData() as Payload<NumberString[]>).result
+						
+						updatedTags.forEach((tagId: NumberString) => this.clearWatch(tagId))
+						
+						this.updateWatch()
+					})
+					.catch(() => {
+						this.updateWatch()
+					})
+				}
+				else
+				{
+					this.updateWatch()
+				}
+			},
+			force
+				? this._watchForceUpdateInterval
+				: this._watchUpdateInterval
+		)
 	}
 
-	clearWatch(tagId)
+	private clearWatch(tagId: string): void
 	{
-		delete this.watchTagsQueue[tagId];
+		this._watchTagsQueue.delete(tagId)
 	}
-
-	updatePingWaitTimeout()
+	// endregion ////
+	
+	// region Ping ////
+	private updatePingWaitTimeout(): void
 	{
-		clearTimeout(this.pingWaitTimeout);
-		this.pingWaitTimeout = setTimeout(this.onPingTimeoutHandler, PING_TIMEOUT * 2 * 1000)
-	}
-
-	clearPingWaitTimeout()
-	{
-		clearTimeout(this.pingWaitTimeout);
-		this.pingWaitTimeout = null;
-	}
-
-	onPingTimeout()
-	{
-		this.pingWaitTimeout = null;
-		if (!this.enabled || !this.isConnected())
+		if(this._pingWaitTimeout)
 		{
-			return;
+			clearTimeout(this._pingWaitTimeout);
+			this._pingWaitTimeout = null
 		}
-
-		console.warn("No pings are received in " + PING_TIMEOUT * 2 + " seconds. Reconnecting")
-		this.disconnect(CloseReasons.STUCK, "connection stuck");
-		this.scheduleReconnect();
+		
+		this._pingWaitTimeout = setTimeout(
+			this._onPingTimeoutHandler,
+			PING_TIMEOUT * 2 * 1_000
+		)
 	}
+
+	private clearPingWaitTimeout(): void
+	{
+		if(this._pingWaitTimeout)
+		{
+			clearTimeout(this._pingWaitTimeout)
+		}
+		
+		this._pingWaitTimeout = null
+	}
+	
+	private onPingTimeout(): void
+	{
+		this._pingWaitTimeout = null
+		if(
+			!this._enabled
+			|| !this.isConnected()
+		)
+		{
+			return
+		}
+		
+		this.getLogger().warn(`No pings are received in ${PING_TIMEOUT * 2} seconds. Reconnecting`)
+		this.disconnect(
+			CloseReasons.STUCK,
+			'connection stuck'
+		)
+		
+		this.scheduleReconnect()
+	}
+	// endregion ////
+	
+	// region Time ////
+	/**
+	 * Returns reconnect delay in seconds
+	 *
+	 * @param attemptNumber
+	 * @return {number}
+	 */
+	private getConnectionAttemptDelay(attemptNumber: number): number
+	{
+		let result;
+		if (attemptNumber < 1)
+		{
+			result = 0.5;
+		}
+		else if(attemptNumber < 3)
+		{
+			result = 15;
+		}
+		else if(attemptNumber < 5)
+		{
+			result = 45;
+		}
+		else if(attemptNumber < 10)
+		{
+			result = 600;
+		}
+		else
+		{
+			result = 3_600;
+		}
+		
+		return result + (result * Math.random() * 0.2);
+	}
+	// endregion ////
+	
+	// region Tools ////
+	public capturePullEvent(debugFlag: boolean = true): void
+	{
+		this._debug = debugFlag;
+	}
+	
+	public enableLogging(loggingFlag: boolean = true): void
+	{
+		this._sharedConfig.setLoggingEnabled(loggingFlag)
+		this._loggingEnabled = loggingFlag
+	}
+	
+	private logToConsole(
+		message: string,
+		force: boolean = false
+	): void
+	{
+		if(
+			this._loggingEnabled
+			|| force
+		)
+		{
+			this.getLogger().log(`${Text.getDateForLog()}: ${message}`)
+		}
+	}
+	// endregion ////
+	
+	// region onCustomEvent ////
+	/**
+	 * @todo may be need use onCustomEvent
+	 * @todo wtf ? force
+	 */
+	private onCustomEvent(
+		eventName: string,
+		data: any,
+		force: boolean = false
+	): void
+	{
+		if(eventName || data || force)
+		{
+		
+		}
+		/*/
+		if (BX && BX.onCustomEvent)
+		{
+			BX.onCustomEvent(window, eventName, data, force)
+		}
+		//*/
+	}
+	// endregion ////
 }

@@ -1,15 +1,14 @@
 import { LoggerBrowser } from '../logger/browser'
 import {JsonRpc} from "../pull/jsonRpc";
+import type {TypeB24} from "./b24";
+import type {ISODate, NumberString} from "./common";
+import {PullClient} from "../pull/client";
 
-/**
- * @memo api revision - check module/pull/include.php
- */
-const REVISION = 19
-const RESTORE_WEBSOCKET_TIMEOUT = 30 * 60;
+
 const CONFIG_TTL = 24 * 60 * 60;
 const CONFIG_CHECK_INTERVAL = 60 * 1000;
 const MAX_IDS_TO_STORE = 10;
-const OFFLINE_STATUS_DELAY = 5000;
+
 
 const LS_SESSION = "bx-pull-session";
 const LS_SESSION_CACHE_TIME = 20;
@@ -21,10 +20,13 @@ export enum ConnectionType {
 }
 
 export type TypeConnector = {
-	destroy(): void
-	connect(): void
-	disconnect( code: number, reason: string ): void
-	send(buffer: ArrayBuffer|string): boolean
+	setLogger(logger: LoggerBrowser): void,
+	destroy(): void,
+	connect(): void,
+	disconnect( code: number, reason: string ): void,
+	send(buffer: ArrayBuffer|string): boolean,
+	connected: boolean
+	connectionPath: string
 }
 // @todo fix ////
 export type ConnectorParentSession = {
@@ -75,6 +77,13 @@ export type TypeStorageManager = {
 	get(name: string, defaultValue: any): any
 	remove(name: string): void
 	compareKey(eventKey: string, userKey: string): boolean
+}
+
+export enum LsKeys {
+	PullConfig = 'bx-pull-config',
+	WebsocketBlocked = 'bx-pull-websocket-blocked',
+	LongPollingBlocked = 'bx-pull-longpolling-blocked',
+	LoggingEnabled = 'bx-pull-logging-enabled'
 }
 
 export type SharedConfigCallbacks = {
@@ -133,20 +142,8 @@ export enum ServerMode {
 	Personal = 'personal'
 }
 
-export const EmptyConfig = {
-	api: {},
-	channels: {},
-	publicChannels: {},
-	server: {timeShift: 0},
-	clientId: null,
-	jwt: null,
-	exp: 0,
-}
-
 export const JSON_RPC_PING = "ping"
 export const JSON_RPC_PONG = "pong"
-
-export const PING_TIMEOUT = 10;
 
 export type RpcError = {
 	code: number,
@@ -159,7 +156,6 @@ export const ListRpcError = {
 	InvalidParams: {code: -32602, message: 'Invalid params'} as RpcError,
 	Internal: {code: -32603, message: 'Internal error'} as RpcError,
 } as const
-
 
 export type JsonRpcRequest = {
 	method: string,
@@ -179,6 +175,10 @@ export type RpcRequest = RpcCommand & {}
 export type RpcCommandResult = {
 	jsonrpc: string,
 	id?: number,
+	/**
+	 * @fix this TypeRpcResponseAwaiters.resolve(response)
+	 */
+	result?: any,
 	error?: RpcError,
 }
 
@@ -193,7 +193,7 @@ export enum RpcMethod {
 
 export type TypeRpcResponseAwaiters = {
 	/**
-	 * @fix this
+	 * @fix this RpcCommandResult.result
 	 */
 	resolve: (response: any) => void,
 	reject: (error: string|RpcError) => void,
@@ -203,4 +203,88 @@ export type TypeRpcResponseAwaiters = {
 export type TypeJsonRpcConfig = {
 	connector: TypeConnector,
 	handlers: Record<string, (params: any) => RpcCommandResult>
+}
+
+export type TypePublicIdDescriptor = {
+	id?: String,
+	user_id?: NumberString,
+	public_id?: string,
+	signature?: string,
+	start: ISODate,
+	end: ISODate,
+	type?: string
+	
+}
+
+export type TypeChanel = {
+	userId: number,
+	publicId: string,
+	signature: string,
+	start: Date,
+	end: Date
+}
+
+export type TypeChannelManagerParams = {
+	b24: TypeB24,
+	getPublicListMethod: string
+}
+
+export type TypePullClientSession = {
+	mid: null,
+	tag: null,
+	time: null,
+	history: {},
+	lastMessageIds: [],
+	messageCount: number
+}
+
+export type TypePullClientParams = {
+	b24: TypeB24,
+	skipCheckRevision?: boolean,
+	restApplication?: string,
+	siteId?: string,
+	
+	guestMode?: boolean
+	guestUserId?: number
+	
+	userId?: number
+	
+	serverEnabled?: boolean,
+	configGetMethod?: string,
+	getPublicListMethod?: string,
+	skipStorageInit?: boolean,
+	configTimestamp?: number
+}
+
+export type TypePullClientConfig = {
+	/**
+	 * @fix this
+	 */
+	clientId: null,
+	api: {
+		revision_mobile: number,
+		revision_web: number
+	}
+	channels: {
+		private?: TypePublicIdDescriptor,
+		shared?: TypePublicIdDescriptor
+	},
+	publicChannels: Record<string, TypePublicIdDescriptor>
+	server: {
+		timeShift: number,
+		config_timestamp: number
+		long_polling: string
+		long_pooling_secure: string
+		mode: string
+		publish: string
+		publish_enabled: boolean,
+		publish_secure: string
+		server_enabled: boolean,
+		version: number
+		websocket: string
+		websocket_enabled: boolean,
+		websocket_secure: string
+	},
+	jwt: null,
+	exp: number
 }

@@ -45,6 +45,11 @@ export class AjaxError
 		return this._status
 	}
 	
+	set status(status: number)
+	{
+		this._status = status
+	}
+	
 	override toString(): string
 	{
 		return `${this.answerError.error}${

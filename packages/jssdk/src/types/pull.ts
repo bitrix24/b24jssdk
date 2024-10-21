@@ -4,14 +4,28 @@ import type {TypeB24} from "./b24";
 import type {ISODate, NumberString} from "./common";
 import {PullClient} from "../pull/client";
 
-
 const CONFIG_TTL = 24 * 60 * 60;
-const CONFIG_CHECK_INTERVAL = 60 * 1000;
-const MAX_IDS_TO_STORE = 10;
 
+// @todo fix this. see at pull.ts
+export type TypePullMessage = {
+	command: string,
+	params: Record<string, any>,
+	extra: Record<string, any>
+}
 
-const LS_SESSION = "bx-pull-session";
-const LS_SESSION_CACHE_TIME = 20;
+export type TypePullClientMessageBody = {
+	module_id: string,
+	command: string,
+	params: any,
+	extra?: {
+		revision_web?: number
+		sender?: {
+			type: SenderType
+		},
+		server_time_unix? : number,
+		server_time_ago? : number,
+	}
+}
 
 export enum ConnectionType {
 	Undefined = 'undefined',
@@ -28,14 +42,9 @@ export type TypeConnector = {
 	connected: boolean
 	connectionPath: string
 }
-// @todo fix ////
-export type ConnectorParentSession = {
-	mid: null|string
-}
 
-// @todo fix ////
 export type ConnectorParent = {
-	session: ConnectorParentSession,
+	session: TypePullClientSession,
 	getConnectionPath(connectionType: ConnectionType): string
 	getPublicationPath(): string
 	setLastMessageId(lastMessageId: string): void
@@ -119,6 +128,70 @@ export enum SubscriptionType {
 	Revision = 'revision'
 }
 
+export type TypeSubscriptionOptions = {
+	/**
+	 * Subscription type
+	 */
+	type?: SubscriptionType,
+	
+	/**
+	 * Name of the module
+	 */
+	moduleId?: string,
+	
+	/**
+	 * Name of the command
+	 */
+	command?: null|string,
+	
+	/**
+	 * Function, that will be called for incoming messages
+	 */
+	callback: Function,
+}
+
+export interface UserStatusCallback {
+	({
+		userId: number,
+		isOnline: boolean
+	}): void
+}
+
+export interface CommandHandlerFunctionV1 {
+	(
+		data: Record<string, any>,
+		info?: {
+			type: SubscriptionType,
+			moduleId?: string
+		}
+	): void
+}
+
+export interface CommandHandlerFunctionV2 {
+	(
+		params: Record<string, any>,
+		extra: Record<string, any>,
+		command: string,
+		info?: {
+			type: SubscriptionType,
+			moduleId: string
+		}
+	): void
+}
+
+export interface TypeSubscriptionCommandHandler {
+	getModuleId: () => string,
+	getSubscriptionType?: () => SubscriptionType,
+	getMap?: () => Record<string, CommandHandlerFunction>,
+	[key: string]: CommandHandlerFunction | undefined
+}
+
+export type TypePullClientEmitConfig = {
+	type: SubscriptionType,
+	moduleId?: string,
+	data?: Record<string, any>
+}
+
 export enum CloseReasons {
 	NORMAL_CLOSURE = 1000,
 	SERVER_DIE = 1001,
@@ -142,13 +215,11 @@ export enum ServerMode {
 	Personal = 'personal'
 }
 
-export const JSON_RPC_PING = "ping"
-export const JSON_RPC_PONG = "pong"
-
 export type RpcError = {
 	code: number,
 	message: string
 }
+
 export const ListRpcError = {
 	Parse: {code: -32700, message: 'Parse error'} as RpcError,
 	InvalidRequest: {code: -32600, message: 'Invalid Request'} as RpcError,
@@ -173,7 +244,7 @@ export type RpcCommand = {
 export type RpcRequest = RpcCommand & {}
 
 export type RpcCommandResult = {
-	jsonrpc: string,
+	jsonrpc?: string,
 	id?: number,
 	/**
 	 * @fix this TypeRpcResponseAwaiters.resolve(response)
@@ -206,14 +277,13 @@ export type TypeJsonRpcConfig = {
 }
 
 export type TypePublicIdDescriptor = {
-	id?: String,
+	id?: string,
 	user_id?: NumberString,
 	public_id?: string,
 	signature?: string,
 	start: ISODate,
 	end: ISODate,
 	type?: string
-	
 }
 
 export type TypeChanel = {
@@ -230,12 +300,19 @@ export type TypeChannelManagerParams = {
 }
 
 export type TypePullClientSession = {
-	mid: null,
-	tag: null,
-	time: null,
-	history: {},
-	lastMessageIds: [],
+	mid: null|string,
+	tag: null|string,
+	time: null|number,
+	history: any,
+	lastMessageIds: string[],
 	messageCount: number
+}
+
+export type TypeSessionEvent = {
+	mid: string,
+	tag?: string,
+	time?: number,
+	text: Record<string, any>|TypePullClientMessageBody
 }
 
 export type TypePullClientParams = {
@@ -287,4 +364,14 @@ export type TypePullClientConfig = {
 	},
 	jwt: null,
 	exp: number
+}
+
+export type TypePullClientMessageBatch = {
+	userList?: number[],
+	channelList?: (string|{
+		publicId: string,
+		signature: string,
+	})[],
+	body: TypePullClientMessageBody,
+	expiry?: number
 }

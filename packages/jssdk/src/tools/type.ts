@@ -395,4 +395,78 @@ export default class Type
 	{
 		return value instanceof FormData
 	}
+	
+	static clone(
+		obj: any,
+		bCopyObj: boolean = true
+	): any
+	{
+		let _obj, i, l
+		
+		if(obj === null)
+		{
+			return null
+		}
+		
+		if(Type.isDomNode(obj))
+		{
+			_obj = obj.cloneNode(bCopyObj)
+		}
+		else if(typeof obj == 'object')
+		{
+			if (Type.isArray(obj))
+			{
+				_obj = []
+				for (i = 0, l = obj.length; i < l; i++)
+				{
+					if (typeof obj[i] == "object" && bCopyObj)
+					{
+						_obj[i] = Type.clone(obj[i], bCopyObj)
+					}
+					else
+					{
+						_obj[i] = obj[i]
+					}
+				}
+			}
+			else
+			{
+				_obj = {}
+				if (obj.constructor)
+				{
+					if (Type.isDate(obj))
+					{
+						_obj = new Date(obj)
+					}
+					else
+					{
+						_obj = new obj.constructor()
+					}
+				}
+				
+				for(i in obj)
+				{
+					if (!obj.hasOwnProperty(i))
+					{
+						continue
+					}
+					if (typeof obj[i] === "object" && bCopyObj)
+					{
+						_obj[i] = Type.clone(obj[i], bCopyObj)
+					}
+					else
+					{
+						_obj[i] = obj[i]
+					}
+				}
+			}
+			
+		}
+		else
+		{
+			_obj = obj
+		}
+		
+		return _obj
+	}
 }

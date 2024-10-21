@@ -2,16 +2,24 @@ import { LoggerBrowser, LoggerType } from '../logger/browser'
 import { Utils } from './utils'
 import Type from '../tools/type'
 import Text from '../tools/text'
+import Browser from '../tools/browser'
 import { StorageManager } from './storageManager'
 import { JsonRpc } from './jsonRpc'
 import { SharedConfig } from './sharedConfig'
 import { ChannelManager } from './channelManager'
+import {
+	Response,
+	ResponseBatch,
+	Request,
+	RequestBatch,
+	IncomingMessagesRequest,
+	IncomingMessage,
+	Receiver,
+} from './protobuf'
 import type { TypeB24 } from '../types/b24'
 import {
 	CloseReasons,
 	ConnectionType,
-	JSON_RPC_PING,
-	JSON_RPC_PONG,
 	PullStatus,
 	RpcMethod,
 	SenderType,
@@ -27,13 +35,26 @@ import {
 	type TypeChannelManagerParams,
 	type TypeConnector,
 	type RpcError,
-	type TypePullClientConfig
+	type TypePullClientConfig,
+	type TypePullMessage,
+	type TypeSubscriptionOptions,
+	type TypeSubscriptionCommandHandler,
+	type TypePullClientEmitConfig,
+	type CommandHandlerFunctionV1,
+	type CommandHandlerFunctionV2,
+	type ConnectorParent,
+	type UserStatusCallback,
+	type TypePublicIdDescriptor,
+	type TypePullClientMessageBatch,
+	type TypeChanel,
+	type TypeSessionEvent, type TypePullClientMessageBody
 } from '../types/pull'
-import type {AjaxResult} from "../core/http/ajaxResult";
-import type {Payload} from "../types/payloads";
-import type {NumberString} from "../types/common";
-import {WebSocketConnector} from "./webSocketConnector";
-import type {AjaxError} from "../core/http/ajaxError";
+import type {AjaxResult} from '../core/http/ajaxResult'
+import type {Payload} from '../types/payloads'
+import type {NumberString} from '../types/common'
+import {WebSocketConnector} from './webSocketConnector'
+import { LongPollingConnector } from './longPollingConnector'
+import type {AjaxError} from '../core/http/ajaxError'
 
 /**
  * @memo api revision - check module/pull/include.php
@@ -41,7 +62,13 @@ import type {AjaxError} from "../core/http/ajaxError";
 const REVISION = 19
 const RESTORE_WEBSOCKET_TIMEOUT = 30 * 60
 const OFFLINE_STATUS_DELAY = 5_000
-export const PING_TIMEOUT = 10
+const CONFIG_CHECK_INTERVAL = 60 * 1000
+const MAX_IDS_TO_STORE = 10
+const PING_TIMEOUT = 10
+const JSON_RPC_PING = 'ping'
+const JSON_RPC_PONG = 'pong'
+const LS_SESSION = 'bx-pull-session'
+const LS_SESSION_CACHE_TIME = 20
 
 const EmptyConfig = {
 	api: {},
@@ -57,6 +84,7 @@ const EmptyConfig = {
  * @todo fix logic for _loggingEnabled
  */
 export class PullClient
+	implements ConnectorParent
 {
 	// region Params ////
 	private _logger: null|LoggerBrowser = null
@@ -137,14 +165,20 @@ export class PullClient
 	
 	// @todo fix this ////
 	// [userId] => array of callbacks
-	private _userStatusCallbacks = {}
+	private _userStatusCallbacks: Record<number, UserStatusCallback[]> = {}
 	
 	private _connectPromise: null|{
 		resolve: (response: any) => void,
-		reject: (error: string|RpcError) => void,
+		reject: (error: string|RpcError|Error) => void,
 	} = null
+	
+	private _startingPromise: null|Promise<boolean> = null
 	// endregion ////
 	
+	/**
+	 * @done
+	 * @param params
+	 */
 	constructor(params: TypePullClientParams)
 	{
 		this._restClient = params.b24
@@ -285,16 +319,26 @@ export class PullClient
 		return this._logger
 	}
 	
+	/**
+	 * @done
+	 */
 	get connector(): null|TypeConnector
 	{
 		return this._connectors[this._connectionType];
 	}
 	
+	/**
+	 * @done
+	 */
 	get status(): PullStatus
 	{
 		return this._status;
 	}
-
+	
+	/**
+	 * @done
+	 * @param status
+	 */
 	set status(status: PullStatus)
 	{
 		if(this._status === status)
@@ -318,227 +362,312 @@ export class PullClient
 			this.sendPullStatus(status)
 		}
 	}
+	
+	get session(): TypePullClientSession
+	{
+		return this._session
+	}
 
 	/**
+	 * @done
 	 * Creates a subscription to incoming messages.
 	 *
-	 * @param {Object} params
-	 * @param {string} [params.type] Subscription type (for possible values see SubscriptionType).
-	 * @param {string} [params.moduleId] Name of the module.
-	 * @param {Function} params.callback Function, that will be called for incoming messages.
+	 * @param {TypeSubscriptionOptions | TypeSubscriptionCommandHandler} params
 	 * @returns {Function} - Unsubscribe callback function
 	 */
-	subscribe(params)
+	public subscribe(params: TypeSubscriptionOptions|TypeSubscriptionCommandHandler): Function
 	{
-		/**
-		 * After modify this method, copy to follow scripts:
-		 * mobile/install/mobileapp/mobile/extensions/bitrix/pull/client/events/extension.js
-		 * mobile/install/js/mobile/pull/client/src/client.js
-		 */
-
-		if (!params)
+		if (!Type.isPlainObject(params))
 		{
-			console.error(Utils.getDateForLog() + ': Pull.subscribe: params for subscribe function is invalid. ');
-			return function () {}
+			return this.attachCommandHandler(params as TypeSubscriptionCommandHandler)
 		}
-
-		if (!Utils.isPlainObject(params))
+		
+		params = params as TypeSubscriptionOptions
+		
+		params.type = params.type || SubscriptionType.Server
+		params.command = params.command || null
+		
+		if(
+			params.type == SubscriptionType.Server
+			|| params.type == SubscriptionType.Client
+		)
 		{
-			return this.attachCommandHandler(params);
-		}
-
-		params = params || {};
-		params.type = params.type || SubscriptionType.Server;
-		params.command = params.command || null;
-
-		if (params.type == SubscriptionType.Server || params.type == SubscriptionType.Client)
-		{
-			if (typeof (this._subscribers[params.type]) === 'undefined')
+			if((typeof params.moduleId === 'undefined'))
 			{
-				this._subscribers[params.type] = {};
+				throw new Error(`${Text.getDateForLog()}: Pull.subscribe: parameter moduleId is not specified`)
 			}
-			if (typeof (this._subscribers[params.type][params.moduleId]) === 'undefined')
+			
+			if(typeof (this._subscribers[params.type]) === 'undefined')
+			{
+				this._subscribers[params.type] = {}
+			}
+			
+			if(typeof (this._subscribers[params.type][params.moduleId]) === 'undefined')
 			{
 				this._subscribers[params.type][params.moduleId] = {
-					'callbacks': [],
-					'commands': {},
-				};
+					callbacks: [],
+					commands: {}
+				}
 			}
 
-			if (params.command)
+			if(params.command)
 			{
 				if (typeof (this._subscribers[params.type][params.moduleId]['commands'][params.command]) === 'undefined')
 				{
-					this._subscribers[params.type][params.moduleId]['commands'][params.command] = [];
+					this._subscribers[params.type][params.moduleId]['commands'][params.command] = []
 				}
 
 				this._subscribers[params.type][params.moduleId]['commands'][params.command].push(params.callback);
 
-				return function () {
-					this._subscribers[params.type][params.moduleId]['commands'][params.command] = this._subscribers[params.type][params.moduleId]['commands'][params.command].filter((element) => {
-						return element !== params.callback;
+				return () => {
+					if(
+						typeof params.type === 'undefined'
+						|| typeof params.moduleId === 'undefined'
+						|| typeof params.command === 'undefined'
+						|| null === params.command
+					)
+					{
+						return
+					}
+					
+					this._subscribers[params.type][params.moduleId]['commands'][params.command] =
+						this._subscribers[params.type][params.moduleId]['commands'][params.command].filter((element: any) => {
+						return element !== params.callback
 					});
-				}.bind(this);
+				}
 			}
 			else
 			{
 				this._subscribers[params.type][params.moduleId]['callbacks'].push(params.callback);
 
-				return function () {
-					this._subscribers[params.type][params.moduleId]['callbacks'] = this._subscribers[params.type][params.moduleId]['callbacks'].filter((element) => {
-						return element !== params.callback;
-					});
-				}.bind(this);
+				return () => {
+					if(
+						typeof params.type === 'undefined'
+						|| typeof params.moduleId === 'undefined'
+					)
+					{
+						return
+					}
+					
+					this._subscribers[params.type][params.moduleId]['callbacks'] =
+						this._subscribers[params.type][params.moduleId]['callbacks'].filter((element: any) => {
+						return element !== params.callback
+					})
+				}
 			}
 		}
 		else
 		{
-			if (typeof (this._subscribers[params.type]) === 'undefined')
+			if(typeof (this._subscribers[params.type]) === 'undefined')
 			{
-				this._subscribers[params.type] = [];
+				this._subscribers[params.type] = []
 			}
 
-			this._subscribers[params.type].push(params.callback);
+			this._subscribers[params.type].push(params.callback)
 
-			return function () {
-				this._subscribers[params.type] = this._subscribers[params.type].filter((element) => {
-					return element !== params.callback;
-				});
-			}.bind(this);
+			return () => {
+				if(
+					typeof params.type === 'undefined'
+				)
+				{
+					return
+				}
+				
+				this._subscribers[params.type] =
+					this._subscribers[params.type].filter((element: any) => {
+					return element !== params.callback
+				})
+			}
 		}
 	}
-
-	attachCommandHandler(handler)
+	
+	/**
+	 * @done
+	 * @param {TypeSubscriptionCommandHandler} handler
+	 * @returns {Function} - Unsubscribe callback function
+	 */
+	private attachCommandHandler(handler: TypeSubscriptionCommandHandler): Function
 	{
-		/**
-		 * After modify this method, copy to follow scripts:
-		 * mobile/install/mobileapp/mobile/extensions/bitrix/pull/client/events/extension.js
-		 */
-		if (typeof handler.getModuleId !== 'function' || typeof handler.getModuleId() !== 'string')
+		if (
+			typeof handler.getModuleId !== 'function'
+			|| typeof handler.getModuleId() !== 'string'
+		)
 		{
-			console.error(Utils.getDateForLog() + ': Pull.attachCommandHandler: result of handler.getModuleId() is not a string.');
-			return function () {}
+			this.getLogger().error(`${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string.`)
+			return () => {}
 		}
 
 		let type = SubscriptionType.Server;
 		if (typeof handler.getSubscriptionType === 'function')
 		{
-			type = handler.getSubscriptionType();
+			type = handler.getSubscriptionType()
 		}
 
 		return this.subscribe({
 			type: type,
 			moduleId: handler.getModuleId(),
-			callback: function (data) {
-				let method = null;
+			callback: (data: TypePullMessage) => {
+				let method = null
 
 				if (typeof handler.getMap === 'function')
 				{
-					const mapping = handler.getMap();
-					if (mapping && typeof mapping === 'object')
+					const mapping = handler.getMap()
+					if(
+						mapping
+						&& typeof mapping === 'object'
+					)
 					{
-						if (typeof mapping[data.command] === 'function')
+						const rowMapping = mapping[data.command]
+						if(
+							typeof rowMapping === 'function'
+						)
 						{
-							method = mapping[data.command].bind(handler)
+							method = rowMapping.bind(handler)
 						}
-						else if (typeof mapping[data.command] === 'string' && typeof handler[mapping[data.command]] === 'function')
+						else if(
+							typeof rowMapping === 'string'
+							&& typeof handler[rowMapping] === 'function'
+						)
 						{
-							method = handler[mapping[data.command]].bind(handler);
+							method = handler[rowMapping].bind(handler);
 						}
 					}
 				}
-
-				if (!method)
+				
+				/**
+				 * handler.handleSomeCommandName: CommandHandlerFunction
+				 */
+				if(!method)
 				{
-					const methodName = 'handle' + data.command.charAt(0).toUpperCase() + data.command.slice(1);
-					if (typeof handler[methodName] === 'function')
+					const methodName = `handle${Text.capitalize(data.command)}`
+					if(typeof handler[methodName] === 'function')
 					{
 						method = handler[methodName].bind(handler);
 					}
 				}
 
-				if (method)
+				if(method)
 				{
-					if (this.debug && this.context !== 'master')
+					if(
+						this._debug
+						&& this._context !== 'master'
+					)
 					{
-						console.warn(Utils.getDateForLog() + ': Pull.attachCommandHandler: receive command', data);
+						this.getLogger().warn(
+							`${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string`,
+							data
+						)
 					}
-					method(data.params, data.extra, data.command);
+					
+					method(
+						data.params,
+						data.extra,
+						data.command
+					)
 				}
-			}.bind(this)
-		});
+			}
+		})
 	}
 
 	/**
-	 *
-	 * @param params {Object}
+	 * @dones
+	 * @param {TypePullClientEmitConfig} params
 	 * @returns {boolean}
 	 */
-	emit(params)
+	private emit(params: TypePullClientEmitConfig): boolean
 	{
-		/**
-		 * After modify this method, copy to follow scripts:
-		 * mobile/install/mobileapp/mobile/extensions/bitrix/pull/client/events/extension.js
-		 * mobile/install/js/mobile/pull/client/src/client.js
-		 */
-		params = params || {};
-
-		if (params.type == SubscriptionType.Server || params.type == SubscriptionType.Client)
+		if(
+			params.type == SubscriptionType.Server
+			|| params.type == SubscriptionType.Client
+		)
 		{
-			if (typeof (this._subscribers[params.type]) === 'undefined')
+			if(typeof (this._subscribers[params.type]) === 'undefined')
 			{
-				this._subscribers[params.type] = {};
+				this._subscribers[params.type] = {}
 			}
-			if (typeof (this._subscribers[params.type][params.moduleId]) === 'undefined')
+			
+			if((typeof params.moduleId === 'undefined'))
+			{
+				throw new Error(`${Text.getDateForLog()}: Pull.emit: parameter moduleId is not specified`)
+			}
+			
+			if(typeof (this._subscribers[params.type][params.moduleId]) === 'undefined')
 			{
 				this._subscribers[params.type][params.moduleId] = {
-					'callbacks': [],
-					'commands': {},
-				};
+					callbacks: [],
+					commands: {}
+				}
 			}
 
-			if (this._subscribers[params.type][params.moduleId]['callbacks'].length > 0)
+			if(this._subscribers[params.type][params.moduleId]['callbacks'].length > 0)
 			{
-				this._subscribers[params.type][params.moduleId]['callbacks'].forEach(function (callback) {
-					callback(params.data, {type: params.type, moduleId: params.moduleId});
-				});
+				this._subscribers[params.type][params.moduleId]['callbacks'].forEach((callback: CommandHandlerFunctionV1) => {
+					callback(
+						params.data as Record<string, any>,
+						{
+							type: params.type,
+							moduleId: params.moduleId
+						}
+					)
+				})
 			}
 
 			if (
-				this._subscribers[params.type][params.moduleId]['commands'][params.data.command]
-				&& this._subscribers[params.type][params.moduleId]['commands'][params.data.command].length > 0)
+				!(typeof (params.data) === 'undefined')
+				&& !(typeof (params.data['command']) === 'undefined')
+				&& this._subscribers[params.type][params.moduleId]['commands'][params.data['command']]
+				&& this._subscribers[params.type][params.moduleId]['commands'][params.data['command']].length > 0)
 			{
-				this._subscribers[params.type][params.moduleId]['commands'][params.data.command].forEach(function (callback) {
-					callback(params.data.params, params.data.extra, params.data.command, {
-						type: params.type,
-						moduleId: params.moduleId
-					});
-				});
+				this._subscribers[params.type][params.moduleId]['commands'][params.data['command']].forEach((callback: CommandHandlerFunctionV2) => {
+					if((typeof (params.data) === 'undefined'))
+					{
+						return
+					}
+					
+					callback(
+						params.data['params'],
+						params.data['extra'],
+						params.data['command'],
+						{
+							type: params.type,
+							moduleId: params.moduleId as string
+						}
+					)
+				})
 			}
 
-			return true;
+			return true
 		}
 		else
 		{
-			if (typeof (this._subscribers[params.type]) === 'undefined')
+			if(typeof (this._subscribers[params.type]) === 'undefined')
 			{
-				this._subscribers[params.type] = [];
+				this._subscribers[params.type] = []
 			}
 
-			if (this._subscribers[params.type].length <= 0)
+			if(this._subscribers[params.type].length <= 0)
 			{
-				return true;
+				return true
 			}
 
-			this._subscribers[params.type].forEach(function (callback) {
-				callback(params.data, {type: params.type});
-			});
+			this._subscribers[params.type].forEach((callback: CommandHandlerFunctionV1) => {
+				callback(
+					params.data as Record<string, any>,
+					{
+						type: params.type
+					}
+				)
+			})
 
-			return true;
+			return true
 		}
 	}
-
-	init()
+	
+	/**
+	 * @done
+	 * @private
+	 */
+	private init(): void
 	{
 		this._connectors.webSocket = new WebSocketConnector({
 			parent: this,
@@ -546,7 +675,7 @@ export class PullClient
 			onMessage: this.onIncomingMessage.bind(this),
 			onDisconnect: this.onWebSocketDisconnect.bind(this),
 			onError: this.onWebSocketError.bind(this)
-		});
+		})
 
 		this._connectors.longPolling = new LongPollingConnector({
 			parent: this,
@@ -554,125 +683,152 @@ export class PullClient
 			onMessage: this.onIncomingMessage.bind(this),
 			onDisconnect: this.onLongPollingDisconnect.bind(this),
 			onError: this.onLongPollingError.bind(this)
-		});
+		})
 
-		this.connectionType = this.isWebSocketAllowed() ? ConnectionType.WebSocket : ConnectionType.LongPolling;
+		this._connectionType = this.isWebSocketAllowed()
+			? ConnectionType.WebSocket
+			: ConnectionType.LongPolling
 
-		window.addEventListener("beforeunload", this.onBeforeUnload.bind(this));
-		window.addEventListener("offline", this.onOffline.bind(this));
-		window.addEventListener("online", this.onOnline.bind(this));
-
+		window.addEventListener('beforeunload', this.onBeforeUnload.bind(this))
+		window.addEventListener('offline', this.onOffline.bind(this))
+		window.addEventListener('online', this.onOnline.bind(this))
+		
+		/**
+		 * @memo Not use under Node.js
+		 */
+		/*/
 		if (BX && BX.addCustomEvent)
 		{
-			BX.addCustomEvent("BXLinkOpened", this.connect.bind(this));
+			BX.addCustomEvent('BXLinkOpened', this.connect.bind(this))
 		}
 
 		if (BX && BX.desktop)
 		{
-			BX.addCustomEvent("onDesktopReload", () => {
-				this.session.mid = null;
-				this.session.tag = null;
-				this.session.time = null;
-			});
+			BX.addCustomEvent('onDesktopReload', () => {
+				this._session.mid = null
+				this._session.tag = null
+				this._session.time = null
+			})
 
-			BX.desktop.addCustomEvent("BXLoginSuccess", () => this.restart(1000, "desktop login"));
+			BX.desktop.addCustomEvent('BXLoginSuccess', () => this.restart(1_000, 'desktop login'))
 		}
-
+		//*/
+		
 		this._jsonRpcAdapter = new JsonRpc({
 			connector: this._connectors.webSocket,
 			handlers: {
-				"incoming.message": this.handleRpcIncomingMessage.bind(this),
+				'incoming.message': this.handleRpcIncomingMessage.bind(this)
 			}
 		});
 	}
-
-	start(config)
+	
+	/**
+	 * @done
+	 * @param config
+	 */
+	public async start(config: TypePullClientConfig & {
+		skipReconnectToLastSession?: boolean
+	}): Promise<boolean>
 	{
-		let allowConfigCaching = true;
+		let allowConfigCaching = true
 
-		if (this.isConnected())
+		if(this.isConnected())
 		{
-			return Promise.resolve(true);
+			return Promise.resolve(true)
 		}
 
-		if (this.starting && this._startingPromise)
+		if(
+			this._starting
+			&& this._startingPromise
+		)
 		{
-			return this._startingPromise;
+			return this._startingPromise
 		}
 
-		if (!this.userId && typeof (BX.message) !== 'undefined' && BX.message.USER_ID)
+		if(!this._userId)
 		{
-			this.userId = BX.message.USER_ID;
-			if (!this.storage)
+			throw new Error('Not set userId')
+		}
+		
+		if(this._siteId === 'none')
+		{
+			throw new Error('Not set siteId')
+		}
+
+		let skipReconnectToLastSession = false
+		if(Type.isPlainObject(config))
+		{
+			if(typeof config.skipReconnectToLastSession !== 'undefined')
 			{
-				this.storage = new StorageManager({
-					userId: this.userId,
-					siteId: this.siteId
-				});
+				skipReconnectToLastSession = !!config.skipReconnectToLastSession
+				delete config.skipReconnectToLastSession
 			}
-		}
-		if (this.siteId === 'none' && typeof (BX.message) !== 'undefined' && BX.message.SITE_ID)
-		{
-			this.siteId = BX.message.SITE_ID;
+			
+			this._config = config
+			allowConfigCaching = false
 		}
 
-		let skipReconnectToLastSession = false;
-		if (Utils.isPlainObject(config))
-		{
-			if (typeof config.skipReconnectToLastSession !== 'undefined')
-			{
-				skipReconnectToLastSession = !!config.skipReconnectToLastSession;
-				delete config.skipReconnectToLastSession;
-			}
-			this.config = config;
-			allowConfigCaching = false;
-		}
-
-		if (!this.enabled)
+		if(!this._enabled)
 		{
 			return Promise.reject({
-				ex: {error: 'PULL_DISABLED', error_description: 'Push & Pull server is disabled'}
+				ex: {
+					error: 'PULL_DISABLED',
+					error_description: 'Push & Pull server is disabled'
+				}
 			});
 		}
 
-		const now = (new Date()).getTime();
-		let oldSession;
-		if (!skipReconnectToLastSession && this.storage)
+		const now = (new Date()).getTime()
+		let oldSession
+		if(
+			!skipReconnectToLastSession
+			&& this._storage
+		)
 		{
-			oldSession = this.storage.get(LS_SESSION);
+			oldSession = this._storage.get(LS_SESSION, null)
 		}
-		if (Utils.isPlainObject(oldSession) && oldSession.hasOwnProperty('ttl') && oldSession.ttl >= now)
+		
+		if(
+			Type.isPlainObject(oldSession)
+			&& oldSession.hasOwnProperty('ttl')
+			&& oldSession.ttl >= now
+		)
 		{
-			this.session.mid = oldSession.mid;
+			this._session.mid = oldSession.mid
 		}
 
-		this.starting = true;
-		return new Promise((resolve, reject) => {
-			this._startingPromise = {resolve, reject};
-			this.loadConfig("client_start").then(
-				(config) => {
-					this.setConfig(config, allowConfigCaching);
-					this.init()
-					this.updateWatch()
-					this.startCheckConfig()
-					
-					this.connect()
-					.then(
-						() => resolve(true),
-						error => reject(error)
-					)
-				},
-				(error) => {
-					this._starting = false
-					this.status = PullStatus.Offline
-					this.stopCheckConfig()
-					console.error(Utils.getDateForLog() + ': Pull: could not read push-server config. ', error);
-					reject(error);
-				}
-			);
+		this._starting = true
+		return this._startingPromise = new Promise((resolve, reject) => {
+			this.loadConfig('client_start')
+			.then((config) => {
+				this.setConfig(
+					config,
+					allowConfigCaching
+				)
+				this.init()
+				this.updateWatch()
+				this.startCheckConfig()
+				
+				this.connect()
+				.then(
+					() => resolve(true),
+					(error) => reject(error)
+				)
+			})
+			.catch((error) => {
+				this._starting = false
+				this.status = PullStatus.Offline
+				this.stopCheckConfig()
+				this.getLogger().error(`${Text.getDateForLog()}: Pull: could not read push-server config `, error)
+				reject(error)
+			})
 		})
 	}
-
+	
+	/**
+	 * @deprecated
+	 */
+	/*/
 	getRestClientOptions()
 	{
 		let result = {};
@@ -685,37 +841,37 @@ export class PullClient
 		}
 		return result;
 	}
-
-	setLastMessageId(lastMessageId)
-	{
-		this.session.mid = lastMessageId;
-	}
-
+	//*/
+	
 	/**
-	 *
-	 * @param {object[]} publicIds
-	 * @param {integer} publicIds.user_id
-	 * @param {string} publicIds.public_id
-	 * @param {string} publicIds.signature
-	 * @param {Date} publicIds.start
-	 * @param {Date} publicIds.end
+	 * @done
+	 * @param lastMessageId
 	 */
-	setPublicIds(publicIds)
+	public setLastMessageId(lastMessageId: string): void
 	{
-		return this.channelManager.setPublicIds(publicIds);
+		this._session.mid = lastMessageId;
 	}
 
+	// region sendMessag ////
 	/**
+	 * @done
+	 *
 	 * Send single message to the specified users.
 	 *
-	 * @param {integer[]} users User ids of the message receivers.
-	 * @param {string} moduleId Name of the module to receive message,
-	 * @param {string} command Command name.
+	 * @param users User ids of the message receivers.
+	 * @param moduleId Name of the module to receive message,
+	 * @param command Command name.
 	 * @param {object} params Command parameters.
-	 * @param {integer} [expiry] Message expiry time in seconds.
+	 * @param [expiry] Message expiry time in seconds.
 	 * @return {Promise}
 	 */
-	sendMessage(users, moduleId, command, params, expiry)
+	public async sendMessage(
+		users: number[],
+		moduleId: string,
+		command: string,
+		params: any,
+		expiry?: number
+	): Promise<any>
 	{
 		const message = {
 			userList: users,
@@ -725,29 +881,39 @@ export class PullClient
 				params: params,
 			},
 			expiry: expiry
-		};
+		}
 
-		if (this.isJsonRpc())
+		if(this.isJsonRpc())
 		{
-			return this.jsonRpcAdapter.executeOutgoingRpcCommand(RpcMethod.Publish, message)
+			return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+				RpcMethod.Publish,
+				message
+			)
 		}
 		else
 		{
-			return this.sendMessageBatch([message]);
+			return this.sendMessageBatch([message])
 		}
 	}
-
+	
 	/**
+	 * @done
 	 * Send single message to the specified public channels.
 	 *
-	 * @param {string[]} publicChannels Public ids of the channels to receive message.
-	 * @param {string} moduleId Name of the module to receive message,
-	 * @param {string} command Command name.
+	 * @param  publicChannels Public ids of the channels to receive message.
+	 * @param moduleId Name of the module to receive message,
+	 * @param command Command name.
 	 * @param {object} params Command parameters.
-	 * @param {integer} [expiry] Message expiry time in seconds.
+	 * @param [expiry] Message expiry time in seconds.
 	 * @return {Promise}
 	 */
-	sendMessageToChannels(publicChannels, moduleId, command, params, expiry)
+	public async sendMessageToChannels(
+		publicChannels: string[],
+		moduleId: string,
+		command: string,
+		params: any,
+		expiry?: number
+	): Promise<any>
 	{
 		const message = {
 			channelList: publicChannels,
@@ -757,117 +923,149 @@ export class PullClient
 				params: params,
 			},
 			expiry: expiry
-		};
-
+		}
+		
 		if (this.isJsonRpc())
 		{
-			return this.jsonRpcAdapter.executeOutgoingRpcCommand(RpcMethod.Publish, message)
+			return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+				RpcMethod.Publish,
+				message
+			)
 		}
 		else
 		{
-			return this.sendMessageBatch([message]);
+			return this.sendMessageBatch([message])
 		}
 	}
-
+	
 	/**
+	 * @done
 	 * Sends batch of messages to the multiple public channels.
 	 *
-	 * @param {object[]} messageBatch Array of messages to send.
-	 * @param  {int[]} messageBatch.userList User ids the message receivers.
-	 * @param  {string[]|object[]} messageBatch.channelList Public ids of the channels to send messages.
-	 * @param {string} messageBatch.moduleId Name of the module to receive message,
-	 * @param {string} messageBatch.command Command name.
-	 * @param {object} messageBatch.params Command parameters.
-	 * @param {integer} [messageBatch.expiry] Message expiry time in seconds.
+	 * @param messageBatchList Array of messages to send.
 	 * @return void
 	 */
-	sendMessageBatch(messageBatch)
+	private async sendMessageBatch(
+		messageBatchList: TypePullClientMessageBatch[]
+	): Promise<any>
 	{
-		if (!this.isPublishingEnabled())
+		if(!this.isPublishingEnabled())
 		{
-			console.error('Client publishing is not supported or is disabled');
-			return false;
+			this.getLogger().error(`Client publishing is not supported or is disabled`)
+			return Promise.reject(new Error(`Client publishing is not supported or is disabled`))
 		}
-
+		
 		if (this.isJsonRpc())
 		{
-			let rpcRequest = this.jsonRpcAdapter.createPublishRequest(messageBatch);
-			return this.connector.send(JSON.stringify(rpcRequest));
+			let rpcRequest = this._jsonRpcAdapter?.createPublishRequest(messageBatchList)
+			this.connector?.send(JSON.stringify(rpcRequest))
+			
+			return Promise.resolve(true)
 		}
 		else
 		{
-			let userIds = {};
-			for (let i = 0; i < messageBatch.length; i++)
+			let userIds: Record<number, number> = {}
+			for (let i = 0; i < messageBatchList.length; i++)
 			{
-				if (messageBatch[i].userList)
+				const messageBatch = messageBatchList[i]
+				
+				if(typeof (messageBatch.userList) !== 'undefined')
 				{
-					for (let j = 0; j < messageBatch[i].userList.length; j++)
+					const cnt = messageBatch.userList.length
+					
+					for(let j = 0; j < cnt; j++)
 					{
-						userIds[messageBatch[i].userList[j]] = true;
+						const userId = Number(messageBatch.userList[j])
+						
+						userIds[userId] = userId
 					}
 				}
 			}
-			this.channelManager.getPublicIds(Object.keys(userIds)).then((publicIds) => {
-				return this.connector.send(this.encodeMessageBatch(messageBatch, publicIds));
+			
+			this._channelManager?.getPublicIds(Object.values(userIds))
+			.then((publicIds) => {
+				const response = this.connector?.send(
+					this.encodeMessageBatch(
+						messageBatchList,
+						publicIds
+					)
+				)
+				
+				return Promise.resolve(response)
 			})
 		}
 	}
-
-	encodeMessageBatch(messageBatch, publicIds)
+	
+	/**
+	 * @done
+	 * @param messageBatchList
+	 * @param publicIds
+	 */
+	private encodeMessageBatch(
+		messageBatchList: TypePullClientMessageBatch[],
+		publicIds: Record<number, TypeChanel>
+	): ArrayBuffer|string
 	{
-		let messages = [];
-		messageBatch.forEach(function (messageFields) {
-			const messageBody = messageFields.body;
+		let messages: any[] = []
+		messageBatchList.forEach((messageFields) => {
+			
+			const messageBody = messageFields.body
 
-			let receivers;
-			if (messageFields.userList)
+			let receivers: any[] = []
+			if(messageFields.userList)
 			{
-				receivers = this.createMessageReceivers(messageFields.userList, publicIds);
-			}
-			else
-			{
-				receivers = [];
+				receivers = this.createMessageReceivers(
+					messageFields.userList,
+					publicIds
+				)
 			}
 
-			if (messageFields.channelList)
+			if(messageFields.channelList)
 			{
-				if (!Utils.isArray(messageFields.channelList))
+				if(!Type.isArray(messageFields.channelList))
 				{
-					throw new Error('messageFields.publicChannels must be an array');
+					throw new Error('messageFields.publicChannels must be an array')
 				}
-				messageFields.channelList.forEach(function (publicChannel) {
-					let publicId;
-					let signature;
-					if (typeof (publicChannel) === 'string' && publicChannel.includes('.'))
+				
+				messageFields.channelList.forEach((publicChannel) => {
+					let publicId
+					let signature
+					if (
+						typeof (publicChannel) === 'string'
+						&& publicChannel.includes('.'))
 					{
-						const fields = publicChannel.toString().split('.');
-						publicId = fields[0];
-						signature = fields[1];
+						const fields = publicChannel.toString().split('.')
+						publicId = fields[0]
+						signature = fields[1]
 					}
-					else if (typeof (publicChannel) === 'object' && ('publicId' in publicChannel) && ('signature' in publicChannel))
+					else if(
+						typeof (publicChannel) === 'object'
+						&& ('publicId' in publicChannel)
+						&& ('signature' in publicChannel)
+					)
 					{
-						publicId = publicChannel.publicId;
-						signature = publicChannel.signature;
+						publicId = publicChannel?.publicId
+						signature = publicChannel?.signature
 					}
 					else
 					{
-						throw new Error('Public channel MUST be either a string, formatted like "{publicId}.{signature}" or an object with fields \'publicId\' and \'signature\'');
+						throw new Error('Public channel MUST be either a string, formatted like "{publicId}.{signature}" or an object with fields \'publicId\' and \'signature\'')
 					}
 
 					receivers.push(Receiver.create({
 						id: this.encodeId(publicId),
 						signature: this.encodeId(signature)
 					}))
-				}.bind(this))
+				})
 			}
 
 			const message = IncomingMessage.create({
 				receivers: receivers,
 				body: JSON.stringify(messageBody),
 				expiry: messageFields.expiry || 0
-			});
-			messages.push(message);
-		}, this);
+			})
+			messages.push(message)
+		})
 
 		const requestBatch = RequestBatch.create({
 			requests: [{
@@ -875,101 +1073,156 @@ export class PullClient
 					messages: messages
 				}
 			}]
-		});
+		})
 
-		return RequestBatch.encode(requestBatch).finish();
+		return RequestBatch.encode(requestBatch).finish()
 	}
-
-	createMessageReceivers(users, publicIds)
+	
+	/**
+	 * @done
+	 * @todo fix return type
+	 * @param users
+	 * @param publicIds
+	 */
+	private createMessageReceivers(
+		users: number[],
+		publicIds: Record<number, TypeChanel>
+	): any[]
 	{
-		let result = [];
-		for (let i = 0; i < users.length; i++)
+		let result = []
+		for(let i = 0; i < users.length; i++)
 		{
-			let userId = users[i];
-			if (!publicIds[userId] || !publicIds[userId].publicId)
+			let userId = users[i]
+			if(
+				!publicIds[userId]
+				|| !publicIds[userId].publicId
+			)
 			{
-				throw new Error('Could not determine public id for user ' + userId);
+				throw new Error(`Could not determine public id for user ${userId}`)
 			}
 
 			result.push(Receiver.create({
 				id: this.encodeId(publicIds[userId].publicId),
 				signature: this.encodeId(publicIds[userId].signature)
-			}));
+			}))
 		}
-		return result;
+		
+		return result
 	}
-
+	// endregion ////
+	
+	// region _userStatusCallbacks ////
 	/**
+	 * @done
 	 * @param userId {number}
 	 * @param callback {UserStatusCallback}
 	 * @returns {Promise}
 	 */
-	subscribeUserStatusChange(userId, callback)
+	public async subscribeUserStatusChange(
+		userId: number,
+		callback: UserStatusCallback
+	): Promise<void>
 	{
-		if (typeof (userId) !== 'number')
-		{
-			throw new Error('userId must be a number');
-		}
-
 		return new Promise((resolve, reject) => {
-			this.jsonRpcAdapter.executeOutgoingRpcCommand(RpcMethod.SubscribeStatusChange, {userId}).then(() => {
-				if (!this.userStatusCallbacks[userId])
+			this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+				RpcMethod.SubscribeStatusChange,
 				{
-					this.userStatusCallbacks[userId] = [];
+					userId
 				}
-				if (Utils.isFunction(callback))
+			)
+			.then(() => {
+				if(!this._userStatusCallbacks[userId])
 				{
-					this.userStatusCallbacks[userId].push(callback);
+					this._userStatusCallbacks[userId] = []
+				}
+				
+				if(Type.isFunction(callback))
+				{
+					this._userStatusCallbacks[userId].push(callback)
 				}
 
 				return resolve()
-			}).catch(err => reject(err))
+			})
+			.catch(err => reject(err))
 		})
 	}
 
 	/**
-	 * @param userId {number}
-	 * @param callback {UserStatusCallback}
+	 * @done
+	 * @param {number} userId
+	 * @param {UserStatusCallback} callback
 	 * @returns {Promise}
 	 */
-	unsubscribeUserStatusChange(userId, callback)
+	public async unsubscribeUserStatusChange(
+		userId: number,
+		callback: UserStatusCallback
+	): Promise<void>
 	{
-		if (typeof (userId) !== 'number')
+		if(this._userStatusCallbacks[userId])
 		{
-			throw new Error('userId must be a number');
-		}
-		if (this.userStatusCallbacks[userId])
-		{
-			this.userStatusCallbacks[userId] = this.userStatusCallbacks[userId].filter(cb => cb !== callback)
-			if (this.userStatusCallbacks[userId].length === 0)
+			this._userStatusCallbacks[userId] = this._userStatusCallbacks[userId].filter(
+				cb => cb !== callback
+			)
+			
+			if(this._userStatusCallbacks[userId].length === 0)
 			{
-				return this.jsonRpcAdapter.executeOutgoingRpcCommand(RpcMethod.UnsubscribeStatusChange, {userId});
+				return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+					RpcMethod.UnsubscribeStatusChange,
+					{
+						userId
+					}
+				)
 			}
 		}
 
-		return Promise.resolve();
+		return Promise.resolve()
 	}
-
-	emitUserStatusChange(userId, isOnline)
+	
+	/**
+	 * @done
+	 * @param userId
+	 * @param isOnline
+	 * @private
+	 */
+	private emitUserStatusChange(
+		userId: number,
+		isOnline: boolean
+	): void
 	{
-		if (this.userStatusCallbacks[userId])
+		if(this._userStatusCallbacks[userId])
 		{
-			this.userStatusCallbacks[userId].forEach(cb => cb({userId, isOnline}));
+			this._userStatusCallbacks[userId].forEach(callback=> callback({
+				userId,
+				isOnline
+			}))
 		}
 	}
 
-	restoreUserStatusSubscription()
+	/**
+	 * @done
+	 * @private
+	 */
+	private restoreUserStatusSubscription(): void
 	{
-		for (const userId in this.userStatusCallbacks)
+		for(const userId in this._userStatusCallbacks)
 		{
-			if (this.userStatusCallbacks.hasOwnProperty(userId) && this.userStatusCallbacks[userId].length > 0)
+			if(
+				this._userStatusCallbacks.hasOwnProperty(userId)
+				&& this._userStatusCallbacks[userId].length > 0
+			)
 			{
-				this.jsonRpcAdapter.executeOutgoingRpcCommand(RpcMethod.SubscribeStatusChange, {userId: Number(userId)});
+				this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+					RpcMethod.SubscribeStatusChange,
+					{
+						userId: userId
+					}
+				)
 			}
 		}
 	}
 
 	/**
+	 * @done
 	 * Returns "last seen" time in seconds for the users. Result format: Object{userId: int}
 	 * If the user is currently connected - will return 0.
 	 * If the user if offline - will return diff between current timestamp and last seen timestamp in seconds.
@@ -978,70 +1231,99 @@ export class PullClient
 	 * @param {integer[]} userList List of user ids.
 	 * @returns {Promise}
 	 */
-	getUsersLastSeen(userList)
+	public async getUsersLastSeen(userList: number[]): Promise<Record<number, number>>
 	{
-		if (!Utils.isArray(userList) || !userList.every(item => typeof (item) === 'number'))
+		if(
+			!Utils.isArray(userList)
+			|| !userList.every(item => typeof (item) === 'number')
+		)
 		{
-			throw new Error('userList must be an array of numbers');
+			throw new Error('userList must be an array of numbers')
 		}
-		return new Promise((resolve, reject) => {
-			this.jsonRpcAdapter.executeOutgoingRpcCommand(RpcMethod.GetUsersLastSeen, {
-				userList: userList
-			}).then(result => {
-				let unresolved = [];
-				for (let i = 0; i < userList.length; i++)
+		
+		let result: Record<number, number> = {}
+		
+		return new Promise((resolve) => {
+			this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+				RpcMethod.GetUsersLastSeen,
 				{
-					if (!result.hasOwnProperty(userList[i]))
+					userList: userList
+				}
+			)
+			.then((response: any) => {
+				/**
+				 * @todo fix this
+				 */
+				debugger
+				
+				let unresolved = []
+				for(let i = 0; i < userList.length; i++)
+				{
+					if(!response.hasOwnProperty(userList[i]))
 					{
 						unresolved.push(userList[i]);
 					}
 				}
-				if (unresolved.length === 0)
+				
+				if(unresolved.length === 0)
 				{
-					return resolve(result);
+					return resolve(result)
 				}
 
 				const params = {
 					userIds: unresolved,
 					sendToQueueSever: true
 				}
-				this._restClient.callMethod('pull.api.user.getLastSeen', params)
-					.then(response => {
-					let data = response.data();
+				
+				this._restClient.callMethod(
+					'pull.api.user.getLastSeen',
+					params
+				)
+				.then(response => {
+					/**
+					 * @todo fix this
+					 */
+					debugger
+					let data = (response.getData() as Payload<Record<NumberString, NumberString>>).result
 					for (let userId in data)
 					{
-						result[userId] = data[userId];
+						result[Number(userId)] = Number(data[userId])
 					}
-					return resolve(result);
-				}).catch(error => {
-					console.error(error);
+					
+					return resolve(result)
+				})
+				.catch(error => {
+					this.getLogger().error(error)
 				})
 			})
 		})
 	}
-
-	/**
-	 * Pings server. In case of success promise will be resolved, otherwise - rejected.
-	 *
-	 * @param {int} timeout Request timeout in seconds
-	 * @returns {Promise}
-	 */
-	ping(timeout)
-	{
-		return this.jsonRpcAdapter.executeOutgoingRpcCommand(RpcMethod.Ping, {}, timeout);
-	}
-
+	// endregion ////
+	
 	/**
 	 * Returns list channels that the connection is subscribed to.
 	 *
 	 * @returns {Promise}
 	 */
-	listChannels()
+	public async listChannels(): Promise<any>
 	{
-		return this.jsonRpcAdapter.executeOutgoingRpcCommand(RpcMethod.ListChannels, {});
+		return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+			RpcMethod.ListChannels, {}
+		) || Promise.reject(new Error('jsonRpcAdapter not init'))
 	}
-
-	scheduleRestart(disconnectCode, disconnectReason, restartDelay)
+	
+	/**
+	 * @done
+	 * @param disconnectCode
+	 * @param disconnectReason
+	 * @param restartDelay
+	 * @private
+	 */
+	private scheduleRestart(
+		disconnectCode: number,
+		disconnectReason: string,
+		restartDelay: number = 0
+	): void
 	{
 		if(this._restartTimeout)
 		{
@@ -1049,20 +1331,22 @@ export class PullClient
 			this._restartTimeout = null
 		}
 		
-		if(
-			!restartDelay
-			|| restartDelay < 1
-		)
+		if(restartDelay < 1)
 		{
 			restartDelay = Math.ceil(Math.random() * 30) + 5
 		}
 
 		this._restartTimeout = setTimeout(
 			() => this.restart(disconnectCode, disconnectReason),
-			restartDelay * 1000
+			restartDelay * 1_000
 		)
 	}
-
+	
+	/**
+	 * @done
+	 * @param disconnectCode
+	 * @param disconnectReason
+	 */
 	public restart(
 		disconnectCode:number|CloseReasons = CloseReasons.NORMAL_CLOSURE,
 		disconnectReason: string = 'manual restart'
@@ -1101,7 +1385,7 @@ export class PullClient
 				})
 			},
 			(error) => {
-				this.getLogger().log(`${Text.getDateForLog()}: Pull: could not read push-server config `, error)
+				this.getLogger().error(`${Text.getDateForLog()}: Pull: could not read push-server config `, error)
 				
 				this.status = PullStatus.Offline
 				if(this._reconnectTimeout)
@@ -1124,6 +1408,8 @@ export class PullClient
 	
 	// region Config ////
 	/**
+	 * @done
+	 *
 	 * @param logTag
 	 * @private
 	 */
@@ -1212,126 +1498,213 @@ export class PullClient
 		})
 	}
 	
-	isConfigActual(config)
+	/**
+	 * @done
+	 * @param config
+	 */
+	private isConfigActual(config: any): boolean
 	{
-		if (!Utils.isPlainObject(config))
+		if(!Type.isPlainObject(config))
 		{
-			return false;
+			return false
 		}
 
-		if (Number(config.server.config_timestamp) !== this.configTimestamp)
+		if(Number(config.server.config_timestamp) !== this._configTimestamp)
 		{
-			return false;
+			return false
 		}
 
-		const now = new Date();
+		const now = new Date()
 
-		if (BX.type.isNumber(config.exp) && config.exp > 0 && config.exp < now.getTime() / 1000)
+		if(
+			Type.isNumber(config.exp)
+			&& config.exp > 0
+			&& config.exp < (now.getTime() / 1000)
+		)
 		{
-			return false;
+			return false
 		}
 
-		const channelCount = Object.keys(config.channels).length;
-		if (channelCount === 0)
+		const channelCount = Object.keys(config.channels).length
+		if(channelCount === 0)
 		{
-			return false;
+			return false
 		}
 
-		for (let channelType in config.channels)
+		for(let channelType in config.channels)
 		{
-			if (!config.channels.hasOwnProperty(channelType))
+			if(!config.channels.hasOwnProperty(channelType))
 			{
-				continue;
+				continue
 			}
 
-			const channel = config.channels[channelType];
-			const channelEnd = new Date(channel.end);
+			const channel = config.channels[channelType]
+			const channelEnd = new Date(channel.end)
 
-			if (channelEnd < now)
+			if(channelEnd < now)
 			{
-				return false;
+				return false
 			}
 		}
 
-		return true;
+		return true
 	}
-
-	startCheckConfig()
+	
+	/**
+	 * @done
+	 * @private
+	 */
+	private startCheckConfig(): void
 	{
-		if (this.checkInterval)
+		if(this._checkInterval)
 		{
-			clearInterval(this.checkInterval);
+			clearInterval(this._checkInterval)
+			this._checkInterval = null
 		}
 
-		this.checkInterval = setInterval(this.checkConfig.bind(this), CONFIG_CHECK_INTERVAL)
+		this._checkInterval = setInterval(
+			this.checkConfig.bind(this),
+			CONFIG_CHECK_INTERVAL
+		)
 	}
-
-	stopCheckConfig()
+	
+	/**
+	 * @done
+	 */
+	private stopCheckConfig(): void
 	{
-		if (this.checkInterval)
+		if(this._checkInterval)
 		{
-			clearInterval(this.checkInterval);
+			clearInterval(this._checkInterval)
 		}
-		this.checkInterval = null;
+		this._checkInterval = null
 	}
-
-	checkConfig()
+	
+	/**
+	 * @done
+	 * @private
+	 */
+	private checkConfig(): boolean
 	{
-		if (this.isConfigActual(this.config))
+		if (this.isConfigActual(this._config))
 		{
-			if (!this.checkRevision(this.config.api.revision_web))
+			if(!this.checkRevision(Text.toInteger(this._config?.api.revision_web)))
 			{
-				return false;
+				return false
 			}
 		}
 		else
 		{
-			this.logToConsole("Stale config detected. Restarting");
-			this.restart(CloseReasons.CONFIG_EXPIRED, "config expired");
+			this.logToConsole('Stale config detected. Restarting')
+			this.restart(
+				CloseReasons.CONFIG_EXPIRED,
+				'config expired'
+			)
 		}
+		
+		return true
 	}
-
-	setConfig(config, allowCaching)
+	
+	/**
+	 * @done
+	 *
+	 * @param config
+	 * @param allowCaching
+	 * @private
+	 */
+	private setConfig(
+		config: TypePullClientConfig,
+		allowCaching: boolean
+	): void
 	{
-		for (let key in config)
+		/**
+		 * @todo test this
+		 */
+		debugger
+		for(let key in config)
 		{
-			if (config.hasOwnProperty(key) && this.config.hasOwnProperty(key))
+			if(
+				config.hasOwnProperty(key)
+				&& this._config?.hasOwnProperty(key)
+			)
 			{
-				this.config[key] = config[key];
+				// @ts-ignore
+				this._config[key] = config[key];
 			}
 		}
 
-		if (config.publicChannels)
+		if(config.publicChannels)
 		{
-			this.setPublicIds(Utils.objectValues(config.publicChannels));
+			this.setPublicIds(
+				Utils.objectValues(config.publicChannels)
+			)
 		}
 
-		this.configTimestamp = Number(config.server.config_timestamp);
+		this._configTimestamp = Number(config.server.config_timestamp)
 
-		if (this.storage && allowCaching)
+		if(
+			this._storage
+			&& allowCaching
+		)
 		{
 			try
 			{
-				this.storage.set('bx-pull-config', config);
-			} catch (e)
+				this._storage.set(
+					LsKeys.PullConfig,
+					config
+				)
+			}
+			catch(error)
 			{
-				// try to delete the key "history" (landing site change history, see http://jabber.bx/view.php?id=136492)
-				if (localStorage && localStorage.removeItem)
+				/**
+				 * @memotry to delete the key "history"
+				 * (landing site change history, see http://jabber.bx/view.php?id=136492)
+				 */
+				if(
+					localStorage
+					&& localStorage.removeItem
+				)
 				{
-					localStorage.removeItem('history');
+					localStorage.removeItem('history')
 				}
-				console.error(Utils.getDateForLog() + " Pull: Could not cache config in local storage. Error: ", e);
+				this.getLogger().error(`${Text.getDateForLog()}: Pull: Could not cache config in local storage. Error: `, error)
 			}
 		}
+	}
+	
+	/**
+	 * @done
+	 */
+	private setPublicIds(publicIds: TypePublicIdDescriptor[]): void
+	{
+		/**
+		 * @todo test this
+		 */
+		debugger
+		this._channelManager.setPublicIds(publicIds)
 	}
 	// endregion ////
 	
 	// region Is* ////
+	/**
+	 * @done
+	 */
+	public isConnected(): boolean
+	{
+		return this.connector ? this.connector.connected : false
+	}
+	
+	/**
+	 * @done
+	 */
 	public isWebSocketSupported(): boolean
 	{
-		return typeof (window.WebSocket) !== "undefined"
+		return typeof (window.WebSocket) !== 'undefined'
 	}
-
+	
+	/**
+	 * @done
+	 */
 	public isWebSocketAllowed(): boolean
 	{
 		if(this._sharedConfig.isWebSocketBlocked())
@@ -1342,6 +1715,9 @@ export class PullClient
 		return this.isWebSocketEnabled()
 	}
 	
+	/**
+	 * @done
+	 */
 	public isWebSocketEnabled(): boolean
 	{
 		if(!this.isWebSocketSupported())
@@ -1361,38 +1737,59 @@ export class PullClient
 		
 		return this._config.server.websocket_enabled
 	}
-
+	
+	/**
+	 * @done
+	 */
 	public isPublishingSupported(): boolean
 	{
 		return this.getServerVersion() > 3
 	}
-
-	isPublishingEnabled()
+	
+	/**
+	 * @done
+	 */
+	public isPublishingEnabled(): boolean
 	{
-		if (!this.isPublishingSupported())
+		if(!this.isPublishingSupported())
 		{
-			return false;
+			return false
 		}
 
-		return (this.config && this.config.server && this.config.server.publish_enabled === true);
+		return this._config?.server.publish_enabled === true
 	}
-
-	isProtobufSupported()
+	
+	/**
+	 * @done
+	 */
+	public isProtobufSupported(): boolean
 	{
-		return (this.getServerVersion() == 4 && !Utils.browser.IsIe());
+		return (
+			this.getServerVersion() == 4
+			&& !Browser.isIE()
+		)
 	}
-
-	isJsonRpc()
+	
+	/**
+	 * @done
+	 */
+	public isJsonRpc(): boolean
 	{
-		return (this.getServerVersion() >= 5);
+		return (this.getServerVersion() >= 5)
 	}
-
-	isSharedMode()
+	
+	/**
+	 * @done
+	 */
+	public isSharedMode(): boolean
 	{
-		return (this.getServerMode() == ServerMode.Shared)
+		return (this.getServerMode() === ServerMode.Shared)
 	}
 	// endregion ////
 	
+	/**
+	 * @done
+	 */
 	private disconnect(
 		disconnectCode: number,
 		disconnectReason: string
@@ -1407,7 +1804,10 @@ export class PullClient
 			)
 		}
 	}
-
+	
+	/**
+	 * @done
+	 */
 	public stop(
 		disconnectCode: number|CloseReasons,
 		disconnectReason: string
@@ -1421,6 +1821,9 @@ export class PullClient
 		this.stopCheckConfig()
 	}
 	
+	/**
+	 * @done
+	 */
 	public reconnect(
 		disconnectCode: number|CloseReasons,
 		disconnectReason: string,
@@ -1431,13 +1834,16 @@ export class PullClient
 			disconnectCode,
 			disconnectReason
 		)
-;
+
 		this.scheduleReconnect(
 			delay
 		)
 	}
-
-	public restoreWebSocketConnection(): void
+	
+	/**
+	 * @done
+	 */
+	private restoreWebSocketConnection(): void
 	{
 		if(this._connectionType === ConnectionType.WebSocket)
 		{
@@ -1446,7 +1852,12 @@ export class PullClient
 
 		this._connectors.webSocket?.connect()
 	}
-
+	
+	/**
+	 * @done
+	 * @param connectionDelay
+	 * @private
+	 */
 	private scheduleReconnect(connectionDelay: number = 0): void
 	{
 		if(!this._enabled)
@@ -1500,6 +1911,10 @@ export class PullClient
 		)
 	}
 	
+	/**
+	 * @done
+	 * @private
+	 */
 	private scheduleRestoreWebSocketConnection(): void
 	{
 		this.logToConsole(
@@ -1521,6 +1936,7 @@ export class PullClient
 	}
 
 	/**
+	 * @done
 	 * @returns {Promise}
 	 */
 	private async connect(): Promise<void>
@@ -1550,177 +1966,219 @@ export class PullClient
 			this.connector?.connect()
 		})
 	}
-
-	onIncomingMessage(message)
+	
+	/**
+	 * @done
+	 *
+	 * @param messageFields
+	 * @private
+	 */
+	private handleRpcIncomingMessage(messageFields: any): {}
 	{
-		if(this.isJsonRpc())
-		{
-			(message === JSON_RPC_PING) ? this.onJsonRpcPing() : this.jsonRpcAdapter.parseJsonRpcMessage(message);
-		}
-		else
-		{
-			const events = this.extractMessages(message);
-			this.handleIncomingEvents(events);
-		}
-	}
+		this._session.mid = messageFields.mid
+		let body = messageFields.body
 
-	handleRpcIncomingMessage(messageFields)
-	{
-		this.session.mid = messageFields.mid;
-		let body = messageFields.body;
-
-		if (!messageFields.body.extra)
+		if(!messageFields.body.extra)
 		{
-			body.extra = {};
+			body.extra = {}
 		}
-		body.extra.sender = messageFields.sender;
+		body.extra.sender = messageFields.sender
 
-		if ("user_params" in messageFields && Utils.isPlainObject(messageFields.user_params))
+		if(
+			"user_params" in messageFields
+			&& Type.isPlainObject(messageFields.user_params)
+		)
 		{
 			Object.assign(body.params, messageFields.user_params)
 		}
 
-		if ("dictionary" in messageFields && Utils.isPlainObject(messageFields.dictionary))
+		if(
+			"dictionary" in messageFields
+			&& Type.isPlainObject(messageFields.dictionary)
+		)
 		{
 			Object.assign(body.params, messageFields.dictionary)
 		}
 
-		if (this.checkDuplicate(messageFields.mid))
+		if(this.checkDuplicate(messageFields.mid))
 		{
-			this.addMessageToStat(body);
-			this.trimDuplicates();
+			this.addMessageToStat(body)
+			this.trimDuplicates()
 			this.broadcastMessage(body)
 		}
 
-		this.connector.send(`mack:${messageFields.mid}`)
+		this.connector?.send(`mack:${messageFields.mid}`)
 
-		return {};
+		return {}
 	}
-
-	onJsonRpcPing()
+	
+	/**
+	 * @done
+	 * @param events
+	 * @private
+	 */
+	private handleIncomingEvents(events: TypeSessionEvent[]): void
 	{
-		this.updatePingWaitTimeout();
-		this.connector.send(JSON_RPC_PONG)
-	}
-
-	handleIncomingEvents(events)
-	{
-		let messages = [];
-		if (events.length === 0)
+		let messages: TypePullClientMessageBody[] = []
+		if(events.length === 0)
 		{
-			this.session.mid = null;
-			return;
+			this._session.mid = null
+			return
 		}
 
-		for (let i = 0; i < events.length; i++)
+		for(let i = 0; i < events.length; i++)
 		{
-			let event = events[i];
-			this.updateSessionFromEvent(event);
-			if (event.mid && !this.checkDuplicate(event.mid))
+			let event = events[i]
+			this.updateSessionFromEvent(event)
+			
+			if(
+				event.mid
+				&& !this.checkDuplicate(event.mid)
+			)
 			{
-				continue;
+				continue
 			}
 
-			this.addMessageToStat(event.text);
-			messages.push(event.text);
+			this.addMessageToStat(
+				event.text as { module_id: string, command: string }
+			)
+			messages.push(event.text as TypePullClientMessageBody);
 		}
-		this.trimDuplicates();
-		this.broadcastMessages(messages);
+		this.trimDuplicates()
+		this.broadcastMessages(messages)
 	}
-
-	updateSessionFromEvent(event)
+	
+	/**
+	 * @done
+	 * @param event
+	 * @private
+	 */
+	private updateSessionFromEvent(
+		event: TypeSessionEvent
+	): void
 	{
-		this.session.mid = event.mid || null;
-		this.session.tag = event.tag || null;
-		this.session.time = event.time || null;
+		this._session.mid = event.mid || null
+		this._session.tag = event.tag || null
+		this._session.time = event.time || null
 	}
-
-	checkDuplicate(mid)
+	
+	/**
+	 * @done
+	 * @param mid
+	 */
+	private checkDuplicate(mid: string): boolean
 	{
-		if (this.session.lastMessageIds.includes(mid))
+		if(this._session.lastMessageIds.includes(mid))
 		{
-			console.warn("Duplicate message " + mid + " skipped");
-			return false;
+			this.getLogger().warn(`Duplicate message ${mid} skipped`)
+			return false
 		}
 		else
 		{
-			this.session.lastMessageIds.push(mid);
-			return true;
+			this._session.lastMessageIds.push(mid);
+			return true
 		}
 	}
-
-	trimDuplicates()
+	
+	/**
+	 * @done
+	 */
+	private trimDuplicates(): void
 	{
-		if (this.session.lastMessageIds.length > MAX_IDS_TO_STORE)
+		if(this._session.lastMessageIds.length > MAX_IDS_TO_STORE)
 		{
-			this.session.lastMessageIds = this.session.lastMessageIds.slice(-MAX_IDS_TO_STORE);
+			this._session.lastMessageIds = this._session.lastMessageIds.slice(-MAX_IDS_TO_STORE)
 		}
 	}
-
-	addMessageToStat(message)
+	
+	/**
+	 * @done
+	 * @param message
+	 * @private
+	 */
+	private addMessageToStat(message: {
+		module_id: string,
+		command: string
+	}): void
 	{
-		if (!this.session.history[message.module_id])
+		if(!this._session.history[message.module_id])
 		{
-			this.session.history[message.module_id] = {};
+			this._session.history[message.module_id] = {}
 		}
-		if (!this.session.history[message.module_id][message.command])
+		if(!this._session.history[message.module_id][message.command])
 		{
-			this.session.history[message.module_id][message.command] = 0;
+			this.session.history[message.module_id][message.command] = 0
 		}
-		this.session.history[message.module_id][message.command]++;
+		
+		this._session.history[message.module_id][message.command]++
 
-		this.session.messageCount++;
+		this._session.messageCount++
 	}
 
-	extractMessages(pullEvent)
+	// region extractMessages ////
+	/**
+	 * @done
+	 * @param pullEvent
+	 * @private
+	 */
+	private extractMessages(pullEvent: string|ArrayBuffer): TypeSessionEvent[]
 	{
-		if (pullEvent instanceof ArrayBuffer)
+		if(pullEvent instanceof ArrayBuffer)
 		{
-			return this.extractProtobufMessages(pullEvent);
+			return this.extractProtobufMessages(pullEvent)
 		}
-		else if (Utils.isNotEmptyString(pullEvent))
+		else if(Type.isStringFilled(pullEvent))
 		{
 			return this.extractPlainTextMessages(pullEvent)
 		}
+		
+		throw new Error('Error pullEvent type')
 	}
-
-	extractProtobufMessages(pullEvent)
+	
+	/**
+	 * @done
+	 * @param pullEvent
+	 * @private
+	 */
+	private extractProtobufMessages(pullEvent: ArrayBuffer): TypeSessionEvent[]
 	{
-		let result = [];
+		let result = []
+		
 		try
 		{
-			let responseBatch = ResponseBatch.decode(new Uint8Array(pullEvent));
-			for (let i = 0; i < responseBatch.responses.length; i++)
+			let responseBatch = ResponseBatch.decode(new Uint8Array(pullEvent))
+			for(let i = 0; i < responseBatch.responses.length; i++)
 			{
-				let response = responseBatch.responses[i];
-				if (response.command != "outgoingMessages")
+				let response = responseBatch.responses[i]
+				if(response.command !== 'outgoingMessages')
 				{
-					continue;
+					continue
 				}
 
-				let messages = response.outgoingMessages.messages;
-				for (let m = 0; m < messages.length; m++)
+				let messages = response.outgoingMessages.messages
+				for(let m = 0; m < messages.length; m++)
 				{
-					const message = messages[m];
-					let messageFields;
+					const message = messages[m]
+					let messageFields
 					try
 					{
 						messageFields = JSON.parse(message.body)
-					} catch (e)
+					}
+					catch (error)
 					{
-						console.error(Utils.getDateForLog() + ": Pull: Could not parse message body", e);
-						continue;
+						this.getLogger().error(`${Text.getDateForLog()}: Pull: Could not parse message body `, error)
+						continue
 					}
 
-					if (!messageFields.extra)
+					if(!messageFields.extra)
 					{
 						messageFields.extra = {}
 					}
 					messageFields.extra.sender = {
 						type: message.sender.type
-					};
+					}
 
-					if (message.sender.id instanceof Uint8Array)
+					if(message.sender.id instanceof Uint8Array)
 					{
 						messageFields.extra.sender.id = this.decodeId(message.sender.id)
 					}
@@ -1728,125 +2186,157 @@ export class PullClient
 					const compatibleMessage = {
 						mid: this.decodeId(message.id),
 						text: messageFields
-					};
+					}
 
-					result.push(compatibleMessage);
+					result.push(compatibleMessage)
 				}
 			}
-		} catch (e)
-		{
-			console.error(Utils.getDateForLog() + ": Pull: Could not parse message", e)
 		}
-		return result;
+		catch (error)
+		{
+			this.getLogger().error(`${Text.getDateForLog()}: Pull: Could not parse message `, error)
+		}
+		
+		return result
 	}
-
-	extractPlainTextMessages(pullEvent)
+	
+	/**
+	 * @done
+	 * @param pullEvent
+	 * @private
+	 */
+	private extractPlainTextMessages(pullEvent: string): TypeSessionEvent[]
 	{
-		let result = [];
-		const dataArray = pullEvent.match(/#!NGINXNMS!#(.*?)#!NGINXNME!#/gm);
-		if (dataArray === null)
+		let result = []
+		
+		const dataArray = pullEvent.match(/#!NGINXNMS!#(.*?)#!NGINXNME!#/gm)
+		if(dataArray === null)
 		{
 			const text = "\n========= PULL ERROR ===========\n" +
 				"Error type: parseResponse error parsing message\n" +
 				"\n" +
-				"Data string: " + pullEvent + "\n" +
+				`Data string: ${pullEvent}` + "\n" +
 				"================================\n\n";
-			console.warn(text);
-			return result;
+			this.getLogger().warn(text)
+			
+			return []
 		}
-		for (let i = 0; i < dataArray.length; i++)
+		for(let i = 0; i < dataArray.length; i++)
 		{
-			dataArray[i] = dataArray[i].substring(12, dataArray[i].length - 12);
-			if (dataArray[i].length <= 0)
+			dataArray[i] = dataArray[i].substring(12, dataArray[i].length - 12)
+			if(dataArray[i].length <= 0)
 			{
-				continue;
+				continue
 			}
 
 			let data
 			try
 			{
 				data = JSON.parse(dataArray[i])
-			} catch (e)
-			{
-				continue;
 			}
-
-			result.push(data);
+			catch (error)
+			{
+				continue
+			}
+			
+			/**
+			 * @todo test this
+			 */
+			debugger
+			result.push(data as TypeSessionEvent)
 		}
-		return result;
+		
+		return result
 	}
-
+	
 	/**
+	 * @done
 	 * Converts message id from byte[] to string
 	 * @param {Uint8Array} encodedId
 	 * @return {string}
 	 */
-	decodeId(encodedId)
+	private decodeId(encodedId: Uint8Array): string
 	{
-		if (!(encodedId instanceof Uint8Array))
+		let result = ''
+		for(let i = 0; i < encodedId.length; i++)
 		{
-			throw new Error("encodedId should be an instance of Uint8Array");
-		}
-
-		let result = "";
-		for (let i = 0; i < encodedId.length; i++)
-		{
-			const hexByte = encodedId[i].toString(16);
-			if (hexByte.length === 1)
+			const hexByte = encodedId[i].toString(16)
+			if(hexByte.length === 1)
 			{
-				result += '0';
+				result += '0'
 			}
-			result += hexByte;
+			result += hexByte
 		}
-		return result;
+		
+		return result
 	}
 
 	/**
+	 * @done
 	 * Converts message id from hex-encoded string to byte[]
 	 * @param {string} id Hex-encoded string.
 	 * @return {Uint8Array}
 	 */
-	encodeId(id)
+	private encodeId(id: string): Uint8Array
 	{
-		if (!id)
+		if(!id)
 		{
-			return new Uint8Array();
+			return new Uint8Array()
 		}
 
 		let result = [];
 		for (let i = 0; i < id.length; i += 2)
 		{
-			result.push(parseInt(id.substr(i, 2), 16));
+			result.push(parseInt(id.substring(i, 2), 16))
 		}
 
-		return new Uint8Array(result);
+		return new Uint8Array(result)
 	}
-
-	broadcastMessages(messages)
+	// endregion ////
+	
+	/**
+	 * @process
+	 *
+	 * @param messages
+	 * @private
+	 */
+	private broadcastMessages(messages: TypePullClientMessageBody[]): void
 	{
-		messages.forEach(message => this.broadcastMessage(message));
+		messages.forEach(message => this.broadcastMessage(message))
 	}
-
-	broadcastMessage(message)
+	
+	/**
+	 * @process
+	 *
+	 * @param message
+	 * @private
+	 */
+	private broadcastMessage(message: TypePullClientMessageBody): void
 	{
-		const moduleId = message.module_id = message.module_id.toLowerCase();
-		const command = message.command;
+		const moduleId = message.module_id = message.module_id.toLowerCase()
+		const command = message.command
 
-		if (!message.extra)
+		if(!message.extra)
 		{
-			message.extra = {};
+			message.extra = {}
 		}
 
-		if (message.extra.server_time_unix)
+		if(message.extra.server_time_unix)
 		{
-			message.extra.server_time_ago = (((new Date()).getTime() - (message.extra.server_time_unix * 1000)) / 1000) - (this.config.server.timeShift ? this.config.server.timeShift : 0);
-			message.extra.server_time_ago = message.extra.server_time_ago > 0 ? message.extra.server_time_ago : 0;
+			message.extra.server_time_ago = (((new Date()).getTime() - (message.extra.server_time_unix * 1000)) / 1000) - (this._config?.server.timeShift
+				? this._config?.server.timeShift : 0)
+			message.extra.server_time_ago = message.extra.server_time_ago > 0
+				? message.extra.server_time_ago
+				: 0
 		}
 
-		this.logMessage(message);
+		this.logMessage(message)
 		try
 		{
-			if (message.extra.sender && message.extra.sender.type === SenderType.Client)
+			if(
+				message.extra.sender
+				&& message.extra.sender.type === SenderType.Client
+			)
 			{
 				this.onCustomEvent('onPullClientEvent-' + moduleId, [command, message.params, message.extra], true)
 				this.onCustomEvent('onPullClientEvent', [moduleId, command, message.params, message.extra], true)
@@ -1856,18 +2346,18 @@ export class PullClient
 					moduleId: moduleId,
 					data: {
 						command: command,
-						params: Utils.clone(message.params),
-						extra: Utils.clone(message.extra)
+						params: Type.clone(message.params),
+						extra: Type.clone(message.extra)
 					}
-				});
+				})
 			}
-			else if (moduleId === 'pull')
+			else if(moduleId === 'pull')
 			{
 				this.handleInternalPullEvent(command, message);
 			}
-			else if (moduleId == 'online')
+			else if(moduleId == 'online')
 			{
-				if (message.extra.server_time_ago < 240)
+				if((message?.extra?.server_time_ago || 0) < 240)
 				{
 					this.onCustomEvent('onPullOnlineEvent', [command, message.params, message.extra], true)
 					
@@ -1875,15 +2365,18 @@ export class PullClient
 						type: SubscriptionType.Online,
 						data: {
 							command: command,
-							params: Utils.clone(message.params),
-							extra: Utils.clone(message.extra)
+							params: Type.clone(message.params),
+							extra: Type.clone(message.extra)
 						}
-					});
+					})
 				}
 
-				if (command === 'userStatusChange')
+				if(command === 'userStatusChange')
 				{
-					this.emitUserStatusChange(message.params.user_id, message.params.online);
+					this.emitUserStatusChange(
+						message.params.user_id,
+						message.params.online
+					)
 				}
 			}
 			else
@@ -1896,80 +2389,164 @@ export class PullClient
 					moduleId: moduleId,
 					data: {
 						command: command,
-						params: Utils.clone(message.params),
-						extra: Utils.clone(message.extra)
+						params: Type.clone(message.params),
+						extra: Type.clone(message.extra)
 					}
 				});
 			}
-		} catch (e)
+		}
+		catch(event)
 		{
-			if (typeof (console) == 'object')
-			{
-				console.warn(
-					"\n========= PULL ERROR ===========\n" +
-					"Error type: broadcastMessages execute error\n" +
-					"Error event: ", e, "\n" +
-					"Message: ", message, "\n" +
-					"================================\n"
-				);
-				if (typeof BX.debug !== 'undefined')
-				{
-					BX.debug(e);
-				}
-			}
+			this.getLogger().warn(
+				"\n========= PULL ERROR ===========\n" +
+				"Error type: broadcastMessages execute error\n" +
+				"Error event: ", event, "\n" +
+				"Message: ", message, "\n" +
+				"================================\n"
+			)
 		}
 
-		if (message.extra && message.extra.revision_web)
+		if(
+			message.extra
+			&& message.extra.revision_web
+		)
 		{
-			this.checkRevision(message.extra.revision_web);
+			this.checkRevision(Text.toInteger(message.extra.revision_web))
 		}
 	}
 	
-	logMessage(message)
+	/**
+	 * @done
+	 * @param message
+	 * @private
+	 */
+	private logMessage(message: TypePullClientMessageBody): void
 	{
-		if (!this.debug)
+		if(!this._debug)
 		{
-			return;
+			return
 		}
 
-		if (message.extra.sender && message.extra.sender.type === SenderType.Client)
+		if(message.extra?.sender && message.extra.sender.type === SenderType.Client)
 		{
-			console.info('onPullClientEvent-' + message.module_id, message.command, message.params, message.extra);
+			this.getLogger().info(`onPullClientEvent-${message.module_id}`, message.command, message.params, message.extra)
 		}
-		else if (message.moduleId == 'online')
+		else if(message.module_id == 'online')
 		{
-			console.info('onPullOnlineEvent', message.command, message.params, message.extra);
+			this.getLogger().info(`onPullOnlineEvent`, message.command, message.params, message.extra)
 		}
 		else
 		{
-			console.info('onPullEvent', message.module_id, message.command, message.params, message.extra);
+			this.getLogger().info(`onPullEvent`, message.module_id, message.command, message.params, message.extra)
 		}
 	}
-
-	onLongPollingOpen()
+	
+	/**
+	 * @done
+	 * @param response
+	 * @private
+	 */
+	private onIncomingMessage(response: string|ArrayBuffer): void
 	{
-		this.unloading = false;
-		this.starting = false;
-		this.connectionAttempt = 0;
-		this.isManualDisconnect = false;
-		this.status = PullStatus.Online;
-
-		this.logToConsole('Pull: Long polling connection with push-server opened');
-		if (this.isWebSocketEnabled())
+		if(this.isJsonRpc())
 		{
-			this.scheduleRestoreWebSocketConnection();
+			(response === JSON_RPC_PING)
+				? this.onJsonRpcPing()
+				: this._jsonRpcAdapter?.parseJsonRpcMessage(
+					response as string
+				)
 		}
-		if (this._connectPromise)
+		else
 		{
-			this._connectPromise.resolve();
+			const events = this.extractMessages(response)
+			this.handleIncomingEvents(events)
 		}
 	}
-
-	onWebSocketBlockChanged(e)
+	
+	// region onLongPolling ////
+	/**
+	 * @done
+	 */
+	private onLongPollingOpen(): void
 	{
-		const isWebSocketBlocked = e.isWebSocketBlocked;
+		this._unloading = false
+		this._starting = false
+		this._connectionAttempt = 0
+		this._isManualDisconnect = false
+		this.status = PullStatus.Online
 
-		if (isWebSocketBlocked && this.connectionType === ConnectionType.WebSocket && !this.isConnected())
+		this.logToConsole('Pull: Long polling connection with push-server opened')
+		if(this.isWebSocketEnabled())
+		{
+			this.scheduleRestoreWebSocketConnection()
+		}
+		if(this._connectPromise)
+		{
+			this._connectPromise.resolve({})
+		}
+	}
+	
+	/**
+	 * @done
+	 * @param response
+	 * @private
+	 */
+	private onLongPollingDisconnect(response: {code: number, reason: string}): void
+	{
+		if(this._connectionType === ConnectionType.LongPolling)
+		{
+			this.status = PullStatus.Offline
+		}
+		
+		this.logToConsole(`Pull: Long polling connection with push-server closed. Code: ${response.code}, reason: ${response.reason}`)
+		if(!this._isManualDisconnect)
+		{
+			this.scheduleReconnect()
+		}
+		this._isManualDisconnect = false
+		this.clearPingWaitTimeout()
+	}
+	
+	/**
+	 * @done
+	 * @param error
+	 */
+	onLongPollingError(error: Error): void
+	{
+		this._starting = false;
+		if(this._connectionType === ConnectionType.LongPolling)
+		{
+			this.status = PullStatus.Offline
+		}
+		
+		this.getLogger().error(`${Text.getDateForLog()}: Pull: Long polling connection error `, error)
+
+		this.scheduleReconnect()
+		if(this._connectPromise)
+		{
+			this._connectPromise.reject(error)
+		}
+		
+		this.clearPingWaitTimeout()
+	}
+	// endregion ////
+	
+	/**
+	 * @done
+	 * @param response
+	 * @private
+	 */
+	private onWebSocketBlockChanged(response: {
+		isWebSocketBlocked: boolean,
+	}): void
+	{
+		const isWebSocketBlocked = response.isWebSocketBlocked
+
+		if(
+			isWebSocketBlocked
+			&& this._connectionType === ConnectionType.WebSocket
+			&& !this.isConnected()
+		)
 		{
 			if(this._reconnectTimeout)
 			{
@@ -1977,230 +2554,272 @@ export class PullClient
 				this._reconnectTimeout = null
 			}
 			
-			this.connectionAttempt = 0;
-			this.connectionType = ConnectionType.LongPolling;
-			this.scheduleReconnect(1);
+			this._connectionAttempt = 0
+			this._connectionType = ConnectionType.LongPolling
+			this.scheduleReconnect(1)
 		}
-		else if (!isWebSocketBlocked && this.connectionType === ConnectionType.LongPolling)
+		else if(
+			!isWebSocketBlocked
+			&& this._connectionType === ConnectionType.LongPolling
+		)
 		{
-			clearTimeout(this.reconnectTimeout);
-			clearTimeout(this.restoreWebSocketTimeout);
-
-			this.connectionAttempt = 0;
-			this.connectionType = ConnectionType.WebSocket;
-			this.scheduleReconnect(1);
+			if(this._reconnectTimeout)
+			{
+				clearTimeout(this._reconnectTimeout)
+				this._reconnectTimeout = null
+			}
+			if(this._restoreWebSocketTimeout)
+			{
+				clearTimeout(this._restoreWebSocketTimeout)
+				this._restoreWebSocketTimeout = null
+			}
+			
+			this._connectionAttempt = 0;
+			this._connectionType = ConnectionType.WebSocket
+			this.scheduleReconnect(1)
 		}
 	}
-
-	onWebSocketOpen()
+	
+	// region onWebSocket ////
+	/**
+	 * @done
+	 */
+	private onWebSocketOpen(): void
 	{
-		this.unloading = false;
-		this.starting = false;
-		this.connectionAttempt = 0;
-		this.isManualDisconnect = false;
-		this.status = PullStatus.Online;
-		this.sharedConfig.setWebSocketBlocked(false);
+		this._unloading = false
+		this._starting = false
+		this._connectionAttempt = 0
+		this._isManualDisconnect = false
+		this.status = PullStatus.Online
+		this._sharedConfig.setWebSocketBlocked(false)
 
 		// to prevent fallback to long polling in case of networking problems
-		this.sharedConfig.setLongPollingBlocked(true);
+		this._sharedConfig.setLongPollingBlocked(true)
 
-		if (this.connectionType == ConnectionType.LongPolling)
+		if(this._connectionType == ConnectionType.LongPolling)
 		{
-			this.connectionType = ConnectionType.WebSocket;
-			this._connectors.longPolling.disconnect();
+			this._connectionType = ConnectionType.WebSocket
+			this._connectors.longPolling?.disconnect(
+				CloseReasons.CONFIG_REPLACED,
+				'Fire at onWebSocketOpen'
+			)
 		}
 
-		if (this.restoreWebSocketTimeout)
+		if(this._restoreWebSocketTimeout)
 		{
-			clearTimeout(this.restoreWebSocketTimeout);
-			this.restoreWebSocketTimeout = null;
+			clearTimeout(this._restoreWebSocketTimeout)
+			this._restoreWebSocketTimeout = null
 		}
-		this.logToConsole('Pull: Websocket connection with push-server opened');
-		if (this._connectPromise)
+		this.logToConsole('Pull: Websocket connection with push-server opened')
+		if(this._connectPromise)
 		{
-			this._connectPromise.resolve();
+			this._connectPromise.resolve({})
 		}
-		this.restoreUserStatusSubscription();
+		
+		this.restoreUserStatusSubscription()
 	}
-
-	onWebSocketDisconnect(e)
+	
+	/**
+	 * @done
+	 * @param response
+	 * @private
+	 */
+	private onWebSocketDisconnect(response: {code: number, reason: string}): void
 	{
-		if (this.connectionType === ConnectionType.WebSocket)
+		if(this._connectionType === ConnectionType.WebSocket)
 		{
 			this.status = PullStatus.Offline;
 		}
-
-		if (!e)
+		
+		this.logToConsole(`Pull: Websocket connection with push-server closed. Code: ${response.code}, reason: ${response.reason}`, true)
+		if(!this._isManualDisconnect)
 		{
-			e = {};
-		}
-
-		this.logToConsole('Pull: Websocket connection with push-server closed. Code: ' + e.code + ', reason: ' + e.reason, true);
-		if (!this.isManualDisconnect)
-		{
-			if (e.code == CloseReasons.WRONG_CHANNEL_ID)
+			if(response.code == CloseReasons.WRONG_CHANNEL_ID)
 			{
-				this.scheduleRestart(CloseReasons.WRONG_CHANNEL_ID, "wrong channel signature");
+				this.scheduleRestart(
+					CloseReasons.WRONG_CHANNEL_ID,
+					'wrong channel signature'
+				)
 			}
 			else
 			{
-				this.scheduleReconnect();
+				this.scheduleReconnect()
 			}
 		}
 
 		// to prevent fallback to long polling in case of networking problems
-		this.sharedConfig.setLongPollingBlocked(true);
-		this.isManualDisconnect = false;
+		this._sharedConfig.setLongPollingBlocked(true)
+		this._isManualDisconnect = false
 
-		this.clearPingWaitTimeout();
-	}
-
-	onWebSocketError(e)
-	{
-		this.starting = false;
-		if (this.connectionType === ConnectionType.WebSocket)
-		{
-			this.status = PullStatus.Offline;
-		}
-
-		console.error(Utils.getDateForLog() + ": Pull: WebSocket connection error", e);
-		this.scheduleReconnect();
-		if(this._connectPromise)
-		{
-			this._connectPromise.reject();
-		}
-
-		this.clearPingWaitTimeout();
-	}
-
-	onLongPollingDisconnect(e)
-	{
-		if (this.connectionType === ConnectionType.LongPolling)
-		{
-			this.status = PullStatus.Offline;
-		}
-
-		if (!e)
-		{
-			e = {};
-		}
-
-		this.logToConsole('Pull: Long polling connection with push-server closed. Code: ' + e.code + ', reason: ' + e.reason);
-		if (!this.isManualDisconnect)
-		{
-			this.scheduleReconnect();
-		}
-		this.isManualDisconnect = false;
-		this.clearPingWaitTimeout();
-	}
-
-	onLongPollingError(e)
-	{
-		this.starting = false;
-		if (this.connectionType === ConnectionType.LongPolling)
-		{
-			this.status = PullStatus.Offline;
-		}
-		console.error(Utils.getDateForLog() + ': Pull: Long polling connection error', e);
-		this.scheduleReconnect();
-		if (this._connectPromise)
-		{
-			this._connectPromise.reject();
-		}
-		this.clearPingWaitTimeout();
-	}
-
-	isConnected()
-	{
-		return this.connector ? this.connector.connected : false;
-	}
-
-	onBeforeUnload()
-	{
-		this.unloading = true;
-
-		const session = Utils.clone(this.session);
-		session.ttl = (new Date()).getTime() + LS_SESSION_CACHE_TIME * 1000;
-		if (this.storage)
-		{
-			try
-			{
-				this.storage.set(LS_SESSION, JSON.stringify(session), LS_SESSION_CACHE_TIME);
-			} catch (e)
-			{
-				console.error(Utils.getDateForLog() + " Pull: Could not save session info in local storage. Error: ", e);
-			}
-		}
-
-		this.scheduleReconnect(15);
+		this.clearPingWaitTimeout()
 	}
 	
+	/**
+	 * @done
+	 * @param error
+	 */
+	onWebSocketError(error: Error): void
+	{
+		this._starting = false
+		if(this._connectionType === ConnectionType.WebSocket)
+		{
+			this.status = PullStatus.Offline
+		}
+
+		this.getLogger().error(`${Text.getDateForLog()}: Pull: WebSocket connection error `, error)
+		this.scheduleReconnect()
+		if(this._connectPromise)
+		{
+			this._connectPromise.reject(error)
+		}
+
+		this.clearPingWaitTimeout()
+	}
+	// endregion ////
+	
 	// region Events.Status /////
-	public onOffline(): void
+	/**
+	 * @done
+	 */
+	private onOffline(): void
 	{
 		this.disconnect(
 			CloseReasons.NORMAL_CLOSURE,
 			'offline'
 		)
 	}
-
-	public onOnline(): void
+	
+	/**
+	 * @done
+	 */
+	private onOnline(): void
 	{
 		this.connect()
 		.catch(error => {
 			this.getLogger().error(error)
 		})
 	}
+	
+	/**
+	 * @done
+	 * @private
+	 */
+	private onBeforeUnload(): void
+	{
+		this._unloading = true
+		
+		const session = Type.clone(this.session)
+		session.ttl = (new Date()).getTime() + LS_SESSION_CACHE_TIME * 1000;
+		if(this._storage)
+		{
+			try
+			{
+				this._storage.set(
+					LS_SESSION,
+					JSON.stringify(session),
+					//LS_SESSION_CACHE_TIME
+				)
+			}
+			catch(error)
+			{
+				this.getLogger().error(`${Text.getDateForLog()}: Pull: Could not save session info in local storage. Error: `, error)
+			}
+		}
+		
+		this.scheduleReconnect(15)
+	}
 	// endregion ////
 	
-	handleInternalPullEvent(command, message)
+	/**
+	 * @process
+	 *
+	 * @param command
+	 * @param message
+	 * @private
+	 */
+	private handleInternalPullEvent(
+		command: string,
+		message: TypePullClientMessageBody
+	): void
 	{
-		switch (command.toUpperCase())
+		switch(command.toUpperCase())
 		{
 			case SystemCommands.CHANNEL_EXPIRE:
 			{
-				if (message.params.action == 'reconnect')
+				if(message.params.action === 'reconnect')
 				{
-					this.config.channels[message.params.channel.type] = message.params.new_channel;
-					this.logToConsole("Pull: new config for " + message.params.channel.type + " channel set:\n", this.config.channels[message.params.channel.type]);
-
-					this.reconnect(CloseReasons.CONFIG_REPLACED, "config was replaced");
+					const typeChanel = (message.params?.channel.type as string)
+					if(
+						typeChanel === 'private'
+						&& this._config?.channels?.private
+					)
+					{
+						this._config.channels.private = message.params.new_channel
+						this.logToConsole(`Pull: new config for ${message.params.channel.type} channel set: ${this._config.channels.private}`)
+					}
+					if(
+						typeChanel === 'shared'
+						&& this._config?.channels?.shared
+					)
+					{
+						this._config.channels.shared = message.params.new_channel
+						this.logToConsole(`Pull: new config for ${message.params.channel.type} channel set: ${this._config.channels.shared}`)
+					}
+					
+					this.reconnect(
+						CloseReasons.CONFIG_REPLACED,
+						'config was replaced'
+					)
 				}
 				else
 				{
-					this.restart(CloseReasons.CHANNEL_EXPIRED, "channel expired received");
+					this.restart(
+						CloseReasons.CHANNEL_EXPIRED,
+						'channel expired received'
+					)
 				}
-				break;
+				break
 			}
 			case SystemCommands.CONFIG_EXPIRE:
 			{
-				this.restart(CloseReasons.CONFIG_EXPIRED, "config expired received");
-				break;
+				this.restart(
+					CloseReasons.CONFIG_EXPIRED,
+					'config expired received'
+				)
+				break
 			}
 			case SystemCommands.SERVER_RESTART:
 			{
-				this.reconnect(CloseReasons.SERVER_RESTARTED, "server was restarted", 15);
-				break;
+				this.reconnect(
+					CloseReasons.SERVER_RESTARTED,
+					'server was restarted',
+					15
+				)
+				break
 			}
-			default://
+			default:
 		}
 	}
-
-	checkRevision(serverRevision)
+	
+	/**
+	 * @done
+	 * @param serverRevision
+	 * @private
+	 */
+	private checkRevision(serverRevision: number): boolean
 	{
-		if (this.skipCheckRevision)
+		if(this._skipCheckRevision)
 		{
-			return true;
+			return true
 		}
-
-		serverRevision = parseInt(serverRevision);
-		if (serverRevision > 0 && serverRevision != REVISION)
+		
+		if(
+			serverRevision > 0
+			&& serverRevision !== REVISION
+		)
 		{
-			this.enabled = false;
-			if (typeof BX.message !== 'undefined')
-			{
-				this.showNotification(BX.message('PULL_OLD_REVISION'));
-			}
+			this._enabled = false
+			this.showNotification('PULL_OLD_REVISION')
 			this.disconnect(
 				CloseReasons.NORMAL_CLOSURE,
 				'check_revision'
@@ -2214,18 +2833,27 @@ export class PullClient
 					server: serverRevision,
 					client: REVISION
 				}
-			});
+			})
 
-			this.logToConsole("Pull revision changed from " + REVISION + " to " + serverRevision + ". Reload required");
+			this.logToConsole(`Pull revision changed from ${REVISION} to ${serverRevision}. Reload required`)
 
-			return false;
+			return false
 		}
-		return true;
+		
+		return true
 	}
-
-	showNotification(text)
+	
+	/**
+	 * @done
+	 *
+	 * @param text
+	 */
+	private showNotification(text: string): void
 	{
-		if (this.notificationPopup || typeof BX.PopupWindow === 'undefined')
+		this.getLogger().warn(text)
+		
+		/*/
+		if(this.notificationPopup || typeof BX.PopupWindow === 'undefined')
 		{
 			return;
 		}
@@ -2254,29 +2882,45 @@ export class PullClient
 			}
 		});
 		this.notificationPopup.show();
+		//*/
 	}
 
 	// region Get ////
+	/**
+	 * @done
+	 */
 	public getRevision(): number|null
 	{
 		return (this._config && this._config.api) ? this._config.api.revision_web : null
 	}
-
+	
+	/**
+	 * @done
+	 */
 	public getServerVersion(): number
 	{
 		return (this._config && this._config.server) ? this._config.server.version : 0
 	}
-
+	
+	/**
+	 * @done
+	 */
 	public getServerMode(): string|null
 	{
 		return (this._config && this._config.server) ? this._config.server.mode : null;
 	}
-
+	
+	/**
+	 * @done
+	 */
 	public getConfig(): null|TypePullClientConfig
 	{
 		return this._config;
 	}
-
+	
+	/**
+	 * @done
+	 */
 	public getDebugInfo(): any
 	{
 		if(!JSON || !JSON.stringify)
@@ -2342,110 +2986,147 @@ export class PullClient
 		}
 	}
 	
-	getConnectionPath(connectionType)
+	/**
+	 * @process
+	 * @param connectionType
+	 */
+	public getConnectionPath(connectionType: ConnectionType): string
 	{
-		let path;
-		let params = {};
+		let path
+		let params: any = {}
 
-		switch (connectionType)
+		switch(connectionType)
 		{
 			case ConnectionType.WebSocket:
-				path = this.isSecure ? this.config.server.websocket_secure : this.config.server.websocket;
+				path = this._isSecure
+					? this._config?.server.websocket_secure
+					: this._config?.server.websocket
 				break;
 			case ConnectionType.LongPolling:
-				path = this.isSecure ? this.config.server.long_pooling_secure : this.config.server.long_polling;
-				break;
+				path = this._isSecure
+					? this._config?.server.long_pooling_secure
+					: this._config?.server.long_polling
+			break
 			default:
-				throw new Error("Unknown connection type " + connectionType);
+				throw new Error(`Unknown connection type ${connectionType}`)
+			break
 		}
 
-		if (!Utils.isNotEmptyString(path))
+		if(!Type.isStringFilled(path))
 		{
-			return false;
+			throw new Error(`Empty path`)
 		}
 
-		if (typeof (this.config.jwt) == 'string' && this.config.jwt !== '')
+		if(
+			typeof (this._config?.jwt) === 'string'
+			&& this._config?.jwt !== ''
+		)
 		{
-			params['token'] = this.config.jwt;
+			params['token'] = this._config?.jwt
 		}
 		else
 		{
-			let channels = [];
-			['private', 'shared'].forEach((type) => {
-				if (typeof this.config.channels[type] !== 'undefined')
-				{
-					channels.push(this.config.channels[type].id);
-				}
-			});
-			if (channels.length === 0)
+			let channels: string[] = []
+			
+			if(this._config?.channels?.private)
 			{
-				return false;
+				channels.push(this._config.channels.private?.id || '')
+			}
+			
+			if(this._config?.channels.private?.id)
+			{
+				channels.push(this._config.channels.private.id)
+			}
+			
+			if(this._config?.channels.shared?.id)
+			{
+				channels.push(this._config.channels.shared.id)
+			}
+			
+			if(channels.length === 0)
+			{
+				throw new Error(`Empty channels`)
 			}
 
-			params['CHANNEL_ID'] = channels.join('/');
+			params['CHANNEL_ID'] = channels.join('/')
 		}
 
-		if (this.isJsonRpc())
+		if(this.isJsonRpc())
 		{
-			params.jsonRpc = 'true';
+			params.jsonRpc = 'true'
 		}
-		else if (this.isProtobufSupported())
+		else if(this.isProtobufSupported())
 		{
-			params.binaryMode = 'true';
+			params.binaryMode = 'true'
 		}
 
-		if (this.isSharedMode())
+		if(this.isSharedMode())
 		{
-			if (!this.config.clientId)
+			if(!this._config?.clientId)
 			{
-				throw new Error("Push-server is in shared mode, but clientId is not set");
+				throw new Error('Push-server is in shared mode, but clientId is not set')
 			}
-			params.clientId = this.config.clientId;
+			
+			params.clientId = this._config.clientId
 		}
-		if (this.session.mid)
+		if(this._session.mid)
 		{
-			params.mid = this.session.mid;
+			params.mid = this._session.mid
 		}
-		if (this.session.tag)
+		if(this._session.tag)
 		{
-			params.tag = this.session.tag;
+			params.tag = this._session.tag
 		}
-		if (this.session.time)
+		if(this._session.time)
 		{
-			params.time = this.session.time;
+			params.time = this._session.time
 		}
-		params.revision = REVISION;
+		params.revision = REVISION
 
-		return path + '?' + Utils.buildQueryString(params);
+		return `${path}?${Text.buildQueryString(params)}`
 	}
-
-	getPublicationPath()
+	
+	/**
+	 * @process
+	 */
+	public getPublicationPath(): string
 	{
-		const path = this.isSecure ? this.config.server.publish_secure : this.config.server.publish;
-		if (!path)
+		const path = this._isSecure
+			? this._config?.server.publish_secure
+			: this._config?.server.publish
+		
+		if(!path)
 		{
-			return '';
+			return ''
 		}
 
-		let channels = [];
-		for (let type in this.config.channels)
+		let channels: string[] = []
+		
+		if(this._config?.channels.private?.id)
 		{
-			if (!this.config.channels.hasOwnProperty(type))
-			{
-				continue;
-			}
-			channels.push(this.config.channels[type].id);
+			channels.push(this._config.channels.private.id)
+		}
+		
+		if(this._config?.channels.shared?.id)
+		{
+			channels.push(this._config.channels.shared.id)
 		}
 
 		const params = {
 			CHANNEL_ID: channels.join('/')
-		};
+		}
 
-		return path + '?' + Utils.buildQueryString(params);
+		return path + '?' + Utils.buildQueryString(params)
 	}
 	// endregion ////
 	
 	// region PullStatus ////
+	/**
+	 * @done
+	 * @param status
+	 * @param delay
+	 * @private
+	 */
 	private sendPullStatusDelayed(
 		status: PullStatus,
 		delay: number
@@ -2459,13 +3140,18 @@ export class PullClient
 		
 		this._offlineTimeout = setTimeout(
 			() => {
-				this._offlineTimeout = null;
-				this.sendPullStatus(status);
+				this._offlineTimeout = null
+				this.sendPullStatus(status)
 			},
 			delay
 		)
 	}
-
+	
+	/**
+	 * @done
+	 * @param status
+	 * @private
+	 */
 	private sendPullStatus(
 		status: PullStatus
 	): void
@@ -2487,10 +3173,16 @@ export class PullClient
 	// endregion ////
 	
 	// region _watchTagsQueue ////
-	extendWatch(
+	/**
+	 * @done
+	 * @todo private ?
+	 * @param tagId
+	 * @param force
+	 */
+	private extendWatch(
 		tagId: string,
 		force: boolean = false
-	)
+	): void
 	{
 		if(this._watchTagsQueue.get(tagId))
 		{
@@ -2503,7 +3195,12 @@ export class PullClient
 			this.updateWatch(force)
 		}
 	}
-
+	
+	/**
+	 * @done
+	 * @param force
+	 * @private
+	 */
 	private updateWatch(force: boolean = false): void
 	{
 		if(this._watchUpdateTimeout)
@@ -2554,7 +3251,12 @@ export class PullClient
 				: this._watchUpdateInterval
 		)
 	}
-
+	
+	/**
+	 * @done
+	 * @param tagId
+	 * @private
+	 */
 	private clearWatch(tagId: string): void
 	{
 		this._watchTagsQueue.delete(tagId)
@@ -2562,6 +3264,38 @@ export class PullClient
 	// endregion ////
 	
 	// region Ping ////
+	/**
+	 * @done
+	 * Pings server. In case of success promise will be resolved, otherwise - rejected.
+	 *
+	 * @param {number} timeout Request timeout in seconds
+	 * @returns {Promise}
+	 */
+	public async ping(timeout: number = 5): Promise<void>
+	{
+		return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+			RpcMethod.Ping,
+			{},
+			timeout
+		)
+	}
+	
+	/**
+	 * @done
+	 * @private
+	 */
+	private onJsonRpcPing(): void
+	{
+		this.updatePingWaitTimeout()
+		this.connector?.send(
+			JSON_RPC_PONG
+		)
+	}
+	
+	/**
+	 * @done
+	 * @private
+	 */
 	private updatePingWaitTimeout(): void
 	{
 		if(this._pingWaitTimeout)
@@ -2575,7 +3309,11 @@ export class PullClient
 			PING_TIMEOUT * 2 * 1_000
 		)
 	}
-
+	
+	/**
+	 * @done
+	 * @private
+	 */
 	private clearPingWaitTimeout(): void
 	{
 		if(this._pingWaitTimeout)
@@ -2586,6 +3324,10 @@ export class PullClient
 		this._pingWaitTimeout = null
 	}
 	
+	/**
+	 * @done
+	 * @private
+	 */
 	private onPingTimeout(): void
 	{
 		this._pingWaitTimeout = null
@@ -2609,6 +3351,7 @@ export class PullClient
 	
 	// region Time ////
 	/**
+	 * @done
 	 * Returns reconnect delay in seconds
 	 *
 	 * @param attemptNumber
@@ -2643,17 +3386,31 @@ export class PullClient
 	// endregion ////
 	
 	// region Tools ////
+	/**
+	 * @done
+	 * @param debugFlag
+	 */
 	public capturePullEvent(debugFlag: boolean = true): void
 	{
 		this._debug = debugFlag;
 	}
 	
+	/**
+	 * @done
+	 * @param loggingFlag
+	 */
 	public enableLogging(loggingFlag: boolean = true): void
 	{
 		this._sharedConfig.setLoggingEnabled(loggingFlag)
 		this._loggingEnabled = loggingFlag
 	}
 	
+	/**
+	 * @done
+	 * @param message
+	 * @param force
+	 * @private
+	 */
 	private logToConsole(
 		message: string,
 		force: boolean = false
@@ -2671,6 +3428,7 @@ export class PullClient
 	
 	// region onCustomEvent ////
 	/**
+	 * @done
 	 * @todo may be need use onCustomEvent
 	 * @todo wtf ? force
 	 */

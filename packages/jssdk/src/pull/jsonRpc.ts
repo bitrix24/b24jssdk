@@ -7,7 +7,7 @@ import {
 	ListRpcError,
 	type RpcRequest,
 	type TypeConnector,
-	type TypeJsonRpcConfig
+	type TypeJsonRpcConfig, type TypePullClientMessageBatch
 } from '../types/pull'
 import type { RpcCommand, RpcCommandResult, TypeRpcResponseAwaiters } from '../types/pull'
 
@@ -87,10 +87,13 @@ export class JsonRpc
 		method: string,
 		params: object,
 		timeout: number = 5
-	): Promise<void>
+	): Promise<any>
 	{
 		return new Promise((resolve, reject) => {
-			const request = this.createRequest(method, params)
+			const request = this.createRequest(
+				method,
+				params
+			)
 			
 			if(!this._connector.send(
 				JSON.stringify(request)
@@ -131,7 +134,11 @@ export class JsonRpc
 		let promises: Promise<any>[] = []
 		
 		batch.forEach(({ method, params, id }) => {
-			const request = this.createRequest(method, params, id)
+			const request = this.createRequest(
+				method,
+				params,
+				id
+			)
 			requests.push(request)
 			promises.push(new Promise((resolve, reject) => this._rpcResponseAwaiters.set(
 				request.id,
@@ -294,10 +301,13 @@ export class JsonRpc
 		return ++this._idCounter
 	}
 	
-	private createPublishRequest(messageBatch: string[]): RpcRequest[]
+	public createPublishRequest(messageBatch: TypePullClientMessageBatch[]): RpcRequest[]
 	{
 		return messageBatch.map(
-			message => this.createRequest('publish', message)
+			message => this.createRequest(
+				'publish',
+				message
+			)
 		)
 	}
 	

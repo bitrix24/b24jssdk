@@ -94,7 +94,7 @@ export class ChannelManager
 				 * @todo fix this
 				 */
 				debugger
-				this._setPublicIds(Object.values(data))
+				this.setPublicIds(Object.values(data))
 				
 				unknownUsers.forEach((userId) => {
 					const chanel = this._publicIds.get(userId)
@@ -116,7 +116,7 @@ export class ChannelManager
 	/**
 	 * @param {TypePublicIdDescriptor[]} publicIds
 	 */
-	private _setPublicIds(publicIds: TypePublicIdDescriptor[]): void
+	public setPublicIds(publicIds: TypePublicIdDescriptor[]): void
 	{
 		publicIds.forEach((publicIdDescriptor: TypePublicIdDescriptor) => {
 			const userId = Number(publicIdDescriptor.user_id)
@@ -131,5 +131,5 @@ export class ChannelManager
 				} as TypeChanel
 			)
 		})
-	};
+	}
 }

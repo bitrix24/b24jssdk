@@ -6,7 +6,7 @@ import type { ConnectorConfig } from '../types/pull'
 
 const LONG_POLLING_TIMEOUT = 60
 
-class LongPollingConnector
+export class LongPollingConnector
 	extends AbstractConnector
 {
 	private _active: boolean

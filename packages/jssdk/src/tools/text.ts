@@ -306,4 +306,35 @@ export default class Text
 		
 		return result + str
 	}
+	
+	static buildQueryString(params: any): string
+	{
+		let result = ''
+		for(let key in params)
+		{
+			if(!params.hasOwnProperty(key))
+			{
+				continue
+			}
+			
+			const value = params[key]
+			if(Type.isArray(value))
+			{
+				value.forEach((valueElement: any, index: any) => {
+					result += encodeURIComponent(key + "[" + index + "]") + "=" + encodeURIComponent(valueElement) + "&"
+				})
+			}
+			else
+			{
+				result += encodeURIComponent(key) + "=" + encodeURIComponent(value) + "&"
+			}
+		}
+		
+		if (result.length > 0)
+		{
+			result = result.substring(0, result.length - 1)
+		}
+		
+		return result
+	}
 }

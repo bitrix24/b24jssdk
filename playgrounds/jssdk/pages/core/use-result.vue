@@ -7,7 +7,7 @@ definePageMeta({
 	layout: "page"
 })
 
-const logger = LoggerBrowser.build(
+const $logger = LoggerBrowser.build(
 	'Demo: Result',
 	true
 );
@@ -83,11 +83,11 @@ if(result.isSuccess)
 if(!result.isSuccess)
 {
 	// this code works ////
-	logger.error(result.getErrorMessages());
+	$logger.error(result.getErrorMessages());
 }
 else
 {
-	logger.log(result.getData());
+	$logger.log(result.getData());
 }
 </script>
 

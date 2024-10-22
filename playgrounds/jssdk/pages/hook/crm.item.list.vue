@@ -21,7 +21,7 @@ definePageMeta({
 
 const { formatterDateTime } = useFormatter('en-US')
 
-const logger = LoggerBrowser.build(
+const $logger = LoggerBrowser.build(
 	'Demo: crm.items.list',
 	import.meta.env?.DEV === true
 )
@@ -56,11 +56,11 @@ const openSlider = async (id: number): Promise<void> => {
 	return Promise.resolve()
 }
 
-const B24 = new B24Hook(
+const $b24 = new B24Hook(
 	B24HookConfig
 )
 
-B24.setLogger(logger)
+$b24.setLogger($logger)
 
 const actionCompanyAdd = async (needAdd: number = 10): Promise<void> => {
 	let commands = [];
@@ -93,23 +93,23 @@ const actionCompanyAdd = async (needAdd: number = 10): Promise<void> => {
 	let data: any
 	isProcessLoadB24.value = true
 	
-	return B24.callBatch(
+	return $b24.callBatch(
 		commands,
 		true
 	)
 	.then((response: Result) => {
 		data = response.getData()
-		logger.info('response >> ', data)
+		$logger.info('response >> ', data)
 		
 		return actionCompanyList()
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {
 		isProcessLoadB24.value = false
-		logger.info('load >> stop ')
+		$logger.info('load >> stop ')
 	})
 }
 
@@ -133,13 +133,13 @@ const actionCompanyList = async (): Promise<void> => {
 	
 	isProcessLoadB24.value = true
 	
-	return B24.callBatch(
+	return $b24.callBatch(
 		commands,
 		true
 	)
 	.then((response: Result) => {
 		data = response.getData()
-		logger.info('response >> ', data)
+		$logger.info('response >> ', data)
 		
 		dataList.value = (data.CompanyList.items || []).map((item: any) => {
 			return {
@@ -151,11 +151,11 @@ const actionCompanyList = async (): Promise<void> => {
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {
 		isProcessLoadB24.value = false
-		logger.info('load >> stop ')
+		$logger.info('load >> stop ')
 	})
 }
 

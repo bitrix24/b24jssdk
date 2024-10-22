@@ -12,7 +12,7 @@ import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
 import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import type { TypeB24 } from '@bitrix24/b24jssdk/types/b24'
 import { B24Hook } from '@bitrix24/b24jssdk/hook'
-import { CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
+import { B24CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
 import { EnumCrmEntityTypeId } from "@bitrix24/b24jssdk/types/crm"
 import { useFormatter } from "@bitrix24/b24jssdk/tools/useFormatters"
 import Info from "../../components/Info.vue";
@@ -28,16 +28,22 @@ definePageMeta({
 })
 
 // region Init ////
-const logger = LoggerBrowser.build(
+const $logger = LoggerBrowser.build(
 	'Demo: Testing Rest-Api Calls',
 	true
 )
 
 const { formatterDateTime, formatterNumber } = useFormatter('en-US')
 
-const B24 = new B24Hook( B24HookConfig )
-B24.setLogger(LoggerBrowser.build('Core', true))
+const $b24 = new B24Hook( B24HookConfig )
+$b24.setLogger(LoggerBrowser.build('Core', true))
 
+/**
+ * @todo fix error
+ */
+const $b24Characteristics = new B24CharacteristicsManager($b24 as unknown as TypeB24)
+
+const appDataRevision: Ref<number> = ref(0)
 let result: IResult = reactive(new Result())
 
 interface IStatus {
@@ -78,14 +84,20 @@ const status: Ref<IStatus> = ref({
 	}
 } as IStatus)
 
-const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync(
+const b24Characteristics: Ref<B24CharacteristicsManager|null> = computedAsync(
 	async () => {
-		const B24Characteristics = new CharacteristicsManager(B24 as unknown as TypeB24)
-		await B24Characteristics.loadData([
+		/**
+		 * @memo usage for called dependencies changes
+		 */
+		if(appDataRevision.value)
+		{}
+		
+		
+		await $b24Characteristics.loadData([
 			LoadDataType.Profile
 		])
 		
-		return B24Characteristics;
+		return $b24Characteristics;
 	},
 	null,
 	{
@@ -136,7 +148,7 @@ const makeSelectItemsList_v1 = async () =>
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'Testing Sequential Calls'
-		status.value.messages.push(`In the loop we call B24.callMethod one after another ${listCallToMax.value} times.`)
+		status.value.messages.push(`In the loop we call $b24.callMethod one after another ${listCallToMax.value} times.`)
 		status.value.messages.push('With a large number of requests, B24 will start to pause between calls.')
 		status.value.progress.value = 0
 		status.value.progress.max = listCallToMax.value
@@ -153,9 +165,9 @@ const makeSelectItemsList_v1 = async () =>
 				{
 					status.value.progress.value++
 				}
-				logger.log(`>> Testing Sequential Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
+				$logger.log(`>> Testing Sequential Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
 				
-				await B24.callMethod(
+				await $b24.callMethod(
 					'user.current'
 				)
 			}
@@ -165,7 +177,7 @@ const makeSelectItemsList_v1 = async () =>
 		})
 		.catch((error: Error|string) => {
 			result.addError(error)
-			logger.error(error)
+			$logger.error(error)
 		})
 		.finally(() => {stopMakeProcess()})
 }
@@ -193,12 +205,12 @@ async function makeSelectItemsList_v2()
 			{
 				iterator--
 				list.push(
-					B24.callMethod(
+					$b24.callMethod(
 						'user.current',
 						{}
 					).finally(() => {
 						(status.value.progress.value as number)++
-						logger.log(`>> Testing Parallel Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
+						$logger.log(`>> Testing Parallel Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
 					})
 				)
 			}
@@ -210,7 +222,7 @@ async function makeSelectItemsList_v2()
 		})
 		.catch((error: Error|string) => {
 			result.addError(error)
-			logger.error(error)
+			$logger.error(error)
 		})
 		.finally(() => {stopMakeProcess()})
 }
@@ -231,26 +243,26 @@ async function makeSelectItemsList_v3()
 		return resolve(null)
 	})
 		.then(async () => {
-			return B24.callListMethod(
+			return $b24.callListMethod(
 				'crm.item.list',
 				{
 					entityTypeId: EnumCrmEntityTypeId.company,
 				},
 				(progress: number) => {
 					status.value.progress.value = progress
-					logger.log(`>> Getting All Elements >>> ${ status.value.progress.value }`)
+					$logger.log(`>> Getting All Elements >>> ${ status.value.progress.value }`)
 				},
 				'items'
 			)
 				.then((response) => {
 					const ttl = response.getData().length
-					logger.log(`>> Getting All Elements >>> ttl: ${ ttl }`)
+					$logger.log(`>> Getting All Elements >>> ttl: ${ ttl }`)
 					status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
 				})
 		})
 		.catch((error: Error|string) => {
 			result.addError(error)
-			logger.error(error)
+			$logger.error(error)
 		})
 		.finally(() => {stopMakeProcess()})
 }
@@ -273,7 +285,7 @@ async function makeSelectItemsList_v4()
 		return resolve(null)
 	})
 		.then(async () => {
-			let generator = B24.fetchListMethod(
+			let generator = $b24.fetchListMethod(
 				'crm.item.list',
 				{
 					entityTypeId: EnumCrmEntityTypeId.company,
@@ -293,7 +305,7 @@ async function makeSelectItemsList_v4()
 				for(let entity of entities)
 				{
 					ttl++;
-					logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ ttl } ...`, entity)
+					$logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ ttl } ...`, entity)
 					
 					status.value.processInfo = `[id:${entity.id}] ${entity.title}`
 				}
@@ -302,7 +314,7 @@ async function makeSelectItemsList_v4()
 		})
 		.catch((error: Error|string) => {
 			result.addError(error)
-			logger.error(error)
+			$logger.error(error)
 		})
 		.finally(() => {stopMakeProcess()})
 }
@@ -352,15 +364,15 @@ async function makeSelectItemsList_v5()
 				})
 			}
 			
-			logger.info('Testing the batch processing work >> send >>> ', commands)
-			return B24.callBatch(
+			$logger.info('Testing the batch processing work >> send >>> ', commands)
+			return $b24.callBatch(
 				commands,
 				true
 			)
 		})
 		.then((response: Result) => {
 			let data: any = response.getData()
-			logger.info('Testing the batch processing work >> response >>> ', data)
+			$logger.info('Testing the batch processing work >> response >>> ', data)
 			
 			status.value.resultInfo = `It was add: ${ needAdd.value } elements`
 		})
@@ -373,7 +385,7 @@ async function makeSelectItemsList_v5()
 		})
 		.catch((error: Error|string) => {
 			result.addError(error)
-			logger.error(error)
+			$logger.error(error)
 		})
 		.finally(() => {stopMakeProcess()})
 }
@@ -423,15 +435,15 @@ async function makeSelectItemsList_v6()
 			}
 		}
 		
-		logger.info('Testing the batch fetch work >> send >>> ', commands)
-		return B24.callBatch(
+		$logger.info('Testing the batch fetch work >> send >>> ', commands)
+		return $b24.callBatch(
 			commands,
 			true
 		)
 	})
 	.then((response: Result) => {
 		let data: any = response.getData()
-		logger.info('Testing the batch fetch work >> response >>> ', data)
+		$logger.info('Testing the batch fetch work >> response >>> ', data)
 		
 		const assigned = data.getAssigned[0] as UserBrief | null
 		
@@ -450,7 +462,7 @@ async function makeSelectItemsList_v6()
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {stopMakeProcess()})
 }

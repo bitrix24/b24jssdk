@@ -8,7 +8,9 @@ import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
 import type { TypeB24 } from '@bitrix24/b24jssdk/types/b24'
 import { B24LangList } from '@bitrix24/b24jssdk/core/language/list'
 import { B24Frame, type SelectedUser, type SelectCRMParams, type SelectedCRMEntity, type SelectedAccess } from '@bitrix24/b24jssdk/frame'
-import { CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
+import { B24CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
+import { B24PullClientManager } from '@bitrix24/b24jssdk/pullClient'
+import { type TypePullMessage } from '@bitrix24/b24jssdk/types/pull'
 import { LoadDataType } from '@bitrix24/b24jssdk/types/characteristics'
 import type { B24FrameQueryParams } from '@bitrix24/b24jssdk/types/auth'
 import type { StatusClose } from '@bitrix24/b24jssdk/types/slider'
@@ -36,13 +38,16 @@ definePageMeta({
 })
 
 // region Init ////
-const logger = LoggerBrowser.build(
+const $logger = LoggerBrowser.build(
 	'Demo: Frame',
 	true
 )
 
-let B24: B24Frame
-let B24Characteristics: null|CharacteristicsManager = null
+let $b24: B24Frame
+let $b24Characteristics: null|B24CharacteristicsManager = null
+let $b24PullClient: B24PullClientManager
+// @todo move to CharacteristicsManager
+let $b24PullClientUnSubscribe: Function[] = []
 
 const is404: Ref<boolean> = ref(false)
 const isInit: Ref<boolean> = ref(false)
@@ -52,7 +57,7 @@ const { formatterDateTime, formatterNumber } = useFormatter('en-US')
 const { t, locales, setLocale } = useI18n()
 const b24CurrentLang: Ref<string> = ref(B24LangList.en)
 
-const defTabIndex = ref(5)
+const defTabIndex = ref(6)
 const valueForCurrency = ref(123456.789)
 const tabsItems = [
 	{
@@ -130,6 +135,52 @@ const status: Ref<IStatus> = ref({
 	}
 } as IStatus)
 
+onMounted(async () => {
+	try
+	{
+		$b24 = await initializeB24Frame()
+		$b24.setLogger(LoggerBrowser.build('Core', true))
+		b24CurrentLang.value = $b24.getLang()
+		
+		if(locales.value.filter(i => i.code === b24CurrentLang.value).length > 0)
+		{
+			setLocale(b24CurrentLang.value)
+			$logger.log('setLocale >>>', b24CurrentLang.value)
+		}
+		else
+		{
+			$logger.warn('not support locale >>>', b24CurrentLang.value)
+		}
+		
+		await $b24.parent.setTitle('[playgrounds] Testing Frame')
+		
+		/**
+		 * @todo fix error
+		 */
+		$b24Characteristics = new B24CharacteristicsManager($b24 as unknown as TypeB24)
+		
+		isInit.value = true
+		
+		await makeFitWindow()
+	}
+	catch(error: any)
+	{
+		result.addError(error)
+		$logger.error(error)
+	}
+})
+
+onUnmounted(() => {
+	if(isInit.value)
+	{
+		$b24.destroy()
+		
+		// @todo move to CharacteristicsManager
+		$b24PullClientUnSubscribe.forEach(UnsubscribeCallback => UnsubscribeCallback())
+		$b24PullClient.destroy()
+	}
+})
+
 const initializeB24Frame = async (): Promise<B24Frame> => {
 	const queryParams: B24FrameQueryParams = {
 		DOMAIN: null,
@@ -155,56 +206,17 @@ const initializeB24Frame = async (): Promise<B24Frame> => {
 	
 	const b24Frame = new B24Frame(queryParams)
 	await b24Frame.init()
-	logger.log('b24Frame:mounted')
+	$logger.log('b24Frame:mounted')
 	
 	return b24Frame
 }
 
-onMounted(async () => {
-	try
-	{
-		B24 = await initializeB24Frame()
-		B24.setLogger(LoggerBrowser.build('Core', true))
-		b24CurrentLang.value = B24.getLang()
-		
-		if(locales.value.filter(i => i.code === b24CurrentLang.value).length > 0)
-		{
-			setLocale(b24CurrentLang.value)
-			logger.log('setLocale >>>', b24CurrentLang.value)
-		}
-		else
-		{
-			logger.warn('not support locale >>>', b24CurrentLang.value)
-		}
-		
-		await B24.parent.setTitle('[playgrounds] Testing Frame')
-		
-		B24Characteristics = new CharacteristicsManager(B24 as unknown as TypeB24)
-		
-		isInit.value = true
-		
-		await makeFitWindow()
-	}
-	catch(error: any)
-	{
-		result.addError(error)
-		logger.error(error)
-	}
-})
-
-onUnmounted(() => {
-	if(isInit.value)
-	{
-		B24.destroy()
-	}
-})
-
 /**
  * @link https://vueuse.org/core/computedAsync/
  */
-const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync (
+const b24Characteristics: Ref<B24CharacteristicsManager|null> = computedAsync (
 	async () => {
-		if(null === B24Characteristics)
+		if(null === $b24Characteristics)
 		{
 			throw new Error(`B24Characteristics not init`)
 		}
@@ -215,7 +227,7 @@ const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync (
 		if(appDataRevision.value)
 		{}
 		
-		await B24Characteristics.loadData([
+		await $b24Characteristics.loadData([
 			LoadDataType.Profile,
 			LoadDataType.App,
 			LoadDataType.Currency,
@@ -223,6 +235,7 @@ const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync (
 			LoadDataType.UserOptions,
 		])
 		
+		// @todo remove this
 		if(!isInit.value)
 		{
 			isInit.value = true
@@ -230,22 +243,54 @@ const b24Characteristics: Ref<CharacteristicsManager|null> = computedAsync (
 		
 		await makeFitWindow()
 		
-		return B24Characteristics;
+		// @todo move to CharacteristicsManager
+		// @todo application move to CharacteristicsManager
+		//$b24Characteristics.initializeB24PullClient(
+		initializeB24PullClient(
+			$b24Characteristics.profileInfo.data.id || 0,
+			'test',
+			'applicationtest'
+		)
+		
+		return $b24Characteristics
 	},
 	null,
 	{
 		lazy: true
 	}
 )
+// endregion ////
 
+// region Pull ////
+const initializeB24PullClient = (
+	userId: number,
+	prefix: string = 'prefix',
+	moduleId: string = 'application'
+): void => {
+	
+	$b24PullClient = new B24PullClientManager({
+		b24: $b24,
+		restApplication: $b24.auth.getUniq(prefix),
+		userId: userId
+	})
+	
+	// @todo make by app || by module
+	$b24PullClientUnSubscribe.push(
+		$b24PullClient.subscribe({
+		moduleId: moduleId,
+		callback: makeSendPullCommandHandler.bind(this)
+	})
+	)
+	
+	$b24PullClient.start()
+}
 // endregion ////
 
 // region Actions ////
-
 const makeFitWindow = async () => {
 	window.setTimeout(() => {
-		B24.parent.fitWindow()
-		//B24.parent.resizeWindowAuto()
+		$b24.parent.fitWindow()
+		//$b24.parent.resizeWindowAuto()
 	}, 200)
 }
 
@@ -296,16 +341,16 @@ const makeReloadWindow = async () => {
 	status.value.progress.indicator = false
 	status.value.progress.value = null
 	
-	return B24.parent.reloadWindow()
+	return $b24.parent.reloadWindow()
 	.catch((error: Error|string) => {
 		result.addError(error);
-		logger.error(error);
+		$logger.error(error);
 	})
 }
 
 const makeOpenSliderForUser = async (userId: number) => {
-	return B24.slider.openPath(
-		B24.slider.getUrl(`/company/personal/user/${userId}/`),
+	return $b24.slider.openPath(
+		$b24.slider.getUrl(`/company/personal/user/${userId}/`),
 		950
 	)
 	.then((response: StatusClose) => {
@@ -314,17 +359,17 @@ const makeOpenSliderForUser = async (userId: number) => {
 			&& response.isClose
 		)
 		{
-			logger.info("Slider is closed! Reinit the application")
+			$logger.info("Slider is closed! Reinit the application")
 			isInit.value = false
 			appDataRevision.value += 1
 		}
-		logger.warn(response)
+		$logger.warn(response)
 	})
 }
 
 const makeOpenSliderEditCurrency = async (currencyCode: string) => {
-	return B24.slider.openPath(
-		B24.slider.getUrl(`/crm/configs/currency/edit/${currencyCode}/`),
+	return $b24.slider.openPath(
+		$b24.slider.getUrl(`/crm/configs/currency/edit/${currencyCode}/`),
 		950
 	)
 	.then((response: StatusClose) => {
@@ -333,17 +378,17 @@ const makeOpenSliderEditCurrency = async (currencyCode: string) => {
 			&& response.isClose
 		)
 		{
-			logger.info("Slider is closed! Reinit the application")
+			$logger.info("Slider is closed! Reinit the application")
 			isInit.value = false
 			appDataRevision.value += 1
 		}
-		logger.warn(response)
+		$logger.warn(response)
 	})
 }
 
 const makeOpenSliderAddCurrency = async () => {
-	return B24.slider.openPath(
-		B24.slider.getUrl(`/crm/configs/currency/add/`),
+	return $b24.slider.openPath(
+		$b24.slider.getUrl(`/crm/configs/currency/add/`),
 		950
 	)
 	.then((response: StatusClose) => {
@@ -352,28 +397,28 @@ const makeOpenSliderAddCurrency = async () => {
 			&& response.isClose
 		)
 		{
-			logger.info("Slider is closed! Reinit the application")
+			$logger.info("Slider is closed! Reinit the application")
 			isInit.value = false
 			appDataRevision.value += 1
 		}
-		logger.warn(response)
+		$logger.warn(response)
 	})
 }
 
 const makeOpenPage = async (url: string) => {
-	return B24.slider.openPath(
-		B24.slider.getUrl(url),
+	return $b24.slider.openPath(
+		$b24.slider.getUrl(url),
 		950
 	)
 }
 
 const makeOpenUfList = async (url: string) => {
 	
-	const path = B24.slider.getUrl(url)
+	const path = $b24.slider.getUrl(url)
 	path.searchParams.set('moduleId', 'crm')
 	path.searchParams.set('entityId', 'CRM_DEAL')
 	
-	return B24.slider.openPath(
+	return $b24.slider.openPath(
 		path,
 		950
 	)
@@ -393,11 +438,11 @@ const makeImCallTo = async (isVideo: boolean = true) => {
 		return resolve(null)
 	})
 	.then(async () => {
-		status.value.messages.push('use B24.dialog.selectUser to select a user')
+		status.value.messages.push('use $b24.dialog.selectUser to select a user')
 		
-		const selectedUser = await B24.dialog.selectUser()
+		const selectedUser = await $b24.dialog.selectUser()
 		
-		logger.info(selectedUser)
+		$logger.info(selectedUser)
 		
 		if(selectedUser)
 		{
@@ -405,8 +450,8 @@ const makeImCallTo = async (isVideo: boolean = true) => {
 			{
 				return Promise.reject(new Error('You can\'t make a call to yourself'))
 			}
-			status.value.messages.push('use B24.parent.imCallTo to initiate a call via intercom')
-			return B24.parent.imCallTo(
+			status.value.messages.push('use $b24.parent.imCallTo to initiate a call via intercom')
+			return $b24.parent.imCallTo(
 				Number(selectedUser.id),
 				isVideo
 			)
@@ -416,7 +461,7 @@ const makeImCallTo = async (isVideo: boolean = true) => {
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {stopMakeProcess()})
 }
@@ -426,7 +471,7 @@ const makeImPhoneTo = async () => {
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'test ImPhoneTo'
-		status.value.messages.push('use B24.parent.imPhoneTo to make call')
+		status.value.messages.push('use $b24.parent.imPhoneTo to make call')
 		
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
@@ -453,13 +498,13 @@ const makeImPhoneTo = async () => {
 			return Promise.reject(new Error('Empty phone number'))
 		}
 		
-		return B24.parent.imPhoneTo(
+		return $b24.parent.imPhoneTo(
 			phone
 		)
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {stopMakeProcess()})
 }
@@ -469,7 +514,7 @@ const makeImOpenMessenger = async () => {
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'test imOpenMessenger'
-		status.value.messages.push('use B24.parent.imOpenMessenger to open a chat window')
+		status.value.messages.push('use $b24.parent.imOpenMessenger to open a chat window')
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
@@ -502,13 +547,13 @@ const makeImOpenMessenger = async () => {
 			dialogId = Number(dialogId)
 		}
 		
-		return B24.parent.imOpenMessenger(
+		return $b24.parent.imOpenMessenger(
 			dialogId
 		)
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {stopMakeProcess()})
 }
@@ -518,7 +563,7 @@ const makeImOpenMessengerWithYourself = async () => {
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'test imOpenMessenger'
-		status.value.messages.push('use B24.parent.imOpenMessenger to open a chat window with yourself')
+		status.value.messages.push('use $b24.parent.imOpenMessenger to open a chat window with yourself')
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
@@ -527,13 +572,13 @@ const makeImOpenMessengerWithYourself = async () => {
 		return resolve(null)
 	})
 	.then(async () => {
-		return B24.parent.imOpenMessenger(
+		return $b24.parent.imOpenMessenger(
 			(b24Characteristics.value?.profileInfo.data.id || 0)
 		)
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {stopMakeProcess()})
 }
@@ -559,7 +604,7 @@ const makeImOpenHistory = async () => {
 	}
 	
 	debugger
-	return B24.parent.imOpenHistory(
+	return $b24.parent.imOpenHistory(
 		dialogId
 	)
 }
@@ -568,8 +613,8 @@ const makeSelectUsers = async () => {
 	return new Promise((resolve) => {
 		reInitStatus()
 		status.value.isProcess = true
-		status.value.title = 'test B24.dialog.selectUsers'
-		status.value.messages.push('use B24.dialog.selectUsers to select a user')
+		status.value.title = 'test $b24.dialog.selectUsers'
+		status.value.messages.push('use $b24.dialog.selectUsers to select a user')
 		
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
@@ -579,9 +624,9 @@ const makeSelectUsers = async () => {
 		return resolve(null)
 	})
 	.then(async () => {
-		const selectedUsers = await B24.dialog.selectUsers()
+		const selectedUsers = await $b24.dialog.selectUsers()
 		
-		logger.info(selectedUsers)
+		$logger.info(selectedUsers)
 		
 		const list = selectedUsers.map((row: SelectedUser): string => {
 			return [
@@ -599,7 +644,7 @@ const makeSelectUsers = async () => {
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {stopMakeProcess()})
 }
@@ -611,8 +656,8 @@ const makeSelectAccess = async () => {
 	return new Promise((resolve) => {
 		reInitStatus()
 		status.value.isProcess = true
-		status.value.title = 'test B24.dialog.selectAccess'
-		status.value.messages.push('using B24.dialog.selectAccess displays the standard access permission selection dialog')
+		status.value.title = 'test $b24.dialog.selectAccess'
+		status.value.messages.push('using $b24.dialog.selectAccess displays the standard access permission selection dialog')
 		
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
@@ -628,11 +673,11 @@ const makeSelectAccess = async () => {
 		const blockedAccessPermissions: string[] = [
 			'CR', 'AU'
 		]
-		const selectedAccess = await B24.dialog.selectAccess(
+		const selectedAccess = await $b24.dialog.selectAccess(
 			blockedAccessPermissions
 		)
 		
-		logger.info(selectedAccess)
+		$logger.info(selectedAccess)
 		
 		const list = selectedAccess.map((row: SelectedAccess): string => {
 			return [
@@ -650,7 +695,7 @@ const makeSelectAccess = async () => {
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {stopMakeProcess()})
 }
@@ -662,8 +707,8 @@ const makeSelectCRM = async () => {
 	return new Promise((resolve) => {
 		reInitStatus()
 		status.value.isProcess = true
-		status.value.title = 'test B24.dialog.selectCRM'
-		status.value.messages.push('using B24.dialog.selectCRM invokes a system dialog to select a CRM entity')
+		status.value.title = 'test $b24.dialog.selectCRM'
+		status.value.messages.push('using $b24.dialog.selectCRM invokes a system dialog to select a CRM entity')
 		
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
@@ -685,11 +730,11 @@ const makeSelectCRM = async () => {
 			}
 		}
 		
-		const selectedCRMEntity = await B24.dialog.selectCRM(
+		const selectedCRMEntity = await $b24.dialog.selectCRM(
 			params
 		)
 		
-		logger.info(selectedCRMEntity)
+		$logger.info(selectedCRMEntity)
 		
 		const list = []
 		
@@ -756,7 +801,7 @@ const makeSelectCRM = async () => {
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {stopMakeProcess()})
 }
@@ -768,8 +813,8 @@ const makeShowAppForm = async () => {
 	return new Promise((resolve) => {
 		reInitStatus()
 		status.value.isProcess = true
-		status.value.title = 'test B24.slider.showAppForm'
-		status.value.messages.push('using B24.slider.showAppForm @todo')
+		status.value.title = 'test $b24.slider.showAppForm'
+		status.value.messages.push('using $b24.slider.showAppForm @todo')
 		
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
@@ -779,15 +824,95 @@ const makeShowAppForm = async () => {
 		return resolve(null)
 	})
 	.then(async () => {
-		return B24.slider.showAppForm({
+		return $b24.slider.showAppForm({
 			data: '123'
 		})
 	})
 	.catch((error: Error|string) => {
 		result.addError(error)
-		logger.error(error)
+		$logger.error(error)
 	})
 	.finally(() => {stopMakeProcess()})
+}
+// endregion ////
+
+// region Actions.Pull ////
+// @todo fix this ////
+// @todo application move to CharacteristicsManager
+const makeSendPullCommand = async (
+	command: string,
+	params: Record<string, any> = {},
+	moduleId: string = 'application'
+) => {
+	return new Promise((resolve) => {
+		reInitStatus()
+		status.value.isProcess = true
+		status.value.title = 'test pull.application.event.add'
+		status.value.messages.push('use $b24.dialog.selectUsers to select a user')
+		status.value.messages.push('use pull.application.event.add for send event')
+		
+		status.value.progress.animation = true
+		status.value.progress.indicator = false
+		status.value.progress.value = null
+		status.value.time.start = new Date()
+		
+		return resolve(null)
+	})
+	.then(async () => {
+		const selectedUsers = await $b24.dialog.selectUsers()
+		const list = selectedUsers.map((row: SelectedUser): string => {
+			return [
+				`[id: ${row.id}]`,
+				row.name,
+			].join(' ')
+		})
+		
+		if(list.length < 1)
+		{
+			list.push('~ empty ~')
+		}
+		
+		params.userList = list
+		
+		$logger.warn('>> pull.send >>>', params)
+		
+		return $b24.callMethod(
+			'pull.application.event.add',
+			{
+				COMMAND: command,
+				PARAMS: params,
+				MODULE_ID: moduleId
+			}
+		)
+	})
+	.catch((error: Error|string) => {
+		result.addError(error)
+		$logger.error(error)
+	})
+	.finally(() => {stopMakeProcess()})
+}
+
+/**
+ * @todo make by app || by module
+ */
+const makeSendPullCommandHandler = (message: TypePullMessage): void => {
+	if(!status.value.isProcess)
+	{
+		reInitStatus()
+		status.value.isProcess = true
+		status.value.title = 'test pull.application.event.add'
+		status.value.messages.push('use $b24.dialog.selectUsers to select a user')
+		status.value.messages.push('use pull.application.event.add for send event')
+		
+		status.value.progress.animation = false
+		status.value.progress.indicator = false
+		status.value.progress.value = null
+		status.value.time.start = new Date()
+	}
+	$logger.warn('<< pull.get <<<', message)
+	status.value.resultInfo = `command: ${message.command}; params: ${JSON.stringify(message.params)}`
+	
+	stopMakeProcess()
 }
 // endregion ////
 
@@ -811,7 +936,7 @@ const problemMessageList = (result: IResult) => {
 watch(defTabIndex, async () => {
 	await nextTick()
 	
-	await B24.parent.fitWindow()
+	await $b24.parent.fitWindow()
 })
 
 </script>
@@ -871,7 +996,7 @@ watch(defTabIndex, async () => {
 					</div>
 					<div class="ml-4 w-0 flex-1">
 						<Info>
-							Scopes: <code>user_brief</code>, <code>crm</code><br><br>
+							Scopes: <code>user_brief</code>, <code>crm</code>, <code>pull</code>, <code>@todo pull_channel</code><br><br>
 							To view query results, open the developer console.
 						</Info>
 					</div>
@@ -1203,6 +1328,19 @@ watch(defTabIndex, async () => {
 													</div>
 													<div class="text-nowrap truncate">Telephony</div>
 												</button>
+												
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeSendPullCommand('test', {data: Date.now()}, 'applicationtest')"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<TelephonyHandset6Icon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">Pull</div>
+												</button>
+												
 											</div>
 											<div class="flex-1">
 												<div class="px-lg2 py-sm2 border border-base-100 rounded-lg col-auto md:col-span-2 lg:col-span-1 bg-white">

@@ -13,7 +13,7 @@ definePageMeta({
 const isDevelopment: Ref<boolean> = ref(import.meta.env?.DEV === true);
 const debugMessage: Ref<string> = ref('This is a test message for debugging.');
 
-const logger = LoggerBrowser.build(
+const $logger = LoggerBrowser.build(
 	'Demo: Logger',
 	isDevelopment.value
 );
@@ -28,22 +28,22 @@ function makeLog(type: LoggerType): void
 	switch(type)
 	{
 		case LoggerType.desktop:
-			logger.desktop(debugMessage.value)
+			$logger.desktop(debugMessage.value)
 		break;
 		case LoggerType.log:
-			logger.log(debugMessage.value)
+			$logger.log(debugMessage.value)
 		break;
 		case LoggerType.info:
-			logger.info(debugMessage.value)
+			$logger.info(debugMessage.value)
 		break;
 		case LoggerType.warn:
-			logger.warn(debugMessage.value)
+			$logger.warn(debugMessage.value)
 		break;
 		case LoggerType.error:
-			logger.error(debugMessage.value)
+			$logger.error(debugMessage.value)
 		break;
 		case LoggerType.trace:
-			logger.trace(debugMessage.value)
+			$logger.trace(debugMessage.value)
 		break;
 	}
 }
@@ -58,14 +58,14 @@ function makeLoggAll(): void
 
 function toggleLogger(type: LoggerType): void
 {
-	logger.info(`toggle done ...`)
-	if(logger.isEnabled(type))
+	$logger.info(`toggle done ...`)
+	if($logger.isEnabled(type))
 	{
-		logger.disable(type)
+		$logger.disable(type)
 		return
 	}
 	
-	logger.enable(type)
+	$logger.enable(type)
 	return
 }
 
@@ -78,13 +78,16 @@ type LoggerTypeList = {
 }
 
 const loggerTypeList: ComputedRef<LoggerTypeList[]> = computed<LoggerTypeList[]>(() => {
+	
 	return Object.keys(LoggerType).map((key: string) => {
+		// @ts-ignore
+		const loggerType = LoggerType[key]
 		const row = {
 			index: key,
 			description: '?',
-			type: LoggerType[key],
-			isEnabled: computed<boolean>(() => logger.isEnabled(LoggerType[key])),
-			state: ref(logger.isEnabled(LoggerType[key]))
+			type: loggerType,
+			isEnabled: computed<boolean>(() => $logger.isEnabled(loggerType)),
+			state: ref($logger.isEnabled(loggerType))
 		} as LoggerTypeList
 
 		switch(row.type)
@@ -117,7 +120,7 @@ const loggerTypeList: ComputedRef<LoggerTypeList[]> = computed<LoggerTypeList[]>
 
 <template>
 	<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">LoggerBrowser</h1>
-	<p>Testing the logger.</p>
+	<p>Testing the logger</p>
 	<Info>To view the result, open the developer console.</Info>
 	
 	<div class="mt-12 sm:grid sm:grid-cols-3 sm:divide-x sm:divide-base-100">

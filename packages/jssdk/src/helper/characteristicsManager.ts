@@ -21,7 +21,7 @@ import type { GenderString } from '../types/common'
 /**
  * A universal class that is used to manage the initial application data
  */
-export class CharacteristicsManager
+export class B24CharacteristicsManager
 {
 	private readonly _b24: TypeB24
 	protected _logger: null|LoggerBrowser = null

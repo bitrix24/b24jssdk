@@ -39,13 +39,13 @@ export abstract class AbstractB24
 	
 	}
 	
-	setLogger(logger: LoggerBrowser): void
+	public setLogger(logger: LoggerBrowser): void
 	{
 		this._logger = logger
 		this.getHttpClient().setLogger(this.getLogger())
 	}
 	
-	getLogger(): LoggerBrowser
+	public getLogger(): LoggerBrowser
 	{
 		if(null === this._logger)
 		{

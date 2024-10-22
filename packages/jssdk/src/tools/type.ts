@@ -63,7 +63,7 @@ export default class Type
 	{
 		return !!value && (typeof value === 'object' || typeof value === 'function')
 	}
-
+	
 	/**
 	 * Checks that value is object like
 	 * @param value

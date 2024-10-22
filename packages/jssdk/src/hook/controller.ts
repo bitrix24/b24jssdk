@@ -36,7 +36,7 @@ export class B24Hook
 		this._isInit = true
 	}
 	
-	override setLogger(logger: LoggerBrowser): void
+	public override setLogger(logger: LoggerBrowser): void
 	{
 		super.setLogger(logger)
 	}

@@ -70,4 +70,5 @@ export type AuthData = {
 export interface AuthActions {
 	getAuthData: () => false|AuthData,
 	refreshAuth: () => Promise<AuthData>,
+	getUniq: (prefix: string) => string
 }

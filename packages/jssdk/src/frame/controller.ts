@@ -61,7 +61,7 @@ export class B24Frame
 		this._isInit = false
 	}
 	
-	override setLogger(logger: LoggerBrowser): void
+	public override setLogger(logger: LoggerBrowser): void
 	{
 		super.setLogger(logger)
 		this.#messageManager.setLogger(this.getLogger())

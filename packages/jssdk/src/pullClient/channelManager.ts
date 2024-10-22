@@ -120,14 +120,18 @@ export class ChannelManager
 	{
 		publicIds.forEach((publicIdDescriptor: TypePublicIdDescriptor) => {
 			const userId = Number(publicIdDescriptor.user_id)
+			/**
+			 * @todo test this
+			 */
+			debugger
 			this._publicIds.set(
 				userId,
 				{
 					userId: userId,
 					publicId: publicIdDescriptor.public_id,
 					signature: publicIdDescriptor.signature,
-					start: new Date(Number(publicIdDescriptor.start)),
-					end: new Date(Number(publicIdDescriptor.end))
+					start: new Date(publicIdDescriptor.start),
+					end: new Date(publicIdDescriptor.end)
 				} as TypeChanel
 			)
 		})

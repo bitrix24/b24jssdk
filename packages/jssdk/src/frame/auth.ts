@@ -91,6 +91,14 @@ export class AuthManager
 		});
 	}
 	
+	getUniq (prefix: string): string
+	{
+		return [
+			prefix,
+			this.#memberId || ''
+		].join('_')
+	}
+	
 	/**
 	 * Determines whether the current user has administrator rights
 	 *

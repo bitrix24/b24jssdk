@@ -1,5 +1,4 @@
 import { LoggerBrowser, LoggerType } from '../logger/browser'
-import { Utils } from './utils'
 import Type from '../tools/type'
 import Text from '../tools/text'
 import Browser from '../tools/browser'
@@ -145,8 +144,11 @@ export class PullClient
 	private _channelManager: ChannelManager
 	private _jsonRpcAdapter: null|JsonRpc = null
 	
-	// @todo fix this ////
-	private _notificationPopup: null = null
+	/**
+	 * @depricate
+	 * @private
+	 */
+	// private _notificationPopup: null = null
 	
 	// timers ////
 	private _checkInterval: null|number = null
@@ -317,6 +319,16 @@ export class PullClient
 		}
 		
 		return this._logger
+	}
+	
+	destroy(): void
+	{
+		this.stop(
+			CloseReasons.NORMAL_CLOSURE,
+			'manual stop'
+		)
+		
+		this.onBeforeUnload()
 	}
 	
 	/**
@@ -726,9 +738,11 @@ export class PullClient
 	 * @done
 	 * @param config
 	 */
-	public async start(config: TypePullClientConfig & {
-		skipReconnectToLastSession?: boolean
-	}): Promise<boolean>
+	public async start(
+		config: null|TypePullClientConfig & {
+			skipReconnectToLastSession?: boolean
+		} = null
+	): Promise<boolean>
 	{
 		let allowConfigCaching = true
 
@@ -756,11 +770,11 @@ export class PullClient
 		}
 
 		let skipReconnectToLastSession = false
-		if(Type.isPlainObject(config))
+		if(!!config && Type.isPlainObject(config))
 		{
-			if(typeof config.skipReconnectToLastSession !== 'undefined')
+			if(typeof config?.skipReconnectToLastSession !== 'undefined')
 			{
-				skipReconnectToLastSession = !!config.skipReconnectToLastSession
+				skipReconnectToLastSession = config.skipReconnectToLastSession
 				delete config.skipReconnectToLastSession
 			}
 			
@@ -1234,7 +1248,7 @@ export class PullClient
 	public async getUsersLastSeen(userList: number[]): Promise<Record<number, number>>
 	{
 		if(
-			!Utils.isArray(userList)
+			!Type.isArray(userList)
 			|| !userList.every(item => typeof (item) === 'number')
 		)
 		{
@@ -1636,7 +1650,7 @@ export class PullClient
 		if(config.publicChannels)
 		{
 			this.setPublicIds(
-				Utils.objectValues(config.publicChannels)
+				Array.from(Object.values(config.publicChannels))
 			)
 		}
 
@@ -1677,10 +1691,6 @@ export class PullClient
 	 */
 	private setPublicIds(publicIds: TypePublicIdDescriptor[]): void
 	{
-		/**
-		 * @todo test this
-		 */
-		debugger
 		this._channelManager.setPublicIds(publicIds)
 	}
 	// endregion ////
@@ -1809,8 +1819,8 @@ export class PullClient
 	 * @done
 	 */
 	public stop(
-		disconnectCode: number|CloseReasons,
-		disconnectReason: string
+		disconnectCode: number|CloseReasons = CloseReasons.NORMAL_CLOSURE,
+		disconnectReason: string = 'manual stop'
 	): void
 	{
 		this.disconnect(
@@ -2853,12 +2863,12 @@ export class PullClient
 		this.getLogger().warn(text)
 		
 		/*/
-		if(this.notificationPopup || typeof BX.PopupWindow === 'undefined')
+		if(this._notificationPopup || typeof BX.PopupWindow === 'undefined')
 		{
 			return;
 		}
 
-		this.notificationPopup = new BX.PopupWindow('bx-notifier-popup-confirm', null, {
+		this._notificationPopup = new BX.PopupWindow('bx-notifier-popup-confirm', null, {
 			zIndex: 200,
 			autoHide: false,
 			closeByEsc: false,
@@ -2872,16 +2882,16 @@ export class PullClient
 					text: BX.message('JS_CORE_WINDOW_CLOSE'),
 					className: "popup-window-button-decline",
 					events: {
-						click: () => this.notificationPopup.close(),
+						click: () => this._notificationPopup.close(),
 					}
 				})
 			],
 			events: {
-				onPopupClose: () => this.notificationPopup.destroy(),
-				onPopupDestroy: () => this.notificationPopup = null,
+				onPopupClose: () => this._notificationPopup.destroy(),
+				onPopupDestroy: () => this._notificationPopup = null,
 			}
 		});
-		this.notificationPopup.show();
+		this._notificationPopup.show();
 		//*/
 	}
 
@@ -3007,9 +3017,7 @@ export class PullClient
 					? this._config?.server.long_pooling_secure
 					: this._config?.server.long_polling
 			break
-			default:
-				throw new Error(`Unknown connection type ${connectionType}`)
-			break
+			default: throw new Error(`Unknown connection type ${connectionType}`)
 		}
 
 		if(!Type.isStringFilled(path))
@@ -3116,7 +3124,7 @@ export class PullClient
 			CHANNEL_ID: channels.join('/')
 		}
 
-		return path + '?' + Utils.buildQueryString(params)
+		return path + '?' + Text.buildQueryString(params)
 	}
 	// endregion ////
 	

@@ -1,12 +1,7 @@
 import { LoggerBrowser } from '../logger/browser'
-import {JsonRpc} from "../pull/jsonRpc";
-import type {TypeB24} from "./b24";
-import type {ISODate, NumberString} from "./common";
-import {PullClient} from "../pull/client";
+import type { TypeB24 } from './b24'
+import type { ISODate, NumberString } from './common'
 
-const CONFIG_TTL = 24 * 60 * 60;
-
-// @todo fix this. see at pull.ts
 export type TypePullMessage = {
 	command: string,
 	params: Record<string, any>,
@@ -151,7 +146,7 @@ export type TypeSubscriptionOptions = {
 }
 
 export interface UserStatusCallback {
-	({
+	(params: {
 		userId: number,
 		isOnline: boolean
 	}): void
@@ -182,8 +177,8 @@ export interface CommandHandlerFunctionV2 {
 export interface TypeSubscriptionCommandHandler {
 	getModuleId: () => string,
 	getSubscriptionType?: () => SubscriptionType,
-	getMap?: () => Record<string, CommandHandlerFunction>,
-	[key: string]: CommandHandlerFunction | undefined
+	getMap?: () => Record<string, CommandHandlerFunctionV2>,
+	[key: string]: CommandHandlerFunctionV2 | undefined
 }
 
 export type TypePullClientEmitConfig = {
@@ -362,7 +357,7 @@ export type TypePullClientConfig = {
 		websocket_enabled: boolean,
 		websocket_secure: string
 	},
-	jwt: null,
+	jwt: null|string,
 	exp: number
 }
 

@@ -62,6 +62,10 @@
 		"./helper/*": {
 			"types": "./dist/helper/*.d.ts",
 			"default": "./dist/helper/*.mjs"
+		},
+		"./pullClient": {
+			"types": "./dist/pullClient/index.d.ts",
+			"default": "./dist/pullClient/index.mjs"
 		}
 	},
 	"main": "./dist/index.cjs",

@@ -283,6 +283,7 @@ const initializeB24PullClient = (
 	)
 	
 	$b24PullClient.start()
+	
 }
 // endregion ////
 

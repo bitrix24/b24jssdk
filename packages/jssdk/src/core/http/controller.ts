@@ -2,7 +2,7 @@ import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import type {TypeHttp, TypeRestrictionManagerParams} from '../../types/http'
 import { default as RestrictionManager } from './restrictionManager'
 import { Result } from '../result'
-import { AjaxError } from './ajaxError'
+import {AjaxError, type AjaxErrorParams} from './ajaxError'
 import { AjaxResult } from './ajaxResult'
 import type { AjaxQuery, AjaxResultParams } from './ajaxResult'
 import type { AuthActions, AuthData, AuthError } from '../../types/auth'
@@ -322,6 +322,15 @@ export default class Http
 			},
 			async (problem: AxiosError) =>
 			{
+				const problemError: AjaxError = new AjaxError({
+					status: problem.response?.status || 0,
+					answerError: {
+						error: problem.code,
+						errorDescription: problem.message
+					},
+					cause: problem
+				} as AjaxErrorParams)
+				
 				/**
 				 * Is response status === 401 -> refresh Auth
 				 */
@@ -360,7 +369,8 @@ export default class Http
 						})
 					}
 				}
-				return Promise.reject(problem)
+				
+				return Promise.reject(problemError)
 			}
 
 		)

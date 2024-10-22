@@ -112,9 +112,7 @@ export class PullClient
 	private _skipStorageInit: boolean
 	private _skipCheckRevision: boolean
 	
-	// @todo fix this ////
 	private _subscribers: Record<string, any> = {}
-	// @todo fix this ////
 	private _watchTagsQueue: Map<string, boolean> = new Map()
 	private _watchUpdateInterval: number = 1_740_000
 	private _watchForceUpdateInterval: number = 5_000
@@ -136,7 +134,6 @@ export class PullClient
 	
 	private _isSecure: boolean
 	
-	// @todo fix this ////
 	private _config: null|TypePullClientConfig = null
 	
 	private _storage: null|TypeStorageManager = null
@@ -165,7 +162,6 @@ export class PullClient
 	// bound event handlers ////
 	private _onPingTimeoutHandler: () => void
 	
-	// @todo fix this ////
 	// [userId] => array of callbacks
 	private _userStatusCallbacks: Record<number, UserStatusCallback[]> = {}
 	
@@ -820,7 +816,7 @@ export class PullClient
 					allowConfigCaching
 				)
 				this.init()
-				this.updateWatch()
+				this.updateWatch(true)
 				this.startCheckConfig()
 				
 				this.connect()
@@ -1094,7 +1090,7 @@ export class PullClient
 	
 	/**
 	 * @done
-	 * @todo fix return type
+	 * @memo fix return type
 	 * @param users
 	 * @param publicIds
 	 */
@@ -1257,7 +1253,7 @@ export class PullClient
 		
 		let result: Record<number, number> = {}
 		
-		return new Promise((resolve) => {
+		return new Promise((resolve, reject) => {
 			this._jsonRpcAdapter?.executeOutgoingRpcCommand(
 				RpcMethod.GetUsersLastSeen,
 				{
@@ -1266,10 +1262,8 @@ export class PullClient
 			)
 			.then((response: any) => {
 				/**
-				 * @todo fix this
+				 * @memo fix this
 				 */
-				debugger
-				
 				let unresolved = []
 				for(let i = 0; i < userList.length; i++)
 				{
@@ -1293,11 +1287,10 @@ export class PullClient
 					'pull.api.user.getLastSeen',
 					params
 				)
-				.then(response => {
+				.then((response: AjaxResult) => {
 					/**
-					 * @todo fix this
+					 * @memo fix this
 					 */
-					debugger
 					let data = (response.getData() as Payload<Record<NumberString, NumberString>>).result
 					for (let userId in data)
 					{
@@ -1308,7 +1301,12 @@ export class PullClient
 				})
 				.catch(error => {
 					this.getLogger().error(error)
+					reject(error)
 				})
+			})
+			.catch(error => {
+				this.getLogger().error(error)
+				reject(error)
 			})
 		})
 	}
@@ -1474,10 +1472,6 @@ export class PullClient
 				}
 			)
 			.then((response) => {
-				/**
-				 * @todo test this
-				 */
-				debugger
 				const data = response.getData().result
 				
 				let timeShift
@@ -1490,21 +1484,21 @@ export class PullClient
 
 				resolve(config)
 			})
-			.catch((response: AjaxError) => {
+			.catch((error) => {
 				/**
 				 * @todo test this
 				 */
 				debugger
 				
 				if (
-					response.answerError.error === 'AUTHORIZE_ERROR'
-					|| response.answerError.error === 'WRONG_AUTH_TYPE'
+					error?.answerError?.error === 'AUTHORIZE_ERROR'
+					|| error?.answerError?.error === 'WRONG_AUTH_TYPE'
 				)
 				{
-					response.status = 403;
+					error.status = 403;
 				}
 				
-				reject(response)
+				reject(error)
 			})
 			.finally(() => {
 				this._restClient.getHttpClient().clearLogTag()
@@ -1631,10 +1625,6 @@ export class PullClient
 		allowCaching: boolean
 	): void
 	{
-		/**
-		 * @todo test this
-		 */
-		debugger
 		for(let key in config)
 		{
 			if(
@@ -1879,7 +1869,7 @@ export class PullClient
 		{
 			/**
 			 * never fallback to long polling
-			 * @todo remove long polling support later
+			 * @memo remove long polling support later
 			 */
 			/*/
 			if(
@@ -2249,10 +2239,6 @@ export class PullClient
 				continue
 			}
 			
-			/**
-			 * @todo test this
-			 */
-			debugger
 			result.push(data as TypeSessionEvent)
 		}
 		
@@ -3183,7 +3169,7 @@ export class PullClient
 	// region _watchTagsQueue ////
 	/**
 	 * @done
-	 * @todo private ?
+	 * @memo if private ?
 	 * @param tagId
 	 * @param force
 	 */
@@ -3220,9 +3206,8 @@ export class PullClient
 		this._watchUpdateTimeout = setTimeout(
 			() => {
 				/**
-				 * @todo test this
+				 * @memo test this
 				 */
-				debugger
 				const watchTags = Array.from(this._watchTagsQueue.keys())
 				
 				if(watchTags.length > 0)
@@ -3236,9 +3221,8 @@ export class PullClient
 					.then((response: AjaxResult) => {
 						
 						/**
-						 * @todo test this
+						 * @memo test this
 						 */
-						debugger
 						const updatedTags: NumberString[] = (response.getData() as Payload<NumberString[]>).result
 						
 						updatedTags.forEach((tagId: NumberString) => this.clearWatch(tagId))
@@ -3437,8 +3421,8 @@ export class PullClient
 	// region onCustomEvent ////
 	/**
 	 * @done
-	 * @todo may be need use onCustomEvent
-	 * @todo wtf ? force
+	 * @memo may be need use onCustomEvent
+	 * @memo wtf ? force
 	 */
 	private onCustomEvent(
 		eventName: string,

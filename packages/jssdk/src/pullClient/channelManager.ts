@@ -91,9 +91,8 @@ export class ChannelManager
 				const data = (response.getData() as Payload<TypePublicIdDescriptor>).result
 				
 				/**
-				 * @todo fix this
+				 * @memo test this
 				 */
-				debugger
 				this.setPublicIds(Object.values(data))
 				
 				unknownUsers.forEach((userId) => {
@@ -120,10 +119,6 @@ export class ChannelManager
 	{
 		publicIds.forEach((publicIdDescriptor: TypePublicIdDescriptor) => {
 			const userId = Number(publicIdDescriptor.user_id)
-			/**
-			 * @todo test this
-			 */
-			debugger
 			this._publicIds.set(
 				userId,
 				{

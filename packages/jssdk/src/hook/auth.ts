@@ -28,6 +28,7 @@ export class AuthHookManager
 		const domain = this.#b24HookParams.b24Url
 			.replaceAll('https://', '')
 			.replaceAll('http://', '')
+			.replace(/:(80|443)$/, '');
 		
 		return {
 			access_token: this.#b24HookParams.secret,

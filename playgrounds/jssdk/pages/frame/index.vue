@@ -277,9 +277,9 @@ const initializeB24PullClient = (
 	// @todo make by app || by module
 	$b24PullClientUnSubscribe.push(
 		$b24PullClient.subscribe({
-		moduleId: moduleId,
-		callback: makeSendPullCommandHandler.bind(this)
-	})
+			moduleId: moduleId,
+			callback: makeSendPullCommandHandler.bind(this)
+		})
 	)
 	
 	$b24PullClient.start()
@@ -997,7 +997,7 @@ watch(defTabIndex, async () => {
 					</div>
 					<div class="ml-4 w-0 flex-1">
 						<Info>
-							Scopes: <code>user_brief</code>, <code>crm</code>, <code>pull</code>, <code>@todo pull_channel</code><br><br>
+							Scopes: <code>user_brief</code>, <code>crm</code>, <code>pull</code>, <code>pull_channel</code><br><br>
 							To view query results, open the developer console.
 						</Info>
 					</div>

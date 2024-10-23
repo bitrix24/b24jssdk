@@ -8,7 +8,6 @@ import {
 	B24LangList,
 	B24Frame,
 	B24HelperManager,
-	B24PullClientManager,
 	LoadDataType,
 	useFormatter
 } from '@bitrix24/b24jssdk'
@@ -51,7 +50,6 @@ const $logger = LoggerBrowser.build(
 
 let $b24: B24Frame
 let $b24Helper: null|B24HelperManager = null
-let $b24PullClient: B24PullClientManager
 
 const is404: Ref<boolean> = ref(false)
 const isInit: Ref<boolean> = ref(false)
@@ -258,6 +256,7 @@ const b24Characteristics: Ref<null|B24HelperManager> = computedAsync(
 )
 // endregion ////
 
+// region Actions ////
 const isSliderMode = computed((): boolean => {
 	if(!isInit.value)
 	{
@@ -266,7 +265,7 @@ const isSliderMode = computed((): boolean => {
 	
 	return $b24?.placement.isSliderMode
 })
-// region Actions ////
+
 const makeFitWindow = async () => {
 	window.setTimeout(() => {
 		$b24.parent.fitWindow()

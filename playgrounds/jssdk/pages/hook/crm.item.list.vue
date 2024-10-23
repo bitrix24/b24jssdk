@@ -6,14 +6,17 @@ import AlertIcon from '@bitrix24/b24icons-vue/button/AlertIcon'
 import FileDownloadIcon from '@bitrix24/b24icons-vue/main/FileDownloadIcon'
 import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
 
-import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
-import { B24Hook } from '@bitrix24/b24jssdk/hook'
-import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk/types/crm'
-import Text from "@bitrix24/b24jssdk/tools/text"
-import { useFormatter } from "@bitrix24/b24jssdk/tools/useFormatters"
-import { type ISODate } from "@bitrix24/b24jssdk/types/common"
+import {
+	LoggerBrowser,
+	Result,
+	B24Hook,
+	EnumCrmEntityTypeId,
+	Text,
+	useFormatter
+} from '@bitrix24/b24jssdk'
+import type { IResult, ISODate } from '@bitrix24/b24jssdk'
 
-import Info from "../../components/Info.vue"
+import Info from '../../components/Info.vue'
 
 definePageMeta({
 	layout: "page"

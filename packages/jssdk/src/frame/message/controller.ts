@@ -1,4 +1,4 @@
-import { LoggerBrowser, LoggerType } from '../../index'
+import { LoggerBrowser, LoggerType } from '../../logger/browser'
 
 import { MessageCommands } from './commands'
 import { AppFrame } from '../frame'

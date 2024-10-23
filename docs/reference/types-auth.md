@@ -12,10 +12,10 @@ These types help structure data related to OAuth authorization and interaction w
 ### AuthError
 
 ```ts
-import {type AuthError } from '@bitrix24/b24jssdk/types/auth'
+import {type TypeDescriptionError } from '@bitrix24/b24jssdk/types/auth'
 ```
 
-`AuthError` describes the structure of an authorization error:
+`TypeDescriptionError` describes the structure of an authorization error:
 
 | Field               | Type     | Description                                           |
 |---------------------|----------|-------------------------------------------------------|

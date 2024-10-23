@@ -31,14 +31,20 @@ const unescapeEntities: Record<string, string> = {
  *
  * @see bitrix/js/main/core/src/lib/text.js
  */
-export default class Text
+class TextManager
 {
+	getRandom(length = 8): string
+	{
+		// eslint-disable-next-line
+		return [...Array(length)].map(() => (~~(Math.random() * 36)).toString(36)).join('')
+	}
+	
 	/**
 	 * Encodes all unsafe entities
 	 * @param {string} value
 	 * @return {string}
 	 */
-	static encode(value: string): string
+	encode(value: string): string
 	{
 		if (Type.isString(value))
 		{
@@ -53,7 +59,7 @@ export default class Text
 	 * @param {string} value
 	 * @return {string}
 	 */
-	static decode(value: string): string
+	decode(value: string): string
 	{
 		if (Type.isString(value))
 		{
@@ -62,17 +68,11 @@ export default class Text
 
 		return value
 	}
-
-	static getRandom(length = 8): string
-	{
-		// eslint-disable-next-line
-		return [...Array(length)].map(() => (~~(Math.random() * 36)).toString(36)).join('')
-	}
 	
 	/**
 	 * Generates UUID
 	 */
-	static getUniqId(): string
+	getUniqId(): string
 	{
 		return 'xxxxxxxx-xlsx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
 			const r = Math.random() * 16 | 0
@@ -81,7 +81,7 @@ export default class Text
 		})
 	}
 
-	static toNumber(value: any): number
+	toNumber(value: any): number
 	{
 		const parsedValue = Number.parseFloat(value)
 
@@ -93,18 +93,18 @@ export default class Text
 		return 0
 	}
 
-	static toInteger(value: any): number
+	toInteger(value: any): number
 	{
-		return Text.toNumber(Number.parseInt(value, 10))
+		return this.toNumber(Number.parseInt(value, 10))
 	}
 
-	static toBoolean(value: any, trueValues = []): boolean
+	toBoolean(value: any, trueValues = []): boolean
 	{
 		const transformedValue = Type.isString(value) ? value.toLowerCase() : value
 		return ['true', 'y', '1', 1, true, ...trueValues].includes(transformedValue)
 	}
 	
-	static toCamelCase(str: string): string
+	toCamelCase(str: string): string
 	{
 		if (!Type.isStringFilled(str))
 		{
@@ -123,7 +123,7 @@ export default class Text
 		return str[0].toLowerCase() + str.substring(1)
 	}
 
-	static toPascalCase(str: string): string
+	toPascalCase(str: string): string
 	{
 		if (!Type.isStringFilled(str))
 		{
@@ -133,7 +133,7 @@ export default class Text
 		return this.capitalize(this.toCamelCase(str))
 	}
 
-	static toKebabCase(str: string): string
+	toKebabCase(str: string): string
 	{
 		if (!Type.isStringFilled(str))
 		{
@@ -149,7 +149,7 @@ export default class Text
 		return matches.map(x => x.toLowerCase()).join('-')
 	}
 
-	static capitalize(str: string): string
+	capitalize(str: string): string
 	{
 		if (!Type.isStringFilled(str))
 		{
@@ -159,7 +159,7 @@ export default class Text
 		return str[0].toUpperCase() + str.substring(1)
 	}
 	
-	static numberFormat(
+	numberFormat(
 		number: number,
 		decimals: number = 0,
 		decPoint: string = '.',
@@ -200,7 +200,7 @@ export default class Text
 	 * console.log(Text.toDate('2023-10-04 14:05:56', 'Y-m-d H:i:s')); // Wed Oct 04 2023 14:05:56 GMT+0000
 	 * console.log(Text.toDate('2023-10-04T14:05:56+03:00', 'Y-m-dTH:i:sZ')); // Wed Oct 04 2023 11:05:56 GMT+0000
 	 */
-	static toDate (
+	toDate (
 		dateString: string,
 		template: string = 'Y-m-dTH:i:sZ'
 	): Date
@@ -280,14 +280,14 @@ export default class Text
 		))
 	}
 	
-	static getDateForLog(): string
+	getDateForLog(): string
 	{
 		const d = new Date()
 		
-		return `${d.getFullYear()}-${Text.lpad(d.getMonth().toString(), 2, '0')}-${Text.lpad(d.getDate().toString(), 2, '0')} ${Text.lpad(d.getHours().toString(), 2, '0')}:${Text.lpad(d.getMinutes().toString(), 2, '0')}`
+		return `${d.getFullYear()}-${this.lpad(d.getMonth().toString(), 2, '0')}-${this.lpad(d.getDate().toString(), 2, '0')} ${this.lpad(d.getHours().toString(), 2, '0')}:${this.lpad(d.getMinutes().toString(), 2, '0')}`
 	}
 	
-	static lpad(
+	lpad(
 		str: string,
 		length: number,
 		chr: string = ' '
@@ -307,7 +307,7 @@ export default class Text
 		return result + str
 	}
 	
-	static buildQueryString(params: any): string
+	buildQueryString(params: any): string
 	{
 		let result = ''
 		for(let key in params)
@@ -338,3 +338,7 @@ export default class Text
 		return result
 	}
 }
+
+const Text = new TextManager()
+
+export default Text

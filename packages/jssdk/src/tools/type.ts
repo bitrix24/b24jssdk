@@ -2,12 +2,12 @@ const objectCtorString = Function.prototype.toString.call(Object)
 
 /**
  * The `Type` class is designed to check and determine data types
- * 
+ *
  * @see bitrix/js/main/core/src/lib/type.js
  */
-export default class Type
+class TypeManager
 {
-	static getTag(value: any): string
+	getTag(value: any): string
 	{
 		return Object.prototype.toString.call(value)
 	}
@@ -19,7 +19,7 @@ export default class Type
 	 *
 	 * @memo get from pull.client.Utils
 	 */
-	static isString(value: any): boolean
+	isString(value: any): boolean
 	{
 		return value === ''
 			? true
@@ -35,9 +35,9 @@ export default class Type
 	 * @param value
 	 * @returns {boolean}
 	 */
-	static isStringFilled(value: any): boolean
+	isStringFilled(value: any): boolean
 	{
-		return Type.isString(value) && value !== ''
+		return this.isString(value) && value !== ''
 	}
 
 	/**
@@ -47,7 +47,7 @@ export default class Type
 	 *
 	 * @memo get from pull.client.Utils
 	 */
-	static isFunction(value: any): boolean
+	isFunction(value: any): boolean
 	{
 		return value === null
 			? false
@@ -59,7 +59,7 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isObject(value: any): boolean
+	isObject(value: any): boolean
 	{
 		return !!value && (typeof value === 'object' || typeof value === 'function')
 	}
@@ -69,7 +69,7 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isObjectLike(value: any): boolean
+	isObjectLike(value: any): boolean
 	{
 		return !!value && typeof value === 'object'
 	}
@@ -79,9 +79,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isPlainObject(value: any): boolean
+	isPlainObject(value: any): boolean
 	{
-		if (!Type.isObjectLike(value) || Type.getTag(value) !== '[object Object]')
+		if (!this.isObjectLike(value) || this.getTag(value) !== '[object Object]')
 		{
 			return false
 		}
@@ -100,25 +100,25 @@ export default class Type
 		)
 	}
 	
-	static isJsonRpcRequest(value: any): boolean
+	isJsonRpcRequest(value: any): boolean
 	{
 		return (
 			typeof (value) === 'object'
 			&& value
 			&& 'jsonrpc' in value
-			&& Type.isStringFilled(value.jsonrpc)
+			&& this.isStringFilled(value.jsonrpc)
 			&& 'method' in value
-			&& Type.isStringFilled(value.method)
+			&& this.isStringFilled(value.method)
 		)
 	}
 
-	static isJsonRpcResponse(value: any): boolean
+	isJsonRpcResponse(value: any): boolean
 	{
 		return (
 			typeof (value) === "object"
 			&& value
 			&& 'jsonrpc' in value
-			&& Type.isStringFilled(value.jsonrpc)
+			&& this.isStringFilled(value.jsonrpc)
 			&& 'id' in value
 			&& (
 				'result' in value
@@ -132,7 +132,7 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isBoolean(value: any): boolean
+	isBoolean(value: any): boolean
 	{
 		return value === true || value === false
 	}
@@ -142,7 +142,7 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isNumber(value: any): boolean
+	isNumber(value: any): boolean
 	{
 		return !Number.isNaN(value) && typeof value === 'number'
 	}
@@ -152,9 +152,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isInteger(value: any): boolean
+	isInteger(value: any): boolean
 	{
-		return Type.isNumber(value) && (value % 1) === 0
+		return this.isNumber(value) && (value % 1) === 0
 	}
 
 	/**
@@ -162,9 +162,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isFloat(value: any): boolean
+	isFloat(value: any): boolean
 	{
-		return Type.isNumber(value) && !Type.isInteger(value)
+		return this.isNumber(value) && !this.isInteger(value)
 	}
 
 	/**
@@ -172,7 +172,7 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isNil(value: any): boolean
+	isNil(value: any): boolean
 	{
 		return value === null || value === undefined
 	}
@@ -182,9 +182,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isArray(value: any): boolean
+	isArray(value: any): boolean
 	{
-		return !Type.isNil(value) && Array.isArray(value)
+		return !this.isNil(value) && Array.isArray(value)
 	}
 
 	/**
@@ -192,9 +192,9 @@ export default class Type
 	 * @param value
 	 * @returns {boolean}
 	 */
-	static isArrayFilled(value: any): boolean
+	isArrayFilled(value: any): boolean
 	{
-		return Type.isArray(value) && value.length > 0
+		return this.isArray(value) && value.length > 0
 	}
 
 	/**
@@ -202,11 +202,11 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isArrayLike(value: any): boolean
+	isArrayLike(value: any): boolean
 	{
 		return (
-			!Type.isNil(value)
-			&& !Type.isFunction(value)
+			!this.isNil(value)
+			&& !this.isFunction(value)
 			&& value.length > -1
 			&& value.length <= Number.MAX_SAFE_INTEGER
 		)
@@ -217,9 +217,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isDate(value: any): boolean
+	isDate(value: any): boolean
 	{
-		return Type.isObjectLike(value) && Type.getTag(value) === '[object Date]'
+		return this.isObjectLike(value) && this.getTag(value) === '[object Date]'
 	}
 
 	/**
@@ -227,9 +227,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isDomNode(value: any): boolean
+	isDomNode(value: any): boolean
 	{
-		return Type.isObjectLike(value) && !Type.isPlainObject(value) && 'nodeType' in value
+		return this.isObjectLike(value) && !this.isPlainObject(value) && 'nodeType' in value
 	}
 
 	/**
@@ -237,9 +237,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isElementNode(value: any): boolean
+	isElementNode(value: any): boolean
 	{
-		return Type.isDomNode(value) && value.nodeType === Node.ELEMENT_NODE
+		return this.isDomNode(value) && value.nodeType === Node.ELEMENT_NODE
 	}
 
 	/**
@@ -247,9 +247,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isTextNode(value: any): boolean
+	isTextNode(value: any): boolean
 	{
-		return Type.isDomNode(value) && value.nodeType === Node.TEXT_NODE
+		return this.isDomNode(value) && value.nodeType === Node.TEXT_NODE
 	}
 
 	/**
@@ -257,9 +257,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isMap(value: any): boolean
+	isMap(value: any): boolean
 	{
-		return Type.isObjectLike(value) && Type.getTag(value) === '[object Map]'
+		return this.isObjectLike(value) && this.getTag(value) === '[object Map]'
 	}
 
 	/**
@@ -267,9 +267,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isSet(value: any): boolean
+	isSet(value: any): boolean
 	{
-		return Type.isObjectLike(value) && Type.getTag(value) === '[object Set]'
+		return this.isObjectLike(value) && this.getTag(value) === '[object Set]'
 	}
 
 	/**
@@ -277,9 +277,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isWeakMap(value: any): boolean
+	isWeakMap(value: any): boolean
 	{
-		return Type.isObjectLike(value) && Type.getTag(value) === '[object WeakMap]'
+		return this.isObjectLike(value) && this.getTag(value) === '[object WeakMap]'
 	}
 
 	/**
@@ -287,9 +287,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isWeakSet(value: any): boolean
+	isWeakSet(value: any): boolean
 	{
-		return Type.isObjectLike(value) && Type.getTag(value) === '[object WeakSet]'
+		return this.isObjectLike(value) && this.getTag(value) === '[object WeakSet]'
 	}
 
 	/**
@@ -297,7 +297,7 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isPrototype(value: any): boolean
+	isPrototype(value: any): boolean
 	{
 		return (
 			(((typeof (value && value.constructor) === 'function') && value.constructor.prototype) || Object.prototype) === value
@@ -309,9 +309,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isRegExp(value: any): boolean
+	isRegExp(value: any): boolean
 	{
-		return Type.isObjectLike(value) && Type.getTag(value) === '[object RegExp]'
+		return this.isObjectLike(value) && this.getTag(value) === '[object RegExp]'
 	}
 
 	/**
@@ -319,7 +319,7 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isNull(value: any): boolean
+	isNull(value: any): boolean
 	{
 		return value === null
 	}
@@ -329,7 +329,7 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isUndefined(value: any): boolean
+	isUndefined(value: any): boolean
 	{
 		return typeof value === 'undefined'
 	}
@@ -339,9 +339,9 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isArrayBuffer(value: any): boolean
+	isArrayBuffer(value: any): boolean
 	{
-		return Type.isObjectLike(value) && Type.getTag(value) === '[object ArrayBuffer]'
+		return this.isObjectLike(value) && this.getTag(value) === '[object ArrayBuffer]'
 	}
 
 	/**
@@ -349,12 +349,12 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isTypedArray(value: any): boolean
+	isTypedArray(value: any): boolean
 	{
 		const regExpTypedTag = (
 			/^\[object (?:Float(?:32|64)|(?:Int|Uint)(?:8|16|32)|Uint8Clamped)]$/
 		)
-		return Type.isObjectLike(value) && regExpTypedTag.test(Type.getTag(value))
+		return this.isObjectLike(value) && regExpTypedTag.test(this.getTag(value))
 	}
 
 	/**
@@ -362,13 +362,13 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isBlob(value: any): boolean
+	isBlob(value: any): boolean
 	{
 		return (
-			Type.isObjectLike(value)
-			&& Type.isNumber(value.size)
-			&& Type.isString(value.type)
-			&& Type.isFunction(value.slice)
+			this.isObjectLike(value)
+			&& this.isNumber(value.size)
+			&& this.isString(value.type)
+			&& this.isFunction(value.slice)
 		)
 	}
 
@@ -377,12 +377,12 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isFile(value: any): boolean
+	isFile(value: any): boolean
 	{
 		return (
-			Type.isBlob(value)
-			&& Type.isString(value.name)
-			&& (Type.isNumber(value.lastModified) || Type.isObjectLike(value.lastModifiedDate))
+			this.isBlob(value)
+			&& this.isString(value.name)
+			&& (this.isNumber(value.lastModified) || this.isObjectLike(value.lastModifiedDate))
 		)
 	}
 
@@ -391,12 +391,12 @@ export default class Type
 	 * @param value
 	 * @return {boolean}
 	 */
-	static isFormData(value: any): boolean
+	isFormData(value: any): boolean
 	{
 		return value instanceof FormData
 	}
 	
-	static clone(
+	clone(
 		obj: any,
 		bCopyObj: boolean = true
 	): any
@@ -408,20 +408,20 @@ export default class Type
 			return null
 		}
 		
-		if(Type.isDomNode(obj))
+		if(this.isDomNode(obj))
 		{
 			_obj = obj.cloneNode(bCopyObj)
 		}
 		else if(typeof obj == 'object')
 		{
-			if (Type.isArray(obj))
+			if (this.isArray(obj))
 			{
 				_obj = []
 				for (i = 0, l = obj.length; i < l; i++)
 				{
 					if (typeof obj[i] == "object" && bCopyObj)
 					{
-						_obj[i] = Type.clone(obj[i], bCopyObj)
+						_obj[i] = this.clone(obj[i], bCopyObj)
 					}
 					else
 					{
@@ -434,7 +434,7 @@ export default class Type
 				_obj = {}
 				if (obj.constructor)
 				{
-					if (Type.isDate(obj))
+					if (this.isDate(obj))
 					{
 						_obj = new Date(obj)
 					}
@@ -452,7 +452,7 @@ export default class Type
 					}
 					if (typeof obj[i] === "object" && bCopyObj)
 					{
-						_obj[i] = Type.clone(obj[i], bCopyObj)
+						_obj[i] = this.clone(obj[i], bCopyObj)
 					}
 					else
 					{
@@ -470,3 +470,7 @@ export default class Type
 		return _obj
 	}
 }
+
+const Type = new TypeManager()
+
+export default Type

@@ -1,6 +1,6 @@
-import type { NumberString } from "./common";
+import type { NumberString } from './common'
 
-export type AuthError = {
+export type TypeDescriptionError = {
 	readonly error: 'invalid_token'|'expired_token'|string
 	readonly error_description: string
 }

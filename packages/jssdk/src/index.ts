@@ -1,5 +1,10 @@
 export * from './logger/browser'
+
 export * from './types/common'
+import Type from './tools/type'
+import Text from './tools/text'
+import Browser from './tools/browser'
+
 export * from './types/http'
 export * from './types/b24'
 export * from './types/auth'
@@ -20,13 +25,12 @@ export * from './core/http/controller'
 export * from './core/abstractB24'
 export * from './core/language/list'
 
-export * from './tools/type'
-export * from './tools/text'
-export * from './tools/browser'
 export * from './tools/scrollSize'
 export * from './tools/useFormatters'
 
 export * from './hook/index'
 export * from './frame/index'
-export * from './helper/characteristicsManager'
+export * from './helper/helperManager'
 export * from './pullClient/index'
+
+export { Type, Text, Browser }

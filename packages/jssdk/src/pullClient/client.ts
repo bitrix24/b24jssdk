@@ -246,7 +246,6 @@ export class PullClient
 			? 'pull.channel.public.list'
 			: params.getPublicListMethod || ''
 		
-		
 		this._skipStorageInit = params.skipStorageInit === true
 		this._skipCheckRevision = params.skipCheckRevision === true;
 		
@@ -327,7 +326,6 @@ export class PullClient
 		
 		this.onBeforeUnload()
 	}
-	
 	
 	/**
 	 * @done
@@ -1977,17 +1975,12 @@ export class PullClient
 				resolve(config)
 			})
 			.catch((error) => {
-				/**
-				 * @todo test this
-				 */
-				debugger
-				
-				if (
+				if(
 					error?.answerError?.error === 'AUTHORIZE_ERROR'
 					|| error?.answerError?.error === 'WRONG_AUTH_TYPE'
 				)
 				{
-					error.status = 403;
+					(error as AjaxError).status = 403;
 				}
 				
 				reject(error)

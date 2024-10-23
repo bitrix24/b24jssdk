@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
-import { LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk/logger/browser';
-import Info from '../../components/Info.vue'
-import Toggle from '../../components/Toggle.vue'
+import { LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk';
 import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
 import SendIcon from '@bitrix24/b24icons-vue/main/SendIcon'
+import Info from '../../components/Info.vue'
+import Toggle from '../../components/Toggle.vue'
 
 definePageMeta({
 	layout: "page"

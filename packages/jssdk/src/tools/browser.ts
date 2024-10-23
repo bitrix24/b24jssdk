@@ -5,63 +5,63 @@ const UA = navigator?.userAgent.toLowerCase() || '?'
 /**
  * @see bitrix/js/main/core/src/lib/browser.js
  */
-export default class Browser
+class BrowserManager
 {
-	static isOpera(): boolean
+	isOpera(): boolean
 	{
 		return UA.includes('opera')
 	}
 
-	static isIE(): boolean
+	isIE(): boolean
 	{
-		return ('attachEvent' in document) && !Browser.isOpera()
+		return ('attachEvent' in document) && !this.isOpera()
 	}
 
-	static isIE6(): boolean
+	isIE6(): boolean
 	{
 		return UA.includes('msie 6')
 	}
 
-	static isIE7(): boolean
+	isIE7(): boolean
 	{
 		return UA.includes('msie 7')
 	}
 
-	static isIE8(): boolean
+	isIE8(): boolean
 	{
 		return UA.includes('msie 8')
 	}
 
-	static isIE9(): boolean
+	isIE9(): boolean
 	{
 		// @ts-ignore ////
 		return ('documentMode' in document) && document.documentMode >= 9
 	}
 
-	static isIE10(): boolean
+	isIE10(): boolean
 	{
 		// @ts-ignore ////
 		return ('documentMode' in document) && document.documentMode >= 10
 	}
 
-	static isSafari(): boolean
+	isSafari(): boolean
 	{
 		return UA.includes('safari') && !UA.includes('chrome')
 	}
 
-	static isFirefox()
+	isFirefox()
 	{
 		return UA.includes('firefox')
 	}
 
-	static isChrome()
+	isChrome()
 	{
 		return UA.includes('chrome')
 	}
 
-	static detectIEVersion()
+	detectIEVersion()
 	{
-		if (Browser.isOpera() || Browser.isSafari() || Browser.isFirefox() || Browser.isChrome())
+		if (this.isOpera() || this.isSafari() || this.isFirefox() || this.isChrome())
 		{
 			return -1
 		}
@@ -78,15 +78,15 @@ export default class Browser
 		{
 			rv = 11
 		}
-		else if (Browser.isIE10())
+		else if (this.isIE10())
 		{
 			rv = 10
 		}
-		else if (Browser.isIE9())
+		else if (this.isIE9())
 		{
 			rv = 9
 		}
-		else if (Browser.isIE())
+		else if (this.isIE())
 		{
 			rv = 8
 		}
@@ -131,63 +131,63 @@ export default class Browser
 		return rv
 	}
 
-	static isIE11(): boolean
+	isIE11(): boolean
 	{
-		return Browser.detectIEVersion() >= 11
+		return this.detectIEVersion() >= 11
 	}
 
-	static isMac(): boolean
+	isMac(): boolean
 	{
 		return UA.includes('macintosh')
 	}
 
-	static isWin(): boolean
+	isWin(): boolean
 	{
 		return UA.includes('windows')
 	}
 
-	static isLinux(): boolean
+	isLinux(): boolean
 	{
-		return UA.includes('linux') && !Browser.isAndroid()
+		return UA.includes('linux') && !this.isAndroid()
 	}
 
-	static isAndroid(): boolean
+	isAndroid(): boolean
 	{
 		return UA.includes('android')
 	}
 
-	static isIPad(): boolean
+	isIPad(): boolean
 	{
 		return UA.includes('ipad;') || (this.isMac() && this.isTouchDevice())
 	}
 
-	static isIPhone(): boolean
+	isIPhone(): boolean
 	{
 		return UA.includes('iphone;')
 	}
 
-	static isIOS(): boolean
+	isIOS(): boolean
 	{
-		return Browser.isIPad() || Browser.isIPhone()
+		return this.isIPad() || this.isIPhone()
 	}
 
-	static isMobile(): boolean
+	isMobile(): boolean
 	{
 		return (
-			Browser.isIPhone()
-			|| Browser.isIPad()
-			|| Browser.isAndroid()
+			this.isIPhone()
+			|| this.isIPad()
+			|| this.isAndroid()
 			|| UA.includes('mobile')
 			|| UA.includes('touch')
 		);
 	}
 
-	static isRetina(): boolean
+	isRetina(): boolean
 	{
 		return (window.devicePixelRatio && window.devicePixelRatio >= 2) === true
 	}
 
-	static isTouchDevice(): boolean
+	isTouchDevice(): boolean
 	{
 		return (
 			('ontouchstart' in window)
@@ -197,7 +197,7 @@ export default class Browser
 		);
 	}
 
-	static isDoctype(target: any): boolean
+	isDoctype(target: any): boolean
 	{
 		const doc = target || document
 
@@ -209,7 +209,7 @@ export default class Browser
 		return (doc.documentElement && doc.documentElement.clientHeight)
 	}
 
-	static isLocalStorageSupported(): boolean
+	isLocalStorageSupported(): boolean
 	{
 		try
 		{
@@ -223,7 +223,7 @@ export default class Browser
 		}
 	}
 	
-	static detectAndroidVersion(): number
+	detectAndroidVersion(): number
 	{
 		const re = new RegExp('Android ([0-9]+[.0-9]*)')
 
@@ -242,3 +242,7 @@ export default class Browser
 		return 0;
 	}
 }
+
+const Browser = new BrowserManager()
+
+export default Browser

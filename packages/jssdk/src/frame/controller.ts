@@ -1,6 +1,5 @@
 import { LoggerBrowser } from '../logger/browser'
 import { AbstractB24 } from '../core/abstractB24'
-import type { TypeB24 } from '../types/b24'
 import Http from '../core/http/controller'
 import { AppFrame } from './frame'
 import { MessageManager, MessageCommands } from './message'
@@ -11,6 +10,8 @@ import { OptionsManager } from './options'
 import { DialogManager } from './dialog';
 import { SliderManager } from './slider'
 import { PlacementManager } from './placement'
+import type { TypeB24 } from '../types/b24'
+import type { AuthActions } from '../types/auth'
 
 import type {
 	MessageInitData,
@@ -85,7 +86,7 @@ export class B24Frame
 		return this.#parentManager
 	}
 	
-	get auth(): AuthManager
+	override get auth(): AuthActions
 	{
 		this._ensureInitialized()
 		return this.#authManager

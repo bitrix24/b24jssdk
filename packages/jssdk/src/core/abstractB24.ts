@@ -4,6 +4,7 @@ import { AjaxResult } from './http/ajaxResult'
 import type { TypeB24 } from '../types/b24'
 import type { TypeHttp } from '../types/http'
 import type { ListPayload } from '../types/payloads'
+import type { AuthActions } from '../types/auth'
 
 export abstract class AbstractB24
 	implements TypeB24
@@ -68,6 +69,8 @@ export abstract class AbstractB24
 	// endregion ////
 	
 	// region Core ////
+	abstract get auth(): AuthActions
+	
 	/**
 	 * @inheritDoc
 	 */
@@ -83,14 +86,14 @@ export abstract class AbstractB24
 	 */
 	callMethod(
 		method: string,
-		params: object = {},
-		start: number = 0
+		params?: object,
+		start?: number
 	): Promise<AjaxResult>
 	{
 		return this.getHttpClient().call(
 			method,
-			params,
-			start
+			params || {},
+			start || 0
 		)
 	}
 	

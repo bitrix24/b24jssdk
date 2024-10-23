@@ -6,6 +6,8 @@ import { PaymentManager } from './paymentManager'
 import { LicenseManager } from './licenseManager'
 import { CurrencyManager } from './currencyManager'
 import { OptionsManager } from './optionsManager'
+import { B24PullClientManager } from '../pullClient'
+import type { GenderString } from '../types/common'
 import { LoadDataType, TypeSpecificUrl } from '../types/characteristics'
 import type {
 	TypeApp,
@@ -15,13 +17,14 @@ import type {
 	TypePayment,
 	TypeUser
 } from '../types/characteristics'
-import type { GenderString } from '../types/common'
-
+import type {
+	TypePullMessage
+} from '../types/pull'
 
 /**
  * A universal class that is used to manage the initial application data
  */
-export class B24CharacteristicsManager
+export class B24HelperManager
 {
 	private readonly _b24: TypeB24
 	protected _logger: null|LoggerBrowser = null
@@ -36,6 +39,10 @@ export class B24CharacteristicsManager
 	private _currency: CurrencyManager|null = null
 	private _appOptions: OptionsManager|null = null
 	private _userOptions: OptionsManager|null = null
+	
+	private _b24PullClient: B24PullClientManager|null = null
+	private _pullClientUnSubscribe: Function[] = []
+	private _pullClientModuleId: string = ''
 	
 	constructor(b24: TypeB24)
 	{
@@ -98,6 +105,11 @@ export class B24CharacteristicsManager
 		}
 		
 		return this._logger
+	}
+	
+	destroy(): void
+	{
+		this._destroyPullClient()
 	}
 	
 	// region loadData ////
@@ -435,6 +447,80 @@ export class B24CharacteristicsManager
 			[TypeSpecificUrl.UfList]: '/settings/configs/userfield_list.php',
 			[TypeSpecificUrl.UfPage]: '/settings/configs/userfield.php'
 		}
+	}
+	// endregion ////
+	
+	// region Pull.Client ////
+	public usePullClient(
+		prefix: string = 'prefix',
+		userId?: number,
+	): B24HelperManager
+	{
+		if(this._b24PullClient)
+		{
+			return this
+		}
+		
+		this.initializePullClient(
+			typeof userId === 'undefined'
+				? this.profileInfo.data.id || 0
+				: userId,
+			prefix
+		)
+		
+		return this
+	}
+	
+	private initializePullClient(
+		userId: number,
+		prefix: string = 'prefix'
+	): void
+	{
+		this._b24PullClient = new B24PullClientManager({
+			b24: this._b24,
+			restApplication: this._b24.auth.getUniq(prefix),
+			userId
+		})
+	}
+	
+	public subscribePullClient(
+		callback: (message: TypePullMessage) => void,
+		moduleId: string = 'application',
+	): void
+	{
+		if(!this._b24PullClient)
+		{
+			throw new Error('PullClient not init')
+		}
+		
+		this._pullClientModuleId = moduleId
+		
+		this._pullClientUnSubscribe.push(
+			this._b24PullClient.subscribe({
+				moduleId: this._pullClientModuleId,
+				callback
+			})
+		)
+	}
+	
+	public getModuleIdPullClient(): string
+	{
+		if(!this._b24PullClient)
+		{
+			throw new Error('PullClient not init')
+		}
+		
+		return this._pullClientModuleId
+	}
+	
+	private _destroyPullClient(): void
+	{
+		this._pullClientUnSubscribe.forEach(
+			unsubscribeCallback => unsubscribeCallback()
+		)
+		
+		this._b24PullClient?.destroy()
+		this._b24PullClient = null
 	}
 	// endregion ////
 	

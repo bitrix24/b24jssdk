@@ -1,20 +1,26 @@
 <script setup lang="ts">
-/**
- * @todo show error if open not in iframe
- */
+
 import {ref, type Ref, onMounted, onUnmounted, watch, nextTick} from 'vue'
 import { computedAsync } from '@vueuse/core'
-import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
-import type { TypeB24 } from '@bitrix24/b24jssdk/types/b24'
-import { B24LangList } from '@bitrix24/b24jssdk/core/language/list'
-import { B24Frame, type SelectedUser, type SelectCRMParams, type SelectedCRMEntity, type SelectedAccess } from '@bitrix24/b24jssdk/frame'
-import { B24CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
-import { B24PullClientManager } from '@bitrix24/b24jssdk/pullClient'
-import { type TypePullMessage } from '@bitrix24/b24jssdk/types/pull'
-import { LoadDataType } from '@bitrix24/b24jssdk/types/characteristics'
-import type { B24FrameQueryParams } from '@bitrix24/b24jssdk/types/auth'
-import type { StatusClose } from '@bitrix24/b24jssdk/types/slider'
-import Info from "../../components/Info.vue"
+import {
+	LoggerBrowser,
+	Result,
+	B24LangList,
+	B24Frame,
+	B24HelperManager,
+	B24PullClientManager,
+	LoadDataType,
+	useFormatter
+} from '@bitrix24/b24jssdk'
+import type {
+	IResult,
+	SelectedUser,
+	TypePullMessage,
+	B24FrameQueryParams,
+	StatusClose
+} from '@bitrix24/b24jssdk'
+
+import Info from '../../components/Info.vue'
 import Avatar from '../../components/Avatar.vue'
 import ProgressBar from '~/components/ProgressBar.vue'
 import Tabs from '~/components/Tabs.vue'
@@ -30,7 +36,7 @@ import VideoAndChatIcon from '@bitrix24/b24icons-vue/main/VideoAndChatIcon'
 import TelephonyHandset6Icon from '@bitrix24/b24icons-vue/main/TelephonyHandset6Icon'
 import MessengerIcon from '@bitrix24/b24icons-vue/social/MessengerIcon'
 import DialogueIcon from '@bitrix24/b24icons-vue/crm/DialogueIcon'
-import { useFormatter } from '@bitrix24/b24jssdk/tools/useFormatters'
+import PulseIcon from '@bitrix24/b24icons-vue/main/PulseIcon'
 import { useI18n } from '#imports'
 
 definePageMeta({
@@ -44,22 +50,26 @@ const $logger = LoggerBrowser.build(
 )
 
 let $b24: B24Frame
-let $b24Characteristics: null|B24CharacteristicsManager = null
+let $b24Helper: null|B24HelperManager = null
 let $b24PullClient: B24PullClientManager
-// @todo move to CharacteristicsManager
-let $b24PullClientUnSubscribe: Function[] = []
 
 const is404: Ref<boolean> = ref(false)
 const isInit: Ref<boolean> = ref(false)
+const isReload: Ref<boolean> = ref(false)
 const appDataRevision: Ref<number> = ref(0)
 let result: IResult = reactive(new Result())
 const { formatterDateTime, formatterNumber } = useFormatter('en-US')
 const { t, locales, setLocale } = useI18n()
 const b24CurrentLang: Ref<string> = ref(B24LangList.en)
 
-const defTabIndex = ref(6)
+const defTabIndex = ref(0)
 const valueForCurrency = ref(123456.789)
 const tabsItems = [
+	{
+		key: 'test',
+		label: 'Test',
+		content: 'Testing specific methods'
+	},
 	{
 		key: 'lang',
 		label: 'I18n',
@@ -89,11 +99,6 @@ const tabsItems = [
 		key: 'currency',
 		label: 'Currency',
 		content: 'List of currencies created in Bitrix24'
-	},
-	{
-		key: 'test',
-		label: 'Test',
-		content: '@todo'
 	}
 ]
 
@@ -139,6 +144,7 @@ onMounted(async () => {
 	try
 	{
 		$b24 = await initializeB24Frame()
+		
 		$b24.setLogger(LoggerBrowser.build('Core', true))
 		b24CurrentLang.value = $b24.getLang()
 		
@@ -154,12 +160,10 @@ onMounted(async () => {
 		
 		await $b24.parent.setTitle('[playgrounds] Testing Frame')
 		
-		/**
-		 * @todo fix error
-		 */
-		$b24Characteristics = new B24CharacteristicsManager($b24 as unknown as TypeB24)
+		$b24Helper = new B24HelperManager($b24)
 		
 		isInit.value = true
+		isReload.value = false
 		
 		await makeFitWindow()
 	}
@@ -174,10 +178,7 @@ onUnmounted(() => {
 	if(isInit.value)
 	{
 		$b24.destroy()
-		
-		// @todo move to CharacteristicsManager
-		$b24PullClientUnSubscribe.forEach(UnsubscribeCallback => UnsubscribeCallback())
-		$b24PullClient.destroy()
+		$b24Helper?.destroy()
 	}
 })
 
@@ -214,9 +215,9 @@ const initializeB24Frame = async (): Promise<B24Frame> => {
 /**
  * @link https://vueuse.org/core/computedAsync/
  */
-const b24Characteristics: Ref<B24CharacteristicsManager|null> = computedAsync (
+const b24Characteristics: Ref<null|B24HelperManager> = computedAsync(
 	async () => {
-		if(null === $b24Characteristics)
+		if(null === $b24Helper)
 		{
 			throw new Error(`B24Characteristics not init`)
 		}
@@ -227,7 +228,7 @@ const b24Characteristics: Ref<B24CharacteristicsManager|null> = computedAsync (
 		if(appDataRevision.value)
 		{}
 		
-		await $b24Characteristics.loadData([
+		await $b24Helper.loadData([
 			LoadDataType.Profile,
 			LoadDataType.App,
 			LoadDataType.Currency,
@@ -235,24 +236,20 @@ const b24Characteristics: Ref<B24CharacteristicsManager|null> = computedAsync (
 			LoadDataType.UserOptions,
 		])
 		
-		// @todo remove this
-		if(!isInit.value)
+		if(isReload.value)
 		{
-			isInit.value = true
+			isReload.value = false
 		}
 		
 		await makeFitWindow()
 		
-		// @todo move to CharacteristicsManager
-		// @todo application move to CharacteristicsManager
-		//$b24Characteristics.initializeB24PullClient(
-		initializeB24PullClient(
-			$b24Characteristics.profileInfo.data.id || 0,
-			'test',
+		$b24Helper.usePullClient()
+		.subscribePullClient(
+			makeSendPullCommandHandler.bind(this),
 			'applicationtest'
 		)
 		
-		return $b24Characteristics
+		return $b24Helper
 	},
 	null,
 	{
@@ -261,32 +258,14 @@ const b24Characteristics: Ref<B24CharacteristicsManager|null> = computedAsync (
 )
 // endregion ////
 
-// region Pull ////
-const initializeB24PullClient = (
-	userId: number,
-	prefix: string = 'prefix',
-	moduleId: string = 'application'
-): void => {
+const isSliderMode = computed((): boolean => {
+	if(!isInit.value)
+	{
+		return false
+	}
 	
-	$b24PullClient = new B24PullClientManager({
-		b24: $b24,
-		restApplication: $b24.auth.getUniq(prefix),
-		userId: userId
-	})
-	
-	// @todo make by app || by module
-	$b24PullClientUnSubscribe.push(
-		$b24PullClient.subscribe({
-			moduleId: moduleId,
-			callback: makeSendPullCommandHandler.bind(this)
-		})
-	)
-	
-	$b24PullClient.start()
-	
-}
-// endregion ////
-
+	return $b24?.placement.isSliderMode
+})
 // region Actions ////
 const makeFitWindow = async () => {
 	window.setTimeout(() => {
@@ -361,7 +340,7 @@ const makeOpenSliderForUser = async (userId: number) => {
 		)
 		{
 			$logger.info("Slider is closed! Reinit the application")
-			isInit.value = false
+			isReload.value = true
 			appDataRevision.value += 1
 		}
 		$logger.warn(response)
@@ -380,7 +359,7 @@ const makeOpenSliderEditCurrency = async (currencyCode: string) => {
 		)
 		{
 			$logger.info("Slider is closed! Reinit the application")
-			isInit.value = false
+			isReload.value = true
 			appDataRevision.value += 1
 		}
 		$logger.warn(response)
@@ -399,7 +378,7 @@ const makeOpenSliderAddCurrency = async () => {
 		)
 		{
 			$logger.info("Slider is closed! Reinit the application")
-			isInit.value = false
+			isReload.value = true
 			appDataRevision.value += 1
 		}
 		$logger.warn(response)
@@ -649,201 +628,12 @@ const makeSelectUsers = async () => {
 	})
 	.finally(() => {stopMakeProcess()})
 }
-
-/**
- * @deprecated
- */
-const makeSelectAccess = async () => {
-	return new Promise((resolve) => {
-		reInitStatus()
-		status.value.isProcess = true
-		status.value.title = 'test $b24.dialog.selectAccess'
-		status.value.messages.push('using $b24.dialog.selectAccess displays the standard access permission selection dialog')
-		
-		status.value.progress.animation = true
-		status.value.progress.indicator = false
-		status.value.progress.value = null
-		status.value.time.start = new Date()
-		
-		return resolve(null)
-	})
-	.then(async () => {
-		
-		status.value.messages.push('blocked CR, AU')
-		
-		const blockedAccessPermissions: string[] = [
-			'CR', 'AU'
-		]
-		const selectedAccess = await $b24.dialog.selectAccess(
-			blockedAccessPermissions
-		)
-		
-		$logger.info(selectedAccess)
-		
-		const list = selectedAccess.map((row: SelectedAccess): string => {
-			return [
-				`[id: ${row.id}]`,
-				row.name,
-			].join(' ')
-		})
-		
-		if(list.length < 1)
-		{
-			list.push('~ empty ~')
-		}
-		
-		status.value.resultInfo = `list: ${list.join('; ')}`
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
-}
-
-/**
- * @deprecated
- */
-const makeSelectCRM = async () => {
-	return new Promise((resolve) => {
-		reInitStatus()
-		status.value.isProcess = true
-		status.value.title = 'test $b24.dialog.selectCRM'
-		status.value.messages.push('using $b24.dialog.selectCRM invokes a system dialog to select a CRM entity')
-		
-		status.value.progress.animation = true
-		status.value.progress.indicator = false
-		status.value.progress.value = null
-		status.value.time.start = new Date()
-		
-		return resolve(null)
-	})
-	.then(async () => {
-		
-		status.value.messages.push('select company, lead, contact, deal, quote')
-		status.value.messages.push('Pre-init companyId 1')
-		
-		const params: SelectCRMParams = {
-			entityType: ['company', 'lead', 'contact', 'deal', 'quote'],
-			multiple: true,
-			value: {
-				company: [1]
-			}
-		}
-		
-		const selectedCRMEntity = await $b24.dialog.selectCRM(
-			params
-		)
-		
-		$logger.info(selectedCRMEntity)
-		
-		const list = []
-		
-		for(const entity in selectedCRMEntity.company)
-		{
-			let selectedEntity = selectedCRMEntity.company[Number(entity)] as unknown as SelectedCRMEntity
-			list.push([
-				`[id: ${selectedEntity.id}]`,
-				`${selectedEntity.type} ${selectedEntity.title}`,
-			].join(' '))
-		}
-		
-		for(const entity in selectedCRMEntity.lead)
-		{
-			let selectedEntity = selectedCRMEntity.lead[Number(entity)] as unknown as SelectedCRMEntity
-			list.push([
-				`[id: ${selectedEntity.id}]`,
-				`${selectedEntity.type} ${selectedEntity.title}`,
-			].join(' '))
-		}
-		
-		for(const entity in selectedCRMEntity.contact)
-		{
-			let selectedEntity = selectedCRMEntity.contact[Number(entity)] as unknown as SelectedCRMEntity
-			list.push([
-				`[id: ${selectedEntity.id}]`,
-				`${selectedEntity.type} ${selectedEntity.title}`,
-			].join(' '))
-		}
-		
-		for(const entity in selectedCRMEntity.deal)
-		{
-			let selectedEntity = selectedCRMEntity.deal[Number(entity)] as unknown as SelectedCRMEntity
-			list.push([
-				`[id: ${selectedEntity.id}]`,
-				`${selectedEntity.type} ${selectedEntity.title}`,
-			].join(' '))
-		}
-		
-		for(const entity in selectedCRMEntity.deal)
-		{
-			let selectedEntity = selectedCRMEntity.deal[Number(entity)] as unknown as SelectedCRMEntity
-			list.push([
-				`[id: ${selectedEntity.id}]`,
-				`${selectedEntity.type} ${selectedEntity.title}`,
-			].join(' '))
-		}
-		
-		for(const entity in selectedCRMEntity.quote)
-		{
-			let selectedEntity = selectedCRMEntity.quote[Number(entity)] as unknown as SelectedCRMEntity
-			list.push([
-				`[id: ${selectedEntity.id}]`,
-				`${selectedEntity.type} ${selectedEntity.title}`,
-			].join(' '))
-		}
-		
-		if(list.length < 1)
-		{
-			list.push('~ empty ~')
-		}
-		
-		status.value.resultInfo = `list: ${list.join('; ')}`
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
-}
-
-/**
- * @deprecated
- */
-const makeShowAppForm = async () => {
-	return new Promise((resolve) => {
-		reInitStatus()
-		status.value.isProcess = true
-		status.value.title = 'test $b24.slider.showAppForm'
-		status.value.messages.push('using $b24.slider.showAppForm @todo')
-		
-		status.value.progress.animation = true
-		status.value.progress.indicator = false
-		status.value.progress.value = null
-		status.value.time.start = new Date()
-		
-		return resolve(null)
-	})
-	.then(async () => {
-		return $b24.slider.showAppForm({
-			data: '123'
-		})
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
-}
 // endregion ////
 
 // region Actions.Pull ////
-// @todo fix this ////
-// @todo application move to CharacteristicsManager
 const makeSendPullCommand = async (
 	command: string,
-	params: Record<string, any> = {},
-	moduleId: string = 'application'
+	params: Record<string, any> = {}
 ) => {
 	return new Promise((resolve) => {
 		reInitStatus()
@@ -882,7 +672,7 @@ const makeSendPullCommand = async (
 			{
 				COMMAND: command,
 				PARAMS: params,
-				MODULE_ID: moduleId
+				MODULE_ID: $b24Helper?.getModuleIdPullClient()
 			}
 		)
 	})
@@ -893,9 +683,6 @@ const makeSendPullCommand = async (
 	.finally(() => {stopMakeProcess()})
 }
 
-/**
- * @todo make by app || by module
- */
 const makeSendPullCommandHandler = (message: TypePullMessage): void => {
 	if(!status.value.isProcess)
 	{
@@ -939,7 +726,6 @@ watch(defTabIndex, async () => {
 	
 	await $b24.parent.fitWindow()
 })
-
 </script>
 
 <template>
@@ -953,7 +739,7 @@ watch(defTabIndex, async () => {
 	</div>
 	<div v-else>
 		<div
-			v-if="!isInit || !b24Characteristics"
+			v-if="!isInit || isReload || !b24Characteristics"
 			class="absolute top-0 bottom-0 left-0 right-0 flex flex-col justify-center items-center"
 		>
 			<div class="absolute z-10 text-info">
@@ -997,7 +783,7 @@ watch(defTabIndex, async () => {
 					</div>
 					<div class="ml-4 w-0 flex-1">
 						<Info>
-							Scopes: <code>user_brief</code>, <code>crm</code>, <code>pull</code>, <code>pull_channel</code><br><br>
+							Scopes: <code>user_brief</code>, <code>crm</code>, <code>pull</code><br><br>
 							To view query results, open the developer console.
 						</Info>
 					</div>
@@ -1025,10 +811,17 @@ watch(defTabIndex, async () => {
 												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ t('message2') }}</dd>
 											</div>
 										</dl>
-										
-										<div class="pt-6">
-											<b class="text-alert">@todo if-not slider mode</b>
+										<div
+											class="pt-6"
+											v-if="!isSliderMode"
+										>
 											<Info>Try changing the language at the bottom of the page</Info>
+										</div>
+										<div
+											class="pt-6"
+											v-else
+										>
+											<Info>The application is opened in slider mode</Info>
 										</div>
 									</div>
 									<div v-else-if="item.key === 'appInfo'" class="space-y-3">
@@ -1190,6 +983,7 @@ watch(defTabIndex, async () => {
 																type="number"
 																v-model.number="valueForCurrency"
 																class="border border-base-300 text-base-900 rounded block w-full p-2.5"
+																step="101.023"
 															>
 														</div>
 														<div class="flex-1">{{ b24Characteristics.currency.baseCurrency }}</div>
@@ -1230,39 +1024,6 @@ watch(defTabIndex, async () => {
 													</div>
 													<div class="text-nowrap truncate">Select users</div>
 												</button>
-												<!--button
-													type="button"
-													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-													@click="makeSelectAccess"
-													:disabled="status.isProcess"
-												>
-													<div class="rounded-full text-base-900 bg-base-100 p-1">
-														<Refresh7Icon class="size-5"/>
-													</div>
-													<div class="text-nowrap truncate">@problem Select access</div>
-												</button-->
-												<!--button
-													type="button"
-													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-													@click="makeSelectCRM"
-													:disabled="status.isProcess"
-												>
-													<div class="rounded-full text-base-900 bg-base-100 p-1">
-														<Refresh7Icon class="size-5"/>
-													</div>
-													<div class="text-nowrap truncate">@problem Select CRM</div>
-												</button-->
-												<!--button
-													type="button"
-													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-													@click="makeShowAppForm"
-													:disabled="status.isProcess"
-												>
-													<div class="rounded-full text-base-900 bg-base-100 p-1">
-														<Refresh7Icon class="size-5"/>
-													</div>
-													<div class="text-nowrap truncate">@problem makeShowAppForm</div>
-												</button-->
 												<button
 													type="button"
 													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
@@ -1329,19 +1090,17 @@ watch(defTabIndex, async () => {
 													</div>
 													<div class="text-nowrap truncate">Telephony</div>
 												</button>
-												
 												<button
 													type="button"
 													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-													@click="makeSendPullCommand('test', {data: Date.now()}, 'applicationtest')"
+													@click="makeSendPullCommand('test', {data: Date.now()})"
 													:disabled="status.isProcess"
 												>
 													<div class="rounded-full text-base-900 bg-base-100 p-1">
-														<TelephonyHandset6Icon class="size-5"/>
+														<PulseIcon class="size-5"/>
 													</div>
 													<div class="text-nowrap truncate">Pull</div>
 												</button>
-												
 											</div>
 											<div class="flex-1">
 												<div class="px-lg2 py-sm2 border border-base-100 rounded-lg col-auto md:col-span-2 lg:col-span-1 bg-white">

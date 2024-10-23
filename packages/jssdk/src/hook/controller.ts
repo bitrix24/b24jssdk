@@ -3,7 +3,7 @@ import { AbstractB24 } from '../core/abstractB24'
 import type { TypeB24 } from '../types/b24'
 import Http from '../core/http/controller'
 import { AuthHookManager } from './auth'
-import type { B24HookParams } from '../types/auth'
+import type { AuthActions, B24HookParams } from '../types/auth'
 
 /**
  * B24.Hook Manager.
@@ -41,6 +41,11 @@ export class B24Hook
 		super.setLogger(logger)
 	}
 	// endregion ////
+	
+	override get auth(): AuthActions
+	{
+		return this.#authHookManager
+	}
 	
 	// region Core ////
 	// endregion ////

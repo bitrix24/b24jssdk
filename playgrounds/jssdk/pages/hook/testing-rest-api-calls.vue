@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { ref, reactive, type Ref } from 'vue'
+import { computedAsync } from '@vueuse/core'
 import B24HookConfig from '../../config'
+
+import { LoggerBrowser, Result, B24Hook, B24HelperManager, LoadDataType, EnumCrmEntityTypeId, Text, useFormatter } from '@bitrix24/b24jssdk'
+import type { TypeB24, IResult, UserBrief } from '@bitrix24/b24jssdk'
+
 import SendIcon from "@bitrix24/b24icons-vue/main/SendIcon";
 import ParallelQueueIcon from '@bitrix24/b24icons-vue/main/ParallelQueueIcon'
 import SequentialQueueIcon from '@bitrix24/b24icons-vue/main/SequentialQueueIcon'
@@ -8,20 +13,9 @@ import SpeedMeterIcon from '@bitrix24/b24icons-vue/main/SpeedMeterIcon'
 import SendContactIcon from '@bitrix24/b24icons-vue/crm/SendContactIcon'
 import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
 import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
-
-import { LoggerBrowser, Result, type IResult } from '@bitrix24/b24jssdk'
-import type { TypeB24 } from '@bitrix24/b24jssdk/types/b24'
-import { B24Hook } from '@bitrix24/b24jssdk/hook'
-import { B24CharacteristicsManager } from '@bitrix24/b24jssdk/helper/characteristicsManager'
-import { EnumCrmEntityTypeId } from "@bitrix24/b24jssdk/types/crm"
-import { useFormatter } from "@bitrix24/b24jssdk/tools/useFormatters"
-import Info from "../../components/Info.vue";
-import ProgressBar from "../../components/ProgressBar.vue";
-import Text from "@bitrix24/b24jssdk/tools/text";
-import { type UserBrief} from "@bitrix24/b24jssdk/types/user";
-import {computedAsync} from "@vueuse/core";
-import {LoadDataType} from "@bitrix24/b24jssdk/types/characteristics";
-import Avatar from "~/components/Avatar.vue";
+import Info from '../../components/Info.vue';
+import ProgressBar from '../../components/ProgressBar.vue'
+import Avatar from '~/components/Avatar.vue'
 
 definePageMeta({
 	layout: "page"
@@ -41,7 +35,7 @@ $b24.setLogger(LoggerBrowser.build('Core', true))
 /**
  * @todo fix error
  */
-const $b24Characteristics = new B24CharacteristicsManager($b24 as unknown as TypeB24)
+const $b24Helper = new B24HelperManager($b24 as unknown as TypeB24)
 
 const appDataRevision: Ref<number> = ref(0)
 let result: IResult = reactive(new Result())
@@ -84,7 +78,7 @@ const status: Ref<IStatus> = ref({
 	}
 } as IStatus)
 
-const b24Characteristics: Ref<B24CharacteristicsManager|null> = computedAsync(
+const b24Characteristics: Ref<B24HelperManager|null> = computedAsync(
 	async () => {
 		/**
 		 * @memo usage for called dependencies changes
@@ -93,11 +87,11 @@ const b24Characteristics: Ref<B24CharacteristicsManager|null> = computedAsync(
 		{}
 		
 		
-		await $b24Characteristics.loadData([
+		await $b24Helper.loadData([
 			LoadDataType.Profile
 		])
 		
-		return $b24Characteristics;
+		return $b24Helper;
 	},
 	null,
 	{

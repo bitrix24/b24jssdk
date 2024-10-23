@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { Result } from '@bitrix24/b24jssdk/core/result'
-import { LoggerBrowser } from '@bitrix24/b24jssdk/logger/browser';
-import Info from "../../components/Info.vue";
+import { Result, LoggerBrowser } from '@bitrix24/b24jssdk'
+import Info from '../../components/Info.vue'
 
 definePageMeta({
 	layout: "page"

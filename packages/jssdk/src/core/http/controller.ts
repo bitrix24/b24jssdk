@@ -2,10 +2,10 @@ import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import type {TypeHttp, TypeRestrictionManagerParams} from '../../types/http'
 import { default as RestrictionManager } from './restrictionManager'
 import { Result } from '../result'
-import {AjaxError, type AjaxErrorParams} from './ajaxError'
+import { AjaxError, type AjaxErrorParams } from './ajaxError'
 import { AjaxResult } from './ajaxResult'
 import type { AjaxQuery, AjaxResultParams } from './ajaxResult'
-import type { AuthActions, AuthData, AuthError } from '../../types/auth'
+import type { AuthActions, AuthData, TypeDescriptionError } from '../../types/auth'
 import type { BatchPayload } from "../../types/payloads"
 
 import axios, { type AxiosInstance, AxiosError } from 'axios'
@@ -322,35 +322,47 @@ export default class Http
 			},
 			async (problem: AxiosError) =>
 			{
+				let answerError = {
+					error: problem?.code || 0,
+					errorDescription: problem?.message || ''
+				}
+				
+				if(
+					problem instanceof AxiosError
+					&& problem.response
+					&& problem.response.data
+				)
+				{
+					const response = problem.response.data as {
+						error: string
+						error_description: string
+					} as TypeDescriptionError
+					
+					answerError = {
+						error: response.error,
+						errorDescription: response.error_description
+					}
+				}
+				
 				const problemError: AjaxError = new AjaxError({
 					status: problem.response?.status || 0,
-					answerError: {
-						error: problem.code,
-						errorDescription: problem.message
-					},
+					answerError,
 					cause: problem
 				} as AjaxErrorParams)
 				
 				/**
 				 * Is response status === 401 -> refresh Auth
 				 */
-				if(
-					problem instanceof AxiosError
-					&& problem.response
-					&& problem.response.status === 401
-				)
+				if(problemError.status === 401)
 				{
-					let response
-					response = (problem.response.data as AuthError)
-					
 					if(
 						[
 							'expired_token',
 							'invalid_token'
-						].includes(response.error)
+						].includes(problemError.answerError.error)
 					)
 					{
-						this.getLogger().info(`refreshAuth >> ${response.error} >>>`)
+						this.getLogger().info(`refreshAuth >> ${problemError.answerError.error} >>>`)
 						
 						authData = await this.#authActions.refreshAuth()
 						await this.#restrictionManager.check()
@@ -359,14 +371,48 @@ export default class Http
 							this.#prepareMethod(method),
 							this.#prepareParams(authData, params, start),
 						)
-						.then(async(response: { data: AjaxResultParams; status: any }): Promise<AjaxResponse> =>
-						{
-							const payload = response.data as AjaxResultParams
-							return Promise.resolve({
-								status: response.status,
-								payload: payload
-							} as AjaxResponse)
-						})
+						.then(
+							async(response: { data: AjaxResultParams; status: any }): Promise<AjaxResponse> =>
+							{
+								const payload = response.data as AjaxResultParams
+								return Promise.resolve({
+									status: response.status,
+									payload: payload
+								} as AjaxResponse)
+							},
+							async (problem: AxiosError) =>
+							{
+								let answerError = {
+									error: problem?.code || 0,
+									errorDescription: problem?.message || ''
+								}
+								
+								if(
+									problem instanceof AxiosError
+									&& problem.response
+									&& problem.response.data
+								)
+								{
+									const response = problem.response.data as {
+										error: string
+										error_description: string
+									} as TypeDescriptionError
+									
+									answerError = {
+										error: response.error,
+										errorDescription: response.error_description
+									}
+								}
+								
+								const problemError: AjaxError = new AjaxError({
+									status: problem.response?.status || 0,
+									answerError,
+									cause: problem
+								} as AjaxErrorParams)
+								
+								return Promise.reject(problemError)
+							}
+						)
 					}
 				}
 				

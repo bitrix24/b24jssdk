@@ -256,7 +256,7 @@ export class PullClient
 		}
 		// endregion ////
 		
-		this._isSecure = document.location.href.indexOf('https') === 0
+		this._isSecure = document?.location.href.indexOf('https') === 0
 		
 		if(
 			this._userId

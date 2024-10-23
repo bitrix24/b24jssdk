@@ -20,6 +20,8 @@ import type {
 import type {
 	TypePullMessage
 } from '../types/pull'
+import {PullStatus} from "../types/pull";
+import Text from "../tools/text";
 
 /**
  * A universal class that is used to manage the initial application data
@@ -486,7 +488,7 @@ export class B24HelperManager
 	public subscribePullClient(
 		callback: (message: TypePullMessage) => void,
 		moduleId: string = 'application',
-	): void
+	): B24HelperManager
 	{
 		if(!this._b24PullClient)
 		{
@@ -501,6 +503,21 @@ export class B24HelperManager
 				callback
 			})
 		)
+		
+		return this
+	}
+	
+	public startPullClient(): void
+	{
+		if(!this._b24PullClient)
+		{
+			throw new Error('PullClient not init')
+		}
+		
+		this._b24PullClient.start()
+		.catch((error) => {
+			this.getLogger().error(`${Text.getDateForLog()}: Pull not running`, error)
+		})
 	}
 	
 	public getModuleIdPullClient(): string

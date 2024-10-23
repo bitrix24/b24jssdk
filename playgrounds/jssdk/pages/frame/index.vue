@@ -240,12 +240,12 @@ const b24Characteristics: Ref<null|B24HelperManager> = computedAsync(
 		}
 		
 		await makeFitWindow()
-		
 		$b24Helper.usePullClient()
 		.subscribePullClient(
 			makeSendPullCommandHandler.bind(this),
 			'applicationtest'
 		)
+		.startPullClient()
 		
 		return $b24Helper
 	},

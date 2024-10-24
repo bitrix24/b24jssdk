@@ -72,4 +72,12 @@ export class AuthHookManager
 	{
 		return `${this.#b24HookParams.b24Url}/rest/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`;
 	}
+	
+	/**
+	 * We believe that hooks are created only by the admin
+	 */
+	get isAdmin(): boolean
+	{
+		return true;
+	}
 }

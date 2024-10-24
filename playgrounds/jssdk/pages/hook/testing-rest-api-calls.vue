@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import { ref, reactive, type Ref } from 'vue'
-import { computedAsync } from '@vueuse/core'
+import {ref, reactive, type Ref} from 'vue'
+import {computedAsync} from '@vueuse/core'
 import B24HookConfig from '../../config'
 
-import { LoggerBrowser, Result, B24Hook, B24HelperManager, LoadDataType, EnumCrmEntityTypeId, Text, useFormatter } from '@bitrix24/b24jssdk'
-import type { TypeB24, IResult, UserBrief } from '@bitrix24/b24jssdk'
+import {
+	LoggerBrowser,
+	Result,
+	B24Hook,
+	B24HelperManager,
+	LoadDataType,
+	EnumCrmEntityTypeId,
+	Text,
+	useFormatter
+} from '@bitrix24/b24jssdk'
+import type {TypeB24, IResult, UserBrief} from '@bitrix24/b24jssdk'
 
 import SendIcon from "@bitrix24/b24icons-vue/main/SendIcon";
 import ParallelQueueIcon from '@bitrix24/b24icons-vue/main/ParallelQueueIcon'
@@ -27,9 +36,9 @@ const $logger = LoggerBrowser.build(
 	true
 )
 
-const { formatterDateTime, formatterNumber } = useFormatter('en-US')
+const {formatterDateTime, formatterNumber} = useFormatter('en-US')
 
-const $b24 = new B24Hook( B24HookConfig )
+const $b24 = new B24Hook(B24HookConfig)
 $b24.setLogger(LoggerBrowser.build('Core', true))
 
 /**
@@ -40,7 +49,8 @@ const $b24Helper = new B24HelperManager($b24 as unknown as TypeB24)
 const appDataRevision: Ref<number> = ref(0)
 let result: IResult = reactive(new Result())
 
-interface IStatus {
+interface IStatus
+{
 	isProcess: boolean,
 	title: string,
 	messages: string[],
@@ -78,13 +88,15 @@ const status: Ref<IStatus> = ref({
 	}
 } as IStatus)
 
-const b24Characteristics: Ref<B24HelperManager|null> = computedAsync(
-	async () => {
+const b24Helper: Ref<B24HelperManager|null> = computedAsync(
+	async() =>
+	{
 		/**
 		 * @memo usage for called dependencies changes
 		 */
 		if(appDataRevision.value)
-		{}
+		{
+		}
 		
 		
 		await $b24Helper.loadData([
@@ -101,7 +113,8 @@ const b24Characteristics: Ref<B24HelperManager|null> = computedAsync(
 // endregion ////
 
 // region Actions ////
-const stopMakeProcess = () => {
+const stopMakeProcess = () =>
+{
 	status.value.isProcess = false
 	status.value.time.stop = new Date()
 	if(
@@ -114,11 +127,13 @@ const stopMakeProcess = () => {
 	status.value.processInfo = null
 }
 
-const clearConsole = () => {
+const clearConsole = () =>
+{
 	console.clear()
 }
 
-const reInitStatus = () => {
+const reInitStatus = () =>
+{
 	result = reactive(new Result())
 	
 	status.value.isProcess = false
@@ -136,9 +151,10 @@ const reInitStatus = () => {
 }
 
 let listCallToMax: Ref<number> = ref(10);
-const makeSelectItemsList_v1 = async () =>
+const makeSelectItemsList_v1 = async() =>
 {
-	return new Promise((resolve) => {
+	return new Promise((resolve) =>
+	{
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'Testing Sequential Calls'
@@ -150,7 +166,8 @@ const makeSelectItemsList_v1 = async () =>
 		
 		return resolve(null)
 	})
-		.then(async () => {
+		.then(async() =>
+		{
 			let iterator = status.value.progress.max || 0
 			while(iterator > 0)
 			{
@@ -159,27 +176,34 @@ const makeSelectItemsList_v1 = async () =>
 				{
 					status.value.progress.value++
 				}
-				$logger.log(`>> Testing Sequential Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
+				$logger.log(`>> Testing Sequential Calls >>> ${status.value.progress.value} | ${status.value.progress.max}`)
 				
 				await $b24.callMethod(
 					'user.current'
 				)
 			}
 		})
-		.then(() => {
+		.then(() =>
+		{
 			listCallToMax.value = listCallToMax.value * 2
 		})
-		.catch((error: Error|string) => {
+		.catch((error: Error|string) =>
+		{
 			result.addError(error)
 			$logger.error(error)
 		})
-		.finally(() => {stopMakeProcess()})
+		.finally(() =>
+		{
+			stopMakeProcess()
+		})
 }
 
 let listCallToMaxAll: Ref<number> = ref(10);
+
 async function makeSelectItemsList_v2()
 {
-	return new Promise((resolve) => {
+	return new Promise((resolve) =>
+	{
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'Testing Parallel Calls'
@@ -191,7 +215,8 @@ async function makeSelectItemsList_v2()
 		
 		return resolve(null)
 	})
-		.then(async () => {
+		.then(async() =>
+		{
 			const list = [];
 			let iterator = status.value.progress.max || 0
 			
@@ -202,28 +227,35 @@ async function makeSelectItemsList_v2()
 					$b24.callMethod(
 						'user.current',
 						{}
-					).finally(() => {
+					).finally(() =>
+					{
 						(status.value.progress.value as number)++
-						$logger.log(`>> Testing Parallel Calls >>> ${ status.value.progress.value } | ${ status.value.progress.max }`)
+						$logger.log(`>> Testing Parallel Calls >>> ${status.value.progress.value} | ${status.value.progress.max}`)
 					})
 				)
 			}
 			
 			await Promise.all(list)
 		})
-		.then(() => {
+		.then(() =>
+		{
 			listCallToMaxAll.value = listCallToMaxAll.value * 2
 		})
-		.catch((error: Error|string) => {
+		.catch((error: Error|string) =>
+		{
 			result.addError(error)
 			$logger.error(error)
 		})
-		.finally(() => {stopMakeProcess()})
+		.finally(() =>
+		{
+			stopMakeProcess()
+		})
 }
 
 async function makeSelectItemsList_v3()
 {
-	return new Promise((resolve) => {
+	return new Promise((resolve) =>
+	{
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'Getting All Elements'
@@ -236,34 +268,42 @@ async function makeSelectItemsList_v3()
 		
 		return resolve(null)
 	})
-		.then(async () => {
+		.then(async() =>
+		{
 			return $b24.callListMethod(
 				'crm.item.list',
 				{
 					entityTypeId: EnumCrmEntityTypeId.company,
 				},
-				(progress: number) => {
+				(progress: number) =>
+				{
 					status.value.progress.value = progress
-					$logger.log(`>> Getting All Elements >>> ${ status.value.progress.value }`)
+					$logger.log(`>> Getting All Elements >>> ${status.value.progress.value}`)
 				},
 				'items'
 			)
-				.then((response) => {
+				.then((response) =>
+				{
 					const ttl = response.getData().length
-					$logger.log(`>> Getting All Elements >>> ttl: ${ ttl }`)
-					status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
+					$logger.log(`>> Getting All Elements >>> ttl: ${ttl}`)
+					status.value.resultInfo = `It was chosen: ${formatterNumber.format(ttl)} elements`
 				})
 		})
-		.catch((error: Error|string) => {
+		.catch((error: Error|string) =>
+		{
 			result.addError(error)
 			$logger.error(error)
 		})
-		.finally(() => {stopMakeProcess()})
+		.finally(() =>
+		{
+			stopMakeProcess()
+		})
 }
 
 async function makeSelectItemsList_v4()
 {
-	return new Promise((resolve) => {
+	return new Promise((resolve) =>
+	{
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'Retrieve Large Volumes of Data'
@@ -278,7 +318,8 @@ async function makeSelectItemsList_v4()
 		
 		return resolve(null)
 	})
-		.then(async () => {
+		.then(async() =>
+		{
 			let generator = $b24.fetchListMethod(
 				'crm.item.list',
 				{
@@ -299,21 +340,26 @@ async function makeSelectItemsList_v4()
 				for(let entity of entities)
 				{
 					ttl++;
-					$logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ ttl } ...`, entity)
+					$logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ttl} ...`, entity)
 					
 					status.value.processInfo = `[id:${entity.id}] ${entity.title}`
 				}
 			}
-			status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
+			status.value.resultInfo = `It was chosen: ${formatterNumber.format(ttl)} elements`
 		})
-		.catch((error: Error|string) => {
+		.catch((error: Error|string) =>
+		{
 			result.addError(error)
 			$logger.error(error)
 		})
-		.finally(() => {stopMakeProcess()})
+		.finally(() =>
+		{
+			stopMakeProcess()
+		})
 }
 
 let needAdd = ref(10);
+
 async function makeSelectItemsList_v5()
 {
 	if(needAdd.value < 1)
@@ -325,7 +371,8 @@ async function makeSelectItemsList_v5()
 		needAdd.value = 5
 	}
 	
-	return new Promise((resolve) => {
+	return new Promise((resolve) =>
+	{
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'Testing the batch processing work'
@@ -339,7 +386,8 @@ async function makeSelectItemsList_v5()
 		
 		return resolve(null)
 	})
-		.then(() => {
+		.then(() =>
+		{
 			let commands = []
 			
 			let iterator = 0
@@ -364,24 +412,30 @@ async function makeSelectItemsList_v5()
 				true
 			)
 		})
-		.then((response: Result) => {
+		.then((response: Result) =>
+		{
 			let data: any = response.getData()
 			$logger.info('Testing the batch processing work >> response >>> ', data)
 			
-			status.value.resultInfo = `It was add: ${ needAdd.value } elements`
+			status.value.resultInfo = `It was add: ${needAdd.value} elements`
 		})
-		.then(() => {
+		.then(() =>
+		{
 			needAdd.value = needAdd.value + 10
 			if(needAdd.value > 50)
 			{
 				needAdd.value = 5
 			}
 		})
-		.catch((error: Error|string) => {
+		.catch((error: Error|string) =>
+		{
 			result.addError(error)
 			$logger.error(error)
 		})
-		.finally(() => {stopMakeProcess()})
+		.finally(() =>
+		{
+			stopMakeProcess()
+		})
 }
 
 async function makeSelectItemsList_v6()
@@ -392,7 +446,8 @@ async function makeSelectItemsList_v6()
 	
 	const needEntityId = Number(promptEntityId)
 	
-	return new Promise((resolve) => {
+	return new Promise((resolve) =>
+	{
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'Testing the batch fetch work'
@@ -406,62 +461,69 @@ async function makeSelectItemsList_v6()
 		
 		return resolve(null)
 	})
-	.then(() => {
-		
-		if(Number.isNaN(needEntityId))
+		.then(() =>
 		{
-			return Promise.reject(new Error('Wrong entity Id'))
-		}
-		
-		let commands = {
-			getCompany: {
-				method: 'crm.item.get',
-				params: {
-					entityTypeId: EnumCrmEntityTypeId.company,
-					id: needEntityId
-				}
-			},
-			getAssigned: {
-				method: 'user.get',
-				params: {
-					ID: '$result[getCompany][item][assignedById]'
+			
+			if(Number.isNaN(needEntityId))
+			{
+				return Promise.reject(new Error('Wrong entity Id'))
+			}
+			
+			let commands = {
+				getCompany: {
+					method: 'crm.item.get',
+					params: {
+						entityTypeId: EnumCrmEntityTypeId.company,
+						id: needEntityId
+					}
+				},
+				getAssigned: {
+					method: 'user.get',
+					params: {
+						ID: '$result[getCompany][item][assignedById]'
+					}
 				}
 			}
-		}
-		
-		$logger.info('Testing the batch fetch work >> send >>> ', commands)
-		return $b24.callBatch(
-			commands,
-			true
-		)
-	})
-	.then((response: Result) => {
-		let data: any = response.getData()
-		$logger.info('Testing the batch fetch work >> response >>> ', data)
-		
-		const assigned = data.getAssigned[0] as UserBrief | null
-		
-		let assignedInfo = ''
-		if(!!assigned)
+			
+			$logger.info('Testing the batch fetch work >> send >>> ', commands)
+			return $b24.callBatch(
+				commands,
+				true
+			)
+		})
+		.then((response: Result) =>
 		{
-			assignedInfo = [
-				`id: ${assigned.ID}`,
-				assigned.ACTIVE ? 'active' : 'not active',
-				assigned.LAST_NAME,
-				assigned.NAME,
-			].join(' ')
-		}
-		
-		status.value.resultInfo = `entityId: ${data.getCompany.item?.id || '?'}; assigned: ${assignedInfo}`
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
+			let data: any = response.getData()
+			$logger.info('Testing the batch fetch work >> response >>> ', data)
+			
+			const assigned = data.getAssigned[0] as UserBrief|null
+			
+			let assignedInfo = ''
+			if(!!assigned)
+			{
+				assignedInfo = [
+					`id: ${assigned.ID}`,
+					assigned.ACTIVE ? 'active' : 'not active',
+					assigned.LAST_NAME,
+					assigned.NAME,
+				].join(' ')
+			}
+			
+			status.value.resultInfo = `entityId: ${data.getCompany.item?.id || '?'}; assigned: ${assignedInfo}`
+		})
+		.catch((error: Error|string) =>
+		{
+			result.addError(error)
+			$logger.error(error)
+		})
+		.finally(() =>
+		{
+			stopMakeProcess()
+		})
 }
 
-const makeOpenSliderForUser = async(userId: number) => {
+const makeOpenSliderForUser = async(userId: number) =>
+{
 	
 	window.open(
 		`${B24HookConfig.b24Url}/company/personal/user/${userId}/`
@@ -472,10 +534,11 @@ const makeOpenSliderForUser = async(userId: number) => {
 // endregion ////
 
 // region Error ////
-const problemMessageList = (result: IResult) => {
+const problemMessageList = (result: IResult) =>
+{
 	let problemMessageList: string[] = [];
 	const problem = result.getErrorMessages();
-	if( typeof (problem || '') === 'string' )
+	if(typeof (problem || '') === 'string')
 	{
 		problemMessageList.push(problem.toString());
 	}
@@ -510,7 +573,7 @@ const problemMessageList = (result: IResult) => {
 					<div class="text-nowrap truncate">one by one</div>
 					<div v-show="listCallToMax > 0"
 					     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
-						{{ listCallToMax }}
+						{{listCallToMax}}
 					</div>
 				</button>
 				<button
@@ -523,7 +586,7 @@ const problemMessageList = (result: IResult) => {
 					<div class="text-nowrap truncate">parallel</div>
 					<div v-show="listCallToMaxAll > 0"
 					     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
-						{{ listCallToMaxAll }}
+						{{listCallToMaxAll}}
 					</div>
 				</button>
 				<button
@@ -554,7 +617,7 @@ const problemMessageList = (result: IResult) => {
 					<div class="text-nowrap truncate">batch creation</div>
 					<div v-show="needAdd > 0"
 					     class="text-3xs w-auto rounded z-10 absolute -right-1 -top-2.5 px-2.5 py-0.5 border border-info-text bg-info-background text-info-background-on">
-						{{ needAdd }}
+						{{needAdd}}
 					</div>
 				</button>
 				<button
@@ -569,31 +632,34 @@ const problemMessageList = (result: IResult) => {
 			</div>
 			<div class="flex-1">
 				<div
-					v-if="b24Characteristics"
+					v-if="b24Helper"
 					class="px-lg2 py-sm2 border border-base-100 rounded-lg col-auto md:col-span-2 lg:col-span-1 bg-white"
 				>
 					<div class="flex items-center gap-4">
 						<Avatar
-							:src="b24Characteristics.profileInfo.data.photo || ''"
-							:alt="b24Characteristics.profileInfo.data.lastName || 'user' "
+							:src="b24Helper.profileInfo.data.photo || ''"
+							:alt="b24Helper.profileInfo.data.lastName || 'user' "
 						/>
-						<div class="font-medium dark:text-white" >
+						<div class="font-medium dark:text-white">
 							<div
 								class="hover:underline hover:text-info-link cursor-pointer"
-								@click="makeOpenSliderForUser(b24Characteristics.profileInfo.data.id || 0)"
-							>{{ [
-								b24Characteristics.profileInfo.data.lastName,
-								b24Characteristics.profileInfo.data.name,
-							].join(' ') }}</div>
+								@click="makeOpenSliderForUser(b24Helper.profileInfo.data.id || 0)"
+							>{{[
+								b24Helper.profileInfo.data.lastName,
+								b24Helper.profileInfo.data.name,
+							].join(' ')}}
+							</div>
 							<div class="text-sm text-gray-500 dark:text-gray-400">{{
-									b24Characteristics.profileInfo.data.isAdmin ? 'Admin' : 'NotAdmin'
-								}} at {{ b24Characteristics.hostName.replace('https://', '') }}</div>
+									b24Helper.profileInfo.data.isAdmin ? 'Admin' : 'NotAdmin'
+								}} at {{b24Helper.hostName.replace('https://', '')}}
+							</div>
 						</div>
 					</div>
 				</div>
-				<div class="mt-6 px-lg2 py-sm2 border border-base-100 rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
+				<div
+					class="mt-6 px-lg2 py-sm2 border border-base-100 rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
 					<div class="w-full flex items-center justify-between">
-						<h3 class="text-h5 font-semibold">{{ status.title }}</h3>
+						<h3 class="text-h5 font-semibold">{{status.title}}</h3>
 						<button
 							type="button"
 							class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded pl-1 pr-3 py-1.5 leading-none text-3xs font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
@@ -605,15 +671,25 @@ const problemMessageList = (result: IResult) => {
 					</div>
 					
 					<ul class="text-xs mt-sm2" v-show="status.messages.length > 0">
-						<li v-for="(message, index) in status.messages" :key="index">{{ message }}</li>
-						<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time?.start || new Date, 'H:i:s') }}</li>
-						<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time?.stop || new Date, 'H:i:s') }}</li>
-						<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time?.diff || 0) }} ms</li>
-						<li class="mt-2 pl-2 text-base-800 font-bold" v-show="null !== status.resultInfo">{{ status.resultInfo }}</li>
+						<li v-for="(message, index) in status.messages" :key="index">{{message}}</li>
+						<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start:
+							{{formatterDateTime.formatDate(status.time?.start || new Date, 'H:i:s')}}
+						</li>
+						<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop:
+							{{formatterDateTime.formatDate(status.time?.stop || new Date, 'H:i:s')}}
+						</li>
+						<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff:
+							{{formatterNumber.format(status.time?.diff || 0)}} ms
+						</li>
+						<li class="mt-2 pl-2 text-base-800 font-bold" v-show="null !== status.resultInfo">
+							{{status.resultInfo}}
+						</li>
 					</ul>
 					
 					<div class="mt-2" v-show="status.isProcess">
-						<div class="mt-2 pl-0.5 text-4xs text-blue-500" v-show="status.processInfo">{{ status.processInfo }}</div>
+						<div class="mt-2 pl-0.5 text-4xs text-blue-500" v-show="status.processInfo">{{status.processInfo
+							}}
+						</div>
 						<ProgressBar
 							:animation="status.progress.animation"
 							:indicator="status.progress.indicator"
@@ -625,7 +701,8 @@ const problemMessageList = (result: IResult) => {
 								#indicator
 							>
 								<div class="text-right min-w-[60px] text-xs w-full">
-									<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
+									<span class="text-blue-500">{{status.progress.value}} / {{status.progress.max
+										}}</span>
 								</div>
 							</template>
 						</ProgressBar>
@@ -637,7 +714,7 @@ const problemMessageList = (result: IResult) => {
 				>
 					<h3 class="text-h5 font-semibold">Error</h3>
 					<ul class="text-txt-md mt-sm2">
-						<li v-for="(problem, index) in problemMessageList(result)" :key="index">{{ problem }}</li>
+						<li v-for="(problem, index) in problemMessageList(result)" :key="index">{{problem}}</li>
 					</ul>
 				</div>
 			</div>

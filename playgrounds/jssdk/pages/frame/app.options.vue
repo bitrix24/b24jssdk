@@ -555,21 +555,7 @@ const problemMessageList = (result: IResult) => {
 						</div>
 						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
 							<dt class="text-sm font-medium leading-6">
-								keyArray (list of userId)
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								<ul v-if="optionsData.keyArray.length > 0">
-									<li
-										v-for="(userId, userIndex) in optionsData.keyArray"
-										:key="userId"
-									>
-										{{ userId }}
-									</li>
-								</ul>
-								<div v-else>
-									~ empty ~
-								</div>
-								
+								<div>keyArray (list of userId)</div>
 								<button
 									type="button"
 									class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
@@ -581,25 +567,17 @@ const problemMessageList = (result: IResult) => {
 									</div>
 									<div class="text-nowrap truncate">Select Users</div>
 								</button>
+							</dt>
+							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+								<div v-if="optionsData.keyArray.length > 0">{{ optionsData.keyArray.join('; ') }}</div>
+								<div v-else>
+									~ empty ~
+								</div>
 							</dd>
 						</div>
 						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
 							<dt class="text-sm font-medium leading-6">
-								keyObject (list of userName)
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								<ul v-if="optionsData.keyObject.values.length > 0">
-									<li
-										v-for="(userName, userIndex) in optionsData.keyArray"
-										:key="userIndex"
-									>
-										{{ userName }}
-									</li>
-								</ul>
-								<div v-else>
-									~ empty ~
-								</div>
-								
+								<div>keyObject (list of userName)</div>
 								<button
 									type="button"
 									class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
@@ -611,6 +589,14 @@ const problemMessageList = (result: IResult) => {
 									</div>
 									<div class="text-nowrap truncate">Select Users</div>
 								</button>
+							</dt>
+							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+								<div v-if="Object.values(optionsData.keyObject).length > 0">{{ Object.values(optionsData.keyObject).join('; ') }}</div>
+								<div v-else>
+									~ empty ~
+								</div>
+								
+								
 							</dd>
 						</div>
 						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">

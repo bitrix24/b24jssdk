@@ -90,7 +90,7 @@ class TextManager
 			return parsedValue
 		}
 
-		return 0
+		return 0.0
 	}
 
 	toInteger(value: any): number
@@ -242,6 +242,10 @@ class TextManager
 		let index = 1
 		for(const token of template)
 		{
+			if(token === 'T')
+			{
+				continue
+			}
 			if(formatTokens[token])
 			{
 				dateComponents[token] = parseInt(match[index++], 10)
@@ -284,7 +288,7 @@ class TextManager
 	{
 		const d = new Date()
 		
-		return `${d.getFullYear()}-${this.lpad(d.getMonth().toString(), 2, '0')}-${this.lpad(d.getDate().toString(), 2, '0')} ${this.lpad(d.getHours().toString(), 2, '0')}:${this.lpad(d.getMinutes().toString(), 2, '0')}`
+		return `${d.getFullYear()}-${this.lpad((d.getMonth() + 1).toString(), 2, '0')}-${this.lpad(d.getDate().toString(), 2, '0')} ${this.lpad(d.getHours().toString(), 2, '0')}:${this.lpad(d.getMinutes().toString(), 2, '0')}`
 	}
 	
 	lpad(

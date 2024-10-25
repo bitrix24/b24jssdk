@@ -1,7 +1,8 @@
 import {AbstractHelper} from './abstractHelper'
 import type { TypeB24 } from '../types/b24'
 import { TypeOption } from '../types/characteristics'
-import Type from "../tools/type"
+import Type from '../tools/type'
+import Text from '../tools/text'
 
 export class OptionsManager
 	extends AbstractHelper
@@ -138,17 +139,17 @@ export class OptionsManager
 			return defValue
 		}
 		
-		return parseFloat(this.data.get(key))
+		return Text.toNumber(this.data.get(key))
 	}
 	
-	getInt(key: string, defValue: number = 0): number
+	getInteger(key: string, defValue: number = 0): number
 	{
 		if(!this.data.has(key))
 		{
 			return defValue
 		}
 		
-		return parseInt(this.data.get(key))
+		return Text.toInteger(this.data.get(key))
 	}
 	
 	getBoolYN(key: string, defValue: boolean = true): boolean
@@ -158,7 +159,7 @@ export class OptionsManager
 			return defValue
 		}
 		
-		return this.data.get(key) === 'Y'
+		return Text.toBoolean(this.data.get(key))
 	}
 	
 	getBoolNY(key: string, defValue: boolean = false): boolean
@@ -168,7 +169,7 @@ export class OptionsManager
 			return defValue
 		}
 		
-		return this.data.get(key) === 'Y'
+		return Text.toBoolean(this.data.get(key))
 	}
 	
 	getString(key: string, defValue: string = ''): string
@@ -179,6 +180,16 @@ export class OptionsManager
 		}
 		
 		return this.data.get(key).toString()
+	}
+	
+	getDate(key: string, defValue: Date = new Date): Date
+	{
+		if(!this.data.has(key))
+		{
+			return defValue
+		}
+		
+		return Text.toDate(this.data.get(key).toString())
 	}
 	// endregion ////
 	

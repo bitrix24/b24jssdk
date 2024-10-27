@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import {ref, type Ref, onMounted, onUnmounted, watch, nextTick} from 'vue'
-import { computedAsync } from '@vueuse/core'
+import {computedAsync} from '@vueuse/core'
 import {
 	LoggerBrowser,
 	Result,
@@ -36,10 +36,10 @@ import TelephonyHandset6Icon from '@bitrix24/b24icons-vue/main/TelephonyHandset6
 import MessengerIcon from '@bitrix24/b24icons-vue/social/MessengerIcon'
 import DialogueIcon from '@bitrix24/b24icons-vue/crm/DialogueIcon'
 import PulseIcon from '@bitrix24/b24icons-vue/main/PulseIcon'
-import { useI18n } from '#imports'
+import {useI18n} from '#imports'
 
 definePageMeta({
-	layout: "app"
+	layout: "app",
 })
 
 // region Init ////
@@ -49,14 +49,14 @@ const $logger = LoggerBrowser.build(
 )
 
 let $b24: B24Frame
-let $b24Helper: null|B24HelperManager = null
+let $b24Helper: null | B24HelperManager = null
 
 const isInit: Ref<boolean> = ref(false)
 const isReload: Ref<boolean> = ref(false)
 const appDataRevision: Ref<number> = ref(0)
 let result: IResult = reactive(new Result())
-const { formatterDateTime, formatterNumber } = useFormatter('en-US')
-const { t, locales, setLocale } = useI18n()
+const {formatterDateTime, formatterNumber} = useFormatter('en-US')
+const {t, locales, setLocale} = useI18n()
 const b24CurrentLang: Ref<string> = ref(B24LangList.en)
 
 const defTabIndex = ref(0)
@@ -103,18 +103,18 @@ interface IStatus {
 	isProcess: boolean,
 	title: string,
 	messages: string[],
-	processInfo: null|string,
-	resultInfo: null|string,
+	processInfo: null | string,
+	resultInfo: null | string,
 	progress: {
 		animation: boolean,
 		indicator: boolean,
-		value: null|number,
-		max: null|number
+		value: null | number,
+		max: null | number
 	},
 	time: {
-		start: null|Date,
-		stop: null|Date,
-		diff: null|number
+		start: null | Date,
+		stop: null | Date,
+		diff: null | number
 	}
 }
 
@@ -138,19 +138,15 @@ const status: Ref<IStatus> = ref({
 } as IStatus)
 
 onMounted(async () => {
-	try
-	{
+	try {
 		$b24 = await initializeB24Frame()
 		$b24.setLogger(LoggerBrowser.build('Core', true))
 		b24CurrentLang.value = $b24.getLang()
 		
-		if(locales.value.filter(i => i.code === b24CurrentLang.value).length > 0)
-		{
+		if (locales.value.filter(i => i.code === b24CurrentLang.value).length > 0) {
 			setLocale(b24CurrentLang.value)
 			$logger.log('setLocale >>>', b24CurrentLang.value)
-		}
-		else
-		{
+		} else {
 			$logger.warn('not support locale >>>', b24CurrentLang.value)
 		}
 		
@@ -162,9 +158,7 @@ onMounted(async () => {
 		isReload.value = false
 		
 		await makeFitWindow()
-	}
-	catch(error: any)
-	{
+	} catch (error: any) {
 		$logger.error(error)
 		showError({
 			statusCode: 404,
@@ -183,8 +177,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-	if(isInit.value)
-	{
+	if (isInit.value) {
 		$b24.destroy()
 		$b24Helper?.destroy()
 	}
@@ -198,8 +191,7 @@ const initializeB24Frame = async (): Promise<B24Frame> => {
 		LANG: null
 	}
 	
-	if(window.name)
-	{
+	if (window.name) {
 		const [domain, protocol, appSid] = window.name.split('|');
 		queryParams.DOMAIN = domain;
 		queryParams.PROTOCOL = parseInt(protocol) === 1;
@@ -207,8 +199,7 @@ const initializeB24Frame = async (): Promise<B24Frame> => {
 		queryParams.LANG = null;
 	}
 	
-	if(!queryParams.DOMAIN || !queryParams.APP_SID)
-	{
+	if (!queryParams.DOMAIN || !queryParams.APP_SID) {
 		throw new Error('Unable to initialize Bitrix24Frame library!');
 	}
 	
@@ -220,20 +211,20 @@ const initializeB24Frame = async (): Promise<B24Frame> => {
 }
 
 /**
+ * @todo make like use
  * @link https://vueuse.org/core/computedAsync/
  */
-const b24Helper: Ref<null|B24HelperManager> = computedAsync(
+const b24Helper: Ref<null | B24HelperManager> = computedAsync(
 	async () => {
-		if(null === $b24Helper)
-		{
+		if (null === $b24Helper) {
 			throw new Error(`b24Helper not init`)
 		}
 		
 		/**
 		 * @memo usage for called dependencies changes
 		 */
-		if(appDataRevision.value)
-		{}
+		if (appDataRevision.value) {
+		}
 		
 		await $b24Helper.loadData([
 			LoadDataType.Profile,
@@ -243,11 +234,11 @@ const b24Helper: Ref<null|B24HelperManager> = computedAsync(
 			LoadDataType.UserOptions,
 		])
 		
-		if(isReload.value)
-		{
+		if (isReload.value) {
 			isReload.value = false
-			await makeFitWindow()
 		}
+		
+		await makeFitWindow()
 		
 		$b24Helper.usePullClient()
 		.subscribePullClient(
@@ -267,8 +258,7 @@ const b24Helper: Ref<null|B24HelperManager> = computedAsync(
 
 // region Actions ////
 const isSliderMode = computed((): boolean => {
-	if(!isInit.value)
-	{
+	if (!isInit.value) {
 		return false
 	}
 	
@@ -285,19 +275,18 @@ const makeFitWindow = async () => {
 const stopMakeProcess = () => {
 	
 	status.value.time.stop = new Date()
-	if(
+	if (
 		status.value.time.stop
 		&& status.value.time.start
-	)
-	{
+	) {
 		status.value.time.diff = Math.abs(status.value.time.stop.getTime() - status.value.time.start.getTime())
 	}
 	status.value.processInfo = null
 	
 	makeFitWindow()
-	.then(() => {
-		status.value.isProcess = false
-	})
+		.then(() => {
+			status.value.isProcess = false
+		})
 }
 
 const clearConsole = () => {
@@ -330,10 +319,10 @@ const makeReloadWindow = async () => {
 	status.value.progress.value = null
 	
 	return $b24.parent.reloadWindow()
-	.catch((error: Error|string) => {
-		result.addError(error);
-		$logger.error(error);
-	})
+		.catch((error: Error | string) => {
+			result.addError(error);
+			$logger.error(error);
+		})
 }
 
 const makeOpenAppOptions = async () => {
@@ -371,18 +360,17 @@ const makeOpenSliderForUser = async (userId: number) => {
 		$b24.slider.getUrl(`/company/personal/user/${userId}/`),
 		950
 	)
-	.then((response: StatusClose) => {
-		if(
-			!response.isOpenAtNewWindow
-			&& response.isClose
-		)
-		{
-			$logger.info("Slider is closed! Reinit the application")
-			isReload.value = true
-			appDataRevision.value += 1
-		}
-		$logger.warn(response)
-	})
+		.then((response: StatusClose) => {
+			if (
+				!response.isOpenAtNewWindow
+				&& response.isClose
+			) {
+				$logger.info("Slider is closed! Reinit the application")
+				isReload.value = true
+				appDataRevision.value += 1
+			}
+			$logger.warn(response)
+		})
 }
 
 const makeOpenSliderEditCurrency = async (currencyCode: string) => {
@@ -390,18 +378,17 @@ const makeOpenSliderEditCurrency = async (currencyCode: string) => {
 		$b24.slider.getUrl(`/crm/configs/currency/edit/${currencyCode}/`),
 		950
 	)
-	.then((response: StatusClose) => {
-		if(
-			!response.isOpenAtNewWindow
-			&& response.isClose
-		)
-		{
-			$logger.info("Slider is closed! Reinit the application")
-			isReload.value = true
-			appDataRevision.value += 1
-		}
-		$logger.warn(response)
-	})
+		.then((response: StatusClose) => {
+			if (
+				!response.isOpenAtNewWindow
+				&& response.isClose
+			) {
+				$logger.info("Slider is closed! Reinit the application")
+				isReload.value = true
+				appDataRevision.value += 1
+			}
+			$logger.warn(response)
+		})
 }
 
 const makeOpenSliderAddCurrency = async () => {
@@ -409,18 +396,17 @@ const makeOpenSliderAddCurrency = async () => {
 		$b24.slider.getUrl(`/crm/configs/currency/add/`),
 		950
 	)
-	.then((response: StatusClose) => {
-		if(
-			!response.isOpenAtNewWindow
-			&& response.isClose
-		)
-		{
-			$logger.info("Slider is closed! Reinit the application")
-			isReload.value = true
-			appDataRevision.value += 1
-		}
-		$logger.warn(response)
-	})
+		.then((response: StatusClose) => {
+			if (
+				!response.isOpenAtNewWindow
+				&& response.isClose
+			) {
+				$logger.info("Slider is closed! Reinit the application")
+				isReload.value = true
+				appDataRevision.value += 1
+			}
+			$logger.warn(response)
+		})
 }
 
 const makeOpenPage = async (url: string) => {
@@ -455,33 +441,33 @@ const makeImCallTo = async (isVideo: boolean = true) => {
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		status.value.messages.push('use $b24.dialog.selectUser to select a user')
-		
-		const selectedUser = await $b24.dialog.selectUser()
-		
-		$logger.info(selectedUser)
-		
-		if(selectedUser)
-		{
-			if(Number(selectedUser.id) === (b24Helper.value?.profileInfo.data.id || 0))
-			{
-				return Promise.reject(new Error('You can\'t make a call to yourself'))
+		.then(async () => {
+			status.value.messages.push('use $b24.dialog.selectUser to select a user')
+			
+			const selectedUser = await $b24.dialog.selectUser()
+			
+			$logger.info(selectedUser)
+			
+			if (selectedUser) {
+				if (Number(selectedUser.id) === (b24Helper.value?.profileInfo.data.id || 0)) {
+					return Promise.reject(new Error('You can\'t make a call to yourself'))
+				}
+				status.value.messages.push('use $b24.parent.imCallTo to initiate a call via intercom')
+				return $b24.parent.imCallTo(
+					Number(selectedUser.id),
+					isVideo
+				)
 			}
-			status.value.messages.push('use $b24.parent.imCallTo to initiate a call via intercom')
-			return $b24.parent.imCallTo(
-				Number(selectedUser.id),
-				isVideo
-			)
-		}
-		
-		return Promise.reject(new Error('User not selected'))
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
+			
+			return Promise.reject(new Error('User not selected'))
+		})
+		.catch((error: Error | string) => {
+			result.addError(error)
+			$logger.error(error)
+		})
+		.finally(() => {
+			stopMakeProcess()
+		})
 }
 
 const makeImPhoneTo = async () => {
@@ -498,33 +484,33 @@ const makeImPhoneTo = async () => {
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		
-		const promptPhone = prompt(
-			'Please provide phone'
-		)
-		
-		if(null === promptPhone)
-		{
-			return Promise.resolve()
-		}
-		
-		const phone = String(promptPhone)
-		
-		if(phone.length < 1)
-		{
-			return Promise.reject(new Error('Empty phone number'))
-		}
-		
-		return $b24.parent.imPhoneTo(
-			phone
-		)
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
+		.then(async () => {
+			
+			const promptPhone = prompt(
+				'Please provide phone'
+			)
+			
+			if (null === promptPhone) {
+				return Promise.resolve()
+			}
+			
+			const phone = String(promptPhone)
+			
+			if (phone.length < 1) {
+				return Promise.reject(new Error('Empty phone number'))
+			}
+			
+			return $b24.parent.imPhoneTo(
+				phone
+			)
+		})
+		.catch((error: Error | string) => {
+			result.addError(error)
+			$logger.error(error)
+		})
+		.finally(() => {
+			stopMakeProcess()
+		})
 }
 
 const makeImOpenMessenger = async () => {
@@ -540,40 +526,38 @@ const makeImOpenMessenger = async () => {
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		const promptDialogId = prompt(
-			'Please provide dialogId (number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined)'
-		)
-		
-		if(null === promptDialogId)
-		{
-			return Promise.resolve()
-		}
-		
-		let dialogId: any = String(promptDialogId)
-		
-		if(dialogId.length < 1)
-		{
-			dialogId = undefined
-		}
-		else if(
-			!dialogId.startsWith('chat')
-			&& !dialogId.startsWith('imol')
-			&& !dialogId.startsWith('sg')
-		)
-		{
-			dialogId = Number(dialogId)
-		}
-		
-		return $b24.parent.imOpenMessenger(
-			dialogId
-		)
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
+		.then(async () => {
+			const promptDialogId = prompt(
+				'Please provide dialogId (number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined)'
+			)
+			
+			if (null === promptDialogId) {
+				return Promise.resolve()
+			}
+			
+			let dialogId: any = String(promptDialogId)
+			
+			if (dialogId.length < 1) {
+				dialogId = undefined
+			} else if (
+				!dialogId.startsWith('chat')
+				&& !dialogId.startsWith('imol')
+				&& !dialogId.startsWith('sg')
+			) {
+				dialogId = Number(dialogId)
+			}
+			
+			return $b24.parent.imOpenMessenger(
+				dialogId
+			)
+		})
+		.catch((error: Error | string) => {
+			result.addError(error)
+			$logger.error(error)
+		})
+		.finally(() => {
+			stopMakeProcess()
+		})
 }
 
 const makeImOpenMessengerWithYourself = async () => {
@@ -589,16 +573,18 @@ const makeImOpenMessengerWithYourself = async () => {
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		return $b24.parent.imOpenMessenger(
-			(b24Helper.value?.profileInfo.data.id || 0)
-		)
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
+		.then(async () => {
+			return $b24.parent.imOpenMessenger(
+				(b24Helper.value?.profileInfo.data.id || 0)
+			)
+		})
+		.catch((error: Error | string) => {
+			result.addError(error)
+			$logger.error(error)
+		})
+		.finally(() => {
+			stopMakeProcess()
+		})
 }
 
 const makeImOpenHistory = async () => {
@@ -606,18 +592,16 @@ const makeImOpenHistory = async () => {
 		'Please provide dialogId (number|`chat${number}`|`imol|${number})'
 	)
 	
-	if(null === promptDialogId)
-	{
+	if (null === promptDialogId) {
 		return Promise.resolve()
 	}
 	
 	let dialogId: any = String(promptDialogId)
 	
-	if(
+	if (
 		!dialogId.startsWith('chat')
 		&& !dialogId.startsWith('imol')
-	)
-	{
+	) {
 		dialogId = Number(dialogId)
 	}
 	
@@ -641,30 +625,31 @@ const makeSelectUsers = async () => {
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		const selectedUsers = await $b24.dialog.selectUsers()
-		
-		$logger.info(selectedUsers)
-		
-		const list = selectedUsers.map((row: SelectedUser): string => {
-			return [
-				`[id: ${row.id}]`,
-				row.name,
-			].join(' ')
+		.then(async () => {
+			const selectedUsers = await $b24.dialog.selectUsers()
+			
+			$logger.info(selectedUsers)
+			
+			const list = selectedUsers.map((row: SelectedUser): string => {
+				return [
+					`[id: ${row.id}]`,
+					row.name,
+				].join(' ')
+			})
+			
+			if (list.length < 1) {
+				list.push('~ empty ~')
+			}
+			
+			status.value.resultInfo = `list: ${list.join('; ')}`
 		})
-		
-		if(list.length < 1)
-		{
-			list.push('~ empty ~')
-		}
-		
-		status.value.resultInfo = `list: ${list.join('; ')}`
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
+		.catch((error: Error | string) => {
+			result.addError(error)
+			$logger.error(error)
+		})
+		.finally(() => {
+			stopMakeProcess()
+		})
 }
 // endregion ////
 
@@ -687,43 +672,43 @@ const makeSendPullCommand = async (
 		
 		return resolve(null)
 	})
-	.then(async () => {
-		const selectedUsers = await $b24.dialog.selectUsers()
-		const list = selectedUsers.map((row: SelectedUser): string => {
-			return [
-				`[id: ${row.id}]`,
-				row.name,
-			].join(' ')
-		})
-		
-		if(list.length < 1)
-		{
-			list.push('~ empty ~')
-		}
-		
-		params.userList = list
-		
-		$logger.warn('>> pull.send >>>', params)
-		
-		return $b24.callMethod(
-			'pull.application.event.add',
-			{
-				COMMAND: command,
-				PARAMS: params,
-				MODULE_ID: $b24Helper?.getModuleIdPullClient()
+		.then(async () => {
+			const selectedUsers = await $b24.dialog.selectUsers()
+			const list = selectedUsers.map((row: SelectedUser): string => {
+				return [
+					`[id: ${row.id}]`,
+					row.name,
+				].join(' ')
+			})
+			
+			if (list.length < 1) {
+				list.push('~ empty ~')
 			}
-		)
-	})
-	.catch((error: Error|string) => {
-		result.addError(error)
-		$logger.error(error)
-	})
-	.finally(() => {stopMakeProcess()})
+			
+			params.userList = list
+			
+			$logger.warn('>> pull.send >>>', params)
+			
+			return $b24.callMethod(
+				'pull.application.event.add',
+				{
+					COMMAND: command,
+					PARAMS: params,
+					MODULE_ID: $b24Helper?.getModuleIdPullClient()
+				}
+			)
+		})
+		.catch((error: Error | string) => {
+			result.addError(error)
+			$logger.error(error)
+		})
+		.finally(() => {
+			stopMakeProcess()
+		})
 }
 
 const makeSendPullCommandHandler = (message: TypePullMessage): void => {
-	if(!status.value.isProcess)
-	{
+	if (!status.value.isProcess) {
 		reInitStatus()
 		status.value.isProcess = true
 		status.value.title = 'test pull.application.event.add'
@@ -746,12 +731,9 @@ const makeSendPullCommandHandler = (message: TypePullMessage): void => {
 const problemMessageList = (result: IResult) => {
 	let problemMessageList: string[] = [];
 	const problem = result.getErrorMessages();
-	if( typeof (problem || '') === 'string' )
-	{
+	if (typeof (problem || '') === 'string') {
 		problemMessageList.push(problem.toString());
-	}
-	else if(Array.isArray(problem))
-	{
+	} else if (Array.isArray(problem)) {
 		problemMessageList = problemMessageList.concat(problem);
 	}
 	
@@ -768,449 +750,573 @@ watch(defTabIndex, async () => {
 
 <template>
 	<ClientOnly>
-		<div
-			v-if="!isInit || isReload || !b24Helper"
-			class="absolute top-0 bottom-0 left-0 right-0 flex flex-col justify-center items-center"
+		<div class="bg-white  min-h-screen px-2"
+			:class="{
+				'overflow-hidden': !isInit || isReload || !b24Helper
+			}"
 		>
-			<div class="absolute z-10 text-info">
-				<SpinnerIcon class="animate-spin stroke-2 size-44" />
+			<div
+				v-if="!isInit || isReload || !b24Helper"
+				class="absolute top-0 bottom-0 left-0 right-0 flex flex-col justify-center items-center"
+			>
+				<div class="absolute z-10 text-info">
+					<SpinnerIcon class="animate-spin stroke-2 size-44"/>
+				</div>
 			</div>
-		</div>
-		<div v-else>
-			<div class="p-4 flex items-center justify-start">
-				<div class="flex items-center">
-					<div
-						v-if="b24Helper"
-						class="mt-2 px-lg2 py-sm2 border border-base-100 rounded-lg hover:shadow-md hover:-translate-y-px col-auto md:col-span-2 lg:col-span-1 bg-white cursor-pointer"
-						@click.stop="makeOpenSliderForUser(b24Helper.profileInfo.data.id || 0)"
-					>
-						<div class="flex items-center gap-4">
-							<Avatar
-								:src="b24Helper.profileInfo.data.photo || ''"
-								:alt="b24Helper.profileInfo.data.lastName || 'user' "
-							/>
-							<div class="font-medium dark:text-white" >
-								<div class="text-nowrap text-xs text-base-500 dark:text-base-400">
-									{{ b24Helper.hostName.replace('https://', '') }}
-								</div>
-								<div class="text-nowrap hover:underline hover:text-info-link">
-									{{ [
-									b24Helper.profileInfo.data.lastName,
-									b24Helper.profileInfo.data.name,
-								].join(' ') }}
-								</div>
-								<div class="text-xs text-base-800 dark:text-base-400 flex flex-row gap-x-2">
-									<span>{{ b24Helper.profileInfo.data.isAdmin ? 'Administrator' : '' }}</span>
-									<span
-										class="text-nowrap hover:underline hover:text-info-link"
-										@click.stop="makeImOpenMessengerWithYourself()"
-									>My notes</span>
+			<div v-else>
+				<div class="p-4 flex items-center justify-start">
+					<div class="flex items-center">
+						<div
+							v-if="b24Helper"
+							class="mt-2 px-lg2 py-sm2 border border-base-100 rounded-lg hover:shadow-md hover:-translate-y-px col-auto md:col-span-2 lg:col-span-1 bg-white cursor-pointer"
+							@click.stop="makeOpenSliderForUser(b24Helper.profileInfo.data.id || 0)"
+						>
+							<div class="flex items-center gap-4">
+								<Avatar
+									:src="b24Helper.profileInfo.data.photo || ''"
+									:alt="b24Helper.profileInfo.data.lastName || 'user' "
+								/>
+								<div class="font-medium dark:text-white">
+									<div class="text-nowrap text-xs text-base-500 dark:text-base-400">
+										{{ b24Helper.hostName.replace('https://', '') }}
+									</div>
+									<div class="text-nowrap hover:underline hover:text-info-link">
+										{{
+											[
+												b24Helper.profileInfo.data.lastName,
+												b24Helper.profileInfo.data.name,
+											].join(' ')
+										}}
+									</div>
+									<div class="text-xs text-base-800 dark:text-base-400 flex flex-row gap-x-2">
+										<span>{{ b24Helper.profileInfo.data.isAdmin ? 'Administrator' : '' }}</span>
+										<span
+											class="text-nowrap hover:underline hover:text-info-link"
+											@click.stop="makeImOpenMessengerWithYourself()"
+										>My notes</span>
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
+					<div class="ml-4 w-0 flex-1">
+						<Info>
+							Scopes: <code>user_brief</code>, <code>crm</code>, <code>pull</code><br><br>
+							To view query results, open the developer console.
+						</Info>
+					</div>
 				</div>
-				<div class="ml-4 w-0 flex-1">
-					<Info>
-						Scopes: <code>user_brief</code>, <code>crm</code>, <code>pull</code><br><br>
-						To view query results, open the developer console.
-					</Info>
-				</div>
-			</div>
-			<div class="mt-2" v-if="b24Helper">
-				<Tabs
-					:items="tabsItems"
-					v-model="defTabIndex"
-				>
-					<template #item="{ item }">
-						<div class="p-4">
-							<div>
-								<h3 class="text-h3 font-semibold leading-7 text-base-900">{{ item.label }}</h3>
-								<p class="mt-1 max-w-2xl text-sm leading-6 text-base-500">{{ item.content }}</p>
-							</div>
-							<div class="mt-3 text-md text-base-900">
-								<div v-if="item.key === 'lang'">
-									<dl class="divide-y divide-base-100">
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">message 1</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ t('message1') }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">message 2</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ t('message2') }}</dd>
-										</div>
-									</dl>
-									<div
-										class="pt-6"
-										v-if="!isSliderMode"
-									>
-										<Info>Try changing the language at the bottom of the page</Info>
-									</div>
-									<div
-										class="pt-6"
-										v-else
-									>
-										<Info>The application is opened in slider mode</Info>
-									</div>
+				<div class="mt-2" v-if="b24Helper">
+					<Tabs
+						:items="tabsItems"
+						v-model="defTabIndex"
+					>
+						<template #item="{ item }">
+							<div class="p-4">
+								<div>
+									<h3 class="text-h3 font-semibold leading-7 text-base-900">{{ item.label }}</h3>
+									<p class="mt-1 max-w-2xl text-sm leading-6 text-base-500">{{ item.content }}</p>
 								</div>
-								<div v-else-if="item.key === 'appInfo'" class="space-y-3">
-									<dl class="divide-y divide-base-100">
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">local identifier of the application on the account</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.appInfo.data.id }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">application code</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.appInfo.data.code }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">installed version of the application</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.appInfo.data.version }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">status of the application</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.appInfo.statusCode }} [{{ b24Helper.appInfo.data.status }}]</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">status of the application's installation</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.appInfo.data.isInstalled ? 'Y' : 'N' }}</dd>
-										</div>
-									</dl>
-								</div>
-								<div v-else-if="item.key === 'licenseInfo'" class="space-y-3">
-									<dl class="divide-y divide-base-100">
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">language code designation</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.licenseInfo.data.languageId }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">tariff designation with indication of the region as a prefix</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.licenseInfo.data.license }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">internal tariff designation without indication of region</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.licenseInfo.data.licenseType }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">past meaning of license</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.licenseInfo.data.licensePrevious }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">tariff designation without specifying the region</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.licenseInfo.data.licenseFamily }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">flag indicating whether it is a box or a cloud</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.licenseInfo.data.isSelfHosted ? 'Y' : 'N' }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">flag indicating whether the paid period or trial period has expired</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.paymentInfo.data.isExpired ? 'Y' : 'N' }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">number of days remaining until the end of the paid period or trial period</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.paymentInfo.data.days }}</dd>
-										</div>
-									</dl>
-								</div>
-								<div v-else-if="item.key === 'specific'" class="space-y-3">
-									<dl class="divide-y divide-base-100">
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">flag indicating whether it is a box or a cloud</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.isSelfHosted ? 'Y' : 'N' }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">the increment step of fields of type ID</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.primaryKeyIncrementValue }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">specific URLs for a box or cloud</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-												<ul role="list" class="divide-y divide-base-100">
-													<li class="flex items-center justify-start pb-4 pl-0 pr-5 text-sm leading-1">
-														<div class="flex items-center">
-															<div class="truncate font-medium">MainSettings</div>
-														</div>
-														<div class="ml-4 flex-shrink-0">
-															<div class="cursor-pointer underline hover:text-info-link" @click.stop="makeOpenPage(b24Helper.b24SpecificUrl.MainSettings)">{{ b24Helper.b24SpecificUrl.MainSettings }}</div>
-														</div>
-													</li>
-													<li class="flex items-center justify-start py-4 pl-0 pr-5 text-sm leading-1">
-														<div class="flex items-center">
-															<div class="truncate font-medium">UfList</div>
-														</div>
-														<div class="ml-4 flex-shrink-0">
-															<div class="cursor-pointer underline hover:text-info-link" @click.stop="makeOpenUfList(b24Helper.b24SpecificUrl.UfList)">{{ b24Helper.b24SpecificUrl.UfList }}</div>
-														</div>
-													</li>
-													<li class="flex items-center justify-start py-4 pl-0 pr-5 text-sm leading-1">
-														<div class="flex items-center">
-															<div class="truncate font-medium">UfPage</div>
-														</div>
-														<div class="ml-4 flex-shrink-0">
-															{{ b24Helper.b24SpecificUrl.UfPage }}
-														</div>
-													</li>
-												</ul>
-											</dd>
-										</div>
-									</dl>
-								</div>
-								<div v-else-if="item.key === 'forB24Form'" class="space-y-3">
-									<dl class="divide-y divide-base-100">
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">app_code</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.forB24Form.app_code }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">app_status</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.forB24Form.app_status }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">payment_expired</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.forB24Form.payment_expired }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">days</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.forB24Form.days }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">b24_plan</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.forB24Form.b24_plan }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">c_name</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.forB24Form.c_name }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">c_last_name</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.forB24Form.c_last_name }}</dd>
-										</div>
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="text-sm font-medium leading-6">hostname</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">{{ b24Helper.forB24Form.hostname }}</dd>
-										</div>
-									</dl>
-								</div>
-								<div v-else-if="item.key === 'currency'" class="space-y-3">
-									<dl class="divide-y divide-base-100">
-										<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-											<dt class="pt-2 text-sm font-medium leading-6 flex flex-row gap-2 items-start justify-start">
-												<button
-													class="text-base-400 hover:text-base-master hover:bg-base-100 rounded"
-													@click.stop="makeOpenSliderAddCurrency()"
-												>
-													<PlusIcon class="size-6" />
-												</button>
-												
-												<div class="flex-1">Symbolic Identifier of the Base Currency</div>
-											</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-												<div class="text-sm font-medium flex flex-row gap-2 items-center justify-start">
-													<div>
-														<input
-															type="number"
-															v-model.number="valueForCurrency"
-															class="border border-base-300 text-base-900 rounded block w-full p-2.5"
-															step="101.023"
-														>
-													</div>
-													<div class="flex-1">{{ b24Helper.currency.baseCurrency }}</div>
-												</div>
-											</dd>
+								<div class="mt-3 text-md text-base-900">
+									<div v-if="item.key === 'lang'">
+										<dl class="divide-y divide-base-100">
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">message 1</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ t('message1') }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">message 2</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ t('message2') }}
+												</dd>
+											</div>
+										</dl>
+										<div
+											class="pt-6"
+											v-if="!isSliderMode"
+										>
+											<Info>Try changing the language at the bottom of the page</Info>
 										</div>
 										<div
-											v-for="(currencyCode) in b24Helper.currency.currencyList"
-											class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0"
-											:key="currencyCode"
+											class="pt-6"
+											v-else
 										>
-											<dt class="text-sm font-medium leading-6 flex flex-row gap-2 items-start justify-start">
-												<button
-													class="text-base-400 hover:text-base-master hover:bg-base-100 rounded"
-													@click.stop="makeOpenSliderEditCurrency(currencyCode)"
-												>
-													<EditIcon class="size-6" />
-												</button>
-												<div class="flex-1">{{ currencyCode }} • <span v-html="b24Helper.currency.getCurrencyFullName(currencyCode, b24CurrentLang)"></span> • <span v-html="b24Helper.currency.getCurrencyLiteral(currencyCode)"></span></div>
-											</dt>
-											<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-												<span v-html="b24Helper.currency.format(valueForCurrency, currencyCode, b24CurrentLang)"></span>
-											</dd>
+											<Info>The application is opened in slider mode</Info>
 										</div>
-									</dl>
-								</div>
-								<div v-else-if="item.key === 'test'" class="space-y-3">
-									<div class="mt-6 flex flex-col sm:flex-row gap-10">
-										<div class="basis-1/6 flex flex-col gap-y-2">
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeSelectUsers"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<UserGroupIcon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">Select Users</div>
-											</button>
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeReloadWindow"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<Refresh7Icon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">Reload Window</div>
-											</button>
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeImCallTo(true)"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<VideoAndChatIcon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">Video Call</div>
-											</button>
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeImCallTo(false)"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<CallChatIcon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">Voice Call</div>
-											</button>
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeImOpenMessenger"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<MessengerIcon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">Open Messenger</div>
-											</button>
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeImOpenHistory"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<DialogueIcon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">Open History</div>
-											</button>
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeImPhoneTo"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<TelephonyHandset6Icon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">Telephony</div>
-											</button>
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeSendPullCommand('test', {data: Date.now()})"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<PulseIcon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">Pull</div>
-											</button>
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeOpenAppOptions()"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<Settings2Icon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">App Options</div>
-											</button>
-											<button
-												type="button"
-												class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-												@click="makeOpenUserOptions()"
-												:disabled="status.isProcess"
-											>
-												<div class="rounded-full text-base-900 bg-base-100 p-1">
-													<Settings2Icon class="size-5"/>
-												</div>
-												<div class="text-nowrap truncate">User Options</div>
-											</button>
-											
-										</div>
-										<div class="flex-1">
-											<div class="px-lg2 py-sm2 border border-base-100 rounded-lg col-auto md:col-span-2 lg:col-span-1 bg-white">
-												<div class="w-full flex items-center justify-between">
-													<h3 class="text-h5 font-semibold">{{ status.title }}</h3>
-													<button
-														type="button"
-														class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded pl-1 pr-3 py-1.5 leading-none text-3xs font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
-														@click="clearConsole"
-													>
-														<TrashBinIcon class="size-4"/>
-														<div class="text-nowrap truncate">Clear console</div>
-													</button>
-												</div>
-												
-												<ul class="text-xs mt-sm2" v-show="status.messages.length > 0">
-													<li v-for="(message, index) in status.messages" :key="index">{{ message }}</li>
-													<li class="mt-2 pl-2 text-base-600" v-show="null !== status.time.start">start: {{ formatterDateTime.formatDate(status.time?.start || new Date, 'H:i:s') }}</li>
-													<li class="pl-2 text-base-600" v-show="null !== status.time.stop">stop: {{ formatterDateTime.formatDate(status.time?.stop || new Date, 'H:i:s') }}</li>
-													<li class="pl-2 text-base-600" v-show="null !== status.time.diff">diff: {{ formatterNumber.format(status.time?.diff || 0) }} ms</li>
-													<li class="mt-2 pl-2 text-base-800 font-bold" v-show="null !== status.resultInfo">{{ status.resultInfo }}</li>
-												</ul>
-												
-												<div class="mt-2" v-show="status.isProcess">
-													<div class="mt-2 pl-0.5 text-4xs text-blue-500" v-show="status.processInfo">{{ status.processInfo }}</div>
-													<ProgressBar
-														:animation="status.progress.animation"
-														:indicator="status.progress.indicator"
-														:value="status.progress?.value || undefined"
-														:max="status.progress?.max || 0"
-													>
-														<template
-															v-if="status.progress.indicator"
-															#indicator
-														>
-															<div class="text-right min-w-[60px] text-xs w-full">
-																<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
+									</div>
+									<div v-else-if="item.key === 'appInfo'" class="space-y-3">
+										<dl class="divide-y divide-base-100">
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">local identifier of the
+													application on the account
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.appInfo.data.id }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">application code</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.appInfo.data.code }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">installed version of the
+													application
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.appInfo.data.version }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">status of the application</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.appInfo.statusCode }} [{{ b24Helper.appInfo.data.status }}]
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">status of the application's
+													installation
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.appInfo.data.isInstalled ? 'Y' : 'N' }}
+												</dd>
+											</div>
+										</dl>
+									</div>
+									<div v-else-if="item.key === 'licenseInfo'" class="space-y-3">
+										<dl class="divide-y divide-base-100">
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">language code designation</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.licenseInfo.data.languageId }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">tariff designation with indication
+													of the region as a
+													prefix
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.licenseInfo.data.license }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">internal tariff designation
+													without indication of
+													region
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.licenseInfo.data.licenseType }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">past meaning of license</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.licenseInfo.data.licensePrevious }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">tariff designation without
+													specifying the region
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.licenseInfo.data.licenseFamily }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">flag indicating whether it is a
+													box or a cloud
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.licenseInfo.data.isSelfHosted ? 'Y' : 'N' }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">flag indicating whether the paid
+													period or trial period
+													has expired
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.paymentInfo.data.isExpired ? 'Y' : 'N' }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">number of days remaining until the
+													end of the paid
+													period or trial period
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.paymentInfo.data.days }}
+												</dd>
+											</div>
+										</dl>
+									</div>
+									<div v-else-if="item.key === 'specific'" class="space-y-3">
+										<dl class="divide-y divide-base-100">
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">flag indicating whether it is a
+													box or a cloud
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.isSelfHosted ? 'Y' : 'N' }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">the increment step of fields of
+													type ID
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.primaryKeyIncrementValue }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">specific URLs for a box or cloud
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													<ul role="list" class="divide-y divide-base-100">
+														<li class="flex items-center justify-start pb-4 pl-0 pr-5 text-sm leading-1">
+															<div class="flex items-center">
+																<div class="truncate font-medium">MainSettings</div>
 															</div>
-														</template>
-													</ProgressBar>
-												</div>
+															<div class="ml-4 flex-shrink-0">
+																<div class="cursor-pointer underline hover:text-info-link"
+																     @click.stop="makeOpenPage(b24Helper.b24SpecificUrl.MainSettings)">
+																	{{ b24Helper.b24SpecificUrl.MainSettings }}
+																</div>
+															</div>
+														</li>
+														<li class="flex items-center justify-start py-4 pl-0 pr-5 text-sm leading-1">
+															<div class="flex items-center">
+																<div class="truncate font-medium">UfList</div>
+															</div>
+															<div class="ml-4 flex-shrink-0">
+																<div class="cursor-pointer underline hover:text-info-link"
+																     @click.stop="makeOpenUfList(b24Helper.b24SpecificUrl.UfList)">
+																	{{ b24Helper.b24SpecificUrl.UfList }}
+																</div>
+															</div>
+														</li>
+														<li class="flex items-center justify-start py-4 pl-0 pr-5 text-sm leading-1">
+															<div class="flex items-center">
+																<div class="truncate font-medium">UfPage</div>
+															</div>
+															<div class="ml-4 flex-shrink-0">
+																{{ b24Helper.b24SpecificUrl.UfPage }}
+															</div>
+														</li>
+													</ul>
+												</dd>
+											</div>
+										</dl>
+									</div>
+									<div v-else-if="item.key === 'forB24Form'" class="space-y-3">
+										<dl class="divide-y divide-base-100">
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">app_code</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.forB24Form.app_code }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">app_status</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.forB24Form.app_status }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">payment_expired</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.forB24Form.payment_expired }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">days</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.forB24Form.days }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">b24_plan</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.forB24Form.b24_plan }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">c_name</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.forB24Form.c_name }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">c_last_name</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.forB24Form.c_last_name }}
+												</dd>
+											</div>
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="text-sm font-medium leading-6">hostname</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													{{ b24Helper.forB24Form.hostname }}
+												</dd>
+											</div>
+										</dl>
+									</div>
+									<div v-else-if="item.key === 'currency'" class="space-y-3">
+										<dl class="divide-y divide-base-100">
+											<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+												<dt class="pt-2 text-sm font-medium leading-6 flex flex-row gap-2 items-start justify-start">
+													<button
+														class="text-base-400 hover:text-base-master hover:bg-base-100 rounded"
+														@click.stop="makeOpenSliderAddCurrency()"
+													>
+														<PlusIcon class="size-6"/>
+													</button>
+													
+													<div class="flex-1">Symbolic Identifier of the Base Currency</div>
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													<div
+														class="text-sm font-medium flex flex-row gap-2 items-center justify-start">
+														<div>
+															<input
+																type="number"
+																v-model.number="valueForCurrency"
+																class="border border-base-300 text-base-900 rounded block w-full p-2.5"
+																step="101.023"
+															>
+														</div>
+														<div class="flex-1">{{ b24Helper.currency.baseCurrency }}</div>
+													</div>
+												</dd>
 											</div>
 											<div
-												class="mt-4 text-alert-text px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
-												v-if="!result.isSuccess"
+												v-for="(currencyCode) in b24Helper.currency.currencyList"
+												class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0"
+												:key="currencyCode"
 											>
-												<h3 class="text-h5 font-semibold">Error</h3>
-												<ul class="text-txt-md mt-sm2">
-													<li v-for="(problem, index) in problemMessageList(result)" :key="index">{{ problem }}</li>
-												</ul>
+												<dt class="text-sm font-medium leading-6 flex flex-row gap-2 items-start justify-start">
+													<button
+														class="text-base-400 hover:text-base-master hover:bg-base-100 rounded"
+														@click.stop="makeOpenSliderEditCurrency(currencyCode)"
+													>
+														<EditIcon class="size-6"/>
+													</button>
+													<div class="flex-1">{{ currencyCode }} • <span
+														v-html="b24Helper.currency.getCurrencyFullName(currencyCode, b24CurrentLang)"></span>
+														•
+														<span
+															v-html="b24Helper.currency.getCurrencyLiteral(currencyCode)"></span>
+													</div>
+												</dt>
+												<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+													<span
+														v-html="b24Helper.currency.format(valueForCurrency, currencyCode, b24CurrentLang)"></span>
+												</dd>
+											</div>
+										</dl>
+									</div>
+									<div v-else-if="item.key === 'test'" class="space-y-3">
+										<div class="mt-6 flex flex-col sm:flex-row gap-10">
+											<div class="basis-1/6 flex flex-col gap-y-2">
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeSelectUsers"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<UserGroupIcon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">Select Users</div>
+												</button>
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeReloadWindow"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<Refresh7Icon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">Reload Window</div>
+												</button>
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeImCallTo(true)"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<VideoAndChatIcon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">Video Call</div>
+												</button>
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeImCallTo(false)"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<CallChatIcon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">Voice Call</div>
+												</button>
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeImOpenMessenger"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<MessengerIcon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">Open Messenger</div>
+												</button>
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeImOpenHistory"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<DialogueIcon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">Open History</div>
+												</button>
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeImPhoneTo"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<TelephonyHandset6Icon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">Telephony</div>
+												</button>
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeSendPullCommand('test', {data: Date.now()})"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<PulseIcon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">Pull</div>
+												</button>
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeOpenAppOptions()"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<Settings2Icon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">App Options</div>
+												</button>
+												<button
+													type="button"
+													class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+													@click="makeOpenUserOptions()"
+													:disabled="status.isProcess"
+												>
+													<div class="rounded-full text-base-900 bg-base-100 p-1">
+														<Settings2Icon class="size-5"/>
+													</div>
+													<div class="text-nowrap truncate">User Options</div>
+												</button>
+											
+											</div>
+											<div class="flex-1">
+												<div
+													class="px-lg2 py-sm2 border border-base-100 rounded-lg col-auto md:col-span-2 lg:col-span-1 bg-white">
+													<div class="w-full flex items-center justify-between">
+														<h3 class="text-h5 font-semibold">{{ status.title }}</h3>
+														<button
+															type="button"
+															class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded pl-1 pr-3 py-1.5 leading-none text-3xs font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+															@click="clearConsole"
+														>
+															<TrashBinIcon class="size-4"/>
+															<div class="text-nowrap truncate">Clear console</div>
+														</button>
+													</div>
+													
+													<ul class="text-xs mt-sm2" v-show="status.messages.length > 0">
+														<li v-for="(message, index) in status.messages" :key="index">
+															{{ message }}
+														</li>
+														<li class="mt-2 pl-2 text-base-600"
+														    v-show="null !== status.time.start">start:
+															{{
+																formatterDateTime.formatDate(status.time?.start || new Date, 'H:i:s')
+															}}
+														</li>
+														<li class="pl-2 text-base-600" v-show="null !== status.time.stop">
+															stop:
+															{{
+																formatterDateTime.formatDate(status.time?.stop || new Date, 'H:i:s')
+															}}
+														</li>
+														<li class="pl-2 text-base-600" v-show="null !== status.time.diff">
+															diff:
+															{{ formatterNumber.format(status.time?.diff || 0) }} ms
+														</li>
+														<li class="mt-2 pl-2 text-base-800 font-bold"
+														    v-show="null !== status.resultInfo">
+															{{ status.resultInfo }}
+														</li>
+													</ul>
+													
+													<div class="mt-2" v-show="status.isProcess">
+														<div class="mt-2 pl-0.5 text-4xs text-blue-500"
+														     v-show="status.processInfo">
+															{{ status.processInfo }}
+														</div>
+														<ProgressBar
+															:animation="status.progress.animation"
+															:indicator="status.progress.indicator"
+															:value="status.progress?.value || undefined"
+															:max="status.progress?.max || 0"
+														>
+															<template
+																v-if="status.progress.indicator"
+																#indicator
+															>
+																<div class="text-right min-w-[60px] text-xs w-full">
+	                                <span class="text-blue-500">{{ status.progress.value }} / {{
+			                                status.progress.max
+		                                }}</span>
+																</div>
+															</template>
+														</ProgressBar>
+													</div>
+												</div>
+												<div
+													class="mt-4 text-alert-text px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
+													v-if="!result.isSuccess"
+												>
+													<h3 class="text-h5 font-semibold">Error</h3>
+													<ul class="text-txt-md mt-sm2">
+														<li v-for="(problem, index) in problemMessageList(result)"
+														    :key="index">{{ problem }}
+														</li>
+													</ul>
+												</div>
 											</div>
 										</div>
 									</div>
 								</div>
 							</div>
-						</div>
-					</template>
-				</Tabs>
+						</template>
+					</Tabs>
+				</div>
 			</div>
 		</div>
 	</ClientOnly>

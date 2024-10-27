@@ -16,11 +16,12 @@ import {
 
 import SpinnerIcon from '@bitrix24/b24icons-vue/specialized/SpinnerIcon'
 import UserGroupIcon from '@bitrix24/b24icons-vue/common-b24/UserGroupIcon'
+import BtnClockIcon from '@bitrix24/b24icons-vue/button-specialized/BtnClockIcon'
 import Toggle from '../../components/Toggle.vue'
 import {useI18n} from '#imports'
 
 definePageMeta({
-	layout: "app"
+	layout: "slider"
 })
 
 // region Init ////
@@ -66,7 +67,7 @@ onMounted(async () => {
 	{
 		$b24 = await initializeB24Frame()
 		
-		$b24.setLogger(LoggerBrowser.build('Core', true))
+		$b24.setLogger(LoggerBrowser.build('Core >> Slider', true))
 		b24CurrentLang.value = $b24.getLang()
 		
 		if(locales.value.filter(i => i.code === b24CurrentLang.value).length > 0)
@@ -147,6 +148,7 @@ const initializeB24Frame = async (): Promise<B24Frame> => {
 }
 
 /**
+ * @todo make like use
  * @link https://vueuse.org/core/computedAsync/
  */
 const b24Helper: Ref<B24HelperManager|null> = computedAsync (
@@ -171,8 +173,9 @@ const b24Helper: Ref<B24HelperManager|null> = computedAsync (
 		if(isProcess.value)
 		{
 			isProcess.value = false
-			await makeFitWindow()
 		}
+		
+		await makeFitWindow()
 		
 		return $b24Helper
 	},
@@ -186,7 +189,8 @@ const b24Helper: Ref<B24HelperManager|null> = computedAsync (
 // region Actions ////
 const makeFitWindow = async () => {
 	window.setTimeout(() => {
-		$b24.parent.fitWindow()
+		//debugger;
+		//$b24.parent.resizeWindowAuto()
 	}, 200)
 }
 
@@ -302,7 +306,7 @@ const makeApply = async (): Promise<void> => {
 					PARAMS: {
 						from: 'app.options'
 					},
-					MODULE_ID: 'application'
+					MODULE_ID: 'main'
 				}
 			},
 		], true)
@@ -470,7 +474,7 @@ const problemMessageList = (result: IResult) => {
 
 <template>
 	<ClientOnly>
-		<div>
+		<div class="bg-white min-h-screen overflow-hidden">
 			<div
 				v-if="!isInit || !b24Helper"
 				class="absolute top-0 bottom-0 left-0 right-0 flex flex-col justify-center items-center"
@@ -479,165 +483,166 @@ const problemMessageList = (result: IResult) => {
 					<SpinnerIcon class="animate-spin stroke-2 size-44" />
 				</div>
 			</div>
-			<div v-else class="p-4">
-				<div>
-					<h1 class="text-h1 font-semibold leading-7 text-base-900">App Options</h1>
-					<p class="mt-1 max-w-2xl text-sm leading-6 text-base-500">@todo add some text</p>
-				</div>
-				<div class="mt-3 text-md text-base-900">
-					<dl class="divide-y divide-base-100">
-						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-							<dt class="text-sm font-medium leading-6">
-								keyFloat
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								<input
-									type="number"
-									step="15.03"
-									v-model.number="optionsData.keyFloat"
-									class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
-									:disabled="isProcess"
-								>
-							</dd>
-						</div>
-						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-							<dt class="text-sm font-medium leading-6">
-								keyInt
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								<input
-									type="number"
-									step="2"
-									v-model.number="optionsData.keyInteger"
-									class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
-									:disabled="isProcess"
-								>
-							</dd>
-						</div>
-						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-							<dt class="text-sm font-medium leading-6">
-								keyBool
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								<Toggle
-									v-model="optionsData.keyBool"
-									disabled:opacity-75
-								/>
-							</dd>
-						</div>
-						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-							<dt class="text-sm font-medium leading-6">
-								keyString
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								<input
-									type="text"
-									v-model="optionsData.keyString"
-									class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
-									:disabled="isProcess"
-								>
-							</dd>
-						</div>
-						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-							<dt class="text-sm font-medium leading-6">
-								keyDate
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								<input
-									type="datetime-local"
-									@change="onDateChange"
-									:value="dateToYYYY_MM_DD_T_HH_mm_ss(optionsData.keyDate)"
-									autocomplete="off"
-									class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
-									:disabled="isProcess"
-								>
-							</dd>
-						</div>
-						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-							<dt class="text-sm font-medium leading-6">
-								<div>keyArray (list of userId)</div>
-								<button
-									type="button"
-									class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-									@click="makeSelectUsersV1"
-									:disabled="isProcess"
-								>
-									<div class="rounded-full text-base-900 bg-base-100 p-1">
-										<UserGroupIcon class="size-5"/>
+			<div
+				v-else
+			>
+				<div class="p-4 mb-20">
+					<div>
+						<h1 class="text-h1 font-semibold leading-7 text-base-900">App Options</h1>
+						<p class="mt-1 max-w-2xl text-sm leading-6 text-base-500">@todo add some text</p>
+					</div>
+					<div class="mt-3 text-md text-base-900">
+						<dl class="divide-y divide-base-100">
+							<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+								<dt class="text-sm font-medium leading-6">
+									keyFloat
+								</dt>
+								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+									<input
+										type="number"
+										step="15.03"
+										v-model.number="optionsData.keyFloat"
+										class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
+										:disabled="isProcess"
+									>
+								</dd>
+							</div>
+							<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+								<dt class="text-sm font-medium leading-6">
+									keyInt
+								</dt>
+								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+									<input
+										type="number"
+										step="2"
+										v-model.number="optionsData.keyInteger"
+										class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
+										:disabled="isProcess"
+									>
+								</dd>
+							</div>
+							<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+								<dt class="text-sm font-medium leading-6">
+									keyBool
+								</dt>
+								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+									<Toggle
+										v-model="optionsData.keyBool"
+										disabled:opacity-75
+									/>
+								</dd>
+							</div>
+							<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+								<dt class="text-sm font-medium leading-6">
+									keyString
+								</dt>
+								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+									<input
+										type="text"
+										v-model="optionsData.keyString"
+										class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
+										:disabled="isProcess"
+									>
+								</dd>
+							</div>
+							<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+								<dt class="text-sm font-medium leading-6">
+									keyDate
+								</dt>
+								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+									<input
+										type="datetime-local"
+										@change="onDateChange"
+										:value="dateToYYYY_MM_DD_T_HH_mm_ss(optionsData.keyDate)"
+										autocomplete="off"
+										class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
+										:disabled="isProcess"
+									>
+								</dd>
+							</div>
+							<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+								<dt class="text-sm font-medium leading-6">
+									<div>keyArray (list of userId)</div>
+									<button
+										type="button"
+										class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+										@click="makeSelectUsersV1"
+										:disabled="isProcess"
+									>
+										<div class="rounded-full text-base-900 bg-base-100 p-1">
+											<UserGroupIcon class="size-5"/>
+										</div>
+										<div class="text-nowrap truncate">Select Users</div>
+									</button>
+								</dt>
+								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+									<div v-if="optionsData.keyArray.length > 0">{{ optionsData.keyArray.join('; ') }}</div>
+									<div v-else>
+										~ empty ~
 									</div>
-									<div class="text-nowrap truncate">Select Users</div>
-								</button>
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								<div v-if="optionsData.keyArray.length > 0">{{ optionsData.keyArray.join('; ') }}</div>
-								<div v-else>
-									~ empty ~
-								</div>
-							</dd>
-						</div>
-						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-							<dt class="text-sm font-medium leading-6">
-								<div>keyObject (list of userName)</div>
-								<button
-									type="button"
-									class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
-									@click="makeSelectUsersV2"
-									:disabled="isProcess"
-								>
-									<div class="rounded-full text-base-900 bg-base-100 p-1">
-										<UserGroupIcon class="size-5"/>
+								</dd>
+							</div>
+							<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+								<dt class="text-sm font-medium leading-6">
+									<div>keyObject (list of userName)</div>
+									<button
+										type="button"
+										class="flex relative flex-row flex-nowrap gap-1.5 justify-start items-center rounded-lg border border-base-100 bg-base-20 pl-2 pr-3 py-2 text-sm font-medium text-base-900 hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:shadow-none disabled:translate-y-0 disabled:text-base-900 disabled:opacity-75"
+										@click="makeSelectUsersV2"
+										:disabled="isProcess"
+									>
+										<div class="rounded-full text-base-900 bg-base-100 p-1">
+											<UserGroupIcon class="size-5"/>
+										</div>
+										<div class="text-nowrap truncate">Select Users</div>
+									</button>
+								</dt>
+								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+									<div v-if="Object.values(optionsData.keyObject).length > 0">{{ Object.values(optionsData.keyObject).join('; ') }}</div>
+									<div v-else>
+										~ empty ~
 									</div>
-									<div class="text-nowrap truncate">Select Users</div>
-								</button>
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								<div v-if="Object.values(optionsData.keyObject).length > 0">{{ Object.values(optionsData.keyObject).join('; ') }}</div>
-								<div v-else>
-									~ empty ~
-								</div>
-								
-								
-							</dd>
-						</div>
-						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-							<dt class="text-sm font-medium leading-6">
-								???
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								@todo
-							</dd>
-						</div>
-						<div class="px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-							<dt class="text-sm font-medium leading-6">
-								???
-							</dt>
-							<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-								@todo
-							</dd>
-						</div>
-					</dl>
+									
+									
+								</dd>
+							</div>
+						</dl>
+					</div>
+					<div>
+						<pre>{{ optionsData }}</pre>
+					</div>
 				</div>
-				<div>
-					<pre>{{ optionsData }}</pre>
-				</div>
-				<div>
-					<button
-						@click="makeSave"
-						:disabled="isProcess"
-						class="mt-4 text-md font-semibold text-white bg-blue px-4 py-2 rounded hover:bg-blue-400 active:bg-blue-600"
-					>Save</button>
-					
-					<button
-						@click="makeApply"
-						:disabled="isProcess"
-						class="mt-4 text-md font-semibold text-white bg-blue px-4 py-2 rounded hover:bg-blue-400 active:bg-blue-600"
-					>Apply</button>
-					
-					<button
-						@click="makeClosePage"
-						:disabled="isProcess"
-						class="mt-4 text-md font-semibold text-white bg-blue px-4 py-2 rounded hover:bg-blue-400 active:bg-blue-600"
-					>Cancel</button>
+				<div class="w-full shadow-top-2xs fixed insert-x-0 bottom-0 p-3 bg-white">
+					<div class="flex flex-row items-center justify-end gap-1">
+						<div class="w-2/3 flex flex-row justify-end gap-4">
+							<button
+								@click="makeSave"
+								:disabled="isProcess"
+								class="min-w-[90px] flex flex-row items-center justify-center text-xs text-center font-semibold text-base-900 uppercase bg-green px-6 rounded hover:bg-green-400 active:bg-green-600"
+							>
+								<BtnClockIcon class="w-lg h-lg" v-if="isProcess"/>
+								<span v-else>Save</span>
+							</button>
+							
+							<button
+								@click="makeApply"
+								:disabled="isProcess"
+								class="min-w-[90px] flex flex-row items-center justify-center text-xs font-semibold text-white uppercase bg-blue px-6 rounded hover:bg-blue-400 active:bg-blue-600"
+							>
+								<BtnClockIcon class="w-lg h-lg" v-if="isProcess"/>
+								<span v-else>Apply</span>
+							</button>
+							
+							<button
+								@click="makeClosePage"
+								:disabled="isProcess"
+								class="text-xs text-center font-semibold text-base-900 uppercase px-2 py-3 hover:text-base-800 active:text-base-master"
+							>Cancel</button>
+						</div>
+						<div class="w-1/3 flex flex-row justify-end gap-1">
+							&nbsp;
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>

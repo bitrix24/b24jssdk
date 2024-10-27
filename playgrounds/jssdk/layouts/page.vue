@@ -16,7 +16,7 @@ useHead({
 			<div class="container mx-auto pl-0 pr-4 py-4 sm:pr-6 lg:pr-8">
 				<div class="flex flex-shrink-0 items-center justify-between">
 					<router-link to="/">
-						<svg class="h-6" width="174" height="33" viewBox="0 0 174 33" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+						<svg class="h-6" width="174" height="33" viewBox="0 0 174 33" xmlns="http://www.w3.org/2000/svg">
 							<g id="Canvas" fill="none">
 								<g id="b24_com">
 									<g id="Group">

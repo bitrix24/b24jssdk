@@ -1,9 +1,10 @@
 <script setup lang="ts">
 useHead({
 	bodyAttrs: {
-		class: 'h-screen bg-white font-b24-system text-gray-900 antialiased px-2 overflow-hidden'
+		class: 'bg-tertiary font-b24-system text-base-900 antialiased',
 	}
 })
+// bg-tertiary font-b24-system text-base-900 antialiased
 </script>
 
 <template>

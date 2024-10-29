@@ -26,8 +26,7 @@
 		"@nuxtjs/i18n": "^8.5.5",
 		"nuxt": "^3.13.0",
 		"vue": "latest",
-		"vue-router": "latest",
-		"@vueuse/core": "latest"
+		"vue-router": "latest"
 	},
 	"devDependencies": {
 	}

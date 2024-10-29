@@ -180,12 +180,12 @@ export class B24HelperManager
 			
 			if(data[`get_${LoadDataType.AppOptions}`])
 			{
-				this._appOptions = await this.parseOptionsData(data[`get_${LoadDataType.AppOptions}`])
+				this._appOptions = await this.parseOptionsData('app', data[`get_${LoadDataType.AppOptions}`])
 			}
 			
 			if(data[`get_${LoadDataType.UserOptions}`])
 			{
-				this._userOptions = await this.parseOptionsData(data[`get_${LoadDataType.UserOptions}`])
+				this._userOptions = await this.parseOptionsData('user', data[`get_${LoadDataType.UserOptions}`])
 			}
 			
 			this._isInit = true
@@ -272,9 +272,9 @@ export class B24HelperManager
 		})
 	}
 	
-	private async parseOptionsData(optionsData: any): Promise<OptionsManager>
+	private async parseOptionsData(type: 'app'|'user', optionsData: any): Promise<OptionsManager>
 	{
-		const manager = new OptionsManager(this._b24)
+		const manager = new OptionsManager(this._b24, type)
 		manager.setLogger(this.getLogger())
 		return manager.initData(optionsData)
 		.then(() => {
@@ -295,12 +295,12 @@ export class B24HelperManager
 		
 		if(null === this._profile)
 		{
-			throw new Error('CharacteristicsManager.profileInfo not initialized')
+			throw new Error('B24HelperManager.profileInfo not initialized')
 		}
 		
 		if(null === this._app)
 		{
-			throw new Error('CharacteristicsManager.appInfo not initialized')
+			throw new Error('B24HelperManager.appInfo not initialized')
 		}
 		
 		return {
@@ -329,7 +329,7 @@ export class B24HelperManager
 		
 		if(null === this._profile)
 		{
-			throw new Error('CharacteristicsManager.profileInfo not initialized')
+			throw new Error('B24HelperManager.profileInfo not initialized')
 		}
 		
 		return this._profile
@@ -341,7 +341,7 @@ export class B24HelperManager
 		
 		if(null === this._app)
 		{
-			throw new Error('CharacteristicsManager.appInfo not initialized')
+			throw new Error('B24HelperManager.appInfo not initialized')
 		}
 		
 		return this._app
@@ -353,7 +353,7 @@ export class B24HelperManager
 		
 		if(null === this._payment)
 		{
-			throw new Error('CharacteristicsManager.paymentInfo not initialized')
+			throw new Error('B24HelperManager.paymentInfo not initialized')
 		}
 		
 		return this._payment
@@ -365,7 +365,7 @@ export class B24HelperManager
 		
 		if(null === this._license)
 		{
-			throw new Error('CharacteristicsManager.licenseInfo not initialized')
+			throw new Error('B24HelperManager.licenseInfo not initialized')
 		}
 		
 		return this._license
@@ -377,7 +377,7 @@ export class B24HelperManager
 		
 		if(null === this._currency)
 		{
-			throw new Error('CharacteristicsManager.currency not initialized')
+			throw new Error('B24HelperManager.currency not initialized')
 		}
 		
 		return this._currency
@@ -389,7 +389,7 @@ export class B24HelperManager
 		
 		if(null === this._appOptions)
 		{
-			throw new Error('CharacteristicsManager.appOptions not initialized')
+			throw new Error('B24HelperManager.appOptions not initialized')
 		}
 		
 		return this._appOptions
@@ -401,7 +401,7 @@ export class B24HelperManager
 		
 		if(null === this._userOptions)
 		{
-			throw new Error('CharacteristicsManager.userOptions not initialized')
+			throw new Error('B24HelperManager.userOptions not initialized')
 		}
 		
 		return this._userOptions
@@ -546,7 +546,7 @@ export class B24HelperManager
 	{
 		if(!this._isInit)
 		{
-			throw new Error('CharacteristicsManager not initialized')
+			throw new Error('B24HelperManager not initialized')
 		}
 	}
 	// endregion ////

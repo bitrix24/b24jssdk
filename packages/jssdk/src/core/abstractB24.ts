@@ -103,7 +103,7 @@ export abstract class AbstractB24
 	async callListMethod(
 		method: string,
 		params: object = {},
-		progress: null|Function = null,
+		progress: null|((progress: number) => void) = null,
 		customKeyForResult: null|string = null
 	): Promise<Result>
 	{

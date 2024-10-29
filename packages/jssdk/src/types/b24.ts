@@ -44,14 +44,14 @@ export type TypeB24 = {
 	 *
 	 * @param  {string} method Query method
 	 * @param  {object} params Request parameters
-	 * @param {null|Function} progress Processing steps
+	 * @param {null|((progress: number) => void)} progress Processing steps
 	 * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
 	 * @return {Promise}
 	 */
 	callListMethod(
 		method: string,
 		params?: object,
-		progress?: Function | null,
+		progress?: null|((progress: number) => void),
 		customKeyForResult?: string | null
 	): Promise<Result>;
 	

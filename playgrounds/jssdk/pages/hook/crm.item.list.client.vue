@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, type Ref } from 'vue'
-import B24HookConfig from '../../config'
+import B24HookConfig from '../../config.hook'
 import Search1Icon from '@bitrix24/b24icons-vue/main/Search1Icon'
 import AlertIcon from '@bitrix24/b24icons-vue/button/AlertIcon'
 import FileDownloadIcon from '@bitrix24/b24icons-vue/main/FileDownloadIcon'

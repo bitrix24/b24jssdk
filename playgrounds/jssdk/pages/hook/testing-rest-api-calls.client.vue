@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import {ref, reactive, type Ref} from 'vue'
-import {computedAsync} from '@vueuse/core'
-import B24HookConfig from '../../config'
-
+import { ref, reactive, type Ref, computed } from 'vue'
+import B24HookConfig from '../../config.hook'
 import {
 	LoggerBrowser,
 	Result,
 	B24Hook,
-	B24HelperManager,
+	useB24Helper,
 	LoadDataType,
 	EnumCrmEntityTypeId,
 	Text,
 	useFormatter
 } from '@bitrix24/b24jssdk'
-import type {TypeB24, IResult, UserBrief} from '@bitrix24/b24jssdk'
+import type { IResult, UserBrief } from '@bitrix24/b24jssdk'
 
 import SendIcon from "@bitrix24/b24icons-vue/main/SendIcon";
 import ParallelQueueIcon from '@bitrix24/b24icons-vue/main/ParallelQueueIcon'
@@ -22,6 +20,7 @@ import SpeedMeterIcon from '@bitrix24/b24icons-vue/main/SpeedMeterIcon'
 import SendContactIcon from '@bitrix24/b24icons-vue/crm/SendContactIcon'
 import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
 import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
+import SpinnerIcon from '@bitrix24/b24icons-vue/specialized/SpinnerIcon'
 import Info from '../../components/Info.vue';
 import ProgressBar from '../../components/ProgressBar.vue'
 import Avatar from '~/components/Avatar.vue'
@@ -35,18 +34,23 @@ const $logger = LoggerBrowser.build(
 	'Demo: Testing Rest-Api Calls',
 	true
 )
-
-const {formatterDateTime, formatterNumber} = useFormatter('en-US')
+const { initB24Helper, getB24Helper } = useB24Helper()
+const { formatterDateTime, formatterNumber } = useFormatter('en-US')
 
 const $b24 = new B24Hook(B24HookConfig)
 $b24.setLogger(LoggerBrowser.build('Core', true))
 
-/**
- * @todo fix error
- */
-const $b24Helper = new B24HelperManager($b24 as unknown as TypeB24)
+const $isInitB24Helper = ref(false)
+initB24Helper(
+	$b24,
+	[
+		LoadDataType.Profile
+	]
+)
+.then(() => {
+	$isInitB24Helper.value = true
+})
 
-const appDataRevision: Ref<number> = ref(0)
 let result: IResult = reactive(new Result())
 
 interface IStatus
@@ -88,28 +92,14 @@ const status: Ref<IStatus> = ref({
 	}
 } as IStatus)
 
-const b24Helper: Ref<B24HelperManager|null> = computedAsync(
-	async() =>
+const b24Helper = computed(() => {
+	if($isInitB24Helper.value)
 	{
-		/**
-		 * @memo usage for called dependencies changes
-		 */
-		if(appDataRevision.value)
-		{
-		}
-		
-		
-		await $b24Helper.loadData([
-			LoadDataType.Profile
-		])
-		
-		return $b24Helper;
-	},
-	null,
-	{
-		lazy: true
+		return getB24Helper()
 	}
-)
+	
+	return null
+})
 // endregion ////
 
 // region Actions ////
@@ -150,7 +140,7 @@ const reInitStatus = () =>
 	status.value.time.diff = null
 }
 
-let listCallToMax: Ref<number> = ref(10);
+let listCallToMax: Ref<number> = ref(10)
 const makeSelectItemsList_v1 = async() =>
 {
 	return new Promise((resolve) =>
@@ -198,8 +188,7 @@ const makeSelectItemsList_v1 = async() =>
 		})
 }
 
-let listCallToMaxAll: Ref<number> = ref(10);
-
+let listCallToMaxAll: Ref<number> = ref(10)
 async function makeSelectItemsList_v2()
 {
 	return new Promise((resolve) =>
@@ -268,36 +257,35 @@ async function makeSelectItemsList_v3()
 		
 		return resolve(null)
 	})
-		.then(async() =>
+	.then(async() =>
+	{
+		return $b24.callListMethod(
+			'crm.item.list',
+			{
+				entityTypeId: EnumCrmEntityTypeId.company,
+			},
+			(progress: number) => {
+				status.value.progress.value = progress
+				$logger.log(`>> Getting All Elements >>> ${status.value.progress.value}`)
+			},
+			'items'
+		)
+		.then((response) =>
 		{
-			return $b24.callListMethod(
-				'crm.item.list',
-				{
-					entityTypeId: EnumCrmEntityTypeId.company,
-				},
-				(progress: number) =>
-				{
-					status.value.progress.value = progress
-					$logger.log(`>> Getting All Elements >>> ${status.value.progress.value}`)
-				},
-				'items'
-			)
-				.then((response) =>
-				{
-					const ttl = response.getData().length
-					$logger.log(`>> Getting All Elements >>> ttl: ${ttl}`)
-					status.value.resultInfo = `It was chosen: ${formatterNumber.format(ttl)} elements`
-				})
+			const ttl = response.getData().length
+			$logger.log(`>> Getting All Elements >>> ttl: ${ttl}`)
+			status.value.resultInfo = `It was chosen: ${formatterNumber?.format(ttl)} elements`
 		})
-		.catch((error: Error|string) =>
-		{
-			result.addError(error)
-			$logger.error(error)
-		})
-		.finally(() =>
-		{
-			stopMakeProcess()
-		})
+	})
+	.catch((error: Error|string) =>
+	{
+		result.addError(error)
+		$logger.error(error)
+	})
+	.finally(() =>
+	{
+		stopMakeProcess()
+	})
 }
 
 async function makeSelectItemsList_v4()
@@ -318,48 +306,47 @@ async function makeSelectItemsList_v4()
 		
 		return resolve(null)
 	})
-		.then(async() =>
-		{
-			let generator = $b24.fetchListMethod(
-				'crm.item.list',
-				{
-					entityTypeId: EnumCrmEntityTypeId.company,
-					select: [
-						'id',
-						'title'
-					]
-				},
-				'id',
-				'items'
-			)
-			
-			let ttl = 0
-			
-			for await (let entities of generator)
+	.then(async() =>
+	{
+		let generator = $b24.fetchListMethod(
+			'crm.item.list',
 			{
-				for(let entity of entities)
-				{
-					ttl++;
-					$logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ttl} ...`, entity)
-					
-					status.value.processInfo = `[id:${entity.id}] ${entity.title}`
-				}
+				entityTypeId: EnumCrmEntityTypeId.company,
+				select: [
+					'id',
+					'title'
+				]
+			},
+			'id',
+			'items'
+		)
+		
+		let ttl = 0
+		
+		for await (let entities of generator)
+		{
+			for(let entity of entities)
+			{
+				ttl++;
+				$logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ttl} ...`, entity)
+				
+				status.value.processInfo = `[id:${entity.id}] ${entity.title}`
 			}
-			status.value.resultInfo = `It was chosen: ${formatterNumber.format(ttl)} elements`
-		})
-		.catch((error: Error|string) =>
-		{
-			result.addError(error)
-			$logger.error(error)
-		})
-		.finally(() =>
-		{
-			stopMakeProcess()
-		})
+		}
+		status.value.resultInfo = `It was chosen: ${formatterNumber.format(ttl)} elements`
+	})
+	.catch((error: Error|string) =>
+	{
+		result.addError(error)
+		$logger.error(error)
+	})
+	.finally(() =>
+	{
+		stopMakeProcess()
+	})
 }
 
-let needAdd = ref(10);
-
+let needAdd = ref(10)
 async function makeSelectItemsList_v5()
 {
 	if(needAdd.value < 1)
@@ -550,17 +537,53 @@ const problemMessageList = (result: IResult) =>
 	return problemMessageList;
 }
 // endregion ////
-
 </script>
 
 <template>
 	<ClientOnly>
 		<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">Testing Rest-Api Calls</h1>
-		<Info>
-			You need to set environment variables in the <code>.env.local</code> file.<br>
-			Scopes: <code>user_brief</code>, <code>crm</code><br><br>
-			To view query results, open the developer console.
-		</Info>
+		<div class="flex flex-col sm:flex-row items-center justify-between gap-x-10 gap-y-2">
+			<div class="basis-1/4 mt-2">
+				<div
+					v-if="$isInitB24Helper"
+					class="px-lg2 py-sm2 border border-base-100 rounded-lg hover:shadow-md hover:-translate-y-px col-auto md:col-span-2 lg:col-span-1 bg-white cursor-pointer"
+					@click.stop="makeOpenSliderForUser(b24Helper?.profileInfo.data.id || 0)"
+				>
+					<div class="flex items-center gap-4">
+						<Avatar
+							:src="b24Helper?.profileInfo.data.photo || ''"
+							:alt="b24Helper?.profileInfo.data.lastName || 'user' "
+						/>
+						<div class="font-medium dark:text-white">
+							<div class="text-nowrap text-xs text-base-500 dark:text-base-400">
+								{{b24Helper?.hostName.replace('https://', '')}}
+							</div>
+							<div class="text-nowrap hover:underline hover:text-info-link">
+								{{
+									[
+										b24Helper?.profileInfo.data.lastName,
+										b24Helper?.profileInfo.data.name,
+									].join(' ')
+								}}
+							</div>
+							<div class="text-xs text-base-800 dark:text-base-400 flex flex-row gap-x-2">
+								<span>{{b24Helper?.profileInfo.data.isAdmin ? 'Administrator' : ''}}</span>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div v-else class="flex items-center justify-between py-sm2 text-info">
+					<SpinnerIcon class="m-auto animate-spin stroke-2 size-10"/>
+				</div>
+			</div>
+			<div class="flex-1 w-full">
+				<Info>
+					You need to set environment variables in the <code>.env.local</code> file.<br>
+					Scopes: <code>user_brief</code>, <code>crm</code><br><br>
+					To view query results, open the developer console.
+				</Info>
+			</div>
+		</div>
 		<div class="mt-10 flex flex-col sm:flex-row gap-10">
 			<div class="basis-1/4 flex flex-col gap-y-6">
 				<button
@@ -631,33 +654,7 @@ const problemMessageList = (result: IResult) =>
 				</button>
 			</div>
 			<div class="flex-1">
-				<div
-					v-if="b24Helper"
-					class="px-lg2 py-sm2 border border-base-100 rounded-lg col-auto md:col-span-2 lg:col-span-1 bg-white"
-				>
-					<div class="flex items-center gap-4">
-						<Avatar
-							:src="b24Helper.profileInfo.data.photo || ''"
-							:alt="b24Helper.profileInfo.data.lastName || 'user' "
-						/>
-						<div class="font-medium dark:text-white">
-							<div
-								class="hover:underline hover:text-info-link cursor-pointer"
-								@click="makeOpenSliderForUser(b24Helper.profileInfo.data.id || 0)"
-							>{{[
-								b24Helper.profileInfo.data.lastName,
-								b24Helper.profileInfo.data.name,
-							].join(' ')}}
-							</div>
-							<div class="text-sm text-gray-500 dark:text-gray-400">{{
-									b24Helper.profileInfo.data.isAdmin ? 'Admin' : 'NotAdmin'
-								}} at {{b24Helper.hostName.replace('https://', '')}}
-							</div>
-						</div>
-					</div>
-				</div>
-				<div
-					class="mt-6 px-lg2 py-sm2 border border-base-100 rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
+				<div class="px-lg2 py-sm2 border border-base-100 rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
 					<div class="w-full flex items-center justify-between">
 						<h3 class="text-h5 font-semibold">{{status.title}}</h3>
 						<button
@@ -693,7 +690,7 @@ const problemMessageList = (result: IResult) =>
 						<ProgressBar
 							:animation="status.progress.animation"
 							:indicator="status.progress.indicator"
-							:value="status.progress?.value || 0"
+							:value="status.progress?.value || undefined"
 							:max="status.progress?.max || 0"
 						>
 							<template

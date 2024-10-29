@@ -30,7 +30,7 @@ export * from './tools/useFormatters'
 
 export * from './hook/index'
 export * from './frame/index'
-export * from './helper/helperManager'
+export * from './helper/useB24Helper'
 export * from './pullClient/index'
 
 export { Type, Text, Browser }

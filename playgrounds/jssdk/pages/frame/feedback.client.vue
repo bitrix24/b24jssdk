@@ -15,7 +15,7 @@ definePageMeta({
 
 useHead({
 	bodyAttrs: {
-		class: 'pt-3xs min-h-[700px]',
+		class: 'bg-white min-h-[700px]',
 	}
 })
 
@@ -64,7 +64,7 @@ onMounted(async () => {
 		{
 			iframe = document.createElement('iframe') as HTMLIFrameElement
 			iframe.id = 'iframe-b24-form'
-			iframe.classList.add('mt-5', 'w-full', 'min-h-[700px]')
+			iframe.classList.add('mt-0', 'w-full', 'min-h-[700px]')
 		}
 		
 		/**

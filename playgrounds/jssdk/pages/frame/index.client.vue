@@ -388,8 +388,8 @@ const makeOpenFeedBack = async() =>
 			place: 'feedback',
 			bx24_width: 650,
 			bx24_label: {
-				bgColor: 'aqua',
-				text: '🔨',
+				bgColor: 'green',
+				text: 'Feedback',
 				color: '#ffffff',
 			},
 			bx24_title: 'Feedback',

@@ -191,6 +191,8 @@ class TextManager
 	/**
 	 * Convert string to Date
 	 *
+	 * @todo fix this function by bitrix.core_date
+	 *
 	 * @param {string} dateString
 	 * @param {string} template
 	 * @returns {Date}
@@ -258,11 +260,12 @@ class TextManager
 		// Handle timezone offset if present
 		if(template.includes('Z') && match[index])
 		{
+			
 			const timezoneOffset = match[index]
 			const [hoursOffset, minutesOffset] = timezoneOffset.split(':').map(Number)
 			const totalOffsetMinutes = hoursOffset * 60 + minutesOffset
 			const offsetSign = timezoneOffset.startsWith('+') ? -1 : 1
-			const offsetInMilliseconds = offsetSign * totalOffsetMinutes * 60 * 1000
+			const offsetInMilliseconds = offsetSign * totalOffsetMinutes * 60 * 1_000
 			
 			return new Date(Date.UTC(
 				dateComponents['Y'],

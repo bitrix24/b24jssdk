@@ -1,5 +1,6 @@
 import {AbstractHelper} from './abstractHelper'
 import type { TypeB24 } from '../types/b24'
+import { Result } from '../core/result'
 import { TypeOption } from '../types/characteristics'
 import Type from '../tools/type'
 import Text from '../tools/text'
@@ -8,6 +9,7 @@ export class OptionsManager
 	extends AbstractHelper
 {
 	protected override _data: Map<string, any>
+	protected _type: 'app'|'user'
 	
 	// region static ////
 	static getSupportTypes(): TypeOption[]
@@ -39,10 +41,14 @@ export class OptionsManager
 	}
 	// endregion ////
 	
-	constructor(b24: TypeB24)
+	// region Init ////
+	constructor(
+		b24: TypeB24,
+		type: 'app'|'user'
+	)
 	{
 		super(b24)
-		
+		this._type = type
 		this._data = new Map()
 	}
 	
@@ -73,6 +79,7 @@ export class OptionsManager
 			})
 		}
 	}
+	// endregion ////
 	
 	// region Get ////
 	getJsonArray(key: string, defValue: any[] = []): any[]
@@ -182,14 +189,35 @@ export class OptionsManager
 		return this.data.get(key).toString()
 	}
 	
-	getDate(key: string, defValue: Date = new Date): Date
+	/**
+	 * @todo Fix date Convert
+	 *
+	 * @param key
+	 * @param defValue
+	 */
+	getDate(key: string, defValue: null|Date = null): null|Date
 	{
 		if(!this.data.has(key))
 		{
 			return defValue
 		}
 		
-		return Text.toDate(this.data.get(key).toString())
+		try
+		{
+			let result = new Date(this.data.get(key).toString())
+			if(!isNaN(result.getTime()))
+			{
+				return result
+			}
+			else
+			{
+				return defValue
+			}
+		}
+		catch(error)
+		{
+			return defValue
+		}
 	}
 	// endregion ////
 	
@@ -219,6 +247,49 @@ export class OptionsManager
 		}
 		
 		return defaultValue
+	}
+	// endregion ////
+	
+	// region Save ////
+	protected getMethodSave(): string
+	{
+		switch(this._type)
+		{
+			case 'app': return 'app.option.set'
+			case 'user': return 'user.option.set'
+		}
+	}
+	
+	public async save(
+		options: any,
+		optionsPull?: {
+			moduleId: string,
+			command: string,
+			params: any,
+		}
+	): Promise<Result>
+	{
+		const commands = []
+		commands.push({
+			method: this.getMethodSave(),
+			params: {
+				options
+			}
+		})
+		
+		if(Type.isObject(optionsPull))
+		{
+			commands.push({
+				method: 'pull.application.event.add',
+				params: {
+					COMMAND: optionsPull?.command,
+					PARAMS: optionsPull?.params,
+					MODULE_ID: optionsPull?.moduleId
+				}
+			})
+		}
+		
+		return this._b24.callBatch(commands, true)
 	}
 	// endregion ////
 }

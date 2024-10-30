@@ -24,6 +24,7 @@ definePageMeta({
 	<h2 class="mt-3 text-h2">Tools</h2>
 	<ul class="list-disc list-inside">
 		<li class="py-2"><NuxtLink class="hover:text-info" to="/tools/use-logger">LoggerBrowser</NuxtLink></li>
+		<li class="py-2"><NuxtLink class="hover:text-info" to="/tools/date-time">DateTime</NuxtLink></li>
 		<li class="py-2"><NuxtLink class="hover:text-info" to="/tools/iban">IBAN</NuxtLink></li>
 	</ul>
 </template>

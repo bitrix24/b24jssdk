@@ -37,7 +37,7 @@
 		"dev": "nuxi dev playground",
 		"dev:build": "nuxi build playground",
 		"dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
-		"_release": "npm run lint && npm run test && npm run prepack",
+		"_release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
 		"release": "npm run test && npm run prepack",
 		"lint": "eslint .",
 		"test": "vitest run",
@@ -45,28 +45,21 @@
 		"test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
 	},
 	"dependencies": {
-		"@nuxt/kit": "^3.13.0",
-		"defu": "^6.1.4",
-		"consola": "^3.2.3",
+		"@nuxt/kit": "^3.13.2",
 		"@bitrix24/b24jssdk": "*"
 	},
 	"peerDependencies": {},
 	"devDependencies": {
-		"@nuxt/devtools": "^1.4.1",
-		"@nuxt/eslint-config": "^0.5.5",
-		"@nuxt/module-builder": "^0.8.3",
-		"@nuxt/schema": "^3.13.1",
-		"@nuxt/test-utils": "^3.14.1",
-		"@types/node": "^22.5.3",
-		"eslint": "^9.9.1",
-		"nuxt": "^3.13.1",
+		"@nuxt/devtools": "^1.6.0",
+		"@nuxt/eslint-config": "^0.6.1",
+		"@nuxt/module-builder": "^0.8.4",
+		"@nuxt/schema": "^3.13.2",
+		"@nuxt/test-utils": "^3.14.4",
+		"@types/node": "latest",
+		"eslint": "^9.13.0",
+		"nuxt": "^3.13.2",
 		"typescript": "latest",
-		"vitest": "^2.0.5",
-		"vue-tsc": "^2.1.4",
-		"@bitrix24/b24style": "^0.1.2",
-		"tailwindcss": "^3.4.11",
-		"autoprefixer": "^10.4.20",
-		"postcss": "^8.4.47"
-	},
-	"resolutions": {}
+		"vitest": "^2.1.4",
+		"vue-tsc": "^2.1.8"
+	}
 }

@@ -702,7 +702,7 @@ const problemMessageList = (result: IResult) =>
 									interval:
 								</dt>
 								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-									{{formatterNumber.format(status.time?.interval?.length() || 0)}} sec
+									{{formatterNumber.format((status.time?.interval?.length() || 0) / 1_000)}} sec
 								</dd>
 							</div>
 							<div class="px-2 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0" v-show="null !== status.resultInfo">

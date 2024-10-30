@@ -52,7 +52,7 @@ let $b24: B24Frame
 const isInit: Ref<boolean> = ref(false)
 const isReload: Ref<boolean> = ref(false)
 let result: IResult = reactive(new Result())
-const { formatterNumber } = useFormatter('en-US')
+const { formatterNumber } = useFormatter()
 const {
 	initB24Helper,
 	destroyB24Helper,
@@ -151,7 +151,7 @@ onMounted(async() =>
 		$b24 = await initializeB24Frame()
 		$b24.setLogger(LoggerBrowser.build('Core', true))
 		b24CurrentLang.value = $b24.getLang()
-		
+//formatterNumber.setDefLocale($b24.getLang())
 		if(locales.value.filter(i => i.code === b24CurrentLang.value).length > 0)
 		{
 			setLocale(b24CurrentLang.value)
@@ -714,36 +714,36 @@ const makeSelectUsers = async() =>
 		
 		return resolve(null)
 	})
-		.then(async() =>
+	.then(async() =>
+	{
+		const selectedUsers = await $b24.dialog.selectUsers()
+		
+		$logger.info(selectedUsers)
+		
+		const list = selectedUsers.map((row: SelectedUser): string =>
 		{
-			const selectedUsers = await $b24.dialog.selectUsers()
-			
-			$logger.info(selectedUsers)
-			
-			const list = selectedUsers.map((row: SelectedUser): string =>
-			{
-				return [
-					`[id: ${row.id}]`,
-					row.name,
-				].join(' ')
-			})
-			
-			if(list.length < 1)
-			{
-				list.push('~ empty ~')
-			}
-			
-			status.value.resultInfo = `list: ${list.join('; ')}`
+			return [
+				`[id: ${row.id}]`,
+				row.name,
+			].join(' ')
 		})
-		.catch((error: Error|string) =>
+		
+		if(list.length < 1)
 		{
-			result.addError(error)
-			$logger.error(error)
-		})
-		.finally(() =>
-		{
-			stopMakeProcess()
-		})
+			list.push('~ empty ~')
+		}
+		
+		status.value.resultInfo = `list: ${list.join('; ')}`
+	})
+	.catch((error: Error|string) =>
+	{
+		result.addError(error)
+		$logger.error(error)
+	})
+	.finally(() =>
+	{
+		stopMakeProcess()
+	})
 }
 // endregion ////
 
@@ -764,8 +764,6 @@ const makeSendPullCommand = async(
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
-		status.value.time.start = DateTime.now()
-		
 		return resolve(null)
 	})
 	.then(async() =>
@@ -787,6 +785,8 @@ const makeSendPullCommand = async(
 		params.userList = list
 		
 		$logger.warn('>> pull.send >>>', params)
+		
+		status.value.time.start = DateTime.now()
 		
 		return $b24.callMethod(
 			'pull.application.event.add',
@@ -810,29 +810,18 @@ const makeSendPullCommand = async(
 
 const makeSendPullCommandHandler = (message: TypePullMessage): void =>
 {
-	if(!status.value.isProcess)
-	{
-		reInitStatus()
-		status.value.isProcess = true
-		status.value.title = 'test pull.application.event.add'
-		status.value.messages.push('use $b24.dialog.selectUsers to select a user')
-		status.value.messages.push('use pull.application.event.add for send event')
-		
-		status.value.progress.animation = false
-		status.value.progress.indicator = false
-		status.value.progress.value = null
-		status.value.time.start = DateTime.now()
-	}
 	$logger.warn('<< pull.get <<<', message)
-	status.value.resultInfo = `command: ${message.command}; params: ${JSON.stringify(message.params)}`
-	
-	stopMakeProcess()
 	
 	if(message.command === 'reload.options')
 	{
 		$logger.info("Get pull command for update. Reinit the application")
 		reloadData()
+		return
 	}
+	
+	status.value.resultInfo = `command: ${message.command}; params: ${JSON.stringify(message.params)}`
+	stopMakeProcess()
+	
 }
 // endregion ////
 
@@ -1385,7 +1374,7 @@ watch(defTabIndex, async() =>
 																	interval:
 																</dt>
 																<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-																	{{formatterNumber.format(status.time?.interval?.length() || 0)}} sec
+																	{{ formatterNumber.format((status.time?.interval?.length() || 0) / 1_000) }} sec
 																</dd>
 															</div>
 															<div class="px-2 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0" v-show="null !== status.resultInfo">

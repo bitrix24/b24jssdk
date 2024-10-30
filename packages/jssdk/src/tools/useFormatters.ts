@@ -1,8 +1,8 @@
 import FormatterNumbers from './formatters/numbers'
 import { IbanSpecification, FormatterIban } from './formatters/iban'
 
-export const useFormatter = (locale: string = 'en-US') => {
-	const formatterNumber = FormatterNumbers.getInstance(locale)
+export const useFormatter = () => {
+	const formatterNumber = FormatterNumbers.getInstance()
 	
 	// region Iban ////
 	const formatterIban = FormatterIban.getInstance()

@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import Type from './type'
 
 const reEscape = /[&<>'"]/g
@@ -289,29 +290,8 @@ class TextManager
 	
 	getDateForLog(): string
 	{
-		const d = new Date()
-		
-		return `${d.getFullYear()}-${this.lpad((d.getMonth() + 1).toString(), 2, '0')}-${this.lpad(d.getDate().toString(), 2, '0')} ${this.lpad(d.getHours().toString(), 2, '0')}:${this.lpad(d.getMinutes().toString(), 2, '0')}`
-	}
-	
-	lpad(
-		str: string,
-		length: number,
-		chr: string = ' '
-	): string
-	{
-		if(str.length > length)
-		{
-			return str
-		}
-	
-		let result = ''
-		for (let i = 0; i < (length - str.length); i++)
-		{
-			result += chr
-		}
-		
-		return result + str
+		const now = DateTime.now();
+		return now.toFormat('y-MM-dd HH:mm:ss')
 	}
 	
 	buildQueryString(params: any): string

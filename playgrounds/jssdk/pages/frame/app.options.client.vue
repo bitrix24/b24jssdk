@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import {onMounted, onUnmounted, reactive, type Ref, ref, type ComputedRef, computed} from 'vue'
+import { DateTime } from 'luxon'
+import { onMounted, onUnmounted, reactive, type Ref, ref, type ComputedRef, computed } from 'vue'
 import {
 	type SelectedUser,
 	type B24FrameQueryParams,
@@ -31,7 +32,7 @@ const $logger = LoggerBrowser.build(
 let $b24: B24Frame
 
 const isInit: Ref<boolean> = ref(false)
-const processStatus: Ref<{save: boolean, apply: boolean}> = ref({
+const processStatus: Ref<{ save: boolean, apply: boolean }> = ref({
 	save: false,
 	apply: false,
 })
@@ -44,8 +45,8 @@ type TypeOptions = {
 	keyInteger: number,
 	keyBool: boolean,
 	keyString: string,
-	keyDate: null|Date,
-	keyDateTime: null|Date,
+	keyDate: null|DateTime,
+	keyDateTime: null|DateTime,
 	keyArray: number[],
 	keyObject: Record<string, string>
 }
@@ -55,12 +56,23 @@ const defaultData: TypeOptions = {
 	keyInteger: 24,
 	keyBool: true,
 	keyString: 'B24',
-	keyDate: new Date(),
-	keyDateTime: new Date(),
+	keyDate: DateTime.now(),
+	keyDateTime: DateTime.now(),
 	keyArray: [],
 	keyObject: {}
 }
-defaultData.keyDate?.setHours(0, 0, 0, 0)
+
+defaultData.keyDate?.set({
+	hour: 0,
+	minute: 0,
+	second: 0,
+	millisecond: 0
+})
+
+defaultData.keyDateTime?.set({
+	second: 0,
+	millisecond: 0
+})
 
 const optionsData: TypeOptions = reactive({
 	keyFloat: 0,
@@ -73,7 +85,8 @@ const optionsData: TypeOptions = reactive({
 	keyObject: {}
 })
 
-onMounted(async () => {
+onMounted(async () =>
+{
 	try
 	{
 		$b24 = await initializeB24Frame()
@@ -113,12 +126,13 @@ onMounted(async () => {
 		processStatus.value.save = false
 		processStatus.value.apply = false
 		
-		window.setTimeout(async () => {
+		window.setTimeout(async () =>
+		{
 			makeRestore()
 			await makeFitWindow()
 		}, 200)
 	}
-	catch(error: any)
+	catch( error: any )
 	{
 		$logger.error(error)
 		showError({
@@ -133,12 +147,14 @@ onMounted(async () => {
 	}
 })
 
-onUnmounted(() => {
+onUnmounted(() =>
+{
 	$b24?.destroy()
 	destroyB24Helper()
 })
 
-const initializeB24Frame = async (): Promise<B24Frame> => {
+const initializeB24Frame = async (): Promise<B24Frame> =>
+{
 	const queryParams: B24FrameQueryParams = {
 		DOMAIN: null,
 		PROTOCOL: false,
@@ -169,17 +185,21 @@ const initializeB24Frame = async (): Promise<B24Frame> => {
 // endregion ////
 
 // region Actions ////
-const isProcess: ComputedRef<boolean> = computed((): boolean => {
+const isProcess: ComputedRef<boolean> = computed((): boolean =>
+{
 	return processStatus.value.save || processStatus.value.apply
 })
 
-const makeFitWindow = async () => {
-	window.setTimeout(() => {
+const makeFitWindow = async () =>
+{
+	window.setTimeout(() =>
+	{
 		$b24.parent.resizeWindowAuto()
 	}, 200)
 }
 
-const makeRestore = (): void => {
+const makeRestore = (): void =>
+{
 	const optionsManager = getB24Helper().appOptions;
 	
 	optionsData.keyFloat = optionsManager.getFloat(
@@ -201,12 +221,12 @@ const makeRestore = (): void => {
 		'keyString',
 		defaultData.keyString
 	)
-
+	
 	optionsData.keyDate = optionsManager.getDate(
 		'keyDate',
 		defaultData.keyDate
 	)
-
+	
 	optionsData.keyDateTime = optionsManager.getDate(
 		'keyDateTime',
 		defaultData.keyDateTime
@@ -217,7 +237,8 @@ const makeRestore = (): void => {
 		defaultData.keyArray
 	)
 	optionsData.keyArray = []
-	tmpList.forEach((userId: any) => {
+	tmpList.forEach((userId: any) =>
+	{
 		optionsData.keyArray.push(Text.toInteger(userId))
 	})
 	
@@ -233,11 +254,13 @@ const makeRestore = (): void => {
 	})
 }
 
-const makeClosePage = async (): Promise<void> => {
+const makeClosePage = async (): Promise<void> =>
+{
 	return $b24.parent.closeApplication()
 }
 
-const makeSave = async (): Promise<void> => {
+const makeSave = async (): Promise<void> =>
+{
 	processStatus.value.save = true
 	try
 	{
@@ -246,7 +269,7 @@ const makeSave = async (): Promise<void> => {
 		
 		await makeClosePage()
 	}
-	catch(error: any)
+	catch( error: any )
 	{
 		$logger.error(error)
 		showError({
@@ -263,7 +286,8 @@ const makeSave = async (): Promise<void> => {
 	processStatus.value.save = false
 }
 
-const makeApply = async (): Promise<void> => {
+const makeApply = async (): Promise<void> =>
+{
 	processStatus.value.apply = true
 	
 	try
@@ -280,8 +304,8 @@ const makeApply = async (): Promise<void> => {
 				keyObject: getB24Helper().appOptions.encode(
 					optionsData.keyObject
 				),
-				keyDate: tmpFormatDateWithTimezone(optionsData.keyDate),
-				keyDateTime: tmpFormatDateWithTimezone(optionsData.keyDateTime)
+				keyDate: optionsData.keyDate?.toISO(),
+				keyDateTime: optionsData.keyDateTime?.toISO(),
 			},
 			{
 				moduleId: 'main',
@@ -294,7 +318,7 @@ const makeApply = async (): Promise<void> => {
 		
 		processStatus.value.apply = false
 	}
-	catch(error: any)
+	catch( error: any )
 	{
 		
 		$logger.error(error)
@@ -313,131 +337,82 @@ const makeApply = async (): Promise<void> => {
 	processStatus.value.apply = false
 }
 
-const makeSelectUsersV1 = async () => {
+const makeSelectUsersV1 = async () =>
+{
 	try
 	{
 		const selectedUsers = await $b24.dialog.selectUsers()
 		
 		optionsData.keyArray = []
 		
-		selectedUsers.forEach((row: SelectedUser) => {
+		selectedUsers.forEach((row: SelectedUser) =>
+		{
 			const userId = Text.toInteger(row.id)
 			optionsData.keyArray.push(userId)
 		})
 	}
-	catch(error: any)
+	catch( error: any )
 	{
 		$logger.error(error)
 	}
 }
 
-const makeSelectUsersV2 = async () => {
+const makeSelectUsersV2 = async () =>
+{
 	try
 	{
 		const selectedUsers = await $b24.dialog.selectUsers()
 		
 		optionsData.keyObject = {}
 		
-		selectedUsers.forEach((row: SelectedUser) => {
+		selectedUsers.forEach((row: SelectedUser) =>
+		{
 			const userId = Text.toInteger(row.id)
-			optionsData.keyObject[`user_${userId}`] = row.name
+			optionsData.keyObject[`user_${ userId }`] = row.name
 		})
 	}
-	catch(error: any)
+	catch( error: any )
 	{
 		$logger.error(error)
 	}
 }
 // endregion ////
 
-// region TMP ////
-
-// '2023-07-27'
-const tmpDateFormat = (value?: any): string => {
-	if(!(value instanceof Date))
-	{
-		return ''
-	}
-	
-	const result = new Date(value.getTime()-(value.getTimezoneOffset() * 60 * 1_000))
-	
-	return result.toISOString().slice(0, 10)
-}
-
-const onTmpDateChange = ($event: Event): void => {
+// region onDateChange ////
+const onDateChange = ($event: Event): null|DateTime =>
+{
 	const element = $event.target as HTMLInputElement
 	
-	const tmp = element.valueAsDate;
+	const tmpDate = element.valueAsDate;
 	
-	if(!(tmp instanceof Date))
+	if(!(tmpDate instanceof Date))
 	{
-		return
+		return null
 	}
 	
-	if(!(optionsData.keyDate instanceof Date))
-	{
-		optionsData.keyDate = new Date
-	}
-	
-	optionsData.keyDate = new Date(tmp.getTime() - (optionsData.keyDate.getTimezoneOffset() * 60 * 1_000));
-	optionsData.keyDate?.setHours(0, 0, 0, 0)
-}
-
-// '2023-07-27T09:23:28'
-const tmpDateTimeFormat = (value?: any, isUseSeconds = true): string => {
-	if(!(value instanceof Date))
-	{
-		return ''
-	}
-	
-	const result = new Date(value.getTime() - (value.getTimezoneOffset() * 60 * 1_000))
-	
-	return result.toISOString().slice(0, isUseSeconds ? 19 : 16)
-}
-
-const onTmpDateTimeChange = ($event: Event): void => {
-	const element = $event.target as HTMLInputElement
-	
-	let tmp = element.value;
-	
-	if(!Type.isStringFilled(tmp))
-	{
-		return
-	}
-	
-	if(!(optionsData.keyDateTime instanceof Date))
-	{
-		optionsData.keyDateTime = new Date
-	}
-
-	optionsData.keyDateTime =new Date(tmp)
-	
-	$logger.info({
-		c: tmpFormatDateWithTimezone(optionsData.keyDateTime),
+	return DateTime.fromJSDate(tmpDate).set({
+		hour: 0,
+		minute: 0,
+		second: 0,
+		millisecond: 0
 	})
 }
 
-const tmpFormatDateWithTimezone = (date?: any): string => {
-	if(!(date instanceof Date))
+const onDateTimeChange = ($event: Event): null|DateTime =>
+{
+	const element = $event.target as HTMLInputElement
+	
+	let tmpDateTime = element.value;
+	
+	if(!Type.isStringFilled(tmpDateTime))
 	{
-		return ''
+		return null
 	}
 	
-	const pad = (n: number) => n.toString().padStart(2, '0')
-	
-	const year = date.getFullYear()
-	const month = pad(date.getMonth() + 1)
-	const day = pad(date.getDate())
-	const hours = pad(date.getHours())
-	const minutes = pad(date.getMinutes())
-	const seconds = pad(date.getSeconds())
-	
-	const timezoneOffset = -date.getTimezoneOffset()
-	const offsetHours = pad(Math.floor(Math.abs(timezoneOffset) / 60))
-	const offsetMinutes = pad(Math.abs(timezoneOffset) % 60)
-	const offsetSign = timezoneOffset >= 0 ? '+' : '-'
-	
-	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`
+	return DateTime.fromFormat(tmpDateTime, 'y-MM-dd\'T\'HH:mm').set({
+		second: 0,
+		millisecond: 0
+	})
 }
 // endregion ////
 
@@ -451,7 +426,7 @@ const tmpFormatDateWithTimezone = (date?: any): string => {
 				class="absolute top-0 bottom-0 left-0 right-0 flex flex-col justify-center items-center"
 			>
 				<div class="absolute z-10 text-info">
-					<SpinnerIcon class="animate-spin stroke-2 size-44" />
+					<SpinnerIcon class="animate-spin stroke-2 size-44"/>
 				</div>
 			</div>
 			<div
@@ -460,7 +435,8 @@ const tmpFormatDateWithTimezone = (date?: any): string => {
 				<div class="p-4 mb-20">
 					<div>
 						<h1 class="text-h1 font-semibold leading-7 text-base-900">Application Options</h1>
-						<p class="mt-1 max-w-2xl text-sm leading-6 text-base-500">The application settings are listed here.</p>
+						<p class="mt-1 max-w-2xl text-sm leading-6 text-base-500">The application settings are listed
+							here.</p>
 					</div>
 					<div class="mt-3 text-md text-base-900">
 						<dl class="divide-y divide-base-100">
@@ -523,8 +499,8 @@ const tmpFormatDateWithTimezone = (date?: any): string => {
 								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
 									<input
 										type="date"
-										:value="tmpDateFormat(optionsData.keyDate)"
-										@change="onTmpDateChange"
+										:value="optionsData.keyDate?.toISODate()"
+										@change="(event) => optionsData.keyDate = onDateChange(event)"
 										autocomplete="off"
 										class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
 										:disabled="isProcess"
@@ -538,8 +514,8 @@ const tmpFormatDateWithTimezone = (date?: any): string => {
 								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
 									<input
 										type="datetime-local"
-										:value="tmpDateTimeFormat(optionsData.keyDateTime, true)"
-										@change="onTmpDateTimeChange"
+										:value="optionsData.keyDateTime?.toFormat('y-MM-dd\'T\'HH:mm')"
+										@change="(event) => optionsData.keyDateTime = onDateTimeChange(event)"
 										autocomplete="off"
 										class="border border-base-300 text-base-900 rounded block w-full p-2.5 disabled:opacity-75"
 										:disabled="isProcess"
@@ -562,7 +538,8 @@ const tmpFormatDateWithTimezone = (date?: any): string => {
 									</button>
 								</dt>
 								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-									<div v-if="optionsData.keyArray.length > 0">{{ optionsData.keyArray.join('; ') }}</div>
+									<div v-if="optionsData.keyArray.length > 0">{{optionsData.keyArray.join('; ')}}
+									</div>
 									<div v-else>
 										~ empty ~
 									</div>
@@ -584,7 +561,9 @@ const tmpFormatDateWithTimezone = (date?: any): string => {
 									</button>
 								</dt>
 								<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
-									<div v-if="Object.values(optionsData.keyObject).length > 0">{{ Object.values(optionsData.keyObject).join('; ') }}</div>
+									<div v-if="Object.values(optionsData.keyObject).length > 0">
+										{{Object.values(optionsData.keyObject).join('; ')}}
+									</div>
 									<div v-else>
 										~ empty ~
 									</div>
@@ -618,7 +597,8 @@ const tmpFormatDateWithTimezone = (date?: any): string => {
 								@click="makeClosePage"
 								:disabled="isProcess"
 								class="text-xs text-center font-semibold text-base-900 uppercase px-2 py-3 hover:text-base-800 active:text-base-master"
-							>Cancel</button>
+							>Cancel
+							</button>
 						</div>
 						<div class="w-1/3 flex flex-row justify-end gap-1">
 							&nbsp;

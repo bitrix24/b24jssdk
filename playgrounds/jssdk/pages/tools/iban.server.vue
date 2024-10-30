@@ -5,7 +5,7 @@ definePageMeta({
 	layout: "page"
 })
 
-const { formatterIban } = useFormatter('en-US')
+const { formatterIban } = useFormatter()
 </script>
 
 <template>

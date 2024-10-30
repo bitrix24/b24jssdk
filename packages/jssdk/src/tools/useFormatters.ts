@@ -1,9 +1,7 @@
 import FormatterNumbers from './formatters/numbers'
-import FormatterDateTime from './formatters/dateTime'
 import { IbanSpecification, FormatterIban } from './formatters/iban'
 
 export const useFormatter = (locale: string = 'en-US') => {
-	const formatterDateTime = FormatterDateTime.getInstance(locale)
 	const formatterNumber = FormatterNumbers.getInstance(locale)
 	
 	// region Iban ////
@@ -134,7 +132,6 @@ export const useFormatter = (locale: string = 'en-US') => {
 	// endregion ////
 	
 	return {
-		formatterDateTime,
 		formatterNumber,
 		formatterIban
 	}

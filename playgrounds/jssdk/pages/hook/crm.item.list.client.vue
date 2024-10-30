@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, reactive, computed, type Ref } from 'vue'
 import B24HookConfig from '../../config.hook'
+import { DateTime } from 'luxon'
+import { ref, reactive, computed, type Ref } from 'vue'
 import Search1Icon from '@bitrix24/b24icons-vue/main/Search1Icon'
 import AlertIcon from '@bitrix24/b24icons-vue/button/AlertIcon'
 import FileDownloadIcon from '@bitrix24/b24icons-vue/main/FileDownloadIcon'
@@ -11,8 +12,7 @@ import {
 	Result,
 	B24Hook,
 	EnumCrmEntityTypeId,
-	Text,
-	useFormatter
+	Text, B24LangList
 } from '@bitrix24/b24jssdk'
 import type { IResult, ISODate } from '@bitrix24/b24jssdk'
 
@@ -21,8 +21,6 @@ import Info from '../../components/Info.vue'
 definePageMeta({
 	layout: "page"
 })
-
-const { formatterDateTime } = useFormatter('en-US')
 
 const $logger = LoggerBrowser.build(
 	'Demo: crm.items.list',
@@ -33,9 +31,8 @@ const isProcessLoadB24: Ref<boolean> = ref(false)
 const dataList: Ref<{
 	id: number,
 	title: string,
-	createdTime: Date
+	createdTime: DateTime
 }[]> = ref([])
-
 const problemMessageList = computed(() => {
 	let problemMessageList: string[] = [];
 	const problem = result.getErrorMessages();
@@ -62,8 +59,9 @@ const openSlider = async (id: number): Promise<void> => {
 const $b24 = new B24Hook(
 	B24HookConfig
 )
-
 $b24.setLogger($logger)
+
+const b24CurrentLang: Ref<string> = ref(B24LangList.en)
 
 const actionCompanyAdd = async (needAdd: number = 10): Promise<void> => {
 	let commands = [];
@@ -148,7 +146,7 @@ const actionCompanyList = async (): Promise<void> => {
 			return {
 				id: Number(item.id),
 				title: item.title,
-				createdTime: new Date(item.createdTime as ISODate)
+				createdTime: Text.toDateTime(item.createdTime as ISODate)
 			}
 		});
 	})
@@ -211,22 +209,22 @@ actionCompanyList()
 						</tr>
 					</thead>
 					<tbody>
-					<tr
-						v-for="(company, indexCompany) in dataList" :key="indexCompany"
-					>
-						<td class="w-[40px] px-3 py-2 border border-gray-400">{{ company.id }}</td>
-						<td class="px-3 py-2 border border-gray-400">
-							<div
-								class="cursor-pointer hover:text-info"
-								@click="openSlider(company.id)"
-							>
-								{{ company.title }}
-							</div>
-						</td>
-						<td class="px-3 py-2 border border-gray-400">
-							{{ formatterDateTime.formatDate(company.createdTime, 'Y-m-d H:i:s') }}
-						</td>
-					</tr>
+						<tr
+							v-for="(company, indexCompany) in dataList" :key="indexCompany"
+						>
+							<td class="w-[40px] px-3 py-2 border border-gray-400">{{ company.id }}</td>
+							<td class="px-3 py-2 border border-gray-400">
+								<div
+									class="cursor-pointer hover:text-info"
+									@click="openSlider(company.id)"
+								>
+									{{ company.title }}
+								</div>
+							</td>
+							<td class="px-3 py-2 border border-gray-400">
+								{{ company.createdTime.setLocale(b24CurrentLang).toLocaleString(DateTime.DATETIME_SHORT) }}
+							</td>
+						</tr>
 					</tbody>
 				</table>
 			</div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, type Ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
+import { DateTime, Interval } from 'luxon'
 import {
 	LoggerBrowser,
 	Result,
@@ -51,7 +52,7 @@ let $b24: B24Frame
 const isInit: Ref<boolean> = ref(false)
 const isReload: Ref<boolean> = ref(false)
 let result: IResult = reactive(new Result())
-const {formatterDateTime, formatterNumber} = useFormatter('en-US')
+const { formatterNumber } = useFormatter('en-US')
 const {
 	initB24Helper,
 	destroyB24Helper,
@@ -118,9 +119,9 @@ interface IStatus
 		max: null|number
 	},
 	time: {
-		start: null|Date,
-		stop: null|Date,
-		diff: null|number
+		start: null|DateTime,
+		stop: null|DateTime,
+		interval: null|Interval
 	}
 }
 
@@ -139,7 +140,7 @@ const status: Ref<IStatus> = ref({
 	time: {
 		start: null,
 		stop: null,
-		diff: null,
+		interval: null,
 	}
 } as IStatus)
 
@@ -284,29 +285,32 @@ const makeFitWindow = async() =>
 {
 	window.setTimeout(() =>
 	{
-		$b24.parent.fitWindow()
-		//$b24.parent.resizeWindowAuto()
+		// $b24.parent.fitWindow() ////
+		$b24.parent.resizeWindowAuto()
 	}, 200)
 }
 
 const stopMakeProcess = () =>
 {
 	
-	status.value.time.stop = new Date()
+	status.value.time.stop = DateTime.now()
+	
 	if(
 		status.value.time.stop
 		&& status.value.time.start
 	)
 	{
-		status.value.time.diff = Math.abs(status.value.time.stop.getTime() - status.value.time.start.getTime())
+		status.value.time.interval = Interval.fromDateTimes(
+			status.value.time.start,
+			status.value.time.stop,
+		)
 	}
 	status.value.processInfo = null
 	
 	makeFitWindow()
-		.then(() =>
-		{
-			status.value.isProcess = false
-		})
+	.then(() => {
+		status.value.isProcess = false
+	})
 }
 
 const clearConsole = () =>
@@ -329,7 +333,7 @@ const reInitStatus = () =>
 	status.value.progress.max = 0
 	status.value.time.start = null
 	status.value.time.stop = null
-	status.value.time.diff = null
+	status.value.time.interval = null
 }
 
 const makeReloadWindow = async() =>
@@ -491,7 +495,7 @@ const makeImCallTo = async(isVideo: boolean = true) =>
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
-		status.value.time.start = new Date()
+		status.value.time.start = DateTime.now()
 		
 		return resolve(null)
 	})
@@ -541,7 +545,7 @@ const makeImPhoneTo = async() =>
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
-		status.value.time.start = new Date()
+		status.value.time.start = DateTime.now()
 		
 		return resolve(null)
 	})
@@ -590,7 +594,7 @@ const makeImOpenMessenger = async() =>
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
-		status.value.time.start = new Date()
+		status.value.time.start = DateTime.now()
 		
 		return resolve(null)
 	})
@@ -646,7 +650,7 @@ const makeImOpenMessengerWithYourself = async() =>
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
-		status.value.time.start = new Date()
+		status.value.time.start = DateTime.now()
 		
 		return resolve(null)
 	})
@@ -706,7 +710,7 @@ const makeSelectUsers = async() =>
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
-		status.value.time.start = new Date()
+		status.value.time.start = DateTime.now()
 		
 		return resolve(null)
 	})
@@ -760,7 +764,7 @@ const makeSendPullCommand = async(
 		status.value.progress.animation = true
 		status.value.progress.indicator = false
 		status.value.progress.value = null
-		status.value.time.start = new Date()
+		status.value.time.start = DateTime.now()
 		
 		return resolve(null)
 	})
@@ -817,7 +821,7 @@ const makeSendPullCommandHandler = (message: TypePullMessage): void =>
 		status.value.progress.animation = false
 		status.value.progress.indicator = false
 		status.value.progress.value = null
-		status.value.time.start = new Date()
+		status.value.time.start = DateTime.now()
 	}
 	$logger.warn('<< pull.get <<<', message)
 	status.value.resultInfo = `command: ${message.command}; params: ${JSON.stringify(message.params)}`
@@ -1341,52 +1345,61 @@ watch(defTabIndex, async() =>
 												</button>
 											</div>
 											<div class="flex-1">
-												<div class="px-lg2 py-sm2 border border-base-100 rounded-lg col-auto md:col-span-2 lg:col-span-1 bg-white">
-													<div class="w-full flex items-center justify-between">
-														<h3 class="text-h5 font-semibold">{{status.title}}</h3>
-														<button
-															type="button"
-															class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded pl-1 pr-3 py-1.5 leading-none text-3xs font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
-															@click="clearConsole"
-														>
-															<TrashBinIcon class="size-4"/>
-															<div class="text-nowrap truncate">Clear console</div>
-														</button>
-													</div>
-													
-													<ul class="text-xs mt-sm2" v-show="status.messages.length > 0">
-														<li v-for="(message, index) in status.messages" :key="index">
-															{{message}}
-														</li>
-														<li class="mt-2 pl-2 text-base-600"
-														    v-show="null !== status.time.start">start:
-															{{
-																formatterDateTime.formatDate(status.time?.start || new Date, 'H:i:s')
-															}}
-														</li>
-														<li class="pl-2 text-base-600"
-														    v-show="null !== status.time.stop">
-															stop:
-															{{
-																formatterDateTime.formatDate(status.time?.stop || new Date, 'H:i:s')
-															}}
-														</li>
-														<li class="pl-2 text-base-600"
-														    v-show="null !== status.time.diff">
-															diff:
-															{{formatterNumber.format(status.time?.diff || 0)}} ms
-														</li>
-														<li class="mt-2 pl-2 text-base-800 font-bold"
-														    v-show="null !== status.resultInfo">
-															{{status.resultInfo}}
-														</li>
-													</ul>
-													
-													<div class="mt-2" v-show="status.isProcess">
-														<div class="mt-2 pl-0.5 text-4xs text-blue-500"
-														     v-show="status.processInfo">
-															{{status.processInfo}}
+												<div class="p-lg2 border border-base-100 rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
+													<div>
+														<div class="w-full flex items-center justify-between">
+															<h1 class="text-h1 font-semibold leading-7 text-base-900">{{status.title}}</h1>
+															<button
+																type="button"
+																class="flex relative flex-row flex-nowrap gap-1.5 justify-center items-center uppercase rounded pl-1 pr-3 py-1.5 leading-none text-3xs font-medium text-base-700 hover:text-base-900 hover:bg-base-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-base-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-base-200 disabled:text-base-900 disabled:opacity-75"
+																@click="clearConsole"
+															>
+																<TrashBinIcon class="size-4"/>
+																<div class="text-nowrap truncate">Clear console</div>
+															</button>
 														</div>
+														<div class="mt-2" v-show="status.messages.length > 0">
+															<p class="max-w-2xl text-sm text-base-500" v-for="(message, index) in status.messages" :key="index">{{message}}</p>
+														</div>
+													</div>
+													<div class="text-md text-base-900">
+														<dl class="divide-y divide-base-100">
+															<div class="mt-4 px-2 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0" v-show="null !== status.time.start">
+																<dt class="text-sm font-medium leading-6">
+																	start:
+																</dt>
+																<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+																	{{ (status.time?.start || DateTime.now()).setLocale(b24CurrentLang).toLocaleString(DateTime.TIME_24_WITH_SECONDS) }}
+																</dd>
+															</div>
+															<div class="px-2 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0" v-show="null !== status.time.stop">
+																<dt class="text-sm font-medium leading-6">
+																	stop:
+																</dt>
+																<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+																	{{ (status.time?.stop || DateTime.now()).setLocale(b24CurrentLang).toLocaleString(DateTime.TIME_24_WITH_SECONDS) }}
+																</dd>
+															</div>
+															<div class="px-2 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0" v-show="null !== status.time.interval">
+																<dt class="text-sm font-medium leading-6">
+																	interval:
+																</dt>
+																<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+																	{{formatterNumber.format(status.time?.interval?.length() || 0)}} sec
+																</dd>
+															</div>
+															<div class="px-2 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0" v-show="null !== status.resultInfo">
+																<dt class="text-sm font-medium leading-6">
+																	&nbsp;
+																</dt>
+																<dd class="mt-1 text-sm leading-6 text-base-700 sm:col-span-2 sm:mt-0">
+																	{{status.resultInfo}}
+																</dd>
+															</div>
+														</dl>
+													</div>
+													<div class="mt-4" v-show="status.isProcess">
+														<div class="mb-2 text-4xs text-blue-500" v-show="status.processInfo">{{ status.processInfo }}</div>
 														<ProgressBar
 															:animation="status.progress.animation"
 															:indicator="status.progress.indicator"
@@ -1398,26 +1411,24 @@ watch(defTabIndex, async() =>
 																#indicator
 															>
 																<div class="text-right min-w-[60px] text-xs w-full">
-																	<span class="text-blue-500">{{status.progress.value}} / {{ status.progress.max }}</span>
+																	<span class="text-blue-500">{{ status.progress.value }} / {{ status.progress.max }}</span>
 																</div>
 															</template>
 														</ProgressBar>
 													</div>
 												</div>
 												<div
-													class="mt-4 text-alert-text px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
+													class="mt-6 text-alert-text px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
 													v-if="!result.isSuccess"
 												>
-													<h3 class="text-h5 font-semibold">Error</h3>
-													<ul class="text-txt-md mt-sm2">
-														<li v-for="(problem, index) in problemMessageList(result)"
-														    :key="index">{{problem}}
-														</li>
-													</ul>
+													<div>
+														<div class="mb-2 w-full flex items-center justify-between">
+															<h1 class="text-h1 font-semibold leading-7 text-base-900">Error</h1>
+														</div>
+														<p class="max-w-2xl text-txt-md" v-for="(problem, indexProblem) in problemMessageList(result)" :key="indexProblem">{{problem}}</p>
+													</div>
 												</div>
-												<div
-													class="mt-4 px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
-												>
+												<div class="overflow-hidden mt-4 px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
 													<div class="w-full flex items-center justify-between mb-4">
 														<h3 class="text-h5 font-semibold">App.Options</h3>
 														<button
@@ -1434,9 +1445,7 @@ watch(defTabIndex, async() =>
 														b24Helper?.appOptions.data
 													}}</pre>
 												</div>
-												<div
-													class="mt-4 px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
-												>
+												<div class="overflow-hidden  mt-4 px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white">
 													<div class="w-full flex items-center justify-between mb-4">
 														<h3 class="text-h5 font-semibold">User.Options</h3>
 														<button

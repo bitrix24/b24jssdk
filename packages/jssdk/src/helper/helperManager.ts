@@ -7,7 +7,7 @@ import { LicenseManager } from './licenseManager'
 import { CurrencyManager } from './currencyManager'
 import { OptionsManager } from './optionsManager'
 import { B24PullClientManager } from '../pullClient'
-import type { GenderString } from '../types/common'
+import Text from '../tools/text'
 import { LoadDataType, TypeSpecificUrl } from '../types/b24Helper'
 import type {
 	TypeApp,
@@ -17,11 +17,8 @@ import type {
 	TypePayment,
 	TypeUser
 } from '../types/b24Helper'
-import type {
-	TypePullMessage
-} from '../types/pull'
-import {PullStatus} from "../types/pull";
-import Text from "../tools/text";
+import type { GenderString } from '../types/common'
+import type { TypePullMessage } from '../types/pull'
 
 /**
  * A universal class that is used to manage the initial application data

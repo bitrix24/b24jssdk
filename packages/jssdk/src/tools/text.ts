@@ -1,4 +1,5 @@
-import { DateTime } from 'luxon'
+import { DateTime, type DateTimeOptions } from 'luxon'
+
 import Type from './type'
 
 const reEscape = /[&<>'"]/g
@@ -190,102 +191,34 @@ class TextManager
 	}
 	
 	/**
-	 * Convert string to Date
-	 *
-	 * @todo fix this function by bitrix.core_date
+	 * Convert string to DateTime from ISO 8601 or self template
 	 *
 	 * @param {string} dateString
 	 * @param {string} template
-	 * @returns {Date}
+	 * @param opts
+	 * @returns {DateTime}
 	 *
-	 * console.log(Text.toDate('2023-10-04', 'Y-m-d')); // Wed Oct 04 2023 00:00:00 GMT+0000
-	 * console.log(Text.toDate('04.10.2023', 'd.m.Y')); // Wed Oct 04 2023 00:00:00 GMT+0000
-	 * console.log(Text.toDate('2023-10-04 14:05:56', 'Y-m-d H:i:s')); // Wed Oct 04 2023 14:05:56 GMT+0000
-	 * console.log(Text.toDate('2023-10-04T14:05:56+03:00', 'Y-m-dTH:i:sZ')); // Wed Oct 04 2023 11:05:56 GMT+0000
+	 * @link https://moment.github.io/luxon/#/parsing?id=parsing-technical-formats
 	 */
-	toDate (
+	toDateTime (
 		dateString: string,
-		template: string = 'Y-m-dTH:i:sZ'
-	): Date
+		template?: string,
+		opts?: DateTimeOptions
+	): DateTime
 	{
-		const formatTokens: Record<string, string> = {
-			d: '(\\d{2})',
-			Y: '(\\d{4})',
-			m: '(\\d{2})',
-			H: '(\\d{2})',
-			i: '(\\d{2})',
-			s: '(\\d{2})',
-			T: 'T',
-			Z: '([+-]\\d{2}:\\d{2})'
-		}
-		
-		const escapedFormat = template.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-		const regexPattern = Object.keys(formatTokens).reduce((pattern, token) => {
-			return pattern.replace(token, formatTokens[token])
-		}, escapedFormat)
-		
-		const regex = new RegExp(`^${regexPattern}$`)
-		const match = dateString.match(regex)
-		
-		if(!match)
+		if(
+			!(typeof template === 'undefined')
+			&& Type.isStringFilled(template)
+		)
 		{
-			throw new Error('Date string does not match the format')
+			return DateTime.fromFormat(
+				dateString,
+				template,
+				opts
+			)
 		}
 		
-		const dateComponents: Record<string, number> = {
-			Y: 0,
-			m: 1,
-			d: 1,
-			H: 0,
-			i: 0,
-			s: 0
-		}
-		
-		// Start from 1 because match[0] is the full match
-		let index = 1
-		for(const token of template)
-		{
-			if(token === 'T')
-			{
-				continue
-			}
-			if(formatTokens[token])
-			{
-				dateComponents[token] = parseInt(match[index++], 10)
-			}
-		}
-		
-		// Adjust month index for JavaScript Date (0-based)
-		dateComponents['m'] -= 1
-		
-		// Handle timezone offset if present
-		if(template.includes('Z') && match[index])
-		{
-			
-			const timezoneOffset = match[index]
-			const [hoursOffset, minutesOffset] = timezoneOffset.split(':').map(Number)
-			const totalOffsetMinutes = hoursOffset * 60 + minutesOffset
-			const offsetSign = timezoneOffset.startsWith('+') ? -1 : 1
-			const offsetInMilliseconds = offsetSign * totalOffsetMinutes * 60 * 1_000
-			
-			return new Date(Date.UTC(
-				dateComponents['Y'],
-				dateComponents['m'],
-				dateComponents['d'],
-				dateComponents['H'],
-				dateComponents['i'],
-				dateComponents['s']
-			) + offsetInMilliseconds)
-		}
-		
-		return new Date(Date.UTC(
-			dateComponents['Y'],
-			dateComponents['m'],
-			dateComponents['d'],
-			dateComponents['H'],
-			dateComponents['i'],
-			dateComponents['s']
-		))
+		return DateTime.fromISO(dateString, opts)
 	}
 	
 	getDateForLog(): string

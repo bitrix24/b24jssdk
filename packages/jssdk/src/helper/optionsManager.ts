@@ -1,4 +1,5 @@
-import {AbstractHelper} from './abstractHelper'
+import { DateTime, type DateTimeOptions } from 'luxon'
+import { AbstractHelper } from './abstractHelper'
 import type { TypeB24 } from '../types/b24'
 import { Result } from '../core/result'
 import { TypeOption } from '../types/b24Helper'
@@ -39,6 +40,7 @@ export class OptionsManager
 		
 		return []
 	}
+	
 	// endregion ////
 	
 	// region Init ////
@@ -71,7 +73,8 @@ export class OptionsManager
 		
 		if(Type.isObject(data))
 		{
-			Object.entries(data).forEach(([key, value]) => {
+			Object.entries(data).forEach(([key, value]) =>
+			{
 				this.data.set(
 					key,
 					value
@@ -79,6 +82,7 @@ export class OptionsManager
 			})
 		}
 	}
+	
 	// endregion ////
 	
 	// region Get ////
@@ -103,7 +107,7 @@ export class OptionsManager
 				data = defValue
 			}
 		}
-		catch(error)
+		catch( error )
 		{
 			this.getLogger().error(error)
 			data = defValue
@@ -125,7 +129,7 @@ export class OptionsManager
 		{
 			data = JSON.parse(data)
 		}
-		catch(error)
+		catch( error )
 		{
 			this.getLogger().error(error)
 			data = defValue
@@ -189,13 +193,11 @@ export class OptionsManager
 		return this.data.get(key).toString()
 	}
 	
-	/**
-	 * @todo Fix date Convert
-	 *
-	 * @param key
-	 * @param defValue
-	 */
-	getDate(key: string, defValue: null|Date = null): null|Date
+	
+	getDate(
+		key: string,
+		defValue: null|DateTime = null
+	): null|DateTime
 	{
 		if(!this.data.has(key))
 		{
@@ -204,8 +206,10 @@ export class OptionsManager
 		
 		try
 		{
-			let result = new Date(this.data.get(key).toString())
-			if(!isNaN(result.getTime()))
+			let result = Text.toDateTime(
+				this.data.get(key).toString()
+			)
+			if(result.isValid)
 			{
 				return result
 			}
@@ -214,11 +218,12 @@ export class OptionsManager
 				return defValue
 			}
 		}
-		catch(error)
+		catch( error )
 		{
 			return defValue
 		}
 	}
+	
 	// endregion ////
 	
 	// region Tools ////
@@ -241,22 +246,25 @@ export class OptionsManager
 			
 			return defaultValue
 		}
-		catch(error)
+		catch( error )
 		{
 			this.getLogger().warn(error, data)
 		}
 		
 		return defaultValue
 	}
+	
 	// endregion ////
 	
 	// region Save ////
 	protected getMethodSave(): string
 	{
-		switch(this._type)
+		switch( this._type )
 		{
-			case 'app': return 'app.option.set'
-			case 'user': return 'user.option.set'
+			case 'app':
+				return 'app.option.set'
+			case 'user':
+				return 'user.option.set'
 		}
 	}
 	
@@ -291,5 +299,6 @@ export class OptionsManager
 		
 		return this._b24.callBatch(commands, true)
 	}
+	
 	// endregion ////
 }

@@ -14,7 +14,7 @@ export * from './types/slider'
 export * from './types/crm/index'
 export * from './types/placement/index'
 
-export * from './types/characteristics'
+export * from './types/b24Helper'
 export * from './types/pull'
 
 export * from './core/result'

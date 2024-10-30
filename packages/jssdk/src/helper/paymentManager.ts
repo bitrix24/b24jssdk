@@ -1,5 +1,5 @@
 import { AbstractHelper } from './abstractHelper'
-import type { TypePayment } from '../types/characteristics'
+import type { TypePayment } from '../types/b24Helper'
 
 export class PaymentManager
 	extends AbstractHelper

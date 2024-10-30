@@ -1,7 +1,7 @@
 import {AbstractHelper} from './abstractHelper'
 import type { TypeB24 } from '../types/b24'
 import { Result } from '../core/result'
-import { TypeOption } from '../types/characteristics'
+import { TypeOption } from '../types/b24Helper'
 import Type from '../tools/type'
 import Text from '../tools/text'
 

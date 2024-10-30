@@ -1,7 +1,8 @@
+import { DateTime } from 'luxon'
+
 import type {
 	BoolString,
-	GenderString,
-	NumberString
+	GenderString
 } from "./common";
 
 export enum LoadDataType {
@@ -178,7 +179,7 @@ export type Currency = {
 	amountCnt: number
 	isBase: boolean
 	currencyCode: string
-	dateUpdate: Date
+	dateUpdate: DateTime
 	decimals: number
 	decPoint: string
 	formatString: string

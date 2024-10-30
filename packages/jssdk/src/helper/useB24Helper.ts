@@ -1,5 +1,5 @@
 import { B24HelperManager } from './helperManager'
-import { LoadDataType } from '../types/characteristics'
+import { LoadDataType } from '../types/b24Helper'
 import type { TypeB24 } from '../types/b24'
 import type { TypePullMessage } from "../types/pull";
 

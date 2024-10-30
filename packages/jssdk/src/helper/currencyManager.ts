@@ -1,6 +1,6 @@
 import { AbstractHelper, UnhandledMatchError } from './abstractHelper'
 import type { BoolString, ISODate, NumberString } from "../types/common"
-import type { Currency, CurrencyFormat } from '../types/characteristics'
+import type { Currency, CurrencyFormat } from '../types/b24Helper'
 import Type from '../tools/type'
 import Text from '../tools/text'
 
@@ -184,7 +184,7 @@ export class CurrencyManager
 					amountCnt: parseInt(row.AMOUNT_CNT),
 					isBase: row.BASE === 'Y',
 					currencyCode: row.CURRENCY,
-					dateUpdate: Text.toDate(row.DATE_UPDATE),
+					dateUpdate: Text.toDateTime(row.DATE_UPDATE),
 					decimals: parseInt(row.DECIMALS),
 					decPoint: row.DEC_POINT,
 					formatString: row.FORMAT_STRING,

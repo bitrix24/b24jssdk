@@ -1,5 +1,5 @@
 import { AbstractHelper } from './abstractHelper'
-import type { TypeLicense } from '../types/characteristics'
+import type { TypeLicense } from '../types/b24Helper'
 import { RestrictionManagerParamsForEnterprise } from '../types/http'
 
 export class LicenseManager

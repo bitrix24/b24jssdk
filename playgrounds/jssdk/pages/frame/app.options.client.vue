@@ -89,7 +89,8 @@ onMounted(async () =>
 {
 	try
 	{
-		$b24 = await initializeB24Frame()
+		const { $initializeB24Frame } = useNuxtApp()
+		$b24 = await $initializeB24Frame()
 		
 		$b24.setLogger(LoggerBrowser.build('Core >> Slider', true))
 		b24CurrentLang.value = $b24.getLang()
@@ -152,36 +153,6 @@ onUnmounted(() =>
 	$b24?.destroy()
 	destroyB24Helper()
 })
-
-const initializeB24Frame = async (): Promise<B24Frame> =>
-{
-	const queryParams: B24FrameQueryParams = {
-		DOMAIN: null,
-		PROTOCOL: false,
-		APP_SID: null,
-		LANG: null
-	}
-	
-	if(window.name)
-	{
-		const [domain, protocol, appSid] = window.name.split('|')
-		queryParams.DOMAIN = domain
-		queryParams.PROTOCOL = parseInt(protocol) === 1
-		queryParams.APP_SID = appSid
-		queryParams.LANG = null
-	}
-	
-	if(!queryParams.DOMAIN || !queryParams.APP_SID)
-	{
-		throw new Error('Unable to initialize Bitrix24Frame library!')
-	}
-	
-	const b24Frame = new B24Frame(queryParams)
-	await b24Frame.init()
-	$logger.log('b24Frame:mounted')
-	
-	return b24Frame
-}
 // endregion ////
 
 // region Actions ////

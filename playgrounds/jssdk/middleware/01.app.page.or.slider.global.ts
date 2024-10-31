@@ -25,35 +25,6 @@ function isSkipB24(fullPath: string): boolean
 	return false
 }
 
-async function initializeB24Frame(): Promise<B24Frame> {
-	const queryParams: B24FrameQueryParams = {
-		DOMAIN: null,
-		PROTOCOL: false,
-		APP_SID: null,
-		LANG: null
-	}
-	
-	if(window.name)
-	{
-		const [domain, protocol, appSid] = window.name.split('|')
-		queryParams.DOMAIN = domain
-		queryParams.PROTOCOL = parseInt(protocol) === 1
-		queryParams.APP_SID = appSid
-		queryParams.LANG = null
-	}
-	
-	if(!queryParams.DOMAIN || !queryParams.APP_SID)
-	{
-		throw new Error('Unable to initialize Bitrix24Frame library!')
-	}
-	
-	const b24Frame = new B24Frame(queryParams)
-	await b24Frame.init()
-	$logger.log('b24Frame:mounted')
-	
-	return b24Frame
-}
-
 export default defineNuxtRouteMiddleware(async (
 	to: RouteLocationNormalized,
 	from: RouteLocationNormalized
@@ -81,7 +52,8 @@ export default defineNuxtRouteMiddleware(async (
 	
 	try
 	{
-		const $b24 = await initializeB24Frame()
+		const { $initializeB24Frame } = useNuxtApp()
+		const $b24 = await $initializeB24Frame()
 		
 		$logger.log('>> placement.options', $b24.placement.options)
 		

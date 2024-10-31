@@ -1,7 +1,7 @@
-import MyModule from '../../../src/module'
+import B24JsSdkNuxt from '../../../src/module'
 
 export default defineNuxtConfig({
-  modules: [
-    MyModule,
-  ],
+	modules: [
+		B24JsSdkNuxt,
+	],
 })

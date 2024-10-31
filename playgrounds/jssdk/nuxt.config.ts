@@ -2,8 +2,8 @@
 import {readFileSync} from "fs";
 
 export default defineNuxtConfig({
-	compatibilityDate: '2024-04-03',
-	devtools: {enabled: false},
+	compatibilityDate: '2024-10-31',
+	devtools: { enabled: false },
 	devServer: {
 		port: 3000,
 		/*/
@@ -26,7 +26,8 @@ export default defineNuxtConfig({
 		},
 	},
 	modules: [
-		'@nuxtjs/i18n'
+		'@nuxtjs/i18n',
+		'@bitrix24/b24jssdk-nuxt'
 	],
 	i18n: {
 		detectBrowserLanguage: false,

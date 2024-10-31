@@ -1,7 +1,5 @@
 import {
-	LoggerBrowser,
-	B24Frame,
-	type B24FrameQueryParams
+	LoggerBrowser
 } from "@bitrix24/b24jssdk"
 import { type RouteLocationNormalized } from 'vue-router'
 

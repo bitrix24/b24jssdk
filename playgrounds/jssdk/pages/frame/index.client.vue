@@ -14,7 +14,6 @@ import type {
 	IResult,
 	SelectedUser,
 	TypePullMessage,
-	B24FrameQueryParams,
 	StatusClose
 } from '@bitrix24/b24jssdk'
 

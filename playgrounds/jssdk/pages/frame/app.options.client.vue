@@ -3,7 +3,6 @@ import { DateTime } from 'luxon'
 import { onMounted, onUnmounted, reactive, type Ref, ref, type ComputedRef, computed } from 'vue'
 import {
 	type SelectedUser,
-	type B24FrameQueryParams,
 	B24Frame,
 	B24LangList,
 	useB24Helper,

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import B24FormConfig from '../../config.b24form'
 import {
-	type B24FrameQueryParams,
 	B24Frame,
 	useB24Helper,
 	LoadDataType,

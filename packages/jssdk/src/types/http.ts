@@ -25,6 +25,12 @@ export type TypeHttp = {
 	clearLogTag(): void
 }
 
+export interface IRequestIdGenerator {
+	getRequestId(): string
+	getHeaderFieldName(): string
+	getQueryStringParameterName():string
+}
+
 export type TypeRestrictionManagerParams = {
 	sleep: number
 	speed: number

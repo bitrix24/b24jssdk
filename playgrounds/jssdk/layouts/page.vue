@@ -1,7 +1,7 @@
 <script setup lang="ts">
 useHead({
 	bodyAttrs: {
-		class: 'bg-tertiary font-b24-system text-gray-900 antialiased',
+		class: 'bg-tertiary font-b24-system text-base-900 antialiased',
 	}
 });
 </script>
@@ -11,7 +11,7 @@ useHead({
 		class="flex h-screen flex-col overflow-hidden"
 	>
 		<header
-			class="relative z-10  border-b border-gray-200 bg-white"
+			class="relative z-10 border-b border-gray-200 bg-white"
 		>
 			<div class="container mx-auto pl-0 pr-4 py-4 sm:pr-6 lg:pr-8">
 				<div class="flex flex-shrink-0 items-center justify-between">

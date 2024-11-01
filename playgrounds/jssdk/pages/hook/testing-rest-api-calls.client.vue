@@ -314,44 +314,44 @@ async function makeSelectItemsList_v4()
 		
 		return resolve(null)
 	})
-		.then(async () =>
-		{
-			let generator = $b24.fetchListMethod(
-				'crm.item.list',
-				{
-					entityTypeId: EnumCrmEntityTypeId.company,
-					select: [
-						'id',
-						'title'
-					]
-				},
-				'id',
-				'items'
-			)
-			
-			let ttl = 0
-			
-			for await (let entities of generator)
+	.then(async () =>
+	{
+		let generator = $b24.fetchListMethod(
+			'crm.item.list',
 			{
-				for(let entity of entities)
-				{
-					ttl++;
-					$logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ ttl } ...`, entity)
-					
-					status.value.processInfo = `[id:${ entity.id }] ${ entity.title }`
-				}
+				entityTypeId: EnumCrmEntityTypeId.company,
+				select: [
+					'id',
+					'title'
+				]
+			},
+			'id',
+			'items'
+		)
+		
+		let ttl = 0
+		
+		for await (let entities of generator)
+		{
+			for(let entity of entities)
+			{
+				ttl++;
+				$logger.log(`>> Retrieve Large Volumes of Data >>> entity ${ ttl } ...`, entity)
+				
+				status.value.processInfo = `[id:${ entity.id }] ${ entity.title }`
 			}
-			status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
-		})
-		.catch((error: Error|string) =>
-		{
-			result.addError(error)
-			$logger.error(error)
-		})
-		.finally(() =>
-		{
-			stopMakeProcess()
-		})
+		}
+		status.value.resultInfo = `It was chosen: ${ formatterNumber.format(ttl) } elements`
+	})
+	.catch((error: Error|string) =>
+	{
+		result.addError(error)
+		$logger.error(error)
+	})
+	.finally(() =>
+	{
+		stopMakeProcess()
+	})
 }
 
 let needAdd = ref(10)
@@ -394,7 +394,7 @@ async function makeCallBatch_v1()
 				params: {
 					entityTypeId: EnumCrmEntityTypeId.company,
 					fields: {
-						title: Text.getUniqId(),
+						title: Text.getUuidRfc4122(),
 						comments: '[B]Auto generate[/B] from [URL=https://bitrix24.github.io/b24jssdk/]@bitrix24/b24jssdk-playground[/URL]'
 					}
 				}

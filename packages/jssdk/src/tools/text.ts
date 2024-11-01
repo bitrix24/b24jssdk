@@ -1,5 +1,5 @@
 import { DateTime, type DateTimeOptions } from 'luxon'
-
+import uuidv7 from '../tools/uuidv7'
 import Type from './type'
 
 const reEscape = /[&<>'"]/g
@@ -26,6 +26,7 @@ const unescapeEntities: Record<string, string> = {
 	'&#34': '"',
 }
 
+
 /**
  * The `Text` class provides a set of utility methods for working with text data.
  * It includes functions for encoding and decoding HTML entities, generating random strings,
@@ -39,6 +40,27 @@ class TextManager
 	{
 		// eslint-disable-next-line
 		return [...Array(length)].map(() => (~~(Math.random() * 36)).toString(36)).join('')
+	}
+	
+	/**
+	 * Generates UUID
+	 */
+	getUniqId(): string
+	{
+		return 'xxxxxxxx-xlsx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+			const r = Math.random() * 16 | 0
+			const v = c === 'x' ? r : (r & 0x3 | 0x8)
+			return v.toString(16)
+		})
+	}
+	
+	/**
+	 * Generate uuid v7
+	 * @return {string}
+	 */
+	getUuidRfc4122(): string
+	{
+		return uuidv7()
 	}
 	
 	/**
@@ -71,18 +93,6 @@ class TextManager
 		return value
 	}
 	
-	/**
-	 * Generates UUID
-	 */
-	getUniqId(): string
-	{
-		return 'xxxxxxxx-xlsx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-			const r = Math.random() * 16 | 0
-			const v = c === 'x' ? r : (r & 0x3 | 0x8)
-			return v.toString(16)
-		})
-	}
-
 	toNumber(value: any): number
 	{
 		const parsedValue = Number.parseFloat(value)

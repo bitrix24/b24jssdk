@@ -84,7 +84,7 @@ const actionCompanyAdd = async (needAdd: number = 10): Promise<void> => {
 			params: {
 				entityTypeId: EnumCrmEntityTypeId.company,
 				fields: {
-					title: Text.getUniqId(),
+					title: Text.getUuidRfc4122(),
 					comments: '[B]Auto generate[/B] from [URL=https://bitrix24.github.io/b24jssdk/]@bitrix24/b24jssdk-playground[/URL]'
 				}
 			}

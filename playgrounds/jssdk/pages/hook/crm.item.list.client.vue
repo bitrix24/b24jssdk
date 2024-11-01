@@ -229,7 +229,7 @@ actionCompanyList()
 				</table>
 			</div>
 		</div>
-		<div class="bg-warning-background p-5" v-show="!result.isSuccess">
+		<div class="bg-warning-background p-5 mt-4" v-show="!result.isSuccess">
 			<h3 class="text-h3 text-warning-background-on mb-1">Error</h3>
 			<ul class="text-txt-md text-warning-background-on">
 				<li v-for="(problem, index) in problemMessageList" :key="index">{{ problem }}</li>

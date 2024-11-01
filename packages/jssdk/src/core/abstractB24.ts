@@ -5,6 +5,11 @@ import type { TypeB24 } from '../types/b24'
 import type { TypeHttp } from '../types/http'
 import type { ListPayload } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
+/*/
+import packageInfo from '../../package.json'
+const SDK_VERSION = packageInfo.version
+const SDK_USER_AGENT = 'b24-js-sdk'
+//*/
 
 export abstract class AbstractB24
 	implements TypeB24
@@ -311,6 +316,17 @@ export abstract class AbstractB24
 	protected _getHttpOptions(): null|{}
 	{
 		return null
+		/**
+		 * @memo can be added on the server side
+		 */
+		/*/
+		return {
+			headers: {
+				'User-Agent': `${SDK_USER_AGENT}-v-${SDK_VERSION}`,
+				'X-BITRIX24-JS-SDK-VERSION': SDK_VERSION,
+			},
+		}
+		//*/
 	}
 
 	/**

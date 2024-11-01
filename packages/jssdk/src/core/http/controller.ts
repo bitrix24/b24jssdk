@@ -1,6 +1,7 @@
 import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import type {TypeHttp, TypeRestrictionManagerParams} from '../../types/http'
 import { default as RestrictionManager } from './restrictionManager'
+import { default as RequestIdGenerator } from './requestIdGenerator'
 import { Result } from '../result'
 import { AjaxError, type AjaxErrorParams } from './ajaxError'
 import { AjaxResult } from './ajaxResult'
@@ -16,6 +17,8 @@ type AjaxResponse = {
 	payload: AjaxResultParams
 }
 
+const BITRIX24_OAUTH_SERVER_URL = 'https://oauth.bitrix.info'
+
 /**
  * Class for working with RestApi requests via http
  *
@@ -27,6 +30,7 @@ export default class Http
 	#clientAxios: AxiosInstance
 	#authActions: AuthActions
 	#restrictionManager: RestrictionManager
+	#requestIdGenerator: RequestIdGenerator
 	private _logger: null|LoggerBrowser = null
 	
 	#logTag: string = ''
@@ -39,12 +43,12 @@ export default class Http
 	{
 		this.#clientAxios = axios.create({
 			baseURL: baseURL,
-			headers: {},
-			...options ?? {}
+			...(options ?? {})
 		})
 		
 		this.#authActions = authActions
 		this.#restrictionManager = new RestrictionManager()
+		this.#requestIdGenerator = new RequestIdGenerator()
 	}
 	
 	setLogger(logger: LoggerBrowser): void
@@ -310,7 +314,7 @@ export default class Http
 		
 		return this.#clientAxios.post(
 			this.#prepareMethod(method),
-			this.#prepareParams(authData, params, start)
+			this.#prepareParams(authData, params, start),
 		)
 		.then(
 			(response: { data: AjaxResultParams; status: any }): Promise<AjaxResponse> => {
@@ -456,6 +460,8 @@ export default class Http
 		{
 			result.logTag = this.#logTag
 		}
+		
+		result[this.#requestIdGenerator.getQueryStringParameterName()] = this.#requestIdGenerator.getRequestId()
 		
 		if(!!result.data)
 		{

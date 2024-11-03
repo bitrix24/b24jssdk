@@ -29,6 +29,7 @@ export interface IRequestIdGenerator {
 	getRequestId(): string
 	getHeaderFieldName(): string
 	getQueryStringParameterName():string
+	getQueryStringSdkParameterName():string
 }
 
 export type TypeRestrictionManagerParams = {

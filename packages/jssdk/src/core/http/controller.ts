@@ -41,6 +41,15 @@ export default class Http
 		options?: null|{}
 	)
 	{
+		/**
+		 * @memo can be added on the server side
+		 */
+		/*/
+			headers: {
+				'User-Agent': '__SDK_USER_AGENT__-v-__SDK_VERSION__',
+				'X-BITRIX24-JS-SDK-VERSION': '__SDK_VERSION__',
+			},
+		//*/
 		this.#clientAxios = axios.create({
 			baseURL: baseURL,
 			...(options ?? {})
@@ -462,6 +471,7 @@ export default class Http
 		}
 		
 		result[this.#requestIdGenerator.getQueryStringParameterName()] = this.#requestIdGenerator.getRequestId()
+		result[this.#requestIdGenerator.getQueryStringSdkParameterName()] = '__SDK_VERSION__'
 		
 		if(!!result.data)
 		{

@@ -27,7 +27,6 @@ export default defineNuxtConfig({
 	},
 	modules: [
 		'@nuxtjs/i18n',
-		'@bitrix24/b24jssdk-nuxt'
 	],
 	i18n: {
 		detectBrowserLanguage: false,

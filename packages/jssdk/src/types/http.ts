@@ -13,7 +13,7 @@ export type TypeHttp = {
 	
 	call(
 		method: string,
-		params: {},
+		params: object,
 		start: number
 	): Promise<AjaxResult>
 	

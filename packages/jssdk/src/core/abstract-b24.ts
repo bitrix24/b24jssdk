@@ -1,6 +1,7 @@
 import { LoggerBrowser, LoggerType } from '../logger/browser'
 import { Result } from './result'
 import { AjaxResult } from './http/ajaxResult'
+import Type from './../tools/type'
 import type { TypeB24 } from '../types/b24'
 import type { TypeHttp } from '../types/http'
 import type { ListPayload } from '../types/payloads'
@@ -35,10 +36,8 @@ export abstract class AbstractB24
 		return Promise.resolve()
 	}
 	
-	destroy()
-	{
-	
-	}
+	destroy(): void
+	{}
 	
 	public setLogger(logger: LoggerBrowser): void
 	{
@@ -109,7 +108,10 @@ export abstract class AbstractB24
 	{
 		const result = new Result()
 		
-		if(!!progress)
+		if(
+			Type.isFunction(progress)
+			&& null !== progress
+		)
 		{
 			progress(0)
 		}
@@ -160,7 +162,7 @@ export abstract class AbstractB24
 					
 					if(!!progress)
 					{
-						let total = responseLoop.getTotal()
+						const total = responseLoop.getTotal()
 						progress(total > 0 ? Math.round(100 * list.length / total) : 100)
 					}
 				}
@@ -199,7 +201,10 @@ export abstract class AbstractB24
 		{
 			let result = await this.callMethod(method, params, params.start)
 			let data = undefined
-			if(null !== customKeyForResult)
+			if(
+				Type.isNull(customKeyForResult)
+				&& null !== customKeyForResult
+			)
 			{
 				data = result.getData().result[customKeyForResult] as []
 			}
@@ -308,7 +313,7 @@ export abstract class AbstractB24
 	 * Returns settings for http connection
 	 * @protected
 	 */
-	protected _getHttpOptions(): null|{}
+	protected _getHttpOptions(): null|object
 	{
 		return null
 	}

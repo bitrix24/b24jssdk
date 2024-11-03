@@ -22,7 +22,7 @@ export * from './core/http/ajaxError'
 export * from './core/http/ajaxResult'
 export * from './core/http/restrictionManager'
 export * from './core/http/controller'
-export * from './core/abstractB24'
+export * from './core/abstract-b24'
 export * from './core/language/list'
 
 export * from './tools/scrollSize'

@@ -1,5 +1,5 @@
 import { LoggerBrowser } from '../logger/browser'
-import { AbstractB24 } from '../core/abstractB24'
+import { AbstractB24 } from '../core/abstract-b24'
 import type { TypeB24 } from '../types/b24'
 import Http from '../core/http/controller'
 import { AuthHookManager } from './auth'

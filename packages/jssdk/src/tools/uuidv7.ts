@@ -141,8 +141,8 @@ function unsafeStringify(
 export default function(): string
 {
 	let bytes: Uint8Array
-	let buf = undefined
-	let offset = undefined
+	const buf = undefined
+	const offset = undefined
 	
 	const now = Date.now()
 	

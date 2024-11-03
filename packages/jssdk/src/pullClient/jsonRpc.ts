@@ -30,7 +30,7 @@ export class JsonRpc
 		
 		if(Type.isPlainObject(options.handlers))
 		{
-			for(let method in options.handlers)
+			for(const method in options.handlers)
 			{
 				this.handle(method, options.handlers[method]);
 			}
@@ -130,8 +130,8 @@ export class JsonRpc
 	 */
 	private executeOutgoingRpcBatch(batch: JsonRpcRequest[]): Promise<any>[]
 	{
-		let requests: RpcRequest[] = []
-		let promises: Promise<any>[] = []
+		const requests: RpcRequest[] = []
+		const promises: Promise<any>[] = []
 		
 		batch.forEach(({ method, params, id }) => {
 			const request = this.createRequest(

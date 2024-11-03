@@ -1,9 +1,93 @@
-/**
- * @see https://github.com/nuxt/module-builder/blob/main/src/commands/build.ts
- */
 import { existsSync, promises as fsp } from 'node:fs'
 import { resolve } from 'pathe'
 import { defineBuildConfig } from 'unbuild'
+
+import packageInfo from '../../package.json'
+const SDK_VERSION = packageInfo.version
+const SDK_USER_AGENT = 'b24-js-sdk'
+
+const isMinify = true
+
+export default defineBuildConfig([
+	{
+		name: '@bitrix24/b24jssdk',
+		entries: [
+			"./src/index"
+		],
+		outDir: "dist",
+		clean: true,
+		declaration: true,
+		sourcemap: true,
+		stub: false,
+		rollup: {
+			esbuild: {
+				minify: isMinify,
+				target: 'esnext',
+			},
+			replace: {
+				values: getReplaceData()
+			},
+			emitCJS: false,
+			cjsBridge: true,
+		},
+		hooks: {
+			async 'rollup:done'(ctx) {
+				await writeCJSStub(ctx.options.outDir)
+			},
+		}
+	},
+	{
+		name: '@bitrix24/b24jssdk-iife',
+		entries: [
+			"./src/index"
+		],
+		declaration: false,
+		sourcemap: false,
+		outDir: "dist",
+		rollup: {
+			esbuild: {
+				target: 'esnext',
+				minify: isMinify,
+			},
+			replace: {
+				values: getReplaceData(),
+			},
+			emitCJS: false,
+			inlineDependencies: true,
+			output: {
+				format: 'iife',
+				entryFileNames: '[name].browser.js',
+				minifyInternalExports: true,
+				name: 'B24Js',
+				globals: {
+					luxon: 'luxon',
+					'protobufjs/minimal': 'protobufjsMin',
+					axios: 'axios',
+					qs: 'qs',
+				}
+			},
+			resolve: {
+				extensions: ['.js', '.ts'],
+				browser: true
+			},
+			commonjs: {
+				include: ['../../node_modules/**']
+			},
+		}
+	}
+])
+
+/**
+ * Return Replace Data
+ * @return {Record<string, string>}
+ */
+function getReplaceData(): Record<string, string>
+{
+	return {
+		'__SDK_VERSION__': SDK_VERSION,
+		'__SDK_USER_AGENT__': SDK_USER_AGENT,
+	}
+}
 
 /**
  * Generate CommonJS stub
@@ -11,7 +95,8 @@ import { defineBuildConfig } from 'unbuild'
  */
 async function writeCJSStub(distDir: string) {
 	const cjsStubFile = resolve(distDir, 'index.cjs')
-	if (existsSync(cjsStubFile)) {
+	if (existsSync(cjsStubFile))
+	{
 		return
 	}
 	const cjsStub =
@@ -21,28 +106,3 @@ async function writeCJSStub(distDir: string) {
 `
 	await fsp.writeFile(cjsStubFile, cjsStub, 'utf8')
 }
-
-export default defineBuildConfig({
-	name: '@bitrix24/b24jssdk',
-	entries: [
-		'./src/index',
-	],
-	outDir: 'dist',
-	clean: true,
-	declaration: true,
-	sourcemap: true,
-	stub: false,
-	rollup: {
-		esbuild: {
-			minify: true,
-			target: 'esnext',
-		},
-		emitCJS: false,
-		cjsBridge: true,
-	},
-	hooks: {
-		async 'rollup:done'(ctx) {
-			await writeCJSStub(ctx.options.outDir)
-		},
-	}
-})

@@ -47,7 +47,8 @@
 		"prepack": "npm run build",
 		"build": "npm-run-all -s build:*",
 		"build:unbuild": "unbuild",
-		"lint": "eslint . && prettier -c .",
+		"lint:prettier": "eslint . && prettier -c .",
+		"lint": "eslint .",
 		"lint:fix": "automd && eslint . --fix && prettier -w ."
 	},
 	"dependencies": {

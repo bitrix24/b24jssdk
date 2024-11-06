@@ -52,15 +52,15 @@
 		"lint:fix": "automd && eslint . --fix && prettier -w ."
 	},
 	"dependencies": {
-		"@types/qs": "^6.9.15",
 		"axios": "^1.7.7",
+		"qs": "^6.13.0",
 		"luxon": "^3.5.0",
-		"protobufjs": "^7.4.0",
-		"qs": "^6.13.0"
+		"protobufjs": "^7.4.0"
 	},
 	"devDependencies": {
 		"@types/luxon": "^3.4.2",
 		"@types/node": "^22.5.3",
+		"@types/qs": "^6.9.15",
 		"eslint-config-unjs": "^0.4.1",
 		"prettier": "^3.3.3",
 		"npm-run-all": "^4.1.5",

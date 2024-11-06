@@ -1,14 +1,25 @@
 import { existsSync, promises as fsp } from 'node:fs'
 import { resolve } from 'pathe'
 import { defineBuildConfig } from 'unbuild'
+import path from 'path'
 
 import packageInfo from '../../package.json'
 const SDK_VERSION = packageInfo.version
 const SDK_USER_AGENT = 'b24-js-sdk'
 
 const isMinify = true
+const rootDir = path.join(process.cwd(), '../../')
+
+console.log({
+	place: '>> build.conf',
+	params: [
+		process.cwd(),
+		rootDir
+	]
+})
 
 export default defineBuildConfig([
+	//*/
 	{
 		name: '@bitrix24/b24jssdk',
 		entries: [
@@ -36,13 +47,16 @@ export default defineBuildConfig([
 			},
 		}
 	},
+	//*/
+	//*/
 	{
-		name: '@bitrix24/b24jssdk-iife',
+		failOnWarn: false,
+		name: '@bitrix24/b24jssdk-v2',
 		entries: [
 			"./src/index"
 		],
 		declaration: false,
-		sourcemap: false,
+		sourcemap: true,
 		outDir: "dist",
 		rollup: {
 			esbuild: {
@@ -52,28 +66,109 @@ export default defineBuildConfig([
 			replace: {
 				values: getReplaceData(),
 			},
-			emitCJS: false,
-			inlineDependencies: true,
 			output: {
-				format: 'iife',
-				entryFileNames: '[name].browser.js',
-				minifyInternalExports: true,
+				format: 'es',
 				name: 'B24Js',
-				globals: {
-					luxon: 'luxon',
-					'protobufjs/minimal': 'protobufjsMin',
-					axios: 'axios',
-					qs: 'qs',
-				}
+				entryFileNames: 'es.[name].js',
+				extend: true,
+				compact: false,
+				
+				intro: '// TEST_STRING_v1 ////',
+				outro: '// TEST_STRING_v2 ////',
+				
+				esModule: true,
+				dynamicImportInCjs: true,
+				externalImportAttributes: true,
+				externalLiveBindings: true,
+				freeze: true,
+				
+				minifyInternalExports: true,
+				noConflict: true,
+				
+				inlineDynamicImports: false,
+				preserveModules: true,
+				
 			},
 			resolve: {
-				extensions: ['.js', '.ts'],
-				browser: true
+				browser: true,
 			},
+			emitCJS: true,
+			inlineDependencies: true,
 			commonjs: {
 				include: ['../../node_modules/**']
 			},
-		}
+		},
+		externals: [
+			'axios',
+			'qs',
+			'luxon',
+			'protobufjs',
+		],
+	},
+	//*/
+	{
+		name: '@bitrix24/b24jssdk-iife',
+		entries: [
+			"src/index"
+		],
+		declaration: false,
+		sourcemap: false,
+		outDir: "dist",
+		rollup: {
+			esbuild: {
+				target: 'esnext',
+				minify: isMinify,
+			},
+			emitCJS: true,
+			cjsBridge: true,
+			inlineDependencies: true,
+			replace: {
+				values: getReplaceData(),
+			},
+			output: {
+				format: 'iife',
+				name: 'B24Js',
+				entryFileNames: `browser.[name].js`,
+				extend: true,
+				compact: false,
+				
+				banner: '// TEST_STRING_v0 ////',
+				intro: '// TEST_STRING_v1 ////',
+				outro: '// TEST_STRING_v2 ////',
+			},
+			resolve: {
+				browser: true,
+				//rootDir: process.cwd(),
+				//preferBuiltins: false,
+				//extensions: ['.cjs', '.ts'],
+				//jail: 'node_modules/@bitrix24/b24jssdk/dist',
+				//jail: 'src',
+				modulePaths: [
+					'node_modules/**'
+				]
+			},
+			commonjs: {
+				//dynamicRequireRoot: rootDir,
+				//include: ['node_modules/**']
+			},
+		},
+		hooks: {
+			async 'build:prepare'(ctx) {
+				ctx.pkg.dependencies = { }
+				ctx.options.dependencies = []
+			},
+			/**
+			 * @todo remove this
+			 */
+			async 'build:before'(ctx) {
+				console.log({
+					place: '>> build:prepare',
+					params: [
+						ctx.options.externals
+					]
+				})
+			},
+		},
 	}
 ])
 

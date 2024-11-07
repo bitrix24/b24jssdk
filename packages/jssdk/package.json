@@ -19,21 +19,20 @@
 	"sideEffects": false,
 	"type": "module",
 	"exports": {
-		"./package.json": {
-			"default": "./package.json"
-		},
+		"./package.json":  "./package.json",
 		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.mjs",
-			"require": "./dist/index.cjs"
+			"types": "./dist/esm/index.d.ts",
+			"default": {
+				"require": "./dist/commonjs/index.cjs",
+				"import": "./dist/esm/index.mjs",
+				"default": "./dist/esm/index.mjs"
+			}
 		}
 	},
-	"main": "./dist/index.cjs",
-	"module": "./dist/index.mjs",
-	"types": "./dist/index.d.ts",
-	"browser": {
-		"./dist/index.js": "./dist/index.browser.js"
-	},
+	"main": "./dist/commonjs/index.cjs",
+	"module": "./dist/esm/index.mjs",
+	"types": "./dist/esm/index.d.ts",
+	
 	"files": [
 		"README.md",
 		"LICENSE",

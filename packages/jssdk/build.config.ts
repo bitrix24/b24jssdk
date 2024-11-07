@@ -1,176 +1,132 @@
-import { existsSync, promises as fsp } from 'node:fs'
-import { resolve } from 'pathe'
-import { defineBuildConfig } from 'unbuild'
-import path from 'path'
+import { defineBuildConfig, type BuildConfig, type BuildContext } from 'unbuild'
+import { type ModuleFormat } from 'rollup'
 
 import packageInfo from '../../package.json'
 const SDK_VERSION = packageInfo.version
 const SDK_USER_AGENT = 'b24-js-sdk'
+const COPYRIGHT_DATE = (new Date()).getFullYear()
 
-const isMinify = true
-const rootDir = path.join(process.cwd(), '../../')
+const listFormats: string[] = [
+	'esm',
+	'commonjs',
+	'iife-min'
+]
 
-console.log({
-	place: '>> build.conf',
-	params: [
-		process.cwd(),
-		rootDir
-	]
-})
-
-export default defineBuildConfig([
-	//*/
-	{
-		name: '@bitrix24/b24jssdk',
-		entries: [
-			"./src/index"
-		],
-		outDir: "dist",
-		clean: true,
-		declaration: true,
-		sourcemap: true,
-		stub: false,
-		rollup: {
-			esbuild: {
-				minify: isMinify,
-				target: 'esnext',
-			},
-			replace: {
-				values: getReplaceData()
-			},
-			emitCJS: false,
-			cjsBridge: true,
-		},
-		hooks: {
-			async 'rollup:done'(ctx) {
-				await writeCJSStub(ctx.options.outDir)
-			},
+export default defineBuildConfig(
+	listFormats.map((formatTypeParam) => {
+		const formatType = formatTypeParam.replace('-min', '') as ModuleFormat
+		const isMinify = formatTypeParam.includes('-min')
+		//const outDir = isEsm ? 'dist' : `dist/${formatType}`
+		const outDir = `dist/${formatType}`
+		let declaration = true
+		let sourcemap = true
+		
+		let emitCJS = true
+		let cjsBridge = true
+		let inlineDependencies = true
+		
+		let fileExtension = 'js'
+		let rollupExt = {
+			output: {},
+			resolve: {}
 		}
-	},
-	//*/
-	//*/
-	{
-		failOnWarn: false,
-		name: '@bitrix24/b24jssdk-v2',
-		entries: [
-			"./src/index"
-		],
-		declaration: false,
-		sourcemap: true,
-		outDir: "dist",
-		rollup: {
-			esbuild: {
-				target: 'esnext',
-				minify: isMinify,
-			},
-			replace: {
-				values: getReplaceData(),
-			},
-			output: {
-				format: 'es',
-				name: 'B24Js',
-				entryFileNames: 'es.[name].js',
-				extend: true,
-				compact: false,
+		
+		let hooks: Record<string, Function> = {}
+		
+		switch(formatType)
+		{
+			case 'esm':
+				declaration = true
+				sourcemap = true
+				fileExtension = 'mjs'
+				emitCJS = false
+				cjsBridge = false
+				inlineDependencies = false
+				rollupExt.output = {
+					extend: true,
+					esModule: true,
+					preserveModules: true,
+					inlineDynamicImports: false,
+				}
+				break
+			case 'commonjs':
+				fileExtension = 'cjs'
+				emitCJS = true
+				cjsBridge = true
+				inlineDependencies = true
+				break
+			case 'iife':
+				declaration = false
+				sourcemap = true
+				fileExtension = 'js'
 				
-				intro: '// TEST_STRING_v1 ////',
-				outro: '// TEST_STRING_v2 ////',
+				emitCJS = true
+				cjsBridge = true
+				inlineDependencies = true
 				
-				esModule: true,
-				dynamicImportInCjs: true,
-				externalImportAttributes: true,
-				externalLiveBindings: true,
-				freeze: true,
+				rollupExt.output = {
+					extend: true,
+					compact: false,
+					esModule: false,
+					preserveModules: false,
+					inlineDynamicImports: true,
+				}
 				
-				minifyInternalExports: true,
-				noConflict: true,
-				
-				inlineDynamicImports: false,
-				preserveModules: true,
-				
-			},
-			resolve: {
-				browser: true,
-			},
-			emitCJS: true,
-			inlineDependencies: true,
-			commonjs: {
-				include: ['../../node_modules/**']
-			},
-		},
-		externals: [
-			'axios',
-			'qs',
-			'luxon',
-			'protobufjs',
-		],
-	},
-	//*/
-	{
-		name: '@bitrix24/b24jssdk-iife',
-		entries: [
-			"src/index"
-		],
-		declaration: false,
-		sourcemap: false,
-		outDir: "dist",
-		rollup: {
-			esbuild: {
-				target: 'esnext',
-				minify: isMinify,
-			},
-			emitCJS: true,
-			cjsBridge: true,
-			inlineDependencies: true,
-			replace: {
-				values: getReplaceData(),
-			},
-			output: {
-				format: 'iife',
-				name: 'B24Js',
-				entryFileNames: `browser.[name].js`,
-				extend: true,
-				compact: false,
-				
-				banner: '// TEST_STRING_v0 ////',
-				intro: '// TEST_STRING_v1 ////',
-				outro: '// TEST_STRING_v2 ////',
-			},
-			resolve: {
-				browser: true,
-				//rootDir: process.cwd(),
-				//preferBuiltins: false,
-				//extensions: ['.cjs', '.ts'],
-				//jail: 'node_modules/@bitrix24/b24jssdk/dist',
-				//jail: 'src',
-				modulePaths: [
-					'node_modules/**'
-				]
-			},
-			commonjs: {
-				//dynamicRequireRoot: rootDir,
-				//include: ['node_modules/**']
-			},
-		},
-		hooks: {
-			async 'build:prepare'(ctx) {
-				ctx.pkg.dependencies = { }
-				ctx.options.dependencies = []
-			},
-			/**
-			 * @todo remove this
-			 */
-			async 'build:before'(ctx) {
-				console.log({
-					place: '>> build:prepare',
-					params: [
-						ctx.options.externals
+				rollupExt.resolve = {
+					browser: true,
+					modulePaths: [
+						'node_modules/**'
 					]
-				})
+				}
+				
+				hooks = {
+					async 'build:prepare'(ctx: BuildContext) {
+						ctx.pkg.dependencies = {}
+						ctx.options.dependencies = []
+					}
+				}
+				break
+			default:
+				fileExtension = 'js'
+				break
+		}
+		
+		const entryFileNames = `[name]${isMinify ? '.min' : ''}.${fileExtension}`
+		return {
+			failOnWarn: true,
+			name: `@bitrix24/b24jssdk-${formatType}`,
+			entries: [
+				'./src/index'
+			],
+			outDir,
+			declaration,
+			sourcemap,
+			rollup: {
+				esbuild: {
+					minify: isMinify,
+					target: 'esnext',
+				},
+				emitCJS,
+				cjsBridge,
+				inlineDependencies,
+				replace: {
+					values: getReplaceData()
+				},
+				output: {
+					format: formatType,
+					name: 'B24Js',
+					entryFileNames,
+					banner: getBanner.bind(this),
+					intro: getIntro.bind(this),
+					outro: getOutro.bind(this),
+					...rollupExt.output
+				},
+				resolve: rollupExt.resolve
 			},
-		},
-	}
-])
+			hooks: hooks
+		} as BuildConfig
+	})
+)
 
 /**
  * Return Replace Data
@@ -184,20 +140,26 @@ function getReplaceData(): Record<string, string>
 	}
 }
 
-/**
- * Generate CommonJS stub
- * @param distDir
- */
-async function writeCJSStub(distDir: string) {
-	const cjsStubFile = resolve(distDir, 'index.cjs')
-	if (existsSync(cjsStubFile))
-	{
-		return
-	}
-	const cjsStub =
-		`module.exports = function(...args) {
-  return import('./index.mjs').then(m => m.default.call(this, ...args))
+// @todo ??
+function getBanner(): string
+{
+	return `/**
+ * @version @bitrix24/b24jssdk v${SDK_VERSION}
+ * @copyright (c) ${COPYRIGHT_DATE} Bitrix24
+ * @licence MIT
+ * @links https://github.com/bitrix24/b24jssdk - GitHub
+ * @links https://bitrix24.github.io/b24jssdk/ - Documentation
+ */`
 }
-`
-	await fsp.writeFile(cjsStubFile, cjsStub, 'utf8')
+
+// @todo remove this
+function getIntro(): string
+{
+	return `// TEST_STRING_v1 ////`;
+}
+
+// @todo remove this
+function getOutro(): string
+{
+	return `// TEST_STRING_v2 ////`;
 }

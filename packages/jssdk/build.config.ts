@@ -25,7 +25,7 @@ export default defineBuildConfig(
 		let cjsBridge = true
 		let inlineDependencies = true
 		
-		let fileExtension = 'js'
+		let fileExtension
 		let rollupExt = {
 			output: {},
 			resolve: {}

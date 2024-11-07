@@ -6,7 +6,10 @@
 	"description": "Bitrix24 REST API JS SDK",
 	"keywords": [
 		"bitrix24",
-		"restapi"
+		"js",
+		"restapi",
+		"REST",
+		"API"
 	],
 	"repository": {
 		"type": "git",

@@ -1,6 +1,14 @@
 import Type from './type'
 
-const UA = navigator?.userAgent.toLowerCase() || '?'
+let UA: string = ''
+try
+{
+	UA = navigator?.userAgent.toLowerCase()
+}
+catch( error )
+{
+	UA = '?'
+}
 
 /**
  * @see bitrix/js/main/core/src/lib/browser.js

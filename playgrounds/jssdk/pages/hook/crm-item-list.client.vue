@@ -17,16 +17,19 @@ import {
 import type { IResult, ISODate } from '@bitrix24/b24jssdk'
 
 import Info from '../../components/Info.vue'
+import Alert from '../../components/Alert.vue'
 
 definePageMeta({
-	layout: "page"
+	layout: 'page',
+	title: 'List of companies'
 })
 
 const $logger = LoggerBrowser.build(
 	'Demo: crm.items.list',
 	import.meta.env?.DEV === true
 )
-const result: IResult = reactive(new Result())
+
+let result: IResult = reactive(new Result())
 const isProcessLoadB24: Ref<boolean> = ref(false)
 const dataList: Ref<{
 	id: number,
@@ -64,6 +67,8 @@ $b24.setLogger($logger)
 const b24CurrentLang: Ref<string> = ref(B24LangList.en)
 
 const actionCompanyAdd = async (needAdd: number = 10): Promise<void> => {
+	result = reactive(new Result())
+	
 	let commands = [];
 	
 	if(needAdd < 1)
@@ -115,6 +120,9 @@ const actionCompanyAdd = async (needAdd: number = 10): Promise<void> => {
 }
 
 const actionCompanyList = async (): Promise<void> => {
+	
+	result = reactive(new Result())
+	
 	let commands = {
 		CompanyList: {
 			method: 'crm.item.list',
@@ -165,7 +173,6 @@ actionCompanyList()
 
 <template>
 	<ClientOnly>
-		<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">List Company</h1>
 		<Info>You need to set environment variables in the <code>.env.local</code> file</Info>
 		<div class="mt-6 flex flex-col lg:flex-row gap-2">
 			<button
@@ -229,11 +236,14 @@ actionCompanyList()
 				</table>
 			</div>
 		</div>
-		<div class="bg-warning-background p-5 mt-4" v-show="!result.isSuccess">
-			<h3 class="text-h3 text-warning-background-on mb-1">Error</h3>
-			<ul class="text-txt-md text-warning-background-on">
+		<Alert
+			class="mt-lg"
+			v-show="!result.isSuccess"
+		>
+			<h3 class="text-h3 mb-1">Error</h3>
+			<ul class="text-txt-md">
 				<li v-for="(problem, index) in problemMessageList" :key="index">{{ problem }}</li>
 			</ul>
-		</div>
+		</Alert>
 	</ClientOnly>
 </template>

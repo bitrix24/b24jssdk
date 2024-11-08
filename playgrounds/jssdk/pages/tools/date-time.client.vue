@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { DateTime } from 'luxon'
 import { Text } from '@bitrix24/b24jssdk'
+import Info from "~/components/Info.vue";
 
 definePageMeta({
-	layout: "page"
+	layout: 'page',
+	title: 'DateTime'
 })
 
 type TypeCase = {
 	caption: string,
 	data: string|DateTime,
 }
+
 const listCases: TypeCase[] = [
 	{
 		caption: 'Text.getDateForLog()',
@@ -36,11 +39,10 @@ const listCases: TypeCase[] = [
 </script>
 
 <template>
-	<div>
-		<h1 class="text-h1 font-semibold leading-7 text-base-900">DateTime</h1>
-		<p class="mt-1 max-w-2xl text-sm leading-6 text-base-500">Using the <a href="https://moment.github.io/luxon/" target="_blank" class="underline hover:text-info-link">Luxon</a> library</p>
-	</div>
-	<div class="mt-3 text-md text-base-900">
+	<Info>
+		Using the <a href="https://moment.github.io/luxon/" target="_blank" class="underline hover:text-info-link">Luxon</a> library
+	</Info>
+	<div class="mt-xl text-md text-base-900 border border-base-30 rounded-md px-lg2 py-sm2 shadow-sm bg-white">
 		<dl class="divide-y divide-base-300">
 			<div
 				class="px-2 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0"

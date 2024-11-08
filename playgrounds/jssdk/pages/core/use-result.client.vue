@@ -3,7 +3,8 @@ import { Result, LoggerBrowser } from '@bitrix24/b24jssdk'
 import Info from '../../components/Info.vue'
 
 definePageMeta({
-	layout: "page"
+	layout: 'page',
+	title: 'Result'
 })
 
 const $logger = LoggerBrowser.build(
@@ -91,6 +92,5 @@ else
 </script>
 
 <template>
-	<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">Result</h1>
 	<Info>To view the result, open the developer console.</Info>
 </template>

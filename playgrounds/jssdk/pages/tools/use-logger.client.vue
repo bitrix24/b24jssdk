@@ -7,7 +7,8 @@ import Info from '../../components/Info.vue'
 import Toggle from '../../components/Toggle.vue'
 
 definePageMeta({
-	layout: "page"
+	layout: 'page',
+	title: 'LoggerBrowser'
 })
 
 const isDevelopment: Ref<boolean> = ref(import.meta.env?.DEV === true);
@@ -119,12 +120,10 @@ const loggerTypeList: ComputedRef<LoggerTypeList[]> = computed<LoggerTypeList[]>
 </script>
 
 <template>
-	<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">LoggerBrowser</h1>
-	<p>Testing the logger</p>
 	<Info>To view the result, open the developer console.</Info>
 	
-	<div class="mt-12 sm:grid sm:grid-cols-3 sm:divide-x sm:divide-base-100">
-		<div class="sm:pr-5 mt-0 flex flex-col flex-nowrap gap-4">
+	<div class="mt-xl grid grid-cols-1 sm:grid-cols-3 sm:grid-rows-1 gap-y-8 sm:gap-y-0 sm:gap-x-4">
+		<div class="flex flex-col flex-nowrap gap-2">
 			<textarea
 				class="resize-none border border-gray-200 rounded px-4 pt-2 min-h-24 w-full"
 				v-model="debugMessage"
@@ -149,7 +148,7 @@ const loggerTypeList: ComputedRef<LoggerTypeList[]> = computed<LoggerTypeList[]>
 				</button>
 			</div>
 		</div>
-		<div class="sm:pl-5 mt-12 sm:mt-0 col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+		<div class="col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 			<div
 				class="px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
 				v-for="(type) in loggerTypeList"

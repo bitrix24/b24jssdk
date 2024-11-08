@@ -22,12 +22,14 @@ import SendContactIcon from '@bitrix24/b24icons-vue/crm/SendContactIcon'
 import CompanyIcon from '@bitrix24/b24icons-vue/crm/CompanyIcon'
 import TrashBinIcon from '@bitrix24/b24icons-vue/main/TrashBinIcon'
 import SpinnerIcon from '@bitrix24/b24icons-vue/specialized/SpinnerIcon'
-import Info from '../../components/Info.vue';
+import Info from '../../components/Info.vue'
+import Alert from '../../components/Alert.vue'
 import ProgressBar from '../../components/ProgressBar.vue'
 import Avatar from '~/components/Avatar.vue'
 
 definePageMeta({
-	layout: "page"
+	layout: 'page',
+	title: 'Testing Rest-Api calls'
 })
 
 // region Init ////
@@ -37,22 +39,6 @@ const $logger = LoggerBrowser.build(
 )
 const { initB24Helper, getB24Helper } = useB24Helper()
 const { formatterNumber } = useFormatter()
-
-const $b24 = new B24Hook(B24HookConfig)
-$b24.setLogger(LoggerBrowser.build('Core', true))
-
-const $isInitB24Helper = ref(false)
-initB24Helper(
-	$b24,
-	[
-		LoadDataType.Profile
-	]
-)
-.then(() =>
-{
-	$isInitB24Helper.value = true
-})
-const b24CurrentLang: Ref<string> = ref(B24LangList.en)
 
 let result: IResult = reactive(new Result())
 
@@ -76,6 +62,8 @@ interface IStatus
 	}
 }
 
+const b24CurrentLang: Ref<string> = ref(B24LangList.en)
+
 const status: Ref<IStatus> = ref({
 	isProcess: false,
 	title: 'Specify what we will test',
@@ -94,6 +82,25 @@ const status: Ref<IStatus> = ref({
 		interval: null,
 	}
 } as IStatus)
+
+const $b24 = new B24Hook(B24HookConfig)
+$b24.setLogger(LoggerBrowser.build('Core', true))
+
+const $isInitB24Helper = ref(false)
+initB24Helper(
+	$b24,
+	[
+		LoadDataType.Profile
+	]
+)
+.then(() => {
+	$isInitB24Helper.value = true
+})
+.catch((error: Error|string) => {
+	result.addError(error)
+	$logger.error(error)
+})
+
 
 const b24Helper = computed(() =>
 {
@@ -549,9 +556,8 @@ const problemMessageList = (result: IResult) =>
 
 <template>
 	<ClientOnly>
-		<h1 class="text-h1 mb-sm flex whitespace-pre-wrap">Testing Rest-Api Calls</h1>
 		<div class="flex flex-col sm:flex-row items-center justify-between gap-x-10 gap-y-2">
-			<div class="basis-1/4 mt-2">
+			<div class="basis-1/4" v-show="result.isSuccess">
 				<div
 					v-if="$isInitB24Helper"
 					class="px-lg2 py-sm2 border border-base-100 rounded-lg hover:shadow-md hover:-translate-y-px col-auto md:col-span-2 lg:col-span-1 bg-white cursor-pointer"
@@ -592,7 +598,7 @@ const problemMessageList = (result: IResult) =>
 				</Info>
 			</div>
 		</div>
-		<div class="mt-10 flex flex-col sm:flex-row gap-10">
+		<div class="mt-xl flex flex-col sm:flex-row gap-10">
 			<div class="basis-1/4 flex flex-col gap-y-6">
 				<button
 					type="button"
@@ -735,17 +741,15 @@ const problemMessageList = (result: IResult) =>
 						</ProgressBar>
 					</div>
 				</div>
-				<div
-					class="mt-6 text-alert-text px-lg2 py-sm2 border border-base-30 rounded-md shadow-sm hover:shadow-md sm:rounded-md col-auto md:col-span-2 lg:col-span-1 bg-white"
-					v-if="!result.isSuccess"
+				<Alert
+					class="mt-lg"
+					v-show="!result.isSuccess"
 				>
-					<div>
-						<div class="mb-2 w-full flex items-center justify-between">
-							<h1 class="text-h1 font-semibold leading-7 text-base-900">Error</h1>
-						</div>
-						<p class="max-w-2xl text-txt-md" v-for="(problem, indexProblem) in problemMessageList(result)" :key="indexProblem">{{problem}}</p>
-					</div>
-				</div>
+					<h3 class="text-h3 mb-1">Error</h3>
+					<ul class="text-txt-md">
+						<li v-for="(problem, indexProblem) in problemMessageList(result)" :key="indexProblem">{{ problem }}</li>
+					</ul>
+				</Alert>
 			</div>
 		</div>
 	</ClientOnly>

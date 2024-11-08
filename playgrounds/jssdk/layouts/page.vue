@@ -40,6 +40,13 @@ const route = useRoute()
 							target="_blank"
 						>@bitrix24/b24icons</a>
 					</div>
+					<div class="text-md font-light text-base-900">
+						<a
+							class="hover:text-primary-link hover:underline underline-offset-2 transition-opacity hover:opacity-80"
+							href="https://bitrix24.github.io/b24jssdk/"
+							target="_blank"
+						>@bitrix24/b24jssdk</a>
+					</div>
 				</div>
 			</div>
 		</div>

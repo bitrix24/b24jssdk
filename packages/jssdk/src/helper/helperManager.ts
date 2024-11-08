@@ -189,6 +189,11 @@ export class B24HelperManager
 		}
 		catch(error)
 		{
+			if(error instanceof Error)
+			{
+				throw error
+			}
+			
 			console.error('Error loading data:', error)
 			throw new Error('Failed to load data')
 		}

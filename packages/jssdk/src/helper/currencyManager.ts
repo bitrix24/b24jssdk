@@ -62,6 +62,11 @@ export class CurrencyManager
 		}
 		catch(error)
 		{
+			if(error instanceof Error)
+			{
+				throw error
+			}
+			
 			console.error(error)
 			throw new Error('Failed to load data')
 		}

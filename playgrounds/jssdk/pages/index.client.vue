@@ -2,7 +2,11 @@
 import WheelIcon from '@bitrix24/b24icons-vue/common-service/WheelIcon'
 import CheckIcon from '@bitrix24/b24icons-vue/main/CheckIcon'
 import CloudTransferDataIcon from '@bitrix24/b24icons-vue/main/CloudTransferDataIcon'
-
+import ItemIcon from '@bitrix24/b24icons-vue/crm/ItemIcon'
+import CloudErrorIcon from '@bitrix24/b24icons-vue/main/CloudErrorIcon'
+import TargetTimerIcon from '@bitrix24/b24icons-vue/main/TargetTimerIcon'
+import TimelineIcon from '@bitrix24/b24icons-vue/crm/TimelineIcon'
+import BarcodeIcon from '@bitrix24/b24icons-vue/main/BarcodeIcon'
 
 definePageMeta({
 	layout: "page",
@@ -30,7 +34,7 @@ const groups: Ref<Group[]> = ref([
 		items: [
 			{
 				code: 'crm-item-list',
-				icon: WheelIcon,
+				icon: ItemIcon,
 				title: 'List of companies',
 				description: 'Shows a selection of data from CRM by company',
 				isActive: false,
@@ -57,7 +61,7 @@ const groups: Ref<Group[]> = ref([
 			},
 			{
 				code: '404',
-				icon: WheelIcon,
+				icon: CloudErrorIcon,
 				title: 'Page 404',
 				description: 'Error handling example',
 				isActive: false,
@@ -70,21 +74,21 @@ const groups: Ref<Group[]> = ref([
 		items: [
 			{
 				code: 'use-logger',
-				icon: WheelIcon,
+				icon: TimelineIcon,
 				title: 'LoggerBrowser',
 				description: 'Example of working with the LoggerBrowser object',
 				isActive: false,
 			},
 			{
 				code: 'date-time',
-				icon: WheelIcon,
+				icon: TargetTimerIcon,
 				title: 'DateTime',
 				description: 'A couple of examples of date and time processing',
 				isActive: false,
 			},
 			{
 				code: 'iban',
-				icon: WheelIcon,
+				icon: BarcodeIcon,
 				title: 'IBAN',
 				description: 'IBAN formatting demonstration',
 				isActive: false,

@@ -140,6 +140,8 @@ export class B24Frame
 				this._getHttpOptions(),
 			)
 			
+			this._isInit = true
+			
 			/**
 			 * @memo Writes the fact of the 1st launch to `app_options`
 			 */
@@ -152,8 +154,6 @@ export class B24Frame
 					}
 				)
 			}
-			
-			this._isInit = true
 			
 			return Promise.resolve()
 		})

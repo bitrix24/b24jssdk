@@ -11,8 +11,8 @@ export default defineBuildConfig(
 	[
 		'esm',
 		'commonjs',
-		'iife',
-		'iife-min',
+		'umd',
+		'umd-min',
 	].map((formatTypeParam) => initConfig(formatTypeParam))
 )
 
@@ -29,7 +29,7 @@ function initConfig(formatTypeParam: string): BuildConfig
 	let cjsBridge = true
 	let inlineDependencies = true
 	
-	let fileExtension
+	let fileExtension: string
 	let rollupExt = {
 		output: {},
 		resolve: {}
@@ -61,6 +61,37 @@ function initConfig(formatTypeParam: string): BuildConfig
 			emitCJS = true
 			cjsBridge = true
 			inlineDependencies = true
+			break
+		case 'umd':
+			declaration = false
+			sourcemap = true
+			fileExtension = 'js'
+			
+			emitCJS = true
+			cjsBridge = true
+			inlineDependencies = true
+			
+			rollupExt.output = {
+				extend: true,
+				compact: false,
+				esModule: false,
+				preserveModules: false,
+				inlineDynamicImports: true,
+			}
+			
+			rollupExt.resolve = {
+				browser: true,
+				modulePaths: [
+					'node_modules/**'
+				]
+			}
+			
+			hooks = {
+				async 'build:prepare'(ctx: BuildContext) {
+					ctx.pkg.dependencies = {}
+					ctx.options.dependencies = []
+				}
+			}
 			break
 		case 'iife':
 			declaration = false

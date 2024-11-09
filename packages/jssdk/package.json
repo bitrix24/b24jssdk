@@ -24,13 +24,11 @@
 		".": {
 			"types": {
 				"require": "./dist/commonjs/index.d.cts",
-				"___browser": "./dist/esm/index.d.ts",
 				"import": "./dist/esm/index.d.mts",
 				"default": "./dist/esm/index.d.ts"
 			},
 			"default": {
 				"require": "./dist/commonjs/index.cjs",
-				"___browser": "./dist/umd/index.min.js",
 				"import": "./dist/esm/index.mjs",
 				"default": "./dist/esm/index.mjs"
 			}

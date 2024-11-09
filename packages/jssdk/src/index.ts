@@ -1,9 +1,9 @@
 export * from './logger/browser'
 
 export * from './types/common'
-import Type from './tools/type'
-import Text from './tools/text'
-import Browser from './tools/browser'
+export { default as Type } from './tools/type'
+export { default as Text } from './tools/text'
+export { default as Browser } from './tools/browser'
 
 export * from './types/http'
 export * from './types/b24'
@@ -33,4 +33,36 @@ export * from './frame/index'
 export * from './helper/useB24Helper'
 export * from './pullClient/index'
 
-export { Type, Text, Browser }
+import { B24Frame } from './frame'
+import type { B24FrameQueryParams } from './types/auth'
+
+async function initializeB24Frame()
+{
+	const queryParams: B24FrameQueryParams = {
+		DOMAIN: null,
+		PROTOCOL: false,
+		APP_SID: null,
+		LANG: null
+	}
+	
+	if(window.name)
+	{
+		const [domain, protocol, appSid] = window.name.split('|')
+		queryParams.DOMAIN = domain
+		queryParams.PROTOCOL = parseInt(protocol) === 1
+		queryParams.APP_SID = appSid
+		queryParams.LANG = null
+	}
+	
+	if(!queryParams.DOMAIN || !queryParams.APP_SID)
+	{
+		throw new Error('Unable to initialize Bitrix24Frame library!')
+	}
+	
+	const b24Frame = new B24Frame(queryParams)
+	await b24Frame.init()
+	
+	return b24Frame
+}
+
+export { initializeB24Frame }

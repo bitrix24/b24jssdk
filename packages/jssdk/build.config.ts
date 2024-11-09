@@ -49,7 +49,10 @@ function initConfig(formatTypeParam: string): BuildConfig
 			rollupExt.output = {
 				extend: true,
 				esModule: true,
-				preserveModules: true,
+				/**
+				 * @memo true - build a tree
+				 */
+				preserveModules: false,
 				inlineDynamicImports: false,
 			}
 			break

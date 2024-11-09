@@ -1,4 +1,4 @@
-import $protobuf from 'protobufjs/minimal'
+import $protobuf from 'protobufjs'
 
 /*eslint-disable block-scoped-var, no-redeclare, no-control-regex, no-prototype-builtins*/
 //"use strict";

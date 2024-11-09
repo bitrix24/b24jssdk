@@ -1,4 +1,3 @@
-//import protobuf from 'protobufjs/minimal'
 import { $root } from './model'
 
 // Protobuf message models

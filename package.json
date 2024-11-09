@@ -17,6 +17,7 @@
 		"type": "git",
 		"url": "git+https://github.com/bitrix24/b24jssdk.git"
 	},
+	"sideEffects": false,
 	"type": "module",
 	"workspaces": [
 		"packages/*",

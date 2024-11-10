@@ -35,7 +35,7 @@ export const shared = defineConfig({
 	
 	themeConfig: {
 		siteTitle: false,
-		logo: { src: '/b24-logo.svg'},
+		logo: { src: '/b24-logo.svg' },
 		
 		socialLinks: [
 			{
@@ -44,7 +44,9 @@ export const shared = defineConfig({
 				},
 				link: 'https://t.me/b24_dev'
 			},
-			{icon: 'github', link: configParams.github}
+			{ icon: 'github', link: configParams.github},
+			{ icon: 'npm', link: 'https://www.npmjs.com/package/@bitrix24/b24jssdk' }
+
 		],
 	},
 	vite: {

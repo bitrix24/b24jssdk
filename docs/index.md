@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: "@bitrix24/jssdk"
+  name: "@bitrix24/b24jssdk"
   text: "Bitrix24 REST API JS SDK"
   tagline: Bitrix24 REST API JS SDK
   actions:
@@ -12,9 +12,6 @@ hero:
     - theme: brand
       text: B24.Frame
       link: /reference/frame
-    - theme: brand
-      text: B24.OAuth
-      link: /reference/oauth
     - theme: alt
       text: GitHub
       link: https://github.com/bitrix24/b24jssdk

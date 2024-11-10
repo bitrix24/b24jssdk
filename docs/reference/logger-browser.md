@@ -18,14 +18,14 @@ It allows you to output messages of different detail levels with formatting.
 import { LoggerType } from '@bitrix24/b24jssdk/logger/browser'
 ```
 
-| Code     | Default | Description                                                                                                     |
-|-----------|--------------|----------------------------------------------------------------------------------------------------------------|
-| `desktop` | Yes         | Intended for outputting messages specific to the desktop application (usually not displayed in the browser) |
-| `log`     | No         | General log messages                                                                                            |
-| `info`    | No         | Informational messages important for understanding the application's operation                                 |
-| `warn`    | No         | Warnings about potential issues.                                                                     |
-| `error` | Yes         | Application errors.                                                                                             |
-| `trace` | Yes         | Detailed call stack traces for debugging.                                                             |
+| Code      | Default | Description                                                                                                 |
+|-----------|---------|-------------------------------------------------------------------------------------------------------------|
+| `desktop` | Yes     | Intended for outputting messages specific to the desktop application (usually not displayed in the browser) |
+| `log`     | No      | General log messages                                                                                        |
+| `info`    | No      | Informational messages important for understanding the application's operation                              |
+| `warn`    | No      | Warnings about potential issues.                                                                            |
+| `error`   | Yes     | Application errors.                                                                                         |
+| `trace`   | Yes     | Detailed call stack traces for debugging.                                                                   |
 
 
 ## LoggerBrowser {#class-logger-browser}
@@ -41,7 +41,7 @@ The `LoggerBrowser` class provides methods for:
 
 
 ### Creation {#LoggerBrowser-build}
-```ts
+```typescript
 static build(
     title: string,
     isDevelopment: boolean = false
@@ -49,10 +49,10 @@ static build(
 ```
 Creates and configures a new instance of `LoggerBrowser`:
 
-| Parameter         | Type     | Description                                                                                 |
-|------------------|----------|--------------------------------------------------------------------------------------------|
-| `title`         | string | Title for log messages. Will be used when formatting message output. |
-| `isDevelopment` | boolean | If `true`, enables logging levels `log`, `info`, and `warn`                         |
+| Parameter       | Type    | Description                                                          |
+|-----------------|---------|----------------------------------------------------------------------|
+| `title`         | string  | Title for log messages. Will be used when formatting message output. |
+| `isDevelopment` | boolean | If `true`, enables logging levels `log`, `info`, and `warn`          |
 
 
 ### Management
@@ -100,5 +100,5 @@ logger.error('This is an error message.');
 This example demonstrates the basic use of `LoggerBrowser` for creating a structured and customizable log in the browser.
 
 ::: tip
-You can test the logger in the [sandbox](https://github.com/bitrix24/b24jssdk/blob/main/playgrounds/jssdk/src/pages/3-tools/use-logger.vue).
+You can test the LoggerBrowser in the [sandbox](https://github.com/bitrix24/b24jssdk/blob/main/playgrounds/jssdk/pages/tools/use-logger.client.vue).
 :::

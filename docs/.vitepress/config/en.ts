@@ -72,6 +72,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 			items: [
 				{ text: 'Result', link: 'core-result' },
 				{ text: 'Language List', link: 'core-lang-list' },
+				{ text: 'Logger for browser', link: 'logger-browser' },
 			]
 		},
 		{
@@ -83,13 +84,6 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 				{ text: 'For Authorization', link: 'types-auth' },
 				{ text: 'User', link: 'types-user' },
 			]
-		},
-		{
-			text: 'Logger',
-			collapsed: false,
-			items: [
-				{ text: 'Logger for browser', link: 'logger-browser' },
-			]
-		},
+		}
 	]
 }

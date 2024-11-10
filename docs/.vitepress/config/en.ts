@@ -63,7 +63,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 			collapsed: false,
 			items: [
 				{ text: '(~) Frame', link: 'frame' },
-				{ text: '(~) Hook', link: 'hook' },
+				{ text: '(*) Hook', link: 'hook' },
 			]
 		},
 		{

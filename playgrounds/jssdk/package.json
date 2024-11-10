@@ -15,7 +15,7 @@
 	"dependencies": {
 		"@bitrix24/b24jssdk": "*",
 		"@bitrix24/b24style": "latest",
-		"@bitrix24/b24icons-vue": "^latest",
+		"@bitrix24/b24icons-vue": "latest",
 		"@headlessui/vue": "^1.7.23",
 		"@tailwindcss/forms": "^0.5.7",
 		"@tailwindcss/typography": "^0.5.2",

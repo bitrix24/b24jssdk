@@ -8,13 +8,13 @@ The `Result` class represents an object used to store the outcome of an operatio
 
 It is similar to the `\Bitrix\Main\Result` class from the Bitrix Framework.
 
-## Interface IResult
+## Interface `IResult`
 
-```js
-import { type IResult } from '@bitrix24/b24jssdk/core/result'
+```ts
+import { type IResult } from '@bitrix24/b24jssdk'
 ```
 
-The `IResult` interface defines the structure and methods of a result object:
+The `IResult` interface defines the structure and methods of a `Result` object:
 
 - `isSuccess`: Indicates whether the operation completed successfully (without errors).
 - `setData(data: any): IResult`: Sets the data associated with the result.
@@ -25,10 +25,10 @@ The `IResult` interface defines the structure and methods of a result object:
 - `getErrorMessages(): string[]`: Returns an array of strings with error messages.
 - `[Symbol.toPrimitive](hint: string): string | number`: Converts the `Result` object to a primitive value.
 
-## Result Class
+## Class `Result`
 
-```js
-import { Result } from '@bitrix24/b24jssdk/core/result'
+```ts
+import { Result } from '@bitrix24/b24jssdk'
 
 const result = new Result()
 ```
@@ -47,9 +47,9 @@ Returns `true` if the error collection is empty, indicating the operation was su
 setData(data: any): Result
 ```
 
-| Parameter | Type    | Description                         |
-|----------|--------|----------------------------------|
-| `data` | `any` | Data to be stored. |
+| Parameter | Type  | Description        |
+|-----------|-------|--------------------|
+| `data`    | `any` | Data to be stored. |
 
 Sets the data associated with the result and returns the current `Result` object for chaining.
 
@@ -67,9 +67,9 @@ Returns the data associated with the result.
 addError(error: Error|string): Result
 ```
 
-| Parameter | Type                 | Description                                     |
-|----------|----------------------|----------------------------------------------|
-| `error` | `Error` \| `string` | Error message or error object.     |
+| Parameter | Type                | Description                    |
+|-----------|---------------------|--------------------------------|
+| `error`   | `Error` \| `string` | Error message or error object. |
 
 Adds an error message or error object to the result and returns the current `Result` object for chaining.
 
@@ -79,9 +79,9 @@ Adds an error message or error object to the result and returns the current `Res
 addErrors(errors: (Error|string)[]): Result
 ```
 
-| Parameter | Type                     | Description                                         |
-|----------|---------------------------|---------------------------------------------------|
-| `errors` | (`Error` \| `string`)[] | Array of error messages or error objects. |
+| Parameter | Type                    | Description                               |
+|-----------|-------------------------|-------------------------------------------|
+| `errors`  | (`Error` \| `string`)[] | Array of error messages or error objects. |
 
 Adds multiple errors to the result in one call and returns the current `Result` object for chaining.
 
@@ -218,5 +218,5 @@ This example demonstrates how to use the `Result` class to store data and handle
   - The logger will output the error message `['Some error 1']` because `proc1` adds an error to the result.
 
 ::: tip
-You can test the `Result` in the [sandbox](https://github.com/bitrix24/b24jssdk/blob/main/playgrounds/jssdk/src/pages/2-core/use-result.vue).
+You can test **Result** in [example](https://github.com/bitrix24/b24sdk-examples/blob/main/js/02-nuxt-hook/pages/core/use-result.client.vue).
 :::

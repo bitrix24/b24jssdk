@@ -72,7 +72,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 			items: [
 				{ text: 'Result', link: 'core-result' },
 				{ text: 'Language List', link: 'core-lang-list' },
-				{ text: 'Logger for browser', link: 'logger-browser' },
+				{ text: '(*) Logger for browser', link: 'logger-browser' },
 			]
 		},
 		{

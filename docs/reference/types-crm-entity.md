@@ -9,8 +9,8 @@ They help identify various entities in the CRM system, such as leads, deals, con
 
 ## EnumCrmEntityType
 
-```js
-import { EnumCrmEntityType } from '@bitrix24/b24jssdk/types/crm'
+```ts
+import { EnumCrmEntityType } from '@bitrix24/b24jssdk'
 
 console.log(EnumCrmEntityType.deal)
 ```
@@ -31,8 +31,8 @@ console.log(EnumCrmEntityType.deal)
 
 ## EnumCrmEntityTypeId
 
-```js
-import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk/types/crm'
+```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
 console.log(EnumCrmEntityTypeId.deal)
 ```
@@ -52,3 +52,7 @@ console.log(EnumCrmEntityTypeId.deal)
 | `requisite`  | 8     | Requisite              |
 
 These enumerations can be used to work with various entity types in Bitrix24 CRM, providing a convenient way to identify and process them.
+
+::: tip
+You can test **EnumCrmEntityTypeId** in [example](https://github.com/bitrix24/b24sdk-examples/blob/main/js/02-nuxt-hook/pages/hook/crm-item-list.client.vue).
+:::

@@ -71,7 +71,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 			collapsed: false,
 			items: [
 				{ text: 'Result', link: 'core-result' },
-				{ text: 'Language List', link: 'core-lang-list' },
+				{ text: '(*) Language List', link: 'core-lang-list' },
 				{ text: '(*) Logger for browser', link: 'logger-browser' },
 			]
 		},

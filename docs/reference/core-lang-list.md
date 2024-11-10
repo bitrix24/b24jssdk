@@ -12,34 +12,38 @@ outline: deep
 
 ## Description
 
-```js
-import { B24LangList } from '@bitrix24/b24jssdk/core/language/list'
+```ts
+import { B24LangList } from '@bitrix24/b24jssdk'
 ```
 
 The `B24LangList` enumeration contains the following language codes:
 
 | Code | Language           |
 |------|--------------------|
-| en | English            |
-| de | Deutsch            |
-| la | Español            |
-| br | Português (Brasil) |
-| fr | Français           |
-| it | Italiano           |
-| pl | Polski             |
-| ru | Русский            |
-| ua | Українська         |
-| tr | Türkçe             |
-| sc | 中文（简体）	       |
-| tc | 中文（繁體）         |
-| ja | 日本語              |
-| vn | Tiếng Việt         |
-| id | Bahasa Indonesia   |
-| ms | Bahasa Melayu      |
-| th | ภาษาไทย            |
-| ar | عربي,              |
+| en   | English            |
+| de   | Deutsch            |
+| la   | Español            |
+| br   | Português (Brasil) |
+| fr   | Français           |
+| it   | Italiano           |
+| pl   | Polski             |
+| ru   | Русский            |
+| ua   | Українська         |
+| tr   | Türkçe             |
+| sc   | 中文（简体）             |
+| tc   | 中文（繁體）             |
+| ja   | 日本語                |
+| vn   | Tiếng Việt         |
+| id   | Bahasa Indonesia   |
+| ms   | Bahasa Melayu      |
+| th   | ภาษาไทย            |
+| ar   | عربي,              |
 
 ## Notes
 
 - The cloud version of Bitrix24 supports a wide range of languages as listed in the enumeration.
-- The on-premise version of Bitrix24 typically supports 1-2 languages, which should be considered when developing and setting up localization.
+- The boxed version of Bitrix24 typically supports 1-2 languages, which should be considered when developing and setting up localization.
+
+::: tip
+You can test **B24LangList** in [example](https://github.com/bitrix24/b24sdk-examples/blob/main/js/03-nuxt-frame/pages/index.client.vue).
+:::

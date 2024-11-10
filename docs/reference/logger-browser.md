@@ -100,5 +100,5 @@ logger.error('This is an error message.')
 This example demonstrates the basic use of `LoggerBrowser` for creating a structured and customizable log in the browser.
 
 ::: tip
-You can test the LoggerBrowser in the [sandbox](https://github.com/bitrix24/b24jssdk/blob/main/playgrounds/jssdk/pages/tools/use-logger.client.vue).
+You can test **LoggerBrowser** in [example](https://github.com/bitrix24/b24sdk-examples/blob/main/js/02-nuxt-hook/pages/tools/use-logger.client.vue).
 :::

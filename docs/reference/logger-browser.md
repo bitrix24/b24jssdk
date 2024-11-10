@@ -14,8 +14,8 @@ It allows you to output messages of different detail levels with formatting.
 
 `LoggerType` is an enumeration (enum) that defines different levels of log messages:
 
-```js
-import { LoggerType } from '@bitrix24/b24jssdk/logger/browser'
+```ts
+import { LoggerType } from '@bitrix24/b24jssdk'
 ```
 
 | Code      | Default | Description                                                                                                 |
@@ -30,8 +30,8 @@ import { LoggerType } from '@bitrix24/b24jssdk/logger/browser'
 
 ## LoggerBrowser {#class-logger-browser}
 
-```js
-import { LoggerBrowser } from '@bitrix24/b24jssdk/logger/browser'
+```ts
+import { LoggerBrowser } from '@bitrix24/b24jssdk'
 ```
 
 The `LoggerBrowser` class provides methods for:
@@ -41,7 +41,7 @@ The `LoggerBrowser` class provides methods for:
 
 
 ### Creation {#LoggerBrowser-build}
-```typescript
+```ts
 static build(
     title: string,
     isDevelopment: boolean = false
@@ -74,12 +74,12 @@ which will be output to the console if the corresponding log type is enabled:
 - `trace(...params: any[]): void`: Outputs a message at the **trace** level.
 
 ## Example
-```js
-import { LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk/logger/browser'
+```ts
+import { LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk'
 
 const logger = LoggerBrowser.build(
-    'MyApp',
-    import.meta.env?.DEV === true // or process.env?.NODE_ENV === 'development'
+  'MyApp',
+  import.meta.env?.DEV === true // or process.env?.NODE_ENV === 'development'
 )
 
 logger.info('>> start >>>')
@@ -89,10 +89,10 @@ if(process.env.NODE_ENV === 'development')
     logger.enable(LoggerType.log)
 }
 
-logger.log('Processing data');
-logger.info('This is an informational message.');
-logger.warn('A potential warning occurred');
-logger.error('This is an error message.');
+logger.log('Processing data')
+logger.info('This is an informational message.')
+logger.warn('A potential warning occurred')
+logger.error('This is an error message.')
 
 // ... other logical messages ////
 ```

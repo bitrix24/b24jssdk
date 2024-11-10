@@ -67,19 +67,19 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 			]
 		},
 		{
-			text: 'Core',
+			text: '(*) Core',
 			collapsed: false,
 			items: [
-				{ text: '(*) Result', link: 'core-result' },
-				{ text: '(*) Language List', link: 'core-lang-list' },
-				{ text: '(*) Logger for browser', link: 'logger-browser' },
+				{ text: 'Result', link: 'core-result' },
+				{ text: 'Language List', link: 'core-lang-list' },
+				{ text: 'Logger for browser', link: 'logger-browser' },
 			]
 		},
 		{
 			text: 'Data Types',
 			collapsed: false,
 			items: [
-				{ text: 'Common', link: 'types-common' },
+				{ text: '(*) Common', link: 'types-common' },
 				{ text: 'CRM Entity Type', link: 'types-crm-entity' },
 				{ text: 'For Authorization', link: 'types-auth' },
 				{ text: 'User', link: 'types-user' },

@@ -4,8 +4,20 @@ outline: deep
 
 # Data Types and Structures
 
-```js
-import * as TypesCommon from "@bitrix24/b24jssdk/types/common"
+```ts
+import type {
+	NumberString,
+	ISODate,
+	BoolString,
+	GenderString,
+	PlacementViewMode,
+	Fields,
+	MultiField,
+	MultiFieldArray,
+	UserFieldType
+} from '@bitrix24/b24jssdk'
+
+import { DataType } from '@bitrix24/b24jssdk'
 ```
 These are various data types and structures used in applications integrated with Bitrix24.
 
@@ -112,3 +124,7 @@ They include types for strings representing numbers, dates, boolean values, and 
 | `crmCurrency` | `crm_currency` | CRM Currency          |
 
 These data types and structures can be used to describe and work with various entities and fields in Bitrix24.
+
+::: tip
+You can test **ISODate** in [example](https://github.com/bitrix24/b24sdk-examples/blob/main/js/02-nuxt-hook/pages/hook/crm-item-list.client.vue).
+:::

@@ -8,10 +8,10 @@ hero:
   actions:
     - theme: brand
       text: B24.Hook
-      link: /reference/hook
+      link: /reference/hook-index
     - theme: brand
       text: B24.Frame
-      link: /reference/frame
+      link: /reference/frame-index
     - theme: alt
       text: GitHub
       link: https://github.com/bitrix24/b24jssdk

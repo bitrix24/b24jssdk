@@ -29,7 +29,7 @@ export const en = defineConfig({
 function nav(): DefaultTheme.NavItem[] {
 	return [
 		{text: 'Quickstart', link: '/guide/getting-started'},
-		{text: 'Reference', link: '/reference/core-abstract-b24'},
+		{text: 'Reference', link: '/reference/hook-index'},
 		{
 			text: configParams.version,
 			items: [
@@ -59,8 +59,22 @@ function sidebarGuide(): DefaultTheme.SidebarItem[] {
 function sidebarReference(): DefaultTheme.SidebarItem[] {
 	return [
 		{
-			text: 'Core',
+			text: 'Hook',
 			collapsed: false,
+			items: [
+				{ text: '(*) Hook', link: 'hook-index' },
+			]
+		},
+		{
+			text: 'Frame',
+			collapsed: true,
+			items: [
+				{ text: '(~) Frame', link: 'frame-index' },
+			]
+		},
+		{
+			text: 'Core',
+			collapsed: true,
 			items: [
 				{ text: 'AbstractB24', link: 'core-abstract-b24' },
 				{ text: 'Http', link: 'core-http' },
@@ -73,29 +87,15 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 			]
 		},
 		{
-			text: 'Hook',
-			collapsed: false,
-			items: [
-				{ text: '(*) Hook', link: 'hook-index' },
-			]
-		},
-		{
-			text: 'Frame',
-			collapsed: false,
-			items: [
-				{ text: '(~) Frame', link: 'frame-index' },
-			]
-		},
-		{
 			text: 'Push and Pull',
-			collapsed: false,
+			collapsed: true,
 			items: [
 				{ text: 'pull client', link: 'pull-client' },
 			]
 		},
 		{
 			text: 'Tools',
-			collapsed: false,
+			collapsed: true,
 			items: [
 				{ text: 'Type', link: 'tools-type' },
 				{ text: 'Text', link: 'tools-text' },
@@ -106,7 +106,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 		},
 		{
 			text: 'Helper Methods',
-			collapsed: false,
+			collapsed: true,
 			items: [
 				{ text: 'useB24Helper', link: 'helper-use-b24-helper' },
 				{ text: 'B24HelperManager', link: 'helper-helper-manager' },
@@ -121,7 +121,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 		},
 		{
 			text: 'Data Types',
-			collapsed: false,
+			collapsed: true,
 			items: [
 				{ text: 'TypeB24', link: 'types-type-b24' },
 				{ text: 'TypeHttp', link: 'types-type-http' },

@@ -2,6 +2,6 @@
 outline: deep
 ---
 
-# Result {#result}
+# Type `TypeHttp`
 
 @todo

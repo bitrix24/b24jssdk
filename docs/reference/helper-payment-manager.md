@@ -1,6 +1,6 @@
 ---
 outline: deep
 ---
-# vue
+# PaymentManager
 
 @todo

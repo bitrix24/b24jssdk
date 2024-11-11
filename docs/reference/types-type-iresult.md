@@ -1,7 +1,6 @@
 ---
 outline: deep
 ---
-
-# Result {#result}
+# Interface `IResult`
 
 @todo

@@ -1,6 +1,6 @@
 ---
 outline: deep
 ---
-# vue
+# useB24Helper
 
 @todo

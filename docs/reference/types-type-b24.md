@@ -1,7 +1,8 @@
 ---
-outline: deep
----
 
-# Result {#result}
+outline: deep
+
+---
+# Type `TypeB24`
 
 @todo

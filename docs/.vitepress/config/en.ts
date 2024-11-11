@@ -29,7 +29,7 @@ export const en = defineConfig({
 function nav(): DefaultTheme.NavItem[] {
 	return [
 		{text: 'Quickstart', link: '/guide/getting-started'},
-		{text: 'Reference', link: '/reference/abstract-b24'},
+		{text: 'Reference', link: '/reference/core-abstract-b24'},
 		{
 			text: configParams.version,
 			items: [

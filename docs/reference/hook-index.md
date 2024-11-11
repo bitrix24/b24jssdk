@@ -19,7 +19,7 @@ const B24 = new B24Hook({
 })
 ```
 
-`B24Hook` extends [`AbstractB24`](abstract-b24) and is used for managing webhooks in Bitrix24.
+`B24Hook` extends [`AbstractB24`](core-abstract-b24) and is used for managing webhooks in Bitrix24.
 
 ### Constructor
 

@@ -26,6 +26,7 @@ export type TypeB24 = {
 	 * Get the account address BX24 ( https://name.bitrix24.com/rest )
 	 */
 	getTargetOriginWithPath(): string;
+	
 	/**
 	 * Calls a REST service method with the specified parameters
 	 *

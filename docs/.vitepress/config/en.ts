@@ -70,6 +70,11 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 			collapsed: true,
 			items: [
 				{ text: '(~) Frame', link: 'frame-index' },
+				{ text: 'System Functions', link: 'frame-system-functions' },
+				{ text: 'Additional Functions', link: 'frame-additional-functions' },
+				{ text: 'System Dialogues', link: 'frame-system-dialogues' },
+				{ text: 'Options', link: 'frame-options' },
+				{ text: 'Placement', link: 'frame-placement' },
 			]
 		},
 		{

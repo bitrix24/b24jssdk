@@ -132,7 +132,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 				{ text: 'TypeHttp', link: 'types-type-http' },
 				{ text: 'TypeRestrictionManagerParams', link: 'types-type-restriction-manager-params' },
 				{ text: 'IRequestIdGenerator', link: 'types-interface-irequest-id-generator' },
-				{ text: 'IResult', link: 'types-type-iresult' },
+				{ text: 'IResult', link: 'types-interface-iresult' },
 				{ text: 'Common', link: 'types-common' },
 				{ text: 'CRM Entity Type', link: 'types-crm-entity' },
 			]

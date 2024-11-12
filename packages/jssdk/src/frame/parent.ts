@@ -47,7 +47,7 @@ export class ParentManager
 	 *
 	 * @memo in certain situations it may not be executed (placement of the main window after installing the application), in this case isSafely mode will work
 	 */
-	fitWindow(): Promise<any>
+	async fitWindow(): Promise<any>
 	{
 		let width = '100%'
 		let height = this.getScrollSize().scrollHeight
@@ -74,7 +74,7 @@ export class ParentManager
 	 *
 	 * @memo in certain situations it may not be executed, in this case isSafely mode will be triggered
 	 */
-	resizeWindow(
+	async resizeWindow(
 		width: number,
 		height: number
 	): Promise<void>

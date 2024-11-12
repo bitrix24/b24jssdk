@@ -17,7 +17,6 @@ import type {
 	MessageInitData,
 	B24FrameQueryParams
 } from '../types/auth'
-
 /**
  * B24 Manager. Replacement api.bitrix24.com
  *
@@ -122,41 +121,41 @@ export class B24Frame
 			MessageCommands.getInitData,
 			{}
 		)
-		.then((data: MessageInitData) => {
-			
-			this.getLogger().log('init data:', data)
-			
-			this.#appFrame.initData(data)
-			this.#authManager.initData(data)
-			this.#placementManager.initData(data)
-			this.#optionsManager.initData(data)
-			
-			this.#isInstallMode = data.INSTALL
-			this.#isFirstRun = data.FIRST_RUN
-			
-			this._http = new Http(
-				this.#appFrame.getTargetOriginWithPath(),
-				this.#authManager,
-				this._getHttpOptions(),
-			)
-			
-			this._isInit = true
-			
-			/**
-			 * @memo Writes the fact of the 1st launch to `app_options`
-			 */
-			if(this.#isFirstRun)
-			{
-				return this.#messageManager.send(
-					MessageCommands.setInstall,
-					{
-						install: true
-					}
+			.then((data: MessageInitData) => {
+				
+				this.getLogger().log('init data:', data)
+				
+				this.#appFrame.initData(data)
+				this.#authManager.initData(data)
+				this.#placementManager.initData(data)
+				this.#optionsManager.initData(data)
+				
+				this.#isInstallMode = data.INSTALL
+				this.#isFirstRun = data.FIRST_RUN
+				
+				this._http = new Http(
+					this.#appFrame.getTargetOriginWithPath(),
+					this.#authManager,
+					this._getHttpOptions(),
 				)
-			}
-			
-			return Promise.resolve()
-		})
+				
+				this._isInit = true
+				
+				/**
+				 * @memo Writes the fact of the 1st launch to `app_options`
+				 */
+				if(this.#isFirstRun)
+				{
+					return this.#messageManager.send(
+						MessageCommands.setInstall,
+						{
+							install: true
+						}
+					)
+				}
+				
+				return Promise.resolve()
+			})
 	}
 	
 	/**

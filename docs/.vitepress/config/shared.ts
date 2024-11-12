@@ -48,6 +48,13 @@ export const shared = defineConfig({
 			{ icon: 'npm', link: 'https://www.npmjs.com/package/@bitrix24/b24jssdk' }
 
 		],
+		search: {
+			provider: 'local',
+			options: {
+				locales: {
+				}
+			}
+		},
 	},
 	vite: {
 		define: {

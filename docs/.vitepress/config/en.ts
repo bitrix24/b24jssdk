@@ -59,22 +59,24 @@ function sidebarGuide(): DefaultTheme.SidebarItem[] {
 function sidebarReference(): DefaultTheme.SidebarItem[] {
 	return [
 		{
-			text: 'Hook',
+			text: 'Inbound webhook',
 			collapsed: false,
 			items: [
-				{ text: '(*) Hook', link: 'hook-index' },
+				{ text: 'B24Hook', link: 'hook-index' },
 			]
 		},
 		{
-			text: 'Frame',
-			collapsed: true,
+			text: 'Application',
+			collapsed: false,
 			items: [
-				{ text: '(~) Frame', link: 'frame-index' },
-				{ text: 'System Functions', link: 'frame-system-functions' },
-				{ text: 'Additional Functions', link: 'frame-additional-functions' },
-				{ text: 'System Dialogues', link: 'frame-system-dialogues' },
-				{ text: 'Options', link: 'frame-options' },
-				{ text: 'Placement', link: 'frame-placement' },
+				{ text: 'Initializations', link: 'frame-initialize-b24-frame' },
+				{ text: 'B24Frame', link: 'frame-index' },
+				{ text: 'Auth Manager', link: 'frame-auth' },
+				{ text: 'Parent Manager', link: 'frame-parent' },
+				{ text: 'Slider Manager', link: 'frame-slider' },
+				{ text: 'Placement Manager', link: 'frame-placement' },
+				{ text: 'Options Manager', link: 'frame-options' },
+				{ text: 'Dialog Manager', link: 'frame-dialog' },
 			]
 		},
 		{

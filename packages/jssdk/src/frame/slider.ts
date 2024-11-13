@@ -51,6 +51,26 @@ export class SliderManager
 	}
 	
 	/**
+	 * The method closes the open modal window with the application
+	 *
+	 * @return {Promise<void>}
+	 *
+	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-close-application.html
+	 */
+	async closeSliderAppPage(): Promise<void>
+	{
+		return this.#messageManager.send(
+			MessageCommands.closeApplication,
+			{
+				/**
+				 * @memo There is no point - everything will be closed and timeout will not be able to do anything
+				 */
+				isSafely: false
+			}
+		)
+	}
+	
+	/**
 	 * Defines the base path for width sampling.
 	 *
 	 * @param width

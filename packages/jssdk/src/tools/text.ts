@@ -110,7 +110,7 @@ class TextManager
 		return this.toNumber(Number.parseInt(value, 10))
 	}
 
-	toBoolean(value: any, trueValues = []): boolean
+	toBoolean(value: any, trueValues: string[] = []): boolean
 	{
 		const transformedValue = Type.isString(value) ? value.toLowerCase() : value
 		return ['true', 'y', '1', 1, true, ...trueValues].includes(transformedValue)

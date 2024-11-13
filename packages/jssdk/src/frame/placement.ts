@@ -3,7 +3,7 @@ import type { MessageInitData } from "../types/auth";
 /**
  * Placement Manager
  *
- * @see https://apos.bitrix24.com/api-reference/widgets/ui-interaction/index.html
+ * @see https://apidocs.bitrix24.com/api-reference/widgets/ui-interaction/index.html
  * @see https://dev.1c-bitrix.ru/learning/course/index.php?COURSE_ID=99&CHAPTER_ID=02535&LESSON_PATH=8771.5380.2535
  */
 export class PlacementManager

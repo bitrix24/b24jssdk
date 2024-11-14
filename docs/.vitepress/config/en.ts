@@ -49,8 +49,9 @@ function sidebarGuide(): DefaultTheme.SidebarItem[] {
 			text: 'Guide',
 			collapsed: false,
 			items: [
-				{ text: 'Getting Started', link: 'getting-started' },
-				{ text: 'Vue', link: 'vue' }
+				{ text: 'Node.js', link: 'getting-started' },
+				{ text: 'UMD', link: 'getting-started-umd' },
+				{ text: 'Nuxt', link: 'getting-started-nuxt' }
 			]
 		},
 	]
@@ -112,7 +113,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
 				{ text: 'Result', link: 'core-result' },
 				{ text: 'AjaxResult', link: 'core-ajax-result' },
 				{ text: 'Language List', link: 'core-lang-list' },
-				{ text: 'Logger', link: 'logger-browser' },
+				{ text: 'Logger', link: 'core-logger-browser' },
 			]
 		},
 		{

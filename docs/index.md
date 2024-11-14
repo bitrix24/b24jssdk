@@ -17,10 +17,10 @@ hero:
       link: https://github.com/bitrix24/b24jssdk
 
 features:
-  - title: Feaute 1
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feaute 2
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feaute 3
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
+  - title: Ease of Use
+    details: Hooks like initializeB24Frame, useB24Helper, and useFormatter simplify development.
+  - title: Quick Integration
+    details: Text, Type, Pull, Slider, Feedback, LicenseManager, CurrencyManager, RestrictionManager...
+  - title: Versatility
+    details: Suitable for both Hook and Frame applications.
 ---

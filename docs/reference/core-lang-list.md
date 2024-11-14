@@ -1,9 +1,6 @@
 ---
-
 outline: deep
-
 ---
-
 # Language List
 
 ## Overview
@@ -30,20 +27,20 @@ The `B24LangList` enumeration contains the following language codes:
 | ru   | Русский            |
 | ua   | Українська         |
 | tr   | Türkçe             |
-| sc   | 中文（简体）             |
-| tc   | 中文（繁體）             |
-| ja   | 日本語                |
+| sc   | 中文（简体）        |
+| tc   | 中文（繁體）        |
+| ja   | 日本語             |
 | vn   | Tiếng Việt         |
 | id   | Bahasa Indonesia   |
 | ms   | Bahasa Melayu      |
 | th   | ภาษาไทย            |
-| ar   | عربي,              |
+| ar   | عربي               |
 
 ## Notes
 
 - The cloud version of Bitrix24 supports a wide range of languages as listed in the enumeration.
-- The boxed version of Bitrix24 typically supports 1-2 languages, which should be considered when developing and setting up localization.
+- The on-premise version of Bitrix24 typically supports 1-2 languages, which should be considered when developing and setting up localization.
 
 ::: tip
-You can test **B24LangList** in [example](https://github.com/bitrix24/b24sdk-examples/blob/main/js/03-nuxt-frame/pages/index.client.vue).
+You can test working with **B24LangList** in this [example](https://github.com/bitrix24/b24sdk-examples/blob/main/js/03-nuxt-frame/pages/index.client.vue).
 :::

@@ -1,8 +1,7 @@
 ---
 outline: deep
 ---
-
-# Data Types and Structures
+# Common {#common}
 
 ```ts
 import type {
@@ -19,47 +18,50 @@ import type {
 
 import { DataType } from '@bitrix24/b24jssdk'
 ```
-These are various data types and structures used in applications integrated with Bitrix24.
 
-They include types for strings representing numbers, dates, boolean values, and other specific data formats.
+These are various data types and structures used in applications integrated with Bitrix24. They include string types representing numbers, dates, boolean values, and other specific data formats.
 
-## Data Types
+## Data Types {#DataTypes}
 
 ### NumberString
 
-| Type     | Description                                        |
-|----------|----------------------------------------------------|
-| `string` | A string that is actually a number, e.g., `20.23`. |
+| Type     | Description                                                       |
+|----------|----------------------------------------------------------------|
+| `string` | A string that is actually a number, e.g., `20.23`.             |
 
 ### ISODate
 
-| Type     | Description                                                     |
-|----------|-----------------------------------------------------------------|
-| `string` | A string in ISO date format, e.g., `2018-06-07T03:00:00+03:00`. |
+| Type      | Description                                                          |
+|----------|-------------------------------------------------------------------|
+| `string` | A string in ISO date format, e.g., `2018-06-07T03:00:00+03:00`.   |
+
+::: tip
+You can test working with **ISODate** in this [example](https://github.com/bitrix24/b24sdk-examples/blob/main/js/02-nuxt-hook/pages/hook/crm-item-list.client.vue).
+:::
 
 ### BoolString
 
-| Value | Description |
-|-------|-------------|
-| `Y`   | Yes (true)  |
-| `N`   | No (false)  |
+| Value | Description    |
+|----------|-------------|
+| `Y`      | Yes (true)  |
+| `N`      | No (false)  |
 
 ### GenderString
 
-| Value | Description   |
-|-------|---------------|
-| `M`   | Male          |
-| `F`   | Female        |
-| ``    | Not specified |
+| Value | Description  |
+|----------|-----------|
+| `M`      | Male      |
+| `F`      | Female    |
+| ``       | Not Specified |
 
 ### PlacementViewMode
 
-| Value  | Description |
-|--------|-------------|
-| `view` | View mode   |
-| `edit` | Edit mode   |
+| Value | Description             |
+|----------|----------------------|
+| `view`   | View mode            |
+| `edit`   | Edit mode            |
 
-## Data Structures
+## Структуры данных {#DataStructures}
 
 ### Fields
 
@@ -99,32 +101,28 @@ They include types for strings representing numbers, dates, boolean values, and 
 | `DESCRIPTION`  | `string` | Description            |
 | `OPTIONS`      | `object` | Options (e.g., height) |
 
-## Enumeration DataType
+## enum DataType {#EnumDataType}
 
 `DataType` defines various data types used in Bitrix24:
 
-| Key           | Value          | Description           |
-|---------------|----------------|-----------------------|
-| `undefined`   | `undefined`    | Undefined             |
-| `any`         | `any`          | Any                   |
-| `integer`     | `integer`      | Integer               |
-| `boolean`     | `boolean`      | Boolean value         |
-| `double`      | `double`       | Floating-point number |
-| `date`        | `date`         | Date                  |
-| `datetime`    | `datetime`     | Date and time         |
-| `string`      | `string`       | String                |
-| `text`        | `text`         | Text                  |
-| `file`        | `file`         | File                  |
-| `array`       | `array`        | Array                 |
-| `object`      | `object`       | Object                |
-| `user`        | `user`         | User                  |
-| `location`    | `location`     | Location              |
-| `crmCategory` | `crm_category` | CRM Category          |
-| `crmStatus`   | `crm_status`   | CRM Status            |
-| `crmCurrency` | `crm_currency` | CRM Currency          |
+| Key           | Value          | Description   |
+|---------------|----------------|---------------|
+| `undefined`   | `undefined`    | Undefined     |
+| `any`         | `any`          | Any           |
+| `integer`     | `integer`      | Integer       |
+| `boolean`     | `boolean`      | Boolean value |
+| `double`      | `double`       | Double        |
+| `date`        | `date`         | Date          |
+| `datetime`    | `datetime`     | Date and time |
+| `string`      | `string`       | String        |
+| `text`        | `text`         | Text          |
+| `file`        | `file`         | File          |
+| `array`       | `array`        | Array         |
+| `object`      | `object`       | Object        |
+| `user`        | `user`         | User          |
+| `location`    | `location`     | Location      |
+| `crmCategory` | `crm_category` | CRM Category  |
+| `crmStatus`   | `crm_status`   | CRM Status    |
+| `crmCurrency` | `crm_currency` | CRM Currency  |
 
 These data types and structures can be used to describe and work with various entities and fields in Bitrix24.
-
-::: tip
-You can test **ISODate** in [example](https://github.com/bitrix24/b24sdk-examples/blob/main/js/02-nuxt-hook/pages/hook/crm-item-list.client.vue).
-:::

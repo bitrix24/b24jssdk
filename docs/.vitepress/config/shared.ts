@@ -1,6 +1,8 @@
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vitepress'
 import { configParams } from './params'
+import path from 'path'
+import pc from 'picocolors'
 
 /**
  * @memo fix
@@ -63,5 +65,34 @@ export const shared = defineConfig({
 		resolve: {
 			alias: customAlias
 		},
+	},
+	transformHtml: (html, id) => {
+		const exceptionsByFile = {
+			'reference/core-lang-list.html': ['Русский', 'Укра', 'нська']
+		}
+		
+		const cyrillicMatches = html.match(/[а-яА-ЯЁё]+/g)
+		if(cyrillicMatches)
+		{
+			const relativePath = path.relative(
+				path.resolve(__dirname, 'dist'), id
+			)
+				.replace(/\\/g, '/')
+				.replace(/\.\.\//g, '')
+				.replace('dist\/', '')
+			
+			const exceptions = exceptionsByFile[relativePath] || [];
+			const filteredMatches = [...new Set(cyrillicMatches.filter(word => !exceptions.includes(word)))];
+			
+			if(filteredMatches.length > 0)
+			{
+				console.warn();
+				console.log(pc.red(`[sh] The file contains Cyrillic characters: ${id}`))
+				console.warn(pc.yellow(`[sh] >> ${relativePath} >>> ${filteredMatches.join(', ')}`))
+				console.warn()
+				process.exit(1);
+			}
+		}
+		return html;
 	}
 })

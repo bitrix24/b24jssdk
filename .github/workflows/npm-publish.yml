@@ -22,8 +22,9 @@ jobs:
       - name: 'Run build (npm run build) 🔧...'
         run: npm run build
 
-      - name: 'Publish package'
+      - name: 'Publish package from ./packages/jssdk'
         uses: JS-DevTools/npm-publish@v3
         with:
+          package: './packages/jssdk'
           registry: 'https://registry.npmjs.org/'
           token: ${{ secrets.NPM_AUTH_TOKEN }}

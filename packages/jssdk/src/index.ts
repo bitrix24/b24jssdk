@@ -14,7 +14,7 @@ export * from './types/slider'
 export * from './types/crm/index'
 export * from './types/placement/index'
 
-export * from './types/b24Helper'
+export * from './types/b24-helper'
 export * from './types/pull'
 
 export * from './core/result'
@@ -26,7 +26,7 @@ export * from './core/abstract-b24'
 export * from './core/language/list'
 
 export * from './tools/scrollSize'
-export * from './tools/useFormatters'
+export * from './tools/use-formatters'
 
 export * from './hook/index'
 export * from './frame/index'

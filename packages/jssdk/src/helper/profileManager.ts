@@ -1,5 +1,5 @@
 import { AbstractHelper } from './abstractHelper'
-import type { TypeUser } from '../types/b24Helper'
+import type { TypeUser } from '../types/b24-helper'
 
 export class ProfileManager
 	extends AbstractHelper

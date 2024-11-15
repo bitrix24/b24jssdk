@@ -1,5 +1,5 @@
 import { AbstractHelper } from './abstractHelper'
-import { StatusDescriptions, type TypeApp } from '../types/b24Helper'
+import { StatusDescriptions, type TypeApp } from '../types/b24-helper'
 
 export class AppManager
 	extends AbstractHelper

@@ -5,7 +5,22 @@ export default unjs({
 		// ignore paths
 	],
 	rules: {
-		// rule overrides
+		"no-prototype-builtins": "off",
+		"unicorn/prefer-ternary": "off",
+		"unicorn/no-typeof-undefined": "off",
+		"unicorn/no-zero-fractions": "off",
+		"unicorn/no-null": "off",
+		"no-null": "off",
+		"unicorn/numeric-separators-style": [
+			"error",
+			{
+				"onlyIfContainsSeparator": true,
+				"number": {
+					"minimumDigits": 0,
+					"groupLength": 3
+				}
+			}
+		]
 	},
 	markdown: {
 		rules: {

@@ -40,7 +40,7 @@ function updateV7State(
 	else
 	{
 		// Bump sequence counter w/ 32-bit rollover
-		state.seq = (state.seq + 1) | 0
+		state.seq = Math.trunc(state.seq + 1)
 		
 		// In case of rollover, bump timestamp to preserve monotonicity. This is
 		// allowed by the RFC and should self-correct as the system clock catches
@@ -138,9 +138,9 @@ function unsafeStringify(
 	).toLowerCase()
 }
 
-export default function(): string
+export default function uuidv7(): string
 {
-	let bytes: Uint8Array
+	
 	const buf = undefined
 	const offset = undefined
 	
@@ -164,7 +164,7 @@ export default function(): string
 	
 	updateV7State(_state, now, randoms)
 	
-	bytes = v7Bytes(randoms, _state.msecs, _state.seq, buf, offset)
+	const bytes: Uint8Array = v7Bytes(randoms, _state.msecs, _state.seq, buf, offset)
 	
 	return unsafeStringify(bytes)
 }

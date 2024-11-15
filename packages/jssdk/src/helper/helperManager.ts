@@ -8,7 +8,7 @@ import { CurrencyManager } from './currencyManager'
 import { OptionsManager } from './optionsManager'
 import { B24PullClientManager } from '../pullClient'
 import Text from '../tools/text'
-import { LoadDataType, TypeSpecificUrl } from '../types/b24Helper'
+import { LoadDataType, TypeSpecificUrl } from '../types/b24-helper'
 import type {
 	TypeApp,
 	TypeB24Form,
@@ -16,7 +16,7 @@ import type {
 	TypeLicense,
 	TypePayment,
 	TypeUser
-} from '../types/b24Helper'
+} from '../types/b24-helper'
 import type { GenderString } from '../types/common'
 import type { TypePullMessage } from '../types/pull'
 

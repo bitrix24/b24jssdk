@@ -1,6 +1,6 @@
 import { AbstractHelper, UnhandledMatchError } from './abstractHelper'
 import type { BoolString, ISODate, NumberString } from "../types/common"
-import type { Currency, CurrencyFormat } from '../types/b24Helper'
+import type { Currency, CurrencyFormat } from '../types/b24-helper'
 import Type from '../tools/type'
 import Text from '../tools/text'
 

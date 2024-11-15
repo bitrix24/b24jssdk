@@ -2,6 +2,7 @@ import { DateTime, type DateTimeOptions } from 'luxon'
 import uuidv7 from '../tools/uuidv7'
 import Type from './type'
 
+// eslint-disable-next-line
 const reEscape = /[&<>'"]/g
 const reUnescape = /&(?:amp|#38|lt|#60|gt|#62|apos|#39|quot|#34)/g
 
@@ -48,7 +49,7 @@ class TextManager
 	getUniqId(): string
 	{
 		return 'xxxxxxxx-xlsx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-			const r = Math.random() * 16 | 0
+			const r = Math.trunc(Math.random() * 16)
 			const v = c === 'x' ? r : (r & 0x3 | 0x8)
 			return v.toString(16)
 		})
@@ -122,16 +123,19 @@ class TextManager
 		{
 			return str
 		}
-
+		
+		// eslint-disable-next-line
 		const regex = /[-_\s]+(.)?/g
 		if (!regex.test(str))
 		{
+			// eslint-disable-next-line
 			return str.match(/^[A-Z]+$/) ? str.toLowerCase() : str[0].toLowerCase() + str.slice(1)
 		}
 
 		str = str.toLowerCase()
 		str = str.replace(regex, (_match: string, letter) => letter ? letter.toUpperCase() : '')
-
+		
+		// eslint-disable-next-line
 		return str[0].toLowerCase() + str.substring(1)
 	}
 
@@ -151,7 +155,8 @@ class TextManager
 		{
 			return str
 		}
-
+		
+		// eslint-disable-next-line
 		const matches = str.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g)
 		if (!matches)
 		{
@@ -167,7 +172,8 @@ class TextManager
 		{
 			return str
 		}
-
+		
+		// eslint-disable-next-line
 		return str[0].toUpperCase() + str.substring(1)
 	}
 	
@@ -178,7 +184,9 @@ class TextManager
 		thousandsSep: string = ','
 	): string
 	{
+		// eslint-disable-next-line
 		const n = !Number.isFinite(number) ? 0 : number
+		// eslint-disable-next-line
 		const fractionDigits = !Number.isFinite(decimals) ? 0 : Math.abs(decimals)
 		
 		const toFixedFix = (n: number, fractionDigits: number): number => {
@@ -186,7 +194,7 @@ class TextManager
 			return Math.round(n * k) / k
 		}
 		
-		let s = (fractionDigits ? toFixedFix(n, fractionDigits) : Math.round(n)).toString().split('.')
+		const s = (fractionDigits ? toFixedFix(n, fractionDigits) : Math.round(n)).toString().split('.')
 		
 		if (s[0].length > 3) {
 			s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, thousandsSep)
@@ -194,6 +202,7 @@ class TextManager
 		
 		if ((s[1] || '').length < fractionDigits) {
 			s[1] = s[1] || ''
+			// eslint-disable-next-line
 			s[1] += new Array(fractionDigits - s[1].length + 1).join('0')
 		}
 		
@@ -240,7 +249,7 @@ class TextManager
 	buildQueryString(params: any): string
 	{
 		let result = ''
-		for(let key in params)
+		for(const key in params)
 		{
 			if(!params.hasOwnProperty(key))
 			{
@@ -250,6 +259,7 @@ class TextManager
 			const value = params[key]
 			if(Type.isArray(value))
 			{
+				// eslint-disable-next-line
 				value.forEach((valueElement: any, index: any) => {
 					result += encodeURIComponent(key + "[" + index + "]") + "=" + encodeURIComponent(valueElement) + "&"
 				})
@@ -262,6 +272,7 @@ class TextManager
 		
 		if (result.length > 0)
 		{
+			// eslint-disable-next-line
 			result = result.substring(0, result.length - 1)
 		}
 		

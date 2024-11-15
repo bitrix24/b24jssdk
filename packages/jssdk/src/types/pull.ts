@@ -142,6 +142,7 @@ export type TypeSubscriptionOptions = {
 	/**
 	 * Function, that will be called for incoming messages
 	 */
+	// eslint-disable-next-line
 	callback: Function,
 }
 

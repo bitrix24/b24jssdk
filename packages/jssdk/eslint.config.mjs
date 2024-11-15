@@ -2,9 +2,10 @@ import unjs from "eslint-config-unjs";
 
 export default unjs({
 	ignores: [
-		// ignore paths
+		'src/pullClient/protobuf/*.js'
 	],
 	rules: {
+		"unicorn/switch-case-braces": "off",
 		"no-prototype-builtins": "off",
 		"unicorn/prefer-ternary": "off",
 		"unicorn/no-typeof-undefined": "off",

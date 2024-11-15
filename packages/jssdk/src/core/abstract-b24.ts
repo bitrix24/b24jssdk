@@ -33,7 +33,7 @@ export abstract class AbstractB24
 	async init(): Promise<void>
 	{
 		this._isInit = true
-		return Promise.resolve()
+		return;
 	}
 	
 	destroy(): void
@@ -126,16 +126,16 @@ export abstract class AbstractB24
 			let list: any[] = []
 			
 			let resultData
-			if(null !== customKeyForResult)
-			{
-				resultData = (response.getData() as ListPayload<any>).result[customKeyForResult] as []
-			}
-			else
+			if(null === customKeyForResult)
 			{
 				resultData = (response.getData() as ListPayload<any>).result as []
 			}
+			else
+			{
+				resultData = (response.getData() as ListPayload<any>).result[customKeyForResult] as []
+			}
 			
-			list = list.concat(resultData)
+			list = [...list, ...resultData]
 			if(response.isMore())
 			{
 				let responseLoop: false|AjaxResult = response
@@ -149,18 +149,18 @@ export abstract class AbstractB24
 					}
 					
 					let resultData = undefined
-					if(null !== customKeyForResult)
-					{
-						resultData = (responseLoop.getData() as ListPayload<any>).result[customKeyForResult] as []
-					}
-					else
+					if(null === customKeyForResult)
 					{
 						resultData = (responseLoop.getData() as ListPayload<any>).result as []
 					}
+					else
+					{
+						resultData = (responseLoop.getData() as ListPayload<any>).result[customKeyForResult] as []
+					}
 					
-					list = list.concat(resultData)
+					list = [...list, ...resultData]
 					
-					if(!!progress)
+					if(progress)
 					{
 						const total = responseLoop.getTotal()
 						progress(total > 0 ? Math.round(100 * list.length / total) : 100)
@@ -169,12 +169,12 @@ export abstract class AbstractB24
 			}
 			
 			result.setData(list)
-			if(!!progress)
+			if(progress)
 			{
 				progress(100)
 			}
 			
-			return Promise.resolve(result)
+			return result;
 		})
 	}
 	
@@ -192,14 +192,14 @@ export abstract class AbstractB24
 		params.filter = params.filter || {}
 		params.start = -1
 		
-		let moreIdKey = `>${idKey}`
+		const moreIdKey = `>${idKey}`
 		
 		params.order[idKey] = 'ASC'
 		params.filter[moreIdKey] = 0
 		
 		do
 		{
-			let result = await this.callMethod(method, params, params.start)
+			const result = await this.callMethod(method, params, params.start)
 			let data = undefined
 			if(
 				Type.isNull(customKeyForResult)
@@ -225,7 +225,7 @@ export abstract class AbstractB24
 				break
 			}
 			
-			const value =  data[ data.length - 1 ]
+			const value =  data.at( -1 )
 			if(
 				value
 				&& idKey in value
@@ -275,20 +275,13 @@ export abstract class AbstractB24
 		const data = []
 		const chunks = this.chunkArray(calls, AbstractB24.batchSize)
 		
-		try
+		for(const chunkRequest of chunks)
 		{
-			for(const chunkRequest of chunks)
-			{
-				const response = await this.callBatch(chunkRequest, isHaltOnError)
-				data.push(...response.getData())
-			}
+			const response = await this.callBatch(chunkRequest, isHaltOnError)
+			data.push(...response.getData())
 		}
-		catch(error: any)
-		{
-			return Promise.reject(error)
-		}
-		
-		return Promise.resolve(result.setData(data))
+
+		return result.setData(data);
 	}
 	// endregion ////
 	

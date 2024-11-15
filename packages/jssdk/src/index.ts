@@ -25,7 +25,7 @@ export * from './core/http/controller'
 export * from './core/abstract-b24'
 export * from './core/language/list'
 
-export * from './tools/scrollSize'
+export * from './tools/scroll-size'
 export * from './tools/use-formatters'
 
 export * from './hook/index'

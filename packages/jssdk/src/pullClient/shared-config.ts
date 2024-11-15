@@ -1,7 +1,7 @@
 import { LoggerBrowser, LoggerType } from '../logger/browser'
 import Type from '../tools/type'
 import Text from '../tools/text'
-import { StorageManager } from './storageManager'
+import { StorageManager } from './storage-manager'
 import { LsKeys, type SharedConfigCallbacks, type SharedConfigParams, type TypeStorageManager} from '../types/pull'
 
 export class SharedConfig
@@ -80,7 +80,7 @@ export class SharedConfig
 			return false
 		}
 		
-		return this._storage.get(LsKeys.WebsocketBlocked, 0) > (new Date()).getTime()
+		return this._storage.get(LsKeys.WebsocketBlocked, 0) > Date.now()
 	}
 	
 	setWebSocketBlocked(isWebSocketBlocked: boolean): boolean
@@ -94,7 +94,7 @@ export class SharedConfig
 		{
 			this._storage.set(
 				LsKeys.WebsocketBlocked,
-				(isWebSocketBlocked ? (new Date()).getTime() + this._ttl : 0)
+				(isWebSocketBlocked ? Date.now() + this._ttl : 0)
 			)
 		}
 		catch(error)
@@ -116,7 +116,7 @@ export class SharedConfig
 			return false
 		}
 		
-		return this._storage.get(LsKeys.LongPollingBlocked, 0) > (new Date()).getTime()
+		return this._storage.get(LsKeys.LongPollingBlocked, 0) > Date.now()
 	}
 	
 	setLongPollingBlocked(isLongPollingBlocked: boolean)
@@ -130,7 +130,7 @@ export class SharedConfig
 		{
 			this._storage.set(
 				LsKeys.LongPollingBlocked,
-				(isLongPollingBlocked ? (new Date()).getTime() + this._ttl : 0)
+				(isLongPollingBlocked ? Date.now() + this._ttl : 0)
 			)
 		}
 		catch(error)
@@ -187,7 +187,7 @@ export class SharedConfig
 	// region Tools ////
 	getTimestamp(): number
 	{
-		return (new Date()).getTime()
+		return Date.now()
 	}
 	// endregion ////
 }

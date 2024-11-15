@@ -1,5 +1,5 @@
 import { MessageManager, MessageCommands } from './message'
-import useScrollSize from '../tools/scrollSize'
+import useScrollSize from '../tools/scroll-size'
 
 
 /**
@@ -49,8 +49,8 @@ export class ParentManager
 	 */
 	async fitWindow(): Promise<any>
 	{
-		let width = '100%'
-		let height = this.getScrollSize().scrollHeight
+		const width = '100%'
+		const height = this.getScrollSize().scrollHeight
 		
 		return this.#messageManager.send(
 			MessageCommands.resizeWindow,

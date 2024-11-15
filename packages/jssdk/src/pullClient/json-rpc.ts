@@ -132,7 +132,8 @@ export class JsonRpc
 	{
 		const requests: RpcRequest[] = []
 		const promises: Promise<any>[] = []
-		
+
+		// eslint-disable-next-line
 		batch.forEach(({ method, params, id }) => {
 			const request = this.createRequest(
 				method,
@@ -255,15 +256,15 @@ export class JsonRpc
 	
 	private executeIncomingRpcBatch(batch: RpcCommand[]): RpcCommandResult[]
 	{
-		let result: RpcCommandResult[] = []
+		const result: RpcCommandResult[] = []
 		
-		for (let command of batch)
+		for (const command of batch)
 		{
 			if ('jsonrpc' in command)
 			{
 				if ('method' in command)
 				{
-					let commandResult = this.executeIncomingRpcCommand(command)
+					const commandResult = this.executeIncomingRpcCommand(command)
 					if (commandResult)
 					{
 						commandResult['jsonrpc'] = JSON_RPC_VERSION;

@@ -30,11 +30,12 @@ function initConfig(formatTypeParam: string): BuildConfig
 	let inlineDependencies = true
 	
 	let fileExtension: string
-	let rollupExt = {
+	const rollupExt = {
 		output: {},
 		resolve: {}
 	}
-	
+
+	// eslint-disable-next-line
 	let hooks: Record<string, Function> = {}
 	
 	switch(formatType)

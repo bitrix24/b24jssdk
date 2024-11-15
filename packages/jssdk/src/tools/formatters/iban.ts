@@ -141,7 +141,7 @@ export class IbanSpecification
 				// parse each structure block (1-char + 2-digits)
 				let format
 				const pattern = block.slice(0, 1)
-				const repeats = parseInt(block.slice(1), 10)
+				const repeats = Number.parseInt(block.slice(1), 10)
 				
 				switch(pattern)
 				{
@@ -171,13 +171,17 @@ export class IbanSpecification
 		iban: string
 	): string
 	{
+		// eslint-disable-next-line
 		const A = 'A'.charCodeAt(0)
+		// eslint-disable-next-line
 		const Z = 'Z'.charCodeAt(0)
 		
 		iban = iban.toUpperCase()
+		// eslint-disable-next-line
 		iban = iban.substring(4) + iban.substring(0,4)
-		
+		// eslint-disable-next-line
 		return iban.split('').map((n: string): string => {
+			// eslint-disable-next-line
 			const code = n.charCodeAt(0)
 			if(code >= A && code <= Z)
 			{
@@ -207,10 +211,10 @@ export class IbanSpecification
 		while(remainder.length > 2)
 		{
 			block = remainder.slice(0, 9)
-			remainder = parseInt(block, 10) % 97 + remainder.slice(block.length)
+			remainder = Number.parseInt(block, 10) % 97 + remainder.slice(block.length)
 		}
 		
-		return parseInt(remainder, 10) % 97
+		return Number.parseInt(remainder, 10) % 97
 	}
 }
 
@@ -280,7 +284,7 @@ export class FormatterIban
 			throw new Error(`No country with code ${countryCode}`)
 		}
 		
-		let countryStructure = this._countries.get(countryCode)
+		const countryStructure = this._countries.get(countryCode)
 		
 		return !!countryStructure
 			&& countryStructure.isValid(iban)
@@ -304,6 +308,7 @@ export class FormatterIban
 	
 	electronicFormat(iban: string): string
 	{
+		// eslint-disable-next-line
 		const NON_ALPHANUM = /[^a-zA-Z0-9]/g
 		
 		return iban.replace(NON_ALPHANUM, '')
@@ -336,8 +341,8 @@ export class FormatterIban
 		{
 			throw new Error(`No country with code ${countryCode}`)
 		}
-		
-		let countryStructure = this._countries.get(countryCode)
+
+		const countryStructure = this._countries.get(countryCode)
 		
 		if(!countryStructure)
 		{
@@ -369,7 +374,7 @@ export class FormatterIban
 			throw new Error(`No country with code ${countryCode}`)
 		}
 		
-		let countryStructure = this._countries.get(countryCode)
+		const countryStructure = this._countries.get(countryCode)
 		
 		if(!countryStructure)
 		{
@@ -402,7 +407,7 @@ export class FormatterIban
 			throw new Error(`No country with code ${countryCode}`)
 		}
 		
-		let countryStructure = this._countries.get(countryCode)
+		const countryStructure = this._countries.get(countryCode)
 		
 		return !!countryStructure
 			&& countryStructure.isValidBBAN(

@@ -5,8 +5,7 @@ try
 {
 	UA = navigator?.userAgent.toLowerCase()
 }
-catch( error )
-{
+catch  {
 	UA = '?'
 }
 
@@ -104,6 +103,7 @@ class BrowserManager
 			// @ts-ignore ////
 			if (navigator.appName === 'Microsoft Internet Explorer')
 			{
+				// eslint-disable-next-line
 				const re = new RegExp('MSIE ([0-9]+[.0-9]*)')
 				const res = navigator.userAgent.match(re)
 				
@@ -111,7 +111,7 @@ class BrowserManager
 				if (Type.isArrayLike(res) && res.length > 0)
 				{
 					// @ts-ignore ////
-					rv = parseFloat(res[1])
+					rv = Number.parseFloat(res[1])
 				}
 			}
 			
@@ -119,7 +119,8 @@ class BrowserManager
 			if (navigator.appName === 'Netscape')
 			{
 				// Alternative check for IE 11
-				rv = 11;
+				rv = 11
+				// eslint-disable-next-line
 				const re = new RegExp('Trident/.*rv:([0-9]+[.0-9]*)')
 
 				if (re.exec(navigator.userAgent) != null)
@@ -130,7 +131,7 @@ class BrowserManager
 					if (Type.isArrayLike(res) && res.length > 0)
 					{
 						// @ts-ignore ////
-						rv = parseFloat(res[1])
+						rv = Number.parseFloat(res[1])
 					}
 				}
 			}
@@ -225,14 +226,14 @@ class BrowserManager
 			localStorage.removeItem('test');
 			return true;
 		}
-		catch (error)
-		{
+		catch {
 			return false
 		}
 	}
 	
 	detectAndroidVersion(): number
 	{
+		// eslint-disable-next-line
 		const re = new RegExp('Android ([0-9]+[.0-9]*)')
 
 		if (re.exec(navigator.userAgent) != null)
@@ -243,7 +244,7 @@ class BrowserManager
 			if (Type.isArrayLike(res) && res.length > 0)
 			{
 				// @ts-ignore ////
-				return parseFloat(res[1])
+				return Number.parseFloat(res[1])
 			}
 		}
 

@@ -1,7 +1,6 @@
 import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import {
 	RestrictionManagerParamsBase,
-	RestrictionManagerParamsForEnterprise,
 	type TypeRestrictionManagerParams
 } from '../../types/http'
 
@@ -88,6 +87,7 @@ export default class RestrictionManager
 			}
 			else
 			{
+				// eslint-disable-next-line
 				const sleep = (callback: Function) => {
 					this.getLogger().info(`>> go sleep >>> ${hash}`, this.#getStorageStatus())
 					setTimeout(() => {
@@ -97,15 +97,15 @@ export default class RestrictionManager
 				
 				const wait = () => {
 					this.#decrementStorage()
-					if(!this.#checkStorage())
-					{
-						sleep(wait)
-					}
-					else
+					if(this.#checkStorage())
 					{
 						this.getLogger().info(`<< stop sleep <<< ${hash}`, this.#getStorageStatus())
 						this.#incrementStorage()
 						return resolve(null)
+					}
+					else
+					{
+						sleep(wait)
 					}
 				};
 				
@@ -123,7 +123,7 @@ export default class RestrictionManager
 	{
 		if(this.#lastDecrement > 0)
 		{
-			this.#currentAmount -= ((new Date()).valueOf() - this.#lastDecrement) * this.#params.speed
+			this.#currentAmount -= (Date.now() - this.#lastDecrement) * this.#params.speed
 			
 			if(this.#currentAmount < 0)
 			{
@@ -131,7 +131,7 @@ export default class RestrictionManager
 			}
 		}
 		
-		this.#lastDecrement = (new Date()).valueOf()
+		this.#lastDecrement = Date.now()
 	}
 	
 	#incrementStorage(): void

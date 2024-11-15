@@ -13,7 +13,7 @@ export class StorageManager
 	constructor(params: StorageManagerParams = {})
 	{
 		this.userId = params.userId ? Text.toInteger(params.userId) : 0
-		this.siteId = params.siteId ? params.siteId : 'none'
+		this.siteId = params.siteId ?? 'none'
 	}
 	
 	setLogger(logger: LoggerBrowser): void
@@ -53,12 +53,12 @@ export class StorageManager
 			return
 		}
 		
-		if(typeof value !== 'string')
+		if(
+			typeof value !== 'string'
+			&& value
+		)
 		{
-			if(value)
-			{
-				value = JSON.stringify(value)
-			}
+			value = JSON.stringify(value)
 		}
 		
 		window.localStorage.setItem(

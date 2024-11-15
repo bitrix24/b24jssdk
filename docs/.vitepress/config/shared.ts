@@ -30,8 +30,7 @@ export const shared = defineConfig({
 		['meta', { property: 'og:locale', content: 'en' }],
 		['meta', { property: 'og:title', content: '@bitrix24/b24jssdk | Bitrix24 REST API JS SDK' }],
 		['meta', { property: 'og:site_name', content: '@bitrix24/b24jssdk' }],
-		// @todo fix this ////
-		//['meta', { property: 'og:image', content: `${configParams.domain}${configParams.baseFolder}bitrix24_b24jssdk.jpg` }],
+		['meta', { property: 'og:image', content: `${configParams.domain}${configParams.baseFolder}bitrix24_b24jssdk.jpg` }],
 		['meta', { property: 'og:url', content: `${configParams.domain}${configParams.baseFolder}` }],
 	],
 	

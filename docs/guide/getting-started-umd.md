@@ -16,7 +16,7 @@ You can include the library directly via CDN. Add the following `<script>` tag t
 
 ### Local Import {#import-local}
 
-Download the UMD version of the library from [www.npmjs.com](<#0 >) and add it to your project.
+Download the UMD version of the library from [www.npmjs.com](https://www.npmjs.com/package/@bitrix24/b24jssdk) and add it to your project.
 
 Then include it in your HTML file:
 

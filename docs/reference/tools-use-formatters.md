@@ -1,7 +1,7 @@
 ---
 outline: deep
 ---
-# Хук `useFormatter` {#useFormatter}
+# Hook `useFormatter` {#useFormatter}
 
 The `useFormatter` hook returns `formatterNumber` and `formatterIban` objects for use in an application.
 

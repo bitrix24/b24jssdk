@@ -61,7 +61,7 @@ You can test working with **ISODate** in this [example](https://github.com/bitri
 | `view`   | View mode            |
 | `edit`   | Edit mode            |
 
-## Структуры данных {#DataStructures}
+## Data Structures {#DataStructures}
 
 ### Fields
 

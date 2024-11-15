@@ -1,9 +1,5 @@
 # @bitrix24/b24jssdk
 
-Bitrix24 REST API JS SDK
+JS SDK for using Bitrix24 REST API in local, production applications or via webhooks
 
-# Urls
-
-- [npmjs](https://www.npmjs.com/package/@bitrix24/b24jssdk)
-- [unpkg](https://unpkg.com/browse/@bitrix24/b24jssdk/)
-- [unpkg/umd](https://unpkg.com/@bitrix24/b24jssdk@latest/dist/umd/index.min.js)
+Find more details in the [documentation](https://bitrix24.github.io/b24jssdk/)

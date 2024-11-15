@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: "@bitrix24/b24jssdk"
-  text: "Bitrix24 REST API JS SDK"
-  tagline: Bitrix24 REST API JS SDK
+  text: "JS SDK for using Bitrix24 REST API"
+  tagline: in local, production applications or via webhooks
   actions:
     - theme: brand
       text: B24.Hook

@@ -16,7 +16,8 @@ You can include the library directly via CDN. Add the following `<script>` tag t
 
 ### Local Import {#import-local}
 
-Download the UMD version of the library from [www.npmjs.com](https://www.npmjs.com/package/@bitrix24/b24jssdk) and add it to your project.
+Download the UMD version of the library from [unpkg.com](https://unpkg.com/browse/@bitrix24/b24jssdk@latest/dist/)
+and add it to your project.
 
 Then include it in your HTML file:
 
@@ -57,7 +58,8 @@ After including the library, it will be available through the global variable `[
 
 ## Documentation
 
-For more detailed information on all available functions and parameters, please refer to our documentation for [B24Hook](/reference/hook-index) and [B24Frame](/reference/frame-initialize-b24-frame).
+For more detailed information on all available functions and parameters, please refer to our documentation for [B24Hook](/reference/hook-index) 
+and [B24Frame](/reference/frame-initialize-b24-frame).
 
 ## Support
 

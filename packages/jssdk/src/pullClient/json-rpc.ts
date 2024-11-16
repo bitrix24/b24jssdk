@@ -102,7 +102,7 @@ export class JsonRpc {
 
 	/**
 	 * Executes array or rpc commands.
-	 * Returns array of promises, each promise will be resolved individually.
+	 * Returns an array of promises, each promise will be resolved individually.
 	 *
 	 * @param {JsonRpcRequest[]} batch
 	 * @returns {Promise[]}

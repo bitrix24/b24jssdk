@@ -12,6 +12,7 @@ export default unjs({
 		"unicorn/no-zero-fractions": "off",
 		"unicorn/no-null": "off",
 		"no-null": "off",
+		"unicorn/no-useless-promise-resolve-reject": "off",
 		"unicorn/numeric-separators-style": [
 			"error",
 			{

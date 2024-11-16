@@ -1,5 +1,5 @@
-import { AbstractHelper, UnhandledMatchError } from './abstractHelper'
-import type { BoolString, ISODate, NumberString } from "../types/common"
+import { AbstractHelper, UnhandledMatchError } from './abstract-helper'
+import type { BoolString, ISODate, NumberString } from '../types/common'
 import type { Currency, CurrencyFormat } from '../types/b24-helper'
 import Type from '../tools/type'
 import Text from '../tools/text'
@@ -26,92 +26,81 @@ type CurrencyInit = {
 	FULL_NAME: string
 	LID: string
 	SORT: NumberString
-	THOUSANDS_SEP?: string,
+	THOUSANDS_SEP?: string
 	LANG?: Record<string, CurrencyFormatInit>
 }
 
 type CurrencyInitData = {
-	currencyBase: string,
-	currencyList: CurrencyInit[],
+	currencyBase: string
+	currencyList: CurrencyInit[]
 }
 
 type CurrencyData = {
-	currencyBase: string,
-	currencyList: Map<string, Currency>,
+	currencyBase: string
+	currencyList: Map<string, Currency>
 }
 
-export class CurrencyManager
-	extends AbstractHelper
-{
+export class CurrencyManager extends AbstractHelper {
 	/**
 	 * @inheritDoc
 	 */
-	override async initData(data: CurrencyInitData): Promise<void>
-	{
+	override async initData(data: CurrencyInitData): Promise<void> {
 		this._data = {
 			currencyBase: '?',
 			currencyList: new Map(),
 		} as CurrencyData
-		
+
 		this.setBaseCurrency(data.currencyBase)
 		this.setCurrencyList(data.currencyList)
-		
-		try
-		{
+
+		try {
 			await this.loadData()
-		}
-		catch(error)
-		{
-			if(error instanceof Error)
-			{
+		} catch (error) {
+			if (error instanceof Error) {
 				throw error
 			}
-			
+
 			console.error(error)
 			throw new Error('Failed to load data')
 		}
 	}
-	
-	async loadData(): Promise<void>
-	{
+
+	async loadData(): Promise<void> {
 		const batchRequest: {
-			method: string,
-			params: {id: string}
+			method: string
+			params: { id: string }
 		}[] = this.currencyList.map((currencyCode) => {
 			return {
 				method: 'crm.currency.get',
 				params: {
-					id: currencyCode
-				}
+					id: currencyCode,
+				},
 			}
 		})
-		
-		if(batchRequest.length < 1)
-		{
+
+		if (batchRequest.length === 0) {
 			return Promise.resolve()
 		}
-		
-		try
-		{
+
+		try {
 			const response = await this._b24.callBatchByChunk(batchRequest, true)
 			const data = response.getData()
-			
+
+			// eslint-disable-next-line unicorn/no-array-for-each
 			data.forEach((row: CurrencyInit) => {
-				if(typeof row.LANG === 'undefined')
-				{
+				if (typeof row.LANG === 'undefined') {
 					return
 				}
-				
+
 				const currencyCode = row.CURRENCY
 				const currency = this.data.currencyList.get(currencyCode)
-				if(typeof currency === 'undefined')
-				{
+				if (typeof currency === 'undefined') {
 					return
 				}
-				
-				Object.entries(row.LANG).forEach(([langCode, formatData]) => {
+
+				for (const [langCode, formatData] of Object.entries(row.LANG)) {
 					currency.lang[langCode] = {
-						decimals: parseInt(formatData.DECIMALS),
+						decimals: Number.parseInt(formatData.DECIMALS),
 						decPoint: formatData.DEC_POINT,
 						formatString: formatData.FORMAT_STRING,
 						fullName: formatData.FULL_NAME,
@@ -119,9 +108,8 @@ export class CurrencyManager
 						thousandsSep: formatData.THOUSANDS_SEP,
 						thousandsVariant: formatData.THOUSANDS_VARIANT,
 					} as CurrencyFormat
-					
-					switch(currency.lang[langCode].thousandsVariant)
-					{
+
+					switch (currency.lang[langCode].thousandsVariant) {
 						case 'N':
 							currency.lang[langCode].thousandsSep = ''
 							break
@@ -137,181 +125,149 @@ export class CurrencyManager
 						case 'B':
 							currency.lang[langCode].thousandsSep = '&nbsp;'
 							break
-						case 'OWN':
+						// case 'OWN': ////
 						default:
-							if(!Type.isStringFilled(currency.lang[langCode].thousandsSep))
-							{
+							if (!Type.isStringFilled(currency.lang[langCode].thousandsSep)) {
 								currency.lang[langCode].thousandsSep = ' '
 							}
-						break
+							break
 					}
-				});
+				}
 			})
-		}
-		catch(error)
-		{
+		} catch (error) {
 			console.error(error)
 		}
 	}
-	
-	get data(): CurrencyData
-	{
-		if(null === this._data)
-		{
+
+	get data(): CurrencyData {
+		if (null === this._data) {
 			throw new Error('CurrencyManager.data not initialized')
 		}
-		
+
 		return this._data
 	}
-	
+
 	// region BaseCurrency ////
-	setBaseCurrency(currencyBase: string)
-	{
+	setBaseCurrency(currencyBase: string) {
 		this._data.currencyBase = currencyBase
 	}
-	
-	get baseCurrency(): string
-	{
+
+	get baseCurrency(): string {
 		return this.data.currencyBase
 	}
 	// endregion ////
-	
+
 	// region CurrencyList ////
-	setCurrencyList(list: CurrencyInit[] = [])
-	{
+	setCurrencyList(list: CurrencyInit[] = []) {
 		this.data.currencyList.clear()
-		
-		list.forEach((row) => {
-			this.data.currencyList.set(
-				row.CURRENCY,
-				{
-					amount: parseFloat(row.CURRENCY),
-					amountCnt: parseInt(row.AMOUNT_CNT),
-					isBase: row.BASE === 'Y',
-					currencyCode: row.CURRENCY,
-					dateUpdate: Text.toDateTime(row.DATE_UPDATE),
-					decimals: parseInt(row.DECIMALS),
-					decPoint: row.DEC_POINT,
-					formatString: row.FORMAT_STRING,
-					fullName: row.FULL_NAME,
-					lid: row.LID,
-					sort: parseInt(row.SORT),
-					thousandsSep: row?.THOUSANDS_SEP || null,
-					lang: {}
-				} as Currency
-			)
-		})
+
+		for (const row of list) {
+			this.data.currencyList.set(row.CURRENCY, {
+				amount: Number.parseFloat(row.CURRENCY),
+				amountCnt: Number.parseInt(row.AMOUNT_CNT),
+				isBase: row.BASE === 'Y',
+				currencyCode: row.CURRENCY,
+				dateUpdate: Text.toDateTime(row.DATE_UPDATE),
+				decimals: Number.parseInt(row.DECIMALS),
+				decPoint: row.DEC_POINT,
+				formatString: row.FORMAT_STRING,
+				fullName: row.FULL_NAME,
+				lid: row.LID,
+				sort: Number.parseInt(row.SORT),
+				thousandsSep: row?.THOUSANDS_SEP || null,
+				lang: {},
+			} as Currency)
+		}
 	}
 	// endregion ////
-	
+
 	// region Info ////
-	getCurrencyFullName(
-		currencyCode: string,
-		langCode: string
-	): string
-	{
+	getCurrencyFullName(currencyCode: string, langCode: string): string {
 		const currency = this.data.currencyList.get(currencyCode)
-		if(typeof currency === 'undefined')
-		{
+		if (typeof currency === 'undefined') {
 			throw new UnhandledMatchError(currencyCode)
 		}
-		
+
 		let fullName = currency.fullName
-		
-		if(!(typeof langCode === 'undefined'))
-		{
+
+		if (!(typeof langCode === 'undefined')) {
 			const langFormatter = currency.lang[langCode]
-			if(!Type.isUndefined(langFormatter))
-			{
+			if (!Type.isUndefined(langFormatter)) {
 				fullName = langFormatter.fullName
 			}
 		}
-		
+
 		return fullName
 	}
-	
-	getCurrencyLiteral(
-		currencyCode: string,
-		langCode?: string
-	): string
-	{
+
+	getCurrencyLiteral(currencyCode: string, langCode?: string): string {
 		const currency = this.data.currencyList.get(currencyCode)
-		if(typeof currency === 'undefined')
-		{
+		if (typeof currency === 'undefined') {
 			throw new UnhandledMatchError(currencyCode)
 		}
-		
+
 		let formatString = currency.formatString
-		
-		if(!(typeof langCode === 'undefined'))
-		{
+
+		if (!(typeof langCode === 'undefined')) {
 			const langFormatter = currency.lang[langCode]
-			if(!Type.isUndefined(langFormatter))
-			{
+			if (!Type.isUndefined(langFormatter)) {
 				formatString = langFormatter.formatString
 			}
 		}
-		
-		return formatString
-			.replaceAll('&#', '&%')
-			.replaceAll('#', '')
-			.replaceAll('&%', '&#')
-			.trim()
-		|| ''
+
+		return (
+			formatString
+				.replaceAll('&#', '&%')
+				.replaceAll('#', '')
+				.replaceAll('&%', '&#')
+				.trim() || ''
+		)
 	}
-	
-	get currencyList(): string[]
-	{
-		return Array.from(this.data.currencyList.keys())
+
+	get currencyList(): string[] {
+		return [...this.data.currencyList.keys()]
 	}
 	// endregion ////
-	
+
 	// region Format ////
-	format(
-		value: number,
-		currencyCode: string,
-		langCode: string
-	): string
-	{
+	format(value: number, currencyCode: string, langCode: string): string {
 		const currency = this.data.currencyList.get(currencyCode)
-		if(typeof currency === 'undefined')
-		{
+		if (typeof currency === 'undefined') {
 			throw new UnhandledMatchError(currencyCode)
 		}
-		
+
 		const options = {
 			formatString: currency.formatString,
 			decimals: currency.decimals,
 			decPoint: currency.decPoint,
 			thousandsSep: currency.thousandsSep,
 		}
-		if(!Type.isStringFilled(options.thousandsSep))
-		{
+		if (!Type.isStringFilled(options.thousandsSep)) {
 			options.thousandsSep = ''
 		}
-		
+
 		const langFormatter = currency.lang[langCode]
-		if(!Type.isUndefined(langFormatter))
-		{
+		if (!Type.isUndefined(langFormatter)) {
 			options.formatString = langFormatter.formatString
 			options.decimals = langFormatter.decimals
 			options.decPoint = langFormatter.decPoint
 			options.thousandsSep = langFormatter.thousandsSep
 		}
-		
-		return options.formatString
-			.replaceAll('&#', '&%')
-			.replace(
-				'#',
-				Text.numberFormat(
-					value,
-					options.decimals,
-					options.decPoint,
-					options.thousandsSep
+
+		return (
+			options.formatString
+				.replaceAll('&#', '&%')
+				.replace(
+					'#',
+					Text.numberFormat(
+						value,
+						options.decimals,
+						options.decPoint,
+						options.thousandsSep
+					)
 				)
-			)
-			.replaceAll('&%', '&#')
-		|| ''
+				.replaceAll('&%', '&#') || ''
+		)
 	}
 	// endregion ////
 }

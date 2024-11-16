@@ -5,13 +5,11 @@ const objectCtorString = Function.prototype.toString.call(Object)
  *
  * @see bitrix/js/main/core/src/lib/type.js
  */
-class TypeManager
-{
-	getTag(value: any): string
-	{
+class TypeManager {
+	getTag(value: any): string {
 		return Object.prototype.toString.call(value)
 	}
-	
+
 	/**
 	 * Checks that value is string
 	 * @param value
@@ -19,24 +17,21 @@ class TypeManager
 	 *
 	 * @memo get from pull.client.Utils
 	 */
-	isString(value: any): boolean
-	{
+	isString(value: any): boolean {
 		return value === ''
 			? true
-			: (
+			: // eslint-disable-next-line unicorn/no-nested-ternary
 				value
-				? (typeof (value) === 'string' || value instanceof String)
+				? typeof value === 'string' || value instanceof String
 				: false
-			)
 	}
 
 	/**
-	 * Returns true if a value is not empty string
+	 * Returns true if a value is not an empty string
 	 * @param value
 	 * @returns {boolean}
 	 */
-	isStringFilled(value: any): boolean
-	{
+	isStringFilled(value: any): boolean {
 		return this.isString(value) && value !== ''
 	}
 
@@ -47,30 +42,27 @@ class TypeManager
 	 *
 	 * @memo get from pull.client.Utils
 	 */
-	isFunction(value: any): boolean
-	{
+	isFunction(value: any): boolean {
 		return value === null
 			? false
-			: (typeof (value) === 'function' || value instanceof Function)
+			: typeof value === 'function' || value instanceof Function
 	}
 
 	/**
-	 * Checks that value is object
+	 * Checks that value is an object
 	 * @param value
 	 * @return {boolean}
 	 */
-	isObject(value: any): boolean
-	{
+	isObject(value: any): boolean {
 		return !!value && (typeof value === 'object' || typeof value === 'function')
 	}
-	
+
 	/**
 	 * Checks that value is object like
 	 * @param value
 	 * @return {boolean}
 	 */
-	isObjectLike(value: any): boolean
-	{
+	isObjectLike(value: any): boolean {
 		return !!value && typeof value === 'object'
 	}
 
@@ -79,16 +71,13 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isPlainObject(value: any): boolean
-	{
-		if (!this.isObjectLike(value) || this.getTag(value) !== '[object Object]')
-		{
+	isPlainObject(value: any): boolean {
+		if (!this.isObjectLike(value) || this.getTag(value) !== '[object Object]') {
 			return false
 		}
 
 		const proto = Object.getPrototypeOf(value)
-		if (proto === null)
-		{
+		if (proto === null) {
 			return true
 		}
 
@@ -99,41 +88,35 @@ class TypeManager
 			Function.prototype.toString.call(ctor) === objectCtorString
 		)
 	}
-	
-	isJsonRpcRequest(value: any): boolean
-	{
+
+	isJsonRpcRequest(value: any): boolean {
 		return (
-			typeof (value) === 'object'
-			&& value
-			&& 'jsonrpc' in value
-			&& this.isStringFilled(value.jsonrpc)
-			&& 'method' in value
-			&& this.isStringFilled(value.method)
+			typeof value === 'object' &&
+			value &&
+			'jsonrpc' in value &&
+			this.isStringFilled(value.jsonrpc) &&
+			'method' in value &&
+			this.isStringFilled(value.method)
 		)
 	}
 
-	isJsonRpcResponse(value: any): boolean
-	{
+	isJsonRpcResponse(value: any): boolean {
 		return (
-			typeof (value) === "object"
-			&& value
-			&& 'jsonrpc' in value
-			&& this.isStringFilled(value.jsonrpc)
-			&& 'id' in value
-			&& (
-				'result' in value
-				|| 'error' in value
-			)
+			typeof value === 'object' &&
+			value &&
+			'jsonrpc' in value &&
+			this.isStringFilled(value.jsonrpc) &&
+			'id' in value &&
+			('result' in value || 'error' in value)
 		)
 	}
-	
+
 	/**
 	 * Checks that value is boolean
 	 * @param value
 	 * @return {boolean}
 	 */
-	isBoolean(value: any): boolean
-	{
+	isBoolean(value: any): boolean {
 		return value === true || value === false
 	}
 
@@ -142,8 +125,7 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isNumber(value: any): boolean
-	{
+	isNumber(value: any): boolean {
 		return !Number.isNaN(value) && typeof value === 'number'
 	}
 
@@ -152,9 +134,8 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isInteger(value: any): boolean
-	{
-		return this.isNumber(value) && (value % 1) === 0
+	isInteger(value: any): boolean {
+		return this.isNumber(value) && value % 1 === 0
 	}
 
 	/**
@@ -162,8 +143,7 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isFloat(value: any): boolean
-	{
+	isFloat(value: any): boolean {
 		return this.isNumber(value) && !this.isInteger(value)
 	}
 
@@ -172,18 +152,16 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isNil(value: any): boolean
-	{
+	isNil(value: any): boolean {
 		return value === null || value === undefined
 	}
 
 	/**
-	 * Checks that value is array
+	 * Checks that value is an array
 	 * @param value
 	 * @return {boolean}
 	 */
-	isArray(value: any): boolean
-	{
+	isArray(value: any): boolean {
 		return !this.isNil(value) && Array.isArray(value)
 	}
 
@@ -192,8 +170,7 @@ class TypeManager
 	 * @param value
 	 * @returns {boolean}
 	 */
-	isArrayFilled(value: any): boolean
-	{
+	isArrayFilled(value: any): boolean {
 		return this.isArray(value) && value.length > 0
 	}
 
@@ -202,13 +179,12 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isArrayLike(value: any): boolean
-	{
+	isArrayLike(value: any): boolean {
 		return (
-			!this.isNil(value)
-			&& !this.isFunction(value)
-			&& value.length > -1
-			&& value.length <= Number.MAX_SAFE_INTEGER
+			!this.isNil(value) &&
+			!this.isFunction(value) &&
+			value.length > -1 &&
+			value.length <= Number.MAX_SAFE_INTEGER
 		)
 	}
 
@@ -217,19 +193,21 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isDate(value: any): boolean
-	{
+	isDate(value: any): boolean {
 		return this.isObjectLike(value) && this.getTag(value) === '[object Date]'
 	}
 
 	/**
-	 * Checks that is DOM node
+	 * Checks that is a DOM node
 	 * @param value
 	 * @return {boolean}
 	 */
-	isDomNode(value: any): boolean
-	{
-		return this.isObjectLike(value) && !this.isPlainObject(value) && 'nodeType' in value
+	isDomNode(value: any): boolean {
+		return (
+			this.isObjectLike(value) &&
+			!this.isPlainObject(value) &&
+			'nodeType' in value
+		)
 	}
 
 	/**
@@ -237,18 +215,16 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isElementNode(value: any): boolean
-	{
+	isElementNode(value: any): boolean {
 		return this.isDomNode(value) && value.nodeType === Node.ELEMENT_NODE
 	}
 
 	/**
-	 * Checks that value is text node
+	 * Checks that value is a text node
 	 * @param value
 	 * @return {boolean}
 	 */
-	isTextNode(value: any): boolean
-	{
+	isTextNode(value: any): boolean {
 		return this.isDomNode(value) && value.nodeType === Node.TEXT_NODE
 	}
 
@@ -257,8 +233,7 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isMap(value: any): boolean
-	{
+	isMap(value: any): boolean {
 		return this.isObjectLike(value) && this.getTag(value) === '[object Map]'
 	}
 
@@ -267,8 +242,7 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isSet(value: any): boolean
-	{
+	isSet(value: any): boolean {
 		return this.isObjectLike(value) && this.getTag(value) === '[object Set]'
 	}
 
@@ -277,8 +251,7 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isWeakMap(value: any): boolean
-	{
+	isWeakMap(value: any): boolean {
 		return this.isObjectLike(value) && this.getTag(value) === '[object WeakMap]'
 	}
 
@@ -287,8 +260,7 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isWeakSet(value: any): boolean
-	{
+	isWeakSet(value: any): boolean {
 		return this.isObjectLike(value) && this.getTag(value) === '[object WeakSet]'
 	}
 
@@ -297,10 +269,11 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isPrototype(value: any): boolean
-	{
+	isPrototype(value: any): boolean {
 		return (
-			(((typeof (value && value.constructor) === 'function') && value.constructor.prototype) || Object.prototype) === value
+			((typeof (value && value.constructor) === 'function' &&
+				value.constructor.prototype) ||
+				Object.prototype) === value
 		)
 	}
 
@@ -309,8 +282,7 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isRegExp(value: any): boolean
-	{
+	isRegExp(value: any): boolean {
 		return this.isObjectLike(value) && this.getTag(value) === '[object RegExp]'
 	}
 
@@ -319,8 +291,7 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isNull(value: any): boolean
-	{
+	isNull(value: any): boolean {
 		return value === null
 	}
 
@@ -329,8 +300,7 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isUndefined(value: any): boolean
-	{
+	isUndefined(value: any): boolean {
 		return typeof value === 'undefined'
 	}
 
@@ -339,9 +309,10 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isArrayBuffer(value: any): boolean
-	{
-		return this.isObjectLike(value) && this.getTag(value) === '[object ArrayBuffer]'
+	isArrayBuffer(value: any): boolean {
+		return (
+			this.isObjectLike(value) && this.getTag(value) === '[object ArrayBuffer]'
+		)
 	}
 
 	/**
@@ -349,11 +320,9 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isTypedArray(value: any): boolean
-	{
-		const regExpTypedTag = (
+	isTypedArray(value: any): boolean {
+		const regExpTypedTag =
 			/^\[object (?:Float(?:32|64)|(?:Int|Uint)(?:8|16|32)|Uint8Clamped)]$/
-		)
 		return this.isObjectLike(value) && regExpTypedTag.test(this.getTag(value))
 	}
 
@@ -362,13 +331,12 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isBlob(value: any): boolean
-	{
+	isBlob(value: any): boolean {
 		return (
-			this.isObjectLike(value)
-			&& this.isNumber(value.size)
-			&& this.isString(value.type)
-			&& this.isFunction(value.slice)
+			this.isObjectLike(value) &&
+			this.isNumber(value.size) &&
+			this.isString(value.type) &&
+			this.isFunction(value.slice)
 		)
 	}
 
@@ -377,12 +345,12 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isFile(value: any): boolean
-	{
+	isFile(value: any): boolean {
 		return (
-			this.isBlob(value)
-			&& this.isString(value.name)
-			&& (this.isNumber(value.lastModified) || this.isObjectLike(value.lastModifiedDate))
+			this.isBlob(value) &&
+			this.isString(value.name) &&
+			(this.isNumber(value.lastModified) ||
+				this.isObjectLike(value.lastModifiedDate))
 		)
 	}
 
@@ -391,82 +359,54 @@ class TypeManager
 	 * @param value
 	 * @return {boolean}
 	 */
-	isFormData(value: any): boolean
-	{
+	isFormData(value: any): boolean {
 		return value instanceof FormData
 	}
-	
-	clone(
-		obj: any,
-		bCopyObj: boolean = true
-	): any
-	{
+
+	clone(obj: any, bCopyObj: boolean = true): any {
 		let _obj, i, l
-		
-		if(obj === null)
-		{
+
+		if (obj === null) {
 			return null
 		}
-		
-		if(this.isDomNode(obj))
-		{
+
+		if (this.isDomNode(obj)) {
 			_obj = obj.cloneNode(bCopyObj)
-		}
-		else if(typeof obj == 'object')
-		{
-			if (this.isArray(obj))
-			{
+		} else if (typeof obj == 'object') {
+			if (this.isArray(obj)) {
 				_obj = []
-				for (i = 0, l = obj.length; i < l; i++)
-				{
-					if (typeof obj[i] == "object" && bCopyObj)
-					{
+				for (i = 0, l = obj.length; i < l; i++) {
+					if (typeof obj[i] == 'object' && bCopyObj) {
 						_obj[i] = this.clone(obj[i], bCopyObj)
-					}
-					else
-					{
+					} else {
 						_obj[i] = obj[i]
 					}
 				}
-			}
-			else
-			{
+			} else {
 				_obj = {}
-				if (obj.constructor)
-				{
-					if (this.isDate(obj))
-					{
+				if (obj.constructor) {
+					if (this.isDate(obj)) {
 						_obj = new Date(obj)
-					}
-					else
-					{
+					} else {
 						_obj = new obj.constructor()
 					}
 				}
-				
-				for(i in obj)
-				{
-					if (!obj.hasOwnProperty(i))
-					{
+
+				for (i in obj) {
+					if (!obj.hasOwnProperty(i)) {
 						continue
 					}
-					if (typeof obj[i] === "object" && bCopyObj)
-					{
+					if (typeof obj[i] === 'object' && bCopyObj) {
 						_obj[i] = this.clone(obj[i], bCopyObj)
-					}
-					else
-					{
+					} else {
 						_obj[i] = obj[i]
 					}
 				}
 			}
-			
-		}
-		else
-		{
+		} else {
 			_obj = obj
 		}
-		
+
 		return _obj
 	}
 }

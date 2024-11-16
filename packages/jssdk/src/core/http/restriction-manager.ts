@@ -1,7 +1,7 @@
 import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import {
 	RestrictionManagerParamsBase,
-	type TypeRestrictionManagerParams
+	type TypeRestrictionManagerParams,
 } from '../../types/http'
 
 /**
@@ -15,35 +15,28 @@ import {
  * In other words, if your server hosts several applications that all work with the same Bitrix24, the request intensity limit will be shared among all applications.
  * Keep this feature in mind when designing.
  */
-export default class RestrictionManager
-{
+export default class RestrictionManager {
 	#params: TypeRestrictionManagerParams
 	#lastDecrement: number
 	#currentAmount: number
-	
-	private _logger: null|LoggerBrowser = null
-	
-	constructor()
-	{
+
+	private _logger: null | LoggerBrowser = null
+
+	constructor() {
 		this.#params = RestrictionManagerParamsBase
-		
+
 		this.#currentAmount = 0
 		this.#lastDecrement = 0
 	}
-	
-	setLogger(logger: LoggerBrowser): void
-	{
+
+	setLogger(logger: LoggerBrowser): void {
 		this._logger = logger
 	}
-	
-	getLogger(): LoggerBrowser
-	{
-		if(null === this._logger)
-		{
-			this._logger = LoggerBrowser.build(
-				`NullLogger`
-			)
-			
+
+	getLogger(): LoggerBrowser {
+		if (null === this._logger) {
+			this._logger = LoggerBrowser.build(`NullLogger`)
+
 			this._logger.setConfig({
 				[LoggerType.desktop]: false,
 				[LoggerType.log]: false,
@@ -53,94 +46,85 @@ export default class RestrictionManager
 				[LoggerType.trace]: false,
 			})
 		}
-		
+
 		return this._logger
 	}
-	
-	get params(): TypeRestrictionManagerParams
-	{
+
+	get params(): TypeRestrictionManagerParams {
 		return { ...this.#params }
 	}
-	
-	set params(params: TypeRestrictionManagerParams)
-	{
+
+	set params(params: TypeRestrictionManagerParams) {
 		this.#params = params
-		
-		this.getLogger().log(
-			`new restriction manager params`, params
-		)
+
+		this.getLogger().log(`new restriction manager params`, params)
 	}
-	
-	check(
-		hash: string = ''
-	): Promise<null>
-	{
-		return new Promise(resolve => {
+
+	check(hash: string = ''): Promise<null> {
+		return new Promise((resolve) => {
 			this.#decrementStorage()
-			
-			if(this.#checkStorage())
-			{
-				this.getLogger().log(`>> no sleep >>> ${hash}`, this.#getStorageStatus())
+
+			if (this.#checkStorage()) {
+				this.getLogger().log(
+					`>> no sleep >>> ${hash}`,
+					this.#getStorageStatus()
+				)
 				this.#incrementStorage()
-				
+
 				return resolve(null)
-			}
-			else
-			{
+			} else {
 				// eslint-disable-next-line
 				const sleep = (callback: Function) => {
-					this.getLogger().info(`>> go sleep >>> ${hash}`, this.#getStorageStatus())
+					this.getLogger().info(
+						`>> go sleep >>> ${hash}`,
+						this.#getStorageStatus()
+					)
 					setTimeout(() => {
-						callback();
+						callback()
 					}, this.#params.sleep)
-				};
-				
+				}
+
 				const wait = () => {
 					this.#decrementStorage()
-					if(this.#checkStorage())
-					{
-						this.getLogger().info(`<< stop sleep <<< ${hash}`, this.#getStorageStatus())
+					if (this.#checkStorage()) {
+						this.getLogger().info(
+							`<< stop sleep <<< ${hash}`,
+							this.#getStorageStatus()
+						)
 						this.#incrementStorage()
 						return resolve(null)
-					}
-					else
-					{
+					} else {
 						sleep(wait)
 					}
-				};
-				
+				}
+
 				sleep(wait)
 			}
-		});
+		})
 	}
-	
-	#getStorageStatus()
-	{
+
+	#getStorageStatus() {
 		return `${this.#currentAmount.toFixed(4)} from ${this.#params.amount}`
 	}
-	
-	#decrementStorage(): void
-	{
-		if(this.#lastDecrement > 0)
-		{
-			this.#currentAmount -= (Date.now() - this.#lastDecrement) * this.#params.speed
-			
-			if(this.#currentAmount < 0)
-			{
+
+	#decrementStorage(): void {
+		if (this.#lastDecrement > 0) {
+			this.#currentAmount -=
+				(Date.now() - this.#lastDecrement) * this.#params.speed
+
+			if (this.#currentAmount < 0) {
 				this.#currentAmount = 0
 			}
 		}
-		
+
 		this.#lastDecrement = Date.now()
 	}
-	
-	#incrementStorage(): void
-	{
+
+	#incrementStorage(): void {
 		this.#currentAmount++
 	}
-	
-	#checkStorage(): boolean
-	{
+
+	#checkStorage(): boolean {
 		return this.#currentAmount < this.#params.amount
 	}
 }

@@ -2,8 +2,7 @@
  * CRM Entity Types
  * @link https://dev.1c-bitrix.ru/rest_help/crm/constants.php
  */
-export enum EnumCrmEntityType
-{
+export enum EnumCrmEntityType {
 	undefined = 'UNDEFINED',
 	lead = 'CRM_LEAD',
 	deal = 'CRM_DEAL',
@@ -15,8 +14,7 @@ export enum EnumCrmEntityType
 	requisite = 'CRM_REQUISITE',
 }
 
-export enum EnumCrmEntityTypeId
-{
+export enum EnumCrmEntityTypeId {
 	undefined = 0,
 	lead = 1,
 	deal = 2,

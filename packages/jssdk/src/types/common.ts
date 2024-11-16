@@ -6,11 +6,11 @@ export type NumberString = string
 /**
  * Like `'2018-06-07T03:00:00+03:00'`
  */
-export type ISODate = string;
-export type BoolString = 'Y' | 'N';
-export type GenderString = 'M' | 'F' | '';
+export type ISODate = string
+export type BoolString = 'Y' | 'N'
+export type GenderString = 'M' | 'F' | ''
 
-export type PlacementViewMode = 'view' | 'edit';
+export type PlacementViewMode = 'view' | 'edit'
 
 export type Fields = {
 	readonly [key: string]: {
@@ -32,7 +32,9 @@ export type MultiField = {
 	readonly TYPE_ID: string
 }
 
-export type MultiFieldArray = ReadonlyArray<Pick<MultiField, 'VALUE' | 'VALUE_TYPE'>>
+export type MultiFieldArray = ReadonlyArray<
+	Pick<MultiField, 'VALUE' | 'VALUE_TYPE'>
+>
 
 /**
  * Describes the inline settings in UF
@@ -52,8 +54,7 @@ export type UserFieldType = {
  * @link https://apidocs.bitrix24.ru/api-reference/data-types.html
  * @link https://dev.1c-bitrix.ru/rest_help/crm/dynamic/methodscrmitem/crm_item_fields.php
  */
-export enum DataType
-{
+export enum DataType {
 	undefined = 'undefined',
 	any = 'any',
 	integer = 'integer',

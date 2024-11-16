@@ -27,7 +27,6 @@ const unescapeEntities: Record<string, string> = {
 	'&#34': '"',
 }
 
-
 /**
  * The `Text` class provides a set of utility methods for working with text data.
  * It includes functions for encoding and decoding HTML entities, generating random strings,
@@ -35,45 +34,41 @@ const unescapeEntities: Record<string, string> = {
  *
  * @see bitrix/js/main/core/src/lib/text.js
  */
-class TextManager
-{
-	getRandom(length = 8): string
-	{
+class TextManager {
+	getRandom(length = 8): string {
 		// eslint-disable-next-line
-		return [...Array(length)].map(() => (~~(Math.random() * 36)).toString(36)).join('')
+		return [...Array(length)]
+			.map(() => Math.trunc(Math.random() * 36).toString(36))
+			.join('')
 	}
-	
+
 	/**
 	 * Generates UUID
 	 */
-	getUniqId(): string
-	{
+	getUniqId(): string {
 		return 'xxxxxxxx-xlsx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
 			const r = Math.trunc(Math.random() * 16)
-			const v = c === 'x' ? r : (r & 0x3 | 0x8)
+			const v = c === 'x' ? r : (r & 0x3) | 0x8
 			return v.toString(16)
 		})
 	}
-	
+
 	/**
 	 * Generate uuid v7
 	 * @return {string}
 	 */
-	getUuidRfc4122(): string
-	{
+	getUuidRfc4122(): string {
 		return uuidv7()
 	}
-	
+
 	/**
 	 * Encodes all unsafe entities
 	 * @param {string} value
 	 * @return {string}
 	 */
-	encode(value: string): string
-	{
-		if (Type.isString(value))
-		{
-			return value.replace(reEscape, item => escapeEntities[item])
+	encode(value: string): string {
+		if (Type.isString(value)) {
+			return value.replace(reEscape, (item) => escapeEntities[item])
 		}
 
 		return value
@@ -84,131 +79,122 @@ class TextManager
 	 * @param {string} value
 	 * @return {string}
 	 */
-	decode(value: string): string
-	{
-		if (Type.isString(value))
-		{
-			return value.replace(reUnescape, item => unescapeEntities[item])
+	decode(value: string): string {
+		if (Type.isString(value)) {
+			return value.replace(reUnescape, (item) => unescapeEntities[item])
 		}
 
 		return value
 	}
-	
-	toNumber(value: any): number
-	{
+
+	toNumber(value: any): number {
 		const parsedValue = Number.parseFloat(value)
 
-		if (Type.isNumber(parsedValue))
-		{
+		if (Type.isNumber(parsedValue)) {
 			return parsedValue
 		}
 
 		return 0.0
 	}
 
-	toInteger(value: any): number
-	{
+	toInteger(value: any): number {
 		return this.toNumber(Number.parseInt(value, 10))
 	}
 
-	toBoolean(value: any, trueValues: string[] = []): boolean
-	{
+	toBoolean(value: any, trueValues: string[] = []): boolean {
 		const transformedValue = Type.isString(value) ? value.toLowerCase() : value
 		return ['true', 'y', '1', 1, true, ...trueValues].includes(transformedValue)
 	}
-	
-	toCamelCase(str: string): string
-	{
-		if (!Type.isStringFilled(str))
-		{
+
+	toCamelCase(str: string): string {
+		if (!Type.isStringFilled(str)) {
 			return str
 		}
-		
+
 		// eslint-disable-next-line
 		const regex = /[-_\s]+(.)?/g
-		if (!regex.test(str))
-		{
+		if (!regex.test(str)) {
 			// eslint-disable-next-line
-			return str.match(/^[A-Z]+$/) ? str.toLowerCase() : str[0].toLowerCase() + str.slice(1)
+			return str.match(/^[A-Z]+$/)
+				? str.toLowerCase()
+				: str[0].toLowerCase() + str.slice(1)
 		}
 
 		str = str.toLowerCase()
-		str = str.replace(regex, (_match: string, letter) => letter ? letter.toUpperCase() : '')
-		
+		str = str.replace(regex, (_match: string, letter) =>
+			letter ? letter.toUpperCase() : ''
+		)
+
 		// eslint-disable-next-line
 		return str[0].toLowerCase() + str.substring(1)
 	}
 
-	toPascalCase(str: string): string
-	{
-		if (!Type.isStringFilled(str))
-		{
+	toPascalCase(str: string): string {
+		if (!Type.isStringFilled(str)) {
 			return str
 		}
 
 		return this.capitalize(this.toCamelCase(str))
 	}
 
-	toKebabCase(str: string): string
-	{
-		if (!Type.isStringFilled(str))
-		{
-			return str
-		}
-		
-		// eslint-disable-next-line
-		const matches = str.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g)
-		if (!matches)
-		{
+	toKebabCase(str: string): string {
+		if (!Type.isStringFilled(str)) {
 			return str
 		}
 
-		return matches.map(x => x.toLowerCase()).join('-')
+		const matches = str.match(
+			// eslint-disable-next-line
+			/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g
+		)
+		if (!matches) {
+			return str
+		}
+
+		return matches.map((x) => x.toLowerCase()).join('-')
 	}
 
-	capitalize(str: string): string
-	{
-		if (!Type.isStringFilled(str))
-		{
+	capitalize(str: string): string {
+		if (!Type.isStringFilled(str)) {
 			return str
 		}
-		
+
 		// eslint-disable-next-line
 		return str[0].toUpperCase() + str.substring(1)
 	}
-	
+
 	numberFormat(
 		number: number,
 		decimals: number = 0,
 		decPoint: string = '.',
 		thousandsSep: string = ','
-	): string
-	{
+	): string {
 		// eslint-disable-next-line
 		const n = !Number.isFinite(number) ? 0 : number
 		// eslint-disable-next-line
 		const fractionDigits = !Number.isFinite(decimals) ? 0 : Math.abs(decimals)
-		
+
 		const toFixedFix = (n: number, fractionDigits: number): number => {
 			const k = Math.pow(10, fractionDigits)
 			return Math.round(n * k) / k
 		}
-		
-		const s = (fractionDigits ? toFixedFix(n, fractionDigits) : Math.round(n)).toString().split('.')
-		
+
+		const s = (fractionDigits ? toFixedFix(n, fractionDigits) : Math.round(n))
+			.toString()
+			.split('.')
+
 		if (s[0].length > 3) {
 			s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, thousandsSep)
 		}
-		
+
 		if ((s[1] || '').length < fractionDigits) {
 			s[1] = s[1] || ''
 			// eslint-disable-next-line
 			s[1] += new Array(fractionDigits - s[1].length + 1).join('0')
 		}
-		
+
 		return s.join(decPoint)
 	}
-	
+
 	/**
 	 * Convert string to DateTime from ISO 8601 or self template
 	 *
@@ -219,63 +205,51 @@ class TextManager
 	 *
 	 * @link https://moment.github.io/luxon/#/parsing?id=parsing-technical-formats
 	 */
-	toDateTime (
+	toDateTime(
 		dateString: string,
 		template?: string,
 		opts?: DateTimeOptions
-	): DateTime
-	{
-		if(
-			!(typeof template === 'undefined')
-			&& Type.isStringFilled(template)
-		)
-		{
-			return DateTime.fromFormat(
-				dateString,
-				template,
-				opts
-			)
+	): DateTime {
+		if (!(typeof template === 'undefined') && Type.isStringFilled(template)) {
+			return DateTime.fromFormat(dateString, template, opts)
 		}
-		
+
 		return DateTime.fromISO(dateString, opts)
 	}
-	
-	getDateForLog(): string
-	{
-		const now = DateTime.now();
+
+	getDateForLog(): string {
+		const now = DateTime.now()
 		return now.toFormat('y-MM-dd HH:mm:ss')
 	}
-	
-	buildQueryString(params: any): string
-	{
+
+	buildQueryString(params: any): string {
 		let result = ''
-		for(const key in params)
-		{
-			if(!params.hasOwnProperty(key))
-			{
+		for (const key in params) {
+			if (!params.hasOwnProperty(key)) {
 				continue
 			}
-			
+
 			const value = params[key]
-			if(Type.isArray(value))
-			{
+			if (Type.isArray(value)) {
 				// eslint-disable-next-line
 				value.forEach((valueElement: any, index: any) => {
-					result += encodeURIComponent(key + "[" + index + "]") + "=" + encodeURIComponent(valueElement) + "&"
+					result +=
+						encodeURIComponent(key + '[' + index + ']') +
+						'=' +
+						encodeURIComponent(valueElement) +
+						'&'
 				})
-			}
-			else
-			{
-				result += encodeURIComponent(key) + "=" + encodeURIComponent(value) + "&"
+			} else {
+				result +=
+					encodeURIComponent(key) + '=' + encodeURIComponent(value) + '&'
 			}
 		}
-		
-		if (result.length > 0)
-		{
+
+		if (result.length > 0) {
 			// eslint-disable-next-line
 			result = result.substring(0, result.length - 1)
 		}
-		
+
 		return result
 	}
 }

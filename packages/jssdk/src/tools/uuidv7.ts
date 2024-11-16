@@ -16,41 +16,32 @@ const _state: V7State = {}
 let getRandomValues: typeof crypto.getRandomValues | undefined
 const randoms8 = new Uint8Array(16)
 
-const byteToHex: string[] = [];
-for(let i = 0; i < 256; ++i)
-{
+const byteToHex: string[] = []
+for (let i = 0; i < 256; ++i) {
 	byteToHex.push((i + 0x100).toString(16).slice(1))
 }
 
-function updateV7State(
-	state: V7State,
-	now: number,
-	randoms: Uint8Array
-)
-{
+function updateV7State(state: V7State, now: number, randoms: Uint8Array) {
 	state.msecs ??= -Infinity
 	state.seq ??= 0
-	
-	if(now > state.msecs)
-	{
+
+	if (now > state.msecs) {
 		// Time has moved on! Pick a new random sequence number
-		state.seq = (randoms[6] << 23) | (randoms[7] << 16) | (randoms[8] << 8) | randoms[9]
+		state.seq =
+			(randoms[6] << 23) | (randoms[7] << 16) | (randoms[8] << 8) | randoms[9]
 		state.msecs = now
-	}
-	else
-	{
+	} else {
 		// Bump sequence counter w/ 32-bit rollover
 		state.seq = Math.trunc(state.seq + 1)
-		
+
 		// In case of rollover, bump timestamp to preserve monotonicity. This is
 		// allowed by the RFC and should self-correct as the system clock catches
 		// up. See https://www.rfc-editor.org/rfc/rfc9562.html#section-6.2-9.4
-		if(state.seq === 0)
-		{
+		if (state.seq === 0) {
 			state.msecs++
 		}
 	}
-	
+
 	return state
 }
 
@@ -60,18 +51,20 @@ function v7Bytes(
 	seq?: number,
 	buf?: Uint8Array,
 	offset = 0
-)
-{
-	if(!buf)
-	{
+) {
+	if (!buf) {
 		buf = new Uint8Array(16)
 		offset = 0
 	}
-	
+
 	// Defaults
 	msecs ??= Date.now()
-	seq ??= ((randoms[6] * 0x7f) << 24) | (randoms[7] << 16) | (randoms[8] << 8) | randoms[9]
-	
+	seq ??=
+		((randoms[6] * 0x7f) << 24) |
+		(randoms[7] << 16) |
+		(randoms[8] << 8) |
+		randoms[9]
+
 	// byte 0-5: timestamp (48 bits)
 	buf[offset++] = (msecs / 0x10000000000) & 0xff
 	buf[offset++] = (msecs / 0x100000000) & 0xff
@@ -79,37 +72,33 @@ function v7Bytes(
 	buf[offset++] = (msecs / 0x10000) & 0xff
 	buf[offset++] = (msecs / 0x100) & 0xff
 	buf[offset++] = msecs & 0xff
-	
+
 	// byte 6: `version` (4 bits) | sequence bits 28-31 (4 bits)
 	buf[offset++] = 0x70 | ((seq >>> 28) & 0x0f)
-	
+
 	// byte 7: sequence bits 20-27 (8 bits)
 	buf[offset++] = (seq >>> 20) & 0xff
-	
+
 	// byte 8: `variant` (2 bits) | sequence bits 14-19 (6 bits)
 	buf[offset++] = 0x80 | ((seq >>> 14) & 0x3f)
-	
+
 	// byte 9: sequence bits 6-13 (8 bits)
 	buf[offset++] = (seq >>> 6) & 0xff
-	
+
 	// byte 10: sequence bits 0-5 (6 bits) | random (2 bits)
 	buf[offset++] = ((seq << 2) & 0xff) | (randoms[10] & 0x03)
-	
+
 	// bytes 11-15: random (40 bits)
 	buf[offset++] = randoms[11]
 	buf[offset++] = randoms[12]
 	buf[offset++] = randoms[13]
 	buf[offset++] = randoms[14]
 	buf[offset++] = randoms[15]
-	
+
 	return buf
 }
 
-function unsafeStringify(
-	arr: Uint8Array,
-	offset = 0
-): string
-{
+function unsafeStringify(arr: Uint8Array, offset = 0): string {
 	// Note: Be careful editing this code!  It's been tuned for performance
 	// and works in ways you may not expect.
 	//
@@ -138,33 +127,31 @@ function unsafeStringify(
 	).toLowerCase()
 }
 
-export default function uuidv7(): string
-{
-	
+export default function uuidv7(): string {
 	const buf = undefined
 	const offset = undefined
-	
+
 	const now = Date.now()
-	
-	if (!getRandomValues)
-	{
-		if(
-			typeof crypto === 'undefined'
-			|| !crypto.getRandomValues
-		){
-			throw new Error(
-				'crypto.getRandomValues() not supported.'
-			)
+
+	if (!getRandomValues) {
+		if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
+			throw new Error('crypto.getRandomValues() not supported.')
 		}
-		
+
 		getRandomValues = crypto.getRandomValues.bind(crypto)
 	}
-	
-	const randoms = getRandomValues(randoms8);
-	
+
+	const randoms = getRandomValues(randoms8)
+
 	updateV7State(_state, now, randoms)
-	
-	const bytes: Uint8Array = v7Bytes(randoms, _state.msecs, _state.seq, buf, offset)
-	
+
+	const bytes: Uint8Array = v7Bytes(
+		randoms,
+		_state.msecs,
+		_state.seq,
+		buf,
+		offset
+	)
+
 	return unsafeStringify(bytes)
 }

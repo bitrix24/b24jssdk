@@ -1,26 +1,19 @@
 import { LoggerBrowser } from '../logger/browser'
 import { Result } from '../core/result'
-import { AjaxResult } from '../core/http/ajaxResult'
+import { AjaxResult } from '../core/http/ajax-result'
 
 export type TypeHttp = {
 	setLogger(logger: LoggerBrowser): void
 	getLogger(): LoggerBrowser
-	
-	batch(
-		calls: any[]|object,
-		isHaltOnError: boolean
-	): Promise<Result>
-	
-	call(
-		method: string,
-		params: object,
-		start: number
-	): Promise<AjaxResult>
-	
+
+	batch(calls: any[] | object, isHaltOnError: boolean): Promise<Result>
+
+	call(method: string, params: object, start: number): Promise<AjaxResult>
+
 	setRestrictionManagerParams(params: TypeRestrictionManagerParams): void
-	
+
 	getRestrictionManagerParams(): TypeRestrictionManagerParams
-	
+
 	setLogTag(logTag?: string): void
 	clearLogTag(): void
 }
@@ -28,8 +21,8 @@ export type TypeHttp = {
 export interface IRequestIdGenerator {
 	getRequestId(): string
 	getHeaderFieldName(): string
-	getQueryStringParameterName():string
-	getQueryStringSdkParameterName():string
+	getQueryStringParameterName(): string
+	getQueryStringSdkParameterName(): string
 }
 
 export type TypeRestrictionManagerParams = {
@@ -41,7 +34,7 @@ export type TypeRestrictionManagerParams = {
 export const RestrictionManagerParamsBase = {
 	sleep: 1_000,
 	speed: 0.001,
-	amount: 30
+	amount: 30,
 } as TypeRestrictionManagerParams
 
 /**
@@ -50,5 +43,5 @@ export const RestrictionManagerParamsBase = {
 export const RestrictionManagerParamsForEnterprise = {
 	sleep: 600,
 	speed: 0.01,
-	amount: 30 * 5
+	amount: 30 * 5,
 } as TypeRestrictionManagerParams

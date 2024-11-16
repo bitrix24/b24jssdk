@@ -1,8 +1,7 @@
 /**
  * List of commands for the B24 parent window
  */
-export enum MessageCommands
-{
+export enum MessageCommands {
 	getInitData = 'getInitData',
 	setInstallFinish = 'setInstallFinish',
 	setInstall = 'setInstall',

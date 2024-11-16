@@ -1,32 +1,32 @@
 import { LoggerBrowser } from '../logger/browser'
-import { AjaxResult } from '../core/http/ajaxResult'
+import { AjaxResult } from '../core/http/ajax-result'
 import { Result } from '../core/result'
 import type { TypeHttp } from './http'
-import type {AuthActions} from "./auth";
+import type { AuthActions } from './auth'
 
 export type TypeB24 = {
 	/**
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-functions/bx24-init.html
 	 */
-	readonly isInit: boolean;
-	init(): Promise<void>;
-	destroy(): void;
-	
-	getLogger(): LoggerBrowser;
-	setLogger(logger: LoggerBrowser): void;
-	
+	readonly isInit: boolean
+	init(): Promise<void>
+	destroy(): void
+
+	getLogger(): LoggerBrowser
+	setLogger(logger: LoggerBrowser): void
+
 	get auth(): AuthActions
-	
+
 	/**
 	 * Get the account address BX24 ( https://name.bitrix24.com )
 	 */
-	getTargetOrigin(): string;
-	
+	getTargetOrigin(): string
+
 	/**
 	 * Get the account address BX24 ( https://name.bitrix24.com/rest )
 	 */
-	getTargetOriginWithPath(): string;
-	
+	getTargetOriginWithPath(): string
+
 	/**
 	 * Calls a REST service method with the specified parameters
 	 *
@@ -38,8 +38,12 @@ export type TypeB24 = {
 	 *
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
 	 */
-	callMethod(method: string, params?: object, start?: number): Promise<AjaxResult>;
-	
+	callMethod(
+		method: string,
+		params?: object,
+		start?: number
+	): Promise<AjaxResult>
+
 	/**
 	 * Calls a REST service list method with the specified parameters
 	 *
@@ -52,10 +56,10 @@ export type TypeB24 = {
 	callListMethod(
 		method: string,
 		params?: object,
-		progress?: null|((progress: number) => void),
+		progress?: null | ((progress: number) => void),
 		customKeyForResult?: string | null
-	): Promise<Result>;
-	
+	): Promise<Result>
+
 	/**
 	 * Calls a REST service list method with the specified parameters and returns a generator object.
 	 * Implements the fast algorithm described in {@see https://apidocs.bitrix24.com/api-reference/performance/huge-data.html}
@@ -72,8 +76,8 @@ export type TypeB24 = {
 		params?: any,
 		idKey?: string,
 		customKeyForResult?: string | null
-	): AsyncGenerator<any[]>;
-	
+	): AsyncGenerator<any[]>
+
 	/**
 	 * Calls a batch request with a maximum number of commands of no more than 50
 	 *
@@ -87,8 +91,11 @@ export type TypeB24 = {
 	 *
 	 * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
 	 */
-	callBatch(calls: Array<any> | object, isHaltOnError?: boolean): Promise<Result>;
-	
+	callBatch(
+		calls: Array<any> | object,
+		isHaltOnError?: boolean
+	): Promise<Result>
+
 	/**
 	 * Calls a batch request with any number of commands
 	 *
@@ -100,10 +107,10 @@ export type TypeB24 = {
 	 *
 	 * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
 	 */
-	callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result>;
-	
+	callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result>
+
 	/**
 	 * Returns Http client for requests
 	 */
-	getHttpClient(): TypeHttp;
+	getHttpClient(): TypeHttp
 }

@@ -4,21 +4,22 @@ import $protobuf from 'protobufjs'
 //"use strict";
 
 // Common aliases
-let $Reader = $protobuf.Reader, $Writer = $protobuf.Writer, $util = $protobuf.util;
+let $Reader = $protobuf.Reader,
+	$Writer = $protobuf.Writer,
+	$util = $protobuf.util
 
 // Exported root namespace
-export const $root = $protobuf.roots["push-server"] || ($protobuf.roots["push-server"] = {});
+export const $root =
+	$protobuf.roots['push-server'] || ($protobuf.roots['push-server'] = {})
 
-$root.RequestBatch = (function()
-{
-	
+$root.RequestBatch = (function () {
 	/**
 	 * Properties of a RequestBatch.
 	 * @exports IRequestBatch
 	 * @interface IRequestBatch
 	 * @property {Array.<Request>|null} [requests] RequestBatch requests
 	 */
-	
+
 	/**
 	 * Constructs a new RequestBatch.
 	 * @exports RequestBatch
@@ -27,27 +28,24 @@ $root.RequestBatch = (function()
 	 * @constructor
 	 * @param {IRequestBatch=} [properties] Properties to set
 	 */
-	function RequestBatch(properties)
-	{
-		this.requests = [];
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function RequestBatch(properties) {
+		this.requests = []
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * RequestBatch requests.
 	 * @member {Array.<Request>} requests
 	 * @memberof RequestBatch
 	 * @instance
 	 */
-	RequestBatch.prototype.requests = $util.emptyArray;
-	
+	RequestBatch.prototype.requests = $util.emptyArray
+
 	/**
 	 * Creates a new RequestBatch instance using the specified properties.
 	 * @function create
@@ -56,11 +54,10 @@ $root.RequestBatch = (function()
 	 * @param {IRequestBatch=} [properties] Properties to set
 	 * @returns {RequestBatch} RequestBatch instance
 	 */
-	RequestBatch.create = function create(properties)
-	{
-		return new RequestBatch(properties);
-	};
-	
+	RequestBatch.create = function create(properties) {
+		return new RequestBatch(properties)
+	}
+
 	/**
 	 * Encodes the specified RequestBatch message. Does not implicitly {@link RequestBatch.verify|verify} messages.
 	 * @function encode
@@ -70,20 +67,20 @@ $root.RequestBatch = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	RequestBatch.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	RequestBatch.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.requests != null && message.requests.length)
-		{
-			for(var i = 0; i < message.requests.length; ++i)
-				$root.Request.encode(message.requests[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+		if (message.requests != null && message.requests.length) {
+			for (var i = 0; i < message.requests.length; ++i)
+				$root.Request.encode(
+					message.requests[i],
+					writer.uint32(/* id 1, wireType 2 =*/ 10).fork()
+				).ldelim()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a RequestBatch message from the specified reader or buffer.
 	 * @function decode
@@ -95,41 +92,33 @@ $root.RequestBatch = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	RequestBatch.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	RequestBatch.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.RequestBatch();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.RequestBatch()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					if(!(message.requests && message.requests.length))
-					{
-						message.requests = [];
+					if (!(message.requests && message.requests.length)) {
+						message.requests = []
 					}
-					message.requests.push($root.Request.decode(reader, reader.uint32()));
-					break;
+					message.requests.push($root.Request.decode(reader, reader.uint32()))
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return RequestBatch;
-})();
+		return message
+	}
 
-$root.Request = (function()
-{
-	
+	return RequestBatch
+})()
+
+$root.Request = (function () {
 	/**
 	 * Properties of a Request.
 	 * @exports IRequest
@@ -138,7 +127,7 @@ $root.Request = (function()
 	 * @property {ChannelStatsRequest|null} [channelStats] Request channelStats
 	 * @property {ServerStatsRequest|null} [serverStats] Request serverStats
 	 */
-	
+
 	/**
 	 * Constructs a new Request.
 	 * @exports Request
@@ -147,60 +136,55 @@ $root.Request = (function()
 	 * @constructor
 	 * @param {IRequest=} [properties] Properties to set
 	 */
-	function Request(properties)
-	{
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function Request(properties) {
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * Request incomingMessages.
 	 * @member {IncomingMessagesRequest|null|undefined} incomingMessages
 	 * @memberof Request
 	 * @instance
 	 */
-	Request.prototype.incomingMessages = null;
-	
+	Request.prototype.incomingMessages = null
+
 	/**
 	 * Request channelStats.
 	 * @member {ChannelStatsRequest|null|undefined} channelStats
 	 * @memberof Request
 	 * @instance
 	 */
-	Request.prototype.channelStats = null;
-	
+	Request.prototype.channelStats = null
+
 	/**
 	 * Request serverStats.
 	 * @member {ServerStatsRequest|null|undefined} serverStats
 	 * @memberof Request
 	 * @instance
 	 */
-	Request.prototype.serverStats = null;
-	
+	Request.prototype.serverStats = null
+
 	// OneOf field names bound to virtual getters and setters
-	var $oneOfFields;
-	
+	var $oneOfFields
+
 	/**
 	 * Request command.
 	 * @member {"incomingMessages"|"channelStats"|"serverStats"|undefined} command
 	 * @memberof Request
 	 * @instance
 	 */
-	Object.defineProperty(Request.prototype, "command", {
-		get: $util.oneOfGetter($oneOfFields = [
-			"incomingMessages",
-			"channelStats",
-			"serverStats"
-		]),
-		set: $util.oneOfSetter($oneOfFields)
-	});
-	
+	Object.defineProperty(Request.prototype, 'command', {
+		get: $util.oneOfGetter(
+			($oneOfFields = ['incomingMessages', 'channelStats', 'serverStats'])
+		),
+		set: $util.oneOfSetter($oneOfFields),
+	})
+
 	/**
 	 * Creates a new Request instance using the specified properties.
 	 * @function create
@@ -209,11 +193,10 @@ $root.Request = (function()
 	 * @param {IRequest=} [properties] Properties to set
 	 * @returns {Request} Request instance
 	 */
-	Request.create = function create(properties)
-	{
-		return new Request(properties);
-	};
-	
+	Request.create = function create(properties) {
+		return new Request(properties)
+	}
+
 	/**
 	 * Encodes the specified Request message. Does not implicitly {@link Request.verify|verify} messages.
 	 * @function encode
@@ -223,27 +206,37 @@ $root.Request = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	Request.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	Request.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.incomingMessages != null && message.hasOwnProperty("incomingMessages"))
-		{
-			$root.IncomingMessagesRequest.encode(message.incomingMessages, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+		if (
+			message.incomingMessages != null &&
+			message.hasOwnProperty('incomingMessages')
+		) {
+			$root.IncomingMessagesRequest.encode(
+				message.incomingMessages,
+				writer.uint32(/* id 1, wireType 2 =*/ 10).fork()
+			).ldelim()
 		}
-		if(message.channelStats != null && message.hasOwnProperty("channelStats"))
-		{
-			$root.ChannelStatsRequest.encode(message.channelStats, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+		if (
+			message.channelStats != null &&
+			message.hasOwnProperty('channelStats')
+		) {
+			$root.ChannelStatsRequest.encode(
+				message.channelStats,
+				writer.uint32(/* id 2, wireType 2 =*/ 18).fork()
+			).ldelim()
 		}
-		if(message.serverStats != null && message.hasOwnProperty("serverStats"))
-		{
-			$root.ServerStatsRequest.encode(message.serverStats, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+		if (message.serverStats != null && message.hasOwnProperty('serverStats')) {
+			$root.ServerStatsRequest.encode(
+				message.serverStats,
+				writer.uint32(/* id 3, wireType 2 =*/ 26).fork()
+			).ldelim()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a Request message from the specified reader or buffer.
 	 * @function decode
@@ -255,50 +248,52 @@ $root.Request = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	Request.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	Request.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.Request();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.Request()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					message.incomingMessages = $root.IncomingMessagesRequest.decode(reader, reader.uint32());
-					break;
+					message.incomingMessages = $root.IncomingMessagesRequest.decode(
+						reader,
+						reader.uint32()
+					)
+					break
 				case 2:
-					message.channelStats = $root.ChannelStatsRequest.decode(reader, reader.uint32());
-					break;
+					message.channelStats = $root.ChannelStatsRequest.decode(
+						reader,
+						reader.uint32()
+					)
+					break
 				case 3:
-					message.serverStats = $root.ServerStatsRequest.decode(reader, reader.uint32());
-					break;
+					message.serverStats = $root.ServerStatsRequest.decode(
+						reader,
+						reader.uint32()
+					)
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return Request;
-})();
+		return message
+	}
 
-$root.IncomingMessagesRequest = (function()
-{
-	
+	return Request
+})()
+
+$root.IncomingMessagesRequest = (function () {
 	/**
 	 * Properties of an IncomingMessagesRequest.
 	 * @exports IIncomingMessagesRequest
 	 * @interface IIncomingMessagesRequest
 	 * @property {Array.<IncomingMessage>|null} [messages] IncomingMessagesRequest messages
 	 */
-	
+
 	/**
 	 * Constructs a new IncomingMessagesRequest.
 	 * @exports IncomingMessagesRequest
@@ -307,27 +302,24 @@ $root.IncomingMessagesRequest = (function()
 	 * @constructor
 	 * @param {IIncomingMessagesRequest=} [properties] Properties to set
 	 */
-	function IncomingMessagesRequest(properties)
-	{
-		this.messages = [];
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function IncomingMessagesRequest(properties) {
+		this.messages = []
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * IncomingMessagesRequest messages.
 	 * @member {Array.<IncomingMessage>} messages
 	 * @memberof IncomingMessagesRequest
 	 * @instance
 	 */
-	IncomingMessagesRequest.prototype.messages = $util.emptyArray;
-	
+	IncomingMessagesRequest.prototype.messages = $util.emptyArray
+
 	/**
 	 * Creates a new IncomingMessagesRequest instance using the specified properties.
 	 * @function create
@@ -336,11 +328,10 @@ $root.IncomingMessagesRequest = (function()
 	 * @param {IIncomingMessagesRequest=} [properties] Properties to set
 	 * @returns {IncomingMessagesRequest} IncomingMessagesRequest instance
 	 */
-	IncomingMessagesRequest.create = function create(properties)
-	{
-		return new IncomingMessagesRequest(properties);
-	};
-	
+	IncomingMessagesRequest.create = function create(properties) {
+		return new IncomingMessagesRequest(properties)
+	}
+
 	/**
 	 * Encodes the specified IncomingMessagesRequest message. Does not implicitly {@link IncomingMessagesRequest.verify|verify} messages.
 	 * @function encode
@@ -350,20 +341,20 @@ $root.IncomingMessagesRequest = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	IncomingMessagesRequest.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	IncomingMessagesRequest.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.messages != null && message.messages.length)
-		{
-			for(var i = 0; i < message.messages.length; ++i)
-				$root.IncomingMessage.encode(message.messages[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+		if (message.messages != null && message.messages.length) {
+			for (var i = 0; i < message.messages.length; ++i)
+				$root.IncomingMessage.encode(
+					message.messages[i],
+					writer.uint32(/* id 1, wireType 2 =*/ 10).fork()
+				).ldelim()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes an IncomingMessagesRequest message from the specified reader or buffer.
 	 * @function decode
@@ -375,41 +366,35 @@ $root.IncomingMessagesRequest = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	IncomingMessagesRequest.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	IncomingMessagesRequest.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.IncomingMessagesRequest();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.IncomingMessagesRequest()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					if(!(message.messages && message.messages.length))
-					{
-						message.messages = [];
+					if (!(message.messages && message.messages.length)) {
+						message.messages = []
 					}
-					message.messages.push($root.IncomingMessage.decode(reader, reader.uint32()));
-					break;
+					message.messages.push(
+						$root.IncomingMessage.decode(reader, reader.uint32())
+					)
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return IncomingMessagesRequest;
-})();
+		return message
+	}
 
-$root.IncomingMessage = (function()
-{
-	
+	return IncomingMessagesRequest
+})()
+
+$root.IncomingMessage = (function () {
 	/**
 	 * Properties of an IncomingMessage.
 	 * @exports IIncomingMessage
@@ -420,7 +405,7 @@ $root.IncomingMessage = (function()
 	 * @property {number|null} [expiry] IncomingMessage expiry
 	 * @property {string|null} [type] IncomingMessage type
 	 */
-	
+
 	/**
 	 * Constructs a new IncomingMessage.
 	 * @exports IncomingMessage
@@ -429,59 +414,56 @@ $root.IncomingMessage = (function()
 	 * @constructor
 	 * @param {IIncomingMessage=} [properties] Properties to set
 	 */
-	function IncomingMessage(properties)
-	{
-		this.receivers = [];
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function IncomingMessage(properties) {
+		this.receivers = []
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * IncomingMessage receivers.
 	 * @member {Array.<Receiver>} receivers
 	 * @memberof IncomingMessage
 	 * @instance
 	 */
-	IncomingMessage.prototype.receivers = $util.emptyArray;
-	
+	IncomingMessage.prototype.receivers = $util.emptyArray
+
 	/**
 	 * IncomingMessage sender.
 	 * @member {Sender|null|undefined} sender
 	 * @memberof IncomingMessage
 	 * @instance
 	 */
-	IncomingMessage.prototype.sender = null;
-	
+	IncomingMessage.prototype.sender = null
+
 	/**
 	 * IncomingMessage body.
 	 * @member {string} body
 	 * @memberof IncomingMessage
 	 * @instance
 	 */
-	IncomingMessage.prototype.body = "";
-	
+	IncomingMessage.prototype.body = ''
+
 	/**
 	 * IncomingMessage expiry.
 	 * @member {number} expiry
 	 * @memberof IncomingMessage
 	 * @instance
 	 */
-	IncomingMessage.prototype.expiry = 0;
-	
+	IncomingMessage.prototype.expiry = 0
+
 	/**
 	 * IncomingMessage type.
 	 * @member {string} type
 	 * @memberof IncomingMessage
 	 * @instance
 	 */
-	IncomingMessage.prototype.type = "";
-	
+	IncomingMessage.prototype.type = ''
+
 	/**
 	 * Creates a new IncomingMessage instance using the specified properties.
 	 * @function create
@@ -490,11 +472,10 @@ $root.IncomingMessage = (function()
 	 * @param {IIncomingMessage=} [properties] Properties to set
 	 * @returns {IncomingMessage} IncomingMessage instance
 	 */
-	IncomingMessage.create = function create(properties)
-	{
-		return new IncomingMessage(properties);
-	};
-	
+	IncomingMessage.create = function create(properties) {
+		return new IncomingMessage(properties)
+	}
+
 	/**
 	 * Encodes the specified IncomingMessage message. Does not implicitly {@link IncomingMessage.verify|verify} messages.
 	 * @function encode
@@ -504,36 +485,35 @@ $root.IncomingMessage = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	IncomingMessage.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	IncomingMessage.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.receivers != null && message.receivers.length)
-		{
-			for(var i = 0; i < message.receivers.length; ++i)
-				$root.Receiver.encode(message.receivers[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+		if (message.receivers != null && message.receivers.length) {
+			for (var i = 0; i < message.receivers.length; ++i)
+				$root.Receiver.encode(
+					message.receivers[i],
+					writer.uint32(/* id 1, wireType 2 =*/ 10).fork()
+				).ldelim()
 		}
-		if(message.sender != null && message.hasOwnProperty("sender"))
-		{
-			$root.Sender.encode(message.sender, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+		if (message.sender != null && message.hasOwnProperty('sender')) {
+			$root.Sender.encode(
+				message.sender,
+				writer.uint32(/* id 2, wireType 2 =*/ 18).fork()
+			).ldelim()
 		}
-		if(message.body != null && message.hasOwnProperty("body"))
-		{
-			writer.uint32(/* id 3, wireType 2 =*/26).string(message.body);
+		if (message.body != null && message.hasOwnProperty('body')) {
+			writer.uint32(/* id 3, wireType 2 =*/ 26).string(message.body)
 		}
-		if(message.expiry != null && message.hasOwnProperty("expiry"))
-		{
-			writer.uint32(/* id 4, wireType 0 =*/32).uint32(message.expiry);
+		if (message.expiry != null && message.hasOwnProperty('expiry')) {
+			writer.uint32(/* id 4, wireType 0 =*/ 32).uint32(message.expiry)
 		}
-		if(message.type != null && message.hasOwnProperty("type"))
-		{
-			writer.uint32(/* id 5, wireType 2 =*/42).string(message.type);
+		if (message.type != null && message.hasOwnProperty('type')) {
+			writer.uint32(/* id 5, wireType 2 =*/ 42).string(message.type)
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes an IncomingMessage message from the specified reader or buffer.
 	 * @function decode
@@ -545,60 +525,52 @@ $root.IncomingMessage = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	IncomingMessage.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	IncomingMessage.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.IncomingMessage();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.IncomingMessage()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					if(!(message.receivers && message.receivers.length))
-					{
-						message.receivers = [];
+					if (!(message.receivers && message.receivers.length)) {
+						message.receivers = []
 					}
-					message.receivers.push($root.Receiver.decode(reader, reader.uint32()));
-					break;
+					message.receivers.push($root.Receiver.decode(reader, reader.uint32()))
+					break
 				case 2:
-					message.sender = $root.Sender.decode(reader, reader.uint32());
-					break;
+					message.sender = $root.Sender.decode(reader, reader.uint32())
+					break
 				case 3:
-					message.body = reader.string();
-					break;
+					message.body = reader.string()
+					break
 				case 4:
-					message.expiry = reader.uint32();
-					break;
+					message.expiry = reader.uint32()
+					break
 				case 5:
-					message.type = reader.string();
-					break;
+					message.type = reader.string()
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return IncomingMessage;
-})();
+		return message
+	}
 
-$root.ChannelStatsRequest = (function()
-{
-	
+	return IncomingMessage
+})()
+
+$root.ChannelStatsRequest = (function () {
 	/**
 	 * Properties of a ChannelStatsRequest.
 	 * @exports IChannelStatsRequest
 	 * @interface IChannelStatsRequest
 	 * @property {Array.<ChannelId>|null} [channels] ChannelStatsRequest channels
 	 */
-	
+
 	/**
 	 * Constructs a new ChannelStatsRequest.
 	 * @exports ChannelStatsRequest
@@ -607,27 +579,24 @@ $root.ChannelStatsRequest = (function()
 	 * @constructor
 	 * @param {IChannelStatsRequest=} [properties] Properties to set
 	 */
-	function ChannelStatsRequest(properties)
-	{
-		this.channels = [];
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function ChannelStatsRequest(properties) {
+		this.channels = []
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * ChannelStatsRequest channels.
 	 * @member {Array.<ChannelId>} channels
 	 * @memberof ChannelStatsRequest
 	 * @instance
 	 */
-	ChannelStatsRequest.prototype.channels = $util.emptyArray;
-	
+	ChannelStatsRequest.prototype.channels = $util.emptyArray
+
 	/**
 	 * Creates a new ChannelStatsRequest instance using the specified properties.
 	 * @function create
@@ -636,11 +605,10 @@ $root.ChannelStatsRequest = (function()
 	 * @param {IChannelStatsRequest=} [properties] Properties to set
 	 * @returns {ChannelStatsRequest} ChannelStatsRequest instance
 	 */
-	ChannelStatsRequest.create = function create(properties)
-	{
-		return new ChannelStatsRequest(properties);
-	};
-	
+	ChannelStatsRequest.create = function create(properties) {
+		return new ChannelStatsRequest(properties)
+	}
+
 	/**
 	 * Encodes the specified ChannelStatsRequest message. Does not implicitly {@link ChannelStatsRequest.verify|verify} messages.
 	 * @function encode
@@ -650,20 +618,20 @@ $root.ChannelStatsRequest = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	ChannelStatsRequest.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	ChannelStatsRequest.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.channels != null && message.channels.length)
-		{
-			for(var i = 0; i < message.channels.length; ++i)
-				$root.ChannelId.encode(message.channels[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+		if (message.channels != null && message.channels.length) {
+			for (var i = 0; i < message.channels.length; ++i)
+				$root.ChannelId.encode(
+					message.channels[i],
+					writer.uint32(/* id 1, wireType 2 =*/ 10).fork()
+				).ldelim()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a ChannelStatsRequest message from the specified reader or buffer.
 	 * @function decode
@@ -675,41 +643,33 @@ $root.ChannelStatsRequest = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	ChannelStatsRequest.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	ChannelStatsRequest.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.ChannelStatsRequest();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.ChannelStatsRequest()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					if(!(message.channels && message.channels.length))
-					{
-						message.channels = [];
+					if (!(message.channels && message.channels.length)) {
+						message.channels = []
 					}
-					message.channels.push($root.ChannelId.decode(reader, reader.uint32()));
-					break;
+					message.channels.push($root.ChannelId.decode(reader, reader.uint32()))
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return ChannelStatsRequest;
-})();
+		return message
+	}
 
-$root.ChannelId = (function()
-{
-	
+	return ChannelStatsRequest
+})()
+
+$root.ChannelId = (function () {
 	/**
 	 * Properties of a ChannelId.
 	 * @exports IChannelId
@@ -718,7 +678,7 @@ $root.ChannelId = (function()
 	 * @property {boolean|null} [isPrivate] ChannelId isPrivate
 	 * @property {Uint8Array|null} [signature] ChannelId signature
 	 */
-	
+
 	/**
 	 * Constructs a new ChannelId.
 	 * @exports ChannelId
@@ -727,42 +687,39 @@ $root.ChannelId = (function()
 	 * @constructor
 	 * @param {IChannelId=} [properties] Properties to set
 	 */
-	function ChannelId(properties)
-	{
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function ChannelId(properties) {
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * ChannelId id.
 	 * @member {Uint8Array} id
 	 * @memberof ChannelId
 	 * @instance
 	 */
-	ChannelId.prototype.id = $util.newBuffer([]);
-	
+	ChannelId.prototype.id = $util.newBuffer([])
+
 	/**
 	 * ChannelId isPrivate.
 	 * @member {boolean} isPrivate
 	 * @memberof ChannelId
 	 * @instance
 	 */
-	ChannelId.prototype.isPrivate = false;
-	
+	ChannelId.prototype.isPrivate = false
+
 	/**
 	 * ChannelId signature.
 	 * @member {Uint8Array} signature
 	 * @memberof ChannelId
 	 * @instance
 	 */
-	ChannelId.prototype.signature = $util.newBuffer([]);
-	
+	ChannelId.prototype.signature = $util.newBuffer([])
+
 	/**
 	 * Creates a new ChannelId instance using the specified properties.
 	 * @function create
@@ -771,11 +728,10 @@ $root.ChannelId = (function()
 	 * @param {IChannelId=} [properties] Properties to set
 	 * @returns {ChannelId} ChannelId instance
 	 */
-	ChannelId.create = function create(properties)
-	{
-		return new ChannelId(properties);
-	};
-	
+	ChannelId.create = function create(properties) {
+		return new ChannelId(properties)
+	}
+
 	/**
 	 * Encodes the specified ChannelId message. Does not implicitly {@link ChannelId.verify|verify} messages.
 	 * @function encode
@@ -785,27 +741,22 @@ $root.ChannelId = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	ChannelId.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	ChannelId.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.id != null && message.hasOwnProperty("id"))
-		{
-			writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.id);
+		if (message.id != null && message.hasOwnProperty('id')) {
+			writer.uint32(/* id 1, wireType 2 =*/ 10).bytes(message.id)
 		}
-		if(message.isPrivate != null && message.hasOwnProperty("isPrivate"))
-		{
-			writer.uint32(/* id 2, wireType 0 =*/16).bool(message.isPrivate);
+		if (message.isPrivate != null && message.hasOwnProperty('isPrivate')) {
+			writer.uint32(/* id 2, wireType 0 =*/ 16).bool(message.isPrivate)
 		}
-		if(message.signature != null && message.hasOwnProperty("signature"))
-		{
-			writer.uint32(/* id 3, wireType 2 =*/26).bytes(message.signature);
+		if (message.signature != null && message.hasOwnProperty('signature')) {
+			writer.uint32(/* id 3, wireType 2 =*/ 26).bytes(message.signature)
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a ChannelId message from the specified reader or buffer.
 	 * @function decode
@@ -817,49 +768,42 @@ $root.ChannelId = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	ChannelId.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	ChannelId.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.ChannelId();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.ChannelId()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					message.id = reader.bytes();
-					break;
+					message.id = reader.bytes()
+					break
 				case 2:
-					message.isPrivate = reader.bool();
-					break;
+					message.isPrivate = reader.bool()
+					break
 				case 3:
-					message.signature = reader.bytes();
-					break;
+					message.signature = reader.bytes()
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return ChannelId;
-})();
+		return message
+	}
 
-$root.ServerStatsRequest = (function()
-{
-	
+	return ChannelId
+})()
+
+$root.ServerStatsRequest = (function () {
 	/**
 	 * Properties of a ServerStatsRequest.
 	 * @exports IServerStatsRequest
 	 * @interface IServerStatsRequest
 	 */
-	
+
 	/**
 	 * Constructs a new ServerStatsRequest.
 	 * @exports ServerStatsRequest
@@ -868,18 +812,15 @@ $root.ServerStatsRequest = (function()
 	 * @constructor
 	 * @param {IServerStatsRequest=} [properties] Properties to set
 	 */
-	function ServerStatsRequest(properties)
-	{
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function ServerStatsRequest(properties) {
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * Creates a new ServerStatsRequest instance using the specified properties.
 	 * @function create
@@ -888,11 +829,10 @@ $root.ServerStatsRequest = (function()
 	 * @param {IServerStatsRequest=} [properties] Properties to set
 	 * @returns {ServerStatsRequest} ServerStatsRequest instance
 	 */
-	ServerStatsRequest.create = function create(properties)
-	{
-		return new ServerStatsRequest(properties);
-	};
-	
+	ServerStatsRequest.create = function create(properties) {
+		return new ServerStatsRequest(properties)
+	}
+
 	/**
 	 * Encodes the specified ServerStatsRequest message. Does not implicitly {@link ServerStatsRequest.verify|verify} messages.
 	 * @function encode
@@ -902,15 +842,13 @@ $root.ServerStatsRequest = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	ServerStatsRequest.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	ServerStatsRequest.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a ServerStatsRequest message from the specified reader or buffer.
 	 * @function decode
@@ -922,34 +860,27 @@ $root.ServerStatsRequest = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	ServerStatsRequest.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	ServerStatsRequest.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.ServerStatsRequest();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.ServerStatsRequest()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return ServerStatsRequest;
-})();
+		return message
+	}
 
-$root.Sender = (function()
-{
-	
+	return ServerStatsRequest
+})()
+
+$root.Sender = (function () {
 	/**
 	 * Properties of a Sender.
 	 * @exports ISender
@@ -957,7 +888,7 @@ $root.Sender = (function()
 	 * @property {SenderType|null} [type] Sender type
 	 * @property {Uint8Array|null} [id] Sender id
 	 */
-	
+
 	/**
 	 * Constructs a new Sender.
 	 * @exports Sender
@@ -966,34 +897,31 @@ $root.Sender = (function()
 	 * @constructor
 	 * @param {ISender=} [properties] Properties to set
 	 */
-	function Sender(properties)
-	{
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function Sender(properties) {
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * Sender type.
 	 * @member {SenderType} type
 	 * @memberof Sender
 	 * @instance
 	 */
-	Sender.prototype.type = 0;
-	
+	Sender.prototype.type = 0
+
 	/**
 	 * Sender id.
 	 * @member {Uint8Array} id
 	 * @memberof Sender
 	 * @instance
 	 */
-	Sender.prototype.id = $util.newBuffer([]);
-	
+	Sender.prototype.id = $util.newBuffer([])
+
 	/**
 	 * Creates a new Sender instance using the specified properties.
 	 * @function create
@@ -1002,11 +930,10 @@ $root.Sender = (function()
 	 * @param {ISender=} [properties] Properties to set
 	 * @returns {Sender} Sender instance
 	 */
-	Sender.create = function create(properties)
-	{
-		return new Sender(properties);
-	};
-	
+	Sender.create = function create(properties) {
+		return new Sender(properties)
+	}
+
 	/**
 	 * Encodes the specified Sender message. Does not implicitly {@link Sender.verify|verify} messages.
 	 * @function encode
@@ -1016,23 +943,19 @@ $root.Sender = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	Sender.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	Sender.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.type != null && message.hasOwnProperty("type"))
-		{
-			writer.uint32(/* id 1, wireType 0 =*/8).int32(message.type);
+		if (message.type != null && message.hasOwnProperty('type')) {
+			writer.uint32(/* id 1, wireType 0 =*/ 8).int32(message.type)
 		}
-		if(message.id != null && message.hasOwnProperty("id"))
-		{
-			writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.id);
+		if (message.id != null && message.hasOwnProperty('id')) {
+			writer.uint32(/* id 2, wireType 2 =*/ 18).bytes(message.id)
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a Sender message from the specified reader or buffer.
 	 * @function decode
@@ -1044,36 +967,31 @@ $root.Sender = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	Sender.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	Sender.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.Sender();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.Sender()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					message.type = reader.int32();
-					break;
+					message.type = reader.int32()
+					break
 				case 2:
-					message.id = reader.bytes();
-					break;
+					message.id = reader.bytes()
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return Sender;
-})();
+		return message
+	}
+
+	return Sender
+})()
 
 /**
  * SenderType enum.
@@ -1083,18 +1001,16 @@ $root.Sender = (function()
  * @property {number} CLIENT=1 CLIENT value
  * @property {number} BACKEND=2 BACKEND value
  */
-$root.SenderType = (function()
-{
-	var valuesById = {}, values = Object.create(valuesById);
-	values[valuesById[0] = "UNKNOWN"] = 0;
-	values[valuesById[1] = "CLIENT"] = 1;
-	values[valuesById[2] = "BACKEND"] = 2;
-	return values;
-})();
+$root.SenderType = (function () {
+	var valuesById = {},
+		values = Object.create(valuesById)
+	values[(valuesById[0] = 'UNKNOWN')] = 0
+	values[(valuesById[1] = 'CLIENT')] = 1
+	values[(valuesById[2] = 'BACKEND')] = 2
+	return values
+})()
 
-$root.Receiver = (function()
-{
-	
+$root.Receiver = (function () {
 	/**
 	 * Properties of a Receiver.
 	 * @exports IReceiver
@@ -1103,7 +1019,7 @@ $root.Receiver = (function()
 	 * @property {boolean|null} [isPrivate] Receiver isPrivate
 	 * @property {Uint8Array|null} [signature] Receiver signature
 	 */
-	
+
 	/**
 	 * Constructs a new Receiver.
 	 * @exports Receiver
@@ -1112,42 +1028,39 @@ $root.Receiver = (function()
 	 * @constructor
 	 * @param {IReceiver=} [properties] Properties to set
 	 */
-	function Receiver(properties)
-	{
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function Receiver(properties) {
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * Receiver id.
 	 * @member {Uint8Array} id
 	 * @memberof Receiver
 	 * @instance
 	 */
-	Receiver.prototype.id = $util.newBuffer([]);
-	
+	Receiver.prototype.id = $util.newBuffer([])
+
 	/**
 	 * Receiver isPrivate.
 	 * @member {boolean} isPrivate
 	 * @memberof Receiver
 	 * @instance
 	 */
-	Receiver.prototype.isPrivate = false;
-	
+	Receiver.prototype.isPrivate = false
+
 	/**
 	 * Receiver signature.
 	 * @member {Uint8Array} signature
 	 * @memberof Receiver
 	 * @instance
 	 */
-	Receiver.prototype.signature = $util.newBuffer([]);
-	
+	Receiver.prototype.signature = $util.newBuffer([])
+
 	/**
 	 * Creates a new Receiver instance using the specified properties.
 	 * @function create
@@ -1156,11 +1069,10 @@ $root.Receiver = (function()
 	 * @param {IReceiver=} [properties] Properties to set
 	 * @returns {Receiver} Receiver instance
 	 */
-	Receiver.create = function create(properties)
-	{
-		return new Receiver(properties);
-	};
-	
+	Receiver.create = function create(properties) {
+		return new Receiver(properties)
+	}
+
 	/**
 	 * Encodes the specified Receiver message. Does not implicitly {@link Receiver.verify|verify} messages.
 	 * @function encode
@@ -1170,27 +1082,22 @@ $root.Receiver = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	Receiver.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	Receiver.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.id != null && message.hasOwnProperty("id"))
-		{
-			writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.id);
+		if (message.id != null && message.hasOwnProperty('id')) {
+			writer.uint32(/* id 1, wireType 2 =*/ 10).bytes(message.id)
 		}
-		if(message.isPrivate != null && message.hasOwnProperty("isPrivate"))
-		{
-			writer.uint32(/* id 2, wireType 0 =*/16).bool(message.isPrivate);
+		if (message.isPrivate != null && message.hasOwnProperty('isPrivate')) {
+			writer.uint32(/* id 2, wireType 0 =*/ 16).bool(message.isPrivate)
 		}
-		if(message.signature != null && message.hasOwnProperty("signature"))
-		{
-			writer.uint32(/* id 3, wireType 2 =*/26).bytes(message.signature);
+		if (message.signature != null && message.hasOwnProperty('signature')) {
+			writer.uint32(/* id 3, wireType 2 =*/ 26).bytes(message.signature)
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a Receiver message from the specified reader or buffer.
 	 * @function decode
@@ -1202,50 +1109,43 @@ $root.Receiver = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	Receiver.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	Receiver.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.Receiver();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.Receiver()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					message.id = reader.bytes();
-					break;
+					message.id = reader.bytes()
+					break
 				case 2:
-					message.isPrivate = reader.bool();
-					break;
+					message.isPrivate = reader.bool()
+					break
 				case 3:
-					message.signature = reader.bytes();
-					break;
+					message.signature = reader.bytes()
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return Receiver;
-})();
+		return message
+	}
 
-$root.ResponseBatch = (function()
-{
-	
+	return Receiver
+})()
+
+$root.ResponseBatch = (function () {
 	/**
 	 * Properties of a ResponseBatch.
 	 * @exports IResponseBatch
 	 * @interface IResponseBatch
 	 * @property {Array.<Response>|null} [responses] ResponseBatch responses
 	 */
-	
+
 	/**
 	 * Constructs a new ResponseBatch.
 	 * @exports ResponseBatch
@@ -1254,27 +1154,24 @@ $root.ResponseBatch = (function()
 	 * @constructor
 	 * @param {IResponseBatch=} [properties] Properties to set
 	 */
-	function ResponseBatch(properties)
-	{
-		this.responses = [];
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function ResponseBatch(properties) {
+		this.responses = []
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * ResponseBatch responses.
 	 * @member {Array.<Response>} responses
 	 * @memberof ResponseBatch
 	 * @instance
 	 */
-	ResponseBatch.prototype.responses = $util.emptyArray;
-	
+	ResponseBatch.prototype.responses = $util.emptyArray
+
 	/**
 	 * Creates a new ResponseBatch instance using the specified properties.
 	 * @function create
@@ -1283,11 +1180,10 @@ $root.ResponseBatch = (function()
 	 * @param {IResponseBatch=} [properties] Properties to set
 	 * @returns {ResponseBatch} ResponseBatch instance
 	 */
-	ResponseBatch.create = function create(properties)
-	{
-		return new ResponseBatch(properties);
-	};
-	
+	ResponseBatch.create = function create(properties) {
+		return new ResponseBatch(properties)
+	}
+
 	/**
 	 * Encodes the specified ResponseBatch message. Does not implicitly {@link ResponseBatch.verify|verify} messages.
 	 * @function encode
@@ -1297,20 +1193,20 @@ $root.ResponseBatch = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	ResponseBatch.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	ResponseBatch.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.responses != null && message.responses.length)
-		{
-			for(var i = 0; i < message.responses.length; ++i)
-				$root.Response.encode(message.responses[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+		if (message.responses != null && message.responses.length) {
+			for (var i = 0; i < message.responses.length; ++i)
+				$root.Response.encode(
+					message.responses[i],
+					writer.uint32(/* id 1, wireType 2 =*/ 10).fork()
+				).ldelim()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a ResponseBatch message from the specified reader or buffer.
 	 * @function decode
@@ -1322,41 +1218,33 @@ $root.ResponseBatch = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	ResponseBatch.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	ResponseBatch.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.ResponseBatch();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.ResponseBatch()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					if(!(message.responses && message.responses.length))
-					{
-						message.responses = [];
+					if (!(message.responses && message.responses.length)) {
+						message.responses = []
 					}
-					message.responses.push($root.Response.decode(reader, reader.uint32()));
-					break;
+					message.responses.push($root.Response.decode(reader, reader.uint32()))
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return ResponseBatch;
-})();
+		return message
+	}
 
-$root.Response = (function()
-{
-	
+	return ResponseBatch
+})()
+
+$root.Response = (function () {
 	/**
 	 * Properties of a Response.
 	 * @exports IResponse
@@ -1365,7 +1253,7 @@ $root.Response = (function()
 	 * @property {ChannelStatsResponse|null} [channelStats] Response channelStats
 	 * @property {JsonResponse|null} [serverStats] Response serverStats
 	 */
-	
+
 	/**
 	 * Constructs a new Response.
 	 * @exports Response
@@ -1374,60 +1262,55 @@ $root.Response = (function()
 	 * @constructor
 	 * @param {IResponse=} [properties] Properties to set
 	 */
-	function Response(properties)
-	{
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function Response(properties) {
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * Response outgoingMessages.
 	 * @member {OutgoingMessagesResponse|null|undefined} outgoingMessages
 	 * @memberof Response
 	 * @instance
 	 */
-	Response.prototype.outgoingMessages = null;
-	
+	Response.prototype.outgoingMessages = null
+
 	/**
 	 * Response channelStats.
 	 * @member {ChannelStatsResponse|null|undefined} channelStats
 	 * @memberof Response
 	 * @instance
 	 */
-	Response.prototype.channelStats = null;
-	
+	Response.prototype.channelStats = null
+
 	/**
 	 * Response serverStats.
 	 * @member {JsonResponse|null|undefined} serverStats
 	 * @memberof Response
 	 * @instance
 	 */
-	Response.prototype.serverStats = null;
-	
+	Response.prototype.serverStats = null
+
 	// OneOf field names bound to virtual getters and setters
-	var $oneOfFields;
-	
+	var $oneOfFields
+
 	/**
 	 * Response command.
 	 * @member {"outgoingMessages"|"channelStats"|"serverStats"|undefined} command
 	 * @memberof Response
 	 * @instance
 	 */
-	Object.defineProperty(Response.prototype, "command", {
-		get: $util.oneOfGetter($oneOfFields = [
-			"outgoingMessages",
-			"channelStats",
-			"serverStats"
-		]),
-		set: $util.oneOfSetter($oneOfFields)
-	});
-	
+	Object.defineProperty(Response.prototype, 'command', {
+		get: $util.oneOfGetter(
+			($oneOfFields = ['outgoingMessages', 'channelStats', 'serverStats'])
+		),
+		set: $util.oneOfSetter($oneOfFields),
+	})
+
 	/**
 	 * Creates a new Response instance using the specified properties.
 	 * @function create
@@ -1436,11 +1319,10 @@ $root.Response = (function()
 	 * @param {IResponse=} [properties] Properties to set
 	 * @returns {Response} Response instance
 	 */
-	Response.create = function create(properties)
-	{
-		return new Response(properties);
-	};
-	
+	Response.create = function create(properties) {
+		return new Response(properties)
+	}
+
 	/**
 	 * Encodes the specified Response message. Does not implicitly {@link Response.verify|verify} messages.
 	 * @function encode
@@ -1450,27 +1332,37 @@ $root.Response = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	Response.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	Response.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.outgoingMessages != null && message.hasOwnProperty("outgoingMessages"))
-		{
-			$root.OutgoingMessagesResponse.encode(message.outgoingMessages, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+		if (
+			message.outgoingMessages != null &&
+			message.hasOwnProperty('outgoingMessages')
+		) {
+			$root.OutgoingMessagesResponse.encode(
+				message.outgoingMessages,
+				writer.uint32(/* id 1, wireType 2 =*/ 10).fork()
+			).ldelim()
 		}
-		if(message.channelStats != null && message.hasOwnProperty("channelStats"))
-		{
-			$root.ChannelStatsResponse.encode(message.channelStats, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+		if (
+			message.channelStats != null &&
+			message.hasOwnProperty('channelStats')
+		) {
+			$root.ChannelStatsResponse.encode(
+				message.channelStats,
+				writer.uint32(/* id 2, wireType 2 =*/ 18).fork()
+			).ldelim()
 		}
-		if(message.serverStats != null && message.hasOwnProperty("serverStats"))
-		{
-			$root.JsonResponse.encode(message.serverStats, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+		if (message.serverStats != null && message.hasOwnProperty('serverStats')) {
+			$root.JsonResponse.encode(
+				message.serverStats,
+				writer.uint32(/* id 3, wireType 2 =*/ 26).fork()
+			).ldelim()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a Response message from the specified reader or buffer.
 	 * @function decode
@@ -1482,50 +1374,52 @@ $root.Response = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	Response.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	Response.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.Response();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.Response()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					message.outgoingMessages = $root.OutgoingMessagesResponse.decode(reader, reader.uint32());
-					break;
+					message.outgoingMessages = $root.OutgoingMessagesResponse.decode(
+						reader,
+						reader.uint32()
+					)
+					break
 				case 2:
-					message.channelStats = $root.ChannelStatsResponse.decode(reader, reader.uint32());
-					break;
+					message.channelStats = $root.ChannelStatsResponse.decode(
+						reader,
+						reader.uint32()
+					)
+					break
 				case 3:
-					message.serverStats = $root.JsonResponse.decode(reader, reader.uint32());
-					break;
+					message.serverStats = $root.JsonResponse.decode(
+						reader,
+						reader.uint32()
+					)
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return Response;
-})();
+		return message
+	}
 
-$root.OutgoingMessagesResponse = (function()
-{
-	
+	return Response
+})()
+
+$root.OutgoingMessagesResponse = (function () {
 	/**
 	 * Properties of an OutgoingMessagesResponse.
 	 * @exports IOutgoingMessagesResponse
 	 * @interface IOutgoingMessagesResponse
 	 * @property {Array.<OutgoingMessage>|null} [messages] OutgoingMessagesResponse messages
 	 */
-	
+
 	/**
 	 * Constructs a new OutgoingMessagesResponse.
 	 * @exports OutgoingMessagesResponse
@@ -1534,27 +1428,24 @@ $root.OutgoingMessagesResponse = (function()
 	 * @constructor
 	 * @param {IOutgoingMessagesResponse=} [properties] Properties to set
 	 */
-	function OutgoingMessagesResponse(properties)
-	{
-		this.messages = [];
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function OutgoingMessagesResponse(properties) {
+		this.messages = []
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * OutgoingMessagesResponse messages.
 	 * @member {Array.<OutgoingMessage>} messages
 	 * @memberof OutgoingMessagesResponse
 	 * @instance
 	 */
-	OutgoingMessagesResponse.prototype.messages = $util.emptyArray;
-	
+	OutgoingMessagesResponse.prototype.messages = $util.emptyArray
+
 	/**
 	 * Creates a new OutgoingMessagesResponse instance using the specified properties.
 	 * @function create
@@ -1563,11 +1454,10 @@ $root.OutgoingMessagesResponse = (function()
 	 * @param {IOutgoingMessagesResponse=} [properties] Properties to set
 	 * @returns {OutgoingMessagesResponse} OutgoingMessagesResponse instance
 	 */
-	OutgoingMessagesResponse.create = function create(properties)
-	{
-		return new OutgoingMessagesResponse(properties);
-	};
-	
+	OutgoingMessagesResponse.create = function create(properties) {
+		return new OutgoingMessagesResponse(properties)
+	}
+
 	/**
 	 * Encodes the specified OutgoingMessagesResponse message. Does not implicitly {@link OutgoingMessagesResponse.verify|verify} messages.
 	 * @function encode
@@ -1577,20 +1467,20 @@ $root.OutgoingMessagesResponse = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	OutgoingMessagesResponse.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	OutgoingMessagesResponse.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.messages != null && message.messages.length)
-		{
-			for(var i = 0; i < message.messages.length; ++i)
-				$root.OutgoingMessage.encode(message.messages[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+		if (message.messages != null && message.messages.length) {
+			for (var i = 0; i < message.messages.length; ++i)
+				$root.OutgoingMessage.encode(
+					message.messages[i],
+					writer.uint32(/* id 1, wireType 2 =*/ 10).fork()
+				).ldelim()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes an OutgoingMessagesResponse message from the specified reader or buffer.
 	 * @function decode
@@ -1602,41 +1492,35 @@ $root.OutgoingMessagesResponse = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	OutgoingMessagesResponse.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	OutgoingMessagesResponse.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.OutgoingMessagesResponse();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.OutgoingMessagesResponse()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					if(!(message.messages && message.messages.length))
-					{
-						message.messages = [];
+					if (!(message.messages && message.messages.length)) {
+						message.messages = []
 					}
-					message.messages.push($root.OutgoingMessage.decode(reader, reader.uint32()));
-					break;
+					message.messages.push(
+						$root.OutgoingMessage.decode(reader, reader.uint32())
+					)
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return OutgoingMessagesResponse;
-})();
+		return message
+	}
 
-$root.OutgoingMessage = (function()
-{
-	
+	return OutgoingMessagesResponse
+})()
+
+$root.OutgoingMessage = (function () {
 	/**
 	 * Properties of an OutgoingMessage.
 	 * @exports IOutgoingMessage
@@ -1647,7 +1531,7 @@ $root.OutgoingMessage = (function()
 	 * @property {number|null} [created] OutgoingMessage created
 	 * @property {Sender|null} [sender] OutgoingMessage sender
 	 */
-	
+
 	/**
 	 * Constructs a new OutgoingMessage.
 	 * @exports OutgoingMessage
@@ -1656,58 +1540,55 @@ $root.OutgoingMessage = (function()
 	 * @constructor
 	 * @param {IOutgoingMessage=} [properties] Properties to set
 	 */
-	function OutgoingMessage(properties)
-	{
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function OutgoingMessage(properties) {
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * OutgoingMessage id.
 	 * @member {Uint8Array} id
 	 * @memberof OutgoingMessage
 	 * @instance
 	 */
-	OutgoingMessage.prototype.id = $util.newBuffer([]);
-	
+	OutgoingMessage.prototype.id = $util.newBuffer([])
+
 	/**
 	 * OutgoingMessage body.
 	 * @member {string} body
 	 * @memberof OutgoingMessage
 	 * @instance
 	 */
-	OutgoingMessage.prototype.body = "";
-	
+	OutgoingMessage.prototype.body = ''
+
 	/**
 	 * OutgoingMessage expiry.
 	 * @member {number} expiry
 	 * @memberof OutgoingMessage
 	 * @instance
 	 */
-	OutgoingMessage.prototype.expiry = 0;
-	
+	OutgoingMessage.prototype.expiry = 0
+
 	/**
 	 * OutgoingMessage created.
 	 * @member {number} created
 	 * @memberof OutgoingMessage
 	 * @instance
 	 */
-	OutgoingMessage.prototype.created = 0;
-	
+	OutgoingMessage.prototype.created = 0
+
 	/**
 	 * OutgoingMessage sender.
 	 * @member {Sender|null|undefined} sender
 	 * @memberof OutgoingMessage
 	 * @instance
 	 */
-	OutgoingMessage.prototype.sender = null;
-	
+	OutgoingMessage.prototype.sender = null
+
 	/**
 	 * Creates a new OutgoingMessage instance using the specified properties.
 	 * @function create
@@ -1716,11 +1597,10 @@ $root.OutgoingMessage = (function()
 	 * @param {IOutgoingMessage=} [properties] Properties to set
 	 * @returns {OutgoingMessage} OutgoingMessage instance
 	 */
-	OutgoingMessage.create = function create(properties)
-	{
-		return new OutgoingMessage(properties);
-	};
-	
+	OutgoingMessage.create = function create(properties) {
+		return new OutgoingMessage(properties)
+	}
+
 	/**
 	 * Encodes the specified OutgoingMessage message. Does not implicitly {@link OutgoingMessage.verify|verify} messages.
 	 * @function encode
@@ -1730,35 +1610,31 @@ $root.OutgoingMessage = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	OutgoingMessage.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	OutgoingMessage.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.id != null && message.hasOwnProperty("id"))
-		{
-			writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.id);
+		if (message.id != null && message.hasOwnProperty('id')) {
+			writer.uint32(/* id 1, wireType 2 =*/ 10).bytes(message.id)
 		}
-		if(message.body != null && message.hasOwnProperty("body"))
-		{
-			writer.uint32(/* id 2, wireType 2 =*/18).string(message.body);
+		if (message.body != null && message.hasOwnProperty('body')) {
+			writer.uint32(/* id 2, wireType 2 =*/ 18).string(message.body)
 		}
-		if(message.expiry != null && message.hasOwnProperty("expiry"))
-		{
-			writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.expiry);
+		if (message.expiry != null && message.hasOwnProperty('expiry')) {
+			writer.uint32(/* id 3, wireType 0 =*/ 24).uint32(message.expiry)
 		}
-		if(message.created != null && message.hasOwnProperty("created"))
-		{
-			writer.uint32(/* id 4, wireType 5 =*/37).fixed32(message.created);
+		if (message.created != null && message.hasOwnProperty('created')) {
+			writer.uint32(/* id 4, wireType 5 =*/ 37).fixed32(message.created)
 		}
-		if(message.sender != null && message.hasOwnProperty("sender"))
-		{
-			$root.Sender.encode(message.sender, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
+		if (message.sender != null && message.hasOwnProperty('sender')) {
+			$root.Sender.encode(
+				message.sender,
+				writer.uint32(/* id 5, wireType 2 =*/ 42).fork()
+			).ldelim()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes an OutgoingMessage message from the specified reader or buffer.
 	 * @function decode
@@ -1770,56 +1646,49 @@ $root.OutgoingMessage = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	OutgoingMessage.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	OutgoingMessage.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.OutgoingMessage();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.OutgoingMessage()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					message.id = reader.bytes();
-					break;
+					message.id = reader.bytes()
+					break
 				case 2:
-					message.body = reader.string();
-					break;
+					message.body = reader.string()
+					break
 				case 3:
-					message.expiry = reader.uint32();
-					break;
+					message.expiry = reader.uint32()
+					break
 				case 4:
-					message.created = reader.fixed32();
-					break;
+					message.created = reader.fixed32()
+					break
 				case 5:
-					message.sender = $root.Sender.decode(reader, reader.uint32());
-					break;
+					message.sender = $root.Sender.decode(reader, reader.uint32())
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return OutgoingMessage;
-})();
+		return message
+	}
 
-$root.ChannelStatsResponse = (function()
-{
-	
+	return OutgoingMessage
+})()
+
+$root.ChannelStatsResponse = (function () {
 	/**
 	 * Properties of a ChannelStatsResponse.
 	 * @exports IChannelStatsResponse
 	 * @interface IChannelStatsResponse
 	 * @property {Array.<ChannelStats>|null} [channels] ChannelStatsResponse channels
 	 */
-	
+
 	/**
 	 * Constructs a new ChannelStatsResponse.
 	 * @exports ChannelStatsResponse
@@ -1828,27 +1697,24 @@ $root.ChannelStatsResponse = (function()
 	 * @constructor
 	 * @param {IChannelStatsResponse=} [properties] Properties to set
 	 */
-	function ChannelStatsResponse(properties)
-	{
-		this.channels = [];
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function ChannelStatsResponse(properties) {
+		this.channels = []
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * ChannelStatsResponse channels.
 	 * @member {Array.<ChannelStats>} channels
 	 * @memberof ChannelStatsResponse
 	 * @instance
 	 */
-	ChannelStatsResponse.prototype.channels = $util.emptyArray;
-	
+	ChannelStatsResponse.prototype.channels = $util.emptyArray
+
 	/**
 	 * Creates a new ChannelStatsResponse instance using the specified properties.
 	 * @function create
@@ -1857,11 +1723,10 @@ $root.ChannelStatsResponse = (function()
 	 * @param {IChannelStatsResponse=} [properties] Properties to set
 	 * @returns {ChannelStatsResponse} ChannelStatsResponse instance
 	 */
-	ChannelStatsResponse.create = function create(properties)
-	{
-		return new ChannelStatsResponse(properties);
-	};
-	
+	ChannelStatsResponse.create = function create(properties) {
+		return new ChannelStatsResponse(properties)
+	}
+
 	/**
 	 * Encodes the specified ChannelStatsResponse message. Does not implicitly {@link ChannelStatsResponse.verify|verify} messages.
 	 * @function encode
@@ -1871,20 +1736,20 @@ $root.ChannelStatsResponse = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	ChannelStatsResponse.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	ChannelStatsResponse.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.channels != null && message.channels.length)
-		{
-			for(var i = 0; i < message.channels.length; ++i)
-				$root.ChannelStats.encode(message.channels[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+		if (message.channels != null && message.channels.length) {
+			for (var i = 0; i < message.channels.length; ++i)
+				$root.ChannelStats.encode(
+					message.channels[i],
+					writer.uint32(/* id 1, wireType 2 =*/ 10).fork()
+				).ldelim()
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a ChannelStatsResponse message from the specified reader or buffer.
 	 * @function decode
@@ -1896,41 +1761,35 @@ $root.ChannelStatsResponse = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	ChannelStatsResponse.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	ChannelStatsResponse.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.ChannelStatsResponse();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.ChannelStatsResponse()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					if(!(message.channels && message.channels.length))
-					{
-						message.channels = [];
+					if (!(message.channels && message.channels.length)) {
+						message.channels = []
 					}
-					message.channels.push($root.ChannelStats.decode(reader, reader.uint32()));
-					break;
+					message.channels.push(
+						$root.ChannelStats.decode(reader, reader.uint32())
+					)
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return ChannelStatsResponse;
-})();
+		return message
+	}
 
-$root.ChannelStats = (function()
-{
-	
+	return ChannelStatsResponse
+})()
+
+$root.ChannelStats = (function () {
 	/**
 	 * Properties of a ChannelStats.
 	 * @exports IChannelStats
@@ -1939,7 +1798,7 @@ $root.ChannelStats = (function()
 	 * @property {boolean|null} [isPrivate] ChannelStats isPrivate
 	 * @property {boolean|null} [isOnline] ChannelStats isOnline
 	 */
-	
+
 	/**
 	 * Constructs a new ChannelStats.
 	 * @exports ChannelStats
@@ -1948,42 +1807,39 @@ $root.ChannelStats = (function()
 	 * @constructor
 	 * @param {IChannelStats=} [properties] Properties to set
 	 */
-	function ChannelStats(properties)
-	{
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function ChannelStats(properties) {
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * ChannelStats id.
 	 * @member {Uint8Array} id
 	 * @memberof ChannelStats
 	 * @instance
 	 */
-	ChannelStats.prototype.id = $util.newBuffer([]);
-	
+	ChannelStats.prototype.id = $util.newBuffer([])
+
 	/**
 	 * ChannelStats isPrivate.
 	 * @member {boolean} isPrivate
 	 * @memberof ChannelStats
 	 * @instance
 	 */
-	ChannelStats.prototype.isPrivate = false;
-	
+	ChannelStats.prototype.isPrivate = false
+
 	/**
 	 * ChannelStats isOnline.
 	 * @member {boolean} isOnline
 	 * @memberof ChannelStats
 	 * @instance
 	 */
-	ChannelStats.prototype.isOnline = false;
-	
+	ChannelStats.prototype.isOnline = false
+
 	/**
 	 * Creates a new ChannelStats instance using the specified properties.
 	 * @function create
@@ -1992,11 +1848,10 @@ $root.ChannelStats = (function()
 	 * @param {IChannelStats=} [properties] Properties to set
 	 * @returns {ChannelStats} ChannelStats instance
 	 */
-	ChannelStats.create = function create(properties)
-	{
-		return new ChannelStats(properties);
-	};
-	
+	ChannelStats.create = function create(properties) {
+		return new ChannelStats(properties)
+	}
+
 	/**
 	 * Encodes the specified ChannelStats message. Does not implicitly {@link ChannelStats.verify|verify} messages.
 	 * @function encode
@@ -2006,27 +1861,22 @@ $root.ChannelStats = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	ChannelStats.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	ChannelStats.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.id != null && message.hasOwnProperty("id"))
-		{
-			writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.id);
+		if (message.id != null && message.hasOwnProperty('id')) {
+			writer.uint32(/* id 1, wireType 2 =*/ 10).bytes(message.id)
 		}
-		if(message.isPrivate != null && message.hasOwnProperty("isPrivate"))
-		{
-			writer.uint32(/* id 2, wireType 0 =*/16).bool(message.isPrivate);
+		if (message.isPrivate != null && message.hasOwnProperty('isPrivate')) {
+			writer.uint32(/* id 2, wireType 0 =*/ 16).bool(message.isPrivate)
 		}
-		if(message.isOnline != null && message.hasOwnProperty("isOnline"))
-		{
-			writer.uint32(/* id 3, wireType 0 =*/24).bool(message.isOnline);
+		if (message.isOnline != null && message.hasOwnProperty('isOnline')) {
+			writer.uint32(/* id 3, wireType 0 =*/ 24).bool(message.isOnline)
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a ChannelStats message from the specified reader or buffer.
 	 * @function decode
@@ -2038,50 +1888,43 @@ $root.ChannelStats = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	ChannelStats.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	ChannelStats.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.ChannelStats();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.ChannelStats()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					message.id = reader.bytes();
-					break;
+					message.id = reader.bytes()
+					break
 				case 2:
-					message.isPrivate = reader.bool();
-					break;
+					message.isPrivate = reader.bool()
+					break
 				case 3:
-					message.isOnline = reader.bool();
-					break;
+					message.isOnline = reader.bool()
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return ChannelStats;
-})();
+		return message
+	}
 
-$root.JsonResponse = (function()
-{
-	
+	return ChannelStats
+})()
+
+$root.JsonResponse = (function () {
 	/**
 	 * Properties of a JsonResponse.
 	 * @exports IJsonResponse
 	 * @interface IJsonResponse
 	 * @property {string|null} [json] JsonResponse json
 	 */
-	
+
 	/**
 	 * Constructs a new JsonResponse.
 	 * @exports JsonResponse
@@ -2090,26 +1933,23 @@ $root.JsonResponse = (function()
 	 * @constructor
 	 * @param {IJsonResponse=} [properties] Properties to set
 	 */
-	function JsonResponse(properties)
-	{
-		if(properties)
-		{
-			for(var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-				if(properties[keys[i]] != null)
-				{
-					this[keys[i]] = properties[keys[i]];
+	function JsonResponse(properties) {
+		if (properties) {
+			for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+				if (properties[keys[i]] != null) {
+					this[keys[i]] = properties[keys[i]]
 				}
 		}
 	}
-	
+
 	/**
 	 * JsonResponse json.
 	 * @member {string} json
 	 * @memberof JsonResponse
 	 * @instance
 	 */
-	JsonResponse.prototype.json = "";
-	
+	JsonResponse.prototype.json = ''
+
 	/**
 	 * Creates a new JsonResponse instance using the specified properties.
 	 * @function create
@@ -2118,11 +1958,10 @@ $root.JsonResponse = (function()
 	 * @param {IJsonResponse=} [properties] Properties to set
 	 * @returns {JsonResponse} JsonResponse instance
 	 */
-	JsonResponse.create = function create(properties)
-	{
-		return new JsonResponse(properties);
-	};
-	
+	JsonResponse.create = function create(properties) {
+		return new JsonResponse(properties)
+	}
+
 	/**
 	 * Encodes the specified JsonResponse message. Does not implicitly {@link JsonResponse.verify|verify} messages.
 	 * @function encode
@@ -2132,19 +1971,16 @@ $root.JsonResponse = (function()
 	 * @param {$protobuf.Writer} [writer] Writer to encode to
 	 * @returns {$protobuf.Writer} Writer
 	 */
-	JsonResponse.encode = function encode(message, writer)
-	{
-		if(!writer)
-		{
-			writer = $Writer.create();
+	JsonResponse.encode = function encode(message, writer) {
+		if (!writer) {
+			writer = $Writer.create()
 		}
-		if(message.json != null && message.hasOwnProperty("json"))
-		{
-			writer.uint32(/* id 1, wireType 2 =*/10).string(message.json);
+		if (message.json != null && message.hasOwnProperty('json')) {
+			writer.uint32(/* id 1, wireType 2 =*/ 10).string(message.json)
 		}
-		return writer;
-	};
-	
+		return writer
+	}
+
 	/**
 	 * Decodes a JsonResponse message from the specified reader or buffer.
 	 * @function decode
@@ -2156,30 +1992,25 @@ $root.JsonResponse = (function()
 	 * @throws {Error} If the payload is not a reader or valid buffer
 	 * @throws {$protobuf.util.ProtocolError} If required fields are missing
 	 */
-	JsonResponse.decode = function decode(reader, length)
-	{
-		if(!(reader instanceof $Reader))
-		{
-			reader = $Reader.create(reader);
+	JsonResponse.decode = function decode(reader, length) {
+		if (!(reader instanceof $Reader)) {
+			reader = $Reader.create(reader)
 		}
-		var end = length === undefined
-			? reader.len
-			: reader.pos + length, message = new $root.JsonResponse();
-		while( reader.pos < end )
-		{
-			var tag = reader.uint32();
-			switch( tag >>> 3 )
-			{
+		var end = length === undefined ? reader.len : reader.pos + length,
+			message = new $root.JsonResponse()
+		while (reader.pos < end) {
+			var tag = reader.uint32()
+			switch (tag >>> 3) {
 				case 1:
-					message.json = reader.string();
-					break;
+					message.json = reader.string()
+					break
 				default:
-					reader.skipType(tag & 7);
-					break;
+					reader.skipType(tag & 7)
+					break
 			}
 		}
-		return message;
-	};
-	
-	return JsonResponse;
-})();
+		return message
+	}
+
+	return JsonResponse
+})()

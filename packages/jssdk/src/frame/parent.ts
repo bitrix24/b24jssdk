@@ -1,23 +1,18 @@
 import { MessageManager, MessageCommands } from './message'
 import useScrollSize from '../tools/scroll-size'
 
-
 /**
  * Parent window manager
  *
  * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/
  */
-export class ParentManager
-{
+export class ParentManager {
 	#messageManager: MessageManager
-	
-	constructor(
-		messageManager: MessageManager
-	)
-	{
+
+	constructor(messageManager: MessageManager) {
 		this.#messageManager = messageManager
 	}
-	
+
 	/**
 	 * The method closes the open modal window with the application
 	 *
@@ -25,19 +20,15 @@ export class ParentManager
 	 *
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-close-application.html
 	 */
-	async closeApplication(): Promise<void>
-	{
-		return this.#messageManager.send(
-			MessageCommands.closeApplication,
-			{
-				/**
-				 * @memo There is no point - everything will be closed and timeout will not be able to do anything
-				 */
-				isSafely: false
-			}
-		)
+	async closeApplication(): Promise<void> {
+		return this.#messageManager.send(MessageCommands.closeApplication, {
+			/**
+			 * @memo There is no point - everything will be closed, and timeout will not be able to do anything
+			 */
+			isSafely: false,
+		})
 	}
-	
+
 	/**
 	 * Sets the size of the frame containing the application to the size of the frame's content.
 	 *
@@ -47,21 +38,17 @@ export class ParentManager
 	 *
 	 * @memo in certain situations it may not be executed (placement of the main window after installing the application), in this case isSafely mode will work
 	 */
-	async fitWindow(): Promise<any>
-	{
+	async fitWindow(): Promise<any> {
 		const width = '100%'
 		const height = this.getScrollSize().scrollHeight
-		
-		return this.#messageManager.send(
-			MessageCommands.resizeWindow,
-			{
-				width,
-				height,
-				isSafely: true
-			}
-		)
+
+		return this.#messageManager.send(MessageCommands.resizeWindow, {
+			width,
+			height,
+			isSafely: true,
+		})
 	}
-	
+
 	/**
 	 * Sets the size of the frame containing the application to the size of the frame's content.
 	 *
@@ -74,28 +61,20 @@ export class ParentManager
 	 *
 	 * @memo in certain situations it may not be executed, in this case isSafely mode will be triggered
 	 */
-	async resizeWindow(
-		width: number,
-		height: number
-	): Promise<void>
-	{
-		if(width > 0 && height > 0)
-		{
-			return this.#messageManager.send(
-				MessageCommands.resizeWindow,
-				{
-					width,
-					height,
-					isSafely: true
-				}
-			)
+	async resizeWindow(width: number, height: number): Promise<void> {
+		if (width > 0 && height > 0) {
+			return this.#messageManager.send(MessageCommands.resizeWindow, {
+				width,
+				height,
+				isSafely: true,
+			})
 		}
-		
-		return Promise.reject(new Error(
-			`Wrong width:number = ${width} or height:number = ${height}`
-		))
+
+		return Promise.reject(
+			new Error(`Wrong width:number = ${width} or height:number = ${height}`)
+		)
 	}
-	
+
 	/**
 	 * Automatically resize `document.body` of frame with application according to frame content dimensions
 	 * If you pass appNode, the height will be calculated relative to it
@@ -107,56 +86,46 @@ export class ParentManager
 	 * @return {Promise<void>}
 	 */
 	async resizeWindowAuto(
-		appNode: null|HTMLElement = null,
+		appNode: null | HTMLElement = null,
 		minHeight: number = 0,
 		minWidth: number = 0
-	): Promise<void>
-	{
+	): Promise<void> {
 		const body = document.body
 		//const html = document.documentElement
-		
+
 		let width = Math.max(
 			body.scrollWidth,
-			body.offsetWidth,
-			
+			body.offsetWidth
+
 			//html.clientWidth,
 			//html.scrollWidth,
 			//html.offsetWidth
 		)
-		
-		if(minWidth > 0)
-		{
+
+		if (minWidth > 0) {
 			width = Math.max(minWidth, width)
 		}
-		
+
 		let height = Math.max(
 			body.scrollHeight,
-			body.offsetHeight,
-			
+			body.offsetHeight
+
 			//html.clientHeight,
 			//html.scrollHeight,
 			//html.offsetHeight
 		)
-		
-		if(!!appNode)
-		{
-			height = Math.max(
-				appNode.scrollHeight,
-				appNode.offsetHeight,
-			)
+
+		if (appNode) {
+			height = Math.max(appNode.scrollHeight, appNode.offsetHeight)
 		}
-		
-		if(minHeight > 0)
-		{
+
+		if (minHeight > 0) {
 			height = Math.max(minHeight, height)
 		}
-		
-		return this.resizeWindow(
-			width,
-			height,
-		)
+
+		return this.resizeWindow(width, height)
 	}
-	
+
 	/**
 	 * This function returns the inner dimensions of the application frame
 	 *
@@ -167,11 +136,10 @@ export class ParentManager
 	getScrollSize(): {
 		scrollWidth: number
 		scrollHeight: number
-	}
-	{
+	} {
 		return useScrollSize()
 	}
-	
+
 	/**
 	 * Scrolls the parent window
 	 *
@@ -180,29 +148,21 @@ export class ParentManager
 	 *
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-scroll-parent-window.html
 	 */
-	async scrollParentWindow(
-		scroll: number
-	): Promise<void>
-	{
-		if(!Number.isInteger(scroll))
-		{
+	async scrollParentWindow(scroll: number): Promise<void> {
+		if (!Number.isInteger(scroll)) {
 			return Promise.reject(new Error('Wrong scroll number'))
 		}
-		
-		if(scroll < 0)
-		{
+
+		if (scroll < 0) {
 			scroll = 0
 		}
-		
-		return this.#messageManager.send(
-			MessageCommands.setScroll,
-			{
-				scroll,
-				isSafely: true
-			}
-		)
+
+		return this.#messageManager.send(MessageCommands.setScroll, {
+			scroll,
+			isSafely: true,
+		})
 	}
-	
+
 	/**
 	 * Reload the page with the application (the whole page, not just the frame).
 	 *
@@ -210,16 +170,12 @@ export class ParentManager
 	 *
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-reload-window.html
 	 */
-	async reloadWindow(): Promise<void>
-	{
-		return this.#messageManager.send(
-			MessageCommands.reloadWindow,
-			{
-				isSafely: true
-			}
-		)
+	async reloadWindow(): Promise<void> {
+		return this.#messageManager.send(MessageCommands.reloadWindow, {
+			isSafely: true,
+		})
 	}
-	
+
 	/**
 	 * Set Page Title
 	 *
@@ -229,19 +185,13 @@ export class ParentManager
 	 *
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-set-title.html
 	 */
-	async setTitle(
-		title: string
-	): Promise<void>
-	{
-		return this.#messageManager.send(
-			MessageCommands.setTitle,
-			{
-				title: title.toString(),
-				isSafely: true
-			}
-		)
+	async setTitle(title: string): Promise<void> {
+		return this.#messageManager.send(MessageCommands.setTitle, {
+			title: title.toString(),
+			isSafely: true,
+		})
 	}
-	
+
 	/**
 	 * Initiates a call via internal communication
 	 *
@@ -252,21 +202,14 @@ export class ParentManager
 	 *
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-call-to.html
 	 */
-	async imCallTo(
-		userId: number,
-		isVideo: boolean = true
-	): Promise<void>
-	{
-		return this.#messageManager.send(
-			MessageCommands.imCallTo,
-			{
-				userId,
-				video: isVideo,
-				isSafely: true
-			}
-		)
+	async imCallTo(userId: number, isVideo: boolean = true): Promise<void> {
+		return this.#messageManager.send(MessageCommands.imCallTo, {
+			userId,
+			video: isVideo,
+			isSafely: true,
+		})
 	}
-	
+
 	/**
 	 * Makes a call to the phone number
 	 *
@@ -276,19 +219,13 @@ export class ParentManager
 	 *
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-phone-to.html
 	 */
-	async imPhoneTo(
-		phone: string
-	): Promise<void>
-	{
-		return this.#messageManager.send(
-			MessageCommands.imPhoneTo,
-			{
-				phone,
-				isSafely: true
-			}
-		)
+	async imPhoneTo(phone: string): Promise<void> {
+		return this.#messageManager.send(MessageCommands.imPhoneTo, {
+			phone,
+			isSafely: true,
+		})
 	}
-	
+
 	/**
 	 * Opens the messenger window
 	 * userId or chatXXX - chat, where XXX is the chat identifier, which can simply be a number.
@@ -307,18 +244,19 @@ export class ParentManager
 	 *
 	 */
 	async imOpenMessenger(
-		dialogId: number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined
-	): Promise<void>
-	{
-		return this.#messageManager.send(
-			MessageCommands.imOpenMessenger,
-			{
-				dialogId: dialogId,
-				isSafely: true
-			}
-		)
+		dialogId:
+			| number
+			| `chat${number}`
+			| `sg${number}`
+			| `imol|${number}`
+			| undefined
+	): Promise<void> {
+		return this.#messageManager.send(MessageCommands.imOpenMessenger, {
+			dialogId: dialogId,
+			isSafely: true,
+		})
 	}
-	
+
 	/**
 	 * Opens the history window
 	 * Identifier of the dialog:
@@ -333,15 +271,11 @@ export class ParentManager
 	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-open-history.html
 	 */
 	async imOpenHistory(
-		dialogId: number|`chat${number}`|`imol|${number}`
-	): Promise<void>
-	{
-		return this.#messageManager.send(
-			MessageCommands.imOpenHistory,
-			{
-				dialogId: dialogId,
-				isSafely: true
-			}
-		)
+		dialogId: number | `chat${number}` | `imol|${number}`
+	): Promise<void> {
+		return this.#messageManager.send(MessageCommands.imOpenHistory, {
+			dialogId: dialogId,
+			isSafely: true,
+		})
 	}
 }

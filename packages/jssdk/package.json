@@ -20,7 +20,7 @@
 	"sideEffects": false,
 	"type": "module",
 	"exports": {
-		"./package.json":  "./package.json",
+		"./package.json": "./package.json",
 		".": {
 			"types": {
 				"require": "./dist/commonjs/index.d.cts",
@@ -38,7 +38,6 @@
 	"module": "./dist/esm/index.mjs",
 	"types": "./dist/esm/index.d.ts",
 	"unpkg": "dist/umd/index.min.js",
-	
 	"files": [
 		"README.md",
 		"LICENSE",
@@ -54,10 +53,11 @@
 	"scripts": {
 		"prepack": "npm run build",
 		"build": "npm-run-all -s build:*",
+		"build:lint-prettier": "eslint . && prettier -c .",
 		"build:unbuild": "unbuild",
-		"lint:prettier": "eslint . && prettier -c .",
 		"lint": "eslint .",
-		"lint:fix": "automd && eslint . --fix && prettier -w ."
+		"lint:prettier": "eslint . && prettier -c .",
+		"lint:fix": "eslint . --fix && prettier -w ."
 	},
 	"dependencies": {
 		"axios": "^1.7.7",

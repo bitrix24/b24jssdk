@@ -1,4 +1,4 @@
 export type StatusClose = {
-	isOpenAtNewWindow: boolean,
+	isOpenAtNewWindow: boolean
 	isClose: boolean
 }

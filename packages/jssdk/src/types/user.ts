@@ -18,7 +18,7 @@ export type UserBrief = {
 	readonly TIME_ZONE_OFFSET: NumberString | null
 	readonly TIMESTAMP_X: string
 	readonly DATE_REGISTER: ISODate
-	
+
 	readonly PERSONAL_PROFESSION: string | null
 	readonly PERSONAL_GENDER: GenderString
 	readonly PERSONAL_BIRTHDAY: string | null
@@ -26,19 +26,19 @@ export type UserBrief = {
 	readonly PERSONAL_CITY: string | null
 	readonly PERSONAL_STATE: string | null
 	readonly PERSONAL_COUNTRY: string | null
-	
+
 	readonly WORK_POSITION: string | null
 	readonly WORK_CITY: string | null
 	readonly WORK_STATE: string | null
 	readonly WORK_COUNTRY: string | null
-	
+
 	readonly LAST_ACTIVITY_DATE: string
-	readonly UF_EMPLOYMENT_DATE: ISODate| string
+	readonly UF_EMPLOYMENT_DATE: ISODate | string
 	readonly UF_TIMEMAN: string | null
 	readonly UF_SKILLS: string | null
 	readonly UF_INTERESTS: string | null
 	readonly UF_DEPARTMENT: readonly number[]
-	
+
 	readonly UF_PHONE_INNER: NumberString | null
 }
 
@@ -54,11 +54,11 @@ export type UserBasic = UserBrief & {
 	readonly PERSONAL_MOBILE: string | null
 	readonly PERSONAL_PAGER: string | null
 	readonly PERSONAL_STREET: string | null
-	
+
 	readonly PERSONAL_ZIP: string | null
-	
+
 	readonly WORK_COMPANY: string | null
-	
+
 	readonly WORK_PHONE: string | null
 	readonly UF_SKILLS: string | null
 	readonly UF_WEB_SITES: string | null

@@ -9,7 +9,7 @@ This page will help you quickly integrate `@bitrix24/b24jssdk` into your Nuxt 3 
 
 Before you begin, make sure you have Nuxt 3 installed.
 
-Then run the following command to install the module:
+Then run the following command to install the [module](https://www.npmjs.com/package/@bitrix24/b24jssdk-nuxt):
 
 ```bash
 npx nuxi module add @bitrix24/b24jssdk-nuxt

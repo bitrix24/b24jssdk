@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 (2024-11-18)
+
+- Fix the error at fetchListMethod
+
 ## 0.1.2 (2024-11-18)
 
 - The `protobufjs` module has been moved to internal

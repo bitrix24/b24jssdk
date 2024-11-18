@@ -1,6 +1,6 @@
 {
 	"name": "@bitrix24/b24jssdk",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"author": "Bitrix",
 	"license": "MIT",
 	"description": "Bitrix24 REST API JS SDK",
@@ -53,7 +53,7 @@
 	"scripts": {
 		"prepack": "npm run build",
 		"build": "npm-run-all -s build:*",
-		"build:lint-prettier": "eslint . && prettier -c .",
+		"dd-build:lint-prettier": "eslint . && prettier -c .",
 		"build:unbuild": "unbuild",
 		"lint": "eslint .",
 		"lint:prettier": "eslint . && prettier -c .",
@@ -61,13 +61,12 @@
 	},
 	"dependencies": {
 		"axios": "^1.7.7",
-		"qs": "^6.13.0",
+		"qs-esm": "^7.0.2",
 		"luxon": "^3.5.0"
 	},
 	"devDependencies": {
 		"@types/luxon": "^3.4.2",
 		"@types/node": "^22.5.3",
-		"@types/qs": "^6.9.15",
 		"eslint-config-unjs": "^0.4.1",
 		"prettier": "^3.3.3",
 		"npm-run-all": "^4.1.5",

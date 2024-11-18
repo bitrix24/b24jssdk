@@ -15,7 +15,7 @@ import type {
 import type { BatchPayload } from '../../types/payloads'
 
 import axios, { type AxiosInstance, AxiosError } from 'axios'
-import qs from 'qs'
+import * as qs from 'qs-esm'
 
 type AjaxResponse = {
 	status: number

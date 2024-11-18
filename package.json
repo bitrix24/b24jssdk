@@ -1,6 +1,6 @@
 {
 	"name": "@bitrix24/b24jssdk-main",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"author": "Bitrix",
 	"license": "MIT",
 	"private": true,

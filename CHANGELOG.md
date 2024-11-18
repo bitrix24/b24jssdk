@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4 (2024-11-18)
+
+- migrate to `qs-esm`
+
 ## 0.1.3 (2024-11-18)
 
 - Fix the error at fetchListMethod

@@ -166,7 +166,7 @@ export abstract class AbstractB24 implements TypeB24 {
 		do {
 			const result = await this.callMethod(method, params, params.start)
 			let data = undefined
-			if (Type.isNull(customKeyForResult) && null !== customKeyForResult) {
+			if (!Type.isNull(customKeyForResult) && null !== customKeyForResult) {
 				data = result.getData().result[customKeyForResult] as []
 			} else {
 				data = result.getData().result as []

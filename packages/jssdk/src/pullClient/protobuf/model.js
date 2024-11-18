@@ -1,7 +1,7 @@
-import $protobuf from 'protobufjs'
+import $protobuf from './protobuf.js'
 
 /*eslint-disable block-scoped-var, no-redeclare, no-control-regex, no-prototype-builtins*/
-//"use strict";
+"use strict";
 
 // Common aliases
 let $Reader = $protobuf.Reader,
@@ -19,7 +19,7 @@ $root.RequestBatch = (function () {
 	 * @interface IRequestBatch
 	 * @property {Array.<Request>|null} [requests] RequestBatch requests
 	 */
-
+	
 	/**
 	 * Constructs a new RequestBatch.
 	 * @exports RequestBatch
@@ -37,7 +37,7 @@ $root.RequestBatch = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * RequestBatch requests.
 	 * @member {Array.<Request>} requests
@@ -45,7 +45,7 @@ $root.RequestBatch = (function () {
 	 * @instance
 	 */
 	RequestBatch.prototype.requests = $util.emptyArray
-
+	
 	/**
 	 * Creates a new RequestBatch instance using the specified properties.
 	 * @function create
@@ -57,7 +57,7 @@ $root.RequestBatch = (function () {
 	RequestBatch.create = function create(properties) {
 		return new RequestBatch(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified RequestBatch message. Does not implicitly {@link RequestBatch.verify|verify} messages.
 	 * @function encode
@@ -80,7 +80,7 @@ $root.RequestBatch = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a RequestBatch message from the specified reader or buffer.
 	 * @function decode
@@ -114,7 +114,7 @@ $root.RequestBatch = (function () {
 		}
 		return message
 	}
-
+	
 	return RequestBatch
 })()
 
@@ -127,7 +127,7 @@ $root.Request = (function () {
 	 * @property {ChannelStatsRequest|null} [channelStats] Request channelStats
 	 * @property {ServerStatsRequest|null} [serverStats] Request serverStats
 	 */
-
+	
 	/**
 	 * Constructs a new Request.
 	 * @exports Request
@@ -144,7 +144,7 @@ $root.Request = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * Request incomingMessages.
 	 * @member {IncomingMessagesRequest|null|undefined} incomingMessages
@@ -152,7 +152,7 @@ $root.Request = (function () {
 	 * @instance
 	 */
 	Request.prototype.incomingMessages = null
-
+	
 	/**
 	 * Request channelStats.
 	 * @member {ChannelStatsRequest|null|undefined} channelStats
@@ -160,7 +160,7 @@ $root.Request = (function () {
 	 * @instance
 	 */
 	Request.prototype.channelStats = null
-
+	
 	/**
 	 * Request serverStats.
 	 * @member {ServerStatsRequest|null|undefined} serverStats
@@ -168,10 +168,10 @@ $root.Request = (function () {
 	 * @instance
 	 */
 	Request.prototype.serverStats = null
-
+	
 	// OneOf field names bound to virtual getters and setters
 	var $oneOfFields
-
+	
 	/**
 	 * Request command.
 	 * @member {"incomingMessages"|"channelStats"|"serverStats"|undefined} command
@@ -184,7 +184,7 @@ $root.Request = (function () {
 		),
 		set: $util.oneOfSetter($oneOfFields),
 	})
-
+	
 	/**
 	 * Creates a new Request instance using the specified properties.
 	 * @function create
@@ -196,7 +196,7 @@ $root.Request = (function () {
 	Request.create = function create(properties) {
 		return new Request(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified Request message. Does not implicitly {@link Request.verify|verify} messages.
 	 * @function encode
@@ -236,7 +236,7 @@ $root.Request = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a Request message from the specified reader or buffer.
 	 * @function decode
@@ -282,7 +282,7 @@ $root.Request = (function () {
 		}
 		return message
 	}
-
+	
 	return Request
 })()
 
@@ -293,7 +293,7 @@ $root.IncomingMessagesRequest = (function () {
 	 * @interface IIncomingMessagesRequest
 	 * @property {Array.<IncomingMessage>|null} [messages] IncomingMessagesRequest messages
 	 */
-
+	
 	/**
 	 * Constructs a new IncomingMessagesRequest.
 	 * @exports IncomingMessagesRequest
@@ -311,7 +311,7 @@ $root.IncomingMessagesRequest = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * IncomingMessagesRequest messages.
 	 * @member {Array.<IncomingMessage>} messages
@@ -319,7 +319,7 @@ $root.IncomingMessagesRequest = (function () {
 	 * @instance
 	 */
 	IncomingMessagesRequest.prototype.messages = $util.emptyArray
-
+	
 	/**
 	 * Creates a new IncomingMessagesRequest instance using the specified properties.
 	 * @function create
@@ -331,7 +331,7 @@ $root.IncomingMessagesRequest = (function () {
 	IncomingMessagesRequest.create = function create(properties) {
 		return new IncomingMessagesRequest(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified IncomingMessagesRequest message. Does not implicitly {@link IncomingMessagesRequest.verify|verify} messages.
 	 * @function encode
@@ -354,7 +354,7 @@ $root.IncomingMessagesRequest = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes an IncomingMessagesRequest message from the specified reader or buffer.
 	 * @function decode
@@ -390,7 +390,7 @@ $root.IncomingMessagesRequest = (function () {
 		}
 		return message
 	}
-
+	
 	return IncomingMessagesRequest
 })()
 
@@ -405,7 +405,7 @@ $root.IncomingMessage = (function () {
 	 * @property {number|null} [expiry] IncomingMessage expiry
 	 * @property {string|null} [type] IncomingMessage type
 	 */
-
+	
 	/**
 	 * Constructs a new IncomingMessage.
 	 * @exports IncomingMessage
@@ -423,7 +423,7 @@ $root.IncomingMessage = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * IncomingMessage receivers.
 	 * @member {Array.<Receiver>} receivers
@@ -431,7 +431,7 @@ $root.IncomingMessage = (function () {
 	 * @instance
 	 */
 	IncomingMessage.prototype.receivers = $util.emptyArray
-
+	
 	/**
 	 * IncomingMessage sender.
 	 * @member {Sender|null|undefined} sender
@@ -439,7 +439,7 @@ $root.IncomingMessage = (function () {
 	 * @instance
 	 */
 	IncomingMessage.prototype.sender = null
-
+	
 	/**
 	 * IncomingMessage body.
 	 * @member {string} body
@@ -447,7 +447,7 @@ $root.IncomingMessage = (function () {
 	 * @instance
 	 */
 	IncomingMessage.prototype.body = ''
-
+	
 	/**
 	 * IncomingMessage expiry.
 	 * @member {number} expiry
@@ -455,7 +455,7 @@ $root.IncomingMessage = (function () {
 	 * @instance
 	 */
 	IncomingMessage.prototype.expiry = 0
-
+	
 	/**
 	 * IncomingMessage type.
 	 * @member {string} type
@@ -463,7 +463,7 @@ $root.IncomingMessage = (function () {
 	 * @instance
 	 */
 	IncomingMessage.prototype.type = ''
-
+	
 	/**
 	 * Creates a new IncomingMessage instance using the specified properties.
 	 * @function create
@@ -475,7 +475,7 @@ $root.IncomingMessage = (function () {
 	IncomingMessage.create = function create(properties) {
 		return new IncomingMessage(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified IncomingMessage message. Does not implicitly {@link IncomingMessage.verify|verify} messages.
 	 * @function encode
@@ -513,7 +513,7 @@ $root.IncomingMessage = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes an IncomingMessage message from the specified reader or buffer.
 	 * @function decode
@@ -559,7 +559,7 @@ $root.IncomingMessage = (function () {
 		}
 		return message
 	}
-
+	
 	return IncomingMessage
 })()
 
@@ -570,7 +570,7 @@ $root.ChannelStatsRequest = (function () {
 	 * @interface IChannelStatsRequest
 	 * @property {Array.<ChannelId>|null} [channels] ChannelStatsRequest channels
 	 */
-
+	
 	/**
 	 * Constructs a new ChannelStatsRequest.
 	 * @exports ChannelStatsRequest
@@ -588,7 +588,7 @@ $root.ChannelStatsRequest = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * ChannelStatsRequest channels.
 	 * @member {Array.<ChannelId>} channels
@@ -596,7 +596,7 @@ $root.ChannelStatsRequest = (function () {
 	 * @instance
 	 */
 	ChannelStatsRequest.prototype.channels = $util.emptyArray
-
+	
 	/**
 	 * Creates a new ChannelStatsRequest instance using the specified properties.
 	 * @function create
@@ -608,7 +608,7 @@ $root.ChannelStatsRequest = (function () {
 	ChannelStatsRequest.create = function create(properties) {
 		return new ChannelStatsRequest(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified ChannelStatsRequest message. Does not implicitly {@link ChannelStatsRequest.verify|verify} messages.
 	 * @function encode
@@ -631,7 +631,7 @@ $root.ChannelStatsRequest = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a ChannelStatsRequest message from the specified reader or buffer.
 	 * @function decode
@@ -665,7 +665,7 @@ $root.ChannelStatsRequest = (function () {
 		}
 		return message
 	}
-
+	
 	return ChannelStatsRequest
 })()
 
@@ -678,7 +678,7 @@ $root.ChannelId = (function () {
 	 * @property {boolean|null} [isPrivate] ChannelId isPrivate
 	 * @property {Uint8Array|null} [signature] ChannelId signature
 	 */
-
+	
 	/**
 	 * Constructs a new ChannelId.
 	 * @exports ChannelId
@@ -695,7 +695,7 @@ $root.ChannelId = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * ChannelId id.
 	 * @member {Uint8Array} id
@@ -703,7 +703,7 @@ $root.ChannelId = (function () {
 	 * @instance
 	 */
 	ChannelId.prototype.id = $util.newBuffer([])
-
+	
 	/**
 	 * ChannelId isPrivate.
 	 * @member {boolean} isPrivate
@@ -711,7 +711,7 @@ $root.ChannelId = (function () {
 	 * @instance
 	 */
 	ChannelId.prototype.isPrivate = false
-
+	
 	/**
 	 * ChannelId signature.
 	 * @member {Uint8Array} signature
@@ -719,7 +719,7 @@ $root.ChannelId = (function () {
 	 * @instance
 	 */
 	ChannelId.prototype.signature = $util.newBuffer([])
-
+	
 	/**
 	 * Creates a new ChannelId instance using the specified properties.
 	 * @function create
@@ -731,7 +731,7 @@ $root.ChannelId = (function () {
 	ChannelId.create = function create(properties) {
 		return new ChannelId(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified ChannelId message. Does not implicitly {@link ChannelId.verify|verify} messages.
 	 * @function encode
@@ -756,7 +756,7 @@ $root.ChannelId = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a ChannelId message from the specified reader or buffer.
 	 * @function decode
@@ -793,7 +793,7 @@ $root.ChannelId = (function () {
 		}
 		return message
 	}
-
+	
 	return ChannelId
 })()
 
@@ -803,7 +803,7 @@ $root.ServerStatsRequest = (function () {
 	 * @exports IServerStatsRequest
 	 * @interface IServerStatsRequest
 	 */
-
+	
 	/**
 	 * Constructs a new ServerStatsRequest.
 	 * @exports ServerStatsRequest
@@ -820,7 +820,7 @@ $root.ServerStatsRequest = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * Creates a new ServerStatsRequest instance using the specified properties.
 	 * @function create
@@ -832,7 +832,7 @@ $root.ServerStatsRequest = (function () {
 	ServerStatsRequest.create = function create(properties) {
 		return new ServerStatsRequest(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified ServerStatsRequest message. Does not implicitly {@link ServerStatsRequest.verify|verify} messages.
 	 * @function encode
@@ -848,7 +848,7 @@ $root.ServerStatsRequest = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a ServerStatsRequest message from the specified reader or buffer.
 	 * @function decode
@@ -876,7 +876,7 @@ $root.ServerStatsRequest = (function () {
 		}
 		return message
 	}
-
+	
 	return ServerStatsRequest
 })()
 
@@ -888,7 +888,7 @@ $root.Sender = (function () {
 	 * @property {SenderType|null} [type] Sender type
 	 * @property {Uint8Array|null} [id] Sender id
 	 */
-
+	
 	/**
 	 * Constructs a new Sender.
 	 * @exports Sender
@@ -905,7 +905,7 @@ $root.Sender = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * Sender type.
 	 * @member {SenderType} type
@@ -913,7 +913,7 @@ $root.Sender = (function () {
 	 * @instance
 	 */
 	Sender.prototype.type = 0
-
+	
 	/**
 	 * Sender id.
 	 * @member {Uint8Array} id
@@ -921,7 +921,7 @@ $root.Sender = (function () {
 	 * @instance
 	 */
 	Sender.prototype.id = $util.newBuffer([])
-
+	
 	/**
 	 * Creates a new Sender instance using the specified properties.
 	 * @function create
@@ -933,7 +933,7 @@ $root.Sender = (function () {
 	Sender.create = function create(properties) {
 		return new Sender(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified Sender message. Does not implicitly {@link Sender.verify|verify} messages.
 	 * @function encode
@@ -955,7 +955,7 @@ $root.Sender = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a Sender message from the specified reader or buffer.
 	 * @function decode
@@ -989,7 +989,7 @@ $root.Sender = (function () {
 		}
 		return message
 	}
-
+	
 	return Sender
 })()
 
@@ -1019,7 +1019,7 @@ $root.Receiver = (function () {
 	 * @property {boolean|null} [isPrivate] Receiver isPrivate
 	 * @property {Uint8Array|null} [signature] Receiver signature
 	 */
-
+	
 	/**
 	 * Constructs a new Receiver.
 	 * @exports Receiver
@@ -1036,7 +1036,7 @@ $root.Receiver = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * Receiver id.
 	 * @member {Uint8Array} id
@@ -1044,7 +1044,7 @@ $root.Receiver = (function () {
 	 * @instance
 	 */
 	Receiver.prototype.id = $util.newBuffer([])
-
+	
 	/**
 	 * Receiver isPrivate.
 	 * @member {boolean} isPrivate
@@ -1052,7 +1052,7 @@ $root.Receiver = (function () {
 	 * @instance
 	 */
 	Receiver.prototype.isPrivate = false
-
+	
 	/**
 	 * Receiver signature.
 	 * @member {Uint8Array} signature
@@ -1060,7 +1060,7 @@ $root.Receiver = (function () {
 	 * @instance
 	 */
 	Receiver.prototype.signature = $util.newBuffer([])
-
+	
 	/**
 	 * Creates a new Receiver instance using the specified properties.
 	 * @function create
@@ -1072,7 +1072,7 @@ $root.Receiver = (function () {
 	Receiver.create = function create(properties) {
 		return new Receiver(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified Receiver message. Does not implicitly {@link Receiver.verify|verify} messages.
 	 * @function encode
@@ -1097,7 +1097,7 @@ $root.Receiver = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a Receiver message from the specified reader or buffer.
 	 * @function decode
@@ -1134,7 +1134,7 @@ $root.Receiver = (function () {
 		}
 		return message
 	}
-
+	
 	return Receiver
 })()
 
@@ -1145,7 +1145,7 @@ $root.ResponseBatch = (function () {
 	 * @interface IResponseBatch
 	 * @property {Array.<Response>|null} [responses] ResponseBatch responses
 	 */
-
+	
 	/**
 	 * Constructs a new ResponseBatch.
 	 * @exports ResponseBatch
@@ -1163,7 +1163,7 @@ $root.ResponseBatch = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * ResponseBatch responses.
 	 * @member {Array.<Response>} responses
@@ -1171,7 +1171,7 @@ $root.ResponseBatch = (function () {
 	 * @instance
 	 */
 	ResponseBatch.prototype.responses = $util.emptyArray
-
+	
 	/**
 	 * Creates a new ResponseBatch instance using the specified properties.
 	 * @function create
@@ -1183,7 +1183,7 @@ $root.ResponseBatch = (function () {
 	ResponseBatch.create = function create(properties) {
 		return new ResponseBatch(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified ResponseBatch message. Does not implicitly {@link ResponseBatch.verify|verify} messages.
 	 * @function encode
@@ -1206,7 +1206,7 @@ $root.ResponseBatch = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a ResponseBatch message from the specified reader or buffer.
 	 * @function decode
@@ -1240,7 +1240,7 @@ $root.ResponseBatch = (function () {
 		}
 		return message
 	}
-
+	
 	return ResponseBatch
 })()
 
@@ -1253,7 +1253,7 @@ $root.Response = (function () {
 	 * @property {ChannelStatsResponse|null} [channelStats] Response channelStats
 	 * @property {JsonResponse|null} [serverStats] Response serverStats
 	 */
-
+	
 	/**
 	 * Constructs a new Response.
 	 * @exports Response
@@ -1270,7 +1270,7 @@ $root.Response = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * Response outgoingMessages.
 	 * @member {OutgoingMessagesResponse|null|undefined} outgoingMessages
@@ -1278,7 +1278,7 @@ $root.Response = (function () {
 	 * @instance
 	 */
 	Response.prototype.outgoingMessages = null
-
+	
 	/**
 	 * Response channelStats.
 	 * @member {ChannelStatsResponse|null|undefined} channelStats
@@ -1286,7 +1286,7 @@ $root.Response = (function () {
 	 * @instance
 	 */
 	Response.prototype.channelStats = null
-
+	
 	/**
 	 * Response serverStats.
 	 * @member {JsonResponse|null|undefined} serverStats
@@ -1294,10 +1294,10 @@ $root.Response = (function () {
 	 * @instance
 	 */
 	Response.prototype.serverStats = null
-
+	
 	// OneOf field names bound to virtual getters and setters
 	var $oneOfFields
-
+	
 	/**
 	 * Response command.
 	 * @member {"outgoingMessages"|"channelStats"|"serverStats"|undefined} command
@@ -1310,7 +1310,7 @@ $root.Response = (function () {
 		),
 		set: $util.oneOfSetter($oneOfFields),
 	})
-
+	
 	/**
 	 * Creates a new Response instance using the specified properties.
 	 * @function create
@@ -1322,7 +1322,7 @@ $root.Response = (function () {
 	Response.create = function create(properties) {
 		return new Response(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified Response message. Does not implicitly {@link Response.verify|verify} messages.
 	 * @function encode
@@ -1362,7 +1362,7 @@ $root.Response = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a Response message from the specified reader or buffer.
 	 * @function decode
@@ -1408,7 +1408,7 @@ $root.Response = (function () {
 		}
 		return message
 	}
-
+	
 	return Response
 })()
 
@@ -1419,7 +1419,7 @@ $root.OutgoingMessagesResponse = (function () {
 	 * @interface IOutgoingMessagesResponse
 	 * @property {Array.<OutgoingMessage>|null} [messages] OutgoingMessagesResponse messages
 	 */
-
+	
 	/**
 	 * Constructs a new OutgoingMessagesResponse.
 	 * @exports OutgoingMessagesResponse
@@ -1437,7 +1437,7 @@ $root.OutgoingMessagesResponse = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * OutgoingMessagesResponse messages.
 	 * @member {Array.<OutgoingMessage>} messages
@@ -1445,7 +1445,7 @@ $root.OutgoingMessagesResponse = (function () {
 	 * @instance
 	 */
 	OutgoingMessagesResponse.prototype.messages = $util.emptyArray
-
+	
 	/**
 	 * Creates a new OutgoingMessagesResponse instance using the specified properties.
 	 * @function create
@@ -1457,7 +1457,7 @@ $root.OutgoingMessagesResponse = (function () {
 	OutgoingMessagesResponse.create = function create(properties) {
 		return new OutgoingMessagesResponse(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified OutgoingMessagesResponse message. Does not implicitly {@link OutgoingMessagesResponse.verify|verify} messages.
 	 * @function encode
@@ -1480,7 +1480,7 @@ $root.OutgoingMessagesResponse = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes an OutgoingMessagesResponse message from the specified reader or buffer.
 	 * @function decode
@@ -1516,7 +1516,7 @@ $root.OutgoingMessagesResponse = (function () {
 		}
 		return message
 	}
-
+	
 	return OutgoingMessagesResponse
 })()
 
@@ -1531,7 +1531,7 @@ $root.OutgoingMessage = (function () {
 	 * @property {number|null} [created] OutgoingMessage created
 	 * @property {Sender|null} [sender] OutgoingMessage sender
 	 */
-
+	
 	/**
 	 * Constructs a new OutgoingMessage.
 	 * @exports OutgoingMessage
@@ -1548,7 +1548,7 @@ $root.OutgoingMessage = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * OutgoingMessage id.
 	 * @member {Uint8Array} id
@@ -1556,7 +1556,7 @@ $root.OutgoingMessage = (function () {
 	 * @instance
 	 */
 	OutgoingMessage.prototype.id = $util.newBuffer([])
-
+	
 	/**
 	 * OutgoingMessage body.
 	 * @member {string} body
@@ -1564,7 +1564,7 @@ $root.OutgoingMessage = (function () {
 	 * @instance
 	 */
 	OutgoingMessage.prototype.body = ''
-
+	
 	/**
 	 * OutgoingMessage expiry.
 	 * @member {number} expiry
@@ -1572,7 +1572,7 @@ $root.OutgoingMessage = (function () {
 	 * @instance
 	 */
 	OutgoingMessage.prototype.expiry = 0
-
+	
 	/**
 	 * OutgoingMessage created.
 	 * @member {number} created
@@ -1580,7 +1580,7 @@ $root.OutgoingMessage = (function () {
 	 * @instance
 	 */
 	OutgoingMessage.prototype.created = 0
-
+	
 	/**
 	 * OutgoingMessage sender.
 	 * @member {Sender|null|undefined} sender
@@ -1588,7 +1588,7 @@ $root.OutgoingMessage = (function () {
 	 * @instance
 	 */
 	OutgoingMessage.prototype.sender = null
-
+	
 	/**
 	 * Creates a new OutgoingMessage instance using the specified properties.
 	 * @function create
@@ -1600,7 +1600,7 @@ $root.OutgoingMessage = (function () {
 	OutgoingMessage.create = function create(properties) {
 		return new OutgoingMessage(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified OutgoingMessage message. Does not implicitly {@link OutgoingMessage.verify|verify} messages.
 	 * @function encode
@@ -1634,7 +1634,7 @@ $root.OutgoingMessage = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes an OutgoingMessage message from the specified reader or buffer.
 	 * @function decode
@@ -1677,7 +1677,7 @@ $root.OutgoingMessage = (function () {
 		}
 		return message
 	}
-
+	
 	return OutgoingMessage
 })()
 
@@ -1688,7 +1688,7 @@ $root.ChannelStatsResponse = (function () {
 	 * @interface IChannelStatsResponse
 	 * @property {Array.<ChannelStats>|null} [channels] ChannelStatsResponse channels
 	 */
-
+	
 	/**
 	 * Constructs a new ChannelStatsResponse.
 	 * @exports ChannelStatsResponse
@@ -1706,7 +1706,7 @@ $root.ChannelStatsResponse = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * ChannelStatsResponse channels.
 	 * @member {Array.<ChannelStats>} channels
@@ -1714,7 +1714,7 @@ $root.ChannelStatsResponse = (function () {
 	 * @instance
 	 */
 	ChannelStatsResponse.prototype.channels = $util.emptyArray
-
+	
 	/**
 	 * Creates a new ChannelStatsResponse instance using the specified properties.
 	 * @function create
@@ -1726,7 +1726,7 @@ $root.ChannelStatsResponse = (function () {
 	ChannelStatsResponse.create = function create(properties) {
 		return new ChannelStatsResponse(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified ChannelStatsResponse message. Does not implicitly {@link ChannelStatsResponse.verify|verify} messages.
 	 * @function encode
@@ -1749,7 +1749,7 @@ $root.ChannelStatsResponse = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a ChannelStatsResponse message from the specified reader or buffer.
 	 * @function decode
@@ -1785,7 +1785,7 @@ $root.ChannelStatsResponse = (function () {
 		}
 		return message
 	}
-
+	
 	return ChannelStatsResponse
 })()
 
@@ -1798,7 +1798,7 @@ $root.ChannelStats = (function () {
 	 * @property {boolean|null} [isPrivate] ChannelStats isPrivate
 	 * @property {boolean|null} [isOnline] ChannelStats isOnline
 	 */
-
+	
 	/**
 	 * Constructs a new ChannelStats.
 	 * @exports ChannelStats
@@ -1815,7 +1815,7 @@ $root.ChannelStats = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * ChannelStats id.
 	 * @member {Uint8Array} id
@@ -1823,7 +1823,7 @@ $root.ChannelStats = (function () {
 	 * @instance
 	 */
 	ChannelStats.prototype.id = $util.newBuffer([])
-
+	
 	/**
 	 * ChannelStats isPrivate.
 	 * @member {boolean} isPrivate
@@ -1831,7 +1831,7 @@ $root.ChannelStats = (function () {
 	 * @instance
 	 */
 	ChannelStats.prototype.isPrivate = false
-
+	
 	/**
 	 * ChannelStats isOnline.
 	 * @member {boolean} isOnline
@@ -1839,7 +1839,7 @@ $root.ChannelStats = (function () {
 	 * @instance
 	 */
 	ChannelStats.prototype.isOnline = false
-
+	
 	/**
 	 * Creates a new ChannelStats instance using the specified properties.
 	 * @function create
@@ -1851,7 +1851,7 @@ $root.ChannelStats = (function () {
 	ChannelStats.create = function create(properties) {
 		return new ChannelStats(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified ChannelStats message. Does not implicitly {@link ChannelStats.verify|verify} messages.
 	 * @function encode
@@ -1876,7 +1876,7 @@ $root.ChannelStats = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a ChannelStats message from the specified reader or buffer.
 	 * @function decode
@@ -1913,7 +1913,7 @@ $root.ChannelStats = (function () {
 		}
 		return message
 	}
-
+	
 	return ChannelStats
 })()
 
@@ -1924,7 +1924,7 @@ $root.JsonResponse = (function () {
 	 * @interface IJsonResponse
 	 * @property {string|null} [json] JsonResponse json
 	 */
-
+	
 	/**
 	 * Constructs a new JsonResponse.
 	 * @exports JsonResponse
@@ -1941,7 +1941,7 @@ $root.JsonResponse = (function () {
 				}
 		}
 	}
-
+	
 	/**
 	 * JsonResponse json.
 	 * @member {string} json
@@ -1949,7 +1949,7 @@ $root.JsonResponse = (function () {
 	 * @instance
 	 */
 	JsonResponse.prototype.json = ''
-
+	
 	/**
 	 * Creates a new JsonResponse instance using the specified properties.
 	 * @function create
@@ -1961,7 +1961,7 @@ $root.JsonResponse = (function () {
 	JsonResponse.create = function create(properties) {
 		return new JsonResponse(properties)
 	}
-
+	
 	/**
 	 * Encodes the specified JsonResponse message. Does not implicitly {@link JsonResponse.verify|verify} messages.
 	 * @function encode
@@ -1980,7 +1980,7 @@ $root.JsonResponse = (function () {
 		}
 		return writer
 	}
-
+	
 	/**
 	 * Decodes a JsonResponse message from the specified reader or buffer.
 	 * @function decode
@@ -2011,6 +2011,6 @@ $root.JsonResponse = (function () {
 		}
 		return message
 	}
-
+	
 	return JsonResponse
 })()

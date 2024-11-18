@@ -5,3 +5,6 @@ dist
 tsconfig.json
 build.config.ts
 eslint.config.mjs
+src/pullClient/protobuf/model.js
+src/pullClient/protobuf/protobuf.js
+src/pullClient/protobuf/protobuf.map.js

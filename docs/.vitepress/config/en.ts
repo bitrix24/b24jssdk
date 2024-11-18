@@ -51,7 +51,7 @@ function sidebarGuide(): DefaultTheme.SidebarItem[] {
 			items: [
 				{ text: 'Node.js', link: 'getting-started' },
 				{ text: 'UMD', link: 'getting-started-umd' },
-				// { text: 'Nuxt', link: 'getting-started-nuxt' }
+				{ text: 'Nuxt', link: 'getting-started-nuxt' }
 			]
 		},
 	]

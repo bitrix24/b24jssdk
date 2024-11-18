@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 (2024-11-18)
+
+- The `protobufjs` module has been moved to internal
+
 ## 0.1.1 (2024-11-16)
 
 - fix code Style

@@ -91,3 +91,9 @@ Sets a tag for logging.
 clearLogTag(): void
 ```
 Clears the set tag for logging.
+
+### `setClientSideWarning` {#setClientSideWarning}
+```ts
+setClientSideWarning(value: boolean, message: string): void
+```
+Controls the warning about request execution on the front-end side. Used in [B4Hook](hook-index#offClientSideWarning).

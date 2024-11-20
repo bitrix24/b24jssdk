@@ -30,6 +30,19 @@ The [`B24HookParams`](https://github.com/bitrix24/b24jssdk/blob/main/packages/js
 Implements the [`TypeB24`](types-type-b24) interface.
 :::
 
+### `offClientSideWarning` {#offClientSideWarning}
+```ts
+offClientSideWarning(): void
+```
+
+Disables warning about front-end query execution.
+
+::: warning
+You should not use hook requests on the front-end side. 
+This operation is unsafe. 
+Instead, use the back-end.
+:::
+
 ## Usage {#usage}
 
 This code creates an instance of `B24Hook` to interact with the Bitrix24 API and performs a batch request to retrieve a list of companies, sorting them by ID in descending order.
@@ -54,6 +67,9 @@ const $b24 = new B24Hook({
 	secret: 'k32t88gf3azpmwv3',
 })
 
+/**
+ * @memo You should not use hook requests on the front-end side. This operation is unsafe. Instead, use the back-end.
+ */
 $b24.callBatch({
 	CompanyList: {
 		method: 'crm.item.list',

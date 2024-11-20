@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5 (2024-11-20)
+
+- add warning about client-side query execution
+
 ## 0.1.4 (2024-11-18)
 
 - migrate to `qs-esm`

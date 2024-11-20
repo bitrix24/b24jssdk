@@ -24,7 +24,11 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
 			this.#authHookManager,
 			this._getHttpOptions()
 		)
-
+		this._http.setClientSideWarning(
+			true,
+			'It is not safe to use hook requests on the client side'
+		)
+		
 		this._isInit = true
 	}
 
@@ -38,6 +42,13 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
 	}
 
 	// region Core ////
+	/**
+	 * Disables warning about client-side query execution
+	 */
+	public offClientSideWarning(): void
+	{
+		this.getHttpClient().setClientSideWarning(false, '')
+	}
 	// endregion ////
 
 	// region Get ////

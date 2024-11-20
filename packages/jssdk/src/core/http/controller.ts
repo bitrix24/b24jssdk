@@ -36,8 +36,11 @@ export default class Http implements TypeHttp {
 	#restrictionManager: RestrictionManager
 	#requestIdGenerator: RequestIdGenerator
 	private _logger: null | LoggerBrowser = null
+	private _loggerSystem: null | LoggerBrowser = null
 
 	#logTag: string = ''
+	#isClientSideWarning: boolean = false
+	#clientSideWarningMessage: string = ''
 
 	constructor(
 		baseURL: string,
@@ -62,7 +65,8 @@ export default class Http implements TypeHttp {
 		this.#restrictionManager = new RestrictionManager()
 		this.#requestIdGenerator = new RequestIdGenerator()
 	}
-
+	
+	// region Logger ////
 	setLogger(logger: LoggerBrowser): void {
 		this._logger = logger
 		this.#restrictionManager.setLogger(this.getLogger())
@@ -84,7 +88,26 @@ export default class Http implements TypeHttp {
 
 		return this._logger
 	}
+	
+	getSystemLogger(): LoggerBrowser {
+		if (null === this._loggerSystem) {
+			this._loggerSystem = LoggerBrowser.build(`SystemLogger`)
 
+			this._loggerSystem.setConfig({
+				[LoggerType.desktop]: false,
+				[LoggerType.log]: false,
+				[LoggerType.info]: true,
+				[LoggerType.warn]: true,
+				[LoggerType.error]: true,
+				[LoggerType.trace]: false,
+			})
+		}
+
+		return this._loggerSystem
+	}
+	// endregion ////
+	
+	// region RestrictionManager ////
 	setRestrictionManagerParams(params: TypeRestrictionManagerParams): void {
 		this.#restrictionManager.params = params
 	}
@@ -92,7 +115,9 @@ export default class Http implements TypeHttp {
 	getRestrictionManagerParams(): TypeRestrictionManagerParams {
 		return this.#restrictionManager.params
 	}
-
+	// endregion ////
+	
+	// region LogTag ////
 	setLogTag(logTag: string): void {
 		this.#logTag = logTag
 	}
@@ -100,7 +125,9 @@ export default class Http implements TypeHttp {
 	clearLogTag(): void {
 		this.#logTag = ''
 	}
-
+	// endregion ////
+	
+	// region Actions Call ////
 	async batch(
 		calls: any[] | object,
 		isHaltOnError: boolean = true
@@ -278,7 +305,16 @@ export default class Http implements TypeHttp {
 		}
 
 		await this.#restrictionManager.check()
-
+		
+		if(
+			this.#isClientSideWarning
+			&& !this.isServerSide()
+			&& Type.isStringFilled(this.#clientSideWarningMessage)
+		)
+		{
+			this.getSystemLogger().warn(this.#clientSideWarningMessage)
+		}
+		
 		return this.#clientAxios
 			.post(
 				this.#prepareMethod(method),
@@ -405,7 +441,9 @@ export default class Http implements TypeHttp {
 				return Promise.resolve(result)
 			})
 	}
-
+	// endregion ////
+	
+	// region Prepare ////
 	/**
 	 * Processes function parameters and adds authorization
 	 *
@@ -452,4 +490,29 @@ export default class Http implements TypeHttp {
 	#prepareMethod(method: string): string {
 		return `${encodeURIComponent(method)}.json`
 	}
+	
+	/**
+	 * @inheritDoc
+	 */
+	public setClientSideWarning(
+		value: boolean,
+		message: string
+	): void
+	{
+		this.#isClientSideWarning = value
+		this.#clientSideWarningMessage = message
+	}
+	// endregion ////
+	
+	// region Tools ////
+	/**
+	 * Tests whether the code is executed on the client side
+	 * @return {boolean}
+	 * @protected
+	 */
+	protected isServerSide(): boolean
+	{
+		return Type.isUndefined(window)
+	}
+	// endregion ////
 }

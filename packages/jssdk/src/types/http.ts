@@ -16,6 +16,13 @@ export type TypeHttp = {
 
 	setLogTag(logTag?: string): void
 	clearLogTag(): void
+	
+	/**
+	 * On|Off warning about client-side query execution
+	 * @param {boolean} value
+	 * @param {string} message
+	 */
+	setClientSideWarning(value: boolean, message: string): void
 }
 
 export interface IRequestIdGenerator {

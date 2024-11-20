@@ -10,10 +10,10 @@ hero:
     alt: '@bitrix24/b24style'
   actions:
     - theme: brand
-      text: B24.Hook
+      text: B24Hook
       link: /reference/hook-index
     - theme: brand
-      text: B24.Frame
+      text: B24Frame
       link: /reference/frame-index
     - theme: alt
       text: GitHub

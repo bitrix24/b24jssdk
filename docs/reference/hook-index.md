@@ -67,6 +67,8 @@ const $b24 = new B24Hook({
 	secret: 'k32t88gf3azpmwv3',
 })
 
+// $b24.offClientSideWarning() ////
+
 /**
  * @memo You should not use hook requests on the front-end side. This operation is unsafe. Instead, use the back-end.
  */

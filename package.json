@@ -21,15 +21,11 @@
 	"type": "module",
 	"workspaces": [
 		"packages/*",
-		"playgrounds/*",
 		"docs"
 	],
 	"scripts": {
 		"build": "npm-run-all -s build:*",
 		"build:jssdk-unbuild": "npm run --workspace=@bitrix24/b24jssdk build",
-		
-		"playground-jssdk": "npm run --workspace=@bitrix24/b24jssdk-playground dev",
-		
 		"docs:dev": "vitepress dev docs",
 		"docs:build": "vitepress build docs",
 		"docs:preview": "vitepress preview docs"

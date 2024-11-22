@@ -62,10 +62,10 @@
 	"dependencies": {
 		"axios": "^1.7.7",
 		"qs-esm": "^7.0.2",
-		"luxon": "^3.5.0"
+		"luxon": "^3.5.0",
+		"@types/luxon": "^3.4.2"
 	},
 	"devDependencies": {
-		"@types/luxon": "^3.4.2",
 		"@types/node": "^22.5.3",
 		"eslint-config-unjs": "^0.4.1",
 		"prettier": "^3.3.3",

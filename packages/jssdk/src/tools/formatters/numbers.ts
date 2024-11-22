@@ -31,7 +31,11 @@ export default class FormatterNumbers {
 		if (typeof locale === 'undefined' || !Type.isStringFilled(locale)) {
 			locale = Type.isStringFilled(this._defLocale)
 				? this._defLocale || 'en'
-				: navigator?.language
+				: (
+					typeof navigator === 'undefined'
+					? 'en'
+					: navigator?.language || 'en'
+				)
 		}
 
 		if (Number.isInteger(value)) {

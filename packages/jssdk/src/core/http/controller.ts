@@ -340,13 +340,15 @@ export default class Http implements TypeHttp {
 					if (
 						error_ instanceof AxiosError &&
 						error_.response &&
-						error_.response.data
-					) {
+						error_.response.data &&
+						!Type.isUndefined((error_.response.data as TypeDescriptionError).error)
+					)
+					{
 						const response = error_.response.data as {
 							error: string
 							error_description: string
 						} as TypeDescriptionError
-
+						
 						answerError = {
 							error: response.error,
 							errorDescription: response.error_description,

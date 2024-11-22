@@ -512,7 +512,7 @@ export default class Http implements TypeHttp {
 	 */
 	protected isServerSide(): boolean
 	{
-		return Type.isUndefined(window)
+		return typeof window === 'undefined'
 	}
 	// endregion ////
 }

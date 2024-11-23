@@ -137,10 +137,10 @@ export default function uuidv7(): string {
 
 	if (!getRandomValues) {
 		if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
-			getRandomValues = webcrypto.getRandomValues.bind(webcrypto)
+            getRandomValues = webcrypto.getRandomValues.bind(webcrypto)
 		} else {
-			getRandomValues = crypto.getRandomValues.bind(crypto)
-		}
+            getRandomValues = crypto.getRandomValues.bind(crypto)
+        }
 	}
 
 	const randoms = getRandomValues(randoms8)

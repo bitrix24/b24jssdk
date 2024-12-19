@@ -32,6 +32,20 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
 		this._isInit = true
 	}
 
+	public static createFromUrl(url: string): B24Hook {
+		const webhookUrl = new URL(url)
+		const b24Url = webhookUrl.origin
+		const webhookParamsArr =  webhookUrl.pathname.split("/")
+		const userId = parseInt(webhookParamsArr[2])
+		const secret = webhookParamsArr[3]
+
+		return new B24Hook({
+			b24Url,
+			userId,
+			secret,
+		})
+	}
+
 	public override setLogger(logger: LoggerBrowser): void {
 		super.setLogger(logger)
 	}

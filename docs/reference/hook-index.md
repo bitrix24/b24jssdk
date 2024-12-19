@@ -43,6 +43,16 @@ This operation is unsafe.
 Instead, use the back-end.
 :::
 
+### `createFromUrl` {#createFromUrl}
+```ts
+createFromUrl(url: string): B24Hook
+```
+This static method creates an instance of `B24Hook` from full webhook URL.
+
+| param    | Type     | Description                                                                |
+|----------|----------|----------------------------------------------------------------------------|
+| `url`    | `string` | Bitrix24 webhook URL, e.g., `https://your_domain.bitrix24.com/rest/1/xxx/` |
+
 ## Usage {#usage}
 
 This code creates an instance of `B24Hook` to interact with the Bitrix24 API and performs a batch request to retrieve a list of companies, sorting them by ID in descending order.
@@ -66,6 +76,60 @@ const $b24 = new B24Hook({
 	userId: 123,
 	secret: 'k32t88gf3azpmwv3',
 })
+
+// $b24.offClientSideWarning() ////
+
+/**
+ * @memo You should not use hook requests on the front-end side. This operation is unsafe. Instead, use the back-end.
+ */
+$b24.callBatch({
+	CompanyList: {
+		method: 'crm.item.list',
+		params: {
+			entityTypeId: EnumCrmEntityTypeId.company,
+			order: { id: 'desc' },
+			select: [
+				'id',
+				'title',
+				'createdTime'
+			]
+		}
+	}
+}, true)
+	.then((response: Result) => {
+		const data = response.getData()
+		const dataList = (data.CompanyList.items || []).map((item: any) => {
+			return {
+				id: Number(item.id),
+				title: item.title,
+				createdTime: Text.toDateTime(item.createdTime as ISODate)
+			}
+		})
+		$logger.info('response >> ', dataList)
+	})
+	.catch((error) => {
+		$logger.error(error)
+	})
+	.finally(() => {
+		$logger.info('load >> stop ')
+	})
+```
+
+Using static `createFromUrl` method:
+
+```ts
+import {
+	B24Hook,
+	Text,
+	EnumCrmEntityTypeId,
+	LoggerBrowser,
+	Result,
+	type ISODate
+} from '@bitrix24/b24jssdk'
+
+const $logger = LoggerBrowser.build('MyApp', import.meta.env?.DEV === true)
+
+const $b24 = B24Hook.createFromUrl('https://your_domain.bitrix24.com/rest/123/k32t88gf3azpmwv3')
 
 // $b24.offClientSideWarning() ////
 

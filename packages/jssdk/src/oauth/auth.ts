@@ -57,12 +57,12 @@ export class AuthOAuthManager implements AuthActions {
     }
 
     try {
-      const response = await fetch('https://oauth.bitrix.info/oauth/token/', {
-        method: 'POST',
+      const queryParams = new URLSearchParams(params).toString()
+      const response = await fetch(`https://oauth.bitrix.info/oauth/token/?${queryParams}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(params)
+        }
       })
 
       if (!response.ok) {

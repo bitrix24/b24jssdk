@@ -10,15 +10,22 @@ export interface B24OAuthParams {
   memberId: string 
 }
 
+export type AuthRefreshCallback = (authData: AuthData) => Promise<void> | void
+ 
 /**
  * OAuth Authorization Manager
  */
 export class AuthOAuthManager implements AuthActions {
   #b24OAuthParams: B24OAuthParams
   #authData: AuthData | null = null
+  #refreshCallback: AuthRefreshCallback | null = null
   
-  constructor(b24OAuthParams: B24OAuthParams) {
+  constructor(
+    b24OAuthParams: B24OAuthParams,
+    refreshCallback?: AuthRefreshCallback
+  ) {
     this.#b24OAuthParams = Object.freeze(Object.assign({}, b24OAuthParams))
+    this.#refreshCallback = refreshCallback || null
     this.#initAuthData()
   }
 
@@ -79,6 +86,11 @@ export class AuthOAuthManager implements AuthActions {
         expires_in: data.expires_in,
         domain: this.#authData.domain,
         member_id: this.#authData.member_id,
+      }
+
+      // Вызываем колбэк-функцию, если она установлена
+      if (this.#refreshCallback) {
+        await Promise.resolve(this.#refreshCallback(this.#authData))
       }
 
       return this.#authData

@@ -47,13 +47,10 @@ export class AuthOAuthManager implements AuthActions {
     }
 
     const params = {
-      this_auth: 'Y',
-      params: {
         client_id: this.#b24OAuthParams.clientId,
         grant_type: 'refresh_token',
         client_secret: this.#b24OAuthParams.clientSecret,
         refresh_token: this.#authData.refresh_token,
-      }
     }
 
     try {

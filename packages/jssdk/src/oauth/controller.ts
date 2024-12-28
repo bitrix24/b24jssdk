@@ -27,19 +27,34 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     this._isInit = true
   }
 
+  /**
+   * Sets a custom logger instance
+   * @param logger - Browser logger instance
+   */
   public override setLogger(logger: LoggerBrowser): void {
     super.setLogger(logger)
   }
 
+  /**
+   * Gets the authentication manager instance
+   */
   override get auth(): AuthActions {
     return this.#authOAuthManager
   }
 
+  /**
+   * Gets the base target origin URL
+   * @returns Base Bitrix24 URL
+   */
   override getTargetOrigin(): string {
     this._ensureInitialized()
     return this.#authOAuthManager.getTargetOrigin()
   }
 
+  /**
+   * Gets the target origin URL with REST API path
+   * @returns Bitrix24 REST API URL
+   */
   override getTargetOriginWithPath(): string {
     this._ensureInitialized()
     return this.#authOAuthManager.getTargetOriginWithPath()

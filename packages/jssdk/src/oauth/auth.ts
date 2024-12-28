@@ -29,6 +29,11 @@ export class AuthOAuthManager implements AuthActions {
     this.#initAuthData()
   }
 
+  /**
+   * Initializes authentication data from OAuth parameters
+   * Transforms URL to domain name and sets up initial auth state
+   * @private
+   */
   #initAuthData(): void {
     const domain = this.#b24OAuthParams.b24Url
       .replaceAll('https://', '')
@@ -44,10 +49,19 @@ export class AuthOAuthManager implements AuthActions {
     }
   }
 
+  /**
+   * Gets current authentication data
+   * @returns AuthData object or false if auth data is not initialized
+   */
   getAuthData(): false | AuthData {
     return this.#authData || false
   }
 
+  /**
+   * Refreshes the authentication token using OAuth flow
+   * @throws Error if auth data is not initialized or refresh token request fails
+   * @returns Promise resolving to new AuthData
+   */
   async refreshAuth(): Promise<AuthData> {
     if (!this.#authData) {
       throw new Error('AuthData не инициализирован')
@@ -79,7 +93,6 @@ export class AuthOAuthManager implements AuthActions {
         throw new Error(`Ошибка обновления токена: ${data.error}`)
       }
 
-      // Обновляем данные авторизации
       this.#authData = {
         access_token: data.access_token,
         refresh_token: data.refresh_token,
@@ -88,7 +101,6 @@ export class AuthOAuthManager implements AuthActions {
         member_id: this.#authData.member_id,
       }
 
-      // Вызываем колбэк-функцию, если она установлена
       if (this.#refreshCallback) {
         await Promise.resolve(this.#refreshCallback(this.#authData))
       }
@@ -99,6 +111,12 @@ export class AuthOAuthManager implements AuthActions {
     }
   }
 
+  /**
+   * Generates a unique identifier by combining prefix with member_id
+   * @param prefix - String to prepend to the unique identifier
+   * @returns Combined unique string
+   * @throws Error if auth data is not initialized
+   */
   getUniq(prefix: string): string {
     const authData = this.getAuthData()
     if (authData === false) {
@@ -107,17 +125,27 @@ export class AuthOAuthManager implements AuthActions {
     return [prefix, authData.member_id].join('_')
   }
 
+  /**
+   * Gets the base target origin URL
+   * @returns Base Bitrix24 URL
+   */
   getTargetOrigin(): string {
     return `${this.#b24OAuthParams.b24Url}`
   }
 
+  /**
+   * Gets the target origin URL with REST API path
+   * @returns Bitrix24 REST API URL
+   */
   getTargetOriginWithPath(): string {
     return `${this.#b24OAuthParams.b24Url}/rest`
   }
 
+  /**
+   * Checks if current user has admin rights
+   * @returns Boolean indicating admin status (always false for OAuth)
+   */
   get isAdmin(): boolean {
-    // В OAuth нужно проверять права пользователя
-    // Для примера возвращаем false
     return false
   }
 } 

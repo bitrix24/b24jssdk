@@ -5,6 +5,7 @@ import Http from '../core/http/controller'
 import { AuthOAuthManager } from './auth'
 import type { AuthActions } from '../types/auth'
 import type { B24OAuthParams } from './auth'
+import type { AuthRefreshCallback } from './auth'
 
 /**
  * B24.OAuth Manager
@@ -12,10 +13,10 @@ import type { B24OAuthParams } from './auth'
 export class B24OAuth extends AbstractB24 implements TypeB24 {
   readonly #authOAuthManager: AuthOAuthManager
 
-  constructor(b24OAuthParams: B24OAuthParams) {
+  constructor(b24OAuthParams: B24OAuthParams, refreshCallback?: AuthRefreshCallback) {
     super()
 
-    this.#authOAuthManager = new AuthOAuthManager(b24OAuthParams)
+    this.#authOAuthManager = new AuthOAuthManager(b24OAuthParams, refreshCallback)
 
     this._http = new Http(
       this.#authOAuthManager.getTargetOriginWithPath(),

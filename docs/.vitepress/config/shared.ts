@@ -66,7 +66,7 @@ export const shared = defineConfig({
 		},
 	},
 	transformHtml: (html, id) => {
-		const exceptionsByFile = {
+		const exceptionsByFile: Record<string, string[]> = {
 			'reference/core-lang-list.html': ['Русский', 'Укра', 'нська']
 		}
 		

@@ -50,7 +50,7 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
 			this.#appFrame,
 			this.#messageManager
 		)
-		this.#placementManager = new PlacementManager()
+		this.#placementManager = new PlacementManager(this.#messageManager)
 
 		this._isInit = false
 	}

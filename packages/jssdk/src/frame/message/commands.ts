@@ -23,4 +23,6 @@ export enum MessageCommands {
 	selectAccess = 'selectAccess',
 	selectCRM = 'selectCRM',
 	showAppForm = 'showAppForm',
+	getInterface = 'getInterface',
+	placementBindEvent = 'placementBindEvent'
 }

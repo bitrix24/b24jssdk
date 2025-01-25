@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7 (2025-01-25)
+
+- feat(): added methods: PlacementManager::getInterface, PlacementManager::bindEvent, PlacementManager::call
+
 ## 0.1.6 (2024-11-22)
 
 - fix FormatterNumbers -> check navigator

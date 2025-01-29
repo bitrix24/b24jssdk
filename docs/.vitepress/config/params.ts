@@ -13,6 +13,10 @@ export const configParams = Object.freeze({
 			link: 'https://bitrix24.github.io/b24style/reference/colors.html'
 		},
 		{
+			text: '@bitrix24/b24ui',
+			link: 'https://bitrix24.github.io/b24ui/'
+		},
+		{
 			text: '@bitrix24/b24icons',
 			link: 'https://bitrix24.github.io/b24icons/guide/icons.html'
 		},

@@ -4,6 +4,8 @@
  * @link https://github.com/uuidjs/uuid
  */
 
+import { webcrypto } from "node:crypto";
+
 type V7State = {
 	// time, milliseconds
 	msecs?: number
@@ -135,10 +137,10 @@ export default function uuidv7(): string {
 
 	if (!getRandomValues) {
 		if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
-			throw new Error('crypto.getRandomValues() not supported.')
-		}
-
-		getRandomValues = crypto.getRandomValues.bind(crypto)
+            getRandomValues = webcrypto.getRandomValues.bind(webcrypto)
+		} else {
+            getRandomValues = crypto.getRandomValues.bind(crypto)
+        }
 	}
 
 	const randoms = getRandomValues(randoms8)

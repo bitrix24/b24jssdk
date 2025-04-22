@@ -54,7 +54,8 @@
     "prepack": "npm run build",
     "build": "unbuild",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
     "axios": "^1.8.4",
@@ -67,7 +68,7 @@
     "eslint-config-unjs": "^0.4.2",
     "typescript": "^5.8.3",
     "unbuild": "^3.5.0",
-    "vitest": "^3.1.2"
+    "vue-tsc": "^2.2.8"
   },
   "resolutions": {}
 }

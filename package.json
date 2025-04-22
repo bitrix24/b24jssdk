@@ -29,5 +29,8 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
-  "dependencies": {}
+  "dependencies": {
+    "esbuild": "^0.25.2",
+    "vite": "^6.3.2"
+  }
 }

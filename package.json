@@ -1,38 +1,33 @@
 {
-	"name": "@bitrix24/b24jssdk-main",
-	"version": "0.1.7",
-	"author": "Bitrix",
-	"license": "MIT",
-	"private": true,
-	"description": "Bitrix24 REST API JS SDK",
-	"keywords": [
-		"bitrix24",
-		"js",
-		"restapi",
-		"REST",
-		"API"
-	],
-	"homepage": "https://bitrix24.github.io/b24jssdk/",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/bitrix24/b24jssdk.git"
-	},
-	"sideEffects": false,
-	"type": "module",
-	"workspaces": [
-		"packages/*",
-		"docs"
-	],
-	"scripts": {
-		"build": "npm-run-all -s build:*",
-		"build:jssdk-unbuild": "npm run --workspace=@bitrix24/b24jssdk build",
-		"docs:dev": "vitepress dev docs",
-		"docs:build": "vitepress build docs",
-		"docs:preview": "vitepress preview docs"
-	},
-	"devDependencies": {
-		"npm-run-all": "^4.1.5",
-		"vitepress": "^1.3.4"
-	},
-	"dependencies": {}
+  "name": "@bitrix24/b24jssdk-main",
+  "version": "0.1.8",
+  "author": "Bitrix",
+  "license": "MIT",
+  "private": true,
+  "description": "Bitrix24 REST API JS SDK",
+  "keywords": [
+    "bitrix24",
+    "js",
+    "restapi",
+    "REST",
+    "API"
+  ],
+  "homepage": "https://bitrix24.github.io/b24jssdk/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bitrix24/b24jssdk.git"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "docs"
+  ],
+  "scripts": {
+    "build": "npm run --workspace=@bitrix24/b24jssdk build",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "dependencies": {}
 }

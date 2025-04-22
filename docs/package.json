@@ -1,20 +1,16 @@
 {
-	"name": "@bitrix24/b24jssdk-docs",
-	"private": true,
-	"version": "0.0.0",
-	"description": "",
-	"type": "module",
-	"devDependencies": {
-		"mini-svg-data-uri": "^1.4.4",
-		"@tailwindcss/forms": "^0.5.7",
-		"@tailwindcss/typography": "^0.5.2",
-		"tailwindcss": "^3.4.11",
-		"autoprefixer": "^10.4.20",
-		"postcss": "^8.4.47"
-	},
-	"dependencies": {
-		"@bitrix24/b24style": "^0.1.2",
-		"@bitrix24/b24icons-vue": "^0.1.3",
-		"@vueuse/core": "^11.1.0"
-	}
+  "name": "@bitrix24/b24jssdk-docs",
+  "private": true,
+  "version": "0.0.0",
+  "description": "",
+  "type": "module",
+  "devDependencies": {
+    "@bitrix24/b24icons-vue": "^1.0.5",
+    "@bitrix24/b24ui-nuxt": "^0.6.5"
+  },
+  "dependencies": {
+    "vitepress": "^1.6.3",
+    "@vueuse/core": "^13.1.0",
+    "vue": "^3.5.13"
+  }
 }

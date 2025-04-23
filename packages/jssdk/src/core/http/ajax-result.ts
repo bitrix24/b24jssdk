@@ -3,91 +3,141 @@ import Text from '../../tools/text'
 import { Result, type IResult } from '../result'
 import { AjaxError } from './ajax-error'
 import type { NumberString } from '../../types/common'
-import type { GetPayload, Payload } from '../../types/payloads'
+import type { GetPayload, Payload, PayloadTime } from '../../types/payloads'
 import type { TypeHttp } from '../../types/http'
 
-export type AjaxQuery = {
-	method: string
-	params: object
-	start: number
-}
+export type AjaxQuery = Readonly<{
+  method: string
+  params: Readonly<object>
+  start: number
+}>
 
-export type AjaxResultParams = {
-	error?: string | { error: string; error_description: string }
-	error_description?: string
-	result: any
-	next?: NumberString
-	total?: NumberString
-}
+export type AjaxResultParams<T = unknown> = Readonly<{
+  error?: string | { error: string; error_description?: string }
+  error_description?: string
+  result: T
+  next?: NumberString
+  total?: NumberString
+  time: PayloadTime
+}>
+
+type AjaxResultOptions<T> = Readonly<{
+  answer: AjaxResultParams<T>
+  query: AjaxQuery
+  status: number
+}>
 
 /**
  * Result of request to Rest Api
  */
-export class AjaxResult extends Result implements IResult {
-	private readonly _status: number
-	private readonly _query: AjaxQuery
-	protected override _data: AjaxResultParams
+export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResult<Payload<T>> {
+  private readonly _status: number
+  private readonly _query: AjaxQuery
+  protected override _data: AjaxResultParams<T>
 
-	constructor(answer: AjaxResultParams, query: AjaxQuery, status: number) {
-		super()
+  constructor(options: AjaxResultOptions<T>) {
+    super()
 
-		this._data = answer
-		this._query = structuredClone(query)
-		this._status = status
+    this._data = Object.freeze(options.answer)
+    this._query = Object.freeze(structuredClone(options.query))
+    this._status = options.status
 
-		if (typeof this._data.error !== 'undefined') {
-			const error =
-				typeof this._data.error === 'string' ? this._data : this._data.error
+    this.#processErrors()
+  }
 
-			this.addError(
-				new AjaxError({
-					status: this._status,
-					answerError: {
-						error: (error.error as string) || '',
-						errorDescription: error.error_description || '',
-					},
-				})
-			)
-		}
-	}
+  #processErrors(): void {
+    const { error } = this._data
+    if (!error) return
 
-	// @ts-ignore
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	override setData(data: any): Result {
-		throw new Error('AjaxResult not support setData()')
-	}
+    const errorParams = this.#normalizeError(error)
+    this.addError(this.#createAjaxError(errorParams))
+  }
 
-	override getData(): Payload<unknown> {
-		return this._data as GetPayload<unknown>
-	}
+  #normalizeError(error: string | { error: string; error_description?: string }): {
+    code: string;
+    description: string
+  } {
+    return typeof error === 'string'
+      ? { code: error, description: this._data.error_description || '' }
+      : { code: error.error, description: error.error_description || '' }
+  }
 
-	isMore(): boolean {
-		return Type.isNumber(this._data?.next as any)
-	}
+  #createAjaxError(params: { code: string; description: string }): AjaxError {
+    return new AjaxError({
+      status: this._status,
+      answerError: {
+        error: params.code,
+        errorDescription: params.description,
+      }
+      // request: this._query
+    })
+  }
 
-	getTotal(): number {
-		return Text.toInteger(this._data?.total as any)
-	}
+  override getData(): Payload<T> {
+    return Object.freeze({
+      result: this._data.result,
+      next: this._data.next,
+      total: this._data.total,
+      time: this._data.time
+    }) as GetPayload<T>
+  }
 
-	getStatus(): number {
-		return this._status
-	}
+  /**
+   * Alias for isMore
+   */
+  hasMore(): boolean {
+    return this.isMore()
+  }
 
-	getQuery(): AjaxQuery {
-		return this._query
-	}
+  isMore(): boolean {
+    return Type.isNumber(this._data?.next as any)
+  }
 
-	async getNext(http: TypeHttp): Promise<false | AjaxResult> {
-		if (this.isMore() && this.isSuccess) {
-			this._query.start = Number.parseInt(this._data?.next as any)
+  getTotal(): number {
+    return Text.toInteger(this._data?.total as any)
+  }
 
-			return http.call(
-				this._query.method,
-				this._query.params,
-				this._query.start
-			)
-		}
+  getStatus(): number {
+    return this._status
+  }
 
-		return Promise.resolve(false)
-	}
+  getQuery(): Readonly<AjaxQuery> {
+    return this._query
+  }
+
+  /**
+   * Alias for getNext
+   * @param http
+   */
+  async fetchNext(http: TypeHttp): Promise<AjaxResult<T> | null> {
+    const data = await this.getNext(http)
+    if (data === false) {
+      return null
+    }
+
+    return data
+  }
+
+  async getNext(http: TypeHttp): Promise<AjaxResult<T> | false> {
+    if (!this.isMore() || !this.isSuccess) return false
+
+    const nextPageQuery = this.#buildNextPageQuery()
+    return http.call(
+      nextPageQuery.method,
+      nextPageQuery.params,
+      nextPageQuery.start
+    ) as Promise<AjaxResult<T>>
+  }
+
+  #buildNextPageQuery(): AjaxQuery {
+    return {
+      ...this._query,
+      start: Text.toInteger(this._data.next)
+    }
+  }
+
+  // Immutable API
+  override setData(): never {
+    throw new ReferenceError('AjaxResult does not allow data modification')
+  }
 }

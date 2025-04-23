@@ -50,7 +50,7 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     if (!error) return
 
     const errorParams = this.#normalizeError(error)
-    this.addError(this.#createAjaxError(errorParams))
+    this.addError(this.#createAjaxError(errorParams), 'base-error')
   }
 
   #normalizeError(error: string | { error: string; error_description?: string }): {
@@ -64,12 +64,15 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
 
   #createAjaxError(params: { code: string; description: string }): AjaxError {
     return new AjaxError({
+      code: String(this._status),
+      description: params.description,
       status: this._status,
-      answerError: {
-        error: params.code,
-        errorDescription: params.description,
+      requestInfo: {
+        method: this._query.method,
+        // url: '?',
+        params: this._query.params
       }
-      // request: this._query
+      // request:
     })
   }
 

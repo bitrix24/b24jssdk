@@ -135,38 +135,49 @@ export default class Http implements TypeHttp {
     calls: any[] | object,
     isHaltOnError: boolean = true
   ): Promise<Result> {
-    const isArrayMode = Array.isArray(calls)
-    const cmd: any = isArrayMode ? [] : {}
+    if (Array.isArray(calls)) {
+      return this.#batchAsArray(
+        calls,
+        isHaltOnError
+      )
+    }
+
+    return this.#batchAsObject(
+      calls,
+      isHaltOnError
+    )
+  }
+
+  async #batchAsObject(
+    calls: object,
+    isHaltOnError: boolean = true
+  ): Promise<Result> {
+    const cmd: any = {}
     let cnt = 0
 
     const processRow = (row: any, index: string | number) => {
       let method = null
       let params = null
 
-      if (Array.isArray(row)) {
-        method = row[0]
-        params = row[1]
-      } else if (row.method) {
-        method = row.method
-        params = row.params
+      if (row.method) {
+        method = row.method ?? null
+        params = row?.params ?? null
+      }
+      else if (Array.isArray(row) && row.length > 0)
+      {
+        method = row[0] ?? null
+        params = row[1] ?? null
       }
 
       if (method) {
         cnt++
 
-        const data = method + '?' + qs.stringify(params)
-        if (isArrayMode || Array.isArray(cmd)) {
-          cmd.push(data)
-        } else {
-          cmd[index] = data
-        }
+        cmd[index] = method + '?' + qs.stringify(params)
       }
     }
 
-    if (isArrayMode) {
-      for (const [index, item] of calls.entries()) processRow(item, index)
-    } else {
-      for (const [index, item] of Object.entries(calls)) processRow(item, index)
+    for (const [index, row] of Object.entries(calls)) {
+      processRow(row, index)
     }
 
     if (cnt < 1) {
@@ -179,7 +190,7 @@ export default class Http implements TypeHttp {
     }).then((response: AjaxResult) => {
       const responseResult = (response.getData() as BatchPayload<unknown>)
         .result
-      const results: any = isArrayMode ? [] : {}
+      const results: Record<string | number, AjaxResult> = {}
 
       const processResponse = (row: string, index: string | number) => {
         if (
@@ -190,8 +201,8 @@ export default class Http implements TypeHttp {
         ) {
           const q = row.split('?')
 
-          const data = new AjaxResult(
-            {
+          results[index] = new AjaxResult({
+            answer: {
               // @ts-ignore
               result: Type.isUndefined(responseResult.result[index])
                 ? // @ts-ignore
@@ -204,82 +215,190 @@ export default class Http implements TypeHttp {
               total: responseResult.result_total[index],
               // @ts-ignore
               next: responseResult.result_next[index],
+              // @todo test this ////
+              // @ts-ignore
+              time: responseResult.result_time[index]
             },
-            {
+            query: {
               method: q[0] || '',
               params: qs.parse(q[1] || ''),
-              start: 0,
+              start: 0
             } as AjaxQuery,
-            response.getStatus()
-          )
-
-          if (isArrayMode || Array.isArray(results)) {
-            results.push(data)
-          } else {
-            results[index] = data
-          }
+            status: response.getStatus()
+          })
         }
       }
 
-      if (Array.isArray(cmd)) {
-        for (const [index, item] of cmd.entries()) processResponse(item, index)
-      } else {
-        for (const [index, item] of Object.entries(cmd))
-          processResponse(item as string, index)
+      for (const [index, row] of Object.entries(cmd)) {
+        processResponse(row as string, index)
       }
 
-      let dataResult
+      const dataResult: Record<any, any> = {}
 
       const initError = (result: AjaxResult): AjaxError => {
+        if (result.hasError('base-error')) {
+          return result.errors.get('base-error') as AjaxError
+        }
+
         return new AjaxError({
+          code: '0',
+          description: result.getErrorMessages().join('; '),
           status: 0,
-          answerError: {
-            error: result.getErrorMessages().join('; '),
-            errorDescription: `batch ${ result.getQuery().method }: ${ qs.stringify(result.getQuery().params, { encode: false }) }`,
+          requestInfo: {
+            method: result.getQuery().method,
+            params: result.getQuery().params
           },
-          cause: result.getErrors().next().value,
+          originalError: result.getErrors().next().value
         })
       }
 
       const result = new Result()
 
-      if (isArrayMode || Array.isArray(results)) {
-        dataResult = []
+      for (const key of Object.keys(results)) {
+        const data: AjaxResult = results[key]
 
-        for (const data of results as AjaxResult[]) {
-          if (data.getStatus() !== 200 || !data.isSuccess) {
-            const error = initError(data)
+        if (data.getStatus() !== 200 || !data.isSuccess) {
+          const error = initError(data)
 
-            if (!isHaltOnError && !data.isSuccess) {
-              result.addError(error)
-              continue
-            }
-
-            return Promise.reject(error)
+          if (!isHaltOnError && !data.isSuccess) {
+            result.addError(error, key)
+            continue
           }
 
-          dataResult.push(data.getData().result)
+          return Promise.reject(error)
         }
-      } else {
-        dataResult = {}
 
-        for (const key of Object.keys(results)) {
-          const data: AjaxResult = results[key]
+        dataResult[key] = data.getData().result
+      }
 
-          if (data.getStatus() !== 200 || !data.isSuccess) {
-            const error = initError(data)
+      result.setData(dataResult)
 
-            if (!isHaltOnError && !data.isSuccess) {
-              result.addError(error)
-              continue
-            }
+      return Promise.resolve(result)
+    })
+  }
 
-            return Promise.reject(error)
-          }
+  async #batchAsArray(
+    calls: any[],
+    isHaltOnError: boolean = true
+  ): Promise<Result> {
+    const cmd: string[] = []
+    let cnt = 0
 
+    const processRow = (row: any) => {
+      let method = null
+      let params = null
+
+      if (row.method) {
+        method = row.method ?? null
+        params = row?.params ?? null
+      }
+      else if (Array.isArray(row) && row.length > 0)
+      {
+        method = row[0] ?? null
+        params = row[1] ?? null
+      }
+
+      if (method) {
+        cnt++
+
+        const data = method + '?' + qs.stringify(params)
+        cmd.push(data)
+      }
+    }
+
+    for (const [_, row] of calls.entries()) {
+      processRow(row)
+    }
+
+    if (cnt < 1) {
+      return Promise.resolve(new Result())
+    }
+
+    return this.call('batch', {
+      halt: isHaltOnError ? 1 : 0,
+      cmd: cmd,
+    }).then((response: AjaxResult) => {
+      const responseResult = (response.getData() as BatchPayload<unknown>)
+        .result
+      const results: AjaxResult[] = []
+
+      const processResponse = (row: string, index: string | number) => {
+        if (
           // @ts-ignore
-          dataResult[key] = data.getData().result
+          typeof responseResult.result[index] !== 'undefined' ||
+          // @ts-ignore
+          typeof responseResult.result_error[index] !== 'undefined'
+        ) {
+          const q = row.split('?')
+
+          const data = new AjaxResult({
+            answer: {
+              // @ts-ignore
+              result: Type.isUndefined(responseResult.result[index])
+                ? // @ts-ignore
+                {}
+                : // @ts-ignore
+                responseResult.result[index],
+              // @ts-ignore
+              error: responseResult?.result_error[index] || undefined,
+              // @ts-ignore
+              total: responseResult.result_total[index],
+              // @ts-ignore
+              next: responseResult.result_next[index],
+              // @todo test this ////
+              // @ts-ignore
+              time: responseResult.result_time[index]
+            },
+            query: {
+              method: q[0] || '',
+                params: qs.parse(q[1] || ''),
+              start: 0,
+            } as AjaxQuery,
+            status: response.getStatus()
+          })
+
+          results.push(data)
         }
+      }
+
+      for (const [index, row] of cmd.entries()) {
+        processResponse(row, index)
+      }
+
+      const dataResult: any[] = []
+
+      const initError = (result: AjaxResult): AjaxError => {
+        if (result.hasError('base-error')) {
+          return result.errors.get('base-error') as AjaxError
+        }
+
+        return new AjaxError({
+          code: '0',
+          description: result.getErrorMessages().join('; '),
+          status: 0,
+          requestInfo: {
+            method: result.getQuery().method,
+            params: result.getQuery().params
+          },
+          originalError: result.getErrors().next().value
+        })
+      }
+
+      const result = new Result()
+
+      for (const data of results as AjaxResult[]) {
+        if (data.getStatus() !== 200 || !data.isSuccess) {
+          const error = initError(data)
+
+          if (!isHaltOnError && !data.isSuccess) {
+            result.addError(error)
+            continue
+          }
+
+          return Promise.reject(error)
+        }
+
+        dataResult.push(data.getData().result)
       }
 
       result.setData(dataResult)
@@ -357,10 +476,15 @@ export default class Http implements TypeHttp {
           }
 
           const problemError: AjaxError = new AjaxError({
+            code: String(answerError.error),
+            description: answerError.errorDescription,
             status: error_.response?.status || 0,
-            answerError,
-            cause: error_,
-          } as AjaxErrorParams)
+            requestInfo: {
+              method: method,
+              params: params,
+            },
+            originalError: error_,
+          })
 
           /**
            * Is response status === 401 -> refresh Auth?
@@ -417,10 +541,15 @@ export default class Http implements TypeHttp {
                   }
 
                   const problemError: AjaxError = new AjaxError({
-                    status: error__.response?.status || 0,
-                    answerError,
-                    cause: error__,
-                  } as AjaxErrorParams)
+                    code: String(answerError.error),
+                    description: answerError.errorDescription,
+                    status: error_.response?.status || 0,
+                    requestInfo: {
+                      method: method,
+                      params: params,
+                    },
+                    originalError: error__,
+                  })
 
                   return Promise.reject(problemError)
                 }
@@ -431,15 +560,15 @@ export default class Http implements TypeHttp {
         }
       )
       .then((response: AjaxResponse): Promise<AjaxResult> => {
-        const result = new AjaxResult(
-          response.payload,
-          {
+        const result = new AjaxResult({
+          answer: response.payload,
+          query: {
             method,
             params,
             start,
           } as AjaxQuery,
-          response.status
-        )
+          status: response.status
+        })
 
         return Promise.resolve(result)
       })

@@ -58,6 +58,8 @@ Thumbs.db
 /playgrounds/**/.output
 docs/.vitepress/dist
 docs/.vitepress/cache
+docs/auto-imports.d.ts
+docs/components.d.ts
 
 # TypeScript
 *.tsbuildinfo

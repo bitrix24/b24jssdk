@@ -521,8 +521,7 @@ export class PullClient implements ConnectorParent {
       this.getLogger().error(
         `${ Text.getDateForLog() }: Pull.attachCommandHandler: result of handler.getModuleId() is not a string.`
       )
-      return () => {
-      }
+      return () => {}
     }
 
     let type = SubscriptionType.Server

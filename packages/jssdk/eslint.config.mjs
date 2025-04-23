@@ -5,6 +5,7 @@ export default unjs({
 		'src/pullClient/protobuf/*.js'
 	],
 	rules: {
+    "unicorn/prefer-global-this": "off",
 		"unicorn/switch-case-braces": "off",
 		"no-prototype-builtins": "off",
 		"unicorn/prefer-ternary": "off",

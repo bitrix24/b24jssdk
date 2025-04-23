@@ -1,8 +1,22 @@
 # Changelog
 
+## [0.2.0](https://github.com/bitrix24/b24ui/compare/v0.1.7...v0.2.0) (2025-04-xx)
+
+### Features
+
+* **Result\AjaxResult\AjaxError:** change code-style, improve error collection
+* **Http.batch:** improve error collection
+
+### Chore
+
+* **code-style:** improve
+* **deps:** remove prettier, npm-run-all, improve vitepress
+
 ## 0.1.7 (2025-01-25)
 
-- feat(): added methods: PlacementManager::getInterface, PlacementManager::bindEvent, PlacementManager::call
+### Features
+
+* **new methods**: PlacementManager::getInterface, PlacementManager::bindEvent, PlacementManager::call
 
 ## 0.1.6 (2024-11-22)
 

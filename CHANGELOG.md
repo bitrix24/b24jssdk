@@ -1,6 +1,15 @@
 # Changelog
 
-## [0.2.0](https://github.com/bitrix24/b24ui/compare/v0.1.7...v0.2.0) (2025-04-xx)
+## [0.2.1](https://github.com/bitrix24/b24ui/compare/v0.2.0...v0.2.1) (2025-04-xx)
+
+### Features
+
+* **tools:** add pick, omit and isArrayOfArray functions
+
+### Bug Fixes
+* **placement.bindEvent:** restore callBack
+
+## [0.2.0](https://github.com/bitrix24/b24ui/compare/v0.1.7...v0.2.0) (2025-04-24)
 
 ### Features
 

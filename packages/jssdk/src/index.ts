@@ -2,6 +2,7 @@ export * from './logger/browser'
 
 export * from './types/common'
 export { default as Type } from './tools/type'
+export * from './tools/index'
 export { default as Text } from './tools/text'
 export { default as Browser } from './tools/browser'
 

@@ -12,6 +12,7 @@ export enum EnumCrmEntityType {
 	invoice = 'CRM_SMART_INVOICE',
 	quote = 'CRM_QUOTE',
 	requisite = 'CRM_REQUISITE',
+  order = 'ORDER'
 }
 
 export enum EnumCrmEntityTypeId {
@@ -24,4 +25,18 @@ export enum EnumCrmEntityTypeId {
 	invoice = 31,
 	quote = 7,
 	requisite = 8,
+  order = 14
+}
+
+export enum EnumCrmEntityTypeShort {
+  undefined = '?',
+  lead = 'L',
+  deal = 'D',
+  contact = 'C',
+  company = 'CO',
+  oldInvoice = 'I',
+  invoice = 'SI',
+  quote = 'Q',
+  requisite = 'RQ',
+  order = 'O'
 }

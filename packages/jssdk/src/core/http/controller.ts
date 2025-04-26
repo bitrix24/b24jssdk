@@ -47,18 +47,18 @@ export default class Http implements TypeHttp {
     authActions: AuthActions,
     options?: null | object
   ) {
-    /**
-     * @memo can be added on the server side
-     */
-    /*/
-      headers: {
-        'User-Agent': '__SDK_USER_AGENT__-v-__SDK_VERSION__',
-        'X-BITRIX24-JS-SDK-VERSION': '__SDK_VERSION__',
-      },
-    //*/
+
+    const defaultHeaders = {
+      // 'X-Sdk': '__SDK_USER_AGENT__-v-__SDK_VERSION__'
+    }
+
     this.#clientAxios = axios.create({
       baseURL: baseURL,
-      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...(options ? (options as any).headers : {}),
+      },
+      ...(options && { ...options, headers: undefined }),
     })
 
     this.#authActions = authActions

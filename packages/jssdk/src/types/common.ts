@@ -11,6 +11,7 @@ export type BoolString = 'Y' | 'N'
 export type GenderString = 'M' | 'F' | ''
 
 export type PlacementViewMode = 'view' | 'edit'
+export type TextType = 'text' | 'html'
 
 export type Fields = {
 	readonly [key: string]: {

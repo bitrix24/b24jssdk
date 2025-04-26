@@ -117,7 +117,7 @@ export interface CatalogProductImage {
   id: number
   name: string
   productId: number
-  type: CatalogProductImageType
+  type: typeof CatalogProductImageType[keyof typeof CatalogProductImageType]
   createTime?: ISODate
   downloadUrl?: string
   detailUrl?: string

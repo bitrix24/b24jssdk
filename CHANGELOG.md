@@ -1,6 +1,14 @@
 # Changelog
 
-## [0.2.1](https://github.com/bitrix24/b24ui/compare/v0.2.0...v0.2.1) (2025-04-xx)
+## [0.2.2](https://github.com/bitrix24/b24ui/compare/v0.2.1...v0.2.2) (2025-04-xx)
+
+* feat(types): add types for catalog scope
+* feat(types): add TextType
+* feat(types): add order, EnumCrmEntityTypeShort
+* feat(types): add CrmItemProductRow
+* feat(types): add CrmItemPayment, CrmItemDelivery
+
+## [0.2.1](https://github.com/bitrix24/b24ui/compare/v0.2.0...v0.2.1) (2025-04-25)
 
 ### Features
 

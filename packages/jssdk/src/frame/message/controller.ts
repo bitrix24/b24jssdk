@@ -97,21 +97,28 @@ export class MessageManager {
       const promiseHandler: PromiseHandlers = {
         resolve,
         reject,
-        timeoutId: null,
+        timeoutId: null
       }
 
       const keyPromise = this.#setCallbackPromise(promiseHandler)
+      let paramsSend: null | string | Record<string, any> = null
 
-      const paramsSend = omit(params || {}, ['callBack', 'isSafely', 'safelyTime'])
-      const { callBack } = params || {}
+      const optionsSend = omit(params || {}, ['singleOption', 'callBack', 'isSafely', 'safelyTime'])
+      const { callBack, singleOption } = params || {}
       if (callBack) {
         this.#callbackSingletone.set(keyPromise, callBack)
+      }
+
+      if (singleOption) {
+        paramsSend = singleOption
+      } else if (Object.keys(optionsSend).length > 0) {
+        paramsSend = { ...optionsSend }
       }
 
       if (command.toString().includes(':')) {
         cmd = {
           method: command.toString(),
-          params: paramsSend ?? '',
+          params: paramsSend || '',
           callback: keyPromise,
           appSid: this.#appFrame.getAppSid(),
         }
@@ -121,7 +128,7 @@ export class MessageManager {
          */
         cmd = command.toString()
         const listParams = [
-          params ? JSON.stringify(paramsSend) : null,
+          paramsSend ? JSON.stringify(paramsSend) : '',
           keyPromise,
           this.#appFrame.getAppSid(),
         ]

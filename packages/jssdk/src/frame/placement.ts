@@ -1,5 +1,6 @@
 import { MessageManager, MessageCommands } from './message'
 import type { MessageInitData } from '../types/auth'
+import Type from '../tools/type'
 
 /**
  * Placement Manager
@@ -96,6 +97,36 @@ export class PlacementManager {
       command,
       {
         ...parameters,
+        isSafely: true
+      }
+    )
+  }
+
+  /**
+   * Set Up the Interface Event Handler
+   * @param {string} command
+   * @param {null | string | Record<string, any>} parameters
+   * @param {(...args: any[]) => void} callBack
+   *
+   * @return {Promise<any>}
+   */
+  async callCustomBind(
+    command: string,
+    parameters: null | string | Record<string, any> = null,
+    callBack: (...args: any[]) => void
+  ): Promise<any> {
+    let options: Record<string, any> = {}
+    if (Type.isString(parameters)) {
+      options['singleOption'] = parameters
+    } else if (Type.isObjectLike(parameters)) {
+      options = { ...(parameters as object) }
+    }
+
+    return this.#messageManager.send(
+      command,
+      {
+        ...options,
+        callBack,
         isSafely: true
       }
     )

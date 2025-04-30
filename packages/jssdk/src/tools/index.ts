@@ -12,7 +12,7 @@ export function omit<Data extends object, Keys extends keyof Data>(data: Data, k
   const result = { ...data }
 
   for (const key of keys) {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+     
     delete result[key]
   }
 

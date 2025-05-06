@@ -55,20 +55,19 @@
     "build": "unbuild",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "axios": "^1.8.4",
+    "axios": "^1.9.0",
     "qs-esm": "^7.0.2",
     "luxon": "^3.6.1",
     "@types/luxon": "^3.6.2"
   },
   "devDependencies": {
-    "@types/node": "^22.14.1",
+    "@types/node": "^22.15.12",
     "eslint-config-unjs": "^0.4.2",
     "typescript": "^5.8.3",
-    "unbuild": "^3.5.0",
-    "vue-tsc": "^2.2.8"
+    "unbuild": "^3.5.0"
   },
   "resolutions": {}
 }

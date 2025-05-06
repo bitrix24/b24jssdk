@@ -10,19 +10,25 @@ jobs:
       - name: 'Checkout'
         uses: actions/checkout@v4
 
-      - name: 'Setup Node.js v22.*'
+      - name: 'Install node'
         uses: actions/setup-node@v3
         with:
-          node-version: '22.x'
+          node-version: 'lts/*'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: 'Install dependencies (npm install) 📦...'
+      - name: 'Install dependencies'
         run: npm install
 
-      - name: 'Run build (npm run build) 🔧...'
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
         run: npm run build
 
-      - name: 'Publish package from ./packages/jssdk'
+      - name: 'Publish 🚀'
         uses: JS-DevTools/npm-publish@v3
         with:
           package: './packages/jssdk'

@@ -593,10 +593,10 @@ export default class Http implements TypeHttp {
       result.logTag = this.#logTag
     }
 
-    result[this.#requestIdGenerator.getQueryStringParameterName()] =
-      this.#requestIdGenerator.getRequestId()
-    result[this.#requestIdGenerator.getQueryStringSdkParameterName()] =
-      '__SDK_VERSION__'
+    // result[this.#requestIdGenerator.getQueryStringParameterName()] =
+    //   this.#requestIdGenerator.getRequestId()
+    // result[this.#requestIdGenerator.getQueryStringSdkParameterName()] =
+    //   '__SDK_VERSION__'
 
     if (!!result.data && !!result.data.start) {
       delete result.data.start
@@ -621,7 +621,13 @@ export default class Http implements TypeHttp {
    * @private
    */
   #prepareMethod(method: string): string {
-    return `${ encodeURIComponent(method) }.json`
+    const baseUrl = `${ encodeURIComponent(method) }.json`
+    const queryParams = new URLSearchParams({
+      [this.#requestIdGenerator.getQueryStringParameterName()]: this.#requestIdGenerator.getRequestId(),
+      [this.#requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
+      [this.#requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
+    })
+    return `${baseUrl}?${queryParams.toString()}`;
   }
 
   /**

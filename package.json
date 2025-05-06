@@ -25,6 +25,8 @@
   ],
   "scripts": {
     "build": "npm run --workspace=@bitrix24/b24jssdk build",
+    "lint": "npm run --workspace=@bitrix24/b24jssdk lint",
+    "typecheck": "npm run --workspace=@bitrix24/b24jssdk typecheck",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"

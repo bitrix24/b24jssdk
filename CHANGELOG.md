@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.0](https://github.com/bitrix24/b24ui/compare/v0.2.3...v0.3.0) (2025-05-06)
+
+### Features
+
+* **Http:** improve some request params
+
+### Chore
+
+* **deps:** improve
+
 ## [0.2.3](https://github.com/bitrix24/b24ui/compare/v0.2.2...v0.2.3) (2025-04-30)
 
 ### Features

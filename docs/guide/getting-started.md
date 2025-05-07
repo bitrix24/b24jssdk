@@ -1,11 +1,15 @@
 ---
 outline: deep
 ---
-# Getting Started {#getting-started}
+# Node.js {#getting-started}
 
 This page will help you quickly start using `@bitrix24/b24jssdk` in your project.
 
-::: danger IMPORTANT
+::: danger Node.js
+We support version `>=20` 
+:::
+
+::: tip IMPORTANT
 Since version `0.4.0` CommonJs is not supported. Only `ESM` and `UMD`.
 :::
 

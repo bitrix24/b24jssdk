@@ -1,6 +1,6 @@
 {
   "name": "@bitrix24/b24jssdk-main",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "Bitrix",
   "license": "MIT",
   "private": true,
@@ -8,6 +8,7 @@
   "keywords": [
     "bitrix24",
     "js",
+    "nodejs",
     "restapi",
     "REST",
     "API"

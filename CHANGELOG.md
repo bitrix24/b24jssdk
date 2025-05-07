@@ -4,6 +4,7 @@
 
 ### Bug Fixes
 * **uuidv7:** improve
+* **Node.js:** support only Node.js >= 20.0.0
 
 ## [0.4.0](https://github.com/bitrix24/b24ui/compare/v0.3.0...v0.4.0) (2025-05-07)
 

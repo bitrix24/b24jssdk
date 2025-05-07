@@ -1,6 +1,5 @@
 import { defineBuildConfig, type BuildConfig, type BuildContext } from 'unbuild'
 import { type ModuleFormat } from 'rollup'
-
 import packageInfo from './package.json'
 
 const SDK_VERSION = packageInfo.version
@@ -34,9 +33,18 @@ function initConfig(formatTypeParam: string): BuildConfig {
 
   // eslint-disable-next-line
   let hooks: Record<string, Function> = {}
+  let entry = './src/index'
+
+  const replaceValues = {
+    values: {
+      '__SDK_VERSION__': SDK_VERSION,
+      '__SDK_USER_AGENT__': SDK_USER_AGENT,
+    }
+  }
 
   switch (formatType) {
     case 'esm':
+      entry = './src/index'
       declaration = true
       sourcemap = true
       fileExtension = 'mjs'
@@ -50,44 +58,9 @@ function initConfig(formatTypeParam: string): BuildConfig {
         inlineDynamicImports: false,
       }
       break
-    case 'commonjs':
-      fileExtension = 'cjs'
-      emitCJS = true
-      cjsBridge = true
-      inlineDependencies = true
-      break
     case 'umd':
-      declaration = false
-      sourcemap = true
-      fileExtension = 'js'
-
-      emitCJS = true
-      cjsBridge = true
-      inlineDependencies = true
-
-      rollupExt.output = {
-        extend: true,
-        compact: false,
-        esModule: false,
-        preserveModules: false,
-        inlineDynamicImports: true,
-      }
-
-      rollupExt.resolve = {
-        browser: true,
-        modulePaths: [
-          'node_modules/**'
-        ]
-      }
-
-      hooks = {
-        async 'build:prepare'(ctx: BuildContext) {
-          ctx.pkg.dependencies = {}
-          ctx.options.dependencies = []
-        }
-      }
-      break
-    case 'iife':
+      entry = './src/index'
+      replaceValues.values['-node'] = '-browser'
       declaration = false
       sourcemap = true
       fileExtension = 'js'
@@ -123,13 +96,13 @@ function initConfig(formatTypeParam: string): BuildConfig {
       break
   }
 
-  const entryFileNames = `[name]${ isMinify ? '.min' : '' }.${ fileExtension }`
+  const entryFileNames = `index${ isMinify ? '.min' : '' }.${ fileExtension }`
 
   return {
     failOnWarn: false,
     name: `@bitrix24/b24jssdk-${ formatType }`,
     entries: [
-      './src/index'
+      entry
     ],
     outDir,
     declaration,
@@ -142,9 +115,7 @@ function initConfig(formatTypeParam: string): BuildConfig {
       emitCJS,
       cjsBridge,
       inlineDependencies,
-      replace: {
-        values: getReplaceData()
-      },
+      replace: replaceValues,
       output: {
         format: formatType,
         name: 'B24Js',
@@ -158,17 +129,6 @@ function initConfig(formatTypeParam: string): BuildConfig {
     },
     hooks: hooks
   } as BuildConfig
-}
-
-/**
- * Return Replace Data
- * @return {Record<string, string>}
- */
-function getReplaceData(): Record<string, string> {
-  return {
-    '__SDK_VERSION__': SDK_VERSION,
-    '__SDK_USER_AGENT__': SDK_USER_AGENT,
-  }
 }
 
 function getBanner(): string {

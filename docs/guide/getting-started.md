@@ -5,6 +5,10 @@ outline: deep
 
 This page will help you quickly start using `@bitrix24/b24jssdk` in your project.
 
+::: danger IMPORTANT
+Since version `0.4.0` CommonJs is not supported. Only `ESM` and `UMD`.
+:::
+
 ## Installation {#install}
 
 Before you begin, make sure you have the latest version of Node.js installed. Then run the following command to install the library:

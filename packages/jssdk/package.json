@@ -22,21 +22,19 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "types": {
-        "require": "./dist/commonjs/index.d.cts",
-        "import": "./dist/esm/index.d.mts",
-        "default": "./dist/esm/index.d.ts"
-      },
-      "default": {
-        "require": "./dist/commonjs/index.cjs",
-        "import": "./dist/esm/index.mjs",
-        "default": "./dist/esm/index.mjs"
-      }
+      "types": "./dist/esm/index.d.mts",
+      "import": "./dist/esm/index.mjs"
     }
   },
-  "main": "./dist/commonjs/index.cjs",
+  "main": "./dist/esm/index.mjs",
   "module": "./dist/esm/index.mjs",
-  "types": "./dist/esm/index.d.ts",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/esm/index.d.mts"
+      ]
+    }
+  },
   "unpkg": "dist/umd/index.min.js",
   "files": [
     "README.md",
@@ -55,7 +53,8 @@
     "build": "unbuild",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx ./test/esm/uuid.test.ts"
   },
   "dependencies": {
     "axios": "^1.9.0",
@@ -65,9 +64,11 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.12",
-    "eslint-config-unjs": "^0.4.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
-    "unbuild": "^3.5.0"
+    "unbuild": "^3.5.0",
+    "eslint-config-unjs": "^0.4.2",
+    "tsx": "^4.19.4"
   },
   "resolutions": {}
 }

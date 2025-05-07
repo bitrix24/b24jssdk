@@ -1,7 +1,7 @@
 import { defineBuildConfig, type BuildConfig, type BuildContext } from 'unbuild'
 import { type ModuleFormat } from 'rollup'
 
-import packageInfo from '../../package.json'
+import packageInfo from './package.json'
 
 const SDK_VERSION = packageInfo.version
 const SDK_USER_AGENT = 'b24-js-sdk'
@@ -10,7 +10,6 @@ const COPYRIGHT_DATE = (new Date()).getFullYear()
 export default defineBuildConfig(
   [
     'esm',
-    'commonjs',
     'umd',
     'umd-min',
   ].map((formatTypeParam) => initConfig(formatTypeParam))

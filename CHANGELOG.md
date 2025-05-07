@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.1](https://github.com/bitrix24/b24ui/compare/v0.4.0...v0.4.1) (2025-05-07)
+
+### Bug Fixes
+* **uuidv7:** improve
+
 ## [0.4.0](https://github.com/bitrix24/b24ui/compare/v0.3.0...v0.4.0) (2025-05-07)
 
 ### ⚠ BREAKING CHANGES

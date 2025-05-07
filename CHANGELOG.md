@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0](https://github.com/bitrix24/b24ui/compare/v0.3.0...v0.4.0) (2025-05-07)
+
+### ⚠ BREAKING CHANGES
+
+* **commonjs:** not support commonjs, only esm and umd
+* **Node.js:** support only Node.js >= 18.0.0
+
+### Bug Fixes
+
+* **uuidv7:** support Node.js (Issue #2)
+
+### Chore
+* **pullClient:** support Node.js types
+* **browser:** add for test UMD
+* **esm:** add for test ESM
+
 ## [0.3.0](https://github.com/bitrix24/b24ui/compare/v0.2.3...v0.3.0) (2025-05-06)
 
 ### Features

@@ -1,12 +1,15 @@
 # Changelog
 
-## [0.4.1](https://github.com/bitrix24/b24ui/compare/v0.4.0...v0.4.1) (2025-05-07)
+## [0.4.1](https://github.com/bitrix24/b24jssdk/compare/v0.4.0...v0.4.1) (2025-05-07)
+
+### ⚠ BREAKING CHANGES
+
+* **Node.js:** support only Node.js >= 20.0.0
 
 ### Bug Fixes
 * **uuidv7:** improve
-* **Node.js:** support only Node.js >= 20.0.0
 
-## [0.4.0](https://github.com/bitrix24/b24ui/compare/v0.3.0...v0.4.0) (2025-05-07)
+## [0.4.0](https://github.com/bitrix24/b24jssdk/compare/v0.3.0...v0.4.0) (2025-05-07)
 
 ### ⚠ BREAKING CHANGES
 
@@ -22,7 +25,7 @@
 * **browser:** add for test UMD
 * **esm:** add for test ESM
 
-## [0.3.0](https://github.com/bitrix24/b24ui/compare/v0.2.3...v0.3.0) (2025-05-06)
+## [0.3.0](https://github.com/bitrix24/b24jssdk/compare/v0.2.3...v0.3.0) (2025-05-06)
 
 ### Features
 
@@ -32,19 +35,19 @@
 
 * **deps:** improve
 
-## [0.2.3](https://github.com/bitrix24/b24ui/compare/v0.2.2...v0.2.3) (2025-04-30)
+## [0.2.3](https://github.com/bitrix24/b24jssdk/compare/v0.2.2...v0.2.3) (2025-04-30)
 
 ### Features
 
 * **PlacementManager::callCustomBind:** make bind for custom events
 
-## [0.2.2](https://github.com/bitrix24/b24ui/compare/v0.2.1...v0.2.2) (2025-04-26)
+## [0.2.2](https://github.com/bitrix24/b24jssdk/compare/v0.2.1...v0.2.2) (2025-04-26)
 
 ### Features
 
 * **types:** add types for catalog scope, TextType, order, EnumCrmEntityTypeShort, CrmItemProductRow, CrmItemPayment, CrmItemDelivery
 
-## [0.2.1](https://github.com/bitrix24/b24ui/compare/v0.2.0...v0.2.1) (2025-04-25)
+## [0.2.1](https://github.com/bitrix24/b24jssdk/compare/v0.2.0...v0.2.1) (2025-04-25)
 
 ### Features
 
@@ -53,7 +56,7 @@
 ### Bug Fixes
 * **placement.bindEvent:** restore callBack
 
-## [0.2.0](https://github.com/bitrix24/b24ui/compare/v0.1.7...v0.2.0) (2025-04-24)
+## [0.2.0](https://github.com/bitrix24/b24jssdk/compare/v0.1.7...v0.2.0) (2025-04-24)
 
 ### Features
 

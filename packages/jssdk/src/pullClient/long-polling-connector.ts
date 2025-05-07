@@ -9,8 +9,8 @@ const LONG_POLLING_TIMEOUT = 60
 export class LongPollingConnector extends AbstractConnector {
 	private _active: boolean
 
-	private _requestTimeout: null | number
-	private _failureTimeout: null | number
+	private _requestTimeout: ReturnType<typeof setTimeout> | null
+	private _failureTimeout: ReturnType<typeof setTimeout> | null
 	private readonly _xhr: XMLHttpRequest
 	private _requestAborted: boolean
 

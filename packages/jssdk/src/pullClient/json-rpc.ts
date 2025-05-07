@@ -95,8 +95,8 @@ export class JsonRpc {
 			this._rpcResponseAwaiters.set(request.id, {
 				resolve,
 				reject,
-				timeout: timeoutHandler,
-			} as TypeRpcResponseAwaiters)
+				timeout: timeoutHandler
+			} as unknown as TypeRpcResponseAwaiters)
 		})
 	}
 

@@ -7,13 +7,10 @@ import { JsonRpc } from './json-rpc'
 import { SharedConfig } from './shared-config'
 import { ChannelManager } from './channel-manager'
 import {
-  //Response,
   ResponseBatch,
-  //Request,
   RequestBatch,
-  //IncomingMessagesRequest,
   IncomingMessage,
-  Receiver,
+  Receiver
 } from './protobuf'
 import type { TypeB24 } from '../types/b24'
 import {
@@ -104,10 +101,6 @@ export class PullClient implements ConnectorParent {
   private _debug: boolean = false
   private _connectionAttempt: number = 0
   private _connectionType: ConnectionType = ConnectionType.WebSocket
-  private _reconnectTimeout: null | number = null
-  private _restartTimeout: null | number = null
-  private _restoreWebSocketTimeout: null | number = null
-
   private _skipStorageInit: boolean
   private _skipCheckRevision: boolean
 
@@ -143,14 +136,16 @@ export class PullClient implements ConnectorParent {
   /**
    * @depricate
    */
-    // private _notificationPopup: null = null
+  // private _notificationPopup: null = null
 
-    // timers ////
-  private _checkInterval: null | number = null
-  private _offlineTimeout: null | number = null
-  private _watchUpdateTimeout: null | number = null
-
-  private _pingWaitTimeout: null | number = null
+  // timers ////
+  private _reconnectTimeout: ReturnType<typeof setTimeout> | null = null
+  private _restartTimeout: ReturnType<typeof setTimeout> | null = null
+  private _restoreWebSocketTimeout: ReturnType<typeof setTimeout> | null = null
+  private _checkInterval: ReturnType<typeof setTimeout> | null = null
+  private _offlineTimeout: ReturnType<typeof setTimeout> | null = null
+  private _watchUpdateTimeout: ReturnType<typeof setTimeout> | null = null
+  private _pingWaitTimeout: ReturnType<typeof setTimeout> | null = null
 
   // manual stop workaround ////
   private _isManualDisconnect: boolean = false
@@ -1949,7 +1944,7 @@ export class PullClient implements ConnectorParent {
     }
 
     this._restoreWebSocketTimeout = setTimeout(() => {
-      this._restoreWebSocketTimeout = 0
+      this._restoreWebSocketTimeout = null
       this.restoreWebSocketConnection()
     }, RESTORE_WEBSOCKET_TIMEOUT * 1_000)
   }

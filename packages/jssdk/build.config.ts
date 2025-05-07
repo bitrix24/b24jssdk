@@ -60,7 +60,6 @@ function initConfig(formatTypeParam: string): BuildConfig {
       break
     case 'umd':
       entry = './src/index'
-      replaceValues.values['-node'] = '-browser'
       declaration = false
       sourcemap = true
       fileExtension = 'js'

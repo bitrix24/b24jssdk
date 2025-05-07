@@ -13,10 +13,22 @@ type V7State = {
 
 const _state: V7State = {}
 
+
+function getCrypto(): Crypto {
+  if (typeof window !== 'undefined' && window.crypto) {
+    return window.crypto;
+  }
+  if (typeof globalThis.crypto !== 'undefined') {
+    return globalThis.crypto;
+  }
+
+  throw new Error('Crypto API not available');
+}
+
 function initRng () {
-  const crypto = window.crypto || (window as any).msCrypto
+  const crypto = getCrypto();
   if (!crypto?.getRandomValues) {
-    throw new Error('Web Crypto API not available')
+    throw new Error('Crypto API not available')
   }
 
   return {
@@ -145,8 +157,8 @@ export default function uuidv7(): string {
 
   const now = Date.now()
   const { rng } = initRng()
-  const randoms = rng()
 
+  const randoms = rng()
   updateV7State(_state, now, randoms)
 
   const bytes: Uint8Array = v7Bytes(

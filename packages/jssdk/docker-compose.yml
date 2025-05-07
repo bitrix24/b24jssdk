@@ -1,0 +1,16 @@
+services:
+  test-node18:
+    image: node:18-alpine
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+    command: sh -c "npm install --no-audit && npm run build && npm test"
+
+  test-node20:
+    image: node:20-alpine
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+    command: sh -c "npm install --no-audit && npm run build && npm test"

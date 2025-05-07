@@ -28,6 +28,69 @@ export type B24FrameQueryParams = {
 }
 
 /**
+ * Parameters for application for OAuth
+ */
+export type B24OAuthSecret = {
+  clientId: string
+  clientSecret: string
+}
+
+/**
+ * Parameters for OAuth
+ * @memo We get from b24 event this data
+ */
+export interface B24OAuthParams {
+  /**
+   * @example '1xxxxx1694'
+   */
+  applicationToken: string
+  /**
+   * @example 1
+   */
+  userId: number
+  /**
+   * @example '3xx2030386cyy1b'
+   */
+  memberId: string
+  /**
+   * @example '1xxxxx1694'
+   */
+  accessToken: string
+  /**
+   * @example '0xxxx4e000011e700000001000000260dc83b47c40e9b5fd501093674c4f5'
+   */
+  refreshToken: string
+  /**
+   * @example 1745997853
+   */
+  expires: number
+  /**
+   * @example 3600
+   */
+  expiresIn: number
+  /**
+   * @example 'crm,catalog,bizproc,placement,user_brief'
+   */
+  scope: string
+  /**
+   * @example 'xxx.bitrix24.com'
+   */
+  domain: string
+  /**
+   * @example 'https://xxx.bitrix24.com/rest/'
+   */
+  clientEndpoint: string
+  /**
+   * @example 'https://oauth.bitrix.info/rest/'
+   */
+  serverEndpoint: string
+  /**
+   * @example 'L'
+   */
+  status: string
+}
+
+/**
  * Parameters passed from the parent window when calling refreshAuth
  */
 export type RefreshAuthData = {

@@ -1,5 +1,8 @@
 import { DateTime, type DateTimeOptions } from 'luxon'
-import uuidv7 from '../tools/uuidv7'
+/**
+ * @memo At build for umd we replace `uuidv7-node` to `uuidv7-browser`
+ */
+import uuidv7 from './uuidv7-node'
 import Type from './type'
 
 const reEscape = /[&<>'"]/g

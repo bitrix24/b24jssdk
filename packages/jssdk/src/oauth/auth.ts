@@ -1,5 +1,6 @@
 import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret } from '../types/auth'
-import type Http from '../core/http/controller'
+import type { TypeHttp } from '../types/http'
+import type { Payload } from "../types/payloads";
 /**
  * OAuth Authorization Manager
  */
@@ -125,26 +126,23 @@ export class AuthOAuthManager implements AuthActions {
    */
   get isAdmin(): boolean {
     if (null === this.#isAdmin ) {
-      /**
-       * @todo make get info
-       */
 
-      this.#isAdmin = true
+      throw new Error('isAdmin not init. You need call B24OAuth::initIsAdmin().')
     }
 
     return this.#isAdmin
   }
 
-  async initIsAdmin(http: Http) {
+  async initIsAdmin(http: TypeHttp) {
     const response = await http.call('profile', {}, 0)
     if (!response.isSuccess) {
       throw new Error(response.getErrorMessages().join(';'))
     }
 
-    const data = response.getData() as unknown as {
+    const data: {
       ID: number
       ADMIN: boolean
-    }
+    } = response.getData().result
 
     if (data?.ADMIN) {
       this.#isAdmin = true

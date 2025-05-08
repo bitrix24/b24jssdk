@@ -30,7 +30,10 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     this._isInit = true
   }
 
-  async public function initIsAdmin() {
+  public async initIsAdmin(): Promise<void> {
+    if (!this._http) {
+      throw new Error('Http Not init')
+    }
     return this.#authOAuthManager.initIsAdmin(this._http)
   }
 

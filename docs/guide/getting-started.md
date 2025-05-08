@@ -6,7 +6,7 @@ outline: deep
 This page will help you quickly start using `@bitrix24/b24jssdk` in your project.
 
 ::: danger Node.js
-We support version `>=20` 
+We support version `^18.0.0 || ^20.0.0 || >=22.0.0` 
 :::
 
 ::: tip IMPORTANT

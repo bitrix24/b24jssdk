@@ -30,9 +30,7 @@
     ],
     "jsx": "preserve",
     "jsxImportSource": "vue",
-    "types": [
-      "node"
-    ],
+    "types": [],
     "declarationMap": false,
     "sourceMap": false,
     "noEmit": true,

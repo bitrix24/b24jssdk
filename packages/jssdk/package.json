@@ -1,6 +1,6 @@
 {
   "name": "@bitrix24/b24jssdk",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "author": "Bitrix",
   "license": "MIT",
   "description": "Bitrix24 REST API JS SDK",
@@ -44,7 +44,7 @@
     "package.json"
   ],
   "engines": {
-    "node": "^20.0.0 || >=22.0.0"
+    "node": "^18.0.0 || ^20.0.0 || >=22.0.0"
   },
   "publishConfig": {
     "access": "public"

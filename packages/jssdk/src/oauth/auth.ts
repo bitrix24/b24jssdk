@@ -1,5 +1,5 @@
 import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret } from '../types/auth'
-
+import type Http from '../core/http/controller'
 /**
  * OAuth Authorization Manager
  */
@@ -133,5 +133,21 @@ export class AuthOAuthManager implements AuthActions {
     }
 
     return this.#isAdmin
+  }
+
+  async initIsAdmin(http: Http) {
+    const response = await http.call('profile', {}, 0)
+    if (!response.isSuccess) {
+      throw new Error(response.getErrorMessages().join(';'))
+    }
+
+    const data = response.getData() as unknown as {
+      ID: number
+      ADMIN: boolean
+    }
+
+    if (data?.ADMIN) {
+      this.#isAdmin = true
+    }
   }
 }

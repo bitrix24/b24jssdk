@@ -7,6 +7,8 @@ import type { AuthActions, B24OAuthParams, B24OAuthSecret } from '../types/auth'
 
 /**
  * B24.OAuth Manager
+ * @todo add docs
+ * @todo add link
  */
 export class B24OAuth extends AbstractB24 implements TypeB24 {
   readonly #authOAuthManager: AuthOAuthManager
@@ -26,6 +28,10 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     )
 
     this._isInit = true
+  }
+
+  async public function initIsAdmin() {
+    return this.#authOAuthManager.initIsAdmin(this._http)
   }
 
   public override setLogger(logger: LoggerBrowser): void {

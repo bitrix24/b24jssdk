@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.2](https://github.com/bitrix24/b24jssdk/compare/v0.4.1...v0.4.2) (2025-05-08)
+
+### ⚠ BREAKING CHANGES
+
+* **Node.js:** support only Node.js >= 18.0.0
+* **uuidv7:** improve
+
+### Features
+
+* **B24OAuth:** add - not a stable implementation - not worth using for now
+
 ## [0.4.1](https://github.com/bitrix24/b24jssdk/compare/v0.4.0...v0.4.1) (2025-05-07)
 
 ### ⚠ BREAKING CHANGES

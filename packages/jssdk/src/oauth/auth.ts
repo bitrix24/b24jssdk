@@ -1,9 +1,9 @@
-import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret } from '../types/auth'
-import type { TypeHttp } from '../types/http'
-import type { Payload } from "../types/payloads";
 /**
  * OAuth Authorization Manager
  */
+import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret } from '../types/auth'
+import type { TypeHttp } from '../types/http'
+
 export class AuthOAuthManager implements AuthActions {
   #authOptions: B24OAuthParams
   readonly #oAuthSecret: B24OAuthSecret

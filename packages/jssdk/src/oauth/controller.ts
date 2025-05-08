@@ -1,3 +1,8 @@
+/**
+ * B24.OAuth Manager
+ * @todo add docs
+ * @todo add link
+ */
 import { LoggerBrowser } from '../logger/browser'
 import { AbstractB24 } from '../core/abstract-b24'
 import type { TypeB24 } from '../types/b24'
@@ -5,11 +10,6 @@ import Http from '../core/http/controller'
 import { AuthOAuthManager } from './auth'
 import type { AuthActions, B24OAuthParams, B24OAuthSecret } from '../types/auth'
 
-/**
- * B24.OAuth Manager
- * @todo add docs
- * @todo add link
- */
 export class B24OAuth extends AbstractB24 implements TypeB24 {
   readonly #authOAuthManager: AuthOAuthManager
 

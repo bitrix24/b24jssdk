@@ -1,4 +1,5 @@
 import type { NumberString } from './common'
+import { EnumAppStatus } from './b24-helper'
 
 export type TypeDescriptionError = {
 	readonly error: 'invalid_token' | 'expired_token' | string
@@ -87,7 +88,7 @@ export interface B24OAuthParams {
   /**
    * @example 'L'
    */
-  status: string
+  status: (typeof EnumAppStatus)
 }
 
 /**

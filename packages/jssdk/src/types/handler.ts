@@ -17,3 +17,5 @@ export interface HandlerAuthParams {
   refresh_token: string
   application_token: string
 }
+
+export type PayloadOAuthToken = Pick<HandlerAuthParams, 'access_token' | 'refresh_token' | 'expires' | 'expires_in' | 'client_endpoint' | 'server_endpoint' | 'member_id' | 'status' | 'user_id'>

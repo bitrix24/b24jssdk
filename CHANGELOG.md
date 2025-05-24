@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.3](https://github.com/bitrix24/b24jssdk/compare/v0.4.2...v0.4.3) (2025-05-22)
+
+* fix(AuthHookManager)!: fix getTargetOrigin, getTargetOriginWithPath
+
 ## [0.4.2](https://github.com/bitrix24/b24jssdk/compare/v0.4.1...v0.4.2) (2025-05-08)
 
 ### ⚠ BREAKING CHANGES

@@ -72,15 +72,24 @@ export class AuthOAuthManager implements AuthActions {
    */
   async refreshAuth(): Promise<AuthData> {
     try {
-      const response = await this.#clientAxios.post(
+      const response = await this.#clientAxios.get(
         '/oauth/token/',
         {
-          grant_type: 'refresh_token',
-          client_id: this.#oAuthSecret.clientId,
-          client_secret: this.#oAuthSecret.clientSecret,
-          refresh_token: this.#authOptions.refreshToken
+          params: {
+            grant_type: 'refresh_token',
+            client_id: this.#oAuthSecret.clientId,
+            client_secret: this.#oAuthSecret.clientSecret,
+            refresh_token: this.#authOptions.refreshToken
+          }
         }
       )
+
+      if (response.data.error) {
+        throw new Error(`Token update error: ${response.data.error}`)
+      }
+      if (response.status !== 200) {
+        throw new Error(`Token update error status code: ${response.status}`)
+      }
 
       /**
        * @memo domain = 'oauth.bitrix.info'

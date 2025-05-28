@@ -2,7 +2,22 @@
 
 ## [0.4.3](https://github.com/bitrix24/b24jssdk/compare/v0.4.2...v0.4.3) (2025-05-22)
 
-* fix(AuthHookManager)!: fix getTargetOrigin, getTargetOriginWithPath
+### ⚠ BREAKING CHANGES
+* **AuthHookManager:** fix getTargetOrigin, getTargetOriginWithPath
+
+### Features
+
+* **B24LocaleMap:** add map for B24LangList and Locale
+* **types/bizproc/activity:** add some type for `bizproc.activity`
+* **types/bizproc:** add some type/functions for `bizproc`
+* **types/crm:** add convertor EnumCrmEntityTypeId to EnumCrmEntityTypeShort
+* **types/events:** add some interface for EventHandler
+* **B24OAuth:** add `issuer` for B24OAuthParams
+
+### Docs
+
+* **we will add new information in the next update**
+* for `OAuth` work it is worth looking at an example [@bitrix24/b24sdk-examples/08-nuxt-oauth](https://github.com/bitrix24/b24sdk-examples/tree/main/js/08-nuxt-oauth)
 
 ## [0.4.2](https://github.com/bitrix24/b24jssdk/compare/v0.4.1...v0.4.2) (2025-05-08)
 

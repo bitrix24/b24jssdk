@@ -18,6 +18,7 @@ export * from './types/crm/index'
 export * from './types/catalog'
 export * from './types/bizproc/activity'
 export * from './types/bizproc'
+export * from './types/event'
 
 export * from './types/b24-helper'
 export * from './types/pull'

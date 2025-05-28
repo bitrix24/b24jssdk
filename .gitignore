@@ -1,5 +1,6 @@
 # dependencies
 /node_modules
+/docs/**/node_modules
 /packages/**/node_modules
 /playgrounds/**/node_modules
 

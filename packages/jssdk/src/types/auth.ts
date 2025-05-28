@@ -88,7 +88,8 @@ export interface B24OAuthParams {
   /**
    * @example 'L'
    */
-  status: typeof EnumAppStatus[keyof typeof EnumAppStatus]
+  status: typeof EnumAppStatus[keyof typeof EnumAppStatus],
+  issuer?: 'request' | 'store' | string,
 }
 
 /**

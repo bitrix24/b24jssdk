@@ -40,3 +40,11 @@ export enum EnumCrmEntityTypeShort {
   requisite = 'RQ',
   order = 'O'
 }
+
+/**
+ * @todo add docs
+ */
+export function getEnumCrmEntityTypeShort(id: EnumCrmEntityTypeId): EnumCrmEntityTypeShort {
+  const key = EnumCrmEntityTypeId[id] as keyof typeof EnumCrmEntityTypeShort
+  return EnumCrmEntityTypeShort[key] || EnumCrmEntityTypeShort.undefined
+}

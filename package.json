@@ -34,7 +34,7 @@
     "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
-    "esbuild": "^0.25.4",
+    "esbuild": "^0.25.5",
     "vite": "^6.3.5"
   }
 }

@@ -64,7 +64,7 @@
     "@types/luxon": "^3.6.2"
   },
   "devDependencies": {
-    "@types/node": "^22.15.21",
+    "@types/node": "^22.15.23",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "unbuild": "^3.5.0",

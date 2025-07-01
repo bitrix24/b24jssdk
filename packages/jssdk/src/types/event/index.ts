@@ -28,6 +28,16 @@ export interface EventOnAppInstallHandlerParams extends EventHandlerParams {
  * @todo fix this application_token
  * @see https://apidocs.bitrix24.com/api-reference/events/safe-event-handlers.html
  */
-export interface EventOnAppUnInstallHandlerParams extends EventHandlerParams {
+export interface EventOnAppUnInstallHandlerParams {
+  event: string
+  event_handler_id: string
+  ts: string
   [key: string]: any
+  auth: {
+    domain: string
+    client_endpoint: string
+    server_endpoint: string
+    member_id: string
+    application_token: string
+  }
 }

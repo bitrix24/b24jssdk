@@ -29,10 +29,10 @@ the webhook parameters used to initialize the authorization manager and HTTP cli
 | `userId` | `number` | User identifier.                                                      |
 | `secret` | `string` | Secret key.                                                           |
 
-## `createFromUrl` {#createFromUrl}
+## `fromWebhookUrl` {#fromWebhookUrl}
 
 ```ts
-createFromUrl(url: string): B24Hook
+fromWebhookUrl(url: string): B24Hook
 ```
 
 This static method creates an instance of `B24Hook` from full webhook URL.

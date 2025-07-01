@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/bitrix24/b24jssdk/compare/v0.4.3...v0.4.4) (2025-07-01)
+
+### Features
+
+* **B24Hook:** add fromWebhookUrl
+* **EventOnAppUnInstallHandlerParams:** improve
+
 ## [0.4.3](https://github.com/bitrix24/b24jssdk/compare/v0.4.2...v0.4.3) (2025-05-22)
 
 ### ⚠ BREAKING CHANGES

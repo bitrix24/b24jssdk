@@ -626,9 +626,9 @@ export class PullClient implements ConnectorParent {
     if (
       Type.isPlainObject(oldSession) &&
       oldSession.hasOwnProperty('ttl') &&
-      oldSession.ttl >= now
+      oldSession['ttl'] >= now
     ) {
-      this._session.mid = oldSession.mid
+      this._session.mid = oldSession['mid']
     }
 
     this._starting = true
@@ -1725,31 +1725,31 @@ export class PullClient implements ConnectorParent {
       return false
     }
 
-    if (Number(config.server.config_timestamp) !== this._configTimestamp) {
+    if (Number(config['server'].config_timestamp) !== this._configTimestamp) {
       return false
     }
 
     const now = new Date()
 
     if (
-      Type.isNumber(config.exp) &&
-      config.exp > 0 &&
-      config.exp < now.getTime() / 1000
+      Type.isNumber(config['exp']) &&
+      config['exp'] > 0 &&
+      config['exp'] < now.getTime() / 1000
     ) {
       return false
     }
 
-    const channelCount = Object.keys(config.channels).length
+    const channelCount = Object.keys(config['channels']).length
     if (channelCount === 0) {
       return false
     }
 
-    for (const channelType in config.channels) {
-      if (!config.channels.hasOwnProperty(channelType)) {
+    for (const channelType in config['channels']) {
+      if (!config['channels'].hasOwnProperty(channelType)) {
         continue
       }
 
-      const channel = config.channels[channelType]
+      const channel = config['channels'][channelType]
       const channelEnd = new Date(channel.end)
 
       if (channelEnd < now) {

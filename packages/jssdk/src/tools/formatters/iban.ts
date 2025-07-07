@@ -1,3 +1,4 @@
+import Type from './../type'
 export class IbanSpecification {
   /**
    * the code of the country
@@ -253,7 +254,7 @@ export class FormatterIban {
    * @returns {boolean} true if the passed IBAN is valid, false otherwise
    */
   isValid(iban: string): boolean {
-    if (!this._isString(iban)) {
+    if (!Type.isString(iban)) {
       return false
     }
 
@@ -349,7 +350,7 @@ export class FormatterIban {
    * @param bban the BBAN to check the validity of
    */
   isValidBBAN(countryCode: string, bban: string): boolean {
-    if (!this._isString(bban)) {
+    if (!Type.isString(bban)) {
       return false
     }
 
@@ -363,13 +364,6 @@ export class FormatterIban {
       !!countryStructure &&
       countryStructure.isValidBBAN(this.electronicFormat(bban))
     )
-  }
-
-  // endregion ////
-
-  // region Tools ////
-  private _isString(value: any): boolean {
-    return typeof value == 'string' || value instanceof String
   }
 
   // endregion ////

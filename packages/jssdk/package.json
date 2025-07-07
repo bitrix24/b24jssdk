@@ -55,7 +55,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
-    "test": "tsx ./test/esm/uuid.test.ts"
+    "test": "tsx ./test/esm/uuid.test.ts && tsx ./test/esm/type.test.ts"
   },
   "dependencies": {
     "axios": "^1.10.0",

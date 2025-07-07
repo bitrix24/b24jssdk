@@ -172,7 +172,7 @@ class TypeManager {
    * @param value
    * @return {boolean}
    */
-  isArray(value: any): value is unknown[] {
+  isArray(value: any): value is any[] {
     return !this.isNil(value) && Array.isArray(value)
   }
 
@@ -181,7 +181,7 @@ class TypeManager {
    * @param value
    * @returns {boolean}
    */
-  isArrayFilled(value: any): value is unknown[] {
+  isArrayFilled(value: any): value is any[] {
     return this.isArray(value) && value.length > 0
   }
 
@@ -190,7 +190,7 @@ class TypeManager {
    * @param value
    * @return {boolean}
    */
-  isArrayLike(value: any): value is ArrayLike<unknown> {
+  isArrayLike(value: any): value is ArrayLike<any> {
     return (
       !this.isNil(value)
       && !this.isFunction(value)

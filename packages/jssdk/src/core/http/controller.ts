@@ -133,24 +133,28 @@ export default class Http implements TypeHttp {
   // region Actions Call ////
   async batch(
     calls: any[] | object,
-    isHaltOnError: boolean = true
+    isHaltOnError: boolean = true,
+    returnAjaxResult: boolean = false
   ): Promise<Result> {
     if (Array.isArray(calls)) {
       return this.#batchAsArray(
         calls,
-        isHaltOnError
+        isHaltOnError,
+        returnAjaxResult
       )
     }
 
     return this.#batchAsObject(
       calls,
-      isHaltOnError
+      isHaltOnError,
+      returnAjaxResult
     )
   }
 
   async #batchAsObject(
     calls: object,
-    isHaltOnError: boolean = true
+    isHaltOnError: boolean = true,
+    returnAjaxResult: boolean = false
   ): Promise<Result> {
     const cmd: any = {}
     let cnt = 0
@@ -268,7 +272,7 @@ export default class Http implements TypeHttp {
           return Promise.reject(error)
         }
 
-        dataResult[key] = data.getData().result
+        dataResult[key] = returnAjaxResult ? data : data.getData().result
       }
 
       result.setData(dataResult)
@@ -279,7 +283,8 @@ export default class Http implements TypeHttp {
 
   async #batchAsArray(
     calls: any[],
-    isHaltOnError: boolean = true
+    isHaltOnError: boolean = true,
+    returnAjaxResult: boolean = false
   ): Promise<Result> {
     const cmd: string[] = []
     let cnt = 0
@@ -398,11 +403,10 @@ export default class Http implements TypeHttp {
           return Promise.reject(error)
         }
 
-        dataResult.push(data.getData().result)
+        dataResult.push(returnAjaxResult ? data : data.getData().result)
       }
 
       result.setData(dataResult)
-
       return Promise.resolve(result)
     })
   }

@@ -6,7 +6,7 @@ export type TypeHttp = {
 	setLogger(logger: LoggerBrowser): void
 	getLogger(): LoggerBrowser
 
-	batch(calls: any[] | object, isHaltOnError: boolean): Promise<Result>
+	batch(calls: any[] | object, isHaltOnError: boolean, returnAjaxResult: boolean): Promise<Result>
 
 	call(method: string, params: object, start: number): Promise<AjaxResult>
 
@@ -16,7 +16,7 @@ export type TypeHttp = {
 
 	setLogTag(logTag?: string): void
 	clearLogTag(): void
-	
+
 	/**
 	 * On|Off warning about client-side query execution
 	 * @param {boolean} value

@@ -86,18 +86,20 @@ export class PlacementManager {
 
   /**
    * Call the Registered Interface Command
-   * @param {string} command
-   * @param {Record<string, any>} parameters
-   * @return {Promise<any>}
+   * @param { string } command
+   * @param { Record<string, any> } parameters
+   * @return { Promise<any> }
    *
    * @link https://apidocs.bitrix24.com/api-reference/widgets/ui-interaction/bx24-placement-call.html
+   * @memo For the `setValue` command, use the following parameters { value: string }
    */
   async call(command: string, parameters: Record<string, any> = {}): Promise<any> {
     return this.#messageManager.send(
       command,
       {
         ...parameters,
-        isSafely: true
+        isSafely: true,
+        isRawValue: ['setValue'].includes(command)
       }
     )
   }

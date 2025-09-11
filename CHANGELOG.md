@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.6](https://github.com/bitrix24/b24jssdk/compare/v0.4.5...v0.4.6) (2025-09-11)
+
+### Features
+* **MessageManager:** add param isRawValue `MessageManager.send`, `PlacementManager.call('setValue', { value: 'some string' })`
+  
+### Chore
+* **deps:** update
+
 ## [0.4.5](https://github.com/bitrix24/b24jssdk/compare/v0.4.4...v0.4.5) (2025-07-07)
 
 ### Features

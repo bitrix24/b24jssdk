@@ -12,6 +12,7 @@ interface PromiseHandlers {
 
 /**
  * Parent Window Request Parameters
+ * @prop isRawValue if true then JSON.stringify will not be executed
  * @prop isSafely auto completion mode Promise.resolve()
  * @prop safelyTime after what time (900 ms) should it be automatically resolved Promise
  * @prop callBack for placement event
@@ -19,6 +20,7 @@ interface PromiseHandlers {
 export interface SendParams {
   [index: string]: any
 
+  isRawValue?: boolean
   isSafely?: boolean
   safelyTime?: number
   callBack?: (...args: any[]) => void
@@ -127,8 +129,13 @@ export class MessageManager {
          * @memo: delete it after rest 22.0.0
          */
         cmd = command.toString()
+
+        if (params?.isRawValue !== true) {
+          paramsSend = JSON.stringify(paramsSend)
+        }
+
         const listParams = [
-          paramsSend ? JSON.stringify(paramsSend) : '',
+          paramsSend || '',
           keyPromise,
           this.#appFrame.getAppSid(),
         ]

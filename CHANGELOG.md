@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.7](https://github.com/bitrix24/b24jssdk/compare/v0.4.6...v0.4.7) (2025-09-12)
+
+### Bug Fixes
+* **MessageManager:** fix null value
+
 ## [0.4.6](https://github.com/bitrix24/b24jssdk/compare/v0.4.5...v0.4.6) (2025-09-11)
 
 ### Features

@@ -2,6 +2,7 @@ import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import { MessageCommands } from './commands'
 import { AppFrame } from '../frame'
 import Text from '../../tools/text'
+import Type from '../../tools/type'
 import { omit } from '../../tools'
 
 interface PromiseHandlers {
@@ -135,6 +136,13 @@ export class MessageManager {
           && paramsSend
         ) {
             paramsSend = JSON.stringify(paramsSend)
+        } else if (
+          params?.isRawValue === true
+          && paramsSend
+          && Type.isPlainObject(paramsSend)
+          && paramsSend['value']
+        ) {
+          paramsSend = paramsSend['value']
         }
 
         const listParams = [

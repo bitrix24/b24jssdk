@@ -1,5 +1,7 @@
 # Changelog
 
+## [0.4.8] (2025-09-12)
+
 ## [0.4.7](https://github.com/bitrix24/b24jssdk/compare/v0.4.6...v0.4.7) (2025-09-12)
 
 ### Bug Fixes

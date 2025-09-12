@@ -130,10 +130,11 @@ export class MessageManager {
          */
         cmd = command.toString()
 
-        if (params?.isRawValue !== true) {
-          if(!!paramsSend) {
+        if (
+          params?.isRawValue !== true
+          && paramsSend
+        ) {
             paramsSend = JSON.stringify(paramsSend)
-          }
         }
 
         const listParams = [

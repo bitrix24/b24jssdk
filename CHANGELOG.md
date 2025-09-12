@@ -4,7 +4,8 @@
 
 ### Features
 * **MessageManager:** add param isRawValue `MessageManager.send`, `PlacementManager.call('setValue', { value: 'some string' })`
-  
+* **README:** add AI usage guide for Bitrix24 SDK
+
 ### Chore
 * **deps:** update
 

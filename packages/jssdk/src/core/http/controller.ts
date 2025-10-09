@@ -626,6 +626,15 @@ export default class Http implements TypeHttp {
    */
   #prepareMethod(method: string): string {
     const baseUrl = `${ encodeURIComponent(method) }.json`
+
+    /**
+     * @memo For task methods, skip telemetry
+     * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
+     */
+    if (method.includes('task.')) {
+      return `${baseUrl}`;
+    }
+
     const queryParams = new URLSearchParams({
       [this.#requestIdGenerator.getQueryStringParameterName()]: this.#requestIdGenerator.getRequestId(),
       [this.#requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',

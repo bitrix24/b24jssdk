@@ -1,6 +1,6 @@
 {
   "name": "@bitrix24/b24jssdk",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "author": "Bitrix",
   "license": "MIT",
   "description": "Bitrix24 REST API JS SDK",
@@ -59,18 +59,18 @@
     "test": "tsx ./test/esm/uuid.test.ts && tsx ./test/esm/type.test.ts"
   },
   "dependencies": {
-    "axios": "^1.11.0",
+    "axios": "^1.12.2",
     "qs-esm": "^7.0.2",
     "luxon": "^3.7.2",
     "@types/luxon": "^3.7.1"
   },
   "devDependencies": {
-    "@types/node": "^24.3.1",
+    "@types/node": "^24.7.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.2",
+    "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
     "eslint-config-unjs": "^0.5.0",
-    "tsx": "^4.20.5"
+    "tsx": "^4.20.6"
   },
   "resolutions": {}
 }

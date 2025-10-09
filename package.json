@@ -1,6 +1,6 @@
 {
   "name": "@bitrix24/b24jssdk-main",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "author": "Bitrix",
   "license": "MIT",
   "private": true,
@@ -34,7 +34,7 @@
     "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
-    "esbuild": "^0.25.9",
-    "vite": "^7.1.5"
+    "esbuild": "^0.25.10",
+    "vite": "^7.1.9"
   }
 }

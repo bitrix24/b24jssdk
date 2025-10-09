@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.10](https://github.com/bitrix24/b24jssdk/compare/v0.4.9...v0.4.10) (2025-10-09)
+### Features
+* **B24OAuth:** add CustomRefreshAuth
+
+### Bug Fixes
+* **Http.#prepareMethod:** telemetry transfer to task methods
+
 ## [0.4.9] (2025-09-12)
 ## [0.4.8] (2025-09-12)
 

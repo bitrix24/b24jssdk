@@ -6,14 +6,14 @@
 import { RefreshTokenError } from './refresh-token-error'
 import Type from '../tools/type'
 import { EnumAppStatus } from '../types/b24-helper'
-import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, TypeDescriptionError, CallbackRefreshAuth } from '../types/auth'
+import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, TypeDescriptionError, CallbackRefreshAuth, CustomRefreshAuth, HandlerRefreshAuth } from '../types/auth'
 import type { TypeHttp } from '../types/http'
-import type { HandlerAuthParams } from '../types/handler'
 import axios, { type AxiosInstance, AxiosError } from 'axios'
 
 export class AuthOAuthManager implements AuthActions {
   #clientAxios: AxiosInstance
   #callbackRefreshAuth: null | CallbackRefreshAuth = null
+  #customRefreshAuth: null | CustomRefreshAuth = null
   #authOptions: B24OAuthParams
   readonly #oAuthSecret: B24OAuthSecret
   #authExpires: number = 0
@@ -72,29 +72,40 @@ export class AuthOAuthManager implements AuthActions {
    */
   async refreshAuth(): Promise<AuthData> {
     try {
-      const response = await this.#clientAxios.get(
-        '/oauth/token/',
-        {
-          params: {
-            grant_type: 'refresh_token',
-            client_id: this.#oAuthSecret.clientId,
-            client_secret: this.#oAuthSecret.clientSecret,
-            refresh_token: this.#authOptions.refreshToken
+
+      let payload: undefined | HandlerRefreshAuth = undefined
+
+      if (this.#customRefreshAuth) {
+        payload = await this.#customRefreshAuth()
+      } else {
+        const response = await this.#clientAxios.get(
+          '/oauth/token/',
+          {
+            params: {
+              grant_type: 'refresh_token',
+              client_id: this.#oAuthSecret.clientId,
+              client_secret: this.#oAuthSecret.clientSecret,
+              refresh_token: this.#authOptions.refreshToken
+            }
           }
+        )
+
+        if (response.data.error) {
+          throw new Error(`Token update error: ${response.data.error}`)
         }
-      )
+        if (response.status !== 200) {
+          throw new Error(`Token update error status code: ${response.status}`)
+        }
 
-      if (response.data.error) {
-        throw new Error(`Token update error: ${response.data.error}`)
-      }
-      if (response.status !== 200) {
-        throw new Error(`Token update error status code: ${response.status}`)
+        /**
+         * @memo domain = 'oauth.bitrix.info'
+         */
+        payload = response.data
       }
 
-      /**
-       * @memo domain = 'oauth.bitrix.info'
-       */
-      const payload: Pick<HandlerAuthParams, 'access_token' | 'refresh_token' | 'expires' | 'expires_in' | 'client_endpoint' | 'server_endpoint' | 'member_id' | 'scope' | 'status' | 'domain' > = response.data
+      if (!payload) {
+        throw new Error('Unable to obtain authorization update data')
+      }
 
       this.#authOptions.accessToken = payload.access_token
       this.#authOptions.refreshToken = payload.refresh_token
@@ -162,6 +173,14 @@ export class AuthOAuthManager implements AuthActions {
 
   removeCallbackRefreshAuth(): void {
     this.#callbackRefreshAuth = null
+  }
+
+  setCustomRefreshAuth(cb: CustomRefreshAuth): void {
+    this.#customRefreshAuth = cb
+  }
+
+  removeCustomRefreshAuth(): void {
+    this.#customRefreshAuth = null
   }
   // endregion ////
 

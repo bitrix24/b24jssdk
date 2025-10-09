@@ -1,4 +1,5 @@
 import type { NumberString } from './common'
+import type { HandlerAuthParams } from './handler'
 import { EnumAppStatus } from './b24-helper'
 
 export type TypeDescriptionError = {
@@ -88,14 +89,22 @@ export interface B24OAuthParams {
   /**
    * @example 'L'
    */
-  status: typeof EnumAppStatus[keyof typeof EnumAppStatus],
-  issuer?: 'request' | 'store' | string,
+  status: typeof EnumAppStatus[keyof typeof EnumAppStatus]
+  issuer?: 'request' | 'store' | string
 }
+
+
+export type HandlerRefreshAuth = Pick<HandlerAuthParams, 'access_token' | 'refresh_token' | 'expires' | 'expires_in' | 'client_endpoint' | 'server_endpoint' | 'member_id' | 'scope' | 'status' | 'domain' >
 
 /**
  * Callback called when OAuth authorization is updated
  */
 export type CallbackRefreshAuth = (params: { authData: AuthData, b24OAuthParams: B24OAuthParams }) => Promise<void>
+
+/**
+ * Use for custom get new refresh token for OAuth
+ */
+export type CustomRefreshAuth = () => Promise<HandlerRefreshAuth>
 
 /**
  * Parameters passed from the parent window when calling refreshAuth

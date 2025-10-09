@@ -9,7 +9,7 @@ import { AbstractB24 } from '../core/abstract-b24'
 import type { TypeB24 } from '../types/b24'
 import Http from '../core/http/controller'
 import { AuthOAuthManager } from './auth'
-import type { AuthActions, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth } from '../types/auth'
+import type { AuthActions, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth } from '../types/auth'
 
 export class B24OAuth extends AbstractB24 implements TypeB24 {
   readonly #authOAuthManager: AuthOAuthManager
@@ -64,6 +64,23 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     this._ensureInitialized()
     this.#authOAuthManager.removeCallbackRefreshAuth()
   }
+
+  /**
+   * Sets an asynchronous function for custom get new refresh token
+   * @param cb
+   */
+  setCustomRefreshAuth(cb: CustomRefreshAuth): void {
+    this._ensureInitialized()
+    this.#authOAuthManager.setCustomRefreshAuth(cb)
+  }
+
+  /**
+   * Removes function for custom get new refresh token
+   */
+  removeCustomRefreshAuth(): void {
+    this._ensureInitialized()
+    this.#authOAuthManager.removeCustomRefreshAuth()
+  }
   // endregion ////
 
   // region Core ////
@@ -99,5 +116,5 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
   // endregion ////
 
   // region Tools ////
-	// endregion ////
+  // endregion ////
 }

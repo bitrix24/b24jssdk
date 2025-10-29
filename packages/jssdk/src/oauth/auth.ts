@@ -17,6 +17,7 @@ export class AuthOAuthManager implements AuthActions {
   #authOptions: B24OAuthParams
   readonly #oAuthSecret: B24OAuthSecret
   #authExpires: number = 0
+  #authExpiresIn: number = 0
   readonly #domain: string
   readonly #b24TargetRest: string
   readonly #b24Target: string
@@ -41,6 +42,7 @@ export class AuthOAuthManager implements AuthActions {
     this.#b24Target = this.#b24TargetRest.replace('/rest/', '')
     this.#oAuthTarget = this.#authOptions.serverEndpoint.replace('/rest/', '')
     this.#authExpires = this.#authOptions.expires * 1_000
+    this.#authExpiresIn = this.#authOptions.expiresIn
 
     this.#clientAxios = axios.create({
       baseURL: this.#oAuthTarget,
@@ -59,7 +61,8 @@ export class AuthOAuthManager implements AuthActions {
       ? ({
         access_token: this.#authOptions.accessToken,
         refresh_token: this.#authOptions.refreshToken,
-        expires_in: this.#authOptions.expiresIn,
+        expires: this.#authExpires / 1_000,
+        expires_in: this.#authExpiresIn,
         domain: this.#domain,
         member_id: this.#authOptions.memberId
       } as AuthData)

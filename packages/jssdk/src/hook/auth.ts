@@ -27,6 +27,7 @@ export class AuthHookManager implements AuthActions {
     return {
       access_token: this.#b24HookParams.secret,
       refresh_token: 'hook',
+      expires: 0,
       expires_in: 0,
       domain: this.#domain,
       member_id: this.#domain,

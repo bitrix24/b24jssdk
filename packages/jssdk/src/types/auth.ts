@@ -139,6 +139,7 @@ export type MessageInitData = RefreshAuthData & {
 export type AuthData = {
   access_token: string
   refresh_token: string
+  expires: number
   expires_in: number
   domain: string
   member_id: string

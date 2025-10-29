@@ -14,6 +14,7 @@ export class AuthManager implements AuthActions {
 	#accessToken: null | string = null
 	#refreshId: null | string = null
 	#authExpires: number = 0
+	#authExpiresIn: number = 0
 	#memberId: null | string = null
 
 	#isAdmin: boolean = false
@@ -34,8 +35,8 @@ export class AuthManager implements AuthActions {
 		if (data.AUTH_ID) {
 			this.#accessToken = data.AUTH_ID
 			this.#refreshId = data.REFRESH_ID
-			this.#authExpires =
-				Date.now() + Number.parseInt(data.AUTH_EXPIRES) * 1_000
+			this.#authExpiresIn = Number.parseInt(data.AUTH_EXPIRES)
+			this.#authExpires = Date.now() + this.#authExpiresIn * 1_000
 
 			this.#isAdmin = data.IS_ADMIN
 			this.#memberId = data.MEMBER_ID || ''
@@ -54,7 +55,8 @@ export class AuthManager implements AuthActions {
 			? ({
 					access_token: this.#accessToken,
 					refresh_token: this.#refreshId,
-					expires_in: this.#authExpires,
+          expires: this.#authExpires / 1_000,
+          expires_in: this.#authExpiresIn,
 					domain: this.#appFrame.getTargetOrigin(),
 					member_id: this.#memberId,
 				} as AuthData)
@@ -72,8 +74,7 @@ export class AuthManager implements AuthActions {
 			.then((data: RefreshAuthData) => {
 				this.#accessToken = data.AUTH_ID
 				this.#refreshId = data.REFRESH_ID
-				this.#authExpires =
-					Date.now() + Number.parseInt(data.AUTH_EXPIRES) * 1_000
+				this.#authExpires = Date.now() + Number.parseInt(data.AUTH_EXPIRES) * 1_000
 
 				return Promise.resolve(this.getAuthData() as AuthData)
 			})

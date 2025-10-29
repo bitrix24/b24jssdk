@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.1](https://github.com/bitrix24/b24jssdk/compare/v0.4.10...v0.5.1) (2025-10-29)
+
+### Features
+* **AuthActions.getAuthData:** fix `expires` and add `expires_in`
+
 ## [0.4.10](https://github.com/bitrix24/b24jssdk/compare/v0.4.9...v0.4.10) (2025-10-09)
 ### Features
 * **B24OAuth:** add CustomRefreshAuth

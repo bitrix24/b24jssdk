@@ -1,0 +1,42 @@
+@import "tailwindcss" theme(static) source("../../../..");
+@import "@bitrix24/b24ui-nuxt";
+
+@source "../../../content/**/*";
+
+@theme static {
+
+}
+
+/*
+ * Custom bg
+ */
+@layer base {
+  .edge-dark {
+    --air-theme-bg-image: url(../bg/edge-dark-v3.jpg);
+    --air-theme-bg-image-blurred: url(../bg/edge-dark-v3-blurred.webp);
+    --air-theme-bg-position: 0 0;
+    --air-theme-bg-size: cover;
+    --air-theme-bg-repeat: no-repeat;
+    --air-theme-bg-attachment: fixed;
+    --air-theme-bg-color: #325ab3;
+  }
+}
+
+:root {
+
+}
+
+html[data-framework="nuxt"] .vue-only,
+html[data-framework="vue"] .nuxt-only {
+  display: none;
+}
+
+/** region bg-grid-example */
+.bg-grid-example {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(130 139 149 / 0.06)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+}
+
+.dark\:bg-grid-example:is(.dark *) {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(130 139 149 / 0.06)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+}
+/** endregion */

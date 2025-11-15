@@ -1,17 +1,41 @@
 {
-  "name": "@bitrix24/b24jssdk-docs",
   "private": true,
+  "name": "@bitrix24/b24icons-docs",
   "version": "0.0.0",
-  "description": "",
   "type": "module",
-  "devDependencies": {
-    "@bitrix24/b24icons-vue": "^2.0.4",
-    "@bitrix24/b24ui-nuxt": "^1.0.4",
-    "vue-router": "^4.5.1"
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "vitepress": "^1.6.4",
-    "@vueuse/core": "^13.9.0",
-    "vue": "^3.5.22"
+    "@nuxt/content": "^3.8.0",
+    "@nuxt/kit": "^4.2.0",
+    "@bitrix24/b24icons-vue": "^2.0.5",
+    "@bitrix24/b24ui-nuxt": "^2.0.8",
+    "@nuxtjs/plausible": "^2.0.1",
+    "@octokit/rest": "^22.0.0",
+    "@regle/core": "^1.9.8",
+    "@regle/rules": "^1.9.8",
+    "@vueuse/integrations": "^13.9.0",
+    "@vueuse/nuxt": "^13.9.0",
+    "better-sqlite3": "^12.4.1",
+    "joi": "^18.0.1",
+    "motion-v": "^1.7.3",
+    "nuxt": "^4.2.0",
+    "prettier": "^3.6.2",
+    "shiki-stream": "^0.1.2",
+    "shiki-transformer-color-highlight": "^1.0.0",
+    "sortablejs": "^1.15.6",
+    "superstruct": "^2.0.2",
+    "ufo": "^1.6.1",
+    "lodash-es": "^4.17.21",
+    "zod": "^4.1.12",
+    "fuse.js": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/lodash-es": "^4.17.12"
   }
 }

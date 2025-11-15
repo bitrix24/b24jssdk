@@ -1,40 +1,83 @@
 {
-  "name": "@bitrix24/b24jssdk-main",
-  "version": "0.5.1",
+  "name": "@bitrix24/b24icons",
+  "version": "2.0.5",
+  "packageManager": "pnpm@10.20.0",
   "author": "Bitrix",
   "license": "MIT",
-  "private": true,
-  "description": "Bitrix24 REST API JS SDK",
+  "description": "Bitrix24 SVG icons for development web-applications",
   "keywords": [
     "bitrix24",
-    "js",
-    "nodejs",
-    "restapi",
-    "REST",
-    "API"
+    "ui",
+    "icons",
+    "svg"
   ],
-  "homepage": "https://bitrix24.github.io/b24jssdk/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bitrix24/b24jssdk.git"
+    "url": "git+https://github.com/bitrix24/b24icons.git"
   },
-  "sideEffects": false,
+  "homepage": "https://bitrix24.github.io/b24icons/",
+  "bugs": {
+    "url": "https://github.com/bitrix24/b24icons/issues"
+  },
+  "staring": {
+    "url": "https://github.com/bitrix24/b24icons"
+  },
   "type": "module",
+  "private": true,
   "workspaces": [
     "packages/*",
     "docs"
   ],
   "scripts": {
-    "build": "npm run --workspace=@bitrix24/b24jssdk build",
-    "test": "npm run --workspace=@bitrix24/b24jssdk test",
-    "lint": "npm run --workspace=@bitrix24/b24jssdk lint",
-    "typecheck": "npm run --workspace=@bitrix24/b24jssdk typecheck",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "vue": "pnpm --filter ./packages/@bitrix24-icons-vue build",
+    "prepublishOnly": "pnpm run build",
+    "prebuild": "rimraf --glob ./optimized/* ./export/* ./packages/{@bitrix24-icons-vue,@bitrix24-icons-react}/dist/* ./packages/@bitrix24-icons-vue/src/*.json",
+    "build": "npm-run-all -s build:*",
+    "build:by-type": "node ./scripts/build-process",
+    "build:vue": "node ./scripts/build @bitrix24-icons-vue",
+    "build:vue-packages": "pnpm run vue build",
+    "build:nuxt-packages": "pnpm --filter ./packages/@bitrix24-icons-nuxt prepare",
+    "build-nuxt": "npm-run-all -s build-nuxt:*",
+    "build-nuxt:prepare": "pnpm --filter ./packages/@bitrix24-icons-nuxt prepare",
+    "build-nuxt:build": "pnpm --filter ./packages/@bitrix24-icons-nuxt build",
+    "docs:dev": "npm-run-all -s docs:dev:*",
+    "docs:dev:init": "pnpm run build",
+    "docs:dev:prepare": "nuxt prepare docs",
+    "docs:dev:nuxt": "nuxt dev docs",
+    "docs:build": "npm-run-all -s docs:build:*",
+    "docs:build:init": "pnpm run build",
+    "docs:build:nuxt": "nuxt build docs",
+    "docs:generate": "npm-run-all -s docs:generate:*",
+    "docs:generate:init": "pnpm run build",
+    "docs:generate:nuxt": "nuxt generate docs",
+    "docs:preview": "nuxt preview docs",
+    "tools:catalog": "node ./scripts/catalog",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "vue-tsc --noEmit && nuxt typecheck docs"
+  },
+  "devDependencies": {
+    "@nuxt/eslint-config": "^1.10.0",
+    "@babel/core": "^7.28.5",
+    "@babel/plugin-transform-react-jsx": "^7.27.1",
+    "@svgr/core": "^8.1.0",
+    "@vue/compiler-dom": "^3.5.22",
+    "camelcase": "^8.0.0",
+    "cross-env": "^10.1.0",
+    "fast-glob": "^3.3.3",
+    "mini-svg-data-uri": "^1.4.4",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.1.0",
+    "svgo": "^4.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.1.2",
+    "eslint": "^9.38.0"
   },
   "dependencies": {
-    "esbuild": "^0.25.10",
-    "vite": "^7.1.9"
+  },
+  "resolutions": {
+    "@bitrix24/b24ui-icons": "workspace:*"
   }
 }

@@ -1,14 +1,10 @@
-title: 'Bitrix24 Icons'
-description: Bitrix24 Icons for Web Applications Design your applications in the Bitrix24 style
+title: 'Bitrix24 JS SDK'
+description: Bitrix24 JS SDK for using Bitrix24 REST API in local, production applications or via webhooks.
 hero:
-  title: '@bitrix24/b24icons'
-  description: Design your applications in the Bitrix24 style
+  title: '@bitrix24/b24jssdk'
+  description: for using Bitrix24 REST API in local, production applications or via webhooks
   links:
     - label: Get started
       to: /docs/getting-started/installation/vue/
       color: 'air-secondary-accent-2'
       iconName: 'PlayLIcon'
-    - label: Explore icons
-      to: /icons/
-      color: 'air-primary'
-      iconName: 'DemonstrationOnIcon'

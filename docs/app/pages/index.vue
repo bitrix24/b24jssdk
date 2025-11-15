@@ -99,7 +99,9 @@ const { mobileLinks } = useHeader()
           </div>
         </div>
         <div class="relative col-span-12 lg:col-end-11 lg:col-span-5 mb-6 lg:mb-0">
-          <HomeHeroIconsList />
+          <B24Card variant="tinted-alert">
+            <ProseH2>@todo ...</ProseH2>
+          </B24Card>
         </div>
       </div>
     </B24Card>

@@ -11,13 +11,11 @@ const pages = [
   // region getting-started ////
   '/docs/getting-started/',
   '/docs/getting-started/installation/vue/',
-  '/docs/getting-started/installation/nuxt/',
-  '/icons/'
+  '/docs/getting-started/installation/nuxt/'
   // endregion ////
 ]
 
 const pagesService = [
-  '/api/icons.json',
   '/404.html'
 ]
 
@@ -26,7 +24,7 @@ export default defineNuxtConfig({
     '@bitrix24/b24ui-nuxt',
     '@nuxt/content',
     '@nuxtjs/plausible',
-    '@vueuse/nuxt',
+    // '@vueuse/nuxt',
     (_, nuxt) => {
       nuxt.hook('components:dirs', (dirs) => {
         dirs.unshift({
@@ -46,11 +44,11 @@ export default defineNuxtConfig({
   },
 
   app: {
-    baseURL: '/b24icons/',
+    baseURL: '/b24jssdk/',
     buildAssetsDir: '/_nuxt/',
     head: {
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/b24icons/favicon.ico' }
+        { rel: 'icon', type: 'image/x-icon', href: '/b24jssdk/favicon.ico' }
       ],
       htmlAttrs: {
         class: 'edge-dark'

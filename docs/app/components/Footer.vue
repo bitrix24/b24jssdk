@@ -7,11 +7,11 @@ import RocketIcon from '@bitrix24/b24icons-vue/outline/RocketIcon'
     <B24Button
       label="Releases"
       :icon="RocketIcon"
-      to="https://github.com/bitrix24/b24icons/releases"
+      to="https://github.com/bitrix24/b24jssdk/b24jssdk"
       target="_blank"
       size="md"
     />
-    <NuxtLink to="https://github.com/bitrix24/b24icons" target="_blank" class="text-(length:--ui-font-size-sm) hover:underline">
+    <NuxtLink to="https://github.com/bitrix24/b24jssdk" target="_blank" class="text-(length:--ui-font-size-sm) hover:underline">
       Published under MIT License.
     </NuxtLink>
     <ProseP small accent="less">

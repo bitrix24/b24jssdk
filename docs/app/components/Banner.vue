@@ -4,12 +4,12 @@ import EnterpriseIcon from '@bitrix24/b24icons-vue/solid/EnterpriseIcon'
 
 <template>
   <B24Banner
-    id="new-icons-banner-v2"
-    title="New solid icons!"
-    to="/icons/?search=solid"
+    id="new-jsSdk-banner"
+    title="@todo fix me!"
+    to="/docs/"
     :icon="EnterpriseIcon"
     close
-    color="air-primary-copilot"
+    color="air-primary-alert"
     class="light"
   />
 </template>

@@ -49,7 +49,7 @@ const communityLinks = computed(() => [
   {
     icon: FavoriteIcon,
     label: 'Star on GitHub',
-    to: `https://github.com/bitrix24/b24icons`,
+    to: `https://github.com/bitrix24/b24jssdk`,
     target: '_blank'
   }
 ])

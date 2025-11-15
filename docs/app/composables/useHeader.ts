@@ -11,11 +11,6 @@ export function useHeader() {
       label: 'Docs',
       to: '/docs/getting-started/',
       active: route.path.startsWith('/docs/getting-started')
-    },
-    {
-      label: 'Icons',
-      to: '/icons/',
-      active: route.path.startsWith('/icons')
     }
   ])
 
@@ -27,14 +22,8 @@ export function useHeader() {
       active: route.path.startsWith('/docs/getting-started')
     },
     {
-      label: 'Icons',
-      to: '/icons/',
-      icon: DemonstrationOnIcon,
-      active: route.path.startsWith('/icons')
-    },
-    {
       label: 'GitHub',
-      to: 'https://github.com/bitrix24/b24icons',
+      to: 'https://github.com/bitrix24/b24jssdk',
       icon: GitHubIcon,
       target: '_blank'
     }

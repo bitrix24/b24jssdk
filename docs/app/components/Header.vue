@@ -44,9 +44,9 @@ const props = withDefaults(defineProps<HeaderProps>(), {
         size="sm"
       />
       <B24Button
-        aria-label="Bitrix24 Icons on GitHub"
+        aria-label="Bitrix24 JS SDK on GitHub"
         :icon="GitHubIcon"
-        to="https://github.com/bitrix24/b24icons"
+        to="https://github.com/bitrix24/b24jssdk"
         target="_blank"
         size="sm"
       />

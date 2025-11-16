@@ -43,7 +43,7 @@ export default defineNuxtConfig({
     '@nuxt/content',
     // '@nuxt/image',
     '@nuxtjs/plausible',
-    // '@vueuse/nuxt',
+    '@vueuse/nuxt',
     'nuxt-component-meta',
     'nuxt-og-image',
     // @memo off this -> use in nuxt-og-image
@@ -64,12 +64,14 @@ export default defineNuxtConfig({
 
   $development: {
     site: {
-      url: 'http://localhost:3000'
+      url: 'http://localhost:3000',
+      baseURL: '/b24jssdk'
     }
   },
   $production: {
     site: {
-      url: 'https://bitrix24.github.io'
+      url: 'https://bitrix24.github.io',
+      baseURL: '/b24jssdk'
     }
   },
 
@@ -183,7 +185,7 @@ export default defineNuxtConfig({
   // },
 
   llms: {
-    domain: 'https://bitrix24.github.io/b24ui',
+    domain: 'https://bitrix24.github.io/b24jssdk',
     title: 'Bitrix24 JS SDK',
     description: 'A comprehensive JavaScript library integrated with Bitrix24, providing a powerful and convenient toolkit for interacting with the Bitrix24 REST API, enabling secure and efficient management of data and processes in web application development.',
     full: {

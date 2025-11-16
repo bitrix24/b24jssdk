@@ -1,6 +1,10 @@
 import type { NavigationMenuItem } from '@bitrix24/b24ui-nuxt'
 import PlayLIcon from '@bitrix24/b24icons-vue/outline/PlayLIcon'
-import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
+// import DeveloperResourcesIcon from '@bitrix24/b24icons-vue/outline/DeveloperResourcesIcon'
+// import ViewmodeCodeIcon from '@bitrix24/b24icons-vue/editor/ViewmodeCodeIcon'
+// import FormattingIcon from '@bitrix24/b24icons-vue/editor/FormattingIcon'
+import FormIcon from '@bitrix24/b24icons-vue/outline/FormIcon'
+// import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
 import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
 
 export function useHeader() {
@@ -11,6 +15,10 @@ export function useHeader() {
       label: 'Docs',
       to: '/docs/getting-started/',
       active: route.path.startsWith('/docs/getting-started')
+    },
+    {
+      label: 'Templates',
+      to: '/templates/'
     }
   ])
 
@@ -20,6 +28,11 @@ export function useHeader() {
       to: '/docs/getting-started/',
       icon: PlayLIcon,
       active: route.path.startsWith('/docs/getting-started')
+    },
+    {
+      label: 'Templates',
+      to: '/templates/',
+      icon: FormIcon
     },
     {
       label: 'GitHub',

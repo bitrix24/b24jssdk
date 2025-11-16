@@ -16,7 +16,9 @@ const Avatar = z.object({
 const Button = z.object({
   label: z.string(),
   iconName: z.string().optional(),
+  icon: z.string().optional(),
   avatar: Avatar.optional(),
+  leadingIcon: z.string().optional(),
   trailingIcon: z.string().optional(),
   to: z.string().optional(),
   target: z.enum(['_blank', '_self']).optional(),
@@ -61,6 +63,8 @@ export const collections = {
       include: 'docs/**/*'
     }],
     schema: z.object({
+      category: z.enum(['layout', 'form', 'element', 'navigation', 'data', 'overlay', 'dashboard', 'page', 'ai', 'color-mode', 'i18n']).optional(),
+      framework: z.enum(['nuxt', 'vue']).optional(),
       badge: z.string().optional(),
       navigation: z.object({
         title: z.string().optional()
@@ -87,6 +91,21 @@ export const collections = {
       }),
       templates: PageSection,
       community: PageSection
+    })
+  }),
+  templates: defineCollection({
+    type: 'page',
+    source: 'templates.yml',
+    schema: Page.extend({
+      items: z.array(z.object({
+        title: z.string(),
+        description: z.string(),
+        icon: z.string(),
+        framework: z.enum(['nuxt', 'vue']),
+        features: z.array(PageFeature).optional(),
+        links: z.array(Button).optional(),
+        deploy_links: z.array(Button).optional()
+      }))
     })
   })
 }

@@ -3,7 +3,7 @@
   "description": "Bitrix24 REST API JS SDK",
   "version": "0.5.1",
   "author": "Bitrix",
-  "packageManager": "pnpm@10.20.0",
+  "packageManager": "pnpm@10.22.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bitrix24/b24jssdk.git"
@@ -58,7 +58,9 @@
   },
   "resolutions": {
     "@bitrix24/b24jssdk": "workspace:*",
-    "@bitrix24/b24jssdk-nuxt": "workspace:*"
+    "@bitrix24/b24jssdk-nuxt": "workspace:*",
+    "ai": "5.0.90",
+    "@ai-sdk/vue": "2.0.90"
   },
   "keywords": [
     "bitrix24",

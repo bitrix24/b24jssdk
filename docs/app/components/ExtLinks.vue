@@ -6,8 +6,8 @@ const menuList = [
     target: '_blank'
   },
   {
-    label: 'b24jssdk',
-    to: 'https://bitrix24.github.io/b24jssdk/',
+    label: 'b24icons',
+    to: 'https://bitrix24.github.io/b24icons/',
     target: '_blank'
   }
 ]

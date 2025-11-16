@@ -1,8 +1,10 @@
 export function useFooter() {
-  const links: {
-    label: string
-    to: string
-  }[] = []
+  const links = [
+    {
+      label: 'Templates',
+      to: '/templates/'
+    },
+  ]
 
   return {
     links

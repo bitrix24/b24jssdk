@@ -4,25 +4,28 @@ import { withTrailingSlash } from 'ufo'
 const route = useRoute()
 const appConfig = useAppConfig()
 
-const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', ['description', 'badge']))
+const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', ['framework', 'category', 'description', 'badge']))
+const { data: files } = useLazyAsyncData('search', () => queryCollectionSearchSections('docs'), {
+  server: false
+})
 
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
-    { rel: 'canonical', href: `https://bitrix24.github.io/b24ui${withTrailingSlash(route.path)}` }
+    { rel: 'canonical', href: `https://bitrix24.github.io/b24jssdk${withTrailingSlash(route.path)}` }
   ],
   style: [],
   htmlAttrs: { lang: 'en', class: '' }
 })
 
 useServerSeoMeta({
-  ogSiteName: 'Bitrix24 Icons',
+  ogSiteName: 'Bitrix24 JS SDK',
   twitterCard: 'summary_large_image'
 })
 
-const { rootNavigation } = useNavigation(navigation)
+const { rootNavigation, navigationByFramework } = useNavigation(navigation)
 
 provide('navigation', rootNavigation)
 
@@ -50,6 +53,12 @@ defineShortcuts({
       <NuxtLayout>
         <NuxtPage />
       </NuxtLayout>
+
+      <template v-if="!route.path.startsWith('/examples')">
+        <ClientOnly>
+          <Search :files="files" :navigation="navigationByFramework" />
+        </ClientOnly>
+      </template>
     </div>
   </B24App>
 </template>

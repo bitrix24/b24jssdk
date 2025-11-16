@@ -19,12 +19,12 @@ useHead({
 })
 
 useSeoMeta({
-  titleTemplate: '%s - Bitrix24 Icons',
+  titleTemplate: '%s - Bitrix24 JS SDK',
   title: String(props.error.statusCode)
 })
 
 useServerSeoMeta({
-  ogSiteName: 'Bitrix24 Icons',
+  ogSiteName: 'Bitrix24 JS SDK',
   twitterCard: 'summary_large_image'
 })
 

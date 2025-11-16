@@ -12,6 +12,8 @@ import TelegramIcon from '@bitrix24/b24icons-vue/outline/TelegramIcon'
 const props = withDefaults(defineProps<HeaderProps>(), {
   showLogoAllTime: false
 })
+
+const { desktopLinks } = useHeader()
 </script>
 
 <template>
@@ -23,10 +25,19 @@ const props = withDefaults(defineProps<HeaderProps>(), {
   >
     <LogoWithVersion :no-padding="props.showLogoAllTime" />
   </B24NavbarSection>
-
+  <B24NavbarSection :class="[props.showLogoAllTime ? 'pl-[32px]' : '']">
+    <B24NavigationMenu
+      class="hidden lg:inline-flex"
+      :items="desktopLinks"
+      orientation="horizontal"
+    />
+  </B24NavbarSection>
   <B24NavbarSpacer />
 
   <B24NavbarSection class="gap-1 sm:gap-3">
+    <B24Tooltip text="Search" :kbds="['meta', 'K']">
+      <B24ContentSearchButton />
+    </B24Tooltip>
     <B24ColorModeButton :content="{ align: 'end', side: 'bottom' }" />
     <div class="hidden sm:flex flex-nowrap flex-row items-center justify-end gap-3">
       <B24Button
@@ -37,7 +48,7 @@ const props = withDefaults(defineProps<HeaderProps>(), {
         size="sm"
       />
       <B24Button
-        aria-label="Bitrix24 Icons on Telegram"
+        aria-label="Bitrix24 JS SDK on Telegram"
         :icon="TelegramIcon"
         to="https://t.me/b24_dev"
         target="_blank"

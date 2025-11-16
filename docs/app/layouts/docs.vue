@@ -34,6 +34,7 @@ const { mobileLinks } = useHeader()
     <template #sidebar>
       <B24SidebarHeader>
         <LogoWithVersion />
+        <FrameworkTabs />
       </B24SidebarHeader>
       <B24SidebarBody>
         <B24NavigationMenu

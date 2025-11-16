@@ -1,6 +1,7 @@
+import type { NuxtComponentMeta } from 'nuxt-component-meta'
 import { createResolver } from '@nuxt/kit'
 import pkg from '../package.json'
-// import { withoutTrailingSlash } from 'ufo'
+import { withoutTrailingSlash } from 'ufo'
 
 const { resolve } = createResolver(import.meta.url)
 
@@ -15,16 +16,39 @@ const pages = [
   // endregion ////
 ]
 
+/**
+ * @memo need add for iframe examples
+ */
+const pagesFrameExamples = [
+  '/examples/sidebar-layout-example/',
+  '/examples/sidebar-layout-inner-example/',
+  '/examples/banner-example/',
+  '/examples/banner-with-title-example/',
+  '/examples/content-search-example/'
+]
+
 const pagesService = [
+  '/api/countries.json',
+  '/api/locales.json',
   '/404.html'
 ]
 
+const extraAllowedHosts = (process?.env.NUXT_ALLOWED_HOSTS?.split(',').map((s: string) => s.trim()).filter(Boolean)) ?? []
+
 export default defineNuxtConfig({
   modules: [
+    // '@bitrix24/b24jssdk-nuxt',
+    '../packages/jssdk-nuxt/src/module',
     '@bitrix24/b24ui-nuxt',
     '@nuxt/content',
+    // '@nuxt/image',
     '@nuxtjs/plausible',
     // '@vueuse/nuxt',
+    'nuxt-component-meta',
+    'nuxt-og-image',
+    // @memo off this -> use in nuxt-og-image
+    'nuxt-site-config',
+    'motion-v/nuxt',
     (_, nuxt) => {
       nuxt.hook('components:dirs', (dirs) => {
         dirs.unshift({
@@ -34,8 +58,20 @@ export default defineNuxtConfig({
           global: true
         })
       })
-    }
+    },
+    'nuxt-llms'
   ],
+
+  $development: {
+    site: {
+      url: 'http://localhost:3000'
+    }
+  },
+  $production: {
+    site: {
+      url: 'https://bitrix24.github.io'
+    }
+  },
 
   ssr: true,
 
@@ -83,14 +119,23 @@ export default defineNuxtConfig({
     }
   },
 
-  routeRules: {},
+  // @todo add more redirects
+  routeRules: {
+    // v4 redirects - default root pages
+    '/docs': { redirect: '/docs/getting-started/', prerender: false },
+  },
 
   compatibilityDate: '2024-07-09',
 
   nitro: {
     prerender: {
       routes: [
-        ...pages.map((page: string) => `${page}`),
+        // ...pages.map((page: string) => `${page}`),
+        // @memo fix EMFILE: too many open files
+        ...pages.map((page: string) => `${withoutTrailingSlash(`/raw${page}`)}.md`),
+        // ...apiComponentMeta,
+        // ...apiComponentExample,
+        ...pagesFrameExamples,
         ...pagesService
       ],
       crawlLinks: true,
@@ -101,14 +146,79 @@ export default defineNuxtConfig({
   vite: {
     optimizeDeps: {
       // prevents reloading page when navigating between components
-      include: ['@internationalized/date', '@nuxt/content/utils', '@tanstack/vue-table', '@vue/devtools-core', '@vue/devtools-kit', '@vueuse/integrations/useFuse', '@vueuse/shared', 'ai', 'colortranslator', 'embla-carousel-auto-height', 'embla-carousel-auto-scroll', 'embla-carousel-autoplay', 'embla-carousel-class-names', 'embla-carousel-fade', 'embla-carousel-vue', 'embla-carousel-wheel-gestures', 'json5', 'motion-v', 'ohash', 'ohash/utils', 'prettier', 'reka-ui', 'reka-ui/namespaced', 'scule', 'shiki', 'shiki-stream/vue', 'shiki-transformer-color-highlight', 'shiki/engine-javascript.mjs', 'tailwind-variants', 'tailwindcss/colors', 'ufo', 'vaul-vue', 'zod']
+      include: ['@ai-sdk/vue', '@internationalized/date', '@nuxt/content/utils', '@tanstack/vue-table', '@vue/devtools-core', '@vue/devtools-kit', '@vueuse/integrations/useFuse', '@vueuse/shared', 'ai', 'colortranslator', 'embla-carousel-auto-height', 'embla-carousel-auto-scroll', 'embla-carousel-autoplay', 'embla-carousel-class-names', 'embla-carousel-fade', 'embla-carousel-vue', 'embla-carousel-wheel-gestures', 'json5', 'motion-v', 'ohash', 'ohash/utils', 'prettier', 'reka-ui', 'reka-ui/namespaced', 'scule', 'shiki', 'shiki-stream/vue', 'shiki-transformer-color-highlight', 'shiki/engine-javascript.mjs', 'tailwind-variants', 'tailwindcss/colors', 'ufo', 'vaul-vue', 'zod']
+    },
+    server: {
+      // Fix: "Blocked request. This host is not allowed" when using tunnels like ngrok
+      allowedHosts: [...extraAllowedHosts]
+      // Optionally set HMR host if needed behind proxy:
+      // hmr: { protocol: 'wss', host: 'whale-viable-wasp.ngrok-free.app', port: 443 }
     }
-    // server: {
-    //   allowedHosts: [
-    //     '******.ngrok-free.app',
-    //     'perversely-welcomed-peacock.cloudpub.ru'
-    //   ],
-    //   cors: true
-    // }
-  }
+  },
+
+  hooks: {
+    // @ts-expect-error - Hook is not typed correctly
+    'component-meta:schema': (schema: NuxtComponentMeta) => {
+      for (const componentName in schema) {
+        const component = schema[componentName]
+        // Delete schema from slots to reduce metadata file size
+        if (component?.meta?.slots) {
+          for (const slot of component.meta.slots) {
+            delete (slot as any).schema
+          }
+        }
+        if (component?.meta?.events) {
+          for (const event of component.meta.events) {
+            delete (event as any).schema
+          }
+        }
+      }
+    }
+  },
+
+  // @memo not use this
+  // image: {
+  //   format: ['webp', 'jpeg', 'jpg', 'png', 'svg'],
+  //   provider: 'ipx'
+  // },
+
+  llms: {
+    domain: 'https://bitrix24.github.io/b24ui',
+    title: 'Bitrix24 JS SDK',
+    description: 'A comprehensive JavaScript library integrated with Bitrix24, providing a powerful and convenient toolkit for interacting with the Bitrix24 REST API, enabling secure and efficient management of data and processes in web application development.',
+    full: {
+      title: 'Bitrix24 JS SDK Full Documentation',
+      description: 'This is the full documentation for Bitrix24 JS SDK. It includes all the Markdown files written with the MDC syntax.'
+    },
+    // @todo fix sections
+    sections: [
+      {
+        title: 'Getting Started',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '/docs/getting-started%' }
+        ]
+      }
+      // {
+      //   title: 'Components',
+      //   contentCollection: 'docs',
+      //   contentFilters: [
+      //     { field: 'path', operator: 'LIKE', value: '/docs/components/%' }
+      //   ]
+      // },
+      // {
+      //   title: 'Composables',
+      //   contentCollection: 'docs',
+      //   contentFilters: [
+      //     { field: 'path', operator: 'LIKE', value: '/docs/composables/%' }
+      //   ]
+      // }
+    ],
+    notes: [
+      'The content is automatically generated from the same source as the official documentation.'
+    ]
+  },
+
+  // @memo off for generate
+  ogImage: { enabled: false }
 })

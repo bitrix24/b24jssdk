@@ -29,7 +29,7 @@ const toast = useToast()
 const chat = new Chat({
   messages: messages.value,
   transport: new DefaultChatTransport({
-    api: '/b24ui/api/search'
+    api: '/b24jssdk/api/search'
   }),
   onError: (error) => {
     const { message } = typeof error.message === 'string' && error.message[0] === '{' ? JSON.parse(error.message) : error

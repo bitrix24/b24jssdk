@@ -1,4 +1,3 @@
-import type { NuxtComponentMeta } from 'nuxt-component-meta'
 import { createResolver } from '@nuxt/kit'
 import pkg from '../package.json'
 import { withoutTrailingSlash } from 'ufo'
@@ -40,11 +39,11 @@ export default defineNuxtConfig({
     // '@bitrix24/b24jssdk-nuxt',
     '../packages/jssdk-nuxt/src/module',
     '@bitrix24/b24ui-nuxt',
+    '@bitrix24/b24icons-nuxt',
     '@nuxt/content',
     // '@nuxt/image',
     '@nuxtjs/plausible',
     '@vueuse/nuxt',
-    'nuxt-component-meta',
     'nuxt-og-image',
     // @memo off this -> use in nuxt-og-image
     'nuxt-site-config',
@@ -155,26 +154,6 @@ export default defineNuxtConfig({
       allowedHosts: [...extraAllowedHosts]
       // Optionally set HMR host if needed behind proxy:
       // hmr: { protocol: 'wss', host: 'whale-viable-wasp.ngrok-free.app', port: 443 }
-    }
-  },
-
-  hooks: {
-    // @ts-expect-error - Hook is not typed correctly
-    'component-meta:schema': (schema: NuxtComponentMeta) => {
-      for (const componentName in schema) {
-        const component = schema[componentName]
-        // Delete schema from slots to reduce metadata file size
-        if (component?.meta?.slots) {
-          for (const slot of component.meta.slots) {
-            delete (slot as any).schema
-          }
-        }
-        if (component?.meta?.events) {
-          for (const event of component.meta.events) {
-            delete (event as any).schema
-          }
-        }
-      }
     }
   },
 

@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const { messages } = await readBody(event)
 
   const httpTransport = new StreamableHTTPClientTransport(
-    new URL(import.meta.dev ? 'http://localhost:3000/b24ui/mcp/' : 'https://bitrix24.github.io/b24jssdk/mcp/')
+    new URL(import.meta.dev ? 'http://localhost:3000/b24jssdk/mcp/' : 'https://bitrix24.github.io/b24jssdk/mcp/')
   )
   const httpClient = await experimental_createMCPClient({
     transport: httpTransport

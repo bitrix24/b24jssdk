@@ -3,8 +3,6 @@ import json5 from 'json5'
 import { camelCase, kebabCase } from 'scule'
 import { visit } from '@nuxt/content/runtime'
 import { queryCollection } from '@nuxt/content/server'
-import * as theme from '../../.nuxt/b24ui'
-import meta from '#nuxt-component-meta'
 // @ts-expect-error - no types available
 import components from '#component-example/nitro'
 
@@ -51,15 +49,6 @@ function getComponentMeta(componentName: string) {
 
   let componentMeta: any
   let finalMetaComponentName: string = pascalCaseName
-
-  for (const nameToTry of strategies) {
-    finalMetaComponentName = nameToTry
-    const metaAttempt = (meta as Record<string, any>)[nameToTry]?.meta
-    if (metaAttempt) {
-      componentMeta = metaAttempt
-      break
-    }
-  }
 
   if (!componentMeta) {
     console.warn(`[getComponentMeta] Metadata not found for ${pascalCaseName} using strategies: B24, Prose, or no prefix. Last tried: ${finalMetaComponentName}`)
@@ -227,17 +216,6 @@ function emitItemHandler(event: any): string {
   return result
 }
 
-const generateThemeConfig = ({ prose, componentName }: ThemeConfig) => {
-  const computedTheme = prose ? theme.prose : theme
-  const componentTheme = computedTheme[componentName as keyof typeof computedTheme]
-
-  return {
-    b24ui: prose
-      ? { prose: { [componentName]: componentTheme } }
-      : { [componentName]: componentTheme }
-  }
-}
-
 const generateComponentCode = ({
   props,
   external,
@@ -254,7 +232,7 @@ const generateComponentCode = ({
     .filter((_, index) => externalTypes[index] && externalTypes[index] !== 'undefined')
     .map((ext, index) => {
       const type = externalTypes[index]?.replace(/[[\]]/g, '')
-      return `import type { ${type} } from '@bitrix24/b24ui-nuxt'`
+      return `import type { ${type} } from '@bitrix24/xxxxxxxx'`
     })
     .join('\n')
 
@@ -347,7 +325,7 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
     const finalComponentName = mdcSpecificName ? camelCase(mdcSpecificName) : componentName
 
     const prose = parseBoolean(attributes[':prose'])
-    const appConfig = generateThemeConfig({ prose, componentName: finalComponentName })
+    const appConfig = {}
 
     replaceNodeWithPre(
       node,

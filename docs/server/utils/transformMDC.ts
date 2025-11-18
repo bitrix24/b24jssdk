@@ -320,6 +320,8 @@ const generateComponentCode = ({
 export async function transformMDC(event: H3Event, doc: Document): Promise<Document> {
   const componentName = camelCase(doc.title)
 
+  const site = useSiteConfig()
+
   visitAndReplace(doc, 'component-theme', (node) => {
     const attributes = node[1] as Record<string, string>
     const mdcSpecificName = attributes?.slug

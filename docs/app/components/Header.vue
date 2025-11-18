@@ -14,6 +14,7 @@ const props = withDefaults(defineProps<HeaderProps>(), {
 })
 
 const { desktopLinks } = useHeader()
+const site = useSiteConfig()
 </script>
 
 <template>
@@ -57,7 +58,7 @@ const { desktopLinks } = useHeader()
       <B24Button
         aria-label="Bitrix24 JS SDK on GitHub"
         :icon="GitHubIcon"
-        to="https://github.com/bitrix24/b24jssdk"
+        :to="site.gitURL"
         target="_blank"
         size="sm"
       />

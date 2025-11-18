@@ -34,6 +34,11 @@ const pagesService = [
 
 const extraAllowedHosts = (process?.env.NUXT_ALLOWED_HOSTS?.split(',').map((s: string) => s.trim()).filter(Boolean)) ?? []
 
+const prodURL = 'https://bitrix24.github.io'
+const baseURL = '/b24jssdk'
+const canonicalURL = prodURL
+const gitURL = 'https://github.com/bitrix24/b24jssdk'
+
 export default defineNuxtConfig({
   modules: [
     // '@bitrix24/b24jssdk-nuxt',
@@ -64,13 +69,17 @@ export default defineNuxtConfig({
   $development: {
     site: {
       url: 'http://localhost:3000',
-      baseURL: '/b24jssdk'
+      baseURL,
+      canonicalURL,
+      gitURL
     }
   },
   $production: {
     site: {
-      url: 'https://bitrix24.github.io',
-      baseURL: '/b24jssdk'
+      url: prodURL,
+      baseURL,
+      canonicalURL,
+      gitURL
     }
   },
 
@@ -81,19 +90,15 @@ export default defineNuxtConfig({
   },
 
   app: {
-    baseURL: '/b24jssdk/',
+    baseURL: `${baseURL}/`,
     buildAssetsDir: '/_nuxt/',
     head: {
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/b24jssdk/favicon.ico' }
+        { rel: 'icon', type: 'image/x-icon', href: `${baseURL}/favicon.ico` }
       ],
-      htmlAttrs: {
-        class: 'edge-dark'
-      }
+      htmlAttrs: { class: 'edge-dark' }
     },
-    rootAttrs: {
-      'data-vaul-drawer-wrapper': ''
-    }
+    rootAttrs: { 'data-vaul-drawer-wrapper': '' }
   },
 
   css: ['~/assets/css/main.css'],
@@ -131,11 +136,7 @@ export default defineNuxtConfig({
   nitro: {
     prerender: {
       routes: [
-        // ...pages.map((page: string) => `${page}`),
-        // @memo fix EMFILE: too many open files
         ...pages.map((page: string) => `${withoutTrailingSlash(`/raw${page}`)}.md`),
-        // ...apiComponentMeta,
-        // ...apiComponentExample,
         ...pagesFrameExamples,
         ...pagesService
       ],
@@ -152,8 +153,6 @@ export default defineNuxtConfig({
     server: {
       // Fix: "Blocked request. This host is not allowed" when using tunnels like ngrok
       allowedHosts: [...extraAllowedHosts]
-      // Optionally set HMR host if needed behind proxy:
-      // hmr: { protocol: 'wss', host: 'whale-viable-wasp.ngrok-free.app', port: 443 }
     }
   },
 
@@ -163,15 +162,15 @@ export default defineNuxtConfig({
   //   provider: 'ipx'
   // },
 
+  // @todo fix sections
   llms: {
-    domain: 'https://bitrix24.github.io/b24jssdk',
+    domain: `${prodURL}${baseURL}`,
     title: 'Bitrix24 JS SDK',
     description: 'A comprehensive JavaScript library integrated with Bitrix24, providing a powerful and convenient toolkit for interacting with the Bitrix24 REST API, enabling secure and efficient management of data and processes in web application development.',
     full: {
       title: 'Bitrix24 JS SDK Full Documentation',
       description: 'This is the full documentation for Bitrix24 JS SDK. It includes all the Markdown files written with the MDC syntax.'
     },
-    // @todo fix sections
     sections: [
       {
         title: 'Getting Started',

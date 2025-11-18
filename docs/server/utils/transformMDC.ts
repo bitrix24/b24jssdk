@@ -38,6 +38,8 @@ type Document = {
 
 const parseBoolean = (value?: string): boolean => value === 'true'
 
+const site = useSiteConfig()
+
 function getComponentMeta(componentName: string) {
   const pascalCaseName = componentName.charAt(0).toUpperCase() + componentName.slice(1)
 
@@ -449,7 +451,7 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
       .select('path', 'title')
       .all()
 
-    const links = components.map((c: any) => `- [${c.title}](https://bitrix24.github.io/b24jssdk/raw${c.path}.md)`).join('\n')
+    const links = components.map((c: any) => `- [${c.title}](${site.canonicalURL}${site.baseURL}/raw${c.path}.md)`).join('\n')
 
     node[0] = 'p'
     node[1] = {}

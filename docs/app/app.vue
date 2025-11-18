@@ -3,18 +3,34 @@ import { withTrailingSlash } from 'ufo'
 
 const route = useRoute()
 const appConfig = useAppConfig()
+const site = useSiteConfig()
 
 const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', ['framework', 'category', 'description', 'badge']))
-const { data: files } = useLazyAsyncData('search', () => queryCollectionSearchSections('docs'), {
-  server: false
-})
+const { data: files } = useLazyAsyncData(
+  'search',
+  async () => {
+    const data = await queryCollectionSearchSections('docs', {
+      ignoredTags: ['style']
+    })
+
+    return data.map((file) => {
+      return {
+        ...file,
+        id: file.id.replace(/([^/])(#.*)?$/, (_, char, hash = '') => `${char}/${hash}`)
+      }
+    })
+  },
+  {
+    server: false
+  }
+)
 
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
-    { rel: 'canonical', href: `https://bitrix24.github.io/b24jssdk${withTrailingSlash(route.path)}` }
+    { rel: 'canonical', href: `${site.canonicalURL}${site.baseURL}${withTrailingSlash(route.path)}` }
   ],
   style: [],
   htmlAttrs: { lang: 'en', class: '' }
@@ -26,7 +42,6 @@ useServerSeoMeta({
 })
 
 const { rootNavigation, navigationByFramework } = useNavigation(navigation)
-
 provide('navigation', rootNavigation)
 
 const colorMode = useColorMode()

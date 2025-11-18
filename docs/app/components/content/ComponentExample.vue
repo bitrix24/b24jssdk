@@ -78,6 +78,7 @@ const el = ref<HTMLElement | null>(null)
 
 const { $prettier } = useNuxtApp()
 const { width } = useElementSize(el)
+const site = useSiteConfig()
 
 const camelName = camelCase(props.name)
 
@@ -201,7 +202,7 @@ const urlSearchParams = computed(() => {
         <iframe
           v-if="iframe"
           v-bind="typeof iframe === 'object' ? iframe : {}"
-          :src="`/b24ui/examples/${name}/?${urlSearchParams}`"
+          :src="`${site.baseURL}/examples/${name}/?${urlSearchParams}`"
           class="relative w-full"
           :class="[props.class, !iframeMobile && 'max-w-[1300px]']"
         />
@@ -220,11 +221,18 @@ const urlSearchParams = computed(() => {
         <slot name="code" />
       </div>
       <template v-else-if="ast">
-        <MDCRenderer
-          :body="ast.body"
-          :data="ast.data"
-          class="[&_pre]:!rounded-t-none [&_div.my-5]:!mt-0 scrollbar-transparent"
-        />
+        <ClientOnly>
+          <MDCRenderer
+            :body="ast.body"
+            :data="ast.data"
+            class="[&_pre]:!rounded-t-none [&_div.my-5]:!mt-0 scrollbar-transparent"
+          />
+          <template #fallback>
+            <div class="[&_pre]:!rounded-t-none [&_div.my-5]:!mt-0 scrollbar-transparent">
+              <ProsePre class="text-(length:--ui-font-size-xs)">{{ { wait: 'Loading client-side content...' } }}</ProsePre>
+            </div>
+          </template>
+        </ClientOnly>
       </template>
     </template>
   </div>

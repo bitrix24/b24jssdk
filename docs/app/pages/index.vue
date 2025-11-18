@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // import { joinURL } from 'ufo'
-import { useColorMode } from '#imports'
+import { navigateTo, useColorMode } from '#imports'
 import EncloseTextInCodeTagIcon from '@bitrix24/b24icons-vue/editor/EncloseTextInCodeTagIcon'
 import InfoCircleIcon from '@bitrix24/b24icons-vue/outline/InfoCircleIcon'
 import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
@@ -10,7 +10,7 @@ if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
 }
 
-// const site = useSiteConfig()
+// const config = useRuntimeConfig()
 
 useSeoMeta({
   titleTemplate: '%s',
@@ -18,7 +18,7 @@ useSeoMeta({
   description: page.value.description,
   ogTitle: `${page.value.title}`,
   ogDescription: page.value.description
-  // ogImage: joinURL(site.url, `${site.baseURL}/og-image.png`)
+  // ogImage: joinURL(config.public.siteUrl, `${config.public.baseUrl}/og-image.png`)
 })
 
 const iconFromIconName = (iconName?: string) => {

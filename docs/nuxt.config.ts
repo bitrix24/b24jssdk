@@ -34,10 +34,10 @@ const pagesService = [
 
 const extraAllowedHosts = (process?.env.NUXT_ALLOWED_HOSTS?.split(',').map((s: string) => s.trim()).filter(Boolean)) ?? []
 
-const prodURL = 'https://bitrix24.github.io'
-const baseURL = '/b24jssdk'
-const canonicalURL = prodURL
-const gitURL = 'https://github.com/bitrix24/b24jssdk'
+const prodUrl = process?.env.NUXT_PUBLIC_SITE_URL ?? ''
+const baseUrl = process?.env.NUXT_PUBLIC_BASE_URL ?? ''
+const canonicalUrl = process?.env.NUXT_PUBLIC_CANONICAL_URL ?? ''
+const gitUrl = process?.env.NUXT_PUBLIC_GIT_URL ?? ''
 
 export default defineNuxtConfig({
   modules: [
@@ -48,7 +48,7 @@ export default defineNuxtConfig({
     '@nuxt/content',
     // '@nuxt/image',
     '@nuxtjs/plausible',
-    '@vueuse/nuxt',
+    // '@vueuse/nuxt',
     'nuxt-og-image',
     // @memo off this -> use in nuxt-og-image
     'nuxt-site-config',
@@ -66,23 +66,6 @@ export default defineNuxtConfig({
     'nuxt-llms'
   ],
 
-  $development: {
-    site: {
-      url: 'http://localhost:3000',
-      baseURL,
-      canonicalURL,
-      gitURL
-    }
-  },
-  $production: {
-    site: {
-      url: prodURL,
-      baseURL,
-      canonicalURL,
-      gitURL
-    }
-  },
-
   ssr: true,
 
   devtools: {
@@ -90,11 +73,11 @@ export default defineNuxtConfig({
   },
 
   app: {
-    baseURL: `${baseURL}/`,
+    baseURL: `${baseUrl}/`,
     buildAssetsDir: '/_nuxt/',
     head: {
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: `${baseURL}/favicon.ico` }
+        { rel: 'icon', type: 'image/x-icon', href: `${baseUrl}/favicon.ico` }
       ],
       htmlAttrs: { class: 'edge-dark' }
     },
@@ -119,9 +102,17 @@ export default defineNuxtConfig({
     }
   },
 
+  /**
+   * @memo this will be overwritten from .env or Docker_*
+   * @see https://nuxt.com/docs/guide/going-further/runtime-config#example
+   */
   runtimeConfig: {
     public: {
-      version: pkg.version
+      version: pkg.version,
+      siteUrl: prodUrl,
+      baseUrl,
+      canonicalUrl,
+      gitUrl
     }
   },
 
@@ -164,7 +155,7 @@ export default defineNuxtConfig({
 
   // @todo fix sections
   llms: {
-    domain: `${prodURL}${baseURL}`,
+    domain: `${prodUrl}${baseUrl}`,
     title: 'Bitrix24 JS SDK',
     description: 'A comprehensive JavaScript library integrated with Bitrix24, providing a powerful and convenient toolkit for interacting with the Bitrix24 REST API, enabling secure and efficient management of data and processes in web application development.',
     full: {

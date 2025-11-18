@@ -1,45 +1,74 @@
-name: Deploy B24JsSDK site to Pages
+name: Deploy to Pages 📰
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: pages
   cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      NUXT_PUBLIC_SITE_URL: https://bitrix24.github.io
+      NUXT_PUBLIC_BASE_URL: /b24jssdk
+      NUXT_PUBLIC_CANONICAL_URL: https://bitrix24.github.io
+      NUXT_PUBLIC_GIT_URL: https://github.com/bitrix24/b24jssdk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: npm
+          cache: pnpm
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
+
       - name: Install dependencies
-        run: npm ci
-      - name: Build with VitePress
-        run: npm run docs:build
+        run: pnpm install
+
+      - name: Prepare
+        run: pnpm run dev:prepare
+
+      - name: Generate Docs
+        run: pnpm run docs:full:generate
+
+      - name: Generate Demo
+        run: pnpm run demo:generate
+
+      - name: Create combined artifact
+        run: |
+          mkdir -p combined-artifact
+          cp -r docs/.output/public/* combined-artifact/
+          mkdir -p combined-artifact/demo
+          cp -r playgrounds/demo/dist/* combined-artifact/demo/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/.vitepress/dist
+          path: combined-artifact
   deploy:
     environment:
-      name: github-pages
+      name: 'github-pages'
       url: ${{ steps.deployment.outputs.page_url }}
     needs: build
     runs-on: ubuntu-latest
-    name: Deploy
+    name: 'Deploy'
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

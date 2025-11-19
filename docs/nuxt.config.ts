@@ -27,8 +27,6 @@ const pagesFrameExamples = [
 ]
 
 const pagesService = [
-  '/api/countries.json',
-  '/api/locales.json',
   '/404.html'
 ]
 

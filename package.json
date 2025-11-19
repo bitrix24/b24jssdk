@@ -44,23 +44,9 @@
     "lint": "pnpm run package-jssdk:lint && pnpm run package-jssdk-nuxt:lint && pnpm run docs:lint && pnpm run playground-nuxt:lint",
     "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck"
   },
-  "__dependencies": {
-    "esbuild": "^0.27.0",
-    "vite": "^7.2.2"
-  },
-  "__devDependencies": {
-    "@nuxt/eslint-config": "^1.10.0",
-    "@types/node": "^24.10.1",
-    "eslint": "^9.39.1",
-    "nuxt": "^4.2.1",
-    "typescript": "^5.9.3",
-    "vue-tsc": "^3.1.3"
-  },
   "resolutions": {
     "@bitrix24/b24jssdk": "workspace:*",
-    "@bitrix24/b24jssdk-nuxt": "workspace:*",
-    "ai": "5.0.90",
-    "@ai-sdk/vue": "2.0.90"
+    "@bitrix24/b24jssdk-nuxt": "workspace:*"
   },
   "keywords": [
     "bitrix24",

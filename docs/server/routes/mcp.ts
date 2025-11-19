@@ -8,15 +8,15 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 
 function createServer() {
   const server = new McpServer({
-    name: 'bitrix24-ui',
+    name: 'bitrix24-jssdk',
     version: '1.0.0'
   })
 
   // RESOURCES
 
   server.registerResource(
-    'bitrix24-ui-documentation-pages',
-    'resource://bitrix24-ui/documentation-pages',
+    'bitrix24-jssdk-documentation-pages',
+    'resource://bitrix24-jssdk/documentation-pages',
     {
       title: 'Bitrix24 JS SDK Documentation Pages',
       description: 'Complete list of available Bitrix24 JS SDK documentation pages'
@@ -34,46 +34,8 @@ function createServer() {
   )
 
   server.registerResource(
-    'bitrix24-ui-components',
-    'resource://bitrix24-ui/components',
-    {
-      title: 'Bitrix24 JS SDK Components',
-      description: 'Complete list of available Bitrix24 JS SDK v2 components with metadata and categories'
-    },
-    async (uri) => {
-      const result = await $fetch('/api/mcp/list-components')
-      return {
-        contents: [{
-          uri: uri.href,
-          mimeType: 'application/json',
-          text: JSON.stringify(result, null, 2)
-        }]
-      }
-    }
-  )
-
-  server.registerResource(
-    'bitrix24-ui-composables',
-    'resource://bitrix24-ui/composables',
-    {
-      title: 'Bitrix24 JS SDK Composables',
-      description: 'Complete list of available Bitrix24 JS SDK v2 composables with metadata and categories'
-    },
-    async (uri) => {
-      const result = await $fetch('/api/mcp/list-composables')
-      return {
-        contents: [{
-          uri: uri.href,
-          mimeType: 'application/json',
-          text: JSON.stringify(result, null, 2)
-        }]
-      }
-    }
-  )
-
-  server.registerResource(
-    'bitrix24-ui-examples',
-    'resource://bitrix24-ui/examples',
+    'bitrix24-jssdk-examples',
+    'resource://bitrix24-jssdk/examples',
     {
       title: 'Bitrix24 JS SDK Examples',
       description: 'Complete list of available Bitrix24 JS SDK example code and demonstrations'
@@ -94,8 +56,8 @@ function createServer() {
    * @memo add docs/server/api/mcp
    */
   // server.registerResource(
-  //   'bitrix24-ui-templates',
-  //   'resource://bitrix24-ui/templates',
+  //   'bitrix24-jssdk-templates',
+  //   'resource://bitrix24-jssdk/templates',
   //   {
   //     title: 'Bitrix24 JS SDK Templates',
   //     description: 'Complete list of available Bitrix24 JS SDK templates with categories'
@@ -114,61 +76,31 @@ function createServer() {
 
   // PROMPTS
 
-  server.registerPrompt(
-    'find_component_for_usecase',
-    {
-      title: 'Find Component for Use Case',
-      description: 'Find the best Bitrix24 JS SDK component for a specific use case',
-      argsSchema: {
-        // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-        usecase: z.string().describe('Describe what you want to build (e.g., "user login form", "data table", "navigation menu")')
-      }
-    },
-    async ({ usecase }) => {
-      const components = await $fetch('/api/mcp/list-components')
-      return {
-        messages: [
-          {
-            role: 'user',
-            content: {
-              type: 'text',
-              text: `Help me find the best Bitrix24 JS SDK component for this use case: "${usecase}". Here are all available components: ${JSON.stringify(components, null, 2)}`
-            }
-          }
-        ]
-      }
-    }
-  )
-
-  server.registerPrompt(
-    'implement_component_with_props',
-    {
-      title: 'Implement Component with Props',
-      description: 'Generate complete component implementation with proper props and styling',
-      argsSchema: {
-        // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-        componentName: z.string().describe('The Bitrix24 JS SDK component name (PascalCase)'),
-        // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-        requirements: z.string().optional().describe('Specific requirements or customizations needed')
-      }
-    },
-    async ({ componentName, requirements }) => {
-      const component = await $fetch('/api/mcp/get-component', {
-        query: { componentName, includeMetadata: true }
-      })
-      return {
-        messages: [
-          {
-            role: 'user',
-            content: {
-              type: 'text',
-              text: `Generate a complete implementation of the ${componentName} component with proper props and styling. ${requirements ? `Requirements: ${requirements}` : ''}\n\nComponent details: ${JSON.stringify(component, null, 2)}`
-            }
-          }
-        ]
-      }
-    }
-  )
+  // server.registerPrompt(
+  //   'find_component_for_usecase',
+  //   {
+  //     title: 'Find Component for Use Case',
+  //     description: 'Find the best Bitrix24 JS SDK component for a specific use case',
+  //     argsSchema: {
+  //       // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
+  //       usecase: z.string().describe('Describe what you want to build (e.g., "user login form", "data table", "navigation menu")')
+  //     }
+  //   },
+  //   async ({ usecase }) => {
+  //     const components = await $fetch('/api/mcp/list-components')
+  //     return {
+  //       messages: [
+  //         {
+  //           role: 'user',
+  //           content: {
+  //             type: 'text',
+  //             text: `Help me find the best Bitrix24 JS SDK component for this use case: "${usecase}". Here are all available components: ${JSON.stringify(components, null, 2)}`
+  //           }
+  //         }
+  //       ]
+  //     }
+  //   }
+  // )
 
   /**
    * @memo add docs/server/api/mcp
@@ -200,70 +132,6 @@ function createServer() {
   // )
 
   // TOOLS
-
-  server.registerTool(
-    'list_components',
-    {
-      title: 'List Components',
-      description: 'Lists all available Bitrix24 JS SDK components with their categories and basic information'
-    },
-    async () => {
-      const result = await $fetch('/api/mcp/list-components')
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-      }
-    }
-  )
-
-  server.registerTool(
-    'list_composables',
-    {
-      title: 'List Composables',
-      description: 'Lists all available Bitrix24 JS SDK composables with their categories and basic information'
-    },
-    async () => {
-      const result = await $fetch('/api/mcp/list-composables')
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-      }
-    }
-  )
-
-  server.registerTool(
-    'get_component',
-    {
-      title: 'Get Component',
-      description: 'Retrieves Bitrix24 JS SDK component documentation and details',
-      inputSchema: {
-        // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-        componentName: z.string().describe('The name of the component (PascalCase)')
-      }
-    },
-    async (params) => {
-      const result = await $fetch('/api/mcp/get-component', { query: params })
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-      }
-    }
-  )
-
-  server.registerTool(
-    'get_component_metadata',
-    {
-      title: 'Get Component Metadata',
-      description: 'Retrieves detailed metadata for a Bitrix24 JS SDK component including props, slots, and events',
-      inputSchema: {
-        // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-        componentName: z.string().describe('The name of the component (PascalCase)')
-      }
-    },
-    async (params) => {
-      const result = await $fetch('/api/mcp/get-component-metadata', { query: params })
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-      }
-    }
-  )
 
   /**
    * @memo add docs/server/api/mcp
@@ -356,24 +224,6 @@ function createServer() {
   )
 
   server.registerTool(
-    'get_migration_guide',
-    {
-      title: 'Get Migration Guide',
-      description: 'Retrieves version-specific migration guides and upgrade instructions',
-      inputSchema: {
-        // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-        version: z.enum(['v2']).describe('The migration version (e.g., v2)')
-      }
-    },
-    async (params) => {
-      const result = await $fetch('/api/mcp/get-migration-guide', { query: params })
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-      }
-    }
-  )
-
-  server.registerTool(
     'list_examples',
     {
       title: 'List Examples',
@@ -391,7 +241,7 @@ function createServer() {
     'get_example',
     {
       title: 'Get Example',
-      description: 'Retrieves specific UI example implementation code and details',
+      description: 'Retrieves specific JS SDK example implementation code and details',
       inputSchema: {
         // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
         exampleName: z.string().describe('The name of the example (PascalCase)')
@@ -401,26 +251,6 @@ function createServer() {
       const result = await $fetch(`/api/component-example/${exampleName}.json`)
       return {
         content: [{ type: 'text', text: result.code }]
-      }
-    }
-  )
-
-  server.registerTool(
-    'search_components_by_category',
-    {
-      title: 'Search Components by Category',
-      description: 'Searches components by category or text filter',
-      inputSchema: {
-        // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-        category: z.string().optional().describe('Filter components by category'),
-        // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-        search: z.string().optional().describe('Search term to filter components by name or description')
-      }
-    },
-    async (params) => {
-      const result = await $fetch('/api/mcp/search-components-by-category', { query: params })
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
       }
     }
   )

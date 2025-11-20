@@ -11,7 +11,18 @@ const pages = [
   // region getting-started ////
   '/docs/getting-started/',
   '/docs/getting-started/installation/vue/',
-  '/docs/getting-started/installation/nuxt/'
+  '/docs/getting-started/installation/nuxt/',
+  '/docs/getting-started/ai/mcp/',
+  '/docs/getting-started/ai/llms-txt/',
+  // endregion ////
+  // region B24Frame ////
+  '/docs/frame/',
+  // region B24OAuth ////
+  // endregion ////
+  '/docs/oauth/',
+  // region B24Hook ////
+  // endregion ////
+  '/docs/hook/'
   // endregion ////
 ]
 
@@ -118,6 +129,7 @@ export default defineNuxtConfig({
   routeRules: {
     // v4 redirects - default root pages
     '/docs': { redirect: '/docs/getting-started/', prerender: false },
+    '/docs/getting-started/installation': { redirect: '/docs/getting-started/installation/nuxt/', prerender: false },
   },
 
   compatibilityDate: '2024-07-09',

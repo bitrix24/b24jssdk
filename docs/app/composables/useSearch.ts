@@ -13,7 +13,6 @@ const isDev = import.meta.dev
 
 export function useSearch() {
   const route = useRoute()
-  const { frameworks } = useFrameworks()
 
   const chat = ref(false)
   const fullscreen = ref(false)
@@ -122,12 +121,7 @@ export function useSearch() {
               : []
           }]
         : []
-    ),
-    {
-      id: 'framework',
-      label: 'Framework',
-      items: frameworks.value
-    }
+    )
   ])
 
   return {

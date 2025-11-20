@@ -8,7 +8,6 @@ items:
   - title: 'Starter'
     description: "A minimal template to get started with Bitrix24 JS SDK."
     iconName: TodoIconsFlower
-    framework: nuxt
     features:
       - title: Nuxt configured
         iconName: NuxtIcon
@@ -26,28 +25,5 @@ items:
     links:
       - label: GitHub
         to: https://github.com/bitrix24/starter-b24ui
-        target: _blank
-        iconName: GitHubIcon
-  - title: 'Starter'
-    description: "A minimal template to get started with Bitrix24 JS SDK."
-    iconName: TodoIconsFlower
-    framework: vue
-    features:
-      - title: Vite configured
-        iconName: TodoIconsVite
-      - title: ESLint configured
-        iconName: TodoIconsEslint
-    deploy_links:
-      - label: Vercel
-        to: https://vercel.com/new/clone?repository-name=starter-vue&repository-url=https%3A%2F%2Fgithub.com%2Fbitrix24%2Fstarter-b24ui-vue&demo-title=Vue%20Starter%20Template&demo-description=A%20minimal%20template%20to%20get%20started%20with%20Bitrix24%20UI.
-        target: _blank
-        iconName: TodoIconsVercel
-      - label: Netlify
-        to: https://app.netlify.com/start/deploy?repository=https://github.com/bitrix24/starter-b24ui-vue
-        target: _blank
-        iconName: TodoIconsNetlify
-    links:
-      - label: GitHub
-        to: https://github.com/bitrix24/starter-b24ui-vue
         target: _blank
         iconName: GitHubIcon

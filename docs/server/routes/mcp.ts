@@ -52,28 +52,6 @@ function createServer() {
     }
   )
 
-  /**
-   * @memo add docs/server/api/mcp
-   */
-  // server.registerResource(
-  //   'bitrix24-jssdk-templates',
-  //   'resource://bitrix24-jssdk/templates',
-  //   {
-  //     title: 'Bitrix24 JS SDK Templates',
-  //     description: 'Complete list of available Bitrix24 JS SDK templates with categories'
-  //   },
-  //   async (uri) => {
-  //     const result = await $fetch('/api/mcp/list-templates')
-  //     return {
-  //       contents: [{
-  //         uri: uri.href,
-  //         mimeType: 'application/json',
-  //         text: JSON.stringify(result, null, 2)
-  //       }]
-  //     }
-  //   }
-  // )
-
   // PROMPTS
 
   // server.registerPrompt(
@@ -102,83 +80,10 @@ function createServer() {
   //   }
   // )
 
-  /**
-   * @memo add docs/server/api/mcp
-   */
-  // server.registerPrompt(
-  //   'setup_project_with_template',
-  //   {
-  //     title: 'Setup Project with Template',
-  //     description: 'Guide through setting up a new project with a Bitrix24 JS SDK template',
-  //     argsSchema: {
-  //       // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-  //       projectType: z.string().describe('Type of project (dashboard, landing page, admin panel, etc.)')
-  //     }
-  //   },
-  //   async ({ projectType }) => {
-  //     const templates = await $fetch('/api/mcp/list-templates')
-  //     return {
-  //       messages: [
-  //         {
-  //           role: 'user',
-  //           content: {
-  //             type: 'text',
-  //             text: `Guide me through setting up a new ${projectType} project with Bitrix24 JS SDK. Here are available templates: ${JSON.stringify(templates, null, 2)}`
-  //           }
-  //         }
-  //       ]
-  //     }
-  //   }
-  // )
-
   // TOOLS
 
-  /**
-   * @memo add docs/server/api/mcp
-   */
-  // server.registerTool(
-  //   'list_templates',
-  //   {
-  //     title: 'List Templates',
-  //     description: 'Lists all available Bitrix24 JS SDK templates with optional category filtering',
-  //     inputSchema: {
-  //       // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-  //       category: z.string().optional().describe('Filter templates by category')
-  //     }
-  //   },
-  //   async (params) => {
-  //     const result = await $fetch('/api/mcp/list-templates', { query: params })
-  //     return {
-  //       content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-  //       structuredContent: result as any
-  //     }
-  //   }
-  // )
-
-  /**
-   * @memo add docs/server/api/mcp
-   */
-  // server.registerTool(
-  //   'get_template',
-  //   {
-  //     title: 'Get Template',
-  //     description: 'Retrieves template details and setup instructions',
-  //     inputSchema: {
-  //       // @ts-expect-error - need to wait for support for zod 4, this works correctly just a type mismatch from zod 3 to zod 4 (https://github.com/modelcontextprotocol/typescript-sdk/pull/869)
-  //       templateName: z.string().describe('The name of the template')
-  //     }
-  //   },
-  //   async (params) => {
-  //     const result = await $fetch('/api/mcp/get-template', { query: params })
-  //     return {
-  //       content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-  //       structuredContent: result as any
-  //     }
-  //   }
-  // )
-
   server.registerTool(
-    'get_documentation_page',
+    'get_b24_jssdk_documentation_page',
     {
       title: 'Get Documentation Page',
       description: 'Retrieves documentation page content by URL path',
@@ -196,7 +101,7 @@ function createServer() {
   )
 
   server.registerTool(
-    'list_documentation_pages',
+    'list_b24_jssdk_documentation_pages',
     {
       title: 'List Documentation Pages',
       description: 'Lists all documentation pages'
@@ -210,7 +115,7 @@ function createServer() {
   )
 
   server.registerTool(
-    'list_getting_started_guides',
+    'list_b24_jssdk_getting_started_guides',
     {
       title: 'List Getting Started Guides',
       description: 'Lists all getting started guides and installation instructions'
@@ -224,7 +129,7 @@ function createServer() {
   )
 
   server.registerTool(
-    'list_examples',
+    'list_b24_jssdk_examples',
     {
       title: 'List Examples',
       description: 'Lists all available UI examples and code demonstrations'
@@ -238,7 +143,7 @@ function createServer() {
   )
 
   server.registerTool(
-    'get_example',
+    'get_b24_jssdk_example',
     {
       title: 'Get Example',
       description: 'Retrieves specific JS SDK example implementation code and details',

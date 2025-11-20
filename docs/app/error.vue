@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const route = useRoute()
 
-const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', ['framework']))
+const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', []))
 const { data: files } = useLazyAsyncData(
   'search',
   async () => {
@@ -46,7 +46,7 @@ useServerSeoMeta({
   twitterCard: 'summary_large_image'
 })
 
-const { rootNavigation, navigationByFramework } = useNavigation(navigation)
+const { rootNavigation } = useNavigation(navigation)
 
 provide('navigation', rootNavigation)
 
@@ -89,7 +89,7 @@ onMounted(() => {
     </B24SidebarLayout>
 
     <ClientOnly>
-      <Search :files="files" :navigation="navigationByFramework" />
+      <Search :files="files" :navigation="rootNavigation" />
     </ClientOnly>
   </B24App>
 </template>

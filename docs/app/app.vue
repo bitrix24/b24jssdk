@@ -5,7 +5,7 @@ const route = useRoute()
 const appConfig = useAppConfig()
 const config = useRuntimeConfig()
 
-const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', ['framework', 'category', 'description', 'badge']))
+const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', ['category', 'description', 'badge']))
 const { data: files } = useLazyAsyncData(
   'search',
   async () => {
@@ -41,7 +41,7 @@ useServerSeoMeta({
   twitterCard: 'summary_large_image'
 })
 
-const { rootNavigation, navigationByFramework } = useNavigation(navigation)
+const { rootNavigation } = useNavigation(navigation)
 provide('navigation', rootNavigation)
 
 const colorMode = useColorMode()
@@ -71,7 +71,7 @@ defineShortcuts({
 
       <template v-if="!route.path.startsWith('/examples')">
         <ClientOnly>
-          <Search :files="files" :navigation="navigationByFramework" />
+          <Search :files="files" :navigation="rootNavigation" />
         </ClientOnly>
       </template>
     </div>

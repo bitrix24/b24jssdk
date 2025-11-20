@@ -27,8 +27,8 @@ importers:
         specifier: workspace:*
         version: link:../packages/jssdk-nuxt
       '@bitrix24/b24ui-nuxt':
-        specifier: ^2.1.5
-        version: 2.1.5(@babel/parser@7.28.5)(@nuxt/content@3.8.2(better-sqlite3@12.4.1)(magicast@0.5.1))(axios@1.13.2)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.1)(magicast@0.5.1)(sortablejs@1.15.6)(superstruct@2.0.2)(typescript@5.9.3)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))(vue-router@4.6.3(vue@3.5.24(typescript@5.9.3)))(vue@3.5.24(typescript@5.9.3))(zod@4.1.12)
+        specifier: ^2.1.6
+        version: 2.1.6(@babel/parser@7.28.5)(@nuxt/content@3.8.2(better-sqlite3@12.4.1)(magicast@0.5.1))(axios@1.13.2)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.1)(magicast@0.5.1)(sortablejs@1.15.6)(superstruct@2.0.2)(typescript@5.9.3)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))(vue-router@4.6.3(vue@3.5.24(typescript@5.9.3)))(vue@3.5.24(typescript@5.9.3))(zod@4.1.12)
       '@modelcontextprotocol/sdk':
         specifier: ^1.22.0
         version: 1.22.0
@@ -434,8 +434,8 @@ packages:
       zod:
         optional: true
 
-  '@bitrix24/b24ui-nuxt@2.1.5':
-    resolution: {integrity: sha512-Qt+qFQcbFrTut+uuVbb2L8zfuDF3cNgiothfpEl8TJUF8cNxp3YviQuX0C8aXL1Ub2JoZ6kTMekou7i/i8YJ3A==}
+  '@bitrix24/b24ui-nuxt@2.1.6':
+    resolution: {integrity: sha512-a7Z8bPz+1Hr8kAkZ/aD431zZ1H647jsAvhbJAoE/VM1P0mdaaioBjbQ0YtkiuLwBRWnXQmN4QSmwCOI5IIdk2w==}
     hasBin: true
     peerDependencies:
       '@inertiajs/vue3': ^2.0.7
@@ -6927,7 +6927,7 @@ snapshots:
       - vite
       - vue
 
-  '@bitrix24/b24ui-nuxt@2.1.5(@babel/parser@7.28.5)(@nuxt/content@3.8.2(better-sqlite3@12.4.1)(magicast@0.5.1))(axios@1.13.2)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.1)(magicast@0.5.1)(sortablejs@1.15.6)(superstruct@2.0.2)(typescript@5.9.3)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))(vue-router@4.6.3(vue@3.5.24(typescript@5.9.3)))(vue@3.5.24(typescript@5.9.3))(zod@4.1.12)':
+  '@bitrix24/b24ui-nuxt@2.1.6(@babel/parser@7.28.5)(@nuxt/content@3.8.2(better-sqlite3@12.4.1)(magicast@0.5.1))(axios@1.13.2)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.1)(magicast@0.5.1)(sortablejs@1.15.6)(superstruct@2.0.2)(typescript@5.9.3)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))(vue-router@4.6.3(vue@3.5.24(typescript@5.9.3)))(vue@3.5.24(typescript@5.9.3))(zod@4.1.12)':
     dependencies:
       '@bitrix24/b24icons-nuxt': 2.0.7(magicast@0.5.1)(vue@3.5.24(typescript@5.9.3))
       '@internationalized/date': 3.10.0

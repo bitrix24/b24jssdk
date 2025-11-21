@@ -10,7 +10,7 @@ const route = useRoute()
 
 const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', []))
 const { data: files } = useLazyAsyncData(
-  'search',
+  'search-error',
   async () => {
     const data = await queryCollectionSearchSections('docs', {
       ignoredTags: ['style']

@@ -3,6 +3,8 @@ import { camelCase } from 'scule'
 import { hash } from 'ohash'
 import { useElementSize } from '@vueuse/core'
 import { get, set } from '#b24ui/utils'
+import { B24Hook, LoggerBrowser } from '@bitrix24/b24jssdk'
+import type { B24Frame } from '@bitrix24/b24jssdk'
 
 const props = withDefaults(defineProps<{
   name: string
@@ -151,6 +153,45 @@ const urlSearchParams = computed(() => {
   }
 
   return new URLSearchParams(params).toString()
+})
+
+let $b24: B24Frame | B24Hook | undefined = undefined
+let $b24Type = 'undefined'
+
+try {
+  const { $initializeB24Frame } = useNuxtApp()
+  $b24 = await $initializeB24Frame()
+  $b24Type = 'B24Frame'
+} catch {
+  $b24 = undefined
+  $b24Type = 'undefined'
+}
+
+if (typeof $b24 === 'undefined') {
+  $b24 = B24Hook.fromWebhookUrl(config.public.b24Hook)
+  $b24Type = 'B24Hook'
+}
+
+if (typeof $b24 === 'undefined') {
+  $b24 = undefined
+  $b24Type = 'undefined'
+  const appError = createError({
+    statusCode: 404,
+    statusMessage: 'B24 not init',
+    data: {
+      description: 'Problem in middleware',
+      homePageIsHide: true,
+      isShowClearError: false
+    },
+    fatal: true
+  })
+
+  showError(appError)
+}
+
+provide('propsWithB24', {
+  logger: LoggerBrowser.build(`JsSdk Docs use ${$b24Type}`, true),
+  b24: $b24
 })
 </script>
 

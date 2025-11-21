@@ -1,5 +1,6 @@
 # dependencies
 /node_modules
+/cli/**/node_modules
 /docs/**/node_modules
 /docs_2/**/node_modules
 /packages/**/node_modules

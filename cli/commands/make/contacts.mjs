@@ -2,7 +2,7 @@ import { consola } from 'consola'
 import { B24Hook } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 
-// Списки случайных имен и фамилий
+// Lists of random first and last names
 const firstNames = [
   'Александр', 'Алексей', 'Андрей', 'Антон', 'Артем', 'Борис', 'Вадим', 'Валентин',
   'Валерий', 'Василий', 'Виктор', 'Виталий', 'Владимир', 'Владислав', 'Геннадий',
@@ -33,11 +33,11 @@ export default defineCommand({
   },
   args: {
     total: {
-      description: 'Сколько создать',
+      description: 'How many to create',
       required: true
     },
     assignedById: {
-      description: 'Ответственный пользователь',
+      description: 'Assigned user id',
       default: 1
     }
   },
@@ -45,7 +45,7 @@ export default defineCommand({
     let createdCount = 0
     let errors = []
 
-    // Генерация случайного контакта
+    // Generate a random contact
     function generateRandomContact() {
       const firstName = firstNames[Math.floor(Math.random() * firstNames.length)]
       const lastName = lastNames[Math.floor(Math.random() * lastNames.length)]
@@ -60,7 +60,7 @@ export default defineCommand({
       }
     }
 
-    // Создание одного контакта
+    // Create one contact
     async function createContact(contactNumber) {
       try {
         const contactData = generateRandomContact()
@@ -78,31 +78,30 @@ export default defineCommand({
 
         createdCount++
         const newId = Number.parseInt(response.getData()?.result || '0')
-        // consola.info(`✅ Контакт ${contactNumber} создан: ${contactData.NAME} ${contactData.LAST_NAME} (ID: ${newId})`)
 
         return { success: true, contactId: newId }
       } catch (error) {
-        const errorMessage = `Ошибка при создании контакта ${contactNumber}: ${error.message}`
+        const errorMessage = `Error creating contact ${contactNumber}: ${error.message}`
         errors.push(errorMessage)
         consola.error(`❌ ${errorMessage}`)
         return { success: false, error: errorMessage }
       }
     }
 
-    // Отображение прогресса
+    // Show progress
     function showProgress() {
       const percentage = Math.round((createdCount / args.total) * 100)
       const progressBar = '█'.repeat(Math.floor(percentage / 5)) + '░'.repeat(20 - Math.floor(percentage / 5))
       process.stdout.clearLine()
       process.stdout.cursorTo(0)
-      process.stdout.write(`\rПрогресс: [${progressBar}] ${percentage}% (${createdCount}/${args.total})`)
+      process.stdout.write(`\rProgress: [${progressBar}] ${percentage}% (${createdCount}/${args.total})`)
     }
 
-    // Основная функция создания контактов
+    // Main contact creation function
     async function createRandomContacts() {
-      consola.log('🚀 Запуск создания случайных контактов в Bitrix24')
-      consola.log(`📊 Планируется создать: ${args.total} контактов`)
-      consola.log(`👤 Ответственный: пользователь ID ${args.assignedById}`)
+      consola.log('🚀 Starting creation of random contacts in Bitrix24')
+      consola.log(`📊 Planned to create: ${args.total} contacts`)
+      consola.log(`👤 Responsible: user ID ${args.assignedById}`)
       consola.log('─'.repeat(50))
 
       const startTime = Date.now()
@@ -116,13 +115,13 @@ export default defineCommand({
       const duration = ((endTime - startTime) / 1000).toFixed(2)
 
       consola.log('\n\n' + '─'.repeat(50))
-      consola.log('✅ Завершено!')
-      consola.log(`📈 Успешно создано: ${createdCount} контактов`)
-      consola.log(`⏱️ Время выполнения: ${duration} секунд`)
+      consola.log('✅ Completed!')
+      consola.log(`📈 Successfully created: ${createdCount} contacts`)
+      consola.log(`⏱️ Execution time: ${duration} seconds`)
 
       if (errors.length > 0) {
-        consola.log(`❌ Ошибок: ${errors.length}`)
-        consola.log('\nСписок ошибок:')
+        consola.log(`❌ Errors: ${errors.length}`)
+        consola.log('\nList of errors:')
         errors.forEach((error, index) => {
           consola.log(`${index + 1}. ${error}`)
         })
@@ -136,7 +135,7 @@ export default defineCommand({
       process.exit(1)
     }
     const b24 = B24Hook.fromWebhookUrl(hookPath)
-    consola.info(`Используемый Битрикс24 : ${b24.getTargetOrigin()}`)
+    consola.info(`Used Bitrix24: ${b24.getTargetOrigin()}`)
 
     await createRandomContacts()
   }

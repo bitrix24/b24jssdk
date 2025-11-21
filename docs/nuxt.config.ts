@@ -119,6 +119,8 @@ export default defineNuxtConfig({
     public: {
       version: pkg.version,
       siteUrl: prodUrl,
+      // @todo remove this
+      b24Hook: '',
       baseUrl,
       canonicalUrl,
       gitUrl

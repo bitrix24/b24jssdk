@@ -1,4 +1,5 @@
 packages:
+  - cli
   - packages/jssdk
   - packages/jssdk-nuxt
   - docs

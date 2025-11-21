@@ -5,8 +5,7 @@ export default defineNuxtConfig({
   modules: [
     '@bitrix24/b24ui-nuxt',
     // '@bitrix24/b24jssdk-nuxt',
-    '../../packages/jssdk-nuxt/src/module',
-    '@nuxt/eslint'
+    '../../packages/jssdk-nuxt/src/module'
   ],
   devtools: { enabled: false },
   css: ['~/assets/css/main.css'],

@@ -92,6 +92,7 @@ function createServer() {
         path: z.string().describe('The path to the content page (e.g., /docs/components/button)')
       }
     },
+    // @ts-expect-error - need to wait for support for zod 4
     async (params) => {
       const result = await $fetch<string>(`/raw${params.path}.md`)
       return {
@@ -106,6 +107,7 @@ function createServer() {
       title: 'List Documentation Pages',
       description: 'Lists all documentation pages'
     },
+    // @ts-expect-error - need to wait for support for zod 4
     async () => {
       const result = await $fetch('/api/mcp/list-documentation-pages')
       return {
@@ -120,6 +122,7 @@ function createServer() {
       title: 'List Getting Started Guides',
       description: 'Lists all getting started guides and installation instructions'
     },
+    // @ts-expect-error - need to wait for support for zod 4
     async () => {
       const result = await $fetch('/api/mcp/list-getting-started-guides')
       return {
@@ -134,6 +137,7 @@ function createServer() {
       title: 'List Examples',
       description: 'Lists all available UI examples and code demonstrations'
     },
+    // @ts-expect-error - need to wait for support for zod 4
     async () => {
       const result = await $fetch('/api/mcp/list-examples')
       return {
@@ -152,6 +156,7 @@ function createServer() {
         exampleName: z.string().describe('The name of the example (PascalCase)')
       }
     },
+    // @ts-expect-error - need to wait for support for zod 4
     async ({ exampleName }) => {
       const result = await $fetch(`/api/component-example/${exampleName}.json`)
       return {

@@ -1,7 +1,7 @@
 import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import {
-	RestrictionManagerParamsBase,
-	type TypeRestrictionManagerParams,
+  RestrictionManagerParamsBase,
+  type TypeRestrictionManagerParams
 } from '../../types/http'
 
 /**
@@ -16,115 +16,115 @@ import {
  * Keep this feature in mind when designing.
  */
 export default class RestrictionManager {
-	#params: TypeRestrictionManagerParams
-	#lastDecrement: number
-	#currentAmount: number
+  #params: TypeRestrictionManagerParams
+  #lastDecrement: number
+  #currentAmount: number
 
-	private _logger: null | LoggerBrowser = null
+  private _logger: null | LoggerBrowser = null
 
-	constructor() {
-		this.#params = RestrictionManagerParamsBase
+  constructor() {
+    this.#params = RestrictionManagerParamsBase
 
-		this.#currentAmount = 0
-		this.#lastDecrement = 0
-	}
+    this.#currentAmount = 0
+    this.#lastDecrement = 0
+  }
 
-	setLogger(logger: LoggerBrowser): void {
-		this._logger = logger
-	}
+  setLogger(logger: LoggerBrowser): void {
+    this._logger = logger
+  }
 
-	getLogger(): LoggerBrowser {
-		if (null === this._logger) {
-			this._logger = LoggerBrowser.build(`NullLogger`)
+  getLogger(): LoggerBrowser {
+    if (null === this._logger) {
+      this._logger = LoggerBrowser.build(`NullLogger`)
 
-			this._logger.setConfig({
-				[LoggerType.desktop]: false,
-				[LoggerType.log]: false,
-				[LoggerType.info]: false,
-				[LoggerType.warn]: false,
-				[LoggerType.error]: true,
-				[LoggerType.trace]: false,
-			})
-		}
+      this._logger.setConfig({
+        [LoggerType.desktop]: false,
+        [LoggerType.log]: false,
+        [LoggerType.info]: false,
+        [LoggerType.warn]: false,
+        [LoggerType.error]: true,
+        [LoggerType.trace]: false
+      })
+    }
 
-		return this._logger
-	}
+    return this._logger
+  }
 
-	get params(): TypeRestrictionManagerParams {
-		return { ...this.#params }
-	}
+  get params(): TypeRestrictionManagerParams {
+    return { ...this.#params }
+  }
 
-	set params(params: TypeRestrictionManagerParams) {
-		this.#params = params
+  set params(params: TypeRestrictionManagerParams) {
+    this.#params = params
 
-		this.getLogger().log(`new restriction manager params`, params)
-	}
+    this.getLogger().log(`new restriction manager params`, params)
+  }
 
-	check(hash: string = ''): Promise<null> {
-		return new Promise((resolve) => {
-			this.#decrementStorage()
+  check(hash: string = ''): Promise<null> {
+    return new Promise((resolve) => {
+      this.#decrementStorage()
 
-			if (this.#checkStorage()) {
-				this.getLogger().log(
-					`>> no sleep >>> ${hash}`,
-					this.#getStorageStatus()
-				)
-				this.#incrementStorage()
+      if (this.#checkStorage()) {
+        this.getLogger().log(
+          `>> no sleep >>> ${hash}`,
+          this.#getStorageStatus()
+        )
+        this.#incrementStorage()
 
-				return resolve(null)
-			} else {
-				// eslint-disable-next-line
+        return resolve(null)
+      } else {
+        // eslint-disable-next-line
 				const sleep = (callback: Function) => {
-					this.getLogger().info(
-						`>> go sleep >>> ${hash}`,
-						this.#getStorageStatus()
-					)
-					setTimeout(() => {
-						callback()
-					}, this.#params.sleep)
-				}
+          this.getLogger().info(
+            `>> go sleep >>> ${hash}`,
+            this.#getStorageStatus()
+          )
+          setTimeout(() => {
+            callback()
+          }, this.#params.sleep)
+        }
 
-				const wait = () => {
-					this.#decrementStorage()
-					if (this.#checkStorage()) {
-						this.getLogger().info(
-							`<< stop sleep <<< ${hash}`,
-							this.#getStorageStatus()
-						)
-						this.#incrementStorage()
-						return resolve(null)
-					} else {
-						sleep(wait)
-					}
-				}
+        const wait = () => {
+          this.#decrementStorage()
+          if (this.#checkStorage()) {
+            this.getLogger().info(
+              `<< stop sleep <<< ${hash}`,
+              this.#getStorageStatus()
+            )
+            this.#incrementStorage()
+            return resolve(null)
+          } else {
+            sleep(wait)
+          }
+        }
 
-				sleep(wait)
-			}
-		})
-	}
+        sleep(wait)
+      }
+    })
+  }
 
-	#getStorageStatus() {
-		return `${this.#currentAmount.toFixed(4)} from ${this.#params.amount}`
-	}
+  #getStorageStatus() {
+    return `${this.#currentAmount.toFixed(4)} from ${this.#params.amount}`
+  }
 
-	#decrementStorage(): void {
-		if (this.#lastDecrement > 0) {
-			this.#currentAmount -=
-				(Date.now() - this.#lastDecrement) * this.#params.speed
+  #decrementStorage(): void {
+    if (this.#lastDecrement > 0) {
+      this.#currentAmount
+        -= (Date.now() - this.#lastDecrement) * this.#params.speed
 
-			if (this.#currentAmount < 0) {
-				this.#currentAmount = 0
-			}
-		}
+      if (this.#currentAmount < 0) {
+        this.#currentAmount = 0
+      }
+    }
 
-		this.#lastDecrement = Date.now()
-	}
+    this.#lastDecrement = Date.now()
+  }
 
-	#incrementStorage(): void {
-		this.#currentAmount++
-	}
+  #incrementStorage(): void {
+    this.#currentAmount++
+  }
 
-	#checkStorage(): boolean {
-		return this.#currentAmount < this.#params.amount
-	}
+  #checkStorage(): boolean {
+    return this.#currentAmount < this.#params.amount
+  }
 }

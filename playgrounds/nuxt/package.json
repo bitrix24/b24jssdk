@@ -10,11 +10,10 @@
   },
   "dependencies": {
     "nuxt": "^4.2.1",
-    "@bitrix24/b24ui-nuxt": "^2.1.4"
+    "@bitrix24/b24ui-nuxt": "^2.1.6"
   },
   "devDependencies": {
-    "@nuxt/eslint": "^1.10.0",
-    "eslint": "^9.39.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.8.3",
+    "vue-tsc": "^3.1.4"
   }
 }

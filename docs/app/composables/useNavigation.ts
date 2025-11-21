@@ -164,25 +164,6 @@ function groupChildrenByCategory(items: ContentNavigationItem[], slug: string): 
   return groups
 }
 
-function resolveNavigationIcon(item: ContentNavigationItem) {
-  return item
-  // let icon = item.icon
-  // if (item.path.startsWith('/docs/components')) {
-  //   icon = 'i-lucide-square-code'
-  // }
-  // if (item.path.startsWith('/docs/composables')) {
-  //   icon = 'i-lucide-square-function'
-  // }
-  // if (item.path.startsWith('/docs/typography')) {
-  //   icon = 'i-lucide-square-pilcrow'
-  // }
-
-  // return {
-  //   ...item,
-  //   icon
-  // }
-}
-
 function processNavigationItem(item: ContentNavigationItem, parent?: ContentNavigationItem): ContentNavigationItem | ContentNavigationItem[] {
   if (item.shadow) {
     return item.children?.flatMap(child => processNavigationItem(child, item)) || []

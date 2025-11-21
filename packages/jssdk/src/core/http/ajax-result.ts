@@ -13,7 +13,7 @@ export type AjaxQuery = Readonly<{
 }>
 
 export type AjaxResultParams<T = unknown> = Readonly<{
-  error?: string | { error: string; error_description?: string }
+  error?: string | { error: string, error_description?: string }
   error_description?: string
   result: T
   next?: NumberString
@@ -53,8 +53,8 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     this.addError(this.#createAjaxError(errorParams), 'base-error')
   }
 
-  #normalizeError(error: string | { error: string; error_description?: string }): {
-    code: string;
+  #normalizeError(error: string | { error: string, error_description?: string }): {
+    code: string
     description: string
   } {
     return typeof error === 'string'
@@ -62,7 +62,7 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
       : { code: error.error, description: error.error_description || '' }
   }
 
-  #createAjaxError(params: { code: string; description: string }): AjaxError {
+  #createAjaxError(params: { code: string, description: string }): AjaxError {
     return new AjaxError({
       code: String(this._status),
       description: params.description,

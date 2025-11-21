@@ -1,6 +1,6 @@
-import { LoggerBrowser } from '../logger/browser'
-import { AjaxResult } from '../core/http/ajax-result'
-import { Result } from '../core/result'
+import type { LoggerBrowser } from '../logger/browser'
+import type { AjaxResult } from '../core/http/ajax-result'
+import type { Result } from '../core/result'
 import type { TypeHttp } from './http'
 import type { AuthActions } from './auth'
 
@@ -81,7 +81,7 @@ export type TypeB24 = {
   /**
    * Calls a batch request with a maximum number of commands of no more than 50
    *
-   * @param  {array|object} calls Request packet
+   * @param  {Array | object} calls Request packet
    * calls = [[method,params],[method,params]]
    * calls = [{method:method,params:params},[method,params]]
    * calls = {call_id:[method,params],...}
@@ -101,7 +101,7 @@ export type TypeB24 = {
   /**
    * Calls a batch request with any number of commands
    *
-   * @param  {array} calls Request packet
+   * @param  {Array} calls Request packet
    * calls = [[method,params],[method,params]]
    * @param  {boolean} isHaltOnError Abort package execution when an error occurs
    *

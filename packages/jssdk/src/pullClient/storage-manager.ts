@@ -27,7 +27,7 @@ export class StorageManager implements TypeStorageManager {
         [LoggerType.info]: false,
         [LoggerType.warn]: false,
         [LoggerType.error]: true,
-        [LoggerType.trace]: false,
+        [LoggerType.trace]: false
       })
     }
 
@@ -70,7 +70,7 @@ export class StorageManager implements TypeStorageManager {
   }
 
   private _getKey(name: string): string {
-    return `@bitrix24/b24jssdk-pull-${ this.userId }-${ this.siteId }-${ name }`
+    return `@bitrix24/b24jssdk-pull-${this.userId}-${this.siteId}-${name}`
   }
 
   compareKey(eventKey: string, userKey: string): boolean {

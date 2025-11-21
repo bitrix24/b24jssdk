@@ -7,9 +7,9 @@ interface BlobLike {
 }
 
 interface FileLike extends BlobLike {
-  name: string;
-  lastModified?: number;
-  lastModifiedDate?: object;
+  name: string
+  lastModified?: number
+  lastModifiedDate?: object
 }
 
 /**
@@ -30,14 +30,13 @@ class TypeManager {
    * @memo get from pull.client.Utils
    */
   isString(value: any): value is string {
-    // eslint-disable-next-line unicorn/no-instanceof-builtins
     return typeof value === 'string' || value instanceof String
   }
 
   /**
    * Returns true if a value is not an empty string
    * @param value
-   * @returns {boolean}
+   * @returns {boolean} Returns true if a value is not an empty string
    */
   isStringFilled(value: any): value is string {
     return this.isString(value) && value !== ''
@@ -54,8 +53,7 @@ class TypeManager {
   isFunction(value: any): value is Function {
     return value === null
       ? false
-      : // eslint-disable-next-line unicorn/no-instanceof-builtins
-      typeof value === 'function' || value instanceof Function
+      : typeof value === 'function' || value instanceof Function
   }
 
   /**
@@ -92,33 +90,33 @@ class TypeManager {
       return true
     }
 
-    const ctor = proto.hasOwnProperty('constructor') && proto.constructor
+    const ctor = Object.prototype.hasOwnProperty.call(proto, 'constructor') && proto.constructor
 
     return (
-      typeof ctor === 'function' &&
-      Function.prototype.toString.call(ctor) === OBJECT_CONSTRUCTOR_STRING
+      typeof ctor === 'function'
+      && Function.prototype.toString.call(ctor) === OBJECT_CONSTRUCTOR_STRING
     )
   }
 
   isJsonRpcRequest(value: any): boolean {
     return (
-      typeof value === 'object' &&
-      value &&
-      'jsonrpc' in value &&
-      this.isStringFilled(value.jsonrpc) &&
-      'method' in value &&
-      this.isStringFilled(value.method)
+      typeof value === 'object'
+      && value
+      && 'jsonrpc' in value
+      && this.isStringFilled(value.jsonrpc)
+      && 'method' in value
+      && this.isStringFilled(value.method)
     )
   }
 
   isJsonRpcResponse(value: any): boolean {
     return (
-      typeof value === 'object' &&
-      value &&
-      'jsonrpc' in value &&
-      this.isStringFilled(value.jsonrpc) &&
-      'id' in value &&
-      ('result' in value || 'error' in value)
+      typeof value === 'object'
+      && value
+      && 'jsonrpc' in value
+      && this.isStringFilled(value.jsonrpc)
+      && 'id' in value
+      && ('result' in value || 'error' in value)
     )
   }
 
@@ -179,7 +177,7 @@ class TypeManager {
   /**
    * Returns true if a value is an array, and it has at least one element
    * @param value
-   * @returns {boolean}
+   * @returns {boolean} Returns true if a value is an array, and it has at least one element
    */
   isArrayFilled(value: any): value is any[] {
     return this.isArray(value) && value.length > 0
@@ -337,18 +335,17 @@ class TypeManager {
    * @return {boolean}
    */
   isTypedArray(value: any): value is
-    | Int8Array
-    | Uint8Array
-    | Uint8ClampedArray
-    | Int16Array
-    | Uint16Array
-    | Int32Array
-    | Uint32Array
-    | Float32Array
-    | Float64Array
-  {
-    const regExpTypedTag =
-      /^\[object (?:Float(?:32|64)|(?:Int|Uint)(?:8|16|32)|Uint8Clamped)]$/
+  | Int8Array
+  | Uint8Array
+  | Uint8ClampedArray
+  | Int16Array
+  | Uint16Array
+  | Int32Array
+  | Uint32Array
+  | Float32Array
+  | Float64Array {
+    const regExpTypedTag
+      = /^\[object (?:Float(?:32|64)|(?:Int|Uint)(?:8|16|32)|Uint8Clamped)\]$/
     return this.isObjectLike(value) && regExpTypedTag.test(this.getTag(value))
   }
 
@@ -359,10 +356,10 @@ class TypeManager {
    */
   isBlob(value: any): value is BlobLike {
     return (
-      this.isObjectLike(value) &&
-      this.isNumber((value as BlobLike).size) &&
-      this.isString((value as BlobLike).type) &&
-      this.isFunction((value as BlobLike).slice)
+      this.isObjectLike(value)
+      && this.isNumber((value as BlobLike).size)
+      && this.isString((value as BlobLike).type)
+      && this.isFunction((value as BlobLike).slice)
     )
   }
 
@@ -373,9 +370,9 @@ class TypeManager {
    */
   isFile(value: any): value is FileLike {
     return (
-      this.isBlob(value) &&
-      this.isString((value as FileLike).name) &&
-      (this.isNumber((value as FileLike).lastModified) || this.isObjectLike((value as FileLike).lastModifiedDate))
+      this.isBlob(value)
+      && this.isString((value as FileLike).name)
+      && (this.isNumber((value as FileLike).lastModified) || this.isObjectLike((value as FileLike).lastModifiedDate))
     )
   }
 
@@ -422,7 +419,7 @@ class TypeManager {
         }
 
         for (i in obj) {
-          if (!obj.hasOwnProperty(i)) {
+          if (!Object.prototype.hasOwnProperty.call(obj, i)) {
             continue
           }
           if (typeof obj[i] === 'object' && bCopyObj) {

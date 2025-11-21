@@ -30,7 +30,7 @@ export class AuthHookManager implements AuthActions {
       expires: 0,
       expires_in: 0,
       domain: this.#domain,
-      member_id: this.#domain,
+      member_id: this.#domain
     }
   }
 
@@ -50,14 +50,14 @@ export class AuthHookManager implements AuthActions {
    * Get the account address BX24 ( https://name.bitrix24.com )
    */
   getTargetOrigin(): string {
-    return `${ this.#b24Target }`
+    return `${this.#b24Target}`
   }
 
   /**
    * Get the account address BX24 with Path ( https://name.bitrix24.com/rest/1/xxxxx )
    */
   getTargetOriginWithPath(): string {
-    return `${ this.#b24TargetRest }/${ this.#b24HookParams.userId }/${ this.#b24HookParams.secret }`
+    return `${this.#b24TargetRest}/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`
   }
 
   /**

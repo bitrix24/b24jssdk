@@ -3,7 +3,7 @@ export function useFooter() {
     {
       label: 'Templates',
       to: '/templates/'
-    },
+    }
   ]
 
   return {

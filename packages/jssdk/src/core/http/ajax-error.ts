@@ -21,7 +21,6 @@ type ErrorDetails = {
   originalError?: unknown
 }
 
-
 /**
  * Error requesting RestApi
  */
@@ -91,8 +90,8 @@ export class AjaxError extends Error {
    */
   static fromResponse(response: {
     status: number
-    data?: { error?: string; error_description?: string }
-    config?: { method?: string; url?: string; params?: unknown }
+    data?: { error?: string, error_description?: string }
+    config?: { method?: string, url?: string, params?: unknown }
   }): AjaxError {
     return new AjaxError({
       code: response.data?.error || 'unknown_error',

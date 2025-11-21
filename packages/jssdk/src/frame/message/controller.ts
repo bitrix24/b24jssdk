@@ -1,6 +1,6 @@
 import { LoggerBrowser, LoggerType } from '../../logger/browser'
-import { MessageCommands } from './commands'
-import { AppFrame } from '../frame'
+import type { MessageCommands } from './commands'
+import type { AppFrame } from '../frame'
 import Text from '../../tools/text'
 import Type from '../../tools/type'
 import { omit } from '../../tools'
@@ -60,7 +60,7 @@ export class MessageManager {
         [LoggerType.info]: false,
         [LoggerType.warn]: false,
         [LoggerType.error]: true,
-        [LoggerType.trace]: false,
+        [LoggerType.trace]: false
       })
     }
 
@@ -123,7 +123,7 @@ export class MessageManager {
           method: command.toString(),
           params: paramsSend || '',
           callback: keyPromise,
-          appSid: this.#appFrame.getAppSid(),
+          appSid: this.#appFrame.getAppSid()
         }
       } else {
         /**
@@ -135,7 +135,7 @@ export class MessageManager {
           params?.isRawValue !== true
           && paramsSend
         ) {
-            paramsSend = JSON.stringify(paramsSend)
+          paramsSend = JSON.stringify(paramsSend)
         } else if (
           params?.isRawValue === true
           && paramsSend
@@ -148,25 +148,24 @@ export class MessageManager {
         const listParams = [
           paramsSend || '',
           keyPromise,
-          this.#appFrame.getAppSid(),
+          this.#appFrame.getAppSid()
         ]
 
         cmd += ':' + listParams.filter(Boolean).join(':')
       }
 
-      this.getLogger().log(`send to ${ this.#appFrame.getTargetOrigin() }`, {
-        cmd,
+      this.getLogger().log(`send to ${this.#appFrame.getTargetOrigin()}`, {
+        cmd
       })
 
       parent.postMessage(cmd, this.#appFrame.getTargetOrigin())
 
       if (params?.isSafely) {
-        // @ts-ignore
-        this.#callbackPromises.get(keyPromise).timeoutId = window.setTimeout(
+        this.#callbackPromises.get(keyPromise)!.timeoutId = window.setTimeout(
           () => {
             if (this.#callbackPromises.has(keyPromise)) {
               this.getLogger().warn(
-                `Action ${ command.toString() } stop by timeout`
+                `Action ${command.toString()} stop by timeout`
               )
 
               this.#callbackPromises.delete(keyPromise)
@@ -191,15 +190,15 @@ export class MessageManager {
     }
 
     if (event.data) {
-      this.getLogger().log(`get from ${ event.origin }`, {
-        data: event.data,
+      this.getLogger().log(`get from ${event.origin}`, {
+        data: event.data
       })
 
       const tmp = event.data.split(':')
 
-      const cmd: { id: string; args: any } = {
+      const cmd: { id: string, args: any } = {
         id: tmp[0],
-        args: tmp.slice(1).join(':'),
+        args: tmp.slice(1).join(':')
       }
 
       if (cmd.args) {

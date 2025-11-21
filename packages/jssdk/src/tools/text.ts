@@ -9,8 +9,8 @@ const escapeEntities: Record<string, string> = {
   '&': '&amp',
   '<': '&lt',
   '>': '&gt',
-  "'": '&#39',
-  '"': '&quot',
+  '\'': '&#39',
+  '"': '&quot'
 }
 
 const unescapeEntities: Record<string, string> = {
@@ -20,10 +20,10 @@ const unescapeEntities: Record<string, string> = {
   '&#60': '<',
   '&gt': '>',
   '&#62': '>',
-  '&apos': "'",
-  '&#39': "'",
+  '&apos': '\'',
+  '&#39': '\'',
   '&quot': '"',
-  '&#34': '"',
+  '&#34': '"'
 }
 
 /**
@@ -35,7 +35,6 @@ const unescapeEntities: Record<string, string> = {
  */
 class TextManager {
   getRandom(length = 8): string {
-    // eslint-disable-next-line
     return [...Array(length)]
       .map(() => Math.trunc(Math.random() * 36).toString(36))
       .join('')
@@ -67,7 +66,7 @@ class TextManager {
    */
   encode(value: string): string {
     if (Type.isString(value)) {
-      return value.replace(reEscape, (item) => escapeEntities[item])
+      return value.replace(reEscape, item => escapeEntities[item])
     }
 
     return value
@@ -80,7 +79,7 @@ class TextManager {
    */
   decode(value: string): string {
     if (Type.isString(value)) {
-      return value.replace(reUnescape, (item) => unescapeEntities[item])
+      return value.replace(reUnescape, item => unescapeEntities[item])
     }
 
     return value
@@ -112,7 +111,6 @@ class TextManager {
 
     const regex = /[-_\s]+(.)?/g
     if (!regex.test(str)) {
-      // eslint-disable-next-line
       return str.match(/^[A-Z]+$/)
         ? str.toLowerCase()
         : str[0].toLowerCase() + str.slice(1)
@@ -123,7 +121,6 @@ class TextManager {
       letter ? letter.toUpperCase() : ''
     )
 
-    // eslint-disable-next-line
     return str[0].toLowerCase() + str.substring(1)
   }
 
@@ -141,13 +138,13 @@ class TextManager {
     }
 
     const matches = str.match(
-      /[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g
+      /[A-Z]{2,}(?=[A-Z][a-z]+\d*|\b)|[A-Z]?[a-z]+\d*|[A-Z]|\d+/g
     )
     if (!matches) {
       return str
     }
 
-    return matches.map((x) => x.toLowerCase()).join('-')
+    return matches.map(x => x.toLowerCase()).join('-')
   }
 
   capitalize(str: string): string {
@@ -155,7 +152,6 @@ class TextManager {
       return str
     }
 
-    // eslint-disable-next-line
     return str[0].toUpperCase() + str.substring(1)
   }
 
@@ -165,9 +161,8 @@ class TextManager {
     decPoint: string = '.',
     thousandsSep: string = ','
   ): string {
-    // eslint-disable-next-line
     const n = !Number.isFinite(number) ? 0 : number
-    // eslint-disable-next-line
+
     const fractionDigits = !Number.isFinite(decimals) ? 0 : Math.abs(decimals)
 
     const toFixedFix = (n: number, fractionDigits: number): number => {
@@ -198,7 +193,7 @@ class TextManager {
    * @param {string} dateString
    * @param {string} template
    * @param opts
-   * @returns {DateTime}
+   * @returns {DateTime} Convert string to DateTime from ISO 8601 or self template
    *
    * @link https://moment.github.io/luxon/#/parsing?id=parsing-technical-formats
    */
@@ -222,28 +217,26 @@ class TextManager {
   buildQueryString(params: any): string {
     let result = ''
     for (const key in params) {
-      if (!params.hasOwnProperty(key)) {
+      if (!Object.prototype.hasOwnProperty.call(params, key)) {
         continue
       }
 
       const value = params[key]
       if (Type.isArray(value)) {
-        // eslint-disable-next-line
         value.forEach((valueElement: any, index: any) => {
-          result +=
-            encodeURIComponent(key + '[' + index + ']') +
-            '=' +
-            encodeURIComponent(valueElement) +
-            '&'
+          result
+            += encodeURIComponent(key + '[' + index + ']')
+              + '='
+              + encodeURIComponent(valueElement)
+              + '&'
         })
       } else {
-        result +=
-          encodeURIComponent(key) + '=' + encodeURIComponent(value) + '&'
+        result
+          += encodeURIComponent(key) + '=' + encodeURIComponent(value) + '&'
       }
     }
 
     if (result.length > 0) {
-      // eslint-disable-next-line
       result = result.substring(0, result.length - 1)
     }
 

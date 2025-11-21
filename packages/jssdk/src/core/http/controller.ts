@@ -10,7 +10,7 @@ import type { AjaxQuery, AjaxResultParams } from './ajax-result'
 import type {
   AuthActions,
   AuthData,
-  TypeDescriptionError,
+  TypeDescriptionError
 } from '../../types/auth'
 import type { BatchPayload } from '../../types/payloads'
 
@@ -47,7 +47,6 @@ export default class Http implements TypeHttp {
     authActions: AuthActions,
     options?: null | object
   ) {
-
     const defaultHeaders = {
       // 'X-Sdk': '__SDK_USER_AGENT__-v-__SDK_VERSION__'
     }
@@ -56,9 +55,9 @@ export default class Http implements TypeHttp {
       baseURL: baseURL,
       headers: {
         ...defaultHeaders,
-        ...(options ? (options as any).headers : {}),
+        ...(options ? (options as any).headers : {})
       },
-      ...(options && { ...options, headers: undefined }),
+      ...(options && { ...options, headers: undefined })
     })
 
     this.#authActions = authActions
@@ -82,7 +81,7 @@ export default class Http implements TypeHttp {
         [LoggerType.info]: false,
         [LoggerType.warn]: false,
         [LoggerType.error]: true,
-        [LoggerType.trace]: false,
+        [LoggerType.trace]: false
       })
     }
 
@@ -99,7 +98,7 @@ export default class Http implements TypeHttp {
         [LoggerType.info]: true,
         [LoggerType.warn]: true,
         [LoggerType.error]: true,
-        [LoggerType.trace]: false,
+        [LoggerType.trace]: false
       })
     }
 
@@ -166,9 +165,7 @@ export default class Http implements TypeHttp {
       if (row.method) {
         method = row.method ?? null
         params = row?.params ?? null
-      }
-      else if (Array.isArray(row) && row.length > 0)
-      {
+      } else if (Array.isArray(row) && row.length > 0) {
         method = row[0] ?? null
         params = row[1] ?? null
       }
@@ -190,37 +187,35 @@ export default class Http implements TypeHttp {
 
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
-      cmd: cmd,
+      cmd: cmd
     }).then((response: AjaxResult) => {
-      const responseResult = (response.getData() as BatchPayload<unknown>)
-        .result
+      const responseResult = (response.getData() as BatchPayload<unknown>).result
       const results: Record<string | number, AjaxResult> = {}
 
       const processResponse = (row: string, index: string | number) => {
         if (
-          // @ts-ignore
-          typeof responseResult.result[index] !== 'undefined' ||
-          // @ts-ignore
-          typeof responseResult.result_error[index] !== 'undefined'
+          // @ts-expect-error this code work success
+          typeof responseResult.result[index] !== 'undefined'
+          // @ts-expect-error this code work success
+          || typeof responseResult.result_error[index] !== 'undefined'
         ) {
           const q = row.split('?')
 
           results[index] = new AjaxResult({
             answer: {
-              // @ts-ignore
+              // @ts-expect-error this code work success
               result: Type.isUndefined(responseResult.result[index])
-                ? // @ts-ignore
-                {}
-                : // @ts-ignore
-                responseResult.result[index],
-              // @ts-ignore
+                ? {}
+                // @ts-expect-error this code work success
+                : responseResult.result[index],
+              // @ts-expect-error this code work success
               error: responseResult?.result_error[index] || undefined,
-              // @ts-ignore
+              // @ts-expect-error this code work success
               total: responseResult.result_total[index],
-              // @ts-ignore
+              // @ts-expect-error this code work success
               next: responseResult.result_next[index],
               // @todo test this ////
-              // @ts-ignore
+              // @ts-expect-error this code work success
               time: responseResult.result_time[index]
             },
             query: {
@@ -296,9 +291,7 @@ export default class Http implements TypeHttp {
       if (row.method) {
         method = row.method ?? null
         params = row?.params ?? null
-      }
-      else if (Array.isArray(row) && row.length > 0)
-      {
+      } else if (Array.isArray(row) && row.length > 0) {
         method = row[0] ?? null
         params = row[1] ?? null
       }
@@ -321,43 +314,41 @@ export default class Http implements TypeHttp {
 
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
-      cmd: cmd,
+      cmd: cmd
     }).then((response: AjaxResult) => {
-      const responseResult = (response.getData() as BatchPayload<unknown>)
-        .result
+      const responseResult = (response.getData() as BatchPayload<unknown>).result
       const results: AjaxResult[] = []
 
       const processResponse = (row: string, index: string | number) => {
         if (
-          // @ts-ignore
-          typeof responseResult.result[index] !== 'undefined' ||
-          // @ts-ignore
-          typeof responseResult.result_error[index] !== 'undefined'
+          // @ts-expect-error this code work success
+          typeof responseResult.result[index] !== 'undefined'
+          // @ts-expect-error this code work success
+          || typeof responseResult.result_error[index] !== 'undefined'
         ) {
           const q = row.split('?')
 
           const data = new AjaxResult({
             answer: {
-              // @ts-ignore
+              // @ts-expect-error this code work success
               result: Type.isUndefined(responseResult.result[index])
-                ? // @ts-ignore
-                {}
-                : // @ts-ignore
-                responseResult.result[index],
-              // @ts-ignore
+                ? {}
+                // @ts-expect-error this code work success
+                : responseResult.result[index],
+              // @ts-expect-error this code work success
               error: responseResult?.result_error[index] || undefined,
-              // @ts-ignore
+              // @ts-expect-error this code work success
               total: responseResult.result_total[index],
-              // @ts-ignore
+              // @ts-expect-error this code work success
               next: responseResult.result_next[index],
               // @todo test this ////
-              // @ts-ignore
+              // @ts-expect-error this code work success
               time: responseResult.result_time[index]
             },
             query: {
               method: q[0] || '',
-                params: qs.parse(q[1] || ''),
-              start: 0,
+              params: qs.parse(q[1] || ''),
+              start: 0
             } as AjaxQuery,
             status: response.getStatus()
           })
@@ -453,20 +444,20 @@ export default class Http implements TypeHttp {
           const payload = response.data as AjaxResultParams
           return Promise.resolve({
             status: response.status,
-            payload: payload,
+            payload: payload
           } as AjaxResponse)
         },
         async (error_: AxiosError) => {
           let answerError = {
             error: error_?.code || 0,
-            errorDescription: error_?.message || '',
+            errorDescription: error_?.message || ''
           }
 
           if (
-            error_ instanceof AxiosError &&
-            error_.response &&
-            error_.response.data &&
-            !Type.isUndefined((error_.response.data as TypeDescriptionError).error)
+            error_ instanceof AxiosError
+            && error_.response
+            && error_.response.data
+            && !Type.isUndefined((error_.response.data as TypeDescriptionError).error)
           ) {
             const response = error_.response.data as {
               error: string
@@ -475,7 +466,7 @@ export default class Http implements TypeHttp {
 
             answerError = {
               error: response.error,
-              errorDescription: response.error_description,
+              errorDescription: response.error_description
             }
           }
 
@@ -485,22 +476,22 @@ export default class Http implements TypeHttp {
             status: error_.response?.status || 0,
             requestInfo: {
               method: method,
-              params: params,
+              params: params
             },
-            originalError: error_,
+            originalError: error_
           })
 
           /**
            * Is response status === 401 -> refresh Auth?
            */
           if (
-            problemError.status === 401 &&
-            ['expired_token', 'invalid_token'].includes(
+            problemError.status === 401
+            && ['expired_token', 'invalid_token'].includes(
               problemError.answerError.error
             )
           ) {
             this.getLogger().info(
-              `refreshAuth >> ${ problemError.answerError.error } >>>`
+              `refreshAuth >> ${problemError.answerError.error} >>>`
             )
 
             authData = await this.#authActions.refreshAuth()
@@ -519,19 +510,19 @@ export default class Http implements TypeHttp {
                   const payload = response.data as AjaxResultParams
                   return Promise.resolve({
                     status: response.status,
-                    payload: payload,
+                    payload: payload
                   } as AjaxResponse)
                 },
                 async (error__: AxiosError) => {
                   let answerError = {
                     error: error__?.code || 0,
-                    errorDescription: error__?.message || '',
+                    errorDescription: error__?.message || ''
                   }
 
                   if (
-                    error__ instanceof AxiosError &&
-                    error__.response &&
-                    error__.response.data
+                    error__ instanceof AxiosError
+                    && error__.response
+                    && error__.response.data
                   ) {
                     const response = error__.response.data as {
                       error: string
@@ -540,7 +531,7 @@ export default class Http implements TypeHttp {
 
                     answerError = {
                       error: response.error,
-                      errorDescription: response.error_description,
+                      errorDescription: response.error_description
                     }
                   }
 
@@ -550,9 +541,9 @@ export default class Http implements TypeHttp {
                     status: error_.response?.status || 0,
                     requestInfo: {
                       method: method,
-                      params: params,
+                      params: params
                     },
-                    originalError: error__,
+                    originalError: error__
                   })
 
                   return Promise.reject(problemError)
@@ -569,7 +560,7 @@ export default class Http implements TypeHttp {
           query: {
             method,
             params,
-            start,
+            start
           } as AjaxQuery,
           status: response.status
         })
@@ -625,14 +616,14 @@ export default class Http implements TypeHttp {
    * @private
    */
   #prepareMethod(method: string): string {
-    const baseUrl = `${ encodeURIComponent(method) }.json`
+    const baseUrl = `${encodeURIComponent(method)}.json`
 
     /**
      * @memo For task methods, skip telemetry
      * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
      */
     if (method.includes('task.')) {
-      return `${baseUrl}`;
+      return `${baseUrl}`
     }
 
     const queryParams = new URLSearchParams({
@@ -640,7 +631,7 @@ export default class Http implements TypeHttp {
       [this.#requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
       [this.#requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
     })
-    return `${baseUrl}?${queryParams.toString()}`;
+    return `${baseUrl}?${queryParams.toString()}`
   }
 
   /**

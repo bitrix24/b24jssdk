@@ -54,8 +54,6 @@
     "dev:prepare": "pnpm run build",
     "prepack": "pnpm run build",
     "build": "unbuild",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "test": "tsx ./test/esm/uuid.test.ts && tsx ./test/esm/type.test.ts"
   },
@@ -68,9 +66,7 @@
     "@types/luxon": "^3.7.1",
     "@types/node": "^24.10.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
-    "eslint-config-unjs": "^0.5.0",
     "tsx": "^4.20.6"
   }
 }

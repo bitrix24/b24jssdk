@@ -1,5 +1,6 @@
-import { AppFrame } from './frame'
-import { MessageManager, MessageCommands } from './message'
+import type { AppFrame } from './frame'
+import type { MessageManager } from './message'
+import { MessageCommands } from './message'
 import type { StatusClose } from '../types/slider'
 
 /**
@@ -49,7 +50,7 @@ export class SliderManager {
       /**
        * @memo There is no point - everything will be closed, and timeout will not be able to do anything
        */
-      isSafely: false,
+      isSafely: false
     })
   }
 
@@ -102,8 +103,8 @@ export class SliderManager {
         path: [
           this.#getBaseUrlByWidth(width),
           openSliderUrl.pathname,
-          openSliderUrl.search,
-        ].join(''),
+          openSliderUrl.search
+        ].join('')
       })
       .then((response) => {
         /**
@@ -132,13 +133,13 @@ export class SliderManager {
                   clearInterval(waitCloseWindow)
                   resolve({
                     isOpenAtNewWindow: true,
-                    isClose: true,
+                    isClose: true
                   })
                 } else if (iterator > iteratorMax) {
                   clearInterval(waitCloseWindow)
                   resolve({
                     isOpenAtNewWindow: true,
-                    isClose: false,
+                    isClose: false
                   })
                 }
               }, 1_000)
@@ -155,13 +156,13 @@ export class SliderManager {
            */
           return Promise.resolve({
             isOpenAtNewWindow: false,
-            isClose: true,
+            isClose: true
           })
         }
 
         return Promise.resolve({
           isOpenAtNewWindow: false,
-          isClose: false,
+          isClose: false
         })
       })
   }
@@ -174,7 +175,7 @@ export class SliderManager {
     console.warn(`@deprecated showAppForm`)
     return this.#messageManager.send(MessageCommands.showAppForm, {
       params: params,
-      isSafely: true,
+      isSafely: true
     })
   }
 }

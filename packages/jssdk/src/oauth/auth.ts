@@ -59,13 +59,13 @@ export class AuthOAuthManager implements AuthActions {
   getAuthData(): false | AuthData {
     return this.#authExpires > Date.now()
       ? ({
-        access_token: this.#authOptions.accessToken,
-        refresh_token: this.#authOptions.refreshToken,
-        expires: this.#authExpires / 1_000,
-        expires_in: this.#authExpiresIn,
-        domain: this.#domain,
-        member_id: this.#authOptions.memberId
-      } as AuthData)
+          access_token: this.#authOptions.accessToken,
+          refresh_token: this.#authOptions.refreshToken,
+          expires: this.#authExpires / 1_000,
+          expires_in: this.#authExpiresIn,
+          domain: this.#domain,
+          member_id: this.#authOptions.memberId
+        } as AuthData)
       : false
   }
 
@@ -75,7 +75,6 @@ export class AuthOAuthManager implements AuthActions {
    */
   async refreshAuth(): Promise<AuthData> {
     try {
-
       let payload: undefined | HandlerRefreshAuth = undefined
 
       if (this.#customRefreshAuth) {
@@ -117,7 +116,7 @@ export class AuthOAuthManager implements AuthActions {
       this.#authOptions.clientEndpoint = payload.client_endpoint
       this.#authOptions.serverEndpoint = payload.server_endpoint
       this.#authOptions.scope = payload.scope
-      this.#authOptions.status = Object.values(EnumAppStatus).find((value) => value === payload.status) || EnumAppStatus.Free
+      this.#authOptions.status = Object.values(EnumAppStatus).find(value => value === payload.status) || EnumAppStatus.Free
 
       this.#authExpires = this.#authOptions.expires * 1_000
 
@@ -132,13 +131,13 @@ export class AuthOAuthManager implements AuthActions {
       if (error instanceof AxiosError) {
         let answerError = {
           error: error?.code || 0,
-          errorDescription: error?.message || '',
+          errorDescription: error?.message || ''
         }
 
         if (
-          error.response &&
-          error.response.data &&
-          !Type.isUndefined((error.response.data as TypeDescriptionError).error)
+          error.response
+          && error.response.data
+          && !Type.isUndefined((error.response.data as TypeDescriptionError).error)
         ) {
           const response = error.response.data as {
             error: string
@@ -147,7 +146,7 @@ export class AuthOAuthManager implements AuthActions {
 
           answerError = {
             error: response.error,
-            errorDescription: response.error_description,
+            errorDescription: response.error_description
           }
         }
 
@@ -159,12 +158,12 @@ export class AuthOAuthManager implements AuthActions {
             method: '/oauth/token/'
           }
         })
-      } else if(error instanceof Error) {
+      } else if (error instanceof Error) {
         throw error
       }
 
       throw new Error(
-        `Strange error: ${ error instanceof Error ? error.message : error }`,
+        `Strange error: ${error instanceof Error ? error.message : error}`,
         { cause: error }
       )
     }
@@ -195,14 +194,14 @@ export class AuthOAuthManager implements AuthActions {
    * Get the account address BX24 ( https://name.bitrix24.com )
    */
   getTargetOrigin(): string {
-    return `${ this.#b24Target }`
+    return `${this.#b24Target}`
   }
 
   /**
    * Get the account address BX24 with Path ( https://name.bitrix24.com/rest )
    */
   getTargetOriginWithPath(): string {
-    return `${ this.#b24TargetRest }`
+    return `${this.#b24TargetRest}`
   }
 
   /**
@@ -210,7 +209,6 @@ export class AuthOAuthManager implements AuthActions {
    */
   get isAdmin(): boolean {
     if (null === this.#isAdmin) {
-
       throw new Error('isAdmin not init. You need call B24OAuth::initIsAdmin().')
     }
 

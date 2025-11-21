@@ -84,7 +84,7 @@ function getToolMessage(state: State, toolName: string, input: any) {
   return ({
     // b24/restApi
     'bitrix-search': `${searchVerb} b24/restApi${input.query ? ` for "${input.query}"` : ''}`,
-    'bitrix-method-details': `${readVerb} b24/restApi ${input.method ? ` about the "${input.method}"`: ''} method`,
+    'bitrix-method-details': `${readVerb} b24/restApi ${input.method ? ` about the "${input.method}"` : ''} method`,
     'bitrix-article-details': `${readVerb} b24/restApi ${input.title_or_hint || ''} article`,
     'bitrix-event-details': `${readVerb} b24/restApi ${input.title_or_hint || ''} event`,
     // b24/jsSdk

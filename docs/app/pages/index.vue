@@ -1,28 +1,16 @@
 <script setup lang="ts">
 // import { joinURL } from 'ufo'
-import type { DefineComponent } from 'vue'
-import { navigateTo, useColorMode } from '#imports'
-import { Chat } from '@ai-sdk/vue'
-import type { UIMessage, UIToolInvocation } from 'ai'
-import { DefaultChatTransport } from 'ai'
-import AlertIcon from '@bitrix24/b24icons-vue/outline/AlertIcon'
-import RobotIcon from '@bitrix24/b24icons-vue/outline/RobotIcon'
+import { useColorMode } from '#imports'
 import EncloseTextInCodeTagIcon from '@bitrix24/b24icons-vue/editor/EncloseTextInCodeTagIcon'
 import InfoCircleIcon from '@bitrix24/b24icons-vue/outline/InfoCircleIcon'
 import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
-import { splitByCase, upperFirst } from 'scule'
-import { useMemoize } from '@vueuse/core'
-import ProseStreamPre from '../components/prose/PreStream.vue'
-import UserIcon from '@bitrix24/b24icons-vue/common-b24/UserIcon'
-import Maximize2Icon from '@bitrix24/b24icons-vue/outline/Maximize2Icon'
-import Minimize2Icon from '@bitrix24/b24icons-vue/outline/Minimize2Icon'
 
 const { data: page } = await useAsyncData('index', () => queryCollection('index').first())
 if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
 }
 
-const config = useRuntimeConfig()
+// const config = useRuntimeConfig()
 
 useSeoMeta({
   titleTemplate: '%s',

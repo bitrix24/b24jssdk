@@ -1,4 +1,4 @@
-import { LoggerBrowser } from '../logger/browser'
+import type { LoggerBrowser } from '../logger/browser'
 import { AbstractB24 } from '../core/abstract-b24'
 import type { TypeB24 } from '../types/b24'
 import Http from '../core/http/controller'
@@ -91,7 +91,7 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
 
     const pathParts = parsedUrl.pathname.split('/').filter(Boolean)
     if (pathParts.length < 3 || pathParts[0] !== 'rest') {
-      throw new Error('Webhook URL must follow format: /rest/<userId>/<secret>');
+      throw new Error('Webhook URL must follow format: /rest/<userId>/<secret>')
     }
 
     const userIdStr = pathParts[1]
@@ -105,7 +105,7 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     return new B24Hook({
       b24Url: parsedUrl.origin,
       userId,
-      secret,
+      secret
     })
   }
   // endregion ////

@@ -1,4 +1,5 @@
-import { MessageManager, MessageCommands } from './message'
+import type { MessageManager } from './message'
+import { MessageCommands } from './message'
 import type { MessageInitData } from '../types/auth'
 import Type from '../tools/type'
 

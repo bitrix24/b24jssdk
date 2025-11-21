@@ -1,7 +1,7 @@
-import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import {convertToModelMessages, stepCountIs, streamText} from 'ai'
-import {experimental_createMCPClient} from '@ai-sdk/mcp'
-import {createDeepSeek} from '@ai-sdk/deepseek'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { convertToModelMessages, stepCountIs, streamText } from 'ai'
+import { experimental_createMCPClient } from '@ai-sdk/mcp'
+import { createDeepSeek } from '@ai-sdk/deepseek'
 
 async function initMcpToolsForUI() {
   const httpTransport = new StreamableHTTPClientTransport(
@@ -39,9 +39,9 @@ export default defineEventHandler(async (event) => {
     transport: httpTransport
   })
   const tools = {
-    ... await httpClient.tools(),
-    ... await initMcpToolsForB24RestApi(),
-    ... await initMcpToolsForUI()
+    ...await httpClient.tools(),
+    ...await initMcpToolsForB24RestApi(),
+    ...await initMcpToolsForUI()
   }
 
   const deepseek = createDeepSeek({

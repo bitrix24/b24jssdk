@@ -129,7 +129,7 @@ export default defineNuxtConfig({
   routeRules: {
     // v4 redirects - default root pages
     '/docs': { redirect: '/docs/getting-started/', prerender: false },
-    '/docs/getting-started/installation': { redirect: '/docs/getting-started/installation/nuxt/', prerender: false },
+    '/docs/getting-started/installation': { redirect: '/docs/getting-started/installation/nuxt/', prerender: false }
   },
 
   compatibilityDate: '2024-07-09',

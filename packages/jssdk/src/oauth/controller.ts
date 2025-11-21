@@ -4,7 +4,7 @@
  *
  * @link https://apidocs.bitrix24.com/api-reference/oauth/index.html
  */
-import { LoggerBrowser } from '../logger/browser'
+import type { LoggerBrowser } from '../logger/browser'
 import { AbstractB24 } from '../core/abstract-b24'
 import type { TypeB24 } from '../types/b24'
 import Http from '../core/http/controller'
@@ -87,8 +87,7 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
   /**
    * Disables warning about client-side query execution
    */
-  public offClientSideWarning(): void
-  {
+  public offClientSideWarning(): void {
     this.getHttpClient().setClientSideWarning(false, '')
   }
   // endregion ////

@@ -1,5 +1,5 @@
 import { defineBuildConfig, type BuildConfig, type BuildContext } from 'unbuild'
-import { type ModuleFormat } from 'rollup'
+import type { ModuleFormat } from 'rollup'
 import packageInfo from './package.json'
 
 const SDK_VERSION = packageInfo.version
@@ -10,14 +10,14 @@ export default defineBuildConfig(
   [
     'esm',
     'umd',
-    'umd-min',
-  ].map((formatTypeParam) => initConfig(formatTypeParam))
+    'umd-min'
+  ].map(formatTypeParam => initConfig(formatTypeParam))
 )
 
 function initConfig(formatTypeParam: string): BuildConfig {
   const formatType = formatTypeParam.replace('-min', '') as ModuleFormat
   const isMinify = formatTypeParam.includes('-min')
-  const outDir = `dist/${ formatType }`
+  const outDir = `dist/${formatType}`
   let declaration = true
   let sourcemap = true
 
@@ -37,8 +37,8 @@ function initConfig(formatTypeParam: string): BuildConfig {
 
   const replaceValues = {
     values: {
-      '__SDK_VERSION__': SDK_VERSION,
-      '__SDK_USER_AGENT__': SDK_USER_AGENT,
+      __SDK_VERSION__: SDK_VERSION,
+      __SDK_USER_AGENT__: SDK_USER_AGENT
     }
   }
 
@@ -55,7 +55,7 @@ function initConfig(formatTypeParam: string): BuildConfig {
         extend: true,
         esModule: true,
         preserveModules: false,
-        inlineDynamicImports: false,
+        inlineDynamicImports: false
       }
       break
     case 'umd':
@@ -73,7 +73,7 @@ function initConfig(formatTypeParam: string): BuildConfig {
         compact: false,
         esModule: false,
         preserveModules: false,
-        inlineDynamicImports: true,
+        inlineDynamicImports: true
       }
 
       rollupExt.resolve = {
@@ -95,11 +95,11 @@ function initConfig(formatTypeParam: string): BuildConfig {
       break
   }
 
-  const entryFileNames = `index${ isMinify ? '.min' : '' }.${ fileExtension }`
+  const entryFileNames = `index${isMinify ? '.min' : ''}.${fileExtension}`
 
   return {
     failOnWarn: false,
-    name: `@bitrix24/b24jssdk-${ formatType }`,
+    name: `@bitrix24/b24jssdk-${formatType}`,
     entries: [
       entry
     ],
@@ -109,7 +109,7 @@ function initConfig(formatTypeParam: string): BuildConfig {
     rollup: {
       esbuild: {
         minify: isMinify,
-        target: 'esnext',
+        target: 'esnext'
       },
       emitCJS,
       cjsBridge,
@@ -132,8 +132,8 @@ function initConfig(formatTypeParam: string): BuildConfig {
 
 function getBanner(): string {
   return `/**
- * @version @bitrix24/b24jssdk v${ SDK_VERSION }
- * @copyright (c) ${ COPYRIGHT_DATE } Bitrix24
+ * @version @bitrix24/b24jssdk v${SDK_VERSION}
+ * @copyright (c) ${COPYRIGHT_DATE} Bitrix24
  * @licence MIT
  * @links https://github.com/bitrix24/b24jssdk - GitHub
  * @links https://bitrix24.github.io/b24jssdk/ - Documentation
@@ -141,9 +141,9 @@ function getBanner(): string {
 }
 
 function getIntro(): string {
-  return ``;
+  return ``
 }
 
 function getOutro(): string {
-  return ``;
+  return ``
 }

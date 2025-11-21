@@ -41,20 +41,6 @@ useSeoMeta({
   ogDescription: description
 })
 
-// if (route.path.startsWith('/docs/components/')) {
-//   defineOgImageComponent('OgImageComponent', {
-//     title: page.value.title,
-//     description: page.value.description,
-//     component: (route.params.slug as string[]).pop() as string
-//   })
-// } else {
-//   defineOgImageComponent('Docs', {
-//     title: page.value.title,
-//     description: page.value.description,
-//     headline: breadcrumb.value?.[breadcrumb.value.length - 1]?.label || 'Bitrix24 UI',
-//   })
-// }
-
 const communityLinks = computed(() => [
   {
     icon: DesignIcon,
@@ -135,7 +121,7 @@ const iconFromIconName = (iconName?: string) => {
         </PageHeader>
       </template>
     </template>
-    <template #right>
+    <template v-if="page?.body?.toc?.links?.length" #right>
       <B24Card
         variant="outline-alt"
         class="lg:mt-[22px] lg:sticky lg:top-[8px] rounded-none lg:rounded-(--ui-border-radius-md) backdrop-blur-md border-0"

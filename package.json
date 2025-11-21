@@ -36,6 +36,7 @@
     "playground-nuxt:build": "nuxt build playgrounds/nuxt",
     "playground-nuxt:generate": "nuxt generate playgrounds/nuxt",
     "playground-nuxt:preview": "nuxt preview playgrounds/nuxt",
+    "playground-nuxt:typecheck": "nuxt typecheck playgrounds/nuxt",
     "docs:dev": "nuxt dev docs",
     "docs:prepare": "nuxt prepare docs",
     "docs:build": "nuxt build docs",

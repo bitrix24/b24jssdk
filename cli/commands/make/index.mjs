@@ -1,5 +1,6 @@
 import { defineCommand } from 'citty'
 import contacts from './contacts.mjs'
+import companies from './companies.mjs'
 
 export default defineCommand({
   meta: {
@@ -7,6 +8,7 @@ export default defineCommand({
     description: 'Commands to create new Bitrix24 entities.'
   },
   subCommands: {
-    contacts
+    contacts,
+    companies
   }
 })

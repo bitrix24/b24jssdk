@@ -19,7 +19,8 @@ const pages = [
   // endregion ////
   // region B24Frame ////
   '/docs/frame/',
-  '/docs/entity-list/', // @memo we remove this
+  '/docs/frame/entity-list/', // @memo we remove this
+  '/docs/frame/app-page-install-wizard/', // @memo we remove this
   // region B24OAuth ////
   // endregion ////
   '/docs/oauth/',

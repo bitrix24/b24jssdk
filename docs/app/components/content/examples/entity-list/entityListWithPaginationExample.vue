@@ -7,10 +7,7 @@ const propsWithB24 = inject<{ logger: LoggerBrowser, b24: TypeB24 }>('propsWithB
 const $b24: TypeB24 | undefined = propsWithB24?.b24
 const $logger: LoggerBrowser | undefined = propsWithB24?.logger
 
-if (
-  typeof $b24 !== 'object'
-  || typeof $logger !== 'object'
-) {
+if (typeof $b24 !== 'object' || typeof $logger !== 'object') {
   showError({
     statusCode: 404,
     statusMessage: 'B24 not init',

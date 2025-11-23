@@ -20,12 +20,12 @@ const pages = [
   // region B24Frame ////
   '/docs/frame/',
   '/docs/frame/entity-list/', // @memo we remove this
-  '/docs/frame/app-page-install-wizard/', // @memo we remove this
+  '/docs/frame/app-page-installation-wizard/', // @memo we remove this
+  // endregion ////
   // region B24OAuth ////
-  // endregion ////
   '/docs/oauth/',
-  // region B24Hook ////
   // endregion ////
+  // region B24Hook ////
   '/docs/hook/'
   // endregion ////
 ]

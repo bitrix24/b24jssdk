@@ -77,3 +77,7 @@ defineShortcuts({
     </div>
   </B24App>
 </template>
+
+<style>
+/* Safelist (do not remove): !p-0 !justify-start !justify-end max-h-[400px] */
+</style>

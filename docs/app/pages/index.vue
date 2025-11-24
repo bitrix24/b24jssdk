@@ -3,6 +3,7 @@
 import { useColorMode } from '#imports'
 import EncloseTextInCodeTagIcon from '@bitrix24/b24icons-vue/editor/EncloseTextInCodeTagIcon'
 import InfoCircleIcon from '@bitrix24/b24icons-vue/outline/InfoCircleIcon'
+import PlayLIcon from '@bitrix24/b24icons-vue/outline/PlayLIcon'
 import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
 
 const { data: page } = await useAsyncData('index', () => queryCollection('index').first())
@@ -29,6 +30,7 @@ const iconFromIconName = (iconName?: string) => {
   switch (iconName) {
     case 'EncloseTextInCodeTagIcon': return EncloseTextInCodeTagIcon
     case 'InfoCircleIcon': return InfoCircleIcon
+    case 'PlayLIcon': return PlayLIcon
     case 'DemonstrationOnIcon': return DemonstrationOnIcon
   }
 

@@ -11,7 +11,7 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "@bitrix24/b24ui-nuxt": "^2.1.6",
+    "@bitrix24/b24ui-nuxt": "^2.1.7",
     "@bitrix24/b24jssdk-nuxt": "workspace:*",
     "@ai-sdk/deepseek": "^1.0.28",
     "@ai-sdk/mcp": "^0.0.8",

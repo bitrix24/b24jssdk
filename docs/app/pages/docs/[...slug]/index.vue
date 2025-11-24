@@ -129,7 +129,6 @@ const iconFromIconName = (iconName?: string) => {
         :b24ui="{ body: 'px-[22px] py-0 sm:ps-[22px] lg:ps-[10px] lg:pe-[4px] sm:py-0 pt-[12px] sm:pt-[12px] lg:py-[15px]' }"
       >
         <B24ContentToc
-          v-if="page?.body?.toc?.links?.length"
           :links="page.body.toc.links"
           class="p-0 lg:overflow-y-auto scrollbar-thin scrollbar-transparent lg:h-[calc(100vh-var(--topbar-height)-22px-22px)]"
         />

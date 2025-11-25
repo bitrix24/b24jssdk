@@ -8,6 +8,12 @@ import components from '#component-example/nitro'
 import { CalendarDate, Time } from '@internationalized/date'
 import RocketIcon from '@bitrix24/b24icons-vue/main/RocketIcon'
 
+/**
+ * @see docs/server/utils/transformMDC.ts
+ * @see docs/server/plugins/llms.ts
+ * @see docs/server/routes/raw/[...slug].md.get.ts
+ */
+
 type ComponentAttributes = {
   ':prose'?: string
   ':props'?: string
@@ -39,11 +45,23 @@ type Document = {
   body: any
 }
 
+type BlockConfig = {
+  defaultTitle: string
+}
+
 const parseBoolean = (value?: string): boolean => value === 'true'
 
-const b24Docs = {
+const B24_DOCS = {
   ui: 'https://bitrix24.github.io/b24ui/',
   jsSdk: 'https://bitrix24.github.io/b24jssdk/'
+}
+
+const BLOCK_CONFIGS: Record<string, BlockConfig> = {
+  callout: { defaultTitle: '!NOTE' },
+  note: { defaultTitle: '!NOTE' },
+  tip: { defaultTitle: '!TIP' },
+  warning: { defaultTitle: '!WARNING' },
+  caution: { defaultTitle: '!CAUTION' }
 }
 
 function getComponentMeta(componentName: string) {
@@ -584,14 +602,14 @@ function prepareHref(
     return anchor ? `${base}raw/${processedPath}#${anchor}` : `${base}raw/${processedPath}`
   }
 
-  if (href.startsWith(b24Docs.ui) && href.includes('/docs/')) {
-    const path = href.replace(b24Docs.ui, '')
-    return processUrlWithAnchor(path, b24Docs.ui)
+  if (href.startsWith(B24_DOCS.ui) && href.includes('/docs/')) {
+    const path = href.replace(B24_DOCS.ui, '')
+    return processUrlWithAnchor(path, B24_DOCS.ui)
   }
 
-  if (href.startsWith(b24Docs.jsSdk) && href.includes('/docs/')) {
-    const path = href.replace(b24Docs.jsSdk, '')
-    return processUrlWithAnchor(path, b24Docs.jsSdk)
+  if (href.startsWith(B24_DOCS.jsSdk) && href.includes('/docs/')) {
+    const path = href.replace(B24_DOCS.jsSdk, '')
+    return processUrlWithAnchor(path, B24_DOCS.jsSdk)
   }
 
   if (href.startsWith('/docs/') && !href.startsWith('http')) {
@@ -608,6 +626,41 @@ function prepareHref(
   }
 
   return href
+}
+
+function processBlockNode(node: any[], config: BlockConfig, baseUrl: string) {
+  const prevNode = [...node]
+
+  node[0] = 'blockquote'
+  node[1] = {}
+
+  const customTitle = prevNode[1]?.title || prevNode[1]?.ariaLabel
+
+  let title: [string, any, any]
+  if (typeof prevNode[1].to !== 'undefined') {
+    title = [
+      'a',
+      { href: prepareHref(prevNode[1].to, baseUrl) },
+      `${customTitle || config.defaultTitle}`
+    ]
+  } else {
+    title = [
+      'p',
+      {},
+      `${customTitle || config.defaultTitle}`
+    ]
+  }
+
+  const description = Array.isArray(prevNode[2]) ? prevNode[2] : []
+  if (description) {
+    description[2] = `%br>%${description[2]}`
+  }
+  node[2] = [
+    'p',
+    {},
+    title,
+    description
+  ]
 }
 
 export async function transformMDC(event: H3Event, doc: Document): Promise<Document> {
@@ -739,59 +792,8 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
     }
   })
 
-  visitAndReplace(doc, 'callout', (node) => {
-    node[0] = 'blockquote'
-    node[1] = {}
-    node[2] = [
-      'p',
-      {},
-      '[!NOTE]\n',
-      [...node[2]]
-    ]
-  })
-
-  visitAndReplace(doc, 'note', (node) => {
-    node[0] = 'blockquote'
-    node[1] = {}
-    node[2] = [
-      'p',
-      {},
-      '[!NOTE]\n',
-      [...node[2]]
-    ]
-  })
-
-  visitAndReplace(doc, 'tip', (node) => {
-    node[0] = 'blockquote'
-    node[1] = {}
-    node[2] = [
-      'p',
-      {},
-      '[!TIP]\n',
-      [...node[2]]
-    ]
-  })
-
-  visitAndReplace(doc, 'warning', (node) => {
-    node[0] = 'blockquote'
-    node[1] = {}
-    node[2] = [
-      'p',
-      {},
-      '[!WARNING]\n',
-      [...node[2]]
-    ]
-  })
-
-  visitAndReplace(doc, 'caution', (node) => {
-    node[0] = 'blockquote'
-    node[1] = {}
-    node[2] = [
-      'p',
-      {},
-      '[!CAUTION]\n',
-      [...node[2]]
-    ]
+  Object.entries(BLOCK_CONFIGS).forEach(([blockType, config]) => {
+    visitAndReplace(doc, blockType, (node: any[]) => processBlockNode(node, config, baseUrl))
   })
 
   visitAndReplace(doc, 'card', (node) => {
@@ -800,15 +802,33 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
     node[0] = 'blockquote'
     node[1] = {}
 
-    const title = typeof prevNode[1].to !== 'undefined'
-      ? `[${prevNode[1]?.title}](${prepareHref(prevNode[1].to, baseUrl)})\n`
-      : `**${prevNode[1]?.title}**\n`
+    const customTitle = prevNode[1]?.title || ''
+
+    let title: [string, any, any]
+    if (typeof prevNode[1].to !== 'undefined') {
+      title = [
+        'a',
+        { href: prepareHref(prevNode[1].to, baseUrl) },
+        `${customTitle}`
+      ]
+    } else {
+      title = [
+        'p',
+        {},
+        `${customTitle}`
+      ]
+    }
+
+    const description = Array.isArray(prevNode[2]) ? prevNode[2] : []
+    if (description) {
+      description[2] = `%br>%${description[2]}`
+    }
 
     node[2] = [
       'p',
       {},
       title,
-      [...node[2]]
+      description
     ]
   })
 
@@ -823,13 +843,24 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
     node[0] = 'p'
     node[1] = {}
 
-    const title = `*${prevNode[1]?.label}*\n`
+    const customTitle = prevNode[1]?.label || ''
+
+    const title = [
+      'strong',
+      {},
+      `${customTitle}`
+    ]
+
+    const description = Array.isArray(prevNode[2]) ? prevNode[2] : []
+    if (description) {
+      description[2] = `%br%${description[2]}%br%%br%`
+    }
 
     node[2] = [
       'p',
       {},
       title,
-      [...node[2]]
+      description
     ]
   })
 

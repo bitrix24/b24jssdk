@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TypeB24, Result } from '@bitrix24/b24jssdk'
 import type { TableColumn } from '@bitrix24/b24ui-nuxt'
-import { LoggerBrowser, AjaxError } from '@bitrix24/b24jssdk'
+import { LoggerBrowser, AjaxError, EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
 // Initialization
 const { b24: $b24, logger: $logger } = inject<{ logger: LoggerBrowser, b24?: TypeB24 }>('propsWithB24', {
@@ -78,10 +78,11 @@ async function loadContacts(): Promise<void> {
     const start = (currentPage.value - 1) * pageSize.value
 
     const response: Result = await $b24.callMethod(
-      'crm.contact.list',
+      'crm.item.list',
       {
-        select: ['ID', 'NAME', 'LAST_NAME', 'ASSIGNED_BY_ID'],
-        order: { ID: 'desc' }
+        entityTypeId: EnumCrmEntityTypeId.contact,
+        select: ['id', 'name', 'lastName', 'assignedById'],
+        order: { id: 'desc' }
       },
       start
     )
@@ -89,7 +90,7 @@ async function loadContacts(): Promise<void> {
     const data = response.getData()
 
     // Get user information to display responsible person names
-    const assignedByIds = [...new Set(data.result?.map((contact: any) => contact.ASSIGNED_BY_ID))].filter(Boolean)
+    const assignedByIds = [...new Set((data.result?.items || []).map((contact: any) => contact.assignedById))].filter(Boolean)
     const usersMap = new Map()
 
     if (assignedByIds.length > 0) {
@@ -105,12 +106,12 @@ async function loadContacts(): Promise<void> {
       })
     }
 
-    const dataList: ContactItem[] = (data?.result || []).map((item: any) => ({
-      id: Number(item.ID),
-      name: item.NAME,
-      lastName: item.LAST_NAME,
-      assignedById: Number(item.ASSIGNED_BY_ID),
-      assignedByName: usersMap.get(Number(item.ASSIGNED_BY_ID)) || `ID: ${item.ASSIGNED_BY_ID}`
+    const dataList: ContactItem[] = (data?.result?.items || []).map((item: any) => ({
+      id: Number(item.id),
+      name: item.name,
+      lastName: item.lastName,
+      assignedById: Number(item.assignedById),
+      assignedByName: usersMap.get(Number(item.assignedById)) || `ID: ${item.assignedById}`
     }))
 
     contacts.value = dataList
@@ -181,15 +182,16 @@ onMounted(async () => {
     :b24ui="{
       header: 'p-[12px] px-[14px] py-[14px] sm:px-[14px] sm:py-[14px]',
       body: 'p-0 sm:px-0 sm:py-0 h-[400px]',
-      footer: 'p-[12px] px-[14px] py-[14px] sm:px-[14px] sm:py-[14px] text-(length:--ui-font-size-xs) text-(--b24ui-typography-legend-color)'
+      footer: 'p-[12px] px-[14px] py-[14px] sm:px-[14px] sm:py-[14px])'
     }"
   >
     <template #header>
-      <div class="flex items-center justify-between">
-        <h2 class="text-(length:--ui-font-size-lg) font-(--ui-font-weight-medium)">
+      <div class="flex flex-wrap items-center justify-between">
+        <ProseH5 class="mb-0">
           Contacts List
-        </h2>
+        </ProseH5>
         <B24Button
+          size="sm"
           label="Refresh"
           color="air-secondary-accent-1"
           :disabled="isLoading"
@@ -236,10 +238,10 @@ onMounted(async () => {
 
     <!-- Pagination -->
     <template #footer>
-      <div class="flex items-center justify-between">
-        <div class="text-(length:--ui-font-size-sm)">
-          Showing {{ contacts.length }} of {{ totalContacts }} contacts
-        </div>
+      <div class="flex flex-wrap items-center justify-between gap-y-2">
+        <ProseP small accent="less" class="mb-0">
+          Total: {{ totalContacts }}
+        </ProseP>
         <B24Pagination
           v-model:page="currentPage"
           size="sm"

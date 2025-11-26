@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import type { TypeB24, LoggerBrowser, Result } from '@bitrix24/b24jssdk'
+import type { TypeB24, Result } from '@bitrix24/b24jssdk'
 import type { TableColumn } from '@bitrix24/b24ui-nuxt'
+import { LoggerBrowser, AjaxError } from '@bitrix24/b24jssdk'
 
 // Initialization
-const propsWithB24 = inject<{ logger: LoggerBrowser, b24: TypeB24 }>('propsWithB24')
-const $b24: TypeB24 | undefined = propsWithB24?.b24
-const $logger: LoggerBrowser | undefined = propsWithB24?.logger
+const { b24: $b24, logger: $logger } = inject<{ logger: LoggerBrowser, b24?: TypeB24 }>('propsWithB24', {
+  b24: undefined,
+  logger: LoggerBrowser.build(`JsSdk Docs`, true)
+})
 
-if (typeof $b24 !== 'object' || typeof $logger !== 'object') {
+if (typeof $b24 === 'undefined') {
   showError({
     statusCode: 404,
     statusMessage: 'B24 not init',
@@ -133,11 +135,41 @@ function handlePageChange(page: number): void {
 
 // Application initialization
 onMounted(async () => {
+  $logger.info('Hi from contact list')
+
   try {
+    if (!$b24) {
+      throw new Error('$b24 not initialized')
+    }
+
     // Load initial data
     await loadContacts()
   } catch (error) {
-    $logger?.error('Failed to initialize contacts app:', error)
+    $logger!.error(error)
+
+    const processErrorData = {}
+    let statusMessage = 'Error'
+    let message = ''
+    let statusCode = 404
+
+    if (error instanceof AjaxError) {
+      statusCode = error.status
+      statusMessage = error.name
+      message = `${error.message}`
+    } else if (error instanceof Error) {
+      message = error.message
+    } else {
+      message = error as string
+    }
+
+    showError({
+      statusCode,
+      statusMessage,
+      message,
+      data: Object.assign({}, processErrorData),
+      cause: error,
+      fatal: true
+    })
   }
 })
 </script>

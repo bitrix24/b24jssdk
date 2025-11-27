@@ -157,7 +157,8 @@ export default defineNuxtConfig({
     },
     server: {
       // Fix: "Blocked request. This host is not allowed" when using tunnels like ngrok
-      allowedHosts: [...extraAllowedHosts]
+      allowedHosts: [...extraAllowedHosts],
+      cors: true
     }
   },
 

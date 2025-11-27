@@ -1,24 +1,11 @@
 <script setup lang="ts">
-import type { TypeB24, Result } from '@bitrix24/b24jssdk'
+import type { TypeB24, Result, LoggerBrowser } from '@bitrix24/b24jssdk'
 import type { TableColumn } from '@bitrix24/b24ui-nuxt'
-import { LoggerBrowser, AjaxError, EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+import { AjaxError, EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
 // Initialization
-const { b24: $b24, logger: $logger } = inject<{ logger: LoggerBrowser, b24?: TypeB24 }>('propsWithB24', {
-  b24: undefined,
-  logger: LoggerBrowser.build(`JsSdk Docs`, true)
-})
-
-if (typeof $b24 === 'undefined') {
-  showError({
-    statusCode: 404,
-    statusMessage: 'B24 not init',
-    data: {
-      description: 'Problem in app'
-    },
-    fatal: true
-  })
-}
+let $b24: undefined | TypeB24 = undefined
+let $logger: undefined | LoggerBrowser = undefined
 
 // Defining type for contact item
 interface ContactItem {
@@ -67,7 +54,7 @@ const columns: TableColumn<ContactItem>[] = [
  * Load contacts list
  */
 async function loadContacts(): Promise<void> {
-  if (!$b24) {
+  if (!$b24 || !$logger) {
     throw new Error('$b24 not initialized')
   }
 
@@ -136,6 +123,11 @@ function handlePageChange(page: number): void {
 
 // Application initialization
 onMounted(async () => {
+  const b24Instance = useB24()
+
+  $b24 = b24Instance.get()
+  $logger = b24Instance.buildLogger()
+
   $logger.info('Hi from contact list')
 
   try {
@@ -201,12 +193,25 @@ onMounted(async () => {
     </template>
 
     <!-- Loading state -->
-    <div v-if="isLoading" class="p-8">
+    <div v-if="isLoading" class="p-2">
       <div class="space-y-4">
-        <B24Skeleton class="h-4 w-full" />
-        <B24Skeleton class="h-4 w-full" />
-        <B24Skeleton class="h-4 w-full" />
-        <B24Skeleton class="h-4 w-3/4" />
+        <div class="flex gap-4 mt-2">
+          <B24Skeleton class="h-6 w-1/6" />
+          <B24Skeleton class="h-6 w-1/3" />
+          <B24Skeleton class="h-6 w-1/3" />
+          <B24Skeleton class="h-6 w-1/3" />
+        </div>
+
+        <B24Separator class="my-2" />
+
+        <div class="space-y-3">
+          <div v-for="row in 5" :key="row" class="flex gap-4 mt-2">
+            <B24Skeleton class="h-4 w-1/6" />
+            <B24Skeleton class="h-4 w-1/3" />
+            <B24Skeleton class="h-4 w-1/3" />
+            <B24Skeleton class="h-4 w-1/3" />
+          </div>
+        </div>
       </div>
     </div>
 

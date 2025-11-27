@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ProgressProps } from '@bitrix24/b24ui-nuxt'
-import { B24Frame, LoggerBrowser, AjaxError } from '@bitrix24/b24jssdk'
-import type { TypeB24 } from '@bitrix24/b24jssdk'
+import { B24Frame, AjaxError } from '@bitrix24/b24jssdk'
+import type { TypeB24, LoggerBrowser } from '@bitrix24/b24jssdk'
 import { ref, onMounted } from 'vue'
 // import { withoutTrailingSlash } from 'ufo'
 import Market1Icon from '@bitrix24/b24icons-vue/main/Market1Icon'
@@ -24,21 +24,8 @@ const isShowDebug = ref(false)
 // const config = useRuntimeConfig()
 // const appUrl = withoutTrailingSlash(config.public.siteUrl)
 
-const { b24: $b24, logger: $logger } = inject<{ logger: LoggerBrowser, b24?: TypeB24 }>('propsWithB24', {
-  b24: undefined,
-  logger: LoggerBrowser.build(`JsSdk Docs`, true)
-})
-
-if (typeof $b24 === 'undefined') {
-  showError({
-    statusCode: 404,
-    statusMessage: 'B24 not init',
-    data: {
-      description: 'Problem in app'
-    },
-    fatal: true
-  })
-}
+let $b24: undefined | TypeB24 = undefined
+let $logger: undefined | LoggerBrowser = undefined
 
 const confetti = useConfetti()
 
@@ -326,7 +313,10 @@ async function makeFinish(b24: TypeB24): Promise<void> {
   confetti.fire()
   await sleepAction(3000)
 
-  if (b24 instanceof B24Frame) {
+  if (
+    b24 instanceof B24Frame
+    && b24.isInstallMode
+  ) {
     await b24.installFinish()
   }
 }
@@ -352,6 +342,11 @@ async function sleepAction(timeout: number = 1000): Promise<void> {
 
 // region Lifecycle Hooks ////
 onMounted(async () => {
+  const b24Instance = useB24()
+
+  $b24 = b24Instance.get()
+  $logger = b24Instance.buildLogger()
+
   $logger.info('Hi from install page')
 
   try {

@@ -22,14 +22,14 @@ export function useHeader() {
       active: route.path.startsWith('/docs/frame')
     },
     {
-      label: 'OAuth',
-      to: '/docs/oauth/',
-      active: route.path.startsWith('/docs/oauth')
-    },
-    {
       label: 'Hook',
       to: '/docs/hook/',
       active: route.path.startsWith('/docs/hook')
+    },
+    {
+      label: 'OAuth',
+      to: '/docs/oauth/',
+      active: route.path.startsWith('/docs/oauth')
     },
     {
       label: 'Templates',

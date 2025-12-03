@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import type { DefineComponent } from 'vue'
+import { watch } from 'vue'
 import { Chat } from '@ai-sdk/vue'
 import { DefaultChatTransport } from 'ai'
 import { splitByCase, upperFirst } from 'scule'
 import ProseStreamPre from './prose/PreStream.vue'
+import { useSpeechRecognition } from '@vueuse/core'
 import AlertIcon from '@bitrix24/b24icons-vue/outline/AlertIcon'
 import AiStarsIcon from '@bitrix24/b24icons-vue/outline/AiStarsIcon'
 import TrashcanIcon from '@bitrix24/b24icons-vue/outline/TrashcanIcon'
 import CrossMIcon from '@bitrix24/b24icons-vue/outline/CrossMIcon'
 import SendIcon from '@bitrix24/b24icons-vue/main/SendIcon'
+import MicrophoneOnIcon from '@bitrix24/b24icons-vue/outline/MicrophoneOnIcon'
+import StopLIcon from '@bitrix24/b24icons-vue/outline/StopLIcon'
 
 /**
  * @see https://github.com/nuxt-modules/mcp-toolkit/blob/main/apps/docs/app/components/AIChatSlideover.vue
@@ -16,6 +20,7 @@ import SendIcon from '@bitrix24/b24icons-vue/main/SendIcon'
  */
 
 const config = useRuntimeConfig()
+const appLocale = useLocale()
 
 const components = {
   pre: ProseStreamPre as unknown as DefineComponent
@@ -25,6 +30,7 @@ const { isOpen, messages, pendingMessage, clearPending } = useAIChat()
 
 const input = ref('')
 
+// region Chat ////
 watch(pendingMessage, (message) => {
   if (message) {
     if (messages.value.length === 0 && chat.messages.length > 0) {
@@ -169,6 +175,8 @@ function handleSubmit(event?: Event) {
   })
 
   input.value = ''
+  fullText.value = ''
+  interimText.value = ''
 }
 
 function askQuestion(question: string) {
@@ -182,6 +190,112 @@ function resetChat() {
   messages.value = []
   chat.messages.length = 0
 }
+// endregion ////
+
+// region SpeechRecognition ////
+const speech = useSpeechRecognition({
+  lang: 'ru-RU', //appLocale.locale.value.locale,
+  interimResults: true,
+  continuous: true
+})
+
+const fullText = ref('')
+const interimText = ref('')
+
+function startSpeech() {
+  fullText.value = input.value
+  interimText.value = ''
+
+  speech.result.value = ''
+  speech.start()
+}
+
+function stopSpeech() {
+  speech.result.value = ''
+  speech.stop()
+}
+
+const { isListening: speechIsListening, isSupported: speechIsSupported } = speech
+
+watch(
+  [() => speech.result.value, () => speech.isFinal.value], ([result, isFinal]) => {
+    if (result && isFinal) {
+      addToText(result)
+    } else if (result) {
+      showInterim(result)
+    }
+  }
+)
+
+function handleSpeech() {
+  if (!interimText.value && speechIsListening.value) {
+    fullText.value = input.value
+    interimText.value = ''
+  }
+}
+
+const addToText = (text) => {
+  if (!text || text.trim().length === 0) return
+
+  let finalText = text.trim()
+
+  // finalText = finalText
+  //   .replace(/\.{2,}/g, '…')
+  //   .replace(/\s+([.,!?:;])/g, '$1')
+  //   .replace(/([.,!?:;])(?!\s|$)/g, '$1 ')
+  //
+  // let separator = ''
+  // if (fullText.value.length > 0) {
+  //   const lastChar = fullText.value[fullText.value.length - 1]
+  //   if (!lastChar.match(/[.!?]\s*$/)) {
+  //     separator = '. '
+  //   } else {
+  //     separator = ' '
+  //   }
+  // }
+
+  const separator = ' '
+
+  finalText = finalText.charAt(0).toUpperCase() + finalText.slice(1)
+
+  fullText.value += separator + finalText
+  interimText.value = ''
+
+  input.value = fullText.value
+}
+
+const showInterim = (text) => {
+  if (!text) return
+
+  let cleanedText = text.trim()
+
+  cleanedText = cleanedText.charAt(0).toUpperCase() + cleanedText.slice(1)
+
+  interimText.value = cleanedText
+
+  input.value = getInputValue()
+}
+
+function getInputValue() {
+  if (interimText.value && speechIsListening.value) {
+    // let separator = ''
+    //
+    // if (fullText.value.length > 0) {
+    //   const lastChar = fullText.value[fullText.value.length - 1]
+    //   if (!lastChar.match(/[.!?]\s*$/)) {
+    //     separator = '. '
+    //   } else {
+    //     separator = ' '
+    //   }
+    // }
+
+    const separator = ' '
+    return fullText.value + separator + interimText.value
+  }
+
+  return input.value
+}
+// endregion ////
 
 onMounted(() => {
   if (pendingMessage.value) {
@@ -328,7 +442,7 @@ onMounted(() => {
                 v-model="input"
                 :rows="1"
                 autoresize
-                placeholder="Ask me a question about Bitrix24 UI..."
+                placeholder="Ask me a question about Bitrix24 JS SDK..."
                 no-padding
                 no-border
                 class="flex-1 resize-none px-2.5"
@@ -336,7 +450,26 @@ onMounted(() => {
                   base: ''
                 }"
                 @keydown.enter.exact.prevent="handleSubmit"
+                @keydown="handleSpeech"
               />
+              <template v-if="speechIsSupported">
+                <B24Button
+                  v-if="!speechIsListening"
+                  :icon="MicrophoneOnIcon"
+                  color="air-tertiary-no-accent"
+                  size="xs"
+                  class="shrink-0"
+                  @click="startSpeech"
+                />
+                <B24Button
+                  v-if="speechIsListening"
+                  :icon="StopLIcon"
+                  color="air-secondary"
+                  size="xs"
+                  class="shrink-0 rounded-lg"
+                  @click="stopSpeech"
+                />
+              </template>
               <B24Button
                 :icon="SendIcon"
                 color="air-primary"

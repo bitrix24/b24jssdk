@@ -61,10 +61,8 @@ export default defineNuxtConfig({
     '@nuxt/content',
     // '@nuxt/image',
     '@nuxtjs/plausible',
-    // '@vueuse/nuxt',
+    '@nuxtjs/mcp-toolkit',
     'nuxt-og-image',
-    // @memo off this -> use in nuxt-og-image
-    'nuxt-site-config',
     'motion-v/nuxt',
     (_, nuxt) => {
       nuxt.hook('components:dirs', (dirs) => {
@@ -121,6 +119,7 @@ export default defineNuxtConfig({
    */
   runtimeConfig: {
     public: {
+      useAI: false,
       version: pkg.version,
       siteUrl: prodUrl,
       baseUrl,
@@ -185,24 +184,18 @@ export default defineNuxtConfig({
           { field: 'path', operator: 'LIKE', value: '/docs/getting-started%' }
         ]
       }
-      // {
-      //   title: 'Components',
-      //   contentCollection: 'docs',
-      //   contentFilters: [
-      //     { field: 'path', operator: 'LIKE', value: '/docs/components/%' }
-      //   ]
-      // },
-      // {
-      //   title: 'Composables',
-      //   contentCollection: 'docs',
-      //   contentFilters: [
-      //     { field: 'path', operator: 'LIKE', value: '/docs/composables/%' }
-      //   ]
-      // }
     ],
     notes: [
       'The content is automatically generated from the same source as the official documentation.'
     ]
+  },
+  mcp: {
+    /** @memo fix if you need */
+    // enabled: import.meta.dev,
+    name: 'Bitrix24 JS SDK',
+    version: '1.0.0',
+    route: `/mcp/`, // ${baseUrl}
+    browserRedirect: '/docs/getting-started/ai/mcp/'
   },
 
   // @memo off for generate

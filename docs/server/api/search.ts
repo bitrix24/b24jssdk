@@ -1,7 +1,13 @@
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { convertToModelMessages, stepCountIs, streamText } from 'ai'
+import { streamText, convertToModelMessages, stepCountIs } from 'ai'
 import { experimental_createMCPClient } from '@ai-sdk/mcp'
 import { createDeepSeek } from '@ai-sdk/deepseek'
+
+/**
+ * @docs https://ai-sdk.dev/providers/ai-sdk-providers/deepseek
+ */
+
+const maxStepCount = 20
 
 async function initMcpToolsForUI() {
   const httpTransport = new StreamableHTTPClientTransport(
@@ -23,11 +29,6 @@ async function initMcpToolsForB24RestApi() {
   return await httpClient.tools()
 }
 
-const maxStepCount = 20
-
-/**
- * @docs https://ai-sdk.dev/providers/ai-sdk-providers/deepseek
- */
 export default defineEventHandler(async (event) => {
   const { messages } = await readBody(event)
   const config = useRuntimeConfig()
@@ -49,8 +50,10 @@ export default defineEventHandler(async (event) => {
   })
 
   return streamText({
-    model: deepseek('deepseek-reasoner'),
-    maxOutputTokens: 10000,
+    // @todo fix me
+    model: deepseek('deepseek-chat'),
+    // @todo fix me
+    maxOutputTokens: 8100,
     system: `You are a helpful assistant for Bitrix24 JS SDK, a comprehensive JavaScript library integrated with Bitrix24, providing toolkit for interacting with the Bitrix24 REST API. Use your knowledge base tools to search for relevant information before answering questions.
 
 Guidelines:

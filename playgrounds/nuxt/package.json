@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "nuxt": "^4.2.1",
-    "@bitrix24/b24ui-nuxt": "^2.1.8"
+    "@bitrix24/b24ui-nuxt": "^2.1.10"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

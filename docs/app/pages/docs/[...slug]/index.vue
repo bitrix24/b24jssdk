@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
 import { kebabCase } from 'scule'
-
 import DesignIcon from '@bitrix24/b24icons-vue/outline/DesignIcon'
 import FavoriteIcon from '@bitrix24/b24icons-vue/outline/FavoriteIcon'
 import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
@@ -87,6 +86,7 @@ const iconFromIconName = (iconName?: string) => {
             />
           </template>
           <template #head-links>
+            <DocsAside v-if="config.public.useAI" />
             <PageHeaderLinks />
             <B24DropdownMenu
               class="hidden sm:flex"

@@ -8,6 +8,7 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
+const config = useRuntimeConfig()
 
 const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', []))
 const { data: files } = useLazyAsyncData(
@@ -120,6 +121,7 @@ function resetHook() {
 
     <ClientOnly>
       <Search :files="files" :navigation="rootNavigation" />
+      <AIChatSlideover v-if="config.public.useAI" />
     </ClientOnly>
   </B24App>
 </template>

@@ -26,7 +26,12 @@ const pages = [
   '/docs/oauth/',
   // endregion ////
   // region B24Hook ////
-  '/docs/hook/'
+  '/docs/hook/',
+  // endregion ////
+  // region Core ////
+  '/docs/core/logger-browser/',
+  '/docs/core/result/',
+  '/docs/core/ajax-result/'
   // endregion ////
 ]
 

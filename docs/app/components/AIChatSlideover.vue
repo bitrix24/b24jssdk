@@ -5,7 +5,6 @@ import { Chat } from '@ai-sdk/vue'
 import { DefaultChatTransport } from 'ai'
 import { splitByCase, upperFirst } from 'scule'
 import ProseStreamPre from './prose/PreStream.vue'
-import { useSpeechRecognition } from '@vueuse/core'
 import AlertIcon from '@bitrix24/b24icons-vue/outline/AlertIcon'
 import AiStarsIcon from '@bitrix24/b24icons-vue/outline/AiStarsIcon'
 import TrashcanIcon from '@bitrix24/b24icons-vue/outline/TrashcanIcon'
@@ -21,6 +20,7 @@ import StopLIcon from '@bitrix24/b24icons-vue/outline/StopLIcon'
 
 const config = useRuntimeConfig()
 const appLocale = useLocale()
+const toast = useToast()
 
 const components = {
   pre: ProseStreamPre as unknown as DefineComponent
@@ -90,8 +90,6 @@ const faqQuestions = [
     ]
   }
 ]
-
-const toast = useToast()
 
 function upperName(name: unknown) {
   if (typeof name !== 'string' || name.length < 1) {
@@ -175,8 +173,8 @@ function handleSubmit(event?: Event) {
   })
 
   input.value = ''
-  fullText.value = ''
-  interimText.value = ''
+
+  stopDictation()
 }
 
 function askQuestion(question: string) {
@@ -193,108 +191,57 @@ function resetChat() {
 // endregion ////
 
 // region SpeechRecognition ////
-const speech = useSpeechRecognition({
-  lang: 'ru-RU', //appLocale.locale.value.locale,
-  interimResults: true,
-  continuous: true
+const {
+  isAvailable: speechIsAvailable,
+  isListening: speechIsListening,
+  start: startSpeech,
+  stop: stopSpeech,
+  setLanguage: setLanguageSpeech
+} = useSpeechRecognition({
+  lang: appLocale.locale.value.locale,
+  continuous: true,
+  interimResults: true
+}, {
+  onStart: () => {
+    if (input.value === '') {
+      return
+    }
+
+    input.value += ' '
+  },
+  onResult: (result) => {
+    input.value += result.text
+  }
 })
 
-const fullText = ref('')
-const interimText = ref('')
-
-function startSpeech() {
-  fullText.value = input.value
-  interimText.value = ''
-
-  speech.result.value = ''
-  speech.start()
+const startDictation = async () => {
+  await startSpeech()
 }
 
-function stopSpeech() {
-  speech.result.value = ''
-  speech.stop()
+const stopDictation = async () => {
+  await stopSpeech()
 }
 
-const { isListening: speechIsListening, isSupported: speechIsSupported } = speech
-
-watch(
-  [() => speech.result.value, () => speech.isFinal.value], ([result, isFinal]) => {
-    if (result && isFinal) {
-      addToText(result)
-    } else if (result) {
-      showInterim(result)
-    }
+defineShortcuts({
+  'r-r': () => {
+    toast.add({
+      title: 'Speech',
+      description: 'Use ru-RU for speech',
+      duration: 1000,
+      progress: false
+    })
+    setLanguageSpeech('ru-RU')
+  },
+  'e-e': () => {
+    toast.add({
+      title: 'Speech',
+      description: 'Use en-US for speech',
+      duration: 1000,
+      progress: false
+    })
+    setLanguageSpeech('en-US')
   }
-)
-
-function handleSpeech() {
-  if (!interimText.value && speechIsListening.value) {
-    fullText.value = input.value
-    interimText.value = ''
-  }
-}
-
-const addToText = (text) => {
-  if (!text || text.trim().length === 0) return
-
-  let finalText = text.trim()
-
-  // finalText = finalText
-  //   .replace(/\.{2,}/g, '…')
-  //   .replace(/\s+([.,!?:;])/g, '$1')
-  //   .replace(/([.,!?:;])(?!\s|$)/g, '$1 ')
-  //
-  // let separator = ''
-  // if (fullText.value.length > 0) {
-  //   const lastChar = fullText.value[fullText.value.length - 1]
-  //   if (!lastChar.match(/[.!?]\s*$/)) {
-  //     separator = '. '
-  //   } else {
-  //     separator = ' '
-  //   }
-  // }
-
-  const separator = ' '
-
-  finalText = finalText.charAt(0).toUpperCase() + finalText.slice(1)
-
-  fullText.value += separator + finalText
-  interimText.value = ''
-
-  input.value = fullText.value
-}
-
-const showInterim = (text) => {
-  if (!text) return
-
-  let cleanedText = text.trim()
-
-  cleanedText = cleanedText.charAt(0).toUpperCase() + cleanedText.slice(1)
-
-  interimText.value = cleanedText
-
-  input.value = getInputValue()
-}
-
-function getInputValue() {
-  if (interimText.value && speechIsListening.value) {
-    // let separator = ''
-    //
-    // if (fullText.value.length > 0) {
-    //   const lastChar = fullText.value[fullText.value.length - 1]
-    //   if (!lastChar.match(/[.!?]\s*$/)) {
-    //     separator = '. '
-    //   } else {
-    //     separator = ' '
-    //   }
-    // }
-
-    const separator = ' '
-    return fullText.value + separator + interimText.value
-  }
-
-  return input.value
-}
+})
 // endregion ////
 
 onMounted(() => {
@@ -446,34 +393,30 @@ onMounted(() => {
                 no-padding
                 no-border
                 class="flex-1 resize-none px-2.5"
-                :b24ui="{
-                  base: ''
-                }"
                 @keydown.enter.exact.prevent="handleSubmit"
-                @keydown="handleSpeech"
               />
-              <template v-if="speechIsSupported">
+              <template v-if="speechIsAvailable">
                 <B24Button
                   v-if="!speechIsListening"
                   :icon="MicrophoneOnIcon"
                   color="air-tertiary-no-accent"
-                  size="xs"
+                  size="sm"
                   class="shrink-0"
-                  @click="startSpeech"
+                  @click="startDictation"
                 />
                 <B24Button
                   v-if="speechIsListening"
                   :icon="StopLIcon"
                   color="air-secondary"
-                  size="xs"
+                  size="sm"
                   class="shrink-0 rounded-lg"
-                  @click="stopSpeech"
+                  @click="stopDictation"
                 />
               </template>
               <B24Button
                 :icon="SendIcon"
                 color="air-primary"
-                size="xs"
+                size="sm"
                 :disabled="!input.trim() || chat.status === 'streaming'"
                 :loading="chat.status === 'streaming'"
                 class="shrink-0 rounded-lg"

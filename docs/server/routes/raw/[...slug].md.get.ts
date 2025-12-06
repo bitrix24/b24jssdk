@@ -35,6 +35,8 @@ export default eventHandler(async (event) => {
   return stringify({ ...transformedPage.body, type: 'minimark' }, { format: 'markdown/html' })
     .replaceAll('%br%', '\n')
     .replaceAll('%br>%', '\n> ')
+    .replaceAll('> \n', '')
+    .replaceAll('> \n', '')
     .replaceAll('\n\n\n', '\n\n')
     .replaceAll('\n\n\n', '\n\n')
     .replaceAll('\n\n\n', '\n\n')

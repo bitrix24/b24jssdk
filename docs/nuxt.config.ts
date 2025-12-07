@@ -16,11 +16,11 @@ const pages = [
   '/docs/getting-started/installation/umd/',
   '/docs/getting-started/ai/mcp/',
   '/docs/getting-started/ai/llms-txt/',
+  '/docs/templates/entity-list/', // @memo we remove this
+  '/docs/templates/app-page-installation-wizard/', // @memo we remove this
   // endregion ////
   // region B24Frame ////
   '/docs/frame/',
-  '/docs/frame/entity-list/', // @memo we remove this
-  '/docs/frame/app-page-installation-wizard/', // @memo we remove this
   // endregion ////
   // region B24OAuth ////
   '/docs/oauth/',

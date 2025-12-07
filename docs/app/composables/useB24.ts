@@ -11,7 +11,8 @@ export const useB24 = () => {
   const config = useRuntimeConfig()
 
   function buildLogger(loggerTitle?: string) {
-    return LoggerBrowser.build(loggerTitle ?? 'JsSdk Docs') // import.meta.dev
+    // @memo For Docs use full debug
+    return LoggerBrowser.build(loggerTitle ?? 'JsSdk Docs', true)
   }
 
   function get() {

@@ -6,6 +6,7 @@ import { get, set } from '#b24ui/utils'
 import type { Result } from '@bitrix24/b24jssdk'
 import CloudSyncIcon from '@bitrix24/b24icons-vue/outline/CloudSyncIcon'
 import CloudErrorIcon from '@bitrix24/b24icons-vue/main/CloudErrorIcon'
+import TerminalIcon from '@bitrix24/b24icons-vue/file-type/TerminalIcon'
 
 const props = withDefaults(defineProps<{
   name: string
@@ -66,10 +67,16 @@ const props = withDefaults(defineProps<{
    * Whether to add overflow-hidden to wrapper
    */
   overflowHidden?: boolean
+  /**
+   * Whether to add background-elevated to wrapper
+   */
+  elevated?: boolean
+  lang?: string
 }>(), {
   preview: true,
   source: true,
-  border: true
+  border: true,
+  lang: 'vue'
 })
 
 const slots = defineSlots<{
@@ -83,6 +90,10 @@ const { $prettier } = useNuxtApp()
 const { width } = useElementSize(el)
 const config = useRuntimeConfig()
 const toast = useToast()
+
+const b24Instance = useB24()
+const userInput = ref('')
+const isLoading = ref(true)
 
 const camelName = camelCase(props.name)
 
@@ -98,7 +109,7 @@ const code = computed(() => {
 `
   }
 
-  code += `\`\`\`vue ${props.preview ? '' : ` [${data.pascalName}.vue]`}${props.highlights?.length ? `{${props.highlights.join('-')}}` : ''}
+  code += `\`\`\`${props.lang} ${props.preview ? '' : ` [${data.pascalName}.${props.lang}]`}${props.highlights?.length ? `{${props.highlights.join('-')}}` : ''}
 ${data?.code ?? ''}
 \`\`\``
 
@@ -106,6 +117,8 @@ ${data?.code ?? ''}
     code += `
 ::`
   }
+
+  code = b24Instance.prepareCode(code)
 
   return code
 })
@@ -156,10 +169,6 @@ const urlSearchParams = computed(() => {
 
   return new URLSearchParams(params).toString()
 })
-
-const b24Instance = useB24()
-const userInput = ref('')
-const isLoading = ref(true)
 
 onMounted(async () => {
   const result: Result = await b24Instance.init()
@@ -312,12 +321,31 @@ const clearHook = async () => {
               v-bind="typeof iframe === 'object' ? iframe : {}"
               :src="`${config.public.baseUrl}/examples/${name}/?${urlSearchParams}`"
               class="relative w-full"
-              :class="[props.class, !iframeMobile && 'max-w-[1300px]']"
+              :class="[props.class, { 'dark:bg-gray-950/50 rounded-t-md': props.elevated }, !iframeMobile && 'max-w-[1300px]']"
             />
+            <div v-else-if="props.lang === 'ts'">
+              <B24Alert
+                :icon="TerminalIcon"
+                color="air-secondary-accent"
+                title="Result"
+                description="The result of the script execution can be seen in the developer console."
+                class="rounded-b-none"
+                orientation="horizontal"
+              >
+                <template #actions>
+                  <B24Kbd value="ctrl" size="sm" />
+                  <B24Kbd value="shift" size="sm" />
+                  <B24Kbd value="i" size="sm" />
+                </template>
+              </B24Alert>
+              <ClientOnly>
+                <component :is="camelName || 'div'" v-bind="{ ...componentProps, ...optionsValues }" />
+              </ClientOnly>
+            </div>
             <div
               v-else
               class="flex justify-center p-[16px] bg-grid-example [mask-image:linear-gradient(0deg,rgba(255,255,255,0.09),rgba(255,255,255,0.18))"
-              :class="props.class"
+              :class="[props.class, { 'dark:bg-gray-950/50 rounded-t-md': props.elevated }]"
             >
               <ClientOnly>
                 <component :is="camelName" v-bind="{ ...componentProps, ...optionsValues }" />

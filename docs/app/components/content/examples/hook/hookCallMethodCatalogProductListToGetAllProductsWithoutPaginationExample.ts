@@ -31,14 +31,11 @@ if (!responseCatalogList.isSuccess) {
   throw new Error(responseCatalogList.getErrorMessages().join(';\n'))
 }
 
-$logger.log()
-
-let list: CatalogProduct[] = []
-
 // @memo we get first iblockId
 const iblockId: number = ((responseCatalogList.getData() || []).map(row => row.iblockId))[0] || 0
 
 // And now select some products
+let list: CatalogProduct[] = []
 let lastId = 0
 let isFinish = false
 

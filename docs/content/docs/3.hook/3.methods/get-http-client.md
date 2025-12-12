@@ -86,8 +86,8 @@ type TypeHttp = {
 
 ## Next Steps
 
-- [callMethod](/docs/hook/methods/call-method/) - Learn how to calls a REST API method with the specified parameters
-- [callBatch](/docs/hook/methods/call-batch/) - Executes a batch request with a maximum of 50 commands
-- [callBatchByChunk](/docs/hook/methods/call-batch-by-chunk/) - Executes a batch request with any number of commands
+- [callMethod](/docs/hook/methods/call-method/) - Learn how to call a REST API method with the specified parameters
 - [callListMethod](/docs/hook/methods/call-list-method/) - Calls a REST API list method with the specified parameters
 - [fetchListMethod](/docs/hook/methods/fetch-list-method/) - Calls a REST API list method and returns a generator object
+- [callBatchByChunk](/docs/hook/methods/call-batch-by-chunk/) - Executes a batch request with any number of commands
+- [callBatch](/docs/hook/methods/call-batch/) - Executes a batch request with a maximum of 50 commands

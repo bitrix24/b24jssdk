@@ -1,13 +1,19 @@
 import type { AjaxResult } from '@bitrix24/b24jssdk'
 import { B24Hook, LoggerBrowser } from '@bitrix24/b24jssdk'
 
+type User = {
+  ID: number
+  NAME: string
+  [key: string]: any
+}
+
 const $logger = LoggerBrowser.build('MyApp:user.list', true)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/xxxx/')
 
-let list: any[] = []
+let list: User[] = []
 
 try {
-  const response = await $b24.callMethod(
+  const response: AjaxResult<User[]> = await $b24.callMethod(
     'user.get',
     { sort: 'ID', order: 'ASC', select: ['ID', 'NAME'] },
     0
@@ -40,7 +46,7 @@ try {
     }
   }
 
-  $logger.info('User list:', list)
+  $logger.info(`User list (${list.length}):`, list)
 } catch (error) {
   $logger.error(error)
 }

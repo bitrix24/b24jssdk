@@ -1,8 +1,10 @@
+import type { AjaxResult } from '@bitrix24/b24jssdk'
 import { B24Hook, LoggerBrowser, EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
 type CrmEntityCompany = {
   id: number
   title: string
+  [key: string]: any
 }
 
 const $logger = LoggerBrowser.build('MyApp:crm.item.list', true)
@@ -14,7 +16,7 @@ let lastId = 0
 let isFinish = false
 
 while (!isFinish) {
-  const response = await $b24.callMethod(
+  const response: AjaxResult<CrmEntityCompany[]> = await $b24.callMethod(
     'crm.item.list',
     {
       entityTypeId: EnumCrmEntityTypeId.company,
@@ -25,14 +27,14 @@ while (!isFinish) {
         '=%title': 'Prime%'
       }
     },
-    -1
+    -1 // This parameter will disable the count request and significantly speed up the data retrieval.
   )
 
   if (!response.isSuccess) {
     throw new Error(response.getErrorMessages().join(';\n'))
   }
 
-  const resultData = response.getData().result.items as CrmEntityCompany[]
+  const resultData = response.getData().result.items
 
   if (resultData.length < 1) {
     isFinish = true

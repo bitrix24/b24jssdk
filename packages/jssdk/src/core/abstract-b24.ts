@@ -72,12 +72,12 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * @inheritDoc
    */
-  callMethod(
+  callMethod<T = unknown>(
     method: string,
     params?: object,
     start?: number
-  ): Promise<AjaxResult> {
-    return this.getHttpClient().call(method, params || {}, start || 0)
+  ): Promise<AjaxResult<T>> {
+    return this.getHttpClient().call<T>(method, params || {}, start || 0)
   }
 
   /**

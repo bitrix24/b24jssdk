@@ -17,9 +17,9 @@ import type { BatchPayload } from '../../types/payloads'
 import axios, { type AxiosInstance, AxiosError } from 'axios'
 import * as qs from 'qs-esm'
 
-type AjaxResponse = {
+type AjaxResponse<T = unknown> = {
   status: number
-  payload: AjaxResultParams
+  payload: AjaxResultParams<T>
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -411,11 +411,11 @@ export default class Http implements TypeHttp {
    * @param params
    * @param start
    */
-  async call(
+  async call<T = unknown>(
     method: string,
     params: object,
     start: number = 0
-  ): Promise<AjaxResult> {
+  ): Promise<AjaxResult<T>> {
     let authData = this.#authActions.getAuthData()
     if (authData === false) {
       authData = await this.#authActions.refreshAuth()
@@ -440,12 +440,12 @@ export default class Http implements TypeHttp {
         (response: {
           data: AjaxResultParams
           status: any
-        }): Promise<AjaxResponse> => {
-          const payload = response.data as AjaxResultParams
+        }): Promise<AjaxResponse<T>> => {
+          const payload = response.data as AjaxResultParams<T>
           return Promise.resolve({
             status: response.status,
-            payload: payload
-          } as AjaxResponse)
+            payload
+          } as AjaxResponse<T>)
         },
         async (error_: AxiosError) => {
           let answerError = {
@@ -506,12 +506,12 @@ export default class Http implements TypeHttp {
                 async (response: {
                   data: AjaxResultParams
                   status: any
-                }): Promise<AjaxResponse> => {
-                  const payload = response.data as AjaxResultParams
+                }): Promise<AjaxResponse<T>> => {
+                  const payload = response.data as AjaxResultParams<T>
                   return Promise.resolve({
                     status: response.status,
-                    payload: payload
-                  } as AjaxResponse)
+                    payload
+                  } as AjaxResponse<T>)
                 },
                 async (error__: AxiosError) => {
                   let answerError = {
@@ -554,8 +554,8 @@ export default class Http implements TypeHttp {
           return Promise.reject(problemError)
         }
       )
-      .then((response: AjaxResponse): Promise<AjaxResult> => {
-        const result = new AjaxResult({
+      .then((response: AjaxResponse<T>): Promise<AjaxResult<T>> => {
+        const result = new AjaxResult<T>({
           answer: response.payload,
           query: {
             method,

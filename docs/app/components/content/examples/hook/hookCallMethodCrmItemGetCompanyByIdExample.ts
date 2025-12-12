@@ -25,7 +25,7 @@ try {
 
   const item = response.getData().result.item
 
-  $logger.info(`Company id: ${item.title}, title: ${item.title}`, item)
+  $logger.info(`Company id: ${item.id}, title: ${item.title}`, item)
 } catch (error) {
   $logger.error(error)
 }

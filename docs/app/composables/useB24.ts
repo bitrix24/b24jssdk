@@ -1,3 +1,4 @@
+import { ref } from 'vue'
 import { B24Hook, B24Frame, LoggerBrowser, Result } from '@bitrix24/b24jssdk'
 import type { B24FrameQueryParams } from '@bitrix24/b24jssdk'
 
@@ -8,6 +9,9 @@ let $b24: undefined | B24Hook | B24Frame = undefined
 const type = ref<'undefined' | 'B24Frame' | 'B24Hook'>('undefined')
 
 export const useB24 = () => {
+  const HOOK_PLACEHOLDER = 'https://your_domain.bitrix24.com/rest/1/xxxx/'
+  const HOOK_REPLACE_IN_EXAMPLE = 'useB24().get() as B24Hook || '
+
   const config = useRuntimeConfig()
 
   function buildLogger(loggerTitle?: string) {
@@ -129,7 +133,12 @@ export const useB24 = () => {
     set(undefined)
   }
 
+  function prepareCode(code: string): string {
+    return code.replace(HOOK_REPLACE_IN_EXAMPLE, '')
+  }
+
   return {
+    HOOK_PLACEHOLDER,
     buildLogger,
     init,
     get,
@@ -138,6 +147,7 @@ export const useB24 = () => {
     isFrame,
     isInit,
     targetOrigin,
-    removeHookFromSessionStorage
+    removeHookFromSessionStorage,
+    prepareCode
   }
 }

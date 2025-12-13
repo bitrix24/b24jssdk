@@ -50,10 +50,10 @@ export default defineEventHandler(async (event) => {
   })
 
   return streamText({
-    // @todo fix me
-    model: deepseek('deepseek-chat'),
-    // @todo fix me
-    maxOutputTokens: 8100,
+    // @todo fix me deepseek-reasoner | deepseek-chat
+    model: deepseek('deepseek-reasoner'),
+    // @todo fix me 10000 | 8100
+    maxOutputTokens: 10000,
     system: `You are a helpful assistant for Bitrix24 JS SDK, a comprehensive JavaScript library integrated with Bitrix24, providing toolkit for interacting with the Bitrix24 REST API. Use your knowledge base tools to search for relevant information before answering questions.
 
 Guidelines:

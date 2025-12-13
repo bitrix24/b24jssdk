@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { useB24 } from '../../../app/composables/useB24'
 
 export default defineMcpTool({
   title: 'Get Example',
@@ -8,10 +9,15 @@ export default defineMcpTool({
   },
   cache: '30m',
   async handler({ exampleName }) {
+    const b24Instance = useB24()
+
     try {
       const result = await $fetch<{ code: string }>(`/api/component-example/${exampleName}.json`)
+
+      const code = b24Instance.prepareCode(result.code)
+
       return {
-        content: [{ type: 'text' as const, text: result.code }]
+        content: [{ type: 'text' as const, text: code }]
       }
     } catch {
       // @memo need change tool if you need

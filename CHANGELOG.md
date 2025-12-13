@@ -1,9 +1,10 @@
 # Changelog
 
-## [1.0.0](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.0.0) (2025-12-01)
+## [1.0.1](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.0.1) (2025-12-xx)
 
 * chore(cli): add
 * docs: use Bitrix24 Ui (mcp, llms and more demo)
+* fix(TypeB24/TypeHttp): improve generics
 
 ## [0.5.1](https://github.com/bitrix24/b24jssdk/compare/v0.4.10...v0.5.1) (2025-10-29)
 

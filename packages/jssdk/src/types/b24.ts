@@ -38,11 +38,11 @@ export type TypeB24 = {
    *
    * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
    */
-  callMethod(
+  callMethod<T = unknown>(
     method: string,
     params?: object,
     start?: number
-  ): Promise<AjaxResult>
+  ): Promise<AjaxResult<T>>
 
   /**
    * Calls a REST service list method with the specified parameters

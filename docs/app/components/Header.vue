@@ -15,6 +15,15 @@ const props = withDefaults(defineProps<HeaderProps>(), {
 
 const { desktopLinks } = useHeader()
 const config = useRuntimeConfig()
+
+const tgLink = computed(() => {
+  return (
+    // eslint-disable-next-line no-undef
+    typeof window !== 'undefined' && window.navigator?.language.includes('ru')
+  )
+    ? 'https://t.me/bitrix24apps'
+    : 'https://t.me/b24_dev'
+})
 </script>
 
 <template>
@@ -52,7 +61,7 @@ const config = useRuntimeConfig()
       <B24Button
         aria-label="Bitrix24 JS SDK on Telegram"
         :icon="TelegramIcon"
-        to="https://t.me/b24_dev"
+        :to="tgLink"
         target="_blank"
         size="sm"
       />

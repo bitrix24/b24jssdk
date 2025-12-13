@@ -8,7 +8,7 @@ export type TypeHttp = {
 
   batch(calls: any[] | object, isHaltOnError: boolean, returnAjaxResult: boolean): Promise<Result>
 
-  call(method: string, params: object, start: number): Promise<AjaxResult>
+  call<T = unknown>(method: string, params: object, start: number): Promise<AjaxResult<T>>
 
   setRestrictionManagerParams(params: TypeRestrictionManagerParams): void
 

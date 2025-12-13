@@ -1,7 +1,7 @@
 {
   "name": "@bitrix24/b24jssdk-main",
   "description": "Bitrix24 REST API JS SDK",
-  "version": "0.5.1",
+  "version": "1.0.1",
   "author": "Bitrix",
   "packageManager": "pnpm@10.24.0",
   "repository": {
@@ -50,10 +50,10 @@
   },
   "devDependencies": {
     "@nuxt/eslint-config": "^1.11.0",
-    "@types/node": "^24.7.0",
+    "@types/node": "^25.0.0",
     "dotenv": "^17.2.3",
     "eslint": "^9.39.1",
-    "vue-tsc": "^3.1.4"
+    "vue-tsc": "^3.1.5"
   },
   "peerDependencies": {
     "typescript": "^5.8.3"

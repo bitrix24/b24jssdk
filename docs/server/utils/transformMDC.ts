@@ -7,6 +7,7 @@ import { queryCollection } from '@nuxt/content/server'
 import components from '#component-example/nitro'
 import { CalendarDate, Time } from '@internationalized/date'
 import RocketIcon from '@bitrix24/b24icons-vue/main/RocketIcon'
+import { useB24 } from '../../app/composables/useB24'
 
 /**
  * @see docs/server/utils/transformMDC.ts
@@ -668,6 +669,7 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
 
   const config = useRuntimeConfig()
   const baseUrl = `${config.public.canonicalUrl}${config.public.baseUrl}/raw`
+  const b24Instance = useB24()
 
   visitAndReplace(doc, 'component-theme', (node) => {
     const appConfig = {}
@@ -775,10 +777,11 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
 
   visitAndReplace(doc, 'component-example', (node) => {
     const camelName = camelCase(node[1]['name'])
+    const lang = node[1]['lang'] ?? 'vue'
     const name = camelName.charAt(0).toUpperCase() + camelName.slice(1)
     try {
-      const code = components[name].code
-      replaceNodeWithPre(node, 'vue', code, `${name}.vue`)
+      const code = b24Instance.prepareCode(components[name].code)
+      replaceNodeWithPre(node, lang, code, `${name}.${lang}`)
     } catch (error) {
       console.error(
         error,

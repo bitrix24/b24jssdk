@@ -20,10 +20,38 @@ const pages = [
   '/docs/templates/app-page-installation-wizard/', // @memo we remove this
   // endregion ////
   // region B24Frame ////
-  '/docs/frame/',
+  '/docs/frame/getters/auth/',
+  '/docs/frame/getters/is-init/',
+  '/docs/frame/methods/call-method/',
+  '/docs/frame/methods/call-batch/',
+  '/docs/frame/methods/call-batch-by-chunk/',
+  '/docs/frame/methods/call-list-method/',
+  '/docs/frame/methods/fetch-list-method/',
+  '/docs/frame/methods/get-target-origin/',
+  '/docs/frame/methods/get-target-origin-with-path/',
+  '/docs/frame/methods/set-logger/',
+  '/docs/frame/methods/get-logger/',
+  '/docs/frame/methods/off-client-side-warning/',
+  '/docs/frame/methods/get-http-client/',
+  '/docs/frame/methods/destroy/',
   // endregion ////
   // region B24OAuth ////
   '/docs/oauth/',
+  '/docs/oauth/',
+  '/docs/oauth/getters/auth/',
+  '/docs/oauth/getters/is-init/',
+  '/docs/oauth/methods/call-method/',
+  '/docs/oauth/methods/call-batch/',
+  '/docs/oauth/methods/call-batch-by-chunk/',
+  '/docs/oauth/methods/call-list-method/',
+  '/docs/oauth/methods/fetch-list-method/',
+  '/docs/oauth/methods/get-target-origin/',
+  '/docs/oauth/methods/get-target-origin-with-path/',
+  '/docs/oauth/methods/set-logger/',
+  '/docs/oauth/methods/get-logger/',
+  '/docs/oauth/methods/off-client-side-warning/',
+  '/docs/oauth/methods/get-http-client/',
+  '/docs/oauth/methods/destroy/',
   // endregion ////
   // region B24Hook ////
   '/docs/hook/',
@@ -210,7 +238,7 @@ export default defineNuxtConfig({
   },
   mcp: {
     /** @memo fix if you need */
-    // enabled: import.meta.dev,
+    enabled: true,
     name: 'Bitrix24 JS SDK',
     version: '1.0.0',
     route: `/mcp/`, // ${baseUrl}

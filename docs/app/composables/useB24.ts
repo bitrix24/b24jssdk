@@ -9,7 +9,7 @@ let $b24: undefined | B24Hook | B24Frame = undefined
 const type = ref<'undefined' | 'B24Frame' | 'B24Hook'>('undefined')
 
 export const useB24 = () => {
-  const HOOK_PLACEHOLDER = 'https://your_domain.bitrix24.com/rest/1/xxxx/'
+  const HOOK_PLACEHOLDER = 'https://your_domain.bitrix24.com/rest/1/webhook_code/'
   const HOOK_REPLACE_IN_EXAMPLE = 'useB24().get() as B24Hook || '
 
   const config = useRuntimeConfig()

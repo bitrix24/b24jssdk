@@ -835,11 +835,6 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
     ]
   })
 
-  visitAndReplace(doc, 'card-group', (node) => {
-    node[0] = 'p'
-    node[1] = {}
-  })
-
   visitAndReplace(doc, 'accordion-item', (node) => {
     const prevNode = { ...node }
 
@@ -865,16 +860,6 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
       title,
       description
     ]
-  })
-
-  visitAndReplace(doc, 'accordion', (node) => {
-    node[0] = 'p'
-    node[1] = {}
-  })
-
-  visitAndReplace(doc, 'code-group', (node) => {
-    node[0] = 'p'
-    node[1] = {}
   })
 
   const componentsListNodes: any[] = []

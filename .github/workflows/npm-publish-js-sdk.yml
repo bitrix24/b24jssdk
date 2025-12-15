@@ -43,4 +43,4 @@ jobs:
 
       - name: 'Publish JS SDK 🚀'
         shell: bash
-        run: pnpm --filter ./packages/jssdk publish
+        run: pnpm --filter ./packages/jssdk publish --no-git-checks

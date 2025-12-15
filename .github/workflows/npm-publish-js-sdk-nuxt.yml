@@ -43,4 +43,4 @@ jobs:
 
       - name: 'Publish JS SDK NUXT 🚀'
         shell: bash
-        run: pnpm --filter ./packages/jssdk-nuxt publish
+        run: pnpm --filter ./packages/jssdk-nuxt publish --no-git-checks

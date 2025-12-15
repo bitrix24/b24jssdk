@@ -72,6 +72,10 @@ const props = withDefaults(defineProps<{
    */
   elevated?: boolean
   lang?: string
+  /**
+   * Override the filename used for the code block
+   */
+  filename?: string
 }>(), {
   preview: true,
   source: true,
@@ -111,7 +115,7 @@ const code = computed(() => {
 `
   }
 
-  code += `\`\`\`${props.lang} ${props.preview ? '' : ` [${data.pascalName}.${props.lang}]`}${props.highlights?.length ? `{${props.highlights.join('-')}}` : ''}
+  code += `\`\`\`${props.lang} ${props.preview ? '' : ` [${props.filename ?? data.pascalName}.${props.lang}]`}${props.highlights?.length ? `{${props.highlights.join('-')}}` : ''}
 ${data?.code ?? ''}
 \`\`\``
 

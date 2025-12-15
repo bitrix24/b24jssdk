@@ -82,7 +82,7 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
       next: this._data.next,
       total: this._data.total,
       time: this._data.time
-    }) as GetPayload<T>
+    }) as Payload<T>
   }
 
   /**

@@ -34,7 +34,7 @@ function clearTags(content: string): string {
     .replace(/<code-group[^>]*>/g, '').replace(/<\/code-group>/g, '')
 
     .replace(/:{2,}card-group[^}]*\}/g, '')
-    .replace(/:{2,}accordion[^}]*\}/g, '')
+    .replace(/:{2,}accordion/g, '')
     .replace(/:{2,}steps[^}]*\}/g, '')
     .replace(/:{2,}code-group[^}]*\}/g, '')
 
@@ -53,13 +53,11 @@ function clearLangTsType(content: string): string {
 
 function convertHtmlTablesToMarkdown(input: string): string {
   return input.replace(/<table>[\s\S]*?<\/table>/g, (tableHtml: string) => {
-    // Упрощаем HTML
     const cleanHtml = tableHtml
       .replace(/\n/g, ' ')
       .replace(/\s{2,}/g, ' ')
       .trim()
 
-    // Находим все строки (учитывая thead/tbody)
     const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g
     const rows: string[] = []
     let rowMatch: RegExpExecArray | null
@@ -81,7 +79,6 @@ function convertHtmlTablesToMarkdown(input: string): string {
       while ((cellMatch = cellRegex.exec(rows[i] ?? '')) !== null) {
         let cellContent = cellMatch[1] ?? ''
 
-        // Извлекаем текст из вложенных тегов
         cellContent = extractTextFromHtml(cellContent)
         cells.push(cellContent.trim())
       }
@@ -102,32 +99,24 @@ function convertHtmlTablesToMarkdown(input: string): string {
 }
 
 function extractTextFromHtml(html: string): string {
-  // Сначала обрабатываем теги code с учетом внутренних пробелов
   html = html.replace(/<code[^>]*>([\s\S]*?)<\/code>/g, (match, content) => {
-    // Удаляем все пробелы в начале и конце содержимого code
     return '`' + content.trim().replace(/\s+/g, '') + '`'
   })
 
-  // Обрабатываем теги strong с учетом внутренних пробелов
   html = html.replace(/<strong[^>]*>([\s\S]*?)<\/strong>/g, (match, content) => {
-    // Удаляем все пробелы в начале и конце содержимого strong
     return '**' + content.trim().replace(/\s+/g, ' ') + '**'
   })
 
-  // Убираем все остальные теги и лишние пробелы
   html = html
-    .replace(/<[^>]+>/g, '') // Удаляем оставшиеся теги
-    .replace(/\s+/g, ' ') // Заменяем множественные пробелы на один
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
     .trim()
 
-  // Очищаем от лишних пробелов вокруг markdown форматирования
   html = html
-    // Убираем пробелы между ** и ` (для случаев ** `method` **)
-    .replace(/\*\*\s*`/g, '**`') // Между ** и `
-    .replace(/`\s*\*\*/g, '`**') // Между ` и **
-    // Убираем пробелы между markdown форматированием и текстом внутри
-    .replace(/\*\*(\S+)\*\*/g, '**$1**') // ** text ** → **text**
-    .replace(/`(\S+)`/g, '`$1`') // ` text ` → `text`
+    .replace(/\*\*\s*`/g, '**`')
+    .replace(/`\s*\*\*/g, '`**')
+    .replace(/\*\*(\S+)\*\*/g, '**$1**')
+    .replace(/`(\S+)`/g, '`$1`')
 
   return html.trim()
 }

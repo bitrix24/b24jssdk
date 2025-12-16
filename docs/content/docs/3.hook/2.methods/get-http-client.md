@@ -15,8 +15,11 @@ links:
     to: https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/src/types/http.ts
 ---
 
-::caution
-B24Hook (Webhook) is not safe for client-side use — keep and use it only on the server
+::caution{title="⚠️ CAUTION: SECURITY"}
+The `B24Hook` object is intended **exclusively for use on the server**.
+
+- A webhook contains a secret access key, which **MUST NOT** be used in client-side code (browser, mobile app).
+- For the client side, use [`B24Frame`](/docs/frame/).
 ::
 
 ## Usage

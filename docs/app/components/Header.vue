@@ -24,6 +24,15 @@ const tgLink = computed(() => {
     ? 'https://t.me/bitrix24apps'
     : 'https://t.me/b24_dev'
 })
+
+const b24DocsLink = computed(() => {
+  return (
+    // eslint-disable-next-line no-undef
+    typeof window !== 'undefined' && window.navigator?.language.includes('ru')
+  )
+    ? 'https://apidocs.bitrix24.ru/'
+    : 'https://apidocs.bitrix24.com/'
+})
 </script>
 
 <template>
@@ -54,7 +63,7 @@ const tgLink = computed(() => {
       <B24Button
         aria-label="Bitrix24 REST API"
         :icon="Bitrix24Icon"
-        to="https://apidocs.bitrix24.com/"
+        :to="b24DocsLink"
         target="_blank"
         size="sm"
       />

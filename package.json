@@ -49,10 +49,10 @@
     "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck"
   },
   "devDependencies": {
-    "@nuxt/eslint-config": "^1.11.0",
+    "@nuxt/eslint-config": "^1.12.1",
     "@types/node": "^25.0.0",
     "dotenv": "^17.2.3",
-    "eslint": "^9.39.1",
+    "eslint": "^9.39.2",
     "vue-tsc": "^3.1.5"
   },
   "peerDependencies": {

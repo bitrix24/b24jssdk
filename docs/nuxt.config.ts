@@ -235,21 +235,21 @@ export default defineNuxtConfig({
         title: 'B24Frame',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '/docs/frame/%' }
+          { field: 'path', operator: 'LIKE', value: '/docs/frame%' }
         ]
       },
       {
         title: 'B24Hook',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '/docs/hook/%' }
+          { field: 'path', operator: 'LIKE', value: '/docs/hook%' }
         ]
       },
       {
         title: 'B24OAuth',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '/docs/oauth/%' }
+          { field: 'path', operator: 'LIKE', value: '/docs/oauth%' }
         ]
       }
     ],

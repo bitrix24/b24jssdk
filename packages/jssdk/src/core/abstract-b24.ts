@@ -6,6 +6,7 @@ import type { TypeB24 } from '../types/b24'
 import type { TypeHttp } from '../types/http'
 import type { ListPayload } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
+import type from "./../tools/type";
 
 export abstract class AbstractB24 implements TypeB24 {
   static readonly batchSize = 50
@@ -148,43 +149,171 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * @inheritDoc
    */
-  async* fetchListMethod(
+  async callFastListMethod<T = unknown>(
     method: string,
-    params: any = {},
+    params: {
+      order?: any
+      filter?: any
+      [key: string]: any
+    } = {},
     idKey: string = 'ID',
     customKeyForResult: null | string = null
-  ): AsyncGenerator<any[]> {
-    params.order = params.order || {}
-    params.filter = params.filter || {}
-    params.start = -1
+  ): Promise<Result<T[]>> {
+    const result: Result<T[]> = new Result()
 
     const moreIdKey = `>${idKey}`
+    const requestParams = {
+      ...params,
+      order: { ...(params.order || {}), [idKey]: 'ASC' },
+      filter: { ...(params.filter || {}), [moreIdKey]: 0 },
+      start: -1
+    }
 
-    params.order[idKey] = 'ASC'
-    params.filter[moreIdKey] = 0
+    let allItems: T[] = []
 
     do {
-      const result = await this.callMethod(method, params, params.start)
-      let data = undefined
-      if (!Type.isNull(customKeyForResult) && null !== customKeyForResult) {
-        data = result.getData().result[customKeyForResult] as []
+      this.getLogger().log({ method, requestParams })
+      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, -1)
+
+      if (!response.isSuccess) {
+        this.getLogger().error(response.getErrorMessages())
+        result.addErrors([...response.getErrors()])
+        break
+      }
+
+      let resultData: T[] = []
+      if (null === customKeyForResult) {
+        resultData = response.getData().result as T[]
       } else {
-        data = result.getData().result as []
+        resultData = response.getData().result[customKeyForResult] as T[]
       }
 
-      if (data.length === 0) {
+      if (resultData.length === 0) {
         break
       }
 
-      yield data
+      allItems = [...allItems, ...resultData]
 
-      if (data.length < AbstractB24.batchSize) {
+      if (resultData.length < AbstractB24.batchSize) {
         break
       }
 
-      const value = data.at(-1)
-      if (value && idKey in value) {
-        params.filter[moreIdKey] = value[idKey]
+      // Update the filter for the next iteration
+      const lastItem = resultData[resultData.length - 1] as Record<string, any>
+      if (
+        lastItem
+        && typeof lastItem[idKey] !== 'undefined'
+      ) {
+        requestParams.filter[moreIdKey] = Number.parseInt(lastItem[idKey])
+      } else {
+        break
+      }
+    } while (true)
+
+    return result.setData(allItems)
+  }
+
+  // /**
+  //  * @inheritDoc
+  //  */
+  // async* fetchListMethod(
+  //   method: string,
+  //   params: any = {},
+  //   idKey: string = 'ID',
+  //   customKeyForResult: null | string = null
+  // ): AsyncGenerator<any[]> {
+  //   params.order = params.order || {}
+  //   params.filter = params.filter || {}
+  //   params.start = -1
+  //
+  //   const moreIdKey = `>${idKey}`
+  //
+  //   params.order[idKey] = 'ASC'
+  //   params.filter[moreIdKey] = 0
+  //
+  //   do {
+  //     const result = await this.callMethod(method, params, params.start)
+  //     let data = undefined
+  //     if (!Type.isNull(customKeyForResult) && null !== customKeyForResult) {
+  //       data = result.getData().result[customKeyForResult] as []
+  //     } else {
+  //       data = result.getData().result as []
+  //     }
+  //
+  //     if (data.length === 0) {
+  //       break
+  //     }
+  //
+  //     yield data
+  //
+  //     if (data.length < AbstractB24.batchSize) {
+  //       break
+  //     }
+  //
+  //     const value = data.at(-1)
+  //     if (value && idKey in value) {
+  //       params.filter[moreIdKey] = value[idKey]
+  //     }
+  //   } while (true)
+  // }
+
+  /**
+   * @inheritDoc
+   */
+  async* fetchListMethod<T = unknown>(
+    method: string,
+    params: {
+      order?: any
+      filter?: any
+      [key: string]: any
+    } = {},
+    idKey: string = 'ID',
+    customKeyForResult: null | string = null
+  ): AsyncGenerator<T[]> {
+    const moreIdKey = `>${idKey}`
+
+    const requestParams = {
+      ...params,
+      order: { ...(params.order || {}), [idKey]: 'ASC' },
+      filter: { ...(params.filter || {}), [moreIdKey]: 0 },
+      start: -1
+    }
+
+    do {
+      this.getLogger().log({ method, requestParams })
+      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, -1)
+
+      if (!response.isSuccess) {
+        this.getLogger().error(response.getErrorMessages())
+        break
+      }
+
+      let resultData: T[] = []
+      if (null === customKeyForResult) {
+        resultData = response.getData().result as T[]
+      } else {
+        resultData = response.getData().result[customKeyForResult] as T[]
+      }
+
+      if (resultData.length === 0) {
+        break
+      }
+
+      yield resultData
+
+      if (resultData.length < AbstractB24.batchSize) {
+        break
+      }
+
+      // Update the filter for the next iteration
+      const lastItem = [resultData.length - 1] as Record<string, any>
+      if (
+        lastItem
+        && typeof lastItem[idKey] !== 'undefined'
+      ) {
+        requestParams.filter[moreIdKey] = Number.parseInt(lastItem[idKey] as string)
+      } else {
+        break
       }
     } while (true)
   }

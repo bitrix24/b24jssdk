@@ -170,6 +170,7 @@ export abstract class AbstractB24 implements TypeB24 {
     }
 
     let allItems: T[] = []
+    let isContinue = true
 
     do {
       this.getLogger().log({ method, requestParams })
@@ -178,6 +179,7 @@ export abstract class AbstractB24 implements TypeB24 {
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())
         result.addErrors([...response.getErrors()])
+        isContinue = false
         break
       }
 
@@ -189,12 +191,14 @@ export abstract class AbstractB24 implements TypeB24 {
       }
 
       if (resultData.length === 0) {
+        isContinue = false
         break
       }
 
       allItems = [...allItems, ...resultData]
 
       if (resultData.length < AbstractB24.batchSize) {
+        isContinue = false
         break
       }
 
@@ -206,9 +210,10 @@ export abstract class AbstractB24 implements TypeB24 {
       ) {
         requestParams.filter[moreIdKey] = Number.parseInt(lastItem[idKey])
       } else {
+        isContinue = false
         break
       }
-    } while (true)
+    } while (isContinue)
 
     return result.setData(allItems)
   }
@@ -279,6 +284,7 @@ export abstract class AbstractB24 implements TypeB24 {
       start: -1
     }
 
+    let isContinue = true
     do {
       this.getLogger().log({ method, requestParams })
       const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, -1)
@@ -296,12 +302,14 @@ export abstract class AbstractB24 implements TypeB24 {
       }
 
       if (resultData.length === 0) {
+        isContinue = false
         break
       }
 
       yield resultData
 
       if (resultData.length < AbstractB24.batchSize) {
+        isContinue = false
         break
       }
 
@@ -313,9 +321,10 @@ export abstract class AbstractB24 implements TypeB24 {
       ) {
         requestParams.filter[moreIdKey] = Number.parseInt(lastItem[idKey] as string)
       } else {
+        isContinue = false
         break
       }
-    } while (true)
+    } while (isContinue)
   }
 
   /**

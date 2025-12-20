@@ -238,7 +238,7 @@ export const useNavigation = (navigation: Ref<ContentNavigationItem[] | undefine
         ...item,
         open: true,
         children: [
-          ...(((item?.children || []) as NavigationMenuItem[]).map(link => ({ ...link, to: withTrailingSlash(link.to as string), active: withTrailingSlash(link.to as string) === route.path })))
+          ...(((item?.children || []) as (NavigationMenuItem & { description?: string })[]).map(link => ({ ...link, to: withTrailingSlash(link.to as string), active: withTrailingSlash(link.to as string) === route.path })))
         ]
       }
     })
@@ -249,6 +249,7 @@ export const useNavigation = (navigation: Ref<ContentNavigationItem[] | undefine
         ...row,
         type: 'label' as const,
         open: undefined,
+        description: undefined,
         children: undefined
       })
 

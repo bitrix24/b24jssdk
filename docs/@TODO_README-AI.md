@@ -10,6 +10,7 @@ Purpose: give AI agents a precise, code-oriented overview of the SDK to generate
 Core building blocks:
 
 - Frontend in frame: B24Frame + initializeB24Frame()
+- Backend/service: B24Hook (webhook-based)
 - REST utilities: callMethod, callBatch, callListMethod, fetchListMethod
 - UI managers: parent, slider, dialog, placement, options, auth
 - Helpers: B24HelperManager and useB24Helper hook; Pull client
@@ -133,6 +134,71 @@ Globals exposed by UMD
 - B24Js.initializeB24Frame
 - B24Js.B24Frame and managers via properties (auth, parent, slider, dialog, placement, options)
 - Utilities: LoggerBrowser, Text, Type, enums (e.g., EnumCrmEntityTypeId), Result, AjaxError/AjaxResult, etc.
+
+
+## Backend/Services (Node.js, ESM) with B24Hook
+
+Use B24Hook when calling Bitrix24 REST from servers or scripts via incoming webhook. Auth is embedded in the webhook path and no frame is required.
+
+Minimal contract
+
+- new B24Hook({ b24Url, userId, secret }) or B24Hook.fromWebhookUrl(url)
+- callMethod, callBatch, callListMethod, fetchListMethod
+
+Example: construct from webhook URL and call API
+
+```ts
+import {
+  B24Hook,
+  EnumCrmEntityTypeId,
+  LoggerBrowser,
+  Result
+} from '@bitrix24/b24jssdk'
+
+const logger = LoggerBrowser.build('Srv', true)
+
+const $b24 = B24Hook.fromWebhookUrl(
+  'https://your_domain.bitrix24.com/rest/1/k32t88gf3azpmwv3'
+)
+
+// Optional: silence client-side warning (Node is server-side)
+$b24.offClientSideWarning?.()
+
+// Single method
+const res = await $b24.callMethod('crm.item.list', {
+  entityTypeId: EnumCrmEntityTypeId.company,
+  order: { id: 'desc' },
+})
+logger.info('companies:', res.getData().result)
+
+// Batch (array syntax)
+const batch: Result = await $b24.callBatch([
+  ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] }],
+  ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] }]
+], true)
+logger.info('batch:', batch.getData())
+```
+
+Listing helpers
+
+```ts
+// Pull a full list with automatic paging
+const list = await $b24.callListMethod('crm.item.list', {
+  entityTypeId: EnumCrmEntityTypeId.deal,
+  select: ['id', 'title']
+})
+console.log(list.getData()) // array of items
+
+// Or stream chunks
+for await (const chunk of $b24.fetchListMethod('crm.item.list', { entityTypeId: EnumCrmEntityTypeId.deal }, 'id')) {
+  console.log('chunk size', chunk.length)
+}
+```
+
+Notes
+
+- Supported Node versions: ^18, ^20, or >=22.
+- B24Hook warns if used on the client; keep it server-side.
 
 
 ## UI Integrations in Frame (sliders, dialogs, parent window)
@@ -416,11 +482,12 @@ try {
 - UMD: window.B24Js global; load via unpkg CDN; use inside Bitrix24 iframe
 - ESM: import from '@bitrix24/b24jssdk'; works in browsers with bundlers and in Node (server-side) for B24Hook
 
+
 ## Caveats and constraints
 
 - Frame-only APIs (dialogs, sliders, placement, parent, options, auth refresh) require running in Bitrix24 placement context
 - openPath automatically handles mobile devices by opening a new tab and polling for close status; check the returned StatusClose
-- + Webhook (B24Hook) is not safe on the client; keep it on the server
+- Webhook (B24Hook) is not safe on the client; keep it on the server
 - Batch limits apply (SDK default chunk size is 50)
 
 

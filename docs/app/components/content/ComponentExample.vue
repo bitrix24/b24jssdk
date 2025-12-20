@@ -52,6 +52,7 @@ const props = withDefaults(defineProps<{
    * A list of variable props to link to the component.
    */
   options?: Array<{
+    type?: string
     alias?: string
     name: string
     label: string
@@ -269,6 +270,7 @@ const clearHook = async () => {
               />
               <B24Input
                 v-else
+                :type="option.type"
                 :model-value="get(optionsValues, option.name)"
                 :b24ui="{ base: 'min-w-[20px]' }"
                 @update:model-value="set(optionsValues, option.name, $event)"

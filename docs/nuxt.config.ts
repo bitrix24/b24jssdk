@@ -104,7 +104,6 @@ export default defineNuxtConfig({
     // '@bitrix24/b24jssdk-nuxt',
     '../packages/jssdk-nuxt/src/module',
     '@bitrix24/b24ui-nuxt',
-    '@bitrix24/b24icons-nuxt',
     '@nuxt/content',
     // '@nuxt/image',
     '@nuxtjs/plausible',
@@ -203,8 +202,7 @@ export default defineNuxtConfig({
     },
     server: {
       // Fix: "Blocked request. This host is not allowed" when using tunnels like ngrok
-      allowedHosts: [...extraAllowedHosts],
-      cors: true
+      allowedHosts: [...extraAllowedHosts]
     }
   },
 

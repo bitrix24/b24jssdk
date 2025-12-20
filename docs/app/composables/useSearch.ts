@@ -9,6 +9,8 @@ import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
 
 export function useSearch() {
   const route = useRoute()
+  const { frameworks } = useFrameworks()
+  const { track } = useAnalytics()
 
   const config = useRuntimeConfig()
   const { open: openAIChat } = useAIChat()
@@ -19,6 +21,8 @@ export function useSearch() {
 
   function onSelect(e: any) {
     e.preventDefault()
+
+    track('AI Chat Opened', { hasSearchTerm: !!searchTerm.value })
 
     openContentSearch.value = false
     openAIChat(searchTerm.value, true)

@@ -9,7 +9,7 @@ import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
 
 export function useSearch() {
   const route = useRoute()
-  const { frameworks } = useFrameworks()
+  // const { frameworks } = useFrameworks()
   const { track } = useAnalytics()
 
   const config = useRuntimeConfig()

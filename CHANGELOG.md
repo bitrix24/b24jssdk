@@ -5,6 +5,7 @@
 * chore(cli): add
 * docs: use Bitrix24 Ui (mcp, llms and more demo)
 * fix(TypeB24/TypeHttp): improve generics
+* feat(TypeB24): add `callFastListMethod()`, `callListMethod()` now deprecate
 
 ## [0.5.1](https://github.com/bitrix24/b24jssdk/compare/v0.4.10...v0.5.1) (2025-10-29)
 

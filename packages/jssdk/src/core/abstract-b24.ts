@@ -6,7 +6,6 @@ import type { TypeB24 } from '../types/b24'
 import type { TypeHttp } from '../types/http'
 import type { ListPayload } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
-import type from "./../tools/type";
 
 export abstract class AbstractB24 implements TypeB24 {
   static readonly batchSize = 50
@@ -82,68 +81,65 @@ export abstract class AbstractB24 implements TypeB24 {
   }
 
   /**
+   * @deprecate: use callFastListMethod()
    * @inheritDoc
    */
-  async callListMethod(
+  async callListMethod<T = unknown>(
     method: string,
     params: object = {},
     progress: null | ((progress: number) => void) = null,
     customKeyForResult: null | string = null
-  ): Promise<Result> {
-    const result = new Result()
+  ): Promise<Result<T[]>> {
+    const result: Result<T[]> = new Result()
 
     if (Type.isFunction(progress) && null !== progress) {
       progress(0)
     }
 
-    return this.callMethod(method, params, 0).then(async (response) => {
-      let list: any[] = []
+    return this.callMethod(method, params, 0)
+      .then(async (response: AjaxResult<any>) => {
+        let list: T[] = []
 
-      let resultData
-      if (null === customKeyForResult) {
-        resultData = (response.getData() as ListPayload<any>).result as []
-      } else {
-        resultData = (response.getData() as ListPayload<any>).result[
-          customKeyForResult
-        ] as []
-      }
+        let resultData
+        if (null === customKeyForResult) {
+          resultData = (response.getData() as ListPayload<T>).result as T[]
+        } else {
+          resultData = (response.getData() as ListPayload<T>).result[customKeyForResult] as T[]
+        }
 
-      list = [...list, ...resultData]
-      if (response.isMore()) {
-        let responseLoop: false | AjaxResult = response
-        while (true) {
-          responseLoop = await responseLoop.getNext(this.getHttpClient())
+        list = [...list, ...resultData]
+        if (response.isMore()) {
+          let responseLoop: false | AjaxResult = response
+          while (true) {
+            responseLoop = await responseLoop.getNext(this.getHttpClient())
 
-          if (responseLoop === false) {
-            break
-          }
+            if (responseLoop === false) {
+              break
+            }
 
-          let resultData = undefined
-          if (null === customKeyForResult) {
-            resultData = (responseLoop.getData() as ListPayload<any>)
-              .result as []
-          } else {
-            resultData = (responseLoop.getData() as ListPayload<any>).result[
-              customKeyForResult
-            ] as []
-          }
+            let resultData = undefined
+            if (null === customKeyForResult) {
+              resultData = (responseLoop.getData() as ListPayload<T>).result as T[]
+            } else {
+              resultData = (responseLoop.getData() as ListPayload<T>).result[customKeyForResult] as T[]
+            }
 
-          list = [...list, ...resultData]
+            list = [...list, ...resultData]
 
-          if (progress) {
-            const total = responseLoop.getTotal()
-            progress(total > 0 ? Math.round((100 * list.length) / total) : 100)
+            if (progress) {
+              const total = responseLoop.getTotal()
+              progress(total > 0 ? Math.round((100 * list.length) / total) : 100)
+            }
           }
         }
-      }
 
-      result.setData(list)
-      if (progress) {
-        progress(100)
-      }
+        result.setData(list)
+        if (progress) {
+          progress(100)
+        }
 
-      return result
-    })
+        return result
+      })
   }
 
   /**

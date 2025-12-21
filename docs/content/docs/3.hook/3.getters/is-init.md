@@ -38,8 +38,16 @@ $logger.info($b24.isInit)  // true
 
 ## Next Steps
 
-- [callMethod](/docs/hook/methods/call-method/) - Learn how to call a REST API method with the specified parameters
-- [callListMethod](/docs/hook/methods/call-list-method/) - Calls a REST API list method with the specified parameters
-- [fetchListMethod](/docs/hook/methods/fetch-list-method/) - Calls a REST API list method and returns a generator object
-- [callBatchByChunk](/docs/hook/methods/call-batch-by-chunk/) - Executes a batch request with any number of commands
-- [callBatch](/docs/hook/methods/call-batch/) - Executes a batch request with a maximum of 50 commands
+Core API methods:
+
+- [callMethod()](/docs/hook/methods/call-method/) — Call any REST API method
+- [callBatch()](/docs/hook/methods/call-batch/) — Batch execution of up to 50 commands
+
+Working with lists:
+
+- [callFastListMethod()](/docs/hook/methods/call-fast-list-method/) — Automatic retrieval of all list pages
+- [fetchListMethod()](/docs/hook/methods/fetch-list-method/) — Incremental loading of large lists via generator
+
+Advanced scenarios:
+
+- [callBatchByChunk()](/docs/hook/methods/call-batch-by-chunk/) — Batch execution of any number of commands with automatic chunking

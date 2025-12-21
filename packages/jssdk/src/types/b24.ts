@@ -45,20 +45,42 @@ export type TypeB24 = {
   ): Promise<AjaxResult<T>>
 
   /**
-   * Calls a REST service list method with the specified parameters
+   * @deprecate: use callFastListMethod()
    *
+   * Calls a REST service list method with the specified parameters
    * @param  {string} method Query method
    * @param  {object} params Request parameters
    * @param {null|((progress: number) => void)} progress Processing steps
    * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
    * @return {Promise}
    */
-  callListMethod(
+  callListMethod<T = unknown>(
     method: string,
     params?: object,
     progress?: null | ((progress: number) => void),
     customKeyForResult?: string | null
-  ): Promise<Result>
+  ): Promise<Result<T[]>>
+
+  /**
+   * Use for quick data retrieval.
+   * Similar to callListMethod, but does not count the total number
+   *
+   * @param  {string} method Query method
+   * @param  {object} params Request parameters
+   * @param {string} idKey Entity ID field name ('ID' || 'id')
+   * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
+   * @return {Promise}
+   */
+  callFastListMethod<T = unknown>(
+    method: string,
+    params: {
+      order?: any
+      filter?: any
+      [key: string]: any
+    },
+    idKey: string,
+    customKeyForResult?: string | null
+  ): Promise<Result<T[]>>
 
   /**
    * Calls a REST service list method with the specified parameters and returns a generator object.
@@ -71,12 +93,16 @@ export type TypeB24 = {
    *
    * @return {AsyncGenerator} Generator
    */
-  fetchListMethod(
+  fetchListMethod<T = unknown>(
     method: string,
-    params?: any,
+    params: {
+      order?: any
+      filter?: any
+      [key: string]: any
+    },
     idKey?: string,
     customKeyForResult?: string | null
-  ): AsyncGenerator<any[]>
+  ): AsyncGenerator<T[]>
 
   /**
    * Calls a batch request with a maximum number of commands of no more than 50

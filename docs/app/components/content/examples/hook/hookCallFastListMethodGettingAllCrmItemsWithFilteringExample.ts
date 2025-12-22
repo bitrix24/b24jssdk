@@ -6,10 +6,9 @@ type Company = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:getAllDeals', devMode)
+const $logger = LoggerBrowser.build('Example:AllCrmItems', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
-// Usage
 try {
   const response = await $b24.callFastListMethod<Company>(
     'crm.item.list',
@@ -19,11 +18,10 @@ try {
         // use some filter by title
         '=%title': 'Prime%'
       },
-      order: { id: 'asc' },
       select: ['id', 'title']
     },
-    'id',
-    'items'
+    'id', // ID field in the response
+    'items' // The key under which the data is located (for methods like crm.item.list)
   )
 
   if (!response.isSuccess) {

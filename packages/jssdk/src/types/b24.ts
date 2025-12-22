@@ -46,20 +46,20 @@ export type TypeB24 = {
 
   /**
    * @deprecate: use callFastListMethod()
-   *
    * Calls a REST service list method with the specified parameters
+   *
    * @param  {string} method Query method
    * @param  {object} params Request parameters
    * @param {null|((progress: number) => void)} progress Processing steps
    * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
    * @return {Promise}
    */
-  callListMethod<T = unknown>(
+  callListMethod(
     method: string,
     params?: object,
     progress?: null | ((progress: number) => void),
     customKeyForResult?: string | null
-  ): Promise<Result<T[]>>
+  ): Promise<Result>
 
   /**
    * Use for quick data retrieval.
@@ -73,12 +73,12 @@ export type TypeB24 = {
    */
   callFastListMethod<T = unknown>(
     method: string,
-    params: {
+    params?: {
       order?: any
       filter?: any
       [key: string]: any
     },
-    idKey: string,
+    idKey?: string,
     customKeyForResult?: string | null
   ): Promise<Result<T[]>>
 
@@ -95,7 +95,7 @@ export type TypeB24 = {
    */
   fetchListMethod<T = unknown>(
     method: string,
-    params: {
+    params?: {
       order?: any
       filter?: any
       [key: string]: any
@@ -107,7 +107,7 @@ export type TypeB24 = {
   /**
    * Calls a batch request with a maximum number of commands of no more than 50
    *
-   * @param  {Array | object} calls Request packet
+   * @param  {Array | Record<string, any>} calls Request packet
    * calls = [[method,params],[method,params]]
    * calls = [{method:method,params:params},[method,params]]
    * calls = {call_id:[method,params],...}
@@ -119,7 +119,7 @@ export type TypeB24 = {
    * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
    */
   callBatch(
-    calls: Array<any> | object,
+    calls: Array<any> | Record<string, any>,
     isHaltOnError?: boolean,
     returnAjaxResult?: boolean
   ): Promise<Result>

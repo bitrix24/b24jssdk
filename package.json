@@ -3,7 +3,7 @@
   "description": "Bitrix24 REST API JS SDK",
   "version": "1.0.1",
   "author": "Bitrix",
-  "packageManager": "pnpm@10.24.0",
+  "packageManager": "pnpm@10.26.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bitrix24/b24jssdk.git"
@@ -61,7 +61,8 @@
   "resolutions": {
     "@bitrix24/b24jssdk": "workspace:*",
     "@bitrix24/b24jssdk-nuxt": "workspace:*",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "shiki": "3.18.0"
   },
   "keywords": [
     "bitrix24",

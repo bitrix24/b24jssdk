@@ -3,7 +3,7 @@ import Text from '../../tools/text'
 import { Result, type IResult } from '../result'
 import { AjaxError } from './ajax-error'
 import type { NumberString } from '../../types/common'
-import type { GetPayload, Payload, PayloadTime } from '../../types/payloads'
+import type { Payload, PayloadTime } from '../../types/payloads'
 import type { TypeHttp } from '../../types/http'
 
 export type AjaxQuery = Readonly<{

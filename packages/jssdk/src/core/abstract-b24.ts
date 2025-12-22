@@ -84,62 +84,66 @@ export abstract class AbstractB24 implements TypeB24 {
    * @deprecate: use callFastListMethod()
    * @inheritDoc
    */
-  async callListMethod<T = unknown>(
+  async callListMethod(
     method: string,
     params: object = {},
     progress: null | ((progress: number) => void) = null,
     customKeyForResult: null | string = null
-  ): Promise<Result<T[]>> {
-    const result: Result<T[]> = new Result()
+  ): Promise<Result> {
+    const result = new Result()
 
     if (Type.isFunction(progress) && null !== progress) {
       progress(0)
     }
 
-    return this.callMethod(method, params, 0)
-      .then(async (response: AjaxResult<any>) => {
-        let list: T[] = []
+    return this.callMethod(method, params, 0).then(async (response) => {
+      let list: any[] = []
 
-        let resultData
-        if (null === customKeyForResult) {
-          resultData = (response.getData() as ListPayload<T>).result as T[]
-        } else {
-          resultData = (response.getData() as ListPayload<T>).result[customKeyForResult] as T[]
-        }
+      let resultData
+      if (null === customKeyForResult) {
+        resultData = (response.getData() as ListPayload<any>).result as []
+      } else {
+        resultData = (response.getData() as ListPayload<any>).result[
+          customKeyForResult
+        ] as []
+      }
 
-        list = [...list, ...resultData]
-        if (response.isMore()) {
-          let responseLoop: false | AjaxResult = response
-          while (true) {
-            responseLoop = await responseLoop.getNext(this.getHttpClient())
+      list = [...list, ...resultData]
+      if (response.isMore()) {
+        let responseLoop: false | AjaxResult = response
+        while (true) {
+          responseLoop = await responseLoop.getNext(this.getHttpClient())
 
-            if (responseLoop === false) {
-              break
-            }
+          if (responseLoop === false) {
+            break
+          }
 
-            let resultData = undefined
-            if (null === customKeyForResult) {
-              resultData = (responseLoop.getData() as ListPayload<T>).result as T[]
-            } else {
-              resultData = (responseLoop.getData() as ListPayload<T>).result[customKeyForResult] as T[]
-            }
+          let resultData = undefined
+          if (null === customKeyForResult) {
+            resultData = (responseLoop.getData() as ListPayload<any>)
+              .result as []
+          } else {
+            resultData = (responseLoop.getData() as ListPayload<any>).result[
+              customKeyForResult
+            ] as []
+          }
 
-            list = [...list, ...resultData]
+          list = [...list, ...resultData]
 
-            if (progress) {
-              const total = responseLoop.getTotal()
-              progress(total > 0 ? Math.round((100 * list.length) / total) : 100)
-            }
+          if (progress) {
+            const total = responseLoop.getTotal()
+            progress(total > 0 ? Math.round((100 * list.length) / total) : 100)
           }
         }
+      }
 
-        result.setData(list)
-        if (progress) {
-          progress(100)
-        }
+      result.setData(list)
+      if (progress) {
+        progress(100)
+      }
 
-        return result
-      })
+      return result
+    })
   }
 
   /**
@@ -214,50 +218,6 @@ export abstract class AbstractB24 implements TypeB24 {
     return result.setData(allItems)
   }
 
-  // /**
-  //  * @inheritDoc
-  //  */
-  // async* fetchListMethod(
-  //   method: string,
-  //   params: any = {},
-  //   idKey: string = 'ID',
-  //   customKeyForResult: null | string = null
-  // ): AsyncGenerator<any[]> {
-  //   params.order = params.order || {}
-  //   params.filter = params.filter || {}
-  //   params.start = -1
-  //
-  //   const moreIdKey = `>${idKey}`
-  //
-  //   params.order[idKey] = 'ASC'
-  //   params.filter[moreIdKey] = 0
-  //
-  //   do {
-  //     const result = await this.callMethod(method, params, params.start)
-  //     let data = undefined
-  //     if (!Type.isNull(customKeyForResult) && null !== customKeyForResult) {
-  //       data = result.getData().result[customKeyForResult] as []
-  //     } else {
-  //       data = result.getData().result as []
-  //     }
-  //
-  //     if (data.length === 0) {
-  //       break
-  //     }
-  //
-  //     yield data
-  //
-  //     if (data.length < AbstractB24.batchSize) {
-  //       break
-  //     }
-  //
-  //     const value = data.at(-1)
-  //     if (value && idKey in value) {
-  //       params.filter[moreIdKey] = value[idKey]
-  //     }
-  //   } while (true)
-  // }
-
   /**
    * @inheritDoc
    */
@@ -287,7 +247,7 @@ export abstract class AbstractB24 implements TypeB24 {
 
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())
-        break
+        throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)
       }
 
       let resultData: T[] = []
@@ -310,7 +270,7 @@ export abstract class AbstractB24 implements TypeB24 {
       }
 
       // Update the filter for the next iteration
-      const lastItem = [resultData.length - 1] as Record<string, any>
+      const lastItem = resultData[resultData.length - 1] as Record<string, any>
       if (
         lastItem
         && typeof lastItem[idKey] !== 'undefined'
@@ -327,7 +287,7 @@ export abstract class AbstractB24 implements TypeB24 {
    * @inheritDoc
    */
   async callBatch(
-    calls: Array<any> | object,
+    calls: Array<any> | Record<string, any>,
     isHaltOnError: boolean = true,
     returnAjaxResult: boolean = false
   ): Promise<Result> {

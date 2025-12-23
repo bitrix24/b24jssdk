@@ -1,6 +1,6 @@
 ---
 title: B24Hook.destroy()
-description: 'Destructor. Used to destroy or clean up resources.'
+description: 'Destructor. Used to destroy or clean up resources. Works only in server environment.'
 navigation:
   title: destroy
 links:

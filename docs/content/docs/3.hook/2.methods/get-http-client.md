@@ -1,6 +1,6 @@
 ---
 title: B24Hook.getHttpClient()
-description: 'Returns an HTTP client for requests.'
+description: 'Returns an HTTP client for requests. Works only in server environment.'
 navigation:
   title: getHttpClient
 links:

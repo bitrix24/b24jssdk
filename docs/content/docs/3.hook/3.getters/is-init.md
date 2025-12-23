@@ -1,6 +1,6 @@
 ---
 title: B24Hook.isInit
-description: 'Use B24Hook.isInit to retrieve initialization state information.'
+description: 'Use B24Hook.isInit to retrieve initialization state information. Works only in server environment.'
 navigation:
   title: isInit
 links:

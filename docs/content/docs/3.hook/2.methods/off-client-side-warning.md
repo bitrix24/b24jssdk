@@ -1,6 +1,6 @@
 ---
 title: B24Hook.offClientSideWarning()
-description: 'Disables warning about front-end query execution.'
+description: 'Disables warning about front-end query execution. Works only in server environment.'
 navigation:
   title: offClientSideWarning
 links:

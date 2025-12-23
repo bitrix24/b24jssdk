@@ -317,6 +317,12 @@ export abstract class AbstractB24 implements TypeB24 {
 
     for (const chunkRequest of chunks) {
       const response = await this.callBatch(chunkRequest, isHaltOnError)
+
+      if (!response.isSuccess) {
+        this.getLogger().error(response.getErrorMessages())
+        result.addErrors([...response.getErrors()])
+      }
+
       data.push(...response.getData())
     }
 

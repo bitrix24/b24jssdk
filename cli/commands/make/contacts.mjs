@@ -77,6 +77,8 @@ const names = {
 
 const languages = ['english', 'russian', 'spanish', 'chinese']
 
+const sources = ['WEBFORM', 'CALL', 'OTHER', 'RC_GENERATOR']
+
 /**
  * Command for generating random contacts in Bitrix24
  * Usage: node -r dotenv/config ./cli/index.mjs make contacts --total=10
@@ -168,7 +170,7 @@ export default defineCommand({
         assignedById: args.assignedById,
         open: 'Y',
         typeId: 'CLIENT',
-        sourceId: 'OTHER',
+        sourceId: sources[Math.floor(Math.random() * sources.length)],
         // Additional optional fields for more realistic data
         post: ['Manager', 'Developer', 'Director', 'Analyst', 'Specialist'][Math.floor(Math.random() * 5)],
         fm: [

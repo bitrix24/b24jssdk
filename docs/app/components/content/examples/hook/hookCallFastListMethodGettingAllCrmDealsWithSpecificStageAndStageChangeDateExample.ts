@@ -2,7 +2,7 @@ import type { ISODate } from '@bitrix24/b24jssdk'
 import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
 
 type Deal = {
-  id: string
+  id: number
   title: string
   opportunity: number
   stageId: string

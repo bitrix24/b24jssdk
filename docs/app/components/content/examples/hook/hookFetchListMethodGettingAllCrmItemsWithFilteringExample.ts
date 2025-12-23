@@ -1,7 +1,7 @@
 import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
 
 type Company = {
-  id: string
+  id: number
   title: string
 }
 

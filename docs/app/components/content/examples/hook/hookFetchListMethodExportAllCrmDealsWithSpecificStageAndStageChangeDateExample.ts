@@ -3,7 +3,7 @@ import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
 import { createWriteStream } from 'node:fs'
 
 type Deal = {
-  id: string
+  id: number
   title: string
   opportunity: number
   stageId: string

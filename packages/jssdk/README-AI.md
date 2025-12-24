@@ -549,7 +549,8 @@ This document is based on the SDK source in packages/jssdk/src and the docs unde
 - AbstractB24: shared REST helpers (callMethod/batch/list/fetch/chunk)
 - Http: low-level transport; supports restriction throttling and auth refresh
 - RestrictionManager: automatic throttling to respect Bitrix24 limits
-  
+
+// fix
   ```ts
   // Example: increase limits for enterprise (done automatically by LicenseManager)
   // $b24.getHttpClient().setRestrictionManagerParams(RestrictionManagerParamsForEnterprise)

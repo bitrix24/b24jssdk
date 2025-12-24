@@ -1,10 +1,14 @@
+import type { ISODate } from './common'
+
 export type PayloadTime = {
   readonly start: number
   readonly finish: number
   readonly duration: number
   readonly processing: number
-  readonly date_start: string
-  readonly date_finish: string
+  readonly date_start: ISODate
+  readonly date_finish: ISODate
+  readonly operating_reset_at: number // timestamp - when part of the limit for this method will be released.
+  readonly operating: number // indicates the execution time of a request to a specific method.
 }
 
 export type GetPayload<P> = {

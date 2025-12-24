@@ -156,7 +156,7 @@ export default class Http implements TypeHttp {
 
           if (method) {
             this.#lastOperatingTimes.set(method, {
-              operating: operating, // * 1000, // Конвертируем в миллисекунды
+              operating: operating * 1000, // Конвертируем в миллисекунды
               operating_reset_at: operating_reset_at * 1000 // Конвертируем в миллисекунды
             })
 
@@ -260,10 +260,9 @@ console.warn(method, stats)
     if (!stats) return 0
 
     const now = Date.now()
-    const currentTotal = stats.operating
 
     // Если превышен лимит
-    if (currentTotal >= this.#restrictionParams.operatingLimit!.limitMs!) {
+    if (stats.operating >= this.#restrictionParams.operatingLimit!.limitMs!) {
       // Возвращаем время до reset_at
       if (stats.operating_reset_at > now) {
         return stats.operating_reset_at - now
@@ -296,7 +295,7 @@ console.warn(method, stats)
     const stats = this.#lastOperatingTimes.get(method)!
 
     // Добавляем новую запись
-    stats.operating = operating// * 1000 // Конвертируем в миллисекунды
+    stats.operating = operating * 1000 // Конвертируем в миллисекунды
 
     // Обновляем reset_at если есть
     if (operating_reset_at) {
@@ -1033,7 +1032,7 @@ this.getLogger().warn('!!', operatingWait)
 
     if (lastOperatingTime > this.#restrictionParams.adaptiveConfig!.threshold!) {
       adaptiveDelay = Math.min(
-        lastOperatingTime * this.#restrictionParams.adaptiveConfig!.coefficient! * 1000,
+        lastOperatingTime * this.#restrictionParams.adaptiveConfig!.coefficient!, // уже в мс
         this.#restrictionParams.adaptiveConfig!.maxDelay!
       )
 
@@ -1041,7 +1040,7 @@ this.getLogger().warn('!!', operatingWait)
       this.#stats.totalAdaptiveDelay += adaptiveDelay
 
       this.getLogger().info(
-        `⚠️[adaptiveDelay] Метод ${method}: предыдущий запрос был тяжелым (${lastOperatingTime.toFixed(3)} sec).`,
+        `⚠️[adaptiveDelay] Метод ${method}: предыдущий запрос был тяжелым (${(lastOperatingTime / 1000).toFixed(3)} sec).`,
         `Планируем задержку ${(adaptiveDelay / 1000).toFixed(4)} sec.`
       )
     }

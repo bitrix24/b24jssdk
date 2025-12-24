@@ -5,7 +5,14 @@ import { defineCommand } from 'citty'
 // Arrays for generating commands
 
 const commandsList = [
-  { method: 'server.time', params: {} },
+  // { method: 'server.time', params: {} },
+  // { method: 'crm.company.list', params: { select: ['ID'] } },
+  // { method: 'crm.contact.list', params: { select: ['ID'] } },
+  // { method: 'lists.element.get', params: {
+  //   IBLOCK_TYPE_ID: 'lists',
+  //   IBLOCK_ID: 44,
+  //   SELECT: ['ID']
+  // } }
   { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.company } },
   { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.contact } }
 ]
@@ -76,6 +83,7 @@ export default defineCommand({
         }
         const data = response.getData()
         logger.log('Data:', response.getData().result.items.map(item => item.id).join(','))
+        // logger.log('Data:', response.getData().result)
 
         commandsCount++
 

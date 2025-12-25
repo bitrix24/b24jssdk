@@ -5,7 +5,6 @@ import { defineCommand } from 'citty'
 // Arrays for generating commands
 
 const commandsList = [
-  // { method: 'server.time', params: {} },
   // { method: 'crm.company.list', params: { select: ['ID'] } },
   // { method: 'crm.contact.list', params: { select: ['ID'] } },
   // { method: 'lists.element.get', params: {
@@ -13,8 +12,10 @@ const commandsList = [
   //   IBLOCK_ID: 44,
   //   SELECT: ['ID']
   // } }
-  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.company } },
-  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.contact } }
+  // { method: 'server.time', params: {} },
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] } },
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] } },
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.deal, select: ['id'] } }
 ]
 
 /**
@@ -36,7 +37,7 @@ export default defineCommand({
     let commandsCount = 0
     let errors = []
 
-    // Initialize Bitrix24 connection
+    // region Initialize Bitrix24 connection ////
     const hookPath = process.env?.B24_HOOK || ''
     if (!hookPath) {
       consola.error('🚨 B24_HOOK environment variable is not set! Please configure it in your .env file')
@@ -46,8 +47,8 @@ export default defineCommand({
     const b24 = B24Hook.fromWebhookUrl(hookPath)
     consola.info(`Connected to Bitrix24: ${b24.getTargetOrigin()}`)
 
-    const logger = LoggerBrowser.build('loadTesting', true)
-    const loggerForDebugB24 = LoggerBrowser.build('b24')
+    const logger = LoggerBrowser.build('loadTesting|', true)
+    const loggerForDebugB24 = LoggerBrowser.build('b24|')
     loggerForDebugB24.setConfig({
       [LoggerType.desktop]: false,
       [LoggerType.log]: false,
@@ -62,6 +63,7 @@ export default defineCommand({
       // RestrictionParamsFactory.getRealtime()
       RestrictionParamsFactory.getBatchProcessing()
     )
+    // endregion ////
 
     /**
      * Calling a single command
@@ -75,15 +77,14 @@ export default defineCommand({
         )
 
         // Checking the current load
-        logger.info('loadInfo:', b24.getHttpClient().getStats().loadInfo)
         logger.info('operatingStats:', b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
         }
         const data = response.getData()
-        logger.log('Data:', response.getData().result.items.map(item => item.id).join(','))
-        // logger.log('Data:', response.getData().result)
+        // logger.log('Data:', response.getData().result.items.map(item => item.id).join(','))
+        logger.log('Data:', response.getData().result.items.length)
 
         commandsCount++
 

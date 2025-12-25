@@ -8,6 +8,7 @@ import type { RestrictionParams } from '../../types/http'
 export class RestrictionParamsFactory {
   /**
    * Параметры по умолчанию для обычных тарифов
+   * @see Http.#restrictionParams
    */
   static getDefault(): RestrictionParams {
     return {
@@ -20,10 +21,10 @@ export class RestrictionParamsFactory {
         limitMs: 480 * 1000 // 480 секунд
       },
       adaptiveConfig: {
-        threshold: 0.5,
-        coefficient: 1.2,
-        maxDelay: 10000,
-        enabled: true
+        enabled: false, // Выключено
+        threshold: 400,
+        coefficient: 1,
+        maxDelay: 480 * 1000
       },
       maxRetries: 3,
       retryDelay: 1000
@@ -41,11 +42,11 @@ export class RestrictionParamsFactory {
         drainRate: 5
       },
       adaptiveConfig: {
-        threshold: 0.9,
-        coefficient: 1.0,
-        maxDelay: 5000,
-        enabled: true
-      }
+        enabled: false, // Выключено
+        threshold: 400,
+        coefficient: 1,
+        maxDelay: 480 * 1000
+      },
     }
   }
 
@@ -56,9 +57,9 @@ export class RestrictionParamsFactory {
     return {
       ...this.getDefault(),
       adaptiveConfig: {
-        threshold: 0.5, // Более чувствительный порог
-        coefficient: 2.0, // Большие задержки 2.0
-        maxDelay: 15000, // Макс 15 секунд
+        threshold: 300, // Более чувствительный порог
+        coefficient: 1.2, // Большие задержки
+        maxDelay: 5000, // Макс 5 секунд
         enabled: true
       },
       maxRetries: 5,
@@ -73,10 +74,10 @@ export class RestrictionParamsFactory {
     return {
       ...this.getDefault(),
       adaptiveConfig: {
-        threshold: 4.0, // Менее чувствительный
-        coefficient: 0.5, // Меньшие задержки
-        maxDelay: 1000, // Макс 1 секунда
-        enabled: true
+        enabled: false, // Выключено
+        threshold: 400,
+        coefficient: 1,
+        maxDelay: 480 * 1000
       },
       maxRetries: 1,
       retryDelay: 1000

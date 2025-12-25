@@ -88,6 +88,8 @@ export interface TypeRestrictionManagerParams {
   /**
    * Максимальное суммарное время выполнения (operating) в миллисекундах
    * По умолчанию: 480 секунд (480000 мс)
+   * При рассчетах operating лимита будем на 5 секунд меньше брать
+   * @see Http.getTimeToFree
    */
   operatingLimitMs?: number
 
@@ -143,7 +145,10 @@ export interface AdaptiveConfig {
   threshold: number
   /** Коэффициент умножения для паузы */
   coefficient: number
-  /** Максимальная задержка (мс) */
+  /**
+   * Максимальная задержка (мс)
+   * @memo Минимальный порог для срабатывания 500 мс
+   */
   maxDelay: number
   /** Включена ли адаптивная задержка */
   enabled: boolean
@@ -225,7 +230,7 @@ export interface RestrictionManagerStats {
   consecutiveErrors: number
   /** Текущее количество токенов */
   tokens: number
-  /** Статистика по методам */
+  /** Статистика по методам в секундах */
   operatingStats: { [method: string]: number }
 }
 

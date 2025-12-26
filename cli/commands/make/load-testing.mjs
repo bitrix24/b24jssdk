@@ -59,10 +59,16 @@ export default defineCommand({
     })
 
     b24.setLogger(loggerForDebugB24)
-    b24.getHttpClient().setRestrictionManagerParams(
-      // RestrictionParamsFactory.getRealtime()
-      RestrictionParamsFactory.getBatchProcessing()
-    )
+    if (1 > 2) {
+      // getBatchProcessing
+      b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getBatchProcessing())
+    } else if (2 > 0) {
+      // getDefault
+      b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getDefault())
+    } else {
+      // getRealtime
+      b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getRealtime())
+    }
     // endregion ////
 
     /**

@@ -34,6 +34,11 @@ export type TypeHttp = {
    */
   getStats(): RestrictionManagerStats & { adaptiveDelayAvg: number }
 
+  /**
+   * Сбросить статистику
+   */
+  resetStats(): void
+
   setLogTag(logTag?: string): void
   clearLogTag(): void
 
@@ -53,133 +58,76 @@ export interface IRequestIdGenerator {
 }
 
 // region RestrictionManager /////
-
-// fix
-// export type TypeRestrictionManagerParams = {
-//   sleep: number
-//   speed: number
-//   amount: number
-// }
-
-export interface TypeRestrictionManagerParams {
-  sleep?: number
-  speed?: number
-  amount?: number
-  /**
-   * X - Лимит до блокировки (ёмкость "ведра")
-   * Для обычных тарифов: 50
-   * Для Enterprise: 250
-   */
-  burstLimit?: number
-
-  /**
-   * Y - Скорость утечки (запросов в секунду)
-   * Для обычных тарифов: 2
-   * Для Enterprise: 5
-   */
-  drainRate?: number
-
-  /**
-   * Период времени для operating лимита в миллисекундах
-   * По умолчанию: 10 минут (600000 мс)
-   */
-  operatingWindowMs?: number
-
-  /**
-   * Максимальное суммарное время выполнения (operating) в миллисекундах
-   * По умолчанию: 480 секунд (480000 мс)
-   * При рассчетах operating лимита будем на 5 секунд меньше брать
-   * @see Http.getTimeToFree
-   */
-  operatingLimitMs?: number
-
-  /**
-   * Порог для тяжелых запросов в секундах
-   * Запросы с operating > threshold считаются тяжелыми
-   * По умолчанию: 0.5 секунды
-   */
-  adaptiveThreshold?: number
-
-  /**
-   * Коэффициент умножения для адаптивной задержки
-   * Задержка = lastOperatingTime * coefficient
-   * По умолчанию: 1.0
-   */
-  adaptiveCoefficient?: number
-
-  /**
-   * Максимальная адаптивная задержка в миллисекундах
-   * По умолчанию: 5000 мс
-   */
-  adaptiveMaxDelay?: number
-
-  /**
-   * Включена ли адаптивная задержка
-   * По умолчанию: true
-   */
-  adaptiveEnabled?: boolean
-}
-
-export const RestrictionManagerParamsBase = {
-  sleep: 1000,
-  speed: 0.001,
-  amount: 30
-} as TypeRestrictionManagerParams
-
-/**
- * @todo Need test
- */
-export const RestrictionManagerParamsForEnterprise = {
-  sleep: 600,
-  speed: 0.01,
-  amount: 30 * 5
-} as TypeRestrictionManagerParams
-// endregion /////
-
-/**
- * // fix
- * Настройки для адаптивной задержки
- */
-export interface AdaptiveConfig {
-  /** Порог для тяжелых запросов (сек) */
-  threshold: number
-  /** Коэффициент умножения для паузы */
-  coefficient: number
-  /**
-   * Максимальная задержка (мс)
-   * @memo Минимальный порог для срабатывания 500 мс
-   */
-  maxDelay: number
-  /** Включена ли адаптивная задержка */
-  enabled: boolean
-  /** Время "забывания" статистики (мс) */
-  decayTime?: number
-}
-
-/**
- * // fix
- * Настройки для rate limiting (Leaky Bucket)
- */
-export interface RateLimitConfig {
-  /** X - лимит до блокировки */
-  burstLimit: number
-  /** Y - скорость утечки (запросов в секунду) */
-  drainRate: number
-  /** Начальное количество токенов */
-  initialTokens?: number
-}
-
 /**
  * // fix
  * Настройки для operating limiting
  */
 export interface OperatingLimitConfig {
-  /** Период времени в миллисекундах (10 минут в миллисекундах) */
+  /**
+   * Период времени для operating лимита в миллисекундах
+   * По умолчанию: 10 минут (600_000 мс)
+   */
   windowMs: number
-  /** Максимальное суммарное время в миллисекундах (480 секунд = 480000 мс) */
+  /**
+   * Максимальное суммарное время выполнения (operating) в миллисекундах
+   * По умолчанию: 480 секунд (480_000 мс)
+   * При рассчетах operating лимита будем на 5 секунд меньше брать
+   * @see Http.getTimeToFree
+   */
   limitMs: number
-  /** Автоматически сбрасывать статистику при превышении? */
-  autoReset?: boolean
+}
+
+/**
+ * // fix
+ * Настройки для адаптивной паузы
+ */
+export interface AdaptiveConfig {
+  /**
+   * Порог для тяжелых запросов (%)
+   * По умолчанию: 80% - это значит что `operating >= 384`
+   * Указывает при достижении в `operating` какого % от `operatingLimit.limitMs` нужно начинать ставить паузы
+   */
+  thresholdPercent: number
+  /**
+   * Коэффициент умножения для паузы
+   * По умолчанию: 0.01 - при 0.002 будет пауза 1.2 sec при увеличивающейся нагрузке
+   * Если: operating_reset_at > Date.now()
+   *   То: Пауза = (operating_reset_at - Date.now()) * coefficient
+   *   Иначе: Пауза = 7_000
+   * Нет смысла указывать значение близкое к 1, тк это создаст бессмысленные задержки
+   * Другими словами: если coefficient === 1, то пауза будет до момента разблокировки, а наш код еще лимиты не выработал.
+   * Нужно понимать что цель адаптивной блокировки плавно нивелировать `operating` тяжолых запросов.
+   */
+  coefficient: number
+  /**
+   * Максимальная пауза (мс)
+   * По умолчанию: 7_000 мс
+   * Ограничивает максимальное расчетное время паузы
+   */
+  maxDelay: number
+  /**
+   * Включена ли адаптивная пауза
+   * По умолчанию: true
+   */
+  enabled: boolean
+}
+
+/**
+ * Настройки для rate limiting (Leaky Bucket)
+ */
+export interface RateLimitConfig {
+  /**
+   * X - лимит до блокировки (ёмкость "ведра")
+   * Для обычных тарифов: 50
+   * Для Enterprise: 250
+   */
+  burstLimit: number
+  /**
+   * Y - скорость утечки (запросов в секунду)
+   * Для обычных тарифов: 2
+   * Для Enterprise: 5
+   */
+  drainRate: number
 }
 
 /**
@@ -196,16 +144,16 @@ export interface RestrictionParams {
   /** Настройки адаптивной задержки */
   adaptiveConfig?: AdaptiveConfig
 
-  /** Тарифный план Битрикс24 */
-  tariffPlan?: 'start' | 'standard' | 'enterprise' | 'custom'
-
-  /** Пул IP-адресов для распределения нагрузки */
-  ipPool?: string[]
-
-  /** Максимальное количество повторных попыток */
+  /**
+   * Максимальное количество повторных попыток
+   * По умолчанию: 3
+   */
   maxRetries?: number
 
-  /** Базовая задержка между повторными попытками (мс) */
+  /**
+   * Базовая задержка между повторными попытками (мс)
+   * По умолчанию: 1_000
+   */
   retryDelay?: number
 }
 
@@ -232,54 +180,4 @@ export interface RestrictionManagerStats {
   tokens: number
   /** Статистика по методам в секундах */
   operatingStats: { [method: string]: number }
-}
-
-/**
- * // fix
- * Интерфейс для работы с ограничениями
- */
-export interface RestrictionManagerInterface {
-  /** Установить параметры */
-  setParams(params: TypeRestrictionManagerParams): void
-
-  /** Получить параметры */
-  getParams(): TypeRestrictionManagerParams
-
-  /** Получить статистику */
-  getStats(): RestrictionManagerStats
-
-  /** Сбросить статистику */
-  resetStats(): void
-
-  /** Проверить, можно ли выполнить запрос к методу */
-  canExecute(method: string): {
-    canExecute: boolean
-    waitTime: number
-  }
-
-  /** Зарегистрировать выполнение запроса */
-  registerExecution(method: string, operatingTime: number, resetAt?: number): void
-
-  /** Обработать ошибку rate limit */
-  handleRateLimitError(): number
-
-  /** Обработать ошибку operating limit */
-  handleOperatingLimitError(resetAt?: number): number
-}
-
-/**
- * // fix
- * Результат проверки ограничений
- */
-export interface RestrictionCheckResult {
-  /** Можно ли выполнить запрос */
-  allowed: boolean
-  /** Время ожидания в мс (если 0 - можно выполнять сразу) */
-  waitTime: number
-  /** Причина ожидания */
-  reason?: 'rate_limit' | 'operating_limit' | 'adaptive_delay'
-  /** Ожидаемое время выполнения */
-  estimatedExecutionTime?: number
-  /** Уровень риска (0-10) */
-  riskLevel: number
 }

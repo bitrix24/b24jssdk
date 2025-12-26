@@ -17,17 +17,17 @@ export class RestrictionParamsFactory {
         drainRate: 2
       },
       operatingLimit: {
-        windowMs: 10 * 60 * 1000, // 10 минут
-        limitMs: 480 * 1000 // 480 секунд
+        windowMs: 600_000, // 10 минут
+        limitMs: 480_000 // 480 секунд
       },
       adaptiveConfig: {
-        enabled: false, // Выключено
-        threshold: 400,
-        coefficient: 1,
-        maxDelay: 480 * 1000
+        enabled: true,
+        thresholdPercent: 80,
+        coefficient: 0.01,
+        maxDelay: 7_000
       },
       maxRetries: 3,
-      retryDelay: 1000
+      retryDelay: 1_000
     }
   }
 
@@ -40,13 +40,7 @@ export class RestrictionParamsFactory {
       rateLimit: {
         burstLimit: 250,
         drainRate: 5
-      },
-      adaptiveConfig: {
-        enabled: false, // Выключено
-        threshold: 400,
-        coefficient: 1,
-        maxDelay: 480 * 1000
-      },
+      }
     }
   }
 
@@ -57,13 +51,12 @@ export class RestrictionParamsFactory {
     return {
       ...this.getDefault(),
       adaptiveConfig: {
-        threshold: 300, // Более чувствительный порог
-        coefficient: 1.2, // Большие задержки
-        maxDelay: 5000, // Макс 5 секунд
-        enabled: true
+        enabled: true,
+        thresholdPercent: 50, // Больше порог
+        coefficient: 0.01, // Больше задержки
+        maxDelay: 10_000 // Макс 10 секунд
       },
-      maxRetries: 5,
-      retryDelay: 2000
+      maxRetries: 5 // Больше попыток
     }
   }
 
@@ -75,12 +68,11 @@ export class RestrictionParamsFactory {
       ...this.getDefault(),
       adaptiveConfig: {
         enabled: false, // Выключено
-        threshold: 400,
-        coefficient: 1,
-        maxDelay: 480 * 1000
+        thresholdPercent: 100,
+        coefficient: 0.001,
+        maxDelay: 480_000
       },
-      maxRetries: 1,
-      retryDelay: 1000
+      maxRetries: 1
     }
   }
 

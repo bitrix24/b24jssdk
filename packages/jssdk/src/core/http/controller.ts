@@ -72,17 +72,17 @@ export default class Http implements TypeHttp {
       drainRate: 2
     },
     operatingLimit: {
-      windowMs: 10 * 60 * 1000, // 10 минут
-      limitMs: 480 * 1000 // 480 секунд
+      windowMs: 6000_000, // 10 минут
+      limitMs: 480_000 // 480 секунд
     },
     adaptiveConfig: {
-      threshold: 300,
-      coefficient: 0.8,
-      maxDelay: 2000,
-      enabled: false
+      thresholdPercent: 80,
+      coefficient: 0.01,
+      maxDelay: 7_000,
+      enabled: true
     },
     maxRetries: 3,
-    retryDelay: 1000
+    retryDelay: 1_000
   }
 
   // fix
@@ -146,34 +146,6 @@ export default class Http implements TypeHttp {
     this.#tokens = this.#restrictionParams.rateLimit!.burstLimit!
     this.#lastRefill = Date.now()
     this.#refillIntervalMs = 1000 / this.#restrictionParams.rateLimit!.drainRate!
-
-    // fix
-    // Перехватчик для логирования времени выполнения
-    this.#clientAxios.interceptors.response.use(
-      (response) => {
-        if (response.data?.time?.operating) {
-          const operating = response.data.time.operating
-          const operating_reset_at = response.data.time.operating_reset_at
-          const method = this.#extractMethodFromUrl(response.request.path || '')
-
-          if (method) {
-            this.#lastOperatingTimes.set(method, {
-              operating: operating * 1000, // Конвертируем в миллисекунды
-              operating_reset_at: operating_reset_at * 1000 // Конвертируем в миллисекунды
-            })
-
-            // Если запрос был тяжелым, увеличиваем счетчик
-            if (operating > this.#restrictionParams.adaptiveConfig!.threshold!) {
-              this.#stats.heavyRequestCount++
-            }
-          }
-        }
-        return response
-      },
-      (error) => {
-        return Promise.reject(error)
-      }
-    )
   }
 
   // region Logger ////
@@ -266,16 +238,16 @@ export default class Http implements TypeHttp {
     }
 
     // При рассчетах operating лимита будем на 5 секунд меньше брать
-    const limitMs = Math.max(1000, this.#restrictionParams.operatingLimit!.limitMs! - 5000)
+    const limitMs = Math.max(1_000, this.#restrictionParams.operatingLimit!.limitMs! - 5_000)
 
     // Если превышен лимит
     if (stats.operating >= limitMs) {
       const now = Date.now()
       // Возвращаем время до reset_at + 1 секунда
       if (stats.operating_reset_at > now) {
-        return (stats.operating_reset_at - now) + 1000
+        return (stats.operating_reset_at - now) + 1_000
       } else {
-        return 5000 // 5 секунд по умолчанию
+        return 5_000 // 5 секунд по умолчанию
       }
     }
 
@@ -312,9 +284,11 @@ export default class Http implements TypeHttp {
 
     // Логируем если близко к лимиту
     const usagePercent = (stats.operating / this.#restrictionParams.operatingLimit!.limitMs!) * 100
-    if (usagePercent > 70) {
-      this.getLogger().warn(
-        `⚠️ Method ${method}: use ${usagePercent.toFixed(1)}% operating limit (${(stats.operating / 1000).toFixed(1)} sec from ${(this.#restrictionParams.operatingLimit!.limitMs! / 1000).toFixed(1)} sec)`
+    if (usagePercent > this.#restrictionParams.adaptiveConfig!.thresholdPercent!) {
+      this.#stats.heavyRequestCount++
+      this.getSystemLogger().warn(
+        `⚠️ Method ${method}: use ${usagePercent.toFixed(1)}% operating limit`,
+        `(${(stats.operating / 1000).toFixed(1)} sec from ${(this.#restrictionParams.operatingLimit!.limitMs! / 1000).toFixed(1)} sec)`
       )
     }
   }
@@ -385,7 +359,7 @@ export default class Http implements TypeHttp {
 
       this.getLogger().warn(
         `⏳ Метод ${method}: заблокирован по rate limit`,
-        `Ждем ${(waitTime / 1000).toFixed(4)} sec.`
+        `Ждем ${(waitTime / 1000).toFixed(2)} sec.`
       )
       await this.#delay(waitTime)
 
@@ -405,14 +379,13 @@ export default class Http implements TypeHttp {
   }
 
   /**
-   * // fix
    * Обрабатывает превышение rate limit
    */
   #handleRateLimitExceeded(): number {
     this.#tokens = 0
     this.#stats.tokens = 0
-    // Ждем время для восстановления хотя бы одного токена
-    return Math.ceil(this.#refillIntervalMs * 2) // Удваиваем время при ошибке
+    // Ждем время для восстановления хотя бы одного токена + 1sec
+    return this.#refillIntervalMs + 1_000
   }
   // endregion ////
 
@@ -749,18 +722,14 @@ export default class Http implements TypeHttp {
         if (operatingWait > 0) {
           this.#stats.limitHits++
           this.getLogger().warn(
-            `⏳ !! Метод ${method}: заблокирован по operating limit.`,
-            `Ждем ${(operatingWait / 1000).toFixed(4)} sec.`
+            `⏳ Метод ${method}: заблокирован по operating limit.`,
+            `Ждем ${(operatingWait / 1000).toFixed(2)} sec.`
           )
-// @todo unComent this
-// fix
-          // await this.#delay(operatingWait)
-          // continue
-        }
 
-        // 2. Адаптивная задержка перед запросом (если не отключена)
-        if (!skipAdaptiveDelay && this.#restrictionParams.adaptiveConfig!.enabled!) {
-          await this.#applyAdaptiveDelay(method, params)
+          await this.#delay(operatingWait)
+        } else if (!skipAdaptiveDelay) {
+          // 2. Адаптивная задержка перед запросом
+          await this.#applyAdaptiveDelay(method)
         }
 
         // 3. Проверяем rate limit
@@ -788,37 +757,31 @@ export default class Http implements TypeHttp {
           if (attempt < maxRetries) {
             this.#stats.retries++
             this.#stats.limitHits++
-            const waitTime = this.#handleRateLimitExceeded()
+            // Увеличиваем время при ошибке
+            const waitTime = this.#handleRateLimitExceeded() * Math.pow(2, attempt)
             this.getLogger().warn(
-              `🚫[QUERY_LIMIT_EXCEEDED] !! Ошибка: rate limit превышен.`,
-              `Ждем ${(waitTime / 1000).toFixed(4)} sec.`,
+              `🚫[QUERY_LIMIT_EXCEEDED] Ошибка: rate limit превышен.`,
+              `Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
               `(попытка ${attempt + 1}/${maxRetries})`
             )
-// @todo unComent this
-// fix
-            // await this.#delay(waitTime)
+            await this.#delay(waitTime)
             continue
           }
         }
 
         // Operating limit ошибка
         if (this.#isOperatingLimitError(error)) {
-
-
           if (attempt < maxRetries) {
             this.#stats.retries++
             this.#stats.limitHits++
 
             const waitTime = this.#handleOperatingLimitError(method, error)
             this.getLogger().warn(
-              `🚫[OPERATION_TIME_LIMIT] !! Ошибка: operating limit превышен.`,
-              `Ждем ${(waitTime / 1000).toFixed(4)} sec.`,
+              `🚫[OPERATION_TIME_LIMIT] Ошибка: operating limit превышен.`,
+              `Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
               `(попытка ${attempt + 1}/${maxRetries})`
             )
-
-// @todo unComent this
-// fix
-            // await this.#delay(waitTime)
+            await this.#delay(waitTime)
             continue
           }
         }
@@ -827,11 +790,11 @@ export default class Http implements TypeHttp {
         // Другие ошибки
         if (attempt < maxRetries) {
           this.#stats.retries++
-
+          // Увеличиваем время при ошибке
           const exponentialDelay = baseRetryDelay * Math.pow(2, attempt)
           this.getLogger().warn(
             `🚫${error?.code ? `[${error.code}] ` : ''}Ошибка: ${error.message}.`,
-            `Ждем ${(exponentialDelay / 1000).toFixed(4)} sec`,
+            `Ждем ${(exponentialDelay / 1000).toFixed(2)} sec`,
             `(попытка ${attempt + 1}/${maxRetries})`
           )
           await this.#delay(exponentialDelay)
@@ -1029,57 +992,45 @@ export default class Http implements TypeHttp {
    * // fix
    * Применяет адаптивную задержку на основе предыдущего опыта
    */
-  async #applyAdaptiveDelay(method: string, params: any): Promise<void> {
+  async #applyAdaptiveDelay(method: string): Promise<void> {
     if (!this.#restrictionParams.adaptiveConfig!.enabled!) {
+      return
+    }
+
+    const stats = this.#lastOperatingTimes.get(method)
+    if (!stats) {
       return
     }
 
     let adaptiveDelay = 0
 
-    // 1. Базовая задержка на основе предыдущего запроса
-    const lastOperatingTime = this.#lastOperatingTimes.get(method)?.operating || 0
-
-    if (lastOperatingTime > this.#restrictionParams.adaptiveConfig!.threshold!) {
-      adaptiveDelay += lastOperatingTime * this.#restrictionParams.adaptiveConfig!.coefficient! // уже в мс
+    // Задержка на основе предыдущего запроса
+    const usagePercent = (stats.operating / this.#restrictionParams.operatingLimit!.limitMs!) * 100
+    if (usagePercent > this.#restrictionParams.adaptiveConfig!.thresholdPercent!) {
+      const now = Date.now()
+      if (stats.operating_reset_at > now) {
+        adaptiveDelay += (stats.operating_reset_at - now) * this.#restrictionParams.adaptiveConfig!.coefficient!
+      } else {
+        adaptiveDelay += 7_000 // 7 секунд по умолчанию
+      }
 
       this.getLogger().info(
-        `⚠️[adaptiveDelay] Метод ${method}: предыдущий запрос был тяжелым (${(lastOperatingTime / 1000).toFixed(3)} sec).`,
-        `Планируем задержку ${(adaptiveDelay / 1000).toFixed(4)} sec.`
+        `⚠️ Method ${method}: предыдущий запрос использовал ${(usagePercent).toFixed(1)}% operating limit`,
+        `Задержка:`,
+        `- расчетная ${(adaptiveDelay / 1000).toFixed(2)} sec.`,
+        `- фактическая ${(Math.min(adaptiveDelay, this.#restrictionParams.adaptiveConfig!.maxDelay!) / 1000).toFixed(2)} sec.`
       )
     }
 
-    // @memo пока не понятно нужно ли это делать - тк предположить сложность - это ответственность - а нам лишняя не нужна
-    // // 2. Дополнительная задержка для потенциально тяжелых запросов
-    // const predictedDelay = this.#predictComplexity(method, params) * 50
-    // adaptiveDelay += Math.min(predictedDelay, 1000)
-    // this.getLogger().info(
-    //   `⚠️[adaptiveDelay] Метод ${method}: предполагаемая сложность запроса = ${predictedDelay}.`,
-    //   `Планируем задержку ${(adaptiveDelay / 1000).toFixed(4)} sec.`
-    // )
-
-    // 3. Увеличиваем задержку при последовательных ошибках
-    if (this.#stats.consecutiveErrors > 0) {
-      const errorDelay = this.#stats.consecutiveErrors * 500
-      adaptiveDelay += errorDelay
-
-      this.getLogger().info(
-        `⚠️[adaptiveDelay] Метод ${method}: предыдущий запрос был с ошибкой.`,
-        `Планируем задержку ${(adaptiveDelay / 1000).toFixed(4)} sec.`
+    if (adaptiveDelay > 0) {
+      adaptiveDelay = Math.min(
+        adaptiveDelay,
+        this.#restrictionParams.adaptiveConfig!.maxDelay!
       )
-    }
 
-    adaptiveDelay = Math.min(
-      adaptiveDelay,
-      this.#restrictionParams.adaptiveConfig!.maxDelay!
-    )
-
-    // @todo start from this point
-
-    if (adaptiveDelay >= 500) { // fix 0
       this.#stats.adaptiveDelays++
       this.#stats.totalAdaptiveDelay += adaptiveDelay
 
-      // дополнительная задержка для потенциально проблематичных запросов ////
       this.getLogger().warn(
         `⏳ Метод ${method}: заблокирован по adaptive delay.`,
         `Ждем ${(adaptiveDelay / 1000).toFixed(2)} sec.`
@@ -1190,7 +1141,7 @@ export default class Http implements TypeHttp {
     const operatingWait = this.getTimeToFree(method)
 
     // 10 секунд по умолчанию
-    return Math.max(10000, operatingWait)
+    return Math.max(10_000, operatingWait)
   }
 
   /**
@@ -1198,14 +1149,6 @@ export default class Http implements TypeHttp {
    */
   #delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
-  }
-
-  /**
-   * Извлекает имя метода из URL
-   */
-  #extractMethodFromUrl(url: string): string | null {
-    const match = url.match(/\/([^/?]+)\.json/)
-    return match ? match[1] : null
   }
   // endregion ////
 

@@ -10,9 +10,18 @@ export type TypeHttp = {
   setLogger(logger: LoggerBrowser): void
   getLogger(): LoggerBrowser
 
-  batch(calls: any[] | object, isHaltOnError: boolean, returnAjaxResult: boolean): Promise<Result>
+  batch(
+    calls: any[] | object,
+    isHaltOnError: boolean,
+    returnAjaxResult: boolean,
+    returnTime: boolean
+  ): Promise<Result>
 
-  call<T = unknown>(method: string, params: object, start: number): Promise<AjaxResult<T>>
+  call<T = unknown>(
+    method: string,
+    params: object,
+    start: number
+  ): Promise<AjaxResult<T>>
 
   /**
    * Устанавливает параметры ограничений

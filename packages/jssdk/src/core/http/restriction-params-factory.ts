@@ -50,10 +50,14 @@ export class RestrictionParamsFactory {
   static getBatchProcessing(): RestrictionParams {
     return {
       ...this.getDefault(),
+      rateLimit: {
+        burstLimit: 30,
+        drainRate: 1
+      },
       adaptiveConfig: {
         enabled: true,
         thresholdPercent: 50, // Больше порог
-        coefficient: 0.01, // Больше задержки
+        coefficient: 0.015, // Больше пауза
         maxDelay: 10_000 // Макс 10 секунд
       },
       maxRetries: 5 // Больше попыток

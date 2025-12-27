@@ -18,7 +18,7 @@ import type {
   AuthData,
   TypeDescriptionError
 } from '../../types/auth'
-import type { BatchPayload } from '../../types/payloads'
+import type { BatchPayload, PayloadTime } from '../../types/payloads'
 
 import axios, { type AxiosInstance, AxiosError } from 'axios'
 import * as qs from 'qs-esm'
@@ -72,7 +72,7 @@ export default class Http implements TypeHttp {
       drainRate: 2
     },
     operatingLimit: {
-      windowMs: 6000_000, // 10 минут
+      windowMs: 600_000, // 10 минут
       limitMs: 480_000 // 480 секунд
     },
     adaptiveConfig: {
@@ -255,14 +255,34 @@ export default class Http implements TypeHttp {
   }
 
   /**
-   * // fix
    * Обновляет статистику operating времени для метода
    */
   updateOperatingStats(method: string, data: any): void {
-    const operating = data?.time?.operating
-    const operating_reset_at = data?.time?.operating_reset_at
+    this.#cleanupOldOperatingStats()
 
-    if (operating === undefined) return
+    const operating_reset_at = data?.time?.operating_reset_at
+    let operating = data?.time?.operating
+    if (operating === undefined) {
+      return
+    }
+
+    if (
+      method === 'batch'
+      && operating === 0
+      && Array.isArray(data.result?.result_time)
+      && data.result.result_time.length > 0
+    ) {
+      operating = data.result.result_time.reduce((last: number, row: PayloadTime) => {
+        const operatingRow = row?.operating
+        return Math.max(last, (operatingRow ?? 0))
+      }, 0)
+// @todo Понять что делать с batch
+console.log(
+  'test',
+  operating,
+  data.result.result_time
+)
+    }
 
     // Инициализируем статистику для метода, если ее нет
     if (!this.#lastOperatingTimes.has(method)) {
@@ -290,6 +310,19 @@ export default class Http implements TypeHttp {
         `⚠️ Method ${method}: use ${usagePercent.toFixed(1)}% operating limit`,
         `(${(stats.operating / 1000).toFixed(1)} sec from ${(this.#restrictionParams.operatingLimit!.limitMs! / 1000).toFixed(1)} sec)`
       )
+    }
+  }
+
+  /**
+   * Очистка устаревших данных по operating лимита
+   */
+  #cleanupOldOperatingStats(): void {
+    const now = Date.now()
+
+    for (const [method, stats] of this.#lastOperatingTimes.entries()) {
+      if (stats.operating_reset_at < (now + 10_000)) {
+        this.#lastOperatingTimes.delete(method)
+      }
     }
   }
 
@@ -403,27 +436,31 @@ export default class Http implements TypeHttp {
   async batch(
     calls: any[] | object,
     isHaltOnError: boolean = true,
-    returnAjaxResult: boolean = false
+    returnAjaxResult: boolean = false,
+    returnTime: boolean = false
   ): Promise<Result> {
     if (Array.isArray(calls)) {
       return this.#batchAsArray(
         calls,
         isHaltOnError,
-        returnAjaxResult
+        returnAjaxResult,
+        returnTime
       )
     }
 
     return this.#batchAsObject(
       calls,
       isHaltOnError,
-      returnAjaxResult
+      returnAjaxResult,
+      returnTime
     )
   }
 
   async #batchAsObject(
     calls: object,
     isHaltOnError: boolean = true,
-    returnAjaxResult: boolean = false
+    returnAjaxResult: boolean = false,
+    returnTime: boolean = false
   ): Promise<Result> {
     const cmd: any = {}
     let cnt = 0
@@ -455,24 +492,15 @@ export default class Http implements TypeHttp {
       return Promise.resolve(new Result())
     }
 
-    // fix
-    // Для batch запросов предсказываем сложность
-    // @todo
-    const predictedComplexity = this.#predictBatchComplexity(calls)
-    if (predictedComplexity > 5) {
-      const additionalDelay = Math.min(
-        predictedComplexity * 100,
-        this.#restrictionParams.adaptiveConfig!.maxDelay!
-      )
-      await this.#delay(additionalDelay)
-    }
-
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
       cmd: cmd
     }).then((response: AjaxResult) => {
       const responseResult = (response.getData() as BatchPayload<unknown>).result
+      const responseTime = (response.getData() as BatchPayload<unknown>).time
       const results: Record<string | number, AjaxResult> = {}
+      const dataResult: Record<any, any> = {}
+      const result = new Result()
 
       const processResponse = (row: string, index: string | number) => {
         if (
@@ -496,7 +524,6 @@ export default class Http implements TypeHttp {
               total: responseResult.result_total[index],
               // @ts-expect-error this code work success
               next: responseResult.result_next[index],
-              // @todo test this ////
               // @ts-expect-error this code work success
               time: responseResult.result_time[index]
             },
@@ -509,12 +536,6 @@ export default class Http implements TypeHttp {
           })
         }
       }
-
-      for (const [index, row] of Object.entries(cmd)) {
-        processResponse(row as string, index)
-      }
-
-      const dataResult: Record<any, any> = {}
 
       const initError = (result: AjaxResult): AjaxError => {
         if (result.hasError('base-error')) {
@@ -533,7 +554,9 @@ export default class Http implements TypeHttp {
         })
       }
 
-      const result = new Result()
+      for (const [index, row] of Object.entries(cmd)) {
+        processResponse(row as string, index)
+      }
 
       for (const key of Object.keys(results)) {
         const data: AjaxResult = results[key]
@@ -552,7 +575,14 @@ export default class Http implements TypeHttp {
         dataResult[key] = returnAjaxResult ? data : data.getData().result
       }
 
-      result.setData(dataResult)
+      if (returnTime) {
+        result.setData({
+          result: dataResult,
+          time: responseTime
+        })
+      } else {
+        result.setData(dataResult)
+      }
 
       return Promise.resolve(result)
     })
@@ -561,7 +591,8 @@ export default class Http implements TypeHttp {
   async #batchAsArray(
     calls: any[],
     isHaltOnError: boolean = true,
-    returnAjaxResult: boolean = false
+    returnAjaxResult: boolean = false,
+    returnTime: boolean = false
   ): Promise<Result> {
     const cmd: string[] = []
     let cnt = 0
@@ -594,24 +625,17 @@ export default class Http implements TypeHttp {
       return Promise.resolve(new Result())
     }
 
-    // fix
-    // Для batch запросов предсказываем сложность
-    // @todo
-    const predictedComplexity = this.#predictBatchComplexity(calls)
-    if (predictedComplexity > 5) {
-      const additionalDelay = Math.min(
-        predictedComplexity * 100,
-        this.#restrictionParams.adaptiveConfig!.maxDelay!
-      )
-      await this.#delay(additionalDelay)
-    }
-
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
       cmd: cmd
     }).then((response: AjaxResult) => {
       const responseResult = (response.getData() as BatchPayload<unknown>).result
+      const responseTime = (response.getData() as BatchPayload<unknown>).time
       const results: AjaxResult[] = []
+      const dataResult: any[] = []
+      const result = new Result()
+
+console.warn('[batchAsArray]', responseTime)
 
       const processResponse = (row: string, index: string | number) => {
         if (
@@ -635,7 +659,6 @@ export default class Http implements TypeHttp {
               total: responseResult.result_total[index],
               // @ts-expect-error this code work success
               next: responseResult.result_next[index],
-              // @todo test this ////
               // @ts-expect-error this code work success
               time: responseResult.result_time[index]
             },
@@ -650,12 +673,6 @@ export default class Http implements TypeHttp {
           results.push(data)
         }
       }
-
-      for (const [index, row] of cmd.entries()) {
-        processResponse(row, index)
-      }
-
-      const dataResult: any[] = []
 
       const initError = (result: AjaxResult): AjaxError => {
         if (result.hasError('base-error')) {
@@ -674,7 +691,9 @@ export default class Http implements TypeHttp {
         })
       }
 
-      const result = new Result()
+      for (const [index, row] of cmd.entries()) {
+        processResponse(row, index)
+      }
 
       for (const data of results as AjaxResult[]) {
         if (data.getStatus() !== 200 || !data.isSuccess) {
@@ -691,7 +710,15 @@ export default class Http implements TypeHttp {
         dataResult.push(returnAjaxResult ? data : data.getData().result)
       }
 
-      result.setData(dataResult)
+      if (returnTime) {
+        result.setData({
+          result: dataResult,
+          time: responseTime
+        })
+      } else {
+        result.setData(dataResult)
+      }
+
       return Promise.resolve(result)
     })
   }
@@ -758,7 +785,7 @@ export default class Http implements TypeHttp {
             this.#stats.retries++
             this.#stats.limitHits++
             // Увеличиваем время при ошибке
-            const waitTime = this.#handleRateLimitExceeded() * Math.pow(2, attempt)
+            const waitTime = this.#handleRateLimitExceeded() * Math.pow(4, attempt)
             this.getLogger().warn(
               `🚫[QUERY_LIMIT_EXCEEDED] Ошибка: rate limit превышен.`,
               `Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
@@ -788,20 +815,22 @@ export default class Http implements TypeHttp {
 
         // 401 ошибка (обработка вложена в #executeSingleCall)
         // Другие ошибки
-        if (attempt < maxRetries) {
-          this.#stats.retries++
-          // Увеличиваем время при ошибке
-          const exponentialDelay = baseRetryDelay * Math.pow(2, attempt)
-          this.getLogger().warn(
-            `🚫${error?.code ? `[${error.code}] ` : ''}Ошибка: ${error.message}.`,
-            `Ждем ${(exponentialDelay / 1000).toFixed(2)} sec`,
-            `(попытка ${attempt + 1}/${maxRetries})`
-          )
-          await this.#delay(exponentialDelay)
-          continue
+        if (!this.#isNeedThrowError(error)) {
+          if (attempt < maxRetries) {
+            this.#stats.retries++
+            // Увеличиваем время при ошибке
+            const exponentialDelay = baseRetryDelay * Math.pow(2, attempt)
+            this.getLogger().warn(
+              `🚫${error?.code ? `[${error.code}] ` : ''}Ошибка: ${error.message}.`,
+              `Ждем ${(exponentialDelay / 1000).toFixed(2)} sec`,
+              `(попытка ${attempt + 1}/${maxRetries})`
+            )
+            await this.#delay(exponentialDelay)
+            continue
+          }
         }
 
-        // Все попытки исчерпаны
+        // Выбрасываем исключение - больше попыток не будет
         throw error
       }
     }
@@ -1040,84 +1069,7 @@ export default class Http implements TypeHttp {
   }
 
   /**
-   * @deprecated
-   * // fix
-   * Прогнозирует сложность запроса
-   * @memo пока не понятно нужно ли это делать - тк предположить сложность - это ответственность - а нам лишняя не нужна
-   */
-  #predictComplexity(method: string, params: any): number {
-    let complexity = 1
-
-    // Списочные методы
-    if (method.includes('.list') || method.includes('.items')) {
-      complexity += 2
-
-      // Выборка всех полей
-      if (params?.select) {
-        const selects = Array.isArray(params.select) ? params.select : [params.select]
-        if (selects.includes('*') || selects.includes('UF_*')) {
-          complexity += 3
-        }
-        if (selects.length > 10) complexity += 1
-      }
-
-      // Сложные фильтры
-      if (params?.filter && typeof params.filter === 'object') {
-        const filterKeys = Object.keys(params.filter)
-        if (filterKeys.length > 5) complexity += 1
-        if (filterKeys.some(k => k.includes('UF_'))) complexity += 2
-      }
-
-      // Большой offset
-      if (params?.start && params.start > 10000) complexity += 1
-    }
-
-    // Методы CRM item (тяжелые в SPA)
-    if (method.includes('crm.item')) {
-      complexity += 3
-    }
-
-    // Методы с суффиксом .get (обычно легкие)
-    if (method.endsWith('.get')) {
-      complexity = Math.max(1, complexity - 1)
-    }
-
-    return complexity
-  }
-
-  /**
-   * Прогнозирует сложность batch запроса
-   */
-  #predictBatchComplexity(calls: any[] | object): number {
-    let cmdCount = 0
-    let complexity = 0
-
-    if (Array.isArray(calls)) {
-      cmdCount = calls.length
-      calls.forEach((call) => {
-        const method = Array.isArray(call) ? call[0] : call.method
-        const params = Array.isArray(call) ? call[1] : call.params
-        if (method) {
-          complexity += this.#predictComplexity(method, params || {}) / 10
-        }
-      })
-    } else {
-      cmdCount = Object.keys(calls).length
-      Object.values(calls).forEach((call: any) => {
-        const method = call.method
-        const params = call.params
-        if (method) {
-          complexity += this.#predictComplexity(method, params || {}) / 10
-        }
-      })
-    }
-
-    complexity += cmdCount / 10 // +0.1 за каждую команду
-    return Math.min(complexity, 10) // Максимум 10
-  }
-
-  /**
-   * Проверяет, является ли ошибка rate limit
+   * Проверяет является ли ошибка rate limit
    */
   #isRateLimitError(error: any): boolean {
     return error.status === 503
@@ -1125,7 +1077,7 @@ export default class Http implements TypeHttp {
   }
 
   /**
-   * Проверяет, является ли ошибка operating limit
+   * Проверяет является ли ошибка operating limit
    * @memo `OPERATION_TIME_LIMIT` && `429` - получены практическим путем
    */
   #isOperatingLimitError(error: any): boolean {
@@ -1142,6 +1094,22 @@ export default class Http implements TypeHttp {
 
     // 10 секунд по умолчанию
     return Math.max(10_000, operatingWait)
+  }
+
+  /**
+   * Проверяет нужно ли прекратить попытки
+   */
+  #isNeedThrowError(error: any): boolean {
+    return [
+      '100', 'NOT_FOUND',
+      'INTERNAL_SERVER_ERROR', 'ERROR_UNEXPECTED_ANSWER', 'PORTAL_DELETED',
+      'ERROR_BATCH_METHOD_NOT_ALLOWED', 'ERROR_BATCH_LENGTH_EXCEEDED',
+      'NO_AUTH_FOUND', 'INVALID_REQUEST',
+      'OVERLOAD_LIMIT', 'expired_token',
+      'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
+      'ERROR_MANIFEST_IS_NOT_AVAILABLE'
+    ].includes(error?.code ?? '-1')
+    || error.message.includes('Could not find value for parameter')
   }
 
   /**

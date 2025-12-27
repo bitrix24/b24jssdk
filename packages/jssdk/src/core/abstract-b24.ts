@@ -289,9 +289,10 @@ export abstract class AbstractB24 implements TypeB24 {
   async callBatch(
     calls: Array<any> | Record<string, any>,
     isHaltOnError: boolean = true,
-    returnAjaxResult: boolean = false
+    returnAjaxResult: boolean = false,
+    returnTime: boolean = false
   ): Promise<Result> {
-    return this.getHttpClient().batch(calls, isHaltOnError, returnAjaxResult)
+    return this.getHttpClient().batch(calls, isHaltOnError, returnAjaxResult, returnTime)
   }
 
   chunkArray<T>(array: T[], chunkSize: number = 50): T[][] {

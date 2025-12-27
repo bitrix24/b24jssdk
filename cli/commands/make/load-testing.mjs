@@ -12,10 +12,10 @@ const commandsList = [
   //   IBLOCK_ID: 44,
   //   SELECT: ['ID']
   // } }
-  // { method: 'server.time', params: {} },
-  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] } },
-  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] } },
-  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.deal, select: ['id'] } }
+  // { method: 'server.time', params: {} }
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } } },
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } } },
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.deal, select: ['id'], filter: { '>id': 2 } } }
 ]
 
 /**
@@ -62,12 +62,9 @@ export default defineCommand({
     if (1 > 2) {
       // getBatchProcessing
       b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getBatchProcessing())
-    } else if (2 > 0) {
+    } else {
       // getDefault
       b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getDefault())
-    } else {
-      // getRealtime
-      b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getRealtime())
     }
     // endregion ////
 
@@ -77,10 +74,34 @@ export default defineCommand({
     async function callCommand(commandNumber) {
       try {
         const { method, params } = commandsList[Math.floor(Math.random() * commandsList.length)]
-        const response = await b24.callMethod(
-          method,
-          params
-        )
+        let response
+        let type = ''
+        // if (1 > 2) {
+        if (Math.floor(Math.random() * 2) === 0) {
+          type = 'single'
+          response = await b24.callMethod(
+            method,
+            params
+          )
+        } else { // if (2 > 1) {
+          type = 'batch'
+          const batchCalls = Array.from({ length: 3 }, (_, i) => [
+            method,
+            params
+          ])
+
+          batchCalls.push(['server.time', {}])
+
+          response = await b24.callBatch(batchCalls, true, true, true)
+        }
+        // } else {
+        //   const batchCalls = Array.from({ length: 150 }, (_, i) => [
+        //     method,
+        //     params
+        //   ])
+        //
+        //   response = await b24.callBatchByChunk(batchCalls, true)
+        // }
 
         // Checking the current load
         logger.info('operatingStats:', b24.getHttpClient().getStats().operatingStats)
@@ -89,10 +110,14 @@ export default defineCommand({
           throw new Error(response.getErrorMessages().join(';\n'))
         }
         const data = response.getData()
-        // logger.log('Data:', response.getData().result.items.map(item => item.id).join(','))
-        logger.log('Data:', response.getData().result.items.length)
 
-        commandsCount++
+        if (type === 'single') {
+          logger.log('Data:', response.getData().time)
+          logger.log('Data:', response.getData().result.items.map(item => item.id).join(','))
+        } else if (type === 'batch') {
+          logger.log('Data:', response.getData().time)
+          logger.log('Data:', response.getData().result.map(responseAjax => responseAjax.getData().time))
+        }
 
         return { success: true, data }
       } catch (error) {
@@ -100,6 +125,8 @@ export default defineCommand({
         errors.push(errorMessage)
         consola.error(`❌ ${errorMessage}`)
         return { success: false, error: errorMessage }
+      } finally {
+        commandsCount++
       }
     }
 

@@ -28,15 +28,6 @@ type AjaxResponse<T = unknown> = {
   payload: AjaxResultParams<T>
 }
 
-// interface OperatingStats {
-//   total: number // Суммарное operating время за 10 минут (в мс)
-//   resetAt: number // Время сброса (timestamp в мс)
-//   history: Array<{ // История запросов для скользящего окна 10 минут
-//     timestamp: number
-//     operating: number // Время выполнения в мс
-//   }>
-// }
-
 interface OperatingStats {
   operating: number // operating время за 10 минут (в мс)
   operating_reset_at: number // Время сброса (timestamp в мс)
@@ -90,10 +81,6 @@ export default class Http implements TypeHttp {
   #tokens: number
   #lastRefill: number
   #refillIntervalMs: number
-
-  // fix
-  // Внутреннее состояние operating limiting
-  // #methodOperatingStats = new Map<string, OperatingStats>()
 
   // fix
   // Адаптивная задержка состояние
@@ -223,16 +210,21 @@ export default class Http implements TypeHttp {
   }
 
   /**
-   * // fix
-   * Получает время до освобождения метода от operating лимита.
+   * Возвращает время до освобождения метода от operating лимита (в мс)
    * Анализ происходит по прошлому вызову функции. Нужно понимать что речь идет об блокировках до 10 минут
    * Это довольно жесткая блокировка по лимиту:
    * - не достигнут - нет блокировки
    * - достигли - блокируем до времени разблокировки + 1 секунда
    */
-  getTimeToFree(method: string): number {
-    const stats = this.#lastOperatingTimes.get(method)
+  #getTimeToFree(
+    method: string,
+    params: object
+  ): number {
+    if (method === 'batch') {
+      return this.#getTimeToFreeBatch(method, params)
+    }
 
+    const stats = this.#lastOperatingTimes.get(method)
     if (!stats) {
       return 0
     }
@@ -255,33 +247,40 @@ export default class Http implements TypeHttp {
   }
 
   /**
-   * Обновляет статистику operating времени для метода
+   * Для `batch` из команд возвращает максимальное время до освобождения метода от operating лимита (в мс)
    */
-  updateOperatingStats(method: string, data: any): void {
-    this.#cleanupOldOperatingStats()
-
-    const operating_reset_at = data?.time?.operating_reset_at
-    let operating = data?.time?.operating
-    if (operating === undefined) {
-      return
-    }
+  #getTimeToFreeBatch(
+    method: string,
+    params: Record<string, any>
+  ): number {
+    let result = 0
 
     if (
-      method === 'batch'
-      && operating === 0
-      && Array.isArray(data.result?.result_time)
-      && data.result.result_time.length > 0
+      method !== 'batch'
+      || !params['cmd']
+      || !Array.isArray(params['cmd'])
     ) {
-      operating = data.result.result_time.reduce((last: number, row: PayloadTime) => {
-        const operatingRow = row?.operating
-        return Math.max(last, (operatingRow ?? 0))
-      }, 0)
-// @todo Понять что делать с batch
-console.log(
-  'test',
-  operating,
-  data.result.result_time
-)
+      return result
+    }
+
+    const batchMethods = params['cmd'].map(row => row.split('?')[0]).filter(Boolean)
+    for (const methodName of batchMethods) {
+      result = Math.max(result, this.#getTimeToFree(`batch::${methodName}`, {}))
+    }
+
+    return result
+  }
+
+  /**
+   * Обновляет статистику operating времени для метода
+   */
+  updateOperatingStats(method: string, timeData: PayloadTime): void {
+    this.#cleanupOldOperatingStats()
+
+    const operating_reset_at = timeData.operating_reset_at // timestamp в секундах
+    const operating = timeData.operating // время в секундах
+    if (operating === undefined || operating === null) {
+      return
     }
 
     // Инициализируем статистику для метода, если ее нет
@@ -294,10 +293,9 @@ console.log(
 
     const stats = this.#lastOperatingTimes.get(method)!
 
-    // Добавляем новую запись
-    stats.operating = operating * 1000 // Конвертируем в миллисекунды
+    // Обновляем значения (конвертируем секунды в миллисекунды)
+    stats.operating = operating * 1000
 
-    // Обновляем reset_at если есть
     if (operating_reset_at) {
       stats.operating_reset_at = operating_reset_at * 1000 // Конвертируем в миллисекунды
     }
@@ -320,18 +318,22 @@ console.log(
     const now = Date.now()
 
     for (const [method, stats] of this.#lastOperatingTimes.entries()) {
-      if (stats.operating_reset_at < (now + 10_000)) {
+      if (
+        stats.operating_reset_at > 0
+        && (now - stats.operating_reset_at) > 10_000
+      ) {
         this.#lastOperatingTimes.delete(method)
       }
     }
   }
 
   /**
-   * // fix
    * Возвращает статистику работы
    */
   getStats(): RestrictionManagerStats & { adaptiveDelayAvg: number } {
     const operatingStats: { [method: string]: number } = {}
+
+    // Конвертируем миллисекунды в секунды для отображения
     for (const [method, time] of this.#lastOperatingTimes.entries()) {
       operatingStats[method] = Number.parseFloat((time.operating / 1000).toFixed(2))
     }
@@ -456,6 +458,7 @@ console.log(
     )
   }
 
+  // @todo синхронизировать с batchAsArray
   async #batchAsObject(
     calls: object,
     isHaltOnError: boolean = true,
@@ -494,7 +497,7 @@ console.log(
 
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
-      cmd: cmd
+      cmd
     }).then((response: AjaxResult) => {
       const responseResult = (response.getData() as BatchPayload<unknown>).result
       const responseTime = (response.getData() as BatchPayload<unknown>).time
@@ -510,6 +513,15 @@ console.log(
           || typeof responseResult.result_error[index] !== 'undefined'
         ) {
           const q = row.split('?')
+          const methodName = q[0] || ''
+
+          // Обновляем operating статистику для каждого метода в batch
+          // @ts-expect-error this code work success
+          if (responseResult.result_time && responseResult.result_time[index]) {
+            // @ts-expect-error this code work success
+            const timeData = responseResult.result_time[index]
+            this.updateOperatingStats(`batch::${methodName}`, timeData)
+          }
 
           results[index] = new AjaxResult({
             answer: {
@@ -528,7 +540,7 @@ console.log(
               time: responseResult.result_time[index]
             },
             query: {
-              method: q[0] || '',
+              method: methodName,
               params: qs.parse(q[1] || ''),
               start: 0
             } as AjaxQuery,
@@ -563,6 +575,11 @@ console.log(
 
         if (data.getStatus() !== 200 || !data.isSuccess) {
           const error = initError(data)
+
+          // тут должен быть код аналогичный #isOperatingLimitError
+          // с проверкой ошибки 'Method is blocked due to operation time limit.'
+          // однако `batch` исполняется без повторных попыток
+          // по этой причине будет сразу ошибка
 
           if (!isHaltOnError && !data.isSuccess) {
             result.addError(error, key)
@@ -627,15 +644,13 @@ console.log(
 
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
-      cmd: cmd
+      cmd
     }).then((response: AjaxResult) => {
       const responseResult = (response.getData() as BatchPayload<unknown>).result
       const responseTime = (response.getData() as BatchPayload<unknown>).time
       const results: AjaxResult[] = []
       const dataResult: any[] = []
       const result = new Result()
-
-console.warn('[batchAsArray]', responseTime)
 
       const processResponse = (row: string, index: string | number) => {
         if (
@@ -645,6 +660,15 @@ console.warn('[batchAsArray]', responseTime)
           || typeof responseResult.result_error[index] !== 'undefined'
         ) {
           const q = row.split('?')
+          const methodName = q[0] || ''
+
+          // Обновляем operating статистику для каждого метода в batch
+          // @ts-expect-error this code work success
+          if (responseResult.result_time && responseResult.result_time[index]) {
+            // @ts-expect-error this code work success
+            const timeData = responseResult.result_time[index]
+            this.updateOperatingStats(`batch::${methodName}`, timeData)
+          }
 
           const data = new AjaxResult({
             answer: {
@@ -663,7 +687,7 @@ console.warn('[batchAsArray]', responseTime)
               time: responseResult.result_time[index]
             },
             query: {
-              method: q[0] || '',
+              method: methodName,
               params: qs.parse(q[1] || ''),
               start: 0
             } as AjaxQuery,
@@ -699,6 +723,11 @@ console.warn('[batchAsArray]', responseTime)
         if (data.getStatus() !== 200 || !data.isSuccess) {
           const error = initError(data)
 
+          // тут должен быть код аналогичный #isOperatingLimitError
+          // с проверкой ошибки 'Method is blocked due to operation time limit.'
+          // однако `batch` исполняется без повторных попыток
+          // по этой причине будет сразу ошибка
+
           if (!isHaltOnError && !data.isSuccess) {
             result.addError(error)
             continue
@@ -730,22 +759,16 @@ console.warn('[batchAsArray]', responseTime)
   async call<T = unknown>(
     method: string,
     params: object,
-    start: number = 0,
-    options: {
-      maxRetries?: number
-      skipAdaptiveDelay?: boolean
-      retryDelay?: number
-    } = {}
+    start: number = 0
   ): Promise<AjaxResult<T>> {
-    const maxRetries = options.maxRetries || this.#restrictionParams.maxRetries!
-    const baseRetryDelay = options.retryDelay || this.#restrictionParams.retryDelay!
-    const skipAdaptiveDelay = options.skipAdaptiveDelay || false
+    const maxRetries = this.#restrictionParams.maxRetries!
+    const baseRetryDelay = this.#restrictionParams.retryDelay!
 
     let lastError = null
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         // 1. Проверяем operating лимит для метода
-        const operatingWait = this.getTimeToFree(method)
+        const operatingWait = this.#getTimeToFree(method, params)
         if (operatingWait > 0) {
           this.#stats.limitHits++
           this.getLogger().warn(
@@ -754,23 +777,17 @@ console.warn('[batchAsArray]', responseTime)
           )
 
           await this.#delay(operatingWait)
-        } else if (!skipAdaptiveDelay) {
+        } else {
           // 2. Адаптивная задержка перед запросом
-          await this.#applyAdaptiveDelay(method)
+          await this.#applyAdaptiveDelay(method, params)
         }
 
-        // 3. Проверяем rate limit
-        await this.#checkRateLimit(method)
-
-        // 4. Выполняем запрос с учетом авторизации
+        // 3. Выполняем запрос с учетом авторизации, rate limit, обновляем operating статистики
         const result = await this.#executeSingleCall<T>(method, params, start)
 
-        // 5. Обновляем статистику
+        // 6. Обновляем статистику
         this.#stats.totalRequests++
         this.#stats.consecutiveErrors = 0 // Сбрасываем счетчик ошибок при успехе
-
-        // 6. Обновляем operating статистику
-        this.updateOperatingStats(method, result.getData())
 
         return result
       } catch (error: any) {
@@ -779,55 +796,61 @@ console.warn('[batchAsArray]', responseTime)
         this.#stats.totalRequests++
 
         // Обработка специфических ошибок Битрикс24
-        if (this.#isRateLimitError(error)) {
-          // Rate limit exceeded
-          if (attempt < maxRetries) {
-            this.#stats.retries++
-            this.#stats.limitHits++
-            // Увеличиваем время при ошибке
-            const waitTime = this.#handleRateLimitExceeded() * Math.pow(4, attempt)
-            this.getLogger().warn(
-              `🚫[QUERY_LIMIT_EXCEEDED] Ошибка: rate limit превышен.`,
-              `Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
-              `(попытка ${attempt + 1}/${maxRetries})`
-            )
-            await this.#delay(waitTime)
-            continue
-          }
+        // Rate limit exceeded
+        if (
+          attempt < maxRetries
+          && this.#isRateLimitError(error)
+        ) {
+          this.#stats.retries++
+          this.#stats.limitHits++
+
+          // Увеличиваем время при ошибке
+          const waitTime = this.#handleRateLimitExceeded() * Math.pow(4, attempt)
+          this.getLogger().warn(
+            `🚫[QUERY_LIMIT_EXCEEDED] Ошибка: rate limit превышен.`,
+            `Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
+            `(попытка ${attempt + 1}/${maxRetries})`
+          )
+          await this.#delay(waitTime)
+          continue
         }
 
         // Operating limit ошибка
-        if (this.#isOperatingLimitError(error)) {
-          if (attempt < maxRetries) {
-            this.#stats.retries++
-            this.#stats.limitHits++
+        // для `batch` запросов это не работает
+        if (
+          attempt < maxRetries
+          && this.#isOperatingLimitError(error)
+        ) {
+          this.#stats.retries++
+          this.#stats.limitHits++
 
-            const waitTime = this.#handleOperatingLimitError(method, error)
-            this.getLogger().warn(
-              `🚫[OPERATION_TIME_LIMIT] Ошибка: operating limit превышен.`,
-              `Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
-              `(попытка ${attempt + 1}/${maxRetries})`
-            )
-            await this.#delay(waitTime)
-            continue
-          }
+          const waitTime = this.#handleOperatingLimitError(method, params, error)
+          this.getLogger().warn(
+            `🚫[OPERATION_TIME_LIMIT] Ошибка: operating limit превышен.`,
+            `Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
+            `(попытка ${attempt + 1}/${maxRetries})`
+          )
+          await this.#delay(waitTime)
+          continue
         }
 
         // 401 ошибка (обработка вложена в #executeSingleCall)
         // Другие ошибки
-        if (!this.#isNeedThrowError(error)) {
-          if (attempt < maxRetries) {
-            this.#stats.retries++
-            // Увеличиваем время при ошибке
-            const exponentialDelay = baseRetryDelay * Math.pow(2, attempt)
-            this.getLogger().warn(
-              `🚫${error?.code ? `[${error.code}] ` : ''}Ошибка: ${error.message}.`,
-              `Ждем ${(exponentialDelay / 1000).toFixed(2)} sec`,
-              `(попытка ${attempt + 1}/${maxRetries})`
-            )
-            await this.#delay(exponentialDelay)
-            continue
-          }
+        if (
+          attempt < maxRetries
+          && !this.#isNeedThrowError(error)
+        ) {
+          this.#stats.retries++
+
+          // Увеличиваем время при ошибке
+          const exponentialDelay = baseRetryDelay * Math.pow(2, attempt)
+          this.getLogger().warn(
+            `🚫${error?.code ? `[${error.code}] ` : ''}Ошибка: ${error.message}.`,
+            `Ждем ${(exponentialDelay / 1000).toFixed(2)} sec`,
+            `(попытка ${attempt + 1}/${maxRetries})`
+          )
+          await this.#delay(exponentialDelay)
+          continue
         }
 
         // Выбрасываем исключение - больше попыток не будет
@@ -849,7 +872,10 @@ console.warn('[batchAsArray]', responseTime)
 
   /**
    * // fix
-   * Выполняет одиночный вызов с обработкой 401 ошибки
+   * Выполняет одиночный вызов с
+   * - обработкой 401 ошибки
+   * - проверкой rate limit
+   * - обновляем operating статистики
    */
   async #executeSingleCall<T = unknown>(
     method: string,
@@ -861,8 +887,8 @@ console.warn('[batchAsArray]', responseTime)
       authData = await this.#authActions.refreshAuth()
     }
 
-    // fix
-    // await this.#restrictionManager.check(method, '')
+    // 4. Проверяем rate limit
+    await this.#checkRateLimit(method)
 
     if (
       this.#isClientSideWarning
@@ -888,19 +914,19 @@ console.warn('[batchAsArray]', responseTime)
             payload
           } as AjaxResponse<T>)
         },
-        async (error_: AxiosError) => {
+        async (_error: AxiosError) => {
           let answerError = {
-            error: error_?.code || 0,
-            errorDescription: error_?.message || ''
+            error: _error?.code || 0,
+            errorDescription: _error?.message || ''
           }
 
           if (
-            error_ instanceof AxiosError
-            && error_.response
-            && error_.response.data
-            && !Type.isUndefined((error_.response.data as TypeDescriptionError).error)
+            _error instanceof AxiosError
+            && _error.response
+            && _error.response.data
+            && !Type.isUndefined((_error.response.data as TypeDescriptionError).error)
           ) {
-            const response = error_.response.data as {
+            const response = _error.response.data as {
               error: string
               error_description: string
             } as TypeDescriptionError
@@ -914,12 +940,12 @@ console.warn('[batchAsArray]', responseTime)
           const problemError: AjaxError = new AjaxError({
             code: String(answerError.error),
             description: answerError.errorDescription,
-            status: error_.response?.status || 0,
+            status: _error.response?.status || 0,
             requestInfo: {
               method: method,
               params: params
             },
-            originalError: error_
+            originalError: _error
           })
 
           /**
@@ -928,16 +954,15 @@ console.warn('[batchAsArray]', responseTime)
           if (
             problemError.status === 401
             && ['expired_token', 'invalid_token'].includes(
-              problemError.answerError.error
+              problemError.message
             )
           ) {
-            this.getLogger().info(
-              `refreshAuth >> ${problemError.answerError.error} >>>`
-            )
+            this.getLogger().info('refreshAuth', problemError.message)
 
             authData = await this.#authActions.refreshAuth()
-            // fix
-            // await this.#restrictionManager.check(method, '')
+
+            // 4. Проверяем rate limit
+            await this.#checkRateLimit(method)
 
             return this.#clientAxios
               .post(
@@ -955,18 +980,18 @@ console.warn('[batchAsArray]', responseTime)
                     payload
                   } as AjaxResponse<T>)
                 },
-                async (error__: AxiosError) => {
+                async (__error: AxiosError) => {
                   let answerError = {
-                    error: error__?.code || 0,
-                    errorDescription: error__?.message || ''
+                    error: __error?.code || 0,
+                    errorDescription: __error?.message || ''
                   }
 
                   if (
-                    error__ instanceof AxiosError
-                    && error__.response
-                    && error__.response.data
+                    __error instanceof AxiosError
+                    && __error.response
+                    && __error.response.data
                   ) {
-                    const response = error__.response.data as {
+                    const response = __error.response.data as {
                       error: string
                       error_description: string
                     } as TypeDescriptionError
@@ -980,12 +1005,12 @@ console.warn('[batchAsArray]', responseTime)
                   const problemError: AjaxError = new AjaxError({
                     code: String(answerError.error),
                     description: answerError.errorDescription,
-                    status: error_.response?.status || 0,
+                    status: _error.response?.status || 0,
                     requestInfo: {
                       method: method,
                       params: params
                     },
-                    originalError: error__
+                    originalError: __error
                   })
 
                   return Promise.reject(problemError)
@@ -1007,9 +1032,10 @@ console.warn('[batchAsArray]', responseTime)
           status: response.status
         })
 
-        // fix
-        // Обновляем статистику ресурсоемкости
-        // this.updateStateFromResponse(method, result.getData())
+        // 5. Обновляем operating статистику
+        if (response.payload?.time) {
+          this.updateOperatingStats(method, response.payload.time)
+        }
 
         return Promise.resolve(result)
       })
@@ -1018,20 +1044,22 @@ console.warn('[batchAsArray]', responseTime)
 
   // region Adaptive Delay ////
   /**
-   * // fix
-   * Применяет адаптивную задержку на основе предыдущего опыта
+   * Возвращает адаптивную задержку на основе предыдущего опыта
    */
-  async #applyAdaptiveDelay(method: string): Promise<void> {
+  #getAdaptiveDelay(method: string): number {
+    let adaptiveDelay = 0
+
     if (!this.#restrictionParams.adaptiveConfig!.enabled!) {
-      return
+      return adaptiveDelay
     }
 
     const stats = this.#lastOperatingTimes.get(method)
-    if (!stats) {
-      return
+    if (
+      !stats
+      || stats.operating === 0
+    ) {
+      return adaptiveDelay
     }
-
-    let adaptiveDelay = 0
 
     // Задержка на основе предыдущего запроса
     const usagePercent = (stats.operating / this.#restrictionParams.operatingLimit!.limitMs!) * 100
@@ -1056,12 +1084,76 @@ console.warn('[batchAsArray]', responseTime)
         adaptiveDelay,
         this.#restrictionParams.adaptiveConfig!.maxDelay!
       )
+    }
 
+    return adaptiveDelay
+  }
+
+  /**
+   * Применяет адаптивную задержку на основе предыдущего опыта
+   */
+  async #applyAdaptiveDelay(
+    method: string,
+    params: object
+  ): Promise<void> {
+    if (!this.#restrictionParams.adaptiveConfig!.enabled!) {
+      return
+    }
+
+    if (method === 'batch') {
+      return this.#applyAdaptiveDelayBatch(method, params)
+    }
+
+    const adaptiveDelay = this.#getAdaptiveDelay(method)
+
+    if (adaptiveDelay > 0) {
       this.#stats.adaptiveDelays++
       this.#stats.totalAdaptiveDelay += adaptiveDelay
 
       this.getLogger().warn(
         `⏳ Метод ${method}: заблокирован по adaptive delay.`,
+        `Ждем ${(adaptiveDelay / 1000).toFixed(2)} sec.`
+      )
+      await this.#delay(adaptiveDelay)
+    }
+  }
+
+  /**
+   * Для `batch` из команд применяет адаптивную задержку на основе предыдущего опыта
+   * @todo проверить для объектной натации
+   * @todo проверить для всех натаций
+   */
+  async #applyAdaptiveDelayBatch(
+    method: string,
+    params: Record<string, any>
+  ): Promise<void> {
+    let result = 0
+
+    if (!this.#restrictionParams.adaptiveConfig!.enabled!) {
+      return
+    }
+
+    if (
+      method !== 'batch'
+      || !params['cmd']
+      || !Array.isArray(params['cmd'])
+    ) {
+      return
+    }
+
+    const batchMethods = params['cmd'].map(row => row.split('?')[0]).filter(Boolean)
+    for (const methodName of batchMethods) {
+      result = Math.max(result, this.#getAdaptiveDelay(`batch::${methodName}`))
+    }
+
+    const adaptiveDelay = result
+
+    if (adaptiveDelay > 0) {
+      this.#stats.adaptiveDelays++
+      this.#stats.totalAdaptiveDelay += adaptiveDelay
+
+      this.getLogger().warn(
+        `⏳ Метод ${method}: заблокирован по максимальному adaptive delay.`,
         `Ждем ${(adaptiveDelay / 1000).toFixed(2)} sec.`
       )
       await this.#delay(adaptiveDelay)
@@ -1079,6 +1171,7 @@ console.warn('[batchAsArray]', responseTime)
   /**
    * Проверяет является ли ошибка operating limit
    * @memo `OPERATION_TIME_LIMIT` && `429` - получены практическим путем
+   * @memo для `batch` запросов это не работает
    */
   #isOperatingLimitError(error: any): boolean {
     return error.status === 429
@@ -1089,10 +1182,10 @@ console.warn('[batchAsArray]', responseTime)
    * Обрабатывает operating limit ошибку
    * @memo Сейчас в ошибках не приходят тайминги по операциям - по этой причине будем брать данные из прошлого запроса
    */
-  #handleOperatingLimitError(method: string, _error: any): number {
-    const operatingWait = this.getTimeToFree(method)
+  #handleOperatingLimitError(method: string, params: object, _error: any): number {
+    const operatingWait = this.#getTimeToFree(method, params)
 
-    // 10 секунд по умолчанию
+    // Так как это обработкаошибки то увеличим минимум до 10 секунд
     return Math.max(10_000, operatingWait)
   }
 

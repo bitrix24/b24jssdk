@@ -34,11 +34,6 @@ export type TypeHttp = {
   getRestrictionManagerParams(): RestrictionParams
 
   /**
-   * Возвращает время до освобождения метода от operating лимита (в мс)
-   */
-  getTimeToFree(method: string): number
-
-  /**
    * Возвращает статистику работы
    */
   getStats(): RestrictionManagerStats & { adaptiveDelayAvg: number }

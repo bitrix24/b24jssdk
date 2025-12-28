@@ -49,23 +49,8 @@ export class AjaxError extends Error {
     this.cleanErrorStack()
   }
 
-  // constructor(params: AjaxErrorParams) {
-  //   const message = `${ params.answerError.error }${
-  //     params.answerError.errorDescription
-  //       ? ': ' + params.answerError.errorDescription
-  //       : ''
-  //   }`
-  //
-  //   super(message)
-  //   this.cause = params.cause || null
-  //   this.name = this.constructor.name
-  //
-  //   this._status = params.status
-  //   this._answerError = params.answerError
-  // }
-
   /**
-   * @deprecated
+   * @deprecated use error.message
    */
   get answerError(): AnswerError {
     return {
@@ -79,7 +64,7 @@ export class AjaxError extends Error {
   }
 
   /**
-   * @deprecated
+   * @deprecated You don't need to set the error status. Left for compatibility.
    */
   set status(status: number) {
     this._status = status

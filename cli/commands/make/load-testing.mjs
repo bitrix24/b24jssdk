@@ -59,7 +59,7 @@ export default defineCommand({
     })
 
     b24.setLogger(loggerForDebugB24)
-    if (1 > 2) {
+    if (1 > 0) {
       // getBatchProcessing
       b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getBatchProcessing())
     } else {
@@ -77,7 +77,7 @@ export default defineCommand({
         let response
         let type = ''
         // if (1 > 2) {
-        if (Math.floor(Math.random() * 2) === 0) {
+        if ( 1 > 2 && Math.floor(Math.random() * 2) === 0) {
           type = 'single'
           response = await b24.callMethod(
             method,
@@ -85,12 +85,42 @@ export default defineCommand({
           )
         } else { // if (2 > 1) {
           type = 'batch'
-          const batchCalls = Array.from({ length: 3 }, (_, i) => [
-            method,
-            params
-          ])
+// @todo ntcn на объектного варианта вызова
+          // const batchCalls = Array.from({ length: 3 }, (_, i) => [
+          //   method,
+          //   params
+          // ])
 
-          batchCalls.push(['server.time', {}])
+          const batchCalls2 = [
+            ['server.time', {}],
+            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }],
+            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }],
+            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }],
+            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }]
+          ]
+
+          const batchCalls = {
+            cmd1: {
+              method: 'server.time',
+              params: {}
+            },
+            cmd2: {
+              method: 'crm.item.list',
+              params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }
+            },
+            cmd3: {
+              method: 'crm.item.list',
+              params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }
+            },
+            cmd4: {
+              method: 'crm.item.list',
+              params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }
+            },
+            cmd5: {
+              method: 'crm.item.list',
+              params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }
+            }
+          }
 
           response = await b24.callBatch(batchCalls, true, true, true)
         }
@@ -104,7 +134,7 @@ export default defineCommand({
         // }
 
         // Checking the current load
-        logger.info('operatingStats:', b24.getHttpClient().getStats().operatingStats)
+        logger.info(`operatingStats [${type}]:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
@@ -112,16 +142,17 @@ export default defineCommand({
         const data = response.getData()
 
         if (type === 'single') {
-          logger.log('Data:', response.getData().time)
-          logger.log('Data:', response.getData().result.items.map(item => item.id).join(','))
+          // logger.log('Data:', response.getData().time)
+          // // // logger.log('Data:', response.getData().result.items.map(item => item.id).join(','))
         } else if (type === 'batch') {
-          logger.log('Data:', response.getData().time)
-          logger.log('Data:', response.getData().result.map(responseAjax => responseAjax.getData().time))
+          // logger.log('Data:', response.getData().time)
+          // // // logger.log('Data:', response.getData().result.map(responseAjax => responseAjax.getData().result?.items?.map(item => item.id).join(',') ?? responseAjax.getData().result))
+          logger.log('Data:', Object.values(response.getData().result).map(responseAjax => responseAjax.getData().time.operating))
         }
 
         return { success: true, data }
       } catch (error) {
-        const errorMessage = `Error calling command ${commandNumber}: ${error.message}`
+        const errorMessage = `Error calling command ${commandNumber}:\n${error.message}`
         errors.push(errorMessage)
         consola.error(`❌ ${errorMessage}`)
         return { success: false, error: errorMessage }

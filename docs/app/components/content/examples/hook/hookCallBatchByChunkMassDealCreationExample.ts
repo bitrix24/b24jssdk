@@ -1,3 +1,4 @@
+import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
 import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
 
 type Deal = {
@@ -14,7 +15,7 @@ const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_d
 
 try {
   // We create an array of commands to create 120 trades.
-  const dealCreationCalls = Array.from({ length: 120 }, (_, i) => [
+  const dealCreationCalls: BatchCommandsArrayUniversal<string, Record<string, any>> = Array.from({ length: 120 }, (_, i) => [
     'crm.item.add',
     {
       entityTypeId: EnumCrmEntityTypeId.deal,
@@ -29,17 +30,17 @@ try {
 
   $logger.info(`Creating ${dealCreationCalls.length} deals...`)
 
-  const response = await $b24.callBatchByChunk(dealCreationCalls, true) // isHaltOnError = true
+  const response = await $b24.callBatchByChunk<{ item: Deal }>(dealCreationCalls, true) // isHaltOnError = true
 
   if (!response.isSuccess) {
     throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)
   }
 
-  const data = response.getData()
+  const data = response.getData()!
 
   // Collect the IDs of all created transactions
   const createdDealIds: number[] = []
-  data.forEach((chunkRow: { item: Deal }) => {
+  data.forEach((chunkRow) => {
     createdDealIds.push(chunkRow.item.id)
   })
 

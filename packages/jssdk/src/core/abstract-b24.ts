@@ -5,10 +5,12 @@ import Type from './../tools/type'
 import type { TypeB24, IB24BatchOptions } from '../types/b24'
 import type {
   TypeHttp,
+  BatchCommandsUniversal,
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
   BatchNamedCommandsUniversal,
-  ICallBatchOptions, ICallBatchResult
+  ICallBatchOptions,
+  ICallBatchResult
 } from '../types/http'
 import type { ListPayload } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
@@ -296,12 +298,12 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * @inheritDoc
    */
-  async callBatch<T = unknown>(
+  async callBatch<T = any>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     optionsOrIsHaltOnError?: IB24BatchOptions | boolean,
     returnAjaxResult?: boolean,
     returnTime?: boolean
-  ): Promise<Result<ICallBatchResult<T>> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T[] | Record<string | number, T>>> {
+  ): Promise<Result<ICallBatchResult<T>> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>> {
     let options: IB24BatchOptions
     if (typeof optionsOrIsHaltOnError === 'boolean' || optionsOrIsHaltOnError === undefined) {
       options = {
@@ -342,7 +344,7 @@ export abstract class AbstractB24 implements TypeB24 {
 
       return result.setData(responseData)
     } else {
-      const result = new Result<T[] | Record<string | number, T>>()
+      const result = new Result<T>()
 
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())
@@ -350,27 +352,27 @@ export abstract class AbstractB24 implements TypeB24 {
       }
 
       if (Array.isArray(calls)) {
-        const responseData = response.getData()!.result as AjaxResult<T>[]
+        const responseData = response.getData()!.result as AjaxResult[]
 
-        const dataResult: T[] = [...responseData!.map(row => row.getData().result)]
+        const dataResult = [...responseData!.map(row => row.getData().result)]
 
-        return result.setData(dataResult)
+        return result.setData(dataResult as T)
       }
 
-      const responseData = response.getData()!.result as Record<string | number, AjaxResult<T>>
-      const dataResult: Record<string | number, T> = {}
+      const responseData = response.getData()!.result as Record<string | number, AjaxResult>
+      const dataResult: Record<string, any> = {}
 
       for (const key of Object.keys(responseData)) {
         dataResult[key] = responseData[key].getData().result
       }
-      return result.setData(dataResult)
+      return result.setData(dataResult as T)
     }
   }
 
   /**
    * @inheritDoc
    */
-  async callBatchByChunk<T = unknown>(
+  async callBatchByChunk<T = any>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
     optionsOrIsHaltOnError?: ICallBatchOptions | boolean
   ): Promise<Result<T[]>> {
@@ -386,7 +388,7 @@ export abstract class AbstractB24 implements TypeB24 {
     const result = new Result<T[]>()
 
     const data: T[] = []
-    const chunks = this.chunkArray(calls, AbstractB24.batchSize)
+    const chunks = this.chunkArray(calls as BatchCommandsUniversal, AbstractB24.batchSize) as BatchCommandsArrayUniversal[] | BatchCommandsObjectUniversal[]
 
     for (const chunkRequest of chunks) {
       const response = await this.getHttpClient().batch<T[]>(chunkRequest, options)
@@ -405,7 +407,7 @@ export abstract class AbstractB24 implements TypeB24 {
   // endregion ////
 
   // region Tools ////
-  chunkArray<T>(array: T[], chunkSize: number = 50): T[][] {
+  chunkArray<T = unknown>(array: Array<T>, chunkSize: number = 50): T[][] {
     const result: T[][] = []
     for (let i = 0; i < array.length; i += chunkSize) {
       const chunk = array.slice(i, i + chunkSize)

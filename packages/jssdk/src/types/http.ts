@@ -28,16 +28,29 @@ export interface ICallBatchResult<T = unknown> {
   time?: PayloadTime
 }
 
-export type BatchCommandType<M extends string = string, P = Record<string, any>>
-  = | [M, P]
-    | {
-      method: M
-      params: P
-    }
+export type CommandUniversal<M extends string = string, P = unknown>
+  = | CommandTuple<M, P>
+    | CommandObject<M, P>
 
-export type BatchCommandsArrayUniversal = BatchCommandType[]
-export type BatchCommandsObjectUniversal = BatchCommandType[]
-export type BatchNamedCommandsUniversal = Record<string, BatchCommandType>
+export type BatchCommandsUniversal<M extends string = string, P = unknown> = CommandUniversal<M, P>[]
+
+// 1. Array of arrays
+export type CommandTuple<M extends string = string, P = unknown> = [M, P]
+export type BatchCommandsArrayUniversal<M extends string = string, P = unknown> = CommandTuple<M, P>[]
+
+// 2. Array of objects
+export interface CommandObject<M extends string = string, P = unknown> {
+  method: M
+  params?: P
+}
+export type BatchCommandsObjectUniversal<M extends string = string, P = unknown> = CommandObject<M, P>[]
+
+// 3. Object with named commands
+export type BatchNamedCommandsUniversal<
+  K extends string | number | symbol = string,
+  M extends string = string,
+  P = unknown
+> = Record<K, CommandObject<M, P> | CommandTuple<M, P>>
 // endregion ////
 
 /**

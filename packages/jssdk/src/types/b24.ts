@@ -129,10 +129,10 @@ export type TypeB24 = {
    * Calls a batch request with a maximum number of commands of no more than 50
    * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
    */
-  callBatch<T = unknown>(
+  callBatch<T = any>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: IB24BatchOptions
-  ): Promise<Result<ICallBatchResult<T>> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T[] | Record<string | number, T>>>
+  ): Promise<Result<ICallBatchResult<T>> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>>
 
   /**
    * @deprecated Use the method `callBatch` with the options object
@@ -153,7 +153,7 @@ export type TypeB24 = {
    * Calls a batch request with any number of commands
    * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
    */
-  callBatchByChunk<T = unknown>(
+  callBatchByChunk<T = any>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
     options?: ICallBatchOptions
   ): Promise<Result<T[]>>

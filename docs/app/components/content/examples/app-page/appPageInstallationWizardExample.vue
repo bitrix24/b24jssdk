@@ -258,12 +258,15 @@ const steps = ref<Record<string, IStep>>({
 // region Actions ////
 async function makeInit(b24: TypeB24): Promise<void> {
   if (steps.value.init) {
-    const response = await b24.callBatch({
-      // appInfo: { method: 'app.info' },
-      profile: { method: 'profile' },
-      userFieldTypeList: { method: 'userfieldtype.list' },
-      placementList: { method: 'placement.get' }
-    }, false)
+    const response = await b24.callBatch(
+      {
+        // appInfo: { method: 'app.info' },
+        profile: { method: 'profile' },
+        userFieldTypeList: { method: 'userfieldtype.list' },
+        placementList: { method: 'placement.get' }
+      },
+      { isHaltOnError: false }
+    )
 
     steps.value.init.data = response.getData() as {
       // appInfo: {

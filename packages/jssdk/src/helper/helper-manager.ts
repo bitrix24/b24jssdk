@@ -19,6 +19,8 @@ import type {
 } from '../types/b24-helper'
 import type { GenderString } from '../types/common'
 import type { TypePullMessage } from '../types/pull'
+import type { BatchNamedCommandsUniversal } from '../types/http'
+import type { Result } from '../core/result'
 
 /**
  * A universal class that is used to manage the initial application data
@@ -127,12 +129,12 @@ export class B24HelperManager {
 
         return acc
       },
-      {} as Record<string, { method: string }>
+      {} as BatchNamedCommandsUniversal
     )
 
     try {
-      const response = await this._b24.callBatch(batchRequest)
-      const data = response.getData()
+      const response = await this._b24.callBatch(batchRequest) as Result<Record<string, any>>
+      const data = response.getData()!
 
       if (data[`get_${LoadDataType.App}`]) {
         this._app = await this.parseAppData(data[`get_${LoadDataType.App}`])

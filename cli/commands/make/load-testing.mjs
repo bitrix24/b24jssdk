@@ -59,6 +59,8 @@ export default defineCommand({
     })
 
     b24.setLogger(loggerForDebugB24)
+
+    // eslint-disable-next-line no-constant-condition
     if (1 > 0) {
       // getBatchProcessing
       b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getBatchProcessing())
@@ -77,7 +79,8 @@ export default defineCommand({
         let response
         let type = ''
         // if (1 > 2) {
-        if ( 1 > 2 && Math.floor(Math.random() * 2) === 0) {
+        // eslint-disable-next-line no-constant-binary-expression
+        if (1 > 2 && Math.floor(Math.random() * 2) === 0) {
           type = 'single'
           response = await b24.callMethod(
             method,
@@ -85,19 +88,19 @@ export default defineCommand({
           )
         } else { // if (2 > 1) {
           type = 'batch'
-// @todo ntcn на объектного варианта вызова
+          // @todo тест на объектного варианта вызова
           // const batchCalls = Array.from({ length: 3 }, (_, i) => [
           //   method,
           //   params
           // ])
 
-          const batchCalls2 = [
-            ['server.time', {}],
-            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }],
-            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }],
-            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }],
-            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }]
-          ]
+          // const batchCalls2 = [
+          //   ['server.time', {}],
+          //   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }],
+          //   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }],
+          //   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }],
+          //   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }]
+          // ]
 
           const batchCalls = {
             cmd1: {

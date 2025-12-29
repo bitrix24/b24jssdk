@@ -1,5 +1,5 @@
 import { consola } from 'consola'
-import { RestrictionParamsFactory, B24Hook, EnumCrmEntityTypeId, LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk'
+import { ParamsFactory, B24Hook, EnumCrmEntityTypeId, LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 
 // Arrays for generating commands
@@ -63,10 +63,10 @@ export default defineCommand({
     // eslint-disable-next-line no-constant-condition
     if (1 > 0) {
       // getBatchProcessing
-      b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getBatchProcessing())
+      b24.getHttpClient().setRestrictionManagerParams(ParamsFactory.getBatchProcessing())
     } else {
       // getDefault
-      b24.getHttpClient().setRestrictionManagerParams(RestrictionParamsFactory.getDefault())
+      b24.getHttpClient().setRestrictionManagerParams(ParamsFactory.getDefault())
     }
     // endregion ////
 

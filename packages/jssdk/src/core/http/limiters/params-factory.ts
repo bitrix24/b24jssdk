@@ -1,11 +1,12 @@
-import type { RestrictionParams } from '../../types/http'
+import type { RestrictionParams } from '../../../types/limiters'
 
 /**
- * // fix
  * Фабрика для создания параметров ограничений
+ * @todo перевод
+ * @todo docs
  */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
-export class RestrictionParamsFactory {
+export class ParamsFactory {
   /**
    * Параметры по умолчанию для обычных тарифов
    * @see Http.#restrictionParams
@@ -18,7 +19,8 @@ export class RestrictionParamsFactory {
       },
       operatingLimit: {
         windowMs: 600_000, // 10 минут
-        limitMs: 480_000 // 480 секунд
+        limitMs: 480_000, // 480 секунд
+        heavyPercent: 80
       },
       adaptiveConfig: {
         enabled: true,
@@ -53,6 +55,11 @@ export class RestrictionParamsFactory {
       rateLimit: {
         burstLimit: 30,
         drainRate: 1
+      },
+      operatingLimit: {
+        windowMs: 600_000,
+        limitMs: 480_000,
+        heavyPercent: 50 // Больше порог для уведомлений
       },
       adaptiveConfig: {
         enabled: true,

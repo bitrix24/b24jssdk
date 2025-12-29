@@ -1,6 +1,6 @@
 import { AbstractHelper } from './abstract-helper'
 import type { TypeLicense } from '../types/b24-helper'
-import { RestrictionParamsFactory } from '../core/http/restriction-params-factory'
+import { ParamsFactory } from '../core/http/limiters/params-factory'
 
 export class LicenseManager extends AbstractHelper {
   protected override _data: null | TypeLicense = null
@@ -31,7 +31,7 @@ export class LicenseManager extends AbstractHelper {
       return
     }
 
-    const restrictionParams = RestrictionParamsFactory.fromTariffPlan(this.data.license)
+    const restrictionParams = ParamsFactory.fromTariffPlan(this.data.license)
     this.getLogger().log(
       `LICENSE ${this.data.license} => set restriction manager params`,
       restrictionParams

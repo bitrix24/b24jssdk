@@ -17,6 +17,7 @@ import type { AuthActions } from '../types/auth'
 
 /**
  * @todo перевод
+ * @todo docs
  */
 
 export abstract class AbstractB24 implements TypeB24 {

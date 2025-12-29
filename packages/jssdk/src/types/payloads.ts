@@ -7,8 +7,14 @@ export type PayloadTime = {
   readonly processing: number
   readonly date_start: ISODate
   readonly date_finish: ISODate
-  readonly operating_reset_at: number // timestamp - when part of the limit for this method will be released.
-  readonly operating: number // indicates the execution time of a request to a specific method.
+  /**
+   * timestamp - when part of the limit for this method will be released.
+   */
+  readonly operating_reset_at: number
+  /**
+   * indicates the execution time of a request to a specific method.
+   */
+  readonly operating: number
 }
 
 export type GetPayload<P> = {

@@ -1,6 +1,11 @@
 import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import type {
   TypeHttp,
+  ICallBatchOptions,
+  BatchCommandsArrayUniversal,
+  BatchCommandsObjectUniversal,
+  BatchNamedCommandsUniversal,
+  ICallBatchResult,
   AdaptiveConfig,
   RateLimitConfig,
   OperatingLimitConfig,
@@ -435,36 +440,28 @@ export default class Http implements TypeHttp {
   // endregion ////
 
   // region Actions Call ////
-  async batch(
-    calls: any[] | object,
-    isHaltOnError: boolean = true,
-    returnAjaxResult: boolean = false,
-    returnTime: boolean = false
-  ): Promise<Result> {
-    if (Array.isArray(calls)) {
-      return this.#batchAsArray(
-        calls,
-        isHaltOnError,
-        returnAjaxResult,
-        returnTime
-      )
+  async batch<T = unknown>(
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
+    options?: ICallBatchOptions
+  ): Promise<Result<ICallBatchResult<T>>> {
+    if (options === undefined) {
+      options = {
+        isHaltOnError: true
+      }
     }
 
-    return this.#batchAsObject(
-      calls,
-      isHaltOnError,
-      returnAjaxResult,
-      returnTime
-    )
+    if (Array.isArray(calls)) {
+      return this.#batchAsArray(calls, options)
+    }
+
+    return this.#batchAsObject(calls, options)
   }
 
-  // @todo синхронизировать с batchAsArray
-  async #batchAsObject(
-    calls: object,
-    isHaltOnError: boolean = true,
-    returnAjaxResult: boolean = false,
-    returnTime: boolean = false
-  ): Promise<Result> {
+  async #batchAsObject<T = unknown>(
+    calls: BatchNamedCommandsUniversal,
+    options: ICallBatchOptions
+  ): Promise<Result<ICallBatchResult<T>>> {
+    const { isHaltOnError = true } = options
     const cmd: any = {}
     let cnt = 0
 
@@ -498,12 +495,15 @@ export default class Http implements TypeHttp {
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
       cmd
-    }).then((response: AjaxResult) => {
+    }).then((response: AjaxResult): Promise<Result<ICallBatchResult<T>>> => {
       const responseResult = (response.getData() as BatchPayload<unknown>).result
       const responseTime = (response.getData() as BatchPayload<unknown>).time
-      const results: Record<string | number, AjaxResult> = {}
-      const dataResult: Record<any, any> = {}
-      const result = new Result()
+      const results: Record<string | number, AjaxResult<T>> = {}
+      const dataResult: Record<string | number, AjaxResult<T>> = {}
+      const result = new Result<{
+        result?: Record<string | number, AjaxResult<T>>
+        time?: PayloadTime
+      }>()
 
       const processResponse = (row: string, index: string | number) => {
         if (
@@ -571,15 +571,15 @@ export default class Http implements TypeHttp {
       }
 
       for (const key of Object.keys(results)) {
-        const data: AjaxResult = results[key]
+        const data = results[key]
 
         if (data.getStatus() !== 200 || !data.isSuccess) {
           const error = initError(data)
 
-          // тут должен быть код аналогичный #isOperatingLimitError
-          // с проверкой ошибки 'Method is blocked due to operation time limit.'
-          // однако `batch` исполняется без повторных попыток
-          // по этой причине будет сразу ошибка
+          /*
+           * Тут должен быть код аналогичный #isOperatingLimitError с проверкой ошибки 'Method is blocked due to operation time limit.'
+           * Однако `batch` исполняется без повторных попыток, по этой причине будет сразу ошибка
+           */
 
           if (!isHaltOnError && !data.isSuccess) {
             result.addError(error, key)
@@ -589,28 +589,24 @@ export default class Http implements TypeHttp {
           return Promise.reject(error)
         }
 
-        dataResult[key] = returnAjaxResult ? data : data.getData().result
+        dataResult[key] = data
       }
 
-      if (returnTime) {
-        result.setData({
-          result: dataResult,
-          time: responseTime
-        })
-      } else {
-        result.setData(dataResult)
-      }
+      result.setData({
+        result: dataResult,
+        time: responseTime
+      })
 
       return Promise.resolve(result)
     })
   }
 
-  async #batchAsArray(
-    calls: any[],
-    isHaltOnError: boolean = true,
-    returnAjaxResult: boolean = false,
-    returnTime: boolean = false
-  ): Promise<Result> {
+  async #batchAsArray<T = unknown>(
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
+    options: ICallBatchOptions
+  ): Promise<Result<ICallBatchResult<T>>> {
+    const { isHaltOnError = true } = options
+
     const cmd: string[] = []
     let cnt = 0
 
@@ -645,12 +641,15 @@ export default class Http implements TypeHttp {
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
       cmd
-    }).then((response: AjaxResult) => {
+    }).then((response: AjaxResult): Promise<Result<ICallBatchResult<T>>> => {
       const responseResult = (response.getData() as BatchPayload<unknown>).result
       const responseTime = (response.getData() as BatchPayload<unknown>).time
-      const results: AjaxResult[] = []
-      const dataResult: any[] = []
-      const result = new Result()
+      const results: AjaxResult<T>[] = []
+      const dataResult: AjaxResult<T>[] = []
+      const result = new Result<{
+        result?: AjaxResult<T>[]
+        time?: PayloadTime
+      }>()
 
       const processResponse = (row: string, index: string | number) => {
         if (
@@ -719,14 +718,14 @@ export default class Http implements TypeHttp {
         processResponse(row, index)
       }
 
-      for (const data of results as AjaxResult[]) {
+      for (const data of results) {
         if (data.getStatus() !== 200 || !data.isSuccess) {
           const error = initError(data)
 
-          // тут должен быть код аналогичный #isOperatingLimitError
-          // с проверкой ошибки 'Method is blocked due to operation time limit.'
-          // однако `batch` исполняется без повторных попыток
-          // по этой причине будет сразу ошибка
+          /*
+           * Тут должен быть код аналогичный #isOperatingLimitError с проверкой ошибки 'Method is blocked due to operation time limit.'
+           * Однако `batch` исполняется без повторных попыток, по этой причине будет сразу ошибка
+           */
 
           if (!isHaltOnError && !data.isSuccess) {
             result.addError(error)
@@ -736,17 +735,13 @@ export default class Http implements TypeHttp {
           return Promise.reject(error)
         }
 
-        dataResult.push(returnAjaxResult ? data : data.getData().result)
+        dataResult.push(data)
       }
 
-      if (returnTime) {
-        result.setData({
-          result: dataResult,
-          time: responseTime
-        })
-      } else {
-        result.setData(dataResult)
-      }
+      result.setData({
+        result: dataResult,
+        time: responseTime
+      })
 
       return Promise.resolve(result)
     })

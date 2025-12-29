@@ -1,21 +1,59 @@
 import type { LoggerBrowser } from '../logger/browser'
 import type { Result } from '../core/result'
 import type { AjaxResult } from '../core/http/ajax-result'
+import type { PayloadTime } from './payloads'
 
 /**
- * // fix
+ * @todo перевод
+ * @todo fix docs
+ */
+
+// region Batch interface ////
+/**
+ * Опции для batch вызова
+ */
+export interface ICallBatchOptions {
+  /**
+   * Останавливать ли выполнение при первой ошибке
+   * @default true
+   */
+  isHaltOnError?: boolean
+}
+
+/**
+ * Результат batch вызова
+ */
+export interface ICallBatchResult<T = unknown> {
+  result?: AjaxResult<T>[] | Record<string | number, AjaxResult<T>>
+  time?: PayloadTime
+}
+
+export type BatchCommandType<M extends string = string, P = Record<string, any>>
+  = | [M, P]
+    | {
+      method: M
+      params: P
+    }
+
+export type BatchCommandsArrayUniversal = BatchCommandType[]
+export type BatchCommandsObjectUniversal = BatchCommandType[]
+export type BatchNamedCommandsUniversal = Record<string, BatchCommandType>
+// endregion ////
+
+/**
  * Интерфейс для HTTP клиента
  */
 export type TypeHttp = {
   setLogger(logger: LoggerBrowser): void
   getLogger(): LoggerBrowser
 
-  batch(
-    calls: any[] | object,
-    isHaltOnError: boolean,
-    returnAjaxResult: boolean,
-    returnTime: boolean
-  ): Promise<Result>
+  /**
+   * Выполнение batch запросов с поддержкой двух вариантов вызова
+   */
+  batch<T = unknown>(
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
+    options?: ICallBatchOptions
+  ): Promise<Result<ICallBatchResult<T>>>
 
   call<T = unknown>(
     method: string,

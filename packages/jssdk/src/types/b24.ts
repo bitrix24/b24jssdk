@@ -1,8 +1,36 @@
 import type { LoggerBrowser } from '../logger/browser'
 import type { AjaxResult } from '../core/http/ajax-result'
 import type { Result } from '../core/result'
-import type { TypeHttp } from './http'
+import type {
+  TypeHttp,
+  ICallBatchOptions,
+  BatchCommandsArrayUniversal,
+  BatchCommandsObjectUniversal,
+  BatchNamedCommandsUniversal, ICallBatchResult
+} from './http'
 import type { AuthActions } from './auth'
+
+/**
+ * @todo перевод
+ * @todo fix docs
+ */
+
+/**
+ * Опции для batch вызова
+ */
+export interface IB24BatchOptions extends ICallBatchOptions {
+  /**
+   * Возвращать ли объект AjaxResult вместо данных
+   * @default false
+   */
+  returnAjaxResult?: boolean
+
+  /**
+   * Возвращать ли информацию о времени выполнения
+   * @default false
+   */
+  returnTime?: boolean
+}
 
 export type TypeB24 = {
   /**
@@ -46,13 +74,6 @@ export type TypeB24 = {
 
   /**
    * @deprecate: use callFastListMethod()
-   * Calls a REST service list method with the specified parameters
-   *
-   * @param  {string} method Query method
-   * @param  {object} params Request parameters
-   * @param {null|((progress: number) => void)} progress Processing steps
-   * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
-   * @return {Promise}
    */
   callListMethod(
     method: string,
@@ -106,36 +127,47 @@ export type TypeB24 = {
 
   /**
    * Calls a batch request with a maximum number of commands of no more than 50
-   *
-   * @param  {Array | Record<string, any>} calls Request packet
-   * calls = [[method,params],[method,params]]
-   * calls = [{method:method,params:params},[method,params]]
-   * calls = {call_id:[method,params],...}
-   * @param  {boolean} isHaltOnError Abort package execution when an error occurs
-   * @param  {boolean} returnAjaxResult Return `Record<string | number, AjaxResult> | AjaxResult[]` in response
-   *
-   * @return {Promise} Promise
-   *
    * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
    */
+  callBatch<T = unknown>(
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
+    options?: IB24BatchOptions
+  ): Promise<Result<ICallBatchResult<T>> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T[] | Record<string | number, T>>>
+
+  /**
+   * @deprecated Use the method `callBatch` with the options object
+   * @param  calls Request packet
+   * @param  {boolean} isHaltOnError Abort package execution when an error occurs
+   * @param  {boolean} returnAjaxResult then true return `AjaxResult[] | Record<string | number, AjaxResult>` in response
+   * @param  {boolean} returnTime then true return `{time: PayloadTime, result: AjaxResult[] | Record<string | number, AjaxResult> }` in response
+   * @return {Promise} Promise
+   */
   callBatch(
-    calls: Array<any> | Record<string, any>,
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     isHaltOnError?: boolean,
-    returnAjaxResult?: boolean
+    returnAjaxResult?: boolean,
+    returnTime?: boolean
   ): Promise<Result>
 
   /**
    * Calls a batch request with any number of commands
-   *
-   * @param  {Array} calls Request packet
-   * calls = [[method,params],[method,params]]
-   * @param  {boolean} isHaltOnError Abort package execution when an error occurs
-   *
-   * @return {Promise} Promise
-   *
    * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
    */
-  callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result>
+  callBatchByChunk<T = unknown>(
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
+    options?: ICallBatchOptions
+  ): Promise<Result<T[]>>
+
+  /**
+   * @deprecated Use the method `callBatchByChunk` with the options object
+   * @param  calls Request packet
+   * @param  {boolean} isHaltOnError Abort package execution when an error occurs
+   * @return {Promise} Promise
+   */
+  callBatchByChunk(
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
+    isHaltOnError: boolean
+  ): Promise<Result>
 
   /**
    * Returns Http client for requests

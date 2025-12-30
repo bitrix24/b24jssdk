@@ -14,8 +14,11 @@ const commandsList = [
   // } }
   // { method: 'server.time', params: {} }
   { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } } },
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } } },
   { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } } },
-  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.deal, select: ['id'], filter: { '>id': 2 } } }
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } } },
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.deal, select: ['id'], filter: { '>id': 2 } } },
+  { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.deal, select: ['id'], filter: { '>id': 200 } } }
 ]
 
 /**
@@ -51,7 +54,7 @@ export default defineCommand({
     const loggerForDebugB24 = LoggerBrowser.build('b24|')
     loggerForDebugB24.setConfig({
       [LoggerType.desktop]: false,
-      [LoggerType.log]: true,
+      [LoggerType.log]: false,
       [LoggerType.info]: true,
       [LoggerType.warn]: true,
       [LoggerType.error]: true,
@@ -61,12 +64,15 @@ export default defineCommand({
     b24.setLogger(loggerForDebugB24)
 
     // eslint-disable-next-line no-constant-condition
-    if (1 > 0) {
+    if (1 > 2) {
       // getBatchProcessing
       b24.getHttpClient().setRestrictionManagerParams(ParamsFactory.getBatchProcessing())
-    } else {
+    } else if (2 > 3) {
       // getDefault
       b24.getHttpClient().setRestrictionManagerParams(ParamsFactory.getDefault())
+    } else {
+      // getRealtime
+      b24.getHttpClient().setRestrictionManagerParams(ParamsFactory.getRealtime())
     }
     // endregion ////
 
@@ -78,15 +84,15 @@ export default defineCommand({
         const { method, params } = commandsList[Math.floor(Math.random() * commandsList.length)]
         let response
         let type = ''
-        // if (1 > 2) {
+        // if (1 > 2 //  && Math.floor(Math.random() * 2) === 0 ) {
         // eslint-disable-next-line no-constant-binary-expression
-        if (1 > 2 && Math.floor(Math.random() * 2) === 0) {
+        if (1 > 2) {
           type = 'single'
           response = await b24.callMethod(
             method,
             params
           )
-        } else { // if (2 > 1) {
+        } else if (2 > 1) {
           type = 'batch'
           // @todo тест на объектного варианта вызова
           // const batchCalls = Array.from({ length: 3 }, (_, i) => [
@@ -96,13 +102,10 @@ export default defineCommand({
 
           const batchCalls = [
             ['server.time', {}],
-            ['server.time', {}],
-            ['server.time', {}],
-            ['server.time', {}]
-            // ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }],
-            // ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }],
-            // ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }],
-            // ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }]
+            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }],
+            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }],
+            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }],
+            ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }]
           ]
 
           // const batchCalls = {
@@ -129,15 +132,14 @@ export default defineCommand({
           // }
 
           response = await b24.callBatch(batchCalls, true, true, true)
+        } else {
+          const batchCalls = Array.from({ length: 150 }, (_, i) => [
+            method,
+            params
+          ])
+
+          response = await b24.callBatchByChunk(batchCalls, true)
         }
-        // } else {
-        //   const batchCalls = Array.from({ length: 150 }, (_, i) => [
-        //     method,
-        //     params
-        //   ])
-        //
-        //   response = await b24.callBatchByChunk(batchCalls, true)
-        // }
 
         // Checking the current load
         logger.info(`[${type}] operatingStats:`, b24.getHttpClient().getStats().operatingStats)
@@ -193,32 +195,17 @@ export default defineCommand({
 
       const startTime = Date.now()
 
-      if (1 > 2) {
-        // Симуляция
-        const limiter = new RateLimiter({ burstLimit: 10, drainRate: 2 }) // 10 токенов, 2/сек
-        limiter.setLogger(loggerForDebugB24)
+      // consola.log(`Паралельные запросы: 150`)
+      // for (let i = 0; i <= 150; i++) {
+      //   setTimeout(async () => {
+      //     await callCommand(i + 1)
+      //     showProgress()
+      //   }, i * 100)
+      // }
 
-        // 40 параллельных запросов
-        const promises = []
-        for (let i = 0; i < 40; i++) {
-          promises.push(limiter.waitIfNeeded())
-        }
-
-        const results = await Promise.all(promises)
-        console.log('Wait times:', results) // .filter(time => time > 0))
-      } else {
-        // consola.log(`Паралельные запросы: 150`)
-        // for (let i = 0; i <= 150; i++) {
-        //   setTimeout(async () => {
-        //     await callCommand(i + 1)
-        //     showProgress()
-        //   }, i * 100)
-        // }
-
-        for (let i = 0; i < args.total; i++) {
-          await callCommand(i + 1)
-          showProgress()
-        }
+      for (let i = 0; i < args.total; i++) {
+        await callCommand(i + 1)
+        showProgress()
       }
 
       const endTime = Date.now()

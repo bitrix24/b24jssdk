@@ -125,7 +125,9 @@ export class AdaptiveDelayer implements ILimiter {
       .map((row: string) => row.split('?')[0])
       .filter(Boolean)
 
-    for (const methodName of batchMethods) {
+    const batchMethodsUnique = [...new Set(batchMethods)]
+
+    for (const methodName of batchMethodsUnique) {
       const delay = this.#calculateDelay(`batch::${methodName}`, {})
       maxDelay = Math.max(maxDelay, delay)
     }

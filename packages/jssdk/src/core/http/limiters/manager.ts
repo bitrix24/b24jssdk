@@ -88,6 +88,7 @@ export class RestrictionManager {
 
   /**
    * Проверяет и ждет rate limit
+   * Цикл нужен для паралельных запросов (Promise.all())
    */
   async checkRateLimit(method: string): Promise<void> {
     // 3. Apply rate limit

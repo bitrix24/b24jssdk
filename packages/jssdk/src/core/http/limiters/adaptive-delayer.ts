@@ -96,7 +96,7 @@ export class AdaptiveDelayer implements ILimiter {
 
       const waitDelay = Math.min(adaptiveDelay, this.#config.maxDelay)
 
-      this.getLogger().info(
+      this.getLogger().log(
         `⚠️ Method ${method}: предыдущий запрос использовал ${(usagePercent).toFixed(1)}% operating limit`,
         `Задержка:`,
         `- расчетная ${(adaptiveDelay / 1000).toFixed(2)} sec.`,

@@ -1,5 +1,6 @@
 import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import RequestIdGenerator from './request-id-generator'
+import { ParamsFactory } from './limiters/params-factory'
 import { RestrictionManager } from './limiters/manager'
 import { Result } from '../result'
 import { AjaxError } from './ajax-error'
@@ -76,16 +77,10 @@ export default class Http implements TypeHttp {
     this.#requestIdGenerator = new RequestIdGenerator()
 
     /**
-     * // fix-fix
      * Основные параметры ограничений
-     * @see RestrictionParamsFactory.getDefault
      */
     const params: RestrictionParams = {
-      rateLimit: { burstLimit: 50, drainRate: 2 },
-      operatingLimit: { windowMs: 600_000, limitMs: 480_000, heavyPercent: 80 },
-      adaptiveConfig: { enabled: true, thresholdPercent: 80, coefficient: 0.01, maxDelay: 7_000 },
-      maxRetries: 3,
-      retryDelay: 1_000,
+      ...ParamsFactory.getDefault(),
       ...restrictionParams
     }
 

@@ -117,8 +117,8 @@ export default class Http implements TypeHttp {
   // endregion ////
 
   // region RestrictionManager методы ////
-  setRestrictionManagerParams(params: RestrictionParams): void {
-    this.#restrictionManager.setParams(params)
+  async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {
+    await this.#restrictionManager.setConfig(params)
   }
 
   getRestrictionManagerParams(): RestrictionParams {
@@ -138,7 +138,7 @@ export default class Http implements TypeHttp {
   /**
    * @inheritDoc
    */
-  reset(): void {
+  async reset(): Promise<void> {
     return this.#restrictionManager.reset()
   }
   // endregion ////
@@ -209,7 +209,7 @@ export default class Http implements TypeHttp {
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
       cmd
-    }).then((response: AjaxResult): Promise<Result<ICallBatchResult<T>>> => {
+    }).then(async (response: AjaxResult): Promise<Result<ICallBatchResult<T>>> => {
       const responseResult = (response.getData() as BatchPayload<unknown>).result
       const responseTime = (response.getData() as BatchPayload<unknown>).time
       const results: Record<string | number, AjaxResult<T>> = {}
@@ -219,7 +219,7 @@ export default class Http implements TypeHttp {
         time?: PayloadTime
       }>()
 
-      const processResponse = (row: string, index: string | number) => {
+      const processResponse = async (row: string, index: string | number) => {
         if (
           // @ts-expect-error this code work success
           typeof responseResult.result[index] !== 'undefined'
@@ -234,7 +234,7 @@ export default class Http implements TypeHttp {
           if (responseResult.result_time && responseResult.result_time[index]) {
             // @ts-expect-error this code work success
             const timeData = responseResult.result_time[index]
-            this.#restrictionManager.updateOperatingStats(`batch::${methodName}`, timeData)
+            await this.#restrictionManager.updateStats(`batch::${methodName}`, timeData)
           }
 
           results[index] = new AjaxResult({
@@ -281,7 +281,7 @@ export default class Http implements TypeHttp {
       }
 
       for (const [index, row] of Object.entries(cmd)) {
-        processResponse(row as string, index)
+        await processResponse(row as string, index)
       }
 
       for (const key of Object.keys(results)) {
@@ -355,7 +355,7 @@ export default class Http implements TypeHttp {
     return this.call('batch', {
       halt: isHaltOnError ? 1 : 0,
       cmd
-    }).then((response: AjaxResult): Promise<Result<ICallBatchResult<T>>> => {
+    }).then(async (response: AjaxResult): Promise<Result<ICallBatchResult<T>>> => {
       const responseResult = (response.getData() as BatchPayload<unknown>).result
       const responseTime = (response.getData() as BatchPayload<unknown>).time
       const results: AjaxResult<T>[] = []
@@ -365,7 +365,7 @@ export default class Http implements TypeHttp {
         time?: PayloadTime
       }>()
 
-      const processResponse = (row: string, index: string | number) => {
+      const processResponse = async (row: string, index: string | number) => {
         if (
           // @ts-expect-error this code work success
           typeof responseResult.result[index] !== 'undefined'
@@ -380,7 +380,7 @@ export default class Http implements TypeHttp {
           if (responseResult.result_time && responseResult.result_time[index]) {
             // @ts-expect-error this code work success
             const timeData = responseResult.result_time[index]
-            this.#restrictionManager.updateOperatingStats(`batch::${methodName}`, timeData)
+            await this.#restrictionManager.updateStats(`batch::${methodName}`, timeData)
           }
 
           const data = new AjaxResult({
@@ -429,7 +429,7 @@ export default class Http implements TypeHttp {
       }
 
       for (const [index, row] of cmd.entries()) {
-        processResponse(row, index)
+        await processResponse(row, index)
       }
 
       for (const data of results) {
@@ -495,7 +495,7 @@ export default class Http implements TypeHttp {
         this.#restrictionManager.incrementError(method)
 
         if (attempt < maxRetries - 1) {
-          const waitTime = this.#restrictionManager.handleError(method, params, error, attempt)
+          const waitTime = await this.#restrictionManager.handleError(method, params, error, attempt)
           if (waitTime > 0) {
             this.#restrictionManager.incrementStats('limitHits')
 
@@ -678,7 +678,7 @@ export default class Http implements TypeHttp {
           return Promise.reject(problemError)
         }
       )
-      .then((response: AjaxResponse<T>): Promise<AjaxResult<T>> => {
+      .then(async (response: AjaxResponse<T>): Promise<AjaxResult<T>> => {
         const result = new AjaxResult<T>({
           answer: response.payload,
           query: {
@@ -691,7 +691,7 @@ export default class Http implements TypeHttp {
 
         // 5. Обновляем operating статистику
         if (response.payload?.time) {
-          this.#restrictionManager.updateOperatingStats(method, response.payload.time)
+          await this.#restrictionManager.updateStats(method, response.payload.time)
         }
 
         return Promise.resolve(result)

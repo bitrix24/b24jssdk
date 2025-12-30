@@ -2,10 +2,6 @@ import type { OperatingLimitConfig, ILimiter } from '../../../types/limiters'
 import type { PayloadTime } from '../../../types/payloads'
 import { LoggerBrowser, LoggerType } from '../../../logger/browser'
 
-/**
- * @todo перевод
- * @todo docs
- */
 interface OperatingStats {
   /*
    * operating время за 10 минут (в мс)
@@ -18,6 +14,11 @@ interface OperatingStats {
   lastUpdated: number
 }
 
+/**
+ * Operating limiting
+ * @todo перевод
+ * @todo docs
+ */
 export class OperatingLimiter implements ILimiter {
   #config: OperatingLimitConfig
   #methodStats = new Map<string, OperatingStats>()
@@ -84,7 +85,7 @@ export class OperatingLimiter implements ILimiter {
    * - не достигнут - нет блокировки
    * - достигли - блокируем до времени разблокировки + 1 секунда
    */
-  getTimeToFree(method: string, params?: any, _error?: any): number {
+  async getTimeToFree(method: string, params?: any, _error?: any): Promise<number> {
     this.#cleanupOldStats()
 
     if (method === 'batch') {
@@ -135,7 +136,7 @@ export class OperatingLimiter implements ILimiter {
   /**
    * Обновляет статистику operating времени для метода
    */
-  updateStats(method: string, data: PayloadTime): void {
+  async updateStats(method: string, data: PayloadTime): Promise<void> {
     this.#cleanupOldStats()
 
     // все в секундах
@@ -185,7 +186,7 @@ export class OperatingLimiter implements ILimiter {
     }
   }
 
-  reset(): void {
+  async reset(): Promise<void> {
     this.#methodStats.clear()
     this.#stats = {
       heavyRequestCount: 0
@@ -208,7 +209,7 @@ export class OperatingLimiter implements ILimiter {
     }
   }
 
-  setConfig(config: OperatingLimitConfig): void {
+  async setConfig(config: OperatingLimitConfig): Promise<void> {
     this.#config = config
   }
 }

@@ -88,7 +88,7 @@ export type TypeHttp = {
   /**
    * Устанавливает параметры ограничений
    */
-  setRestrictionManagerParams(params: RestrictionParams): void
+  setRestrictionManagerParams(params: RestrictionParams): Promise<void>
 
   /**
    * Возвращает текущие параметры ограничений
@@ -103,7 +103,7 @@ export type TypeHttp = {
   /**
    * Сбрасывает лимитеры и статистику
    */
-  reset(): void
+  reset(): Promise<void>
 
   setLogTag(logTag?: string): void
   clearLogTag(): void

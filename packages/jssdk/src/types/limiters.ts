@@ -76,6 +76,11 @@ export interface RateLimitConfig {
    * Для Enterprise: 5
    */
   drainRate: number
+  /**
+   * Включено ли адаптивное регулирование
+   * По умолчанию: true
+   */
+  adaptiveEnabled: boolean
 }
 
 /**
@@ -129,11 +134,12 @@ export interface RestrictionManagerStats {
 }
 
 export interface ILimiter {
+  setConfig(config: any): Promise<void>
   setLogger(logger: LoggerBrowser): void
   getLogger(): LoggerBrowser
   canProceed(method: string, params?: any): Promise<boolean>
   waitIfNeeded(method: string, params?: any): Promise<number>
-  updateStats(method: string, data: any): void
-  reset(): void
+  updateStats(method: string, data: any): Promise<void>
+  reset(): Promise<void>
   getStats(): Record<string, any>
 }

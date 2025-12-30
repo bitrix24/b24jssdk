@@ -1,5 +1,5 @@
 import { consola } from 'consola'
-import { ParamsFactory, B24Hook, EnumCrmEntityTypeId, LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk'
+import { ParamsFactory, RateLimiter, B24Hook, EnumCrmEntityTypeId, LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 
 // Arrays for generating commands
@@ -51,7 +51,7 @@ export default defineCommand({
     const loggerForDebugB24 = LoggerBrowser.build('b24|')
     loggerForDebugB24.setConfig({
       [LoggerType.desktop]: false,
-      [LoggerType.log]: false,
+      [LoggerType.log]: true,
       [LoggerType.info]: true,
       [LoggerType.warn]: true,
       [LoggerType.error]: true,
@@ -94,36 +94,39 @@ export default defineCommand({
           //   params
           // ])
 
-          // const batchCalls2 = [
-          //   ['server.time', {}],
-          //   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }],
-          //   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }],
-          //   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }],
-          //   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }]
-          // ]
+          const batchCalls = [
+            ['server.time', {}],
+            ['server.time', {}],
+            ['server.time', {}],
+            ['server.time', {}]
+            // ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }],
+            // ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }],
+            // ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }],
+            // ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }]
+          ]
 
-          const batchCalls = {
-            cmd1: {
-              method: 'server.time',
-              params: {}
-            },
-            cmd2: {
-              method: 'crm.item.list',
-              params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }
-            },
-            cmd3: {
-              method: 'crm.item.list',
-              params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }
-            },
-            cmd4: {
-              method: 'crm.item.list',
-              params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }
-            },
-            cmd5: {
-              method: 'crm.item.list',
-              params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }
-            }
-          }
+          // const batchCalls = {
+          //   cmd1: {
+          //     method: 'server.time',
+          //     params: {}
+          //   },
+          //   cmd2: {
+          //     method: 'crm.item.list',
+          //     params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }
+          //   },
+          //   cmd3: {
+          //     method: 'crm.item.list',
+          //     params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 200 } }
+          //   },
+          //   cmd4: {
+          //     method: 'crm.item.list',
+          //     params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 2 } }
+          //   },
+          //   cmd5: {
+          //     method: 'crm.item.list',
+          //     params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }
+          //   }
+          // }
 
           response = await b24.callBatch(batchCalls, true, true, true)
         }
@@ -137,7 +140,7 @@ export default defineCommand({
         // }
 
         // Checking the current load
-        logger.info(`operatingStats [${type}]:`, b24.getHttpClient().getStats().operatingStats)
+        logger.info(`[${type}] operatingStats:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
@@ -148,9 +151,9 @@ export default defineCommand({
           // logger.log('Data:', response.getData().time)
           // // // logger.log('Data:', response.getData().result.items.map(item => item.id).join(','))
         } else if (type === 'batch') {
-          // logger.log('Data:', response.getData().time)
           // // // logger.log('Data:', response.getData().result.map(responseAjax => responseAjax.getData().result?.items?.map(item => item.id).join(',') ?? responseAjax.getData().result))
-          logger.log('Data:', Object.values(response.getData().result).map(responseAjax => responseAjax.getData().time.operating))
+          logger.log('[DEBUG] batch: _self.operating:', response.getData().time.operating)
+          logger.log('[DEBUG] batch: inner.operating:', Object.values(response.getData().result).map(responseAjax => responseAjax.getData().time.operating).join(', '))
         }
 
         return { success: true, data }
@@ -190,9 +193,32 @@ export default defineCommand({
 
       const startTime = Date.now()
 
-      for (let i = 0; i < args.total; i++) {
-        await callCommand(i + 1)
-        showProgress()
+      if (1 > 2) {
+        // Симуляция
+        const limiter = new RateLimiter({ burstLimit: 10, drainRate: 2 }) // 10 токенов, 2/сек
+        limiter.setLogger(loggerForDebugB24)
+
+        // 40 параллельных запросов
+        const promises = []
+        for (let i = 0; i < 40; i++) {
+          promises.push(limiter.waitIfNeeded())
+        }
+
+        const results = await Promise.all(promises)
+        console.log('Wait times:', results) // .filter(time => time > 0))
+      } else {
+        // consola.log(`Паралельные запросы: 150`)
+        // for (let i = 0; i <= 150; i++) {
+        //   setTimeout(async () => {
+        //     await callCommand(i + 1)
+        //     showProgress()
+        //   }, i * 100)
+        // }
+
+        for (let i = 0; i < args.total; i++) {
+          await callCommand(i + 1)
+          showProgress()
+        }
       }
 
       const endTime = Date.now()

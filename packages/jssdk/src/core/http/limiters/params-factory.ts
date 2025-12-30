@@ -15,7 +15,8 @@ export class ParamsFactory {
     return {
       rateLimit: {
         burstLimit: 50,
-        drainRate: 2
+        drainRate: 2,
+        adaptiveEnabled: true
       },
       operatingLimit: {
         windowMs: 600_000, // 10 минут
@@ -41,7 +42,8 @@ export class ParamsFactory {
       ...this.getDefault(),
       rateLimit: {
         burstLimit: 250,
-        drainRate: 5
+        drainRate: 5,
+        adaptiveEnabled: true
       }
     }
   }
@@ -54,7 +56,8 @@ export class ParamsFactory {
       ...this.getDefault(),
       rateLimit: {
         burstLimit: 30,
-        drainRate: 1
+        drainRate: 1,
+        adaptiveEnabled: true
       },
       operatingLimit: {
         windowMs: 600_000,

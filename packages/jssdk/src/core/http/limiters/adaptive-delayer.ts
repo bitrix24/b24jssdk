@@ -2,6 +2,11 @@ import type { AdaptiveConfig, ILimiter } from '../../../types/limiters'
 import type { OperatingLimiter } from './operating-limiter'
 import { LoggerBrowser, LoggerType } from '../../../logger/browser'
 
+/**
+ * Adaptive delayer
+ * @todo перевод
+ * @todo docs
+ */
 export class AdaptiveDelayer implements ILimiter {
   #config: AdaptiveConfig
   #operatingLimiter: OperatingLimiter
@@ -128,11 +133,11 @@ export class AdaptiveDelayer implements ILimiter {
     return maxDelay
   }
 
-  updateStats(): void {
+  async updateStats(): Promise<void> {
     // Adaptive delayer updates based on operating limiter
   }
 
-  reset(): void {
+  async reset(): Promise<void> {
     this.#stats = {
       adaptiveDelays: 0,
       totalAdaptiveDelay: 0
@@ -152,7 +157,7 @@ export class AdaptiveDelayer implements ILimiter {
     }
   }
 
-  setConfig(config: AdaptiveConfig): void {
+  async setConfig(config: AdaptiveConfig): Promise<void> {
     this.#config = config
   }
 

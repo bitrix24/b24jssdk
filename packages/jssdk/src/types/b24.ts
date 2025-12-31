@@ -6,7 +6,9 @@ import type {
   ICallBatchOptions,
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
-  BatchNamedCommandsUniversal, ICallBatchResult
+  BatchNamedCommandsUniversal,
+  ICallBatchResult,
+  TypeCallParams
 } from './http'
 import type { AuthActions } from './auth'
 
@@ -57,18 +59,12 @@ export type TypeB24 = {
 
   /**
    * Calls a REST service method with the specified parameters
-   *
-   * @param {string} method
-   * @param {object} params
-   * @param {number} start
-   *
-   * @return {Promise}
-   *
    * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
+   * @memo not use param `start`
    */
   callMethod<T = unknown>(
     method: string,
-    params?: object,
+    params?: TypeCallParams,
     start?: number
   ): Promise<AjaxResult<T>>
 
@@ -77,7 +73,7 @@ export type TypeB24 = {
    */
   callListMethod(
     method: string,
-    params?: object,
+    params?: Omit<TypeCallParams, 'start'>,
     progress?: null | ((progress: number) => void),
     customKeyForResult?: string | null
   ): Promise<Result>
@@ -87,18 +83,14 @@ export type TypeB24 = {
    * Similar to callListMethod, but does not count the total number
    *
    * @param  {string} method Query method
-   * @param  {object} params Request parameters
+   * @param  {TypeCallParams} params Request parameters
    * @param {string} idKey Entity ID field name ('ID' || 'id')
    * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
    * @return {Promise}
    */
   callFastListMethod<T = unknown>(
     method: string,
-    params?: {
-      order?: any
-      filter?: any
-      [key: string]: any
-    },
+    params?: Omit<TypeCallParams, 'start'>,
     idKey?: string,
     customKeyForResult?: string | null
   ): Promise<Result<T[]>>
@@ -108,7 +100,7 @@ export type TypeB24 = {
    * Implements the fast algorithm described in {@see https://apidocs.bitrix24.com/api-reference/performance/huge-data.html}
    *
    * @param {string} method Query method
-   * @param {object} params Request parameters
+   * @param {TypeCallParams} params Request parameters
    * @param {string} idKey Entity ID field name ('ID' || 'id')
    * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
    *
@@ -116,11 +108,7 @@ export type TypeB24 = {
    */
   fetchListMethod<T = unknown>(
     method: string,
-    params?: {
-      order?: any
-      filter?: any
-      [key: string]: any
-    },
+    params?: Omit<TypeCallParams, 'start'>,
     idKey?: string,
     customKeyForResult?: string | null
   ): AsyncGenerator<T[]>

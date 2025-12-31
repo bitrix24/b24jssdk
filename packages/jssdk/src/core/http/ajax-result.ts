@@ -4,12 +4,16 @@ import { Result, type IResult } from '../result'
 import { AjaxError } from './ajax-error'
 import type { NumberString } from '../../types/common'
 import type { Payload, PayloadTime } from '../../types/payloads'
-import type { TypeHttp } from '../../types/http'
+import type { TypeCallParams, TypeHttp } from '../../types/http'
 
+/**
+ * @todo clear
+ * @todo docs
+ */
 export type AjaxQuery = Readonly<{
   method: string
-  params: Readonly<object>
-  start: number
+  params: TypeCallParams
+  // start: number
 }>
 
 export type AjaxResultParams<T = unknown> = Readonly<{
@@ -127,16 +131,15 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     const nextPageQuery = this.#buildNextPageQuery()
     return http.call(
       nextPageQuery.method,
-      nextPageQuery.params,
-      nextPageQuery.start
+      nextPageQuery.params
     ) as Promise<AjaxResult<T>>
   }
 
   #buildNextPageQuery(): AjaxQuery {
-    return {
-      ...this._query,
-      start: Text.toInteger(this._data.next)
-    }
+    const result = { ...this._query }
+    result.params.start = Text.toInteger(this._data.next)
+
+    return result
   }
 
   // Immutable API

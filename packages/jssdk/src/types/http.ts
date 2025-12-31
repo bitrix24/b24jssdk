@@ -9,6 +9,15 @@ import type { RestrictionParams, RestrictionManagerStats } from './limiters'
  * @todo fix docs
  */
 
+export type TypeCallParams = {
+  order?: Record<string, string>
+  filter?: any
+  select?: string[]
+  params?: any // @see tasks.task.list
+  start?: number
+  [key: string]: any
+}
+
 // region Batch interface ////
 /**
  * Опции для batch вызова
@@ -29,29 +38,27 @@ export interface ICallBatchResult<T = unknown> {
   time?: PayloadTime
 }
 
-export type CommandUniversal<M extends string = string, P = unknown>
+export type CommandTuple<M extends string = string, P = undefined | TypeCallParams> = [M, P?]
+export interface CommandObject<M extends string = string, P = undefined | TypeCallParams> { method: M, params?: P }
+export type CommandUniversal<M extends string = string, P = undefined | TypeCallParams>
   = | CommandTuple<M, P>
     | CommandObject<M, P>
 
-export type BatchCommandsUniversal<M extends string = string, P = unknown> = CommandUniversal<M, P>[]
-
 // 1. Array of arrays
-export type CommandTuple<M extends string = string, P = unknown> = [M, P]
-export type BatchCommandsArrayUniversal<M extends string = string, P = unknown> = CommandTuple<M, P>[]
+export type BatchCommandsArrayUniversal<M extends string = string, P = undefined | TypeCallParams> = CommandTuple<M, P>[]
 
 // 2. Array of objects
-export interface CommandObject<M extends string = string, P = unknown> {
-  method: M
-  params?: P
-}
-export type BatchCommandsObjectUniversal<M extends string = string, P = unknown> = CommandObject<M, P>[]
+export type BatchCommandsObjectUniversal<M extends string = string, P = undefined | TypeCallParams> = CommandObject<M, P>[]
 
 // 3. Object with named commands
 export type BatchNamedCommandsUniversal<
   K extends string | number | symbol = string,
   M extends string = string,
-  P = unknown
+  P = undefined | TypeCallParams
 > = Record<K, CommandObject<M, P> | CommandTuple<M, P>>
+
+// 4. Universal
+export type BatchCommandsUniversal<M extends string = string, P = undefined | TypeCallParams> = CommandUniversal<M, P>[]
 // endregion ////
 
 /**
@@ -79,10 +86,13 @@ export type TypeHttp = {
     options?: ICallBatchOptions
   ): Promise<Result<ICallBatchResult<T>>>
 
+  /**
+   * @memo not use param `start`
+   */
   call<T = unknown>(
     method: string,
-    params: object,
-    start: number
+    params: TypeCallParams,
+    start?: number
   ): Promise<AjaxResult<T>>
 
   /**

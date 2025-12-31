@@ -7,6 +7,7 @@ import { AjaxError } from './ajax-error'
 import { AjaxResult } from './ajax-result'
 import Type from '../../tools/type'
 import type {
+  TypeCallParams,
   TypeHttp,
   ICallBatchOptions,
   BatchCommandsArrayUniversal,
@@ -31,6 +32,14 @@ import * as qs from 'qs-esm'
 type AjaxResponse<T = unknown> = {
   status: number
   payload: AjaxResultParams<T>
+}
+
+type TypePrepareParams = {
+  data?: TypeCallParams
+  logTag?: string
+  auth?: string
+  start?: number
+  [key: string]: any
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -457,17 +466,15 @@ export default class Http implements TypeHttp {
   }
 
   /**
-   * // fix
    * Calling the RestApi function with adaptive delays and rate limiting
+   * @memo not use param `start`
    */
   async call<T = unknown>(
     method: string,
-    params: object,
-    start: number = 0
+    params: TypeCallParams,
+    start?: number
   ): Promise<AjaxResult<T>> {
     const maxRetries = this.#restrictionManager.getParams().maxRetries!
-
-    // baseRetryDelay = this.#restrictionParams.retryDelay!
 
     let lastError = null
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -531,8 +538,8 @@ export default class Http implements TypeHttp {
    */
   async #executeSingleCall<T = unknown>(
     method: string,
-    params: object,
-    start: number = 0
+    params: TypeCallParams,
+    start?: number
   ): Promise<AjaxResult<T>> {
     let authData = this.#authActions.getAuthData()
     if (authData === false) {
@@ -698,8 +705,12 @@ export default class Http implements TypeHttp {
   /**
    * Processes function parameters and adds authorization
    */
-  #prepareParams(authData: AuthData, params: any, start: number = 0): object {
-    const result = Object.assign({}, params)
+  #prepareParams(
+    authData: AuthData,
+    params: TypeCallParams,
+    start?: number
+  ): TypePrepareParams {
+    const result: TypePrepareParams = { ...params }
 
     if (this.#logTag.length > 0) {
       result.logTag = this.#logTag
@@ -708,18 +719,24 @@ export default class Http implements TypeHttp {
     // result[this.#requestIdGenerator.getQueryStringParameterName()] = this.#requestIdGenerator.getRequestId()
     // result[this.#requestIdGenerator.getQueryStringSdkParameterName()] = '__SDK_VERSION__'
 
-    if (!!result.data && !!result.data.start) {
-      delete result.data.start
-    }
-
-    /**
-     * @memo we skip auth for hook
-     */
+    /** @memo we skip auth for hook */
     if (authData.refresh_token !== 'hook') {
       result.auth = authData.access_token
     }
 
-    result.start = start
+    result.start = (
+      typeof start !== 'undefined'
+        ? start
+        : (
+            typeof result?.data?.start !== 'undefined'
+              ? result.data.start
+              : 0
+          )
+    )
+
+    if (typeof result?.data?.start !== 'undefined') {
+      delete result.data.start
+    }
 
     return result
   }

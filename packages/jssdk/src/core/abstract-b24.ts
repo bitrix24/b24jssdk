@@ -10,7 +10,8 @@ import type {
   BatchCommandsObjectUniversal,
   BatchNamedCommandsUniversal,
   ICallBatchOptions,
-  ICallBatchResult
+  ICallBatchResult,
+  TypeCallParams
 } from '../types/http'
 import type { ListPayload } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
@@ -84,22 +85,24 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
+   * @todo test start
+   * @memo not use param `start`
    */
   callMethod<T = unknown>(
     method: string,
-    params?: object,
+    params?: TypeCallParams,
     start?: number
   ): Promise<AjaxResult<T>> {
-    return this.getHttpClient().call<T>(method, params || {}, start || 0)
+    return this.getHttpClient().call<T>(method, params || {}, start)
   }
 
   /**
    * @deprecate: use callFastListMethod()
-   * @inheritDoc
+   * @todo test start
    */
   async callListMethod(
     method: string,
-    params: object = {},
+    params: Omit<TypeCallParams, 'start'> = {},
     progress: null | ((progress: number) => void) = null,
     customKeyForResult: null | string = null
   ): Promise<Result> {
@@ -161,24 +164,21 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
+   * @todo test start
    */
   async callFastListMethod<T = unknown>(
     method: string,
-    params: {
-      order?: any
-      filter?: any
-      [key: string]: any
-    } = {},
+    params: Omit<TypeCallParams, 'start'> = {},
     idKey: string = 'ID',
     customKeyForResult: null | string = null
   ): Promise<Result<T[]>> {
     const result: Result<T[]> = new Result()
 
     const moreIdKey = `>${idKey}`
-    const requestParams = {
+    const requestParams: TypeCallParams = {
       ...params,
-      order: { ...(params.order || {}), [idKey]: 'ASC' },
-      filter: { ...(params.filter || {}), [moreIdKey]: 0 },
+      order: { ...(params['order'] || {}), [idKey]: 'ASC' },
+      filter: { ...(params['filter'] || {}), [moreIdKey]: 0 },
       start: -1
     }
 
@@ -187,7 +187,7 @@ export abstract class AbstractB24 implements TypeB24 {
 
     do {
       this.getLogger().log({ method, requestParams })
-      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, -1)
+      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams) // , -1
 
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())
@@ -233,30 +233,27 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
+   * @todo test start
    */
   async* fetchListMethod<T = unknown>(
     method: string,
-    params: {
-      order?: any
-      filter?: any
-      [key: string]: any
-    } = {},
+    params: Omit<TypeCallParams, 'start'> = {},
     idKey: string = 'ID',
     customKeyForResult: null | string = null
   ): AsyncGenerator<T[]> {
     const moreIdKey = `>${idKey}`
 
-    const requestParams = {
+    const requestParams: TypeCallParams = {
       ...params,
-      order: { ...(params.order || {}), [idKey]: 'ASC' },
-      filter: { ...(params.filter || {}), [moreIdKey]: 0 },
+      order: { ...(params['order'] || {}), [idKey]: 'ASC' },
+      filter: { ...(params['filter'] || {}), [moreIdKey]: 0 },
       start: -1
     }
 
     let isContinue = true
     do {
       this.getLogger().log({ method, requestParams })
-      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, -1)
+      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams) // , -1
 
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())

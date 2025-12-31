@@ -7,6 +7,8 @@
 * fix(TypeB24/TypeHttp): improve generics
 * feat(TypeB24): add `callFastListMethod()`, `callListMethod()` now deprecate
 * feat(callBatchByChunk): now accumulates errors in Result
+* feat(TypeB24.call/TypeHttp.call): deprecate param `start`, now use param `params.start`
+* feat(RestrictionManager): new restrictions
 
 ## [0.5.1](https://github.com/bitrix24/b24jssdk/compare/v0.4.10...v0.5.1) (2025-10-29)
 

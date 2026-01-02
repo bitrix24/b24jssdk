@@ -22,12 +22,12 @@ async function getAllDeals(): Promise<Deal[]> {
         entityTypeId: EnumCrmEntityTypeId.deal,
         filter: {
           // use some filter by title
-          '=%title': 'Prime%'
+          '=%title': 'Automatic%'
         },
         order: { id: 'asc' },
-        select: ['id', 'title']
-      },
-      start
+        select: ['id', 'title'],
+        start
+      }
     )
 
     if (!response.isSuccess) {

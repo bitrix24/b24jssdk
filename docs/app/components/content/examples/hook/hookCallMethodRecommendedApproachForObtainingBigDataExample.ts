@@ -26,9 +26,9 @@ async function getAllCompaniesFast(): Promise<Company[]> {
           '=%title': 'Prime%'
         },
         order: { id: 'asc' },
-        select: ['id', 'title']
-      },
-      -1 // Important parameter: disable pagination and counting
+        select: ['id', 'title'],
+        start: -1 // Important parameter: disable pagination and counting
+      }
     )
 
     if (!response.isSuccess) {

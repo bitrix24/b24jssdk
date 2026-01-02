@@ -135,7 +135,7 @@ export class AdaptiveDelayer implements ILimiter {
     return maxDelay
   }
 
-  async updateStats(): Promise<void> {
+  async updateStats(_method: string, _data: any): Promise<void> {
     // Adaptive delayer updates based on operating limiter
   }
 

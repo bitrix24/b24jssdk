@@ -87,7 +87,11 @@ export type TypeHttp = {
   ): Promise<Result<ICallBatchResult<T>>>
 
   /**
-   * @memo not use param `start`
+   * Calling the RestApi function
+   * @param method - REST API method name
+   * @param params - Parameters for the method.
+   * @param start - Explicit start value
+   * @returns Promise with AjaxResult
    */
   call<T = unknown>(
     method: string,

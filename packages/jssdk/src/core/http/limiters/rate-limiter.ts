@@ -149,7 +149,7 @@ export class RateLimiter implements ILimiter {
    * Обработчик успешного запроса.
    * Если все нормально, то будем восстанавливать лимиты
    */
-  async updateStats(method: string): Promise<void> {
+  async updateStats(method: string, _data: any): Promise<void> {
     // пропускаем учет подзапросов `batch`
     if (method.startsWith('batch::')) {
       return
@@ -169,7 +169,7 @@ export class RateLimiter implements ILimiter {
           `\n- успешных много: (${this.#successTimestamps.length} >= ${this.#successThreshold}) ${this.#successTimestamps.length >= this.#successThreshold}`,
           `\n- ошибок мало: (${this.#errorTimestamps.length} < ${(this.#errorThreshold / 2)}) ${this.#errorTimestamps.length < (this.#errorThreshold / 2)}`,
           `\n- drainRate: (${this.#config.drainRate} < ${this.#originalConfig.drainRate}) ${this.#config.drainRate < this.#originalConfig.drainRate}`,
-          `\n- burstLimit: (${this.#config.burstLimit} < ${this.#originalConfig.burstLimit}) ${this.#config.burstLimit < this.#originalConfig.burstLimit}`,
+          `\n- burstLimit: (${this.#config.burstLimit} < ${this.#originalConfig.burstLimit}) ${this.#config.burstLimit < this.#originalConfig.burstLimit}`
         )
       }
 

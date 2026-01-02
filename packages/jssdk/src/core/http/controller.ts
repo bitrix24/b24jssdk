@@ -34,12 +34,10 @@ type AjaxResponse<T = unknown> = {
   payload: AjaxResultParams<T>
 }
 
-type TypePrepareParams = {
-  data?: TypeCallParams
+type TypePrepareParams = TypeCallParams & {
+  data?: Record<string, any>
   logTag?: string
   auth?: string
-  start?: number
-  [key: string]: any
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -259,8 +257,8 @@ export default class Http implements TypeHttp {
             },
             query: {
               method: methodName,
-              params: qs.parse(q[1] || ''),
-              start: 0
+              params: qs.parse(q[1] || '')
+              // start: 0
             } as AjaxQuery,
             status: response.getStatus()
           })
@@ -405,8 +403,8 @@ export default class Http implements TypeHttp {
             },
             query: {
               method: methodName,
-              params: qs.parse(q[1] || ''),
-              start: 0
+              params: qs.parse(q[1] || '') // ,
+              // start: 0
             } as AjaxQuery,
             status: response.getStatus()
           })
@@ -466,8 +464,21 @@ export default class Http implements TypeHttp {
   }
 
   /**
-   * Calling the RestApi function with adaptive delays and rate limiting
-   * @memo not use param `start`
+   * Calling the RestApi function
+   * @param method - REST API method name
+   * @param params - Parameters for the method. If params.start exists,
+   *                 it will be used unless explicit start parameter is provided.
+   * @param start - Explicit start value (takes priority over params.start)
+   * @returns Promise with AjaxResult
+   * @example
+   * // Using explicit start parameter
+   * http.call('method', { filter: {...} }, 50) // Uses 50
+   *
+   * // Using start in params
+   * http.call('method', { filter: {...}, start: 100 }) // Uses 100
+   *
+   * // Explicit start has priority
+   * http.call('method', { filter: {...}, start: 100 } , 50) // Uses 50
    */
   async call<T = unknown>(
     method: string,
@@ -685,8 +696,8 @@ export default class Http implements TypeHttp {
           answer: response.payload,
           query: {
             method,
-            params,
-            start
+            params // ,
+            // start
           } as AjaxQuery,
           status: response.status
         })
@@ -724,18 +735,14 @@ export default class Http implements TypeHttp {
       result.auth = authData.access_token
     }
 
-    result.start = (
-      typeof start !== 'undefined'
-        ? start
-        : (
-            typeof result?.data?.start !== 'undefined'
-              ? result.data.start
-              : 0
-          )
-    )
+    if (typeof start !== 'undefined') {
+      const explicitStart = Number(start)
+      result.start = Number.isNaN(explicitStart) || explicitStart < -1 ? -1 : explicitStart
+    }
 
-    if (typeof result?.data?.start !== 'undefined') {
-      delete result.data.start
+    if (result?.data && 'start' in result.data) {
+      const { start, ...dataWithoutStart } = result.data
+      result.data = dataWithoutStart
     }
 
     return result

@@ -70,7 +70,7 @@ export class OperatingLimiter implements ILimiter {
   }
 
   async canProceed(method: string, params?: any): Promise<boolean> {
-    const timeToFree = this.getTimeToFree(method, params)
+    const timeToFree = await this.getTimeToFree(method, params)
     return timeToFree === 0
   }
 
@@ -114,7 +114,7 @@ export class OperatingLimiter implements ILimiter {
   /**
    * Для `batch` из команд возвращает максимальное время до освобождения метода от operating лимита (в мс)
    */
-  #getTimeToFreeBatch(params: any): number {
+  async #getTimeToFreeBatch(params: any): Promise<number> {
     let maxWait = 0
 
     if (!params?.cmd || !Array.isArray(params.cmd)) {
@@ -126,7 +126,7 @@ export class OperatingLimiter implements ILimiter {
       .filter(Boolean)
 
     for (const methodName of batchMethods) {
-      const waitTime = this.getTimeToFree(`batch::${methodName}`, {})
+      const waitTime = await this.getTimeToFree(`batch::${methodName}`, {})
       maxWait = Math.max(maxWait, waitTime)
     }
 

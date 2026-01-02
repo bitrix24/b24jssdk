@@ -58,9 +58,11 @@ export type TypeB24 = {
   getTargetOriginWithPath(): string
 
   /**
-   * Calls a REST service method with the specified parameters
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
-   * @memo not use param `start`
+   * Calling the RestApi function
+   * @param method - REST API method name
+   * @param params - Parameters for the method.
+   * @param start - Explicit start value (takes priority over params.start)
+   * @returns Promise with AjaxResult
    */
   callMethod<T = unknown>(
     method: string,

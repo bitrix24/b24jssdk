@@ -84,9 +84,23 @@ export abstract class AbstractB24 implements TypeB24 {
   abstract getTargetOriginWithPath(): string
 
   /**
-   * @inheritDoc
+   * Calling the RestApi function
    * @todo test start
-   * @memo not use param `start`
+   * @param method - REST API method name
+   * @param params - Parameters for the method. If params.start exists,
+   *                 it will be used unless explicit start parameter is provided.
+   * @param start - Explicit start value (takes priority over params.start)
+   * @returns Promise with AjaxResult
+   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
+   * @example
+   * // Using explicit start parameter
+   * b24.callMethod('method', { filter: {...} }, 50) // Uses 50
+   *
+   * // Using start in params
+   * b24.callMethod('method', { filter: {...}, start: 100 }) // Uses 100
+   *
+   * // Explicit start has priority
+   * b24.callMethod('method', { filter: {...}, start: 100 } , 50) // Uses 50
    */
   callMethod<T = unknown>(
     method: string,

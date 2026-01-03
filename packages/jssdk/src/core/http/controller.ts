@@ -150,6 +150,60 @@ export default class Http implements TypeHttp {
   // endregion ////
 
   // region Log ////
+  #sanitizeParams(params: TypeCallParams): Record<string, unknown> {
+    const sanitized = { ...params }
+    const sensitiveKeys = ['auth', 'password', 'token', 'secret', 'access_token', 'refresh_token']
+
+    sensitiveKeys.forEach((key) => {
+      if (key in sanitized && sanitized[key]) {
+        sanitized[key] = '***REDACTED***'
+      }
+    })
+
+    return sanitized
+  }
+
+  #logRequest(method: string, params: TypeCallParams, requestId: string): void {
+    if (!this._logger) return
+
+    this.getLogger().log(`[${requestId}] Starting HTTP request`, {
+      method,
+      params: this.#sanitizeParams(params),
+      timestamp: Date.now()
+    })
+  }
+
+  #logSuccessfulRequest(method: string, duration: number, requestId: string): void {
+    if (!this._logger) return
+
+    this.getLogger().log(`[${requestId}] HTTP request completed successfully`, {
+      method,
+      durationMs: duration,
+      durationSec: (duration / 1000).toFixed(2)
+    })
+  }
+
+  #logFailedRequest(method: string, attempt: number, error: AjaxError, requestId: string): void {
+    if (!this._logger) return
+
+    this.getLogger().log(`[${requestId}] HTTP request failed`, {
+      method,
+      attempt: attempt + 1,
+      errorCode: error.code,
+      errorMessage: error.message,
+      status: error.status
+    })
+  }
+
+  #logAllAttemptsExhausted(method: string, maxRetries: number, requestId: string): void {
+    if (!this._logger) return
+
+    this.getLogger().log(`[${requestId}] All retry attempts exhausted`, {
+      method,
+      maxRetries
+    })
+  }
+
   #logBatchStart(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal, options: ICallBatchOptions): void {
     if (!this._logger) return
 
@@ -533,59 +587,119 @@ export default class Http implements TypeHttp {
     params: TypeCallParams,
     start?: number
   ): Promise<AjaxResult<T>> {
+    const requestId = this.#requestIdGenerator.getRequestId()
     const maxRetries = this.#restrictionManager.getParams().maxRetries!
 
-    let lastError = null
+    this.#logRequest(method, params, requestId)
+
+    let lastError: AjaxError | null = null
+    const startTime = Date.now()
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
+        this.getLogger().log(`Attempt ${attempt + 1}/${maxRetries} for ${method}`)
+
         // Применяем operating лимиты через менеджер
         await this.#restrictionManager.applyOperatingLimits(method, params)
 
         // 3. Выполняем запрос с учетом авторизации, rate limit, обновляем operating статистики
-        const result = await this.#executeSingleCall<T>(method, params, start)
+        const result = await this.#executeSingleCall<T>(
+          requestId,
+          method,
+          params,
+          start
+        )
+        const duration = Date.now() - startTime
 
         // 6. Обновляем статистику
         this.#restrictionManager.incrementStats('totalRequests')
         this.#restrictionManager.resetErrors(method)
 
+        this.#logSuccessfulRequest(method, duration, requestId)
+
         return result
-      } catch (error: any) {
-        lastError = error
+      } catch (error: unknown) {
+        lastError = this.#convertToAjaxError(error, method, params)
+        // const duration = Date.now() - startTime
 
         this.#restrictionManager.incrementStats('totalRequests')
         this.#restrictionManager.incrementError(method)
 
-        if (attempt < maxRetries - 1) {
+        this.#logFailedRequest(method, attempt, lastError, requestId)
+
+        if (attempt < maxRetries) {
           const waitTime = await this.#restrictionManager.handleError(method, params, error, attempt)
           if (waitTime > 0) {
             this.#restrictionManager.incrementStats('limitHits')
 
             this.getLogger().warn(
-              `Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
+              `[${requestId}] Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
               `(попытка ${attempt + 1}/${maxRetries})`
             )
             await this.#restrictionManager.waiteDelay(waitTime)
 
             this.#restrictionManager.incrementStats('retries')
-
-            continue
           }
+
+          continue
         }
 
         // Выбрасываем исключение - больше попыток не будет
+        this.#logAllAttemptsExhausted(method, maxRetries, requestId)
         throw error
       }
     }
 
     throw new AjaxError({
-      code: '[JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED]',
-      description: 'Все поппытки исчерпаны',
-      status: 500,
-      requestInfo: {
-        method,
-        params
-      },
-      originalError: lastError
+      code: 'JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED',
+      description: 'All attempts exhausted',
+      status: lastError?.status || 500,
+      requestInfo: { method, params },
+      originalError: lastError?.originalError || null
+    })
+  }
+
+  #convertToAjaxError(error: unknown, method: string, params: object): AjaxError {
+    if (error instanceof AjaxError) {
+      return error
+    }
+
+    if (error instanceof AxiosError) {
+      return this.#convertAxiosErrorToAjaxError(error, method, params)
+    }
+
+    return this.#convertUnknownErrorToAjaxError(error, method, params)
+  }
+
+  #convertAxiosErrorToAjaxError(error: AxiosError, method: string, params: object): AjaxError {
+    let errorCode = String(error.code || 'JSSDK_AXIOS_ERROR')
+    let errorDescription = error.message
+    const status = error.response?.status || 0
+
+    if (error.response?.data && typeof error.response.data === 'object') {
+      const responseData = error.response.data as TypeDescriptionError
+      if (responseData.error) {
+        errorCode = responseData.error
+        errorDescription = responseData.error_description || errorDescription
+      }
+    }
+
+    return new AjaxError({
+      code: errorCode,
+      description: errorDescription,
+      status,
+      requestInfo: { method, params },
+      originalError: error
+    })
+  }
+
+  #convertUnknownErrorToAjaxError(error: unknown, method: string, params: object): AjaxError {
+    return new AjaxError({
+      code: 'JSSDK_UNKNOWN_ERROR',
+      description: error instanceof Error ? error.message : String(error),
+      status: 0,
+      requestInfo: { method, params },
+      originalError: error
     })
   }
 
@@ -596,6 +710,7 @@ export default class Http implements TypeHttp {
    * - обновляем operating статистики
    */
   async #executeSingleCall<T = unknown>(
+    requestId: string,
     method: string,
     params: TypeCallParams,
     start?: number
@@ -618,7 +733,7 @@ export default class Http implements TypeHttp {
 
     return this.#clientAxios
       .post(
-        this.#prepareMethod(method),
+        this.#prepareMethod(requestId, method),
         this.#prepareParams(authData, params, start)
       )
       .then(
@@ -684,7 +799,7 @@ export default class Http implements TypeHttp {
 
             return this.#clientAxios
               .post(
-                this.#prepareMethod(method),
+                this.#prepareMethod(requestId, method),
                 this.#prepareParams(authData, params, start)
               )
               .then(
@@ -799,7 +914,10 @@ export default class Http implements TypeHttp {
   /**
    * Makes the function name safe and adds JSON format
    */
-  #prepareMethod(method: string): string {
+  #prepareMethod(
+    requestId: string,
+    method: string
+  ): string {
     const baseUrl = `${encodeURIComponent(method)}.json`
 
     /**
@@ -811,7 +929,7 @@ export default class Http implements TypeHttp {
     }
 
     const queryParams = new URLSearchParams({
-      [this.#requestIdGenerator.getQueryStringParameterName()]: this.#requestIdGenerator.getRequestId(),
+      [this.#requestIdGenerator.getQueryStringParameterName()]: requestId,
       [this.#requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
       [this.#requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
     })

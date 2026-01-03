@@ -166,7 +166,7 @@ export default class Http implements TypeHttp {
   #logRequest(method: string, params: TypeCallParams, requestId: string): void {
     if (!this._logger) return
 
-    this.getLogger().log(`[${requestId}] Starting HTTP request`, {
+    this.getLogger().log(`[${requestId}][request] starting`, {
       method,
       params: this.#sanitizeParams(params),
       timestamp: Date.now()
@@ -176,7 +176,7 @@ export default class Http implements TypeHttp {
   #logSuccessfulRequest(method: string, duration: number, requestId: string): void {
     if (!this._logger) return
 
-    this.getLogger().log(`[${requestId}] HTTP request completed successfully`, {
+    this.getLogger().log(`[${requestId}][request] successful`, {
       method,
       durationMs: duration,
       durationSec: (duration / 1000).toFixed(2)
@@ -186,7 +186,7 @@ export default class Http implements TypeHttp {
   #logFailedRequest(method: string, attempt: number, error: AjaxError, requestId: string): void {
     if (!this._logger) return
 
-    this.getLogger().log(`[${requestId}] HTTP request failed`, {
+    this.getLogger().log(`[${requestId}][request] failed`, {
       method,
       attempt: attempt + 1,
       errorCode: error.code,
@@ -599,7 +599,7 @@ export default class Http implements TypeHttp {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        this.getLogger().log(`Attempt ${attempt + 1}/${maxRetries} for ${method}`)
+        this.getLogger().log(`[${requestId}] Attempt ${attempt + 1}/${maxRetries} for ${method}`)
 
         // Применяем operating лимиты через менеджер
         await this.#restrictionManager.applyOperatingLimits(requestId, method, params)
@@ -715,22 +715,14 @@ export default class Http implements TypeHttp {
     method: string,
     params: TypeCallParams
   ): Promise<AjaxResult<T>> {
-    let authData = this.#authActions.getAuthData()
-    if (authData === false) {
-      authData = await this.#authActions.refreshAuth()
-    }
+    const authData = await this.#ensureAuth()
+
+    this.#checkClientSideWarning()
 
     // 4. Применяем rate лимит через менеджер
     await this.#restrictionManager.checkRateLimit(requestId, method)
 
-    if (
-      this.#isClientSideWarning
-      && !this.isServerSide()
-      && Type.isStringFilled(this.#clientSideWarningMessage)
-    ) {
-      this.getLogger().warn(this.#clientSideWarningMessage)
-    }
-
+    // @todo change this !
     return this.#clientAxios
       .post(
         this.#prepareMethod(requestId, method),
@@ -792,7 +784,8 @@ export default class Http implements TypeHttp {
           ) {
             this.getLogger().info('refreshAuth', problemError.message)
 
-            authData = await this.#authActions.refreshAuth()
+            // @todo test this
+            const authData = await this.#authActions.refreshAuth()
 
             // 4. Применяем rate лимит через менеджер
             await this.#restrictionManager.checkRateLimit(requestId, method)
@@ -872,6 +865,27 @@ export default class Http implements TypeHttp {
 
         return Promise.resolve(result)
       })
+  }
+
+  // Получаем/обновляем авторизацию
+  async #ensureAuth(): Promise<AuthData> {
+    let authData = this.#authActions.getAuthData()
+    if (authData === false) {
+      this.getLogger().info('Refreshing auth token')
+      authData = await this.#authActions.refreshAuth()
+    }
+    return authData
+  }
+
+  // Проверяем предупреждения для клиентской стороны
+  #checkClientSideWarning(): void {
+    if (
+      this.#isClientSideWarning
+      && !this.isServerSide()
+      && Type.isStringFilled(this.#clientSideWarningMessage)
+    ) {
+      this.getLogger().warn(this.#clientSideWarningMessage)
+    }
   }
   // endregion ////
 

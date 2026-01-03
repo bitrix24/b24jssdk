@@ -461,6 +461,34 @@ export abstract class AbstractB24 implements TypeB24 {
   }
   // endregion ////
 
+  // region Utility Methods ////
+  /**
+   * @inheritDoc
+   */
+  async healthCheck(): Promise<boolean> {
+    try {
+      const response = await this.callMethod('server.time', {})
+      return response.isSuccess
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  async ping(): Promise<number> {
+    const startTime = Date.now()
+
+    try {
+      await this.callMethod('server.time', {})
+      return Date.now() - startTime
+    } catch {
+      return -1
+    }
+  }
+  // endregion ////
+
   // region Tools ////
   chunkArray<T = unknown>(array: Array<T>, chunkSize: number = 50): T[][] {
     const result: T[][] = []

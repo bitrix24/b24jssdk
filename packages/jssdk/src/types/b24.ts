@@ -163,4 +163,14 @@ export type TypeB24 = {
    * Returns Http client for requests
    */
   getHttpClient(): TypeHttp
+
+  /**
+   * Метод для проверки доступности
+   */
+  healthCheck(): Promise<boolean>
+
+  /**
+   * Метод для тестирования скорости ответа
+   */
+  ping(): Promise<number>
 }

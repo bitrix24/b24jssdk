@@ -266,6 +266,16 @@ export default defineCommand({
     async function callRandomCommands() {
       logger.log('🚀 Starting calling of random commands in Bitrix24')
       logger.log(`📊 Planned to calling: ${args.total} commands`)
+
+      const healthCheckData = await b24.healthCheck()
+      logger.log(`📊 health check: ${healthCheckData ? 'success' : 'fail'}`)
+      if (!healthCheckData) {
+        return
+      }
+
+      const pingData = await b24.ping()
+      logger.log(`📊 ping: ${pingData} ms.`)
+
       logger.log('─'.repeat(50))
 
       const startTime = Date.now()

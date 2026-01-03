@@ -67,7 +67,7 @@ export default defineCommand({
     const loggerForDebugB24 = LoggerConsola.build('b24|')
     loggerForDebugB24.setConfig({
       [LoggerType.desktop]: false,
-      [LoggerType.log]: false,
+      [LoggerType.log]: true,
       [LoggerType.info]: true,
       [LoggerType.warn]: true,
       [LoggerType.error]: true,

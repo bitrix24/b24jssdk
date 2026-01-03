@@ -86,27 +86,19 @@ export abstract class AbstractB24 implements TypeB24 {
    * Calling the RestApi function
    * @todo test start
    * @param method - REST API method name
-   * @param params - Parameters for the method. If params.start exists,
-   *                 it will be used unless explicit start parameter is provided.
-   * @param start - Explicit start value (takes priority over params.start)
+   * @param params - Parameters for the method.
+   * @param requestId
    * @returns Promise with AjaxResult
    * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
-   * @example
-   * // Using explicit start parameter
-   * b24.callMethod('method', { filter: {...} }, 50) // Uses 50
-   *
-   * // Using start in params
-   * b24.callMethod('method', { filter: {...}, start: 100 }) // Uses 100
-   *
-   * // Explicit start has priority
-   * b24.callMethod('method', { filter: {...}, start: 100 } , 50) // Uses 50
    */
   callMethod<T = unknown>(
     method: string,
     params?: TypeCallParams,
-    start?: number
+    requestId?: string
   ): Promise<AjaxResult<T>> {
-    return this.getHttpClient().call<T>(method, params || {}, start)
+    params = params || {}
+
+    return this.getHttpClient().call<T>(method, params, requestId)
   }
 
   /**
@@ -125,7 +117,11 @@ export abstract class AbstractB24 implements TypeB24 {
       progress(0)
     }
 
-    return this.callMethod(method, params, 0).then(async (response) => {
+    const sendParams: TypeCallParams = {
+      ...params,
+      start: 0
+    }
+    return this.callMethod(method, sendParams).then(async (response) => {
       let list: any[] = []
 
       let resultData
@@ -183,7 +179,8 @@ export abstract class AbstractB24 implements TypeB24 {
     method: string,
     params: Omit<TypeCallParams, 'start'> = {},
     idKey: string = 'ID',
-    customKeyForResult: null | string = null
+    customKeyForResult: null | string = null,
+    requestId?: string
   ): Promise<Result<T[]>> {
     const result: Result<T[]> = new Result()
 
@@ -200,7 +197,7 @@ export abstract class AbstractB24 implements TypeB24 {
 
     do {
       this.getLogger().log({ method, requestParams })
-      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams) // , -1
+      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, requestId)
 
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())
@@ -252,7 +249,8 @@ export abstract class AbstractB24 implements TypeB24 {
     method: string,
     params: Omit<TypeCallParams, 'start'> = {},
     idKey: string = 'ID',
-    customKeyForResult: null | string = null
+    customKeyForResult: null | string = null,
+    requestId?: string
   ): AsyncGenerator<T[]> {
     const moreIdKey = `>${idKey}`
 
@@ -266,7 +264,7 @@ export abstract class AbstractB24 implements TypeB24 {
     let isContinue = true
     do {
       this.getLogger().log({ method, requestParams })
-      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams) // , -1
+      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, requestId)
 
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())

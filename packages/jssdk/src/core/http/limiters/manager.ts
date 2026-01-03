@@ -62,13 +62,13 @@ export class RestrictionManager {
   }
   // endregion ////
 
-  async applyOperatingLimits(method: string, params?: any): Promise<void> {
+  async applyOperatingLimits(requestId: string, method: string, params?: any): Promise<void> {
     // 1. Check operating limit
     const operatingWait = await this.#operatingLimiter.waitIfNeeded(method, params)
     if (operatingWait > 0) {
       this.incrementStats('limitHits')
       this.getLogger().warn(
-        `⏳ Метод ${method}: заблокирован по operating limit.`,
+        `[${requestId}] Метод ${method}: заблокирован по operating limit.`,
         `Ждем ${(operatingWait / 1000).toFixed(2)} sec.`
       )
       await this.#delay(operatingWait)
@@ -78,7 +78,7 @@ export class RestrictionManager {
       if (adaptiveDelay > 0) {
         this.incrementStats('limitHits')
         this.getLogger().warn(
-          `⏳ Метод ${method}: заблокирован по ${method === 'batch' ? 'максимальному ' : ''}adaptive delay.`,
+          `[${requestId}] Метод ${method}: заблокирован по ${method === 'batch' ? 'максимальному ' : ''}adaptive delay.`,
           `Ждем ${(adaptiveDelay / 1000).toFixed(2)} sec.`
         )
         await this.#delay(adaptiveDelay)
@@ -90,7 +90,7 @@ export class RestrictionManager {
    * Проверяет и ждет rate limit
    * Цикл нужен для паралельных запросов (Promise.all())
    */
-  async checkRateLimit(method: string): Promise<void> {
+  async checkRateLimit(requestId: string, method: string): Promise<void> {
     // 3. Apply rate limit
     let waitTime
     let iterator = 1
@@ -99,7 +99,7 @@ export class RestrictionManager {
       if (waitTime > 0) {
         this.incrementStats('limitHits')
         this.getLogger().warn(
-          `⏳ Метод ${method}: заблокирован по rate limit | ${iterator} раз`,
+          `[${requestId}] Метод ${method}: заблокирован по rate limit | ${iterator} раз`,
           `Ждем ${(waitTime / 1000).toFixed(2)} sec.`
         )
         await this.#delay(waitTime)
@@ -115,6 +115,7 @@ export class RestrictionManager {
   }
 
   async handleError(
+    requestId: string,
     method: string,
     params: any,
     error: any,
@@ -122,21 +123,21 @@ export class RestrictionManager {
   ): Promise<number> {
     // Rate limit exceeded
     if (this.#isRateLimitError(error)) {
-      this.getLogger().warn(`🚫[QUERY_LIMIT_EXCEEDED] Ошибка: rate limit превышен.`)
+      this.getLogger().warn(`[${requestId}][QUERY_LIMIT_EXCEEDED] Ошибка: rate limit превышен.`)
       // Так как это обработка ошибки то учитываем количество попыток
       return (await this.#handleRateLimitExceeded()) * Math.pow(1.5, attempt)
     }
 
     // Operating limit exceeded
     if (this.#isOperatingLimitError(error)) {
-      this.getLogger().warn(`🚫[OPERATION_TIME_LIMIT] Ошибка: operating limit превышен.`)
+      this.getLogger().warn(`[${requestId}][OPERATION_TIME_LIMIT] Ошибка: operating limit превышен.`)
       // Так как это обработка ошибки то увеличим минимум до 10 секунд
       return Math.max(10_000, await this.#handleOperatingLimitError(method, params, error))
     }
 
     // Иные исключения
     if (!this.#isNeedThrowError(error)) {
-      this.getLogger().warn(`🚫${error?.code ? `[${error.code}] ` : ''}Ошибка: ${error.message}.`)
+      this.getLogger().warn(`[${requestId}]${error?.code ? `[${error.code}] ` : ''}Ошибка: ${error.message}.`)
 
       // Так как это обработка ошибки то учитываем количество попыток
       return (await this.#getErrorBackoff()) * Math.pow(2, attempt)
@@ -290,7 +291,6 @@ export class RestrictionManager {
    * Функция задержки
    */
   async #delay(ms: number): Promise<void> {
-    this.getLogger().log(`⏱️ delay(${(ms / 1000).toFixed(2)} sec)`)
     return new Promise(resolve => setTimeout(resolve, ms))
   }
 

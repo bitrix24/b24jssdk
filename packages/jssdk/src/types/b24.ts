@@ -61,13 +61,13 @@ export type TypeB24 = {
    * Calling the RestApi function
    * @param method - REST API method name
    * @param params - Parameters for the method.
-   * @param start - Explicit start value (takes priority over params.start)
+   * @param requestId
    * @returns Promise with AjaxResult
    */
   callMethod<T = unknown>(
     method: string,
     params?: TypeCallParams,
-    start?: number
+    requestId?: string
   ): Promise<AjaxResult<T>>
 
   /**
@@ -88,13 +88,15 @@ export type TypeB24 = {
    * @param  {TypeCallParams} params Request parameters
    * @param {string} idKey Entity ID field name ('ID' || 'id')
    * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
+   * @param {string} requestId
    * @return {Promise}
    */
   callFastListMethod<T = unknown>(
     method: string,
     params?: Omit<TypeCallParams, 'start'>,
     idKey?: string,
-    customKeyForResult?: string | null
+    customKeyForResult?: string | null,
+    requestId?: string
   ): Promise<Result<T[]>>
 
   /**
@@ -105,14 +107,15 @@ export type TypeB24 = {
    * @param {TypeCallParams} params Request parameters
    * @param {string} idKey Entity ID field name ('ID' || 'id')
    * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
-   *
+   * @param requestId
    * @return {AsyncGenerator} Generator
    */
   fetchListMethod<T = unknown>(
     method: string,
     params?: Omit<TypeCallParams, 'start'>,
     idKey?: string,
-    customKeyForResult?: string | null
+    customKeyForResult?: string | null,
+    requestId?: string
   ): AsyncGenerator<T[]>
 
   /**

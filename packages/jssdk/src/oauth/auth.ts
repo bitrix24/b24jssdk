@@ -216,7 +216,7 @@ export class AuthOAuthManager implements AuthActions {
   }
 
   async initIsAdmin(http: TypeHttp) {
-    const response = await http.call('profile', {}, 0)
+    const response = await http.call('profile', {})
     if (!response.isSuccess) {
       throw new Error(response.getErrorMessages().join(';'))
     }

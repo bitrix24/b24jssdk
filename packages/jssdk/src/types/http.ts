@@ -28,6 +28,7 @@ export interface ICallBatchOptions {
    * @default true
    */
   isHaltOnError?: boolean
+  requestId?: string
 }
 
 /**
@@ -91,13 +92,13 @@ export type TypeHttp = {
    * Calling the RestApi function
    * @param method - REST API method name
    * @param params - Parameters for the method.
-   * @param start - Explicit start value
+   * @param requestId - Request id
    * @returns Promise with AjaxResult
    */
   call<T = unknown>(
     method: string,
     params: TypeCallParams,
-    start?: number
+    requestId?: string
   ): Promise<AjaxResult<T>>
 
   /**

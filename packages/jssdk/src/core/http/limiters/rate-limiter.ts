@@ -254,7 +254,7 @@ export class RateLimiter implements ILimiter {
       const queueLength = this.#lockQueue.push(resolve)
 
       if (queueLength > 1) {
-        this.getLogger().log(`⏱️ [RateLimiter] Запрос в очереди: ${queueLength} ожидающих`)
+        this.getLogger().log(`[RateLimiter] Запрос в очереди: ${queueLength} ожидающих`)
       }
       // Если это первый в очереди, сразу разрешаем
       if (this.#lockQueue.length === 1) {
@@ -323,7 +323,7 @@ export class RateLimiter implements ILimiter {
     this.#refillIntervalMs = 1000 / newDrainRate
 
     this.getLogger().warn(
-      `⚠️ [RateLimiter] Уменьшаем лимиты из-за частых ошибок:`,
+      `[RateLimiter] Уменьшаем лимиты из-за частых ошибок:`,
       `drainRate=${newDrainRate.toFixed(2)}, burstLimit=${newBurstLimit}`
     )
 
@@ -361,7 +361,7 @@ export class RateLimiter implements ILimiter {
     this.#refillIntervalMs = 1000 / newDrainRate
 
     this.getLogger().warn(
-      `✅ [RateLimiter] Увеличиваем лимиты при стабильной работе:`,
+      `[RateLimiter] Увеличиваем лимиты при стабильной работе:`,
       `drainRate=${newDrainRate.toFixed(2)}, burstLimit=${newBurstLimit}`
     )
 

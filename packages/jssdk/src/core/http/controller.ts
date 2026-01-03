@@ -211,17 +211,17 @@ export default class Http implements TypeHttp {
       ? calls.length
       : Object.keys(calls).length
 
-    this.getLogger().log('[batch request] starting ', {
+    this.getLogger().log(`[${options.requestId!}][batch request] starting `, {
       callCount,
       isHaltOnError: options.isHaltOnError,
       timestamp: Date.now()
     })
   }
 
-  #logBatchCompletion(total: number, errors: number): void {
+  #logBatchCompletion(total: number, errors: number, options: ICallBatchOptions): void {
     if (!this._logger) return
 
-    this.getLogger().log('[batch request] completed', {
+    this.getLogger().log(`[${options.requestId!}][batch request] completed`, {
       totalCalls: total,
       successful: total - errors,
       failed: errors,
@@ -239,6 +239,10 @@ export default class Http implements TypeHttp {
     const opts = {
       isHaltOnError: true,
       ...options
+    }
+
+    if (typeof opts.requestId === 'undefined') {
+      opts.requestId = this.#requestIdGenerator.getRequestId()
     }
 
     this.#logBatchStart(calls, opts)
@@ -259,16 +263,20 @@ export default class Http implements TypeHttp {
       return Promise.resolve(new Result())
     }
 
-    const response = await this.call<T>('batch', {
-      halt: options.isHaltOnError ? 1 : 0,
-      cmd
-    })
+    const response = await this.call<T>(
+      'batch',
+      {
+        halt: options.isHaltOnError ? 1 : 0,
+        cmd
+      },
+      options.requestId
+    )
 
     return this.#processBatchResponse<T>(
       cmd,
       response,
       {
-        isHaltOnError: options.isHaltOnError,
+        ...options,
         isObjectMode: true
       }
     )
@@ -296,16 +304,20 @@ export default class Http implements TypeHttp {
       return Promise.resolve(new Result())
     }
 
-    const response = await this.call<T>('batch', {
-      halt: options.isHaltOnError ? 1 : 0,
-      cmd
-    })
+    const response = await this.call<T>(
+      'batch',
+      {
+        halt: options.isHaltOnError ? 1 : 0,
+        cmd
+      },
+      options.requestId
+    )
 
     return this.#processBatchResponse<T>(
       cmd,
       response,
       {
-        isHaltOnError: options.isHaltOnError,
+        ...options,
         isObjectMode: false
       }
     )
@@ -535,7 +547,7 @@ export default class Http implements TypeHttp {
     }
 
     // Логируем результаты
-    this.#logBatchCompletion(results.size, errorsCnt)
+    this.#logBatchCompletion(results.size, errorsCnt, options)
 
     result.setData({
       result: dataResult,
@@ -568,26 +580,16 @@ export default class Http implements TypeHttp {
   /**
    * Calling the RestApi function
    * @param method - REST API method name
-   * @param params - Parameters for the method. If `params.start` exists,
-   *                 it will be used unless explicit start parameter is provided.
-   * @param start - Explicit start value (takes priority over `params.start`)
+   * @param params - Parameters for the method.
+   * @param requestId - Request id
    * @returns Promise with AjaxResult
-   * @example
-   * // Using explicit start parameter
-   * http.call('method', { filter: {...} }, 50) // Uses 50
-   *
-   * // Using start in params
-   * http.call('method', { filter: {...}, start: 100 }) // Uses 100
-   *
-   * // Explicit start has priority
-   * http.call('method', { filter: {...}, start: 100 } , 50) // Uses 50
    */
   async call<T = unknown>(
     method: string,
     params: TypeCallParams,
-    start?: number
+    requestId?: string
   ): Promise<AjaxResult<T>> {
-    const requestId = this.#requestIdGenerator.getRequestId()
+    requestId = requestId ?? this.#requestIdGenerator.getRequestId()
     const maxRetries = this.#restrictionManager.getParams().maxRetries!
 
     this.#logRequest(method, params, requestId)
@@ -600,14 +602,13 @@ export default class Http implements TypeHttp {
         this.getLogger().log(`Attempt ${attempt + 1}/${maxRetries} for ${method}`)
 
         // Применяем operating лимиты через менеджер
-        await this.#restrictionManager.applyOperatingLimits(method, params)
+        await this.#restrictionManager.applyOperatingLimits(requestId, method, params)
 
         // 3. Выполняем запрос с учетом авторизации, rate limit, обновляем operating статистики
         const result = await this.#executeSingleCall<T>(
           requestId,
           method,
-          params,
-          start
+          params
         )
         const duration = Date.now() - startTime
 
@@ -628,7 +629,7 @@ export default class Http implements TypeHttp {
         this.#logFailedRequest(method, attempt, lastError, requestId)
 
         if (attempt < maxRetries) {
-          const waitTime = await this.#restrictionManager.handleError(method, params, error, attempt)
+          const waitTime = await this.#restrictionManager.handleError(requestId, method, params, error, attempt)
           if (waitTime > 0) {
             this.#restrictionManager.incrementStats('limitHits')
 
@@ -712,8 +713,7 @@ export default class Http implements TypeHttp {
   async #executeSingleCall<T = unknown>(
     requestId: string,
     method: string,
-    params: TypeCallParams,
-    start?: number
+    params: TypeCallParams
   ): Promise<AjaxResult<T>> {
     let authData = this.#authActions.getAuthData()
     if (authData === false) {
@@ -721,7 +721,7 @@ export default class Http implements TypeHttp {
     }
 
     // 4. Применяем rate лимит через менеджер
-    await this.#restrictionManager.checkRateLimit(method)
+    await this.#restrictionManager.checkRateLimit(requestId, method)
 
     if (
       this.#isClientSideWarning
@@ -734,7 +734,7 @@ export default class Http implements TypeHttp {
     return this.#clientAxios
       .post(
         this.#prepareMethod(requestId, method),
-        this.#prepareParams(authData, params, start)
+        this.#prepareParams(authData, params)
       )
       .then(
         (response: {
@@ -795,12 +795,12 @@ export default class Http implements TypeHttp {
             authData = await this.#authActions.refreshAuth()
 
             // 4. Применяем rate лимит через менеджер
-            await this.#restrictionManager.checkRateLimit(method)
+            await this.#restrictionManager.checkRateLimit(requestId, method)
 
             return this.#clientAxios
               .post(
                 this.#prepareMethod(requestId, method),
-                this.#prepareParams(authData, params, start)
+                this.#prepareParams(authData, params)
               )
               .then(
                 async (response: {
@@ -881,8 +881,7 @@ export default class Http implements TypeHttp {
    */
   #prepareParams(
     authData: AuthData,
-    params: TypeCallParams,
-    start?: number
+    params: TypeCallParams
   ): TypePrepareParams {
     const result: TypePrepareParams = { ...params }
 
@@ -896,11 +895,6 @@ export default class Http implements TypeHttp {
     /** @memo we skip auth for hook */
     if (authData.refresh_token !== 'hook') {
       result.auth = authData.access_token
-    }
-
-    if (typeof start !== 'undefined') {
-      const explicitStart = Number(start)
-      result.start = Number.isNaN(explicitStart) || explicitStart < -1 ? -1 : explicitStart
     }
 
     if (result?.data && 'start' in result.data) {

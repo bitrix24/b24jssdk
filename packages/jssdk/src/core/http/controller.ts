@@ -157,7 +157,7 @@ export default class Http implements TypeHttp {
       ? calls.length
       : Object.keys(calls).length
 
-    this.getLogger().log('Starting batch request', {
+    this.getLogger().log('[batch request] starting ', {
       callCount,
       isHaltOnError: options.isHaltOnError,
       timestamp: Date.now()
@@ -167,7 +167,7 @@ export default class Http implements TypeHttp {
   #logBatchCompletion(total: number, errors: number): void {
     if (!this._logger) return
 
-    this.getLogger().log('Batch request completed', {
+    this.getLogger().log('[batch request] completed', {
       totalCalls: total,
       successful: total - errors,
       failed: errors,

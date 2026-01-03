@@ -314,7 +314,7 @@ export abstract class AbstractB24 implements TypeB24 {
     optionsOrIsHaltOnError?: IB24BatchOptions | boolean,
     returnAjaxResult?: boolean,
     returnTime?: boolean
-  ): Promise<Result<{ result: Record<string | number, AjaxResult<T>>, time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>> {
+  ): Promise<Result<{ result: Record<string | number, AjaxResult<T>> | AjaxResult<T>[], time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>> {
     let options: IB24BatchOptions
     if (typeof optionsOrIsHaltOnError === 'boolean' || optionsOrIsHaltOnError === undefined) {
       options = {
@@ -329,6 +329,28 @@ export abstract class AbstractB24 implements TypeB24 {
     const response = await this.getHttpClient().batch<T>(calls, options)
 
     if (options.returnTime) {
+      if (Array.isArray(calls)) {
+        const result = new Result<{
+          result: AjaxResult<T>[]
+          time?: PayloadTime
+        }>()
+        if (!response.isSuccess) {
+          this.getLogger().error(response.getErrorMessages())
+          result.addErrors([...response.getErrors()])
+        }
+
+        const dataResult: AjaxResult<T>[] = []
+
+        for (const [_index, data] of response.getData()!.result!) {
+          dataResult.push(data)
+        }
+
+        return result.setData({
+          result: dataResult,
+          time: response.getData()?.time
+        })
+      }
+
       const result = new Result<{
         result: Record<string | number, AjaxResult<T>>
         time?: PayloadTime

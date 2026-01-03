@@ -111,7 +111,7 @@ export default defineCommand({
         const { method, params } = commandsList[Math.floor(Math.random() * commandsList.length)]
         logger.info('callMethod >>>', method)
 
-        const response = await b24.callMethod(method, params)
+        const response = await b24.callMethod(method, params, commandNumber)
 
         logger.info(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
@@ -149,7 +149,7 @@ export default defineCommand({
 
         logger.info(`callBatch|array[${batchCalls.length}] >>>`, ['server.time', 'crm.item.list', '...'])
 
-        const response = await b24.callBatch(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true })
+        const response = await b24.callBatch(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true, requestId: commandNumber })
 
         logger.info(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
@@ -201,7 +201,7 @@ export default defineCommand({
 
         logger.info('callBatch|object >>>', { cmd1: batchCalls.cmd1.method, cmd2: batchCalls.cmd2.method, cmd3: '...' })
 
-        const response = await b24.callBatch(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true })
+        const response = await b24.callBatch(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true, requestId: commandNumber })
 
         logger.info(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
@@ -237,7 +237,7 @@ export default defineCommand({
 
         logger.info(`callBatchByChunk|array[${batchCalls.length}] >>>`, [method, method, '...'])
 
-        const response = await b24.callBatchByChunk(batchCalls, { isHaltOnError: true })
+        const response = await b24.callBatchByChunk(batchCalls, { isHaltOnError: true, requestId: commandNumber })
 
         logger.info(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 

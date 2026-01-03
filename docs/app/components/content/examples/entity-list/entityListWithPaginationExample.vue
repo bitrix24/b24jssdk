@@ -69,9 +69,9 @@ async function loadContacts(): Promise<void> {
       {
         entityTypeId: EnumCrmEntityTypeId.contact,
         select: ['id', 'name', 'lastName', 'assignedById'],
-        order: { id: 'desc' }
-      },
-      start
+        order: { id: 'desc' },
+        start
+      }
     )
 
     const data = response.getData()

@@ -34,7 +34,8 @@ export interface ICallBatchOptions {
  * Результат batch вызова
  */
 export interface ICallBatchResult<T = unknown> {
-  result?: AjaxResult<T>[] | Record<string | number, AjaxResult<T>>
+  // @todo ICallBatchResult -> Map<string | number, AjaxResult<T>>
+  result?: Map<string | number, AjaxResult<T>>
   time?: PayloadTime
 }
 

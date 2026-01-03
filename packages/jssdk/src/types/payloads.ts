@@ -30,24 +30,26 @@ export type ListPayload<P> = {
   readonly time: PayloadTime
 }
 
+export type BatchPayloadResult<C> = {
+  readonly result:
+    | { readonly [P in keyof C]?: C[P] }
+    | ReadonlyArray<C[keyof C]>
+  readonly result_error:
+    | { readonly [P in keyof C]?: string }
+    | readonly string[]
+  readonly result_total:
+    | { readonly [P in keyof C]?: number }
+    | readonly number[]
+  readonly result_next:
+    | { readonly [P in keyof C]?: number }
+    | readonly number[]
+  readonly result_time:
+    | { readonly [P in keyof C]?: PayloadTime }
+    | readonly PayloadTime[]
+}
+
 export type BatchPayload<C> = {
-  readonly result: {
-    readonly result:
-      | { readonly [P in keyof C]?: C[P] }
-      | ReadonlyArray<C[keyof C]>
-    readonly result_error:
-      | { readonly [P in keyof C]?: string }
-      | readonly string[]
-    readonly result_total:
-      | { readonly [P in keyof C]?: number }
-      | readonly number[]
-    readonly result_next:
-      | { readonly [P in keyof C]?: number }
-      | readonly number[]
-    readonly result_time:
-      | { readonly [P in keyof C]?: PayloadTime }
-      | readonly PayloadTime[]
-  }
+  readonly result: BatchPayloadResult<C>
   readonly time: PayloadTime
 }
 

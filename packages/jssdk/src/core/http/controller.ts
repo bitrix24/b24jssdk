@@ -6,26 +6,12 @@ import { Result } from '../result'
 import { AjaxError } from './ajax-error'
 import { AjaxResult } from './ajax-result'
 import Type from '../../tools/type'
-import type {
-  TypeCallParams,
-  TypeHttp,
-  ICallBatchOptions,
-  BatchCommandsArrayUniversal,
-  BatchCommandsObjectUniversal,
-  BatchNamedCommandsUniversal,
-  ICallBatchResult
-} from '../../types/http'
-import type {
-  RestrictionManagerStats,
-  RestrictionParams
-} from '../../types/limiters'
+import type { TypeCallParams, TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, CommandObject, CommandTuple, ICallBatchResult } from '../../types/http'
+import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
 import type { AjaxQuery, AjaxResultParams } from './ajax-result'
-import type {
-  AuthActions,
-  AuthData,
-  TypeDescriptionError
-} from '../../types/auth'
-import type { BatchPayload, PayloadTime } from '../../types/payloads'
+import type { AuthActions, AuthData, TypeDescriptionError } from '../../types/auth'
+import type { BatchPayload, BatchPayloadResult, PayloadTime } from '../../types/payloads'
+import type { NumberString } from '../../types/common'
 import axios, { type AxiosInstance, AxiosError } from 'axios'
 import * as qs from 'qs-esm'
 
@@ -38,6 +24,14 @@ type TypePrepareParams = TypeCallParams & {
   data?: Record<string, any>
   logTag?: string
   auth?: string
+}
+
+interface BatchResponseData<T = unknown> {
+  readonly result?: T[] | Record<string | number, T>
+  readonly result_error?: string[] | Record<string | number, string>
+  readonly result_total?: NumberString[] | Record<string | number, NumberString>
+  readonly result_next?: NumberString[] | Record<string | number, NumberString>
+  readonly result_time?: PayloadTime[] | Record<string | number, PayloadTime>
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -155,320 +149,374 @@ export default class Http implements TypeHttp {
   }
   // endregion ////
 
+  // region Log ////
+  #logBatchStart(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal, options: ICallBatchOptions): void {
+    if (!this._logger) return
+
+    const callCount = Array.isArray(calls)
+      ? calls.length
+      : Object.keys(calls).length
+
+    this.getLogger().log('Starting batch request', {
+      callCount,
+      isHaltOnError: options.isHaltOnError,
+      timestamp: Date.now()
+    })
+  }
+
+  #logBatchCompletion(total: number, errors: number): void {
+    if (!this._logger) return
+
+    this.getLogger().log('Batch request completed', {
+      totalCalls: total,
+      successful: total - errors,
+      failed: errors,
+      successRate: ((total - errors) / total * 100).toFixed(1) + '%'
+    })
+  }
+  // endregion ////
+
   // region Actions Call ////
+  // region batch ////
   async batch<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: ICallBatchOptions
   ): Promise<Result<ICallBatchResult<T>>> {
-    if (options === undefined) {
-      options = {
-        isHaltOnError: true
-      }
+    const opts = {
+      isHaltOnError: true,
+      ...options
     }
+
+    this.#logBatchStart(calls, opts)
 
     if (Array.isArray(calls)) {
-      return this.#batchAsArray(calls, options)
+      return this.#batchAsArray(calls, opts)
     }
 
-    return this.#batchAsObject(calls, options)
+    return this.#batchAsObject(calls, opts)
   }
 
   async #batchAsObject<T = unknown>(
     calls: BatchNamedCommandsUniversal,
     options: ICallBatchOptions
   ): Promise<Result<ICallBatchResult<T>>> {
-    const { isHaltOnError = true } = options
-    const cmd: any = {}
-    let cnt = 0
-
-    const processRow = (row: any, index: string | number) => {
-      let method = null
-      let params = null
-
-      if (row.method) {
-        method = row.method ?? null
-        params = row?.params ?? null
-      } else if (Array.isArray(row) && row.length > 0) {
-        method = row[0] ?? null
-        params = row[1] ?? null
-      }
-
-      if (method) {
-        cnt++
-
-        cmd[index] = method + '?' + qs.stringify(params)
-      }
-    }
-
-    for (const [index, row] of Object.entries(calls)) {
-      processRow(row, index)
-    }
-
-    if (cnt < 1) {
+    const cmd = this.#prepareBatchCommandsObject(calls)
+    if (Object.keys(cmd).length === 0) {
       return Promise.resolve(new Result())
     }
 
-    return this.call('batch', {
-      halt: isHaltOnError ? 1 : 0,
+    const response = await this.call<T>('batch', {
+      halt: options.isHaltOnError ? 1 : 0,
       cmd
-    }).then(async (response: AjaxResult): Promise<Result<ICallBatchResult<T>>> => {
-      const responseResult = (response.getData() as BatchPayload<unknown>).result
-      const responseTime = (response.getData() as BatchPayload<unknown>).time
-      const results: Record<string | number, AjaxResult<T>> = {}
-      const dataResult: Record<string | number, AjaxResult<T>> = {}
-      const result = new Result<{
-        result?: Record<string | number, AjaxResult<T>>
-        time?: PayloadTime
-      }>()
-
-      const processResponse = async (row: string, index: string | number) => {
-        if (
-          // @ts-expect-error this code work success
-          typeof responseResult.result[index] !== 'undefined'
-          // @ts-expect-error this code work success
-          || typeof responseResult.result_error[index] !== 'undefined'
-        ) {
-          const q = row.split('?')
-          const methodName = q[0] || ''
-
-          // Обновляем operating статистику для каждого метода в batch
-          // @ts-expect-error this code work success
-          if (responseResult.result_time && responseResult.result_time[index]) {
-            // @ts-expect-error this code work success
-            const timeData = responseResult.result_time[index]
-            await this.#restrictionManager.updateStats(`batch::${methodName}`, timeData)
-          }
-
-          results[index] = new AjaxResult({
-            answer: {
-              // @ts-expect-error this code work success
-              result: Type.isUndefined(responseResult.result[index])
-                ? {}
-                // @ts-expect-error this code work success
-                : responseResult.result[index],
-              // @ts-expect-error this code work success
-              error: responseResult?.result_error[index] || undefined,
-              // @ts-expect-error this code work success
-              total: responseResult.result_total[index],
-              // @ts-expect-error this code work success
-              next: responseResult.result_next[index],
-              // @ts-expect-error this code work success
-              time: responseResult.result_time[index]
-            },
-            query: {
-              method: methodName,
-              params: qs.parse(q[1] || '')
-              // start: 0
-            } as AjaxQuery,
-            status: response.getStatus()
-          })
-        }
-      }
-
-      const initError = (result: AjaxResult): AjaxError => {
-        if (result.hasError('base-error')) {
-          return result.errors.get('base-error') as AjaxError
-        }
-
-        return new AjaxError({
-          code: '0',
-          description: result.getErrorMessages().join('; '),
-          status: 0,
-          requestInfo: {
-            method: result.getQuery().method,
-            params: result.getQuery().params
-          },
-          originalError: result.getErrors().next().value
-        })
-      }
-
-      for (const [index, row] of Object.entries(cmd)) {
-        await processResponse(row as string, index)
-      }
-
-      for (const key of Object.keys(results)) {
-        const data = results[key]
-
-        if (data.getStatus() !== 200 || !data.isSuccess) {
-          const error = initError(data)
-
-          /*
-           * Тут должен быть код аналогичный #isOperatingLimitError с проверкой ошибки 'Method is blocked due to operation time limit.'
-           * Однако `batch` исполняется без повторных попыток, по этой причине будет сразу ошибка
-           */
-
-          if (!isHaltOnError && !data.isSuccess) {
-            result.addError(error, key)
-            continue
-          }
-
-          return Promise.reject(error)
-        }
-
-        dataResult[key] = data
-      }
-
-      result.setData({
-        result: dataResult,
-        time: responseTime
-      })
-
-      return Promise.resolve(result)
     })
+
+    return this.#processBatchResponse<T>(
+      cmd,
+      response,
+      {
+        isHaltOnError: options.isHaltOnError,
+        isObjectMode: true
+      }
+    )
+  }
+
+  #prepareBatchCommandsObject(calls: BatchNamedCommandsUniversal): Record<string, string> {
+    const cmd: Record<string, string> = {}
+
+    Object.entries(calls).forEach(([index, row]) => {
+      const command = this.#parseBatchRow(row)
+      if (command) {
+        cmd[index] = this.#buildBatchCommandString(command.method, command.params)
+      }
+    })
+
+    return cmd
   }
 
   async #batchAsArray<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
     options: ICallBatchOptions
   ): Promise<Result<ICallBatchResult<T>>> {
-    const { isHaltOnError = true } = options
-
-    const cmd: string[] = []
-    let cnt = 0
-
-    const processRow = (row: any) => {
-      let method = null
-      let params = null
-
-      if (row.method) {
-        method = row.method ?? null
-        params = row?.params ?? null
-      } else if (Array.isArray(row) && row.length > 0) {
-        method = row[0] ?? null
-        params = row[1] ?? null
-      }
-
-      if (method) {
-        cnt++
-
-        const data = method + '?' + qs.stringify(params)
-        cmd.push(data)
-      }
-    }
-
-    for (const [_, row] of calls.entries()) {
-      processRow(row)
-    }
-
-    if (cnt < 1) {
+    const cmd = this.#prepareBatchCommandsArray(calls)
+    if (cmd.length === 0) {
       return Promise.resolve(new Result())
     }
 
-    return this.call('batch', {
-      halt: isHaltOnError ? 1 : 0,
+    const response = await this.call<T>('batch', {
+      halt: options.isHaltOnError ? 1 : 0,
       cmd
-    }).then(async (response: AjaxResult): Promise<Result<ICallBatchResult<T>>> => {
-      const responseResult = (response.getData() as BatchPayload<unknown>).result
-      const responseTime = (response.getData() as BatchPayload<unknown>).time
-      const results: AjaxResult<T>[] = []
-      const dataResult: AjaxResult<T>[] = []
-      const result = new Result<{
-        result?: AjaxResult<T>[]
-        time?: PayloadTime
-      }>()
+    })
 
-      const processResponse = async (row: string, index: string | number) => {
-        if (
-          // @ts-expect-error this code work success
-          typeof responseResult.result[index] !== 'undefined'
-          // @ts-expect-error this code work success
-          || typeof responseResult.result_error[index] !== 'undefined'
-        ) {
-          const q = row.split('?')
-          const methodName = q[0] || ''
+    return this.#processBatchResponse<T>(
+      cmd,
+      response,
+      {
+        isHaltOnError: options.isHaltOnError,
+        isObjectMode: false
+      }
+    )
+  }
 
-          // Обновляем operating статистику для каждого метода в batch
-          // @ts-expect-error this code work success
-          if (responseResult.result_time && responseResult.result_time[index]) {
-            // @ts-expect-error this code work success
-            const timeData = responseResult.result_time[index]
-            await this.#restrictionManager.updateStats(`batch::${methodName}`, timeData)
-          }
+  #prepareBatchCommandsArray(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal): string[] {
+    const cmd: string[] = []
 
-          const data = new AjaxResult({
-            answer: {
-              // @ts-expect-error this code work success
-              result: Type.isUndefined(responseResult.result[index])
-                ? {}
-                // @ts-expect-error this code work success
-                : responseResult.result[index],
-              // @ts-expect-error this code work success
-              error: responseResult?.result_error[index] || undefined,
-              // @ts-expect-error this code work success
-              total: responseResult.result_total[index],
-              // @ts-expect-error this code work success
-              next: responseResult.result_next[index],
-              // @ts-expect-error this code work success
-              time: responseResult.result_time[index]
-            },
-            query: {
-              method: methodName,
-              params: qs.parse(q[1] || '') // ,
-              // start: 0
-            } as AjaxQuery,
-            status: response.getStatus()
-          })
+    calls.forEach((row) => {
+      const command = this.#parseBatchRow(row)
+      if (command) {
+        cmd.push(this.#buildBatchCommandString(command.method, command.params))
+      }
+    })
 
-          results.push(data)
+    return cmd
+  }
+
+  // Вспомогательные методы для подготовки команд batch
+  #parseBatchRow(row: CommandObject<string, TypeCallParams | undefined> | CommandTuple<string, TypeCallParams | undefined>): {
+    method: string
+    params?: Record<string, unknown>
+  } | null {
+    if (row && typeof row === 'object') {
+      if ('method' in row && typeof row.method === 'string') {
+        return {
+          method: row.method,
+          params: row.params as Record<string, unknown> | undefined
         }
       }
 
-      const initError = (result: AjaxResult): AjaxError => {
-        if (result.hasError('base-error')) {
-          return result.errors.get('base-error') as AjaxError
+      if (Array.isArray(row) && row.length > 0 && typeof row[0] === 'string') {
+        return {
+          method: row[0],
+          params: row[1] as Record<string, unknown> | undefined
         }
+      }
+    }
 
-        return new AjaxError({
-          code: '0',
-          description: result.getErrorMessages().join('; '),
-          status: 0,
-          requestInfo: {
-            method: result.getQuery().method,
-            params: result.getQuery().params
-          },
-          originalError: result.getErrors().next().value
-        })
+    return null
+  }
+
+  #buildBatchCommandString(method: string, params?: Record<string, unknown>): string {
+    return `${method}?${qs.stringify(params || {})}`
+  }
+
+  // Основной метод обработки ответа batch
+  async #processBatchResponse<T>(
+    cmd: Record<string, string> | string[],
+    response: AjaxResult<T>,
+    options: ICallBatchOptions & { isObjectMode?: boolean }
+  ): Promise<Result<ICallBatchResult<T>>> {
+    const responseData = response.getData() as BatchPayload<T>
+
+    const responseResult = responseData.result
+    const responseTime = responseData.time
+    const results = await this.#processBatchItems<T>(cmd, response, responseResult)
+
+    return this.#handleBatchResults<T>(results, responseTime, options)
+  }
+
+  // Обработка элементов batch
+  async #processBatchItems<T>(
+    cmd: Record<string, string> | string[],
+    response: AjaxResult<T>,
+    responseResult: BatchPayloadResult<T>
+  ): Promise<Map<string | number, AjaxResult<T>>> {
+    const results = new Map<string | number, AjaxResult<T>>()
+
+    // Обработка всех команд
+    const entries = Array.isArray(cmd)
+      ? cmd.entries()
+      : Object.entries(cmd)
+
+    for (const [index, row] of entries) {
+      await this.#processBatchItem<T>(row, index, response, responseResult as BatchResponseData<T>, results)
+    }
+
+    return results
+  }
+
+  // Обработка каждого элемента ответа (processResponse)
+  async #processBatchItem<T>(
+    row: string,
+    index: string | number,
+    response: AjaxResult<T>,
+    responseResult: BatchResponseData<T>,
+    results: Map<string | number, AjaxResult<T>>
+  ): Promise<void> {
+    // region Tools ////
+    function getResultByIndex<T>(
+      rows: T[] | Record<string | number, T> | undefined,
+      index: string | number
+    ): T | undefined {
+      if (!rows) return undefined
+
+      if (Array.isArray(rows)) {
+        return rows[index as number]
+      } else {
+        return rows[index]
+      }
+    }
+
+    function getResultErrorByIndex(
+      rows: string[] | Record<string | number, string> | undefined,
+      index: string | number
+    ): string | undefined {
+      if (!rows) return undefined
+
+      if (Array.isArray(rows)) {
+        return rows[index as number]
+      } else {
+        return rows[index]
+      }
+    }
+
+    function getResultTotalByIndex(
+      rows: NumberString[] | Record<string | number, NumberString> | undefined,
+      index: string | number
+    ): NumberString | undefined {
+      if (!rows) return undefined
+
+      if (Array.isArray(rows)) {
+        return rows[index as number]
+      } else {
+        return rows[index]
+      }
+    }
+
+    function getResultNextByIndex(
+      rows: NumberString[] | Record<string | number, NumberString> | undefined,
+      index: string | number
+    ): NumberString | undefined {
+      if (!rows) return undefined
+
+      if (Array.isArray(rows)) {
+        return rows[index as number]
+      } else {
+        return rows[index]
+      }
+    }
+
+    function getResultTimeByIndex(
+      rows: PayloadTime[] | Record<string | number, PayloadTime> | undefined,
+      index: string | number
+    ): PayloadTime | undefined {
+      if (!rows) return undefined
+
+      if (Array.isArray(rows)) {
+        return rows[index as number]
+      } else {
+        return rows[index]
+      }
+    }
+    // endregion ///
+
+    const resultData = getResultByIndex(responseResult.result, index)
+    const resultError = getResultErrorByIndex(responseResult.result_error, index)
+
+    if (
+      typeof resultData !== 'undefined'
+      || typeof resultError !== 'undefined'
+    ) {
+      const [methodName, queryString] = row.split('?')
+
+      // Обновляем operating статистику для каждого метода в batch
+      const timeData = getResultTimeByIndex(responseResult.result_time, index)
+      if (typeof timeData !== 'undefined') {
+        await this.#restrictionManager.updateStats(`batch::${methodName}`, timeData)
       }
 
-      for (const [index, row] of cmd.entries()) {
-        await processResponse(row, index)
-      }
-
-      for (const data of results) {
-        if (data.getStatus() !== 200 || !data.isSuccess) {
-          const error = initError(data)
-
-          /*
-           * Тут должен быть код аналогичный #isOperatingLimitError с проверкой ошибки 'Method is blocked due to operation time limit.'
-           * Однако `batch` исполняется без повторных попыток, по этой причине будет сразу ошибка
-           */
-
-          if (!isHaltOnError && !data.isSuccess) {
-            result.addError(error)
-            continue
-          }
-
-          return Promise.reject(error)
-        }
-
-        dataResult.push(data)
-      }
-
-      result.setData({
-        result: dataResult,
-        time: responseTime
+      const result = new AjaxResult<T>({
+        answer: {
+          result: (resultData ?? {}) as T,
+          error: resultError,
+          total: getResultTotalByIndex(responseResult.result_total, index),
+          next: getResultNextByIndex(responseResult.result_next, index),
+          time: timeData!
+        },
+        query: {
+          method: methodName,
+          params: qs.parse(queryString || '')
+        },
+        status: response.getStatus()
       })
 
-      return Promise.resolve(result)
+      results.set(index, result)
+    }
+  }
+
+  // Обработка результатов batch
+  #handleBatchResults<T>(
+    results: Map<string | number, AjaxResult<T>>,
+    responseTime: PayloadTime | undefined,
+    options: ICallBatchOptions & { isObjectMode?: boolean }
+  ): Result<ICallBatchResult<T>> {
+    const result = new Result<ICallBatchResult<T>>()
+    const dataResult = new Map<string | number, AjaxResult<T>>()
+
+    let errorsCnt = 0
+
+    for (const [index, data] of results) {
+      if (data.getStatus() !== 200 || !data.isSuccess) {
+        const error = this.#createErrorFromAjaxResult(data)
+
+        /*
+         * Тут должен быть код аналогичный #isOperatingLimitError с проверкой ошибки 'Method is blocked due to operation time limit.'
+         * Однако `batch` исполняется без повторных попыток, по этой причине будет сразу ошибка
+         */
+
+        if (!options.isHaltOnError && !data.isSuccess) {
+          if (options.isObjectMode) {
+            result.addError(error, String(index))
+          } else {
+            result.addError(error)
+          }
+
+          errorsCnt++
+          continue
+        }
+
+        // return Promise.reject(error)
+        throw error
+      }
+
+      dataResult.set(index, data)
+    }
+
+    // Логируем результаты
+    this.#logBatchCompletion(results.size, errorsCnt)
+
+    result.setData({
+      result: dataResult,
+      time: responseTime
+    })
+
+    return result
+  }
+
+  // initError
+  #createErrorFromAjaxResult(ajaxResult: AjaxResult): AjaxError {
+    if (ajaxResult.hasError('base-error')) {
+      return ajaxResult.errors.get('base-error') as AjaxError
+    }
+
+    return new AjaxError({
+      code: '0',
+      description: ajaxResult.getErrorMessages().join('; '),
+      // @todo fox this ??
+      status: 0, // ajaxResult.getStatus(),
+      requestInfo: {
+        method: ajaxResult.getQuery().method,
+        params: ajaxResult.getQuery().params
+      },
+      originalError: ajaxResult.getErrors().next().value
     })
   }
+  // endregion ////
 
   /**
    * Calling the RestApi function
    * @param method - REST API method name
-   * @param params - Parameters for the method. If params.start exists,
+   * @param params - Parameters for the method. If `params.start` exists,
    *                 it will be used unless explicit start parameter is provided.
-   * @param start - Explicit start value (takes priority over params.start)
+   * @param start - Explicit start value (takes priority over `params.start`)
    * @returns Promise with AjaxResult
    * @example
    * // Using explicit start parameter

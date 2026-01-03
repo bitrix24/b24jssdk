@@ -10,10 +10,9 @@ import type {
   BatchCommandsObjectUniversal,
   BatchNamedCommandsUniversal,
   ICallBatchOptions,
-  ICallBatchResult,
   TypeCallParams
 } from '../types/http'
-import type { ListPayload } from '../types/payloads'
+import type { ListPayload, PayloadTime } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
 
 /**
@@ -315,7 +314,7 @@ export abstract class AbstractB24 implements TypeB24 {
     optionsOrIsHaltOnError?: IB24BatchOptions | boolean,
     returnAjaxResult?: boolean,
     returnTime?: boolean
-  ): Promise<Result<ICallBatchResult<T>> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>> {
+  ): Promise<Result<{ result: Record<string | number, AjaxResult<T>>, time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>> {
     let options: IB24BatchOptions
     if (typeof optionsOrIsHaltOnError === 'boolean' || optionsOrIsHaltOnError === undefined) {
       options = {
@@ -330,52 +329,74 @@ export abstract class AbstractB24 implements TypeB24 {
     const response = await this.getHttpClient().batch<T>(calls, options)
 
     if (options.returnTime) {
-      const result = new Result<ICallBatchResult<T>>()
+      const result = new Result<{
+        result: Record<string | number, AjaxResult<T>>
+        time?: PayloadTime
+      }>()
 
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())
         result.addErrors([...response.getErrors()])
       }
 
-      return result.setData(response.getData())
+      const dataResult: Record<string | number, AjaxResult<T>> = {}
+
+      for (const [index, data] of response.getData()!.result!) {
+        dataResult[index] = data
+      }
+
+      return result.setData({
+        result: dataResult,
+        time: response.getData()?.time
+      })
     } else if (options.returnAjaxResult) {
-      const result = new Result<AjaxResult<T>[] | Record<string | number, AjaxResult<T>>>()
+      if (Array.isArray(calls)) {
+        const result = new Result<AjaxResult<T>[]>()
+        if (!response.isSuccess) {
+          this.getLogger().error(response.getErrorMessages())
+          result.addErrors([...response.getErrors()])
+        }
 
+        const dataResult: AjaxResult<T>[] = []
+
+        for (const [_index, data] of response.getData()!.result!) {
+          dataResult.push(data)
+        }
+
+        return result.setData(dataResult)
+      }
+
+      const result = new Result<Record<string | number, AjaxResult<T>>>()
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())
         result.addErrors([...response.getErrors()])
       }
 
-      if (Array.isArray(calls)) {
-        const responseData = response.getData()!.result as AjaxResult<T>[]
+      const dataResult: Record<string | number, AjaxResult<T>> = {}
 
-        return result.setData(responseData)
+      for (const [index, data] of response.getData()!.result!) {
+        dataResult[index] = data
       }
-
-      const responseData = response.getData()!.result as Record<string | number, AjaxResult<T>>
-
-      return result.setData(responseData)
+      return result.setData(dataResult)
     } else {
       const result = new Result<T>()
-
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())
         result.addErrors([...response.getErrors()])
       }
 
       if (Array.isArray(calls)) {
-        const responseData = response.getData()!.result as AjaxResult[]
-
-        const dataResult = [...responseData!.map(row => row.getData().result)]
+        const dataResult = []
+        for (const [_index, data] of response.getData()!.result!) {
+          dataResult.push(data.getData().result)
+        }
 
         return result.setData(dataResult as T)
       }
 
-      const responseData = response.getData()!.result as Record<string | number, AjaxResult>
       const dataResult: Record<string, any> = {}
-
-      for (const key of Object.keys(responseData)) {
-        dataResult[key] = responseData[key].getData().result
+      for (const [index, data] of response.getData()!.result!) {
+        dataResult[index] = data.getData().result
       }
       return result.setData(dataResult as T)
     }
@@ -399,22 +420,22 @@ export abstract class AbstractB24 implements TypeB24 {
 
     const result = new Result<T[]>()
 
-    const data: T[] = []
+    const dataResult: T[] = []
     const chunks = this.chunkArray(calls as BatchCommandsUniversal, AbstractB24.batchSize) as BatchCommandsArrayUniversal[] | BatchCommandsObjectUniversal[]
 
     for (const chunkRequest of chunks) {
       const response = await this.getHttpClient().batch<T[]>(chunkRequest, options)
-
       if (!response.isSuccess) {
         this.getLogger().error(response.getErrorMessages())
         result.addErrors([...response.getErrors()])
       }
 
-      const responseData = response.getData()!.result as AjaxResult<T>[]
-      data.push(...responseData!.map(row => row.getData().result))
+      for (const [_index, data] of response.getData()!.result!) {
+        dataResult.push(data.getData().result)
+      }
     }
 
-    return result.setData(data)
+    return result.setData(dataResult)
   }
   // endregion ////
 

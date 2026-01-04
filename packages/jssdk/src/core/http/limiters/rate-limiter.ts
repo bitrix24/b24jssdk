@@ -1,5 +1,5 @@
-import type { RateLimitConfig, ILimiter } from '../../../types/limiters'
 import { LoggerBrowser, LoggerType } from '../../../logger/browser'
+import type { ILimiter, RateLimitConfig } from '../../../types/limiters'
 
 /**
  * Rate limiting (Leaky Bucket)
@@ -56,8 +56,8 @@ export class RateLimiter implements ILimiter {
   /**
    * @inheritDoc
    */
-  async canProceed(): Promise<boolean> {
-    await this.#acquireLock()
+  async canProceed(requestId: string, _method: string, _params?: any): Promise<boolean> {
+    await this.#acquireLock(requestId)
     try {
       const now = Date.now()
       const timePassed = now - this.#lastRefill
@@ -79,8 +79,8 @@ export class RateLimiter implements ILimiter {
   /**
    * @inheritDoc
    */
-  async waitIfNeeded(): Promise<number> {
-    await this.#acquireLock()
+  async waitIfNeeded(requestId: string, _method: string, _params?: any): Promise<number> {
+    await this.#acquireLock(requestId)
 
     try {
       const now = Date.now()
@@ -105,17 +105,7 @@ export class RateLimiter implements ILimiter {
 
       // Вычисляем время ожидания для 1 токена
       const deficit = 1 - this.#tokens
-      const waitTime = Math.ceil(deficit * this.#refillIntervalMs)
-
-      // НЕ двигаем lastRefill!
-      // Токены могут стать отрицательными - это нормально
-      // Они пополнятся при следующем вызове
-
-      // Advance time for next refill
-      // ** this.#tokens = 0
-      // ** this.#lastRefill = now + waitTime
-
-      return waitTime
+      return Math.ceil(deficit * this.#refillIntervalMs)
     } finally {
       this.#releaseLock()
     }
@@ -125,8 +115,8 @@ export class RateLimiter implements ILimiter {
    * Обработчик ошибки.
    * Если много ошибок, то будем понижать лимиты
    */
-  async handleExceeded(): Promise<number> {
-    await this.#acquireLock()
+  async handleExceeded(requestId: string): Promise<number> {
+    await this.#acquireLock(requestId)
 
     try {
       // Записываем ошибку
@@ -134,7 +124,7 @@ export class RateLimiter implements ILimiter {
 
       // Адаптивное регулирование: если много ошибок - уменьшаем лимиты
       if (this.#config.adaptiveEnabled && this.#shouldReduceLimits()) {
-        this.#reduceLimits()
+        this.#reduceLimits(requestId)
       }
 
       this.#tokens = 0
@@ -149,13 +139,13 @@ export class RateLimiter implements ILimiter {
    * Обработчик успешного запроса.
    * Если все нормально, то будем восстанавливать лимиты
    */
-  async updateStats(method: string, _data: any): Promise<void> {
+  async updateStats(requestId: string, method: string, _data: any): Promise<void> {
     // пропускаем учет подзапросов `batch`
     if (method.startsWith('batch::')) {
       return
     }
 
-    await this.#acquireLock()
+    await this.#acquireLock(requestId)
 
     try {
       // Записываем успешный запрос
@@ -165,7 +155,7 @@ export class RateLimiter implements ILimiter {
 
       if (this.#config.adaptiveEnabled) {
         this.getLogger().log(
-          `📈 [RateLimiter] текущие показатели:`,
+          `[${requestId}] [rateLimiter] текущие показатели:`,
           `\n- успешных много: (${this.#successTimestamps.length} >= ${this.#successThreshold}) ${this.#successTimestamps.length >= this.#successThreshold}`,
           `\n- ошибок мало: (${this.#errorTimestamps.length} < ${(this.#errorThreshold / 2)}) ${this.#errorTimestamps.length < (this.#errorThreshold / 2)}`,
           `\n- drainRate: (${this.#config.drainRate} < ${this.#originalConfig.drainRate}) ${this.#config.drainRate < this.#originalConfig.drainRate}`,
@@ -174,7 +164,7 @@ export class RateLimiter implements ILimiter {
       }
 
       if (this.#config.adaptiveEnabled && this.#shouldRestoreLimits()) {
-        this.#restoreLimits()
+        this.#restoreLimits(requestId)
       }
     } finally {
       this.#releaseLock()
@@ -185,7 +175,7 @@ export class RateLimiter implements ILimiter {
    * @inheritDoc
    */
   async reset(): Promise<void> {
-    await this.#acquireLock()
+    await this.#acquireLock('reset')
 
     try {
       this.#tokens = this.#config.burstLimit
@@ -224,7 +214,7 @@ export class RateLimiter implements ILimiter {
    * @inheritDoc
    */
   async setConfig(config: RateLimitConfig): Promise<void> {
-    await this.#acquireLock()
+    await this.#acquireLock('setConfig')
 
     try {
       this.#config = config
@@ -248,13 +238,13 @@ export class RateLimiter implements ILimiter {
    * Приобретаем блокировку для критической секции
    * Использует очередь промисов
    */
-  async #acquireLock(): Promise<void> {
+  async #acquireLock(requestId: string): Promise<void> {
     return new Promise<void>((resolve) => {
       // Добавляем в очередь разрешающую функцию
       const queueLength = this.#lockQueue.push(resolve)
 
       if (queueLength > 1) {
-        this.getLogger().log(`[RateLimiter] Запрос в очереди: ${queueLength} ожидающих`)
+        this.getLogger().log(`[${requestId}] [rateLimiter] Запрос в очереди: ${queueLength} ожидающих`)
       }
       // Если это первый в очереди, сразу разрешаем
       if (this.#lockQueue.length === 1) {
@@ -304,7 +294,7 @@ export class RateLimiter implements ILimiter {
   /**
    * Уменьшает лимиты при частых ошибках
    */
-  #reduceLimits(): void {
+  #reduceLimits(requestId: string): void {
     // Уменьшаем drainRate на 20%, но не ниже минимума
     const newDrainRate = Math.max(
       this.#minDrainRate,
@@ -323,7 +313,7 @@ export class RateLimiter implements ILimiter {
     this.#refillIntervalMs = 1000 / newDrainRate
 
     this.getLogger().warn(
-      `[RateLimiter] Уменьшаем лимиты из-за частых ошибок:`,
+      `[${requestId}] [rateLimiter] Уменьшаем лимиты из-за частых ошибок:`,
       `drainRate=${newDrainRate.toFixed(2)}, burstLimit=${newBurstLimit}`
     )
 
@@ -335,7 +325,7 @@ export class RateLimiter implements ILimiter {
   /**
    * Восстанавливает лимиты при стабильной работе
    */
-  #restoreLimits(): void {
+  #restoreLimits(requestId: string): void {
     if (
       this.#config.drainRate === this.#originalConfig.drainRate
       && this.#config.burstLimit === this.#originalConfig.burstLimit
@@ -361,7 +351,7 @@ export class RateLimiter implements ILimiter {
     this.#refillIntervalMs = 1000 / newDrainRate
 
     this.getLogger().warn(
-      `[RateLimiter] Увеличиваем лимиты при стабильной работе:`,
+      `[${requestId}] [rateLimiter] Увеличиваем лимиты при стабильной работе:`,
       `drainRate=${newDrainRate.toFixed(2)}, burstLimit=${newBurstLimit}`
     )
 

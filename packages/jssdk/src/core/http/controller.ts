@@ -8,7 +8,7 @@ import { AjaxResult } from './ajax-result'
 import Type from '../../tools/type'
 import type { TypeCallParams, TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, CommandObject, CommandTuple, ICallBatchResult } from '../../types/http'
 import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
-import type { AjaxQuery, AjaxResultParams } from './ajax-result'
+import type { AjaxResultParams } from './ajax-result'
 import type { AuthActions, AuthData, TypeDescriptionError } from '../../types/auth'
 import type { BatchPayload, BatchPayloadResult, PayloadTime } from '../../types/payloads'
 import type { NumberString } from '../../types/common'
@@ -163,70 +163,112 @@ export default class Http implements TypeHttp {
     return sanitized
   }
 
-  #logRequest(method: string, params: TypeCallParams, requestId: string): void {
-    if (!this._logger) return
-
-    this.getLogger().log(`[${requestId}][request] starting`, {
+  #logRequest(requestId: string, method: string, params: TypeCallParams): void {
+    this.getLogger().log(`[${requestId}] [request] starting`, {
       method,
       params: this.#sanitizeParams(params),
       timestamp: Date.now()
     })
   }
 
-  #logSuccessfulRequest(method: string, duration: number, requestId: string): void {
-    if (!this._logger) return
+  #logAttempt(requestId: string, method: string, attempt: number, maxRetries: number): void {
+    this.getLogger().log(`[${requestId}] [request] Attempt`, {
+      method,
+      attempt,
+      maxRetries,
+      timestamp: Date.now()
+    })
+  }
 
-    this.getLogger().log(`[${requestId}][request] successful`, {
+  #logRefreshingAuthToken(requestId: string): void {
+    this.getLogger().info(`[${requestId}] refreshing auth token`)
+  }
+
+  #logAuthErrorDetected(requestId: string): void {
+    this.getLogger().info(`[${requestId}] auth error detected`)
+  }
+
+  #logSuccessfulRequest(requestId: string, method: string, duration: number): void {
+    this.getLogger().log(`[${requestId}] [request] successful`, {
       method,
       durationMs: duration,
       durationSec: (duration / 1000).toFixed(2)
     })
   }
 
-  #logFailedRequest(method: string, attempt: number, error: AjaxError, requestId: string): void {
-    if (!this._logger) return
-
-    this.getLogger().log(`[${requestId}][request] failed`, {
+  #logFailedRequest(
+    requestId: string,
+    method: string,
+    attempt: number,
+    error: AjaxError
+  ): void {
+    this.getLogger().log(`[${requestId}] [request] failed`, {
       method,
-      attempt: attempt + 1,
+      attempt,
       errorCode: error.code,
       errorMessage: error.message,
       status: error.status
     })
   }
 
-  #logAllAttemptsExhausted(method: string, maxRetries: number, requestId: string): void {
-    if (!this._logger) return
+  #logAttemptRetry(
+    requestId: string,
+    method: string,
+    waitTime: number,
+    attempt: number,
+    maxRetries: number
+  ): void {
+    this.getLogger().warn(
+      `[${requestId}] Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
+      {
+        method,
+        attempt,
+        maxRetries
+      }
+    )
+  }
 
+  #logAllAttemptsExhausted(requestId: string, method: string, maxRetries: number): void {
     this.getLogger().log(`[${requestId}] All retry attempts exhausted`, {
       method,
       maxRetries
     })
   }
 
-  #logBatchStart(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal, options: ICallBatchOptions): void {
-    if (!this._logger) return
-
+  #logBatchStart(
+    requestId: string,
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
+    options: ICallBatchOptions
+  ): void {
     const callCount = Array.isArray(calls)
       ? calls.length
       : Object.keys(calls).length
 
-    this.getLogger().log(`[${options.requestId!}][batch request] starting `, {
+    this.getLogger().log(`[${requestId}] [batch request] starting `, {
       callCount,
       isHaltOnError: options.isHaltOnError,
       timestamp: Date.now()
     })
   }
 
-  #logBatchCompletion(total: number, errors: number, options: ICallBatchOptions): void {
-    if (!this._logger) return
-
-    this.getLogger().log(`[${options.requestId!}][batch request] completed`, {
+  #logBatchCompletion(requestId: string, total: number, errors: number): void {
+    this.getLogger().log(`[${requestId}] [batch request] completed`, {
       totalCalls: total,
       successful: total - errors,
       failed: errors,
       successRate: ((total - errors) / total * 100).toFixed(1) + '%'
     })
+  }
+
+  // Проверяем предупреждения для клиентской стороны
+  #checkClientSideWarning(): void {
+    if (
+      this.#isClientSideWarning
+      && !this.isServerSide()
+      && Type.isStringFilled(this.#clientSideWarningMessage)
+    ) {
+      this.getLogger().warn(this.#clientSideWarningMessage)
+    }
   }
   // endregion ////
 
@@ -241,20 +283,19 @@ export default class Http implements TypeHttp {
       ...options
     }
 
-    if (typeof opts.requestId === 'undefined') {
-      opts.requestId = this.#requestIdGenerator.getRequestId()
-    }
+    const requestId = opts.requestId ?? this.#requestIdGenerator.getRequestId()
 
-    this.#logBatchStart(calls, opts)
+    this.#logBatchStart(requestId, calls, opts)
 
     if (Array.isArray(calls)) {
-      return this.#batchAsArray(calls, opts)
+      return this.#batchAsArray(requestId, calls, opts)
     }
 
-    return this.#batchAsObject(calls, opts)
+    return this.#batchAsObject(requestId, calls, opts)
   }
 
   async #batchAsObject<T = unknown>(
+    requestId: string,
     calls: BatchNamedCommandsUniversal,
     options: ICallBatchOptions
   ): Promise<Result<ICallBatchResult<T>>> {
@@ -269,16 +310,19 @@ export default class Http implements TypeHttp {
         halt: options.isHaltOnError ? 1 : 0,
         cmd
       },
-      options.requestId
+      requestId
     )
+
+    const opts = {
+      isHaltOnError: !!options.isHaltOnError,
+      requestId,
+      isObjectMode: true
+    }
 
     return this.#processBatchResponse<T>(
       cmd,
       response,
-      {
-        ...options,
-        isObjectMode: true
-      }
+      opts
     )
   }
 
@@ -296,6 +340,7 @@ export default class Http implements TypeHttp {
   }
 
   async #batchAsArray<T = unknown>(
+    requestId: string,
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
     options: ICallBatchOptions
   ): Promise<Result<ICallBatchResult<T>>> {
@@ -310,16 +355,19 @@ export default class Http implements TypeHttp {
         halt: options.isHaltOnError ? 1 : 0,
         cmd
       },
-      options.requestId
+      requestId
     )
+
+    const opts = {
+      isHaltOnError: !!options.isHaltOnError,
+      requestId,
+      isObjectMode: false
+    }
 
     return this.#processBatchResponse<T>(
       cmd,
       response,
-      {
-        ...options,
-        isObjectMode: false
-      }
+      opts
     )
   }
 
@@ -368,7 +416,7 @@ export default class Http implements TypeHttp {
   async #processBatchResponse<T>(
     cmd: Record<string, string> | string[],
     response: AjaxResult<T>,
-    options: ICallBatchOptions & { isObjectMode?: boolean }
+    options: Required<ICallBatchOptions> & { isObjectMode: boolean }
   ): Promise<Result<ICallBatchResult<T>>> {
     const responseData = response.getData() as BatchPayload<T>
 
@@ -486,7 +534,7 @@ export default class Http implements TypeHttp {
       // Обновляем operating статистику для каждого метода в batch
       const timeData = getResultTimeByIndex(responseResult.result_time, index)
       if (typeof timeData !== 'undefined') {
-        await this.#restrictionManager.updateStats(`batch::${methodName}`, timeData)
+        await this.#restrictionManager.updateStats(response.getQuery().requestId, `batch::${methodName}`, timeData)
       }
 
       const result = new AjaxResult<T>({
@@ -499,7 +547,8 @@ export default class Http implements TypeHttp {
         },
         query: {
           method: methodName,
-          params: qs.parse(queryString || '')
+          params: qs.parse(queryString || ''),
+          requestId: response.getQuery().requestId
         },
         status: response.getStatus()
       })
@@ -512,7 +561,7 @@ export default class Http implements TypeHttp {
   #handleBatchResults<T>(
     results: Map<string | number, AjaxResult<T>>,
     responseTime: PayloadTime | undefined,
-    options: ICallBatchOptions & { isObjectMode?: boolean }
+    options: Required<ICallBatchOptions> & { isObjectMode: boolean }
   ): Result<ICallBatchResult<T>> {
     const result = new Result<ICallBatchResult<T>>()
     const dataResult = new Map<string | number, AjaxResult<T>>()
@@ -547,7 +596,7 @@ export default class Http implements TypeHttp {
     }
 
     // Логируем результаты
-    this.#logBatchCompletion(results.size, errorsCnt, options)
+    this.#logBatchCompletion(options.requestId, results.size, errorsCnt)
 
     result.setData({
       result: dataResult,
@@ -558,21 +607,17 @@ export default class Http implements TypeHttp {
   }
 
   // initError
-  #createErrorFromAjaxResult(ajaxResult: AjaxResult): AjaxError {
-    if (ajaxResult.hasError('base-error')) {
-      return ajaxResult.errors.get('base-error') as AjaxError
+  #createErrorFromAjaxResult(data: AjaxResult): AjaxError {
+    if (data.hasError('base-error')) {
+      return data.errors.get('base-error') as AjaxError
     }
 
     return new AjaxError({
-      code: '0',
-      description: ajaxResult.getErrorMessages().join('; '),
-      // @todo fox this ??
-      status: 0, // ajaxResult.getStatus(),
-      requestInfo: {
-        method: ajaxResult.getQuery().method,
-        params: ajaxResult.getQuery().params
-      },
-      originalError: ajaxResult.getErrors().next().value
+      code: 'JSSDK_BATCH_SUB_ERROR',
+      description: data.getErrorMessages().join('; '),
+      status: data.getStatus(),
+      requestInfo: { ...data.getQuery() },
+      originalError: data.getErrors().next().value
     })
   }
   // endregion ////
@@ -592,51 +637,44 @@ export default class Http implements TypeHttp {
     requestId = requestId ?? this.#requestIdGenerator.getRequestId()
     const maxRetries = this.#restrictionManager.getParams().maxRetries!
 
-    this.#logRequest(method, params, requestId)
+    this.#logRequest(requestId, method, params)
 
     let lastError: AjaxError | null = null
     const startTime = Date.now()
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        this.getLogger().log(`[${requestId}] Attempt ${attempt + 1}/${maxRetries} for ${method}`)
+        this.#logAttempt(requestId, method, attempt + 1, maxRetries)
 
         // Применяем operating лимиты через менеджер
         await this.#restrictionManager.applyOperatingLimits(requestId, method, params)
 
         // 3. Выполняем запрос с учетом авторизации, rate limit, обновляем operating статистики
-        const result = await this.#executeSingleCall<T>(
-          requestId,
-          method,
-          params
-        )
+        const result = await this.#executeSingleCall<T>(requestId, method, params)
         const duration = Date.now() - startTime
 
         // 6. Обновляем статистику
         this.#restrictionManager.incrementStats('totalRequests')
         this.#restrictionManager.resetErrors(method)
 
-        this.#logSuccessfulRequest(method, duration, requestId)
+        this.#logSuccessfulRequest(requestId, method, duration)
 
         return result
       } catch (error: unknown) {
-        lastError = this.#convertToAjaxError(error, method, params)
+        lastError = this.#convertToAjaxError(requestId, error, method, params)
         // const duration = Date.now() - startTime
 
         this.#restrictionManager.incrementStats('totalRequests')
         this.#restrictionManager.incrementError(method)
 
-        this.#logFailedRequest(method, attempt, lastError, requestId)
+        this.#logFailedRequest(requestId, method, attempt + 1, lastError)
 
         if (attempt < maxRetries) {
           const waitTime = await this.#restrictionManager.handleError(requestId, method, params, error, attempt)
           if (waitTime > 0) {
             this.#restrictionManager.incrementStats('limitHits')
 
-            this.getLogger().warn(
-              `[${requestId}] Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
-              `(попытка ${attempt + 1}/${maxRetries})`
-            )
+            this.#logAttemptRetry(requestId, method, waitTime, attempt + 1, maxRetries)
             await this.#restrictionManager.waiteDelay(waitTime)
 
             this.#restrictionManager.incrementStats('retries')
@@ -646,7 +684,7 @@ export default class Http implements TypeHttp {
         }
 
         // Выбрасываем исключение - больше попыток не будет
-        this.#logAllAttemptsExhausted(method, maxRetries, requestId)
+        this.#logAllAttemptsExhausted(requestId, method, maxRetries)
         throw error
       }
     }
@@ -655,24 +693,34 @@ export default class Http implements TypeHttp {
       code: 'JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED',
       description: 'All attempts exhausted',
       status: lastError?.status || 500,
-      requestInfo: { method, params },
+      requestInfo: { method, params, requestId },
       originalError: lastError?.originalError || null
     })
   }
 
-  #convertToAjaxError(error: unknown, method: string, params: object): AjaxError {
+  #convertToAjaxError(
+    requestId: string,
+    error: unknown,
+    method: string,
+    params: TypeCallParams
+  ): AjaxError {
     if (error instanceof AjaxError) {
       return error
     }
 
     if (error instanceof AxiosError) {
-      return this.#convertAxiosErrorToAjaxError(error, method, params)
+      return this.#convertAxiosErrorToAjaxError(requestId, error, method, params)
     }
 
-    return this.#convertUnknownErrorToAjaxError(error, method, params)
+    return this.#convertUnknownErrorToAjaxError(requestId, error, method, params)
   }
 
-  #convertAxiosErrorToAjaxError(error: AxiosError, method: string, params: object): AjaxError {
+  #convertAxiosErrorToAjaxError(
+    requestId: string,
+    error: AxiosError,
+    method: string,
+    params: TypeCallParams
+  ): AjaxError {
     let errorCode = String(error.code || 'JSSDK_AXIOS_ERROR')
     let errorDescription = error.message
     const status = error.response?.status || 0
@@ -689,21 +737,27 @@ export default class Http implements TypeHttp {
       code: errorCode,
       description: errorDescription,
       status,
-      requestInfo: { method, params },
+      requestInfo: { method, params, requestId },
       originalError: error
     })
   }
 
-  #convertUnknownErrorToAjaxError(error: unknown, method: string, params: object): AjaxError {
+  #convertUnknownErrorToAjaxError(
+    requestId: string,
+    error: unknown,
+    method: string,
+    params: TypeCallParams
+  ): AjaxError {
     return new AjaxError({
       code: 'JSSDK_UNKNOWN_ERROR',
       description: error instanceof Error ? error.message : String(error),
       status: 0,
-      requestInfo: { method, params },
+      requestInfo: { method, params, requestId },
       originalError: error
     })
   }
 
+  // region Execute Single Call ////
   /**
    * Выполняет одиночный вызов с
    * - обработкой 401 ошибки
@@ -715,181 +769,132 @@ export default class Http implements TypeHttp {
     method: string,
     params: TypeCallParams
   ): Promise<AjaxResult<T>> {
-    const authData = await this.#ensureAuth()
+    const authData = await this.#ensureAuth(requestId)
 
     this.#checkClientSideWarning()
 
-    // 4. Применяем rate лимит через менеджер
-    await this.#restrictionManager.checkRateLimit(requestId, method)
+    const response = await this.#makeRequestWithAuthRetry<T>(requestId, method, params, authData)
 
-    // @todo change this !
-    return this.#clientAxios
-      .post(
-        this.#prepareMethod(requestId, method),
-        this.#prepareParams(authData, params)
-      )
-      .then(
-        (response: {
-          data: AjaxResultParams
-          status: any
-        }): Promise<AjaxResponse<T>> => {
-          const payload = response.data as AjaxResultParams<T>
-          return Promise.resolve({
-            status: response.status,
-            payload
-          } as AjaxResponse<T>)
-        },
-        async (_error: AxiosError) => {
-          let answerError = {
-            error: _error?.code || 0,
-            errorDescription: _error?.message || ''
-          }
-
-          if (
-            _error instanceof AxiosError
-            && _error.response
-            && _error.response.data
-            && !Type.isUndefined((_error.response.data as TypeDescriptionError).error)
-          ) {
-            const response = _error.response.data as {
-              error: string
-              error_description: string
-            } as TypeDescriptionError
-
-            answerError = {
-              error: response.error,
-              errorDescription: response.error_description
-            }
-          }
-
-          const problemError: AjaxError = new AjaxError({
-            code: String(answerError.error),
-            description: answerError.errorDescription,
-            status: _error.response?.status || 0,
-            requestInfo: {
-              method: method,
-              params: params
-            },
-            originalError: _error
-          })
-
-          /**
-           * Is response status === 401 -> refresh Auth?
-           */
-          if (
-            problemError.status === 401
-            && ['expired_token', 'invalid_token'].includes(
-              problemError.message
-            )
-          ) {
-            this.getLogger().info('refreshAuth', problemError.message)
-
-            // @todo test this
-            const authData = await this.#authActions.refreshAuth()
-
-            // 4. Применяем rate лимит через менеджер
-            await this.#restrictionManager.checkRateLimit(requestId, method)
-
-            return this.#clientAxios
-              .post(
-                this.#prepareMethod(requestId, method),
-                this.#prepareParams(authData, params)
-              )
-              .then(
-                async (response: {
-                  data: AjaxResultParams
-                  status: any
-                }): Promise<AjaxResponse<T>> => {
-                  const payload = response.data as AjaxResultParams<T>
-                  return Promise.resolve({
-                    status: response.status,
-                    payload
-                  } as AjaxResponse<T>)
-                },
-                async (__error: AxiosError) => {
-                  let answerError = {
-                    error: __error?.code || 0,
-                    errorDescription: __error?.message || ''
-                  }
-
-                  if (
-                    __error instanceof AxiosError
-                    && __error.response
-                    && __error.response.data
-                  ) {
-                    const response = __error.response.data as {
-                      error: string
-                      error_description: string
-                    } as TypeDescriptionError
-
-                    answerError = {
-                      error: response.error,
-                      errorDescription: response.error_description
-                    }
-                  }
-
-                  const problemError: AjaxError = new AjaxError({
-                    code: String(answerError.error),
-                    description: answerError.errorDescription,
-                    status: _error.response?.status || 0,
-                    requestInfo: {
-                      method: method,
-                      params: params
-                    },
-                    originalError: __error
-                  })
-
-                  return Promise.reject(problemError)
-                }
-              )
-          }
-
-          return Promise.reject(problemError)
-        }
-      )
-      .then(async (response: AjaxResponse<T>): Promise<AjaxResult<T>> => {
-        const result = new AjaxResult<T>({
-          answer: response.payload,
-          query: {
-            method,
-            params // ,
-            // start
-          } as AjaxQuery,
-          status: response.status
-        })
-
-        // 5. Обновляем operating статистику
-        if (response.payload?.time) {
-          await this.#restrictionManager.updateStats(method, response.payload.time)
-        }
-
-        return Promise.resolve(result)
-      })
+    // Создаем и возвращаем результат
+    return this.#createAjaxResultFromResponse<T>(response, requestId, method, params)
   }
 
   // Получаем/обновляем авторизацию
-  async #ensureAuth(): Promise<AuthData> {
+  async #ensureAuth(requestId: string): Promise<AuthData> {
     let authData = this.#authActions.getAuthData()
     if (authData === false) {
-      this.getLogger().info('Refreshing auth token')
+      this.#logRefreshingAuthToken(requestId)
       authData = await this.#authActions.refreshAuth()
     }
     return authData
   }
 
-  // Проверяем предупреждения для клиентской стороны
-  #checkClientSideWarning(): void {
-    if (
-      this.#isClientSideWarning
-      && !this.isServerSide()
-      && Type.isStringFilled(this.#clientSideWarningMessage)
-    ) {
-      this.getLogger().warn(this.#clientSideWarningMessage)
+  // Выполняем запрос с обработкой 401 ошибок
+  async #makeRequestWithAuthRetry<T>(
+    requestId: string,
+    method: string,
+    params: TypeCallParams,
+    authData: AuthData
+  ): Promise<AjaxResponse<T>> {
+    try {
+      // 4. Применяем rate лимит через менеджер
+      await this.#restrictionManager.checkRateLimit(requestId, method)
+
+      return await this.#makeAxiosRequest<T>(requestId, method, params, authData)
+    } catch (error) {
+      // Если это ошибка авторизации (401), то пробуем обновить токен и повторить
+      if (this.#isAuthError(error)) {
+        this.#logAuthErrorDetected(requestId)
+        this.#logRefreshingAuthToken(requestId)
+
+        const refreshedAuthData = await this.#authActions.refreshAuth()
+
+        // 4. Применяем rate лимит через менеджер
+        await this.#restrictionManager.checkRateLimit(requestId, method)
+
+        return await this.#makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
+      }
+
+      throw error
     }
   }
+
+  async #makeAxiosRequest<T>(
+    requestId: string,
+    method: string,
+    params: TypeCallParams,
+    authData: AuthData
+  ): Promise<AjaxResponse<T>> {
+    const response = await this.#clientAxios.post<AjaxResultParams<T>>(
+      this.#prepareMethod(requestId, method),
+      this.#prepareParams(authData, params)
+    )
+
+    return {
+      status: response.status,
+      payload: response.data
+    }
+  }
+
+  #isAuthError(error: unknown): boolean {
+    if (!(error instanceof AjaxError)) {
+      return false
+    }
+
+    return (
+      error.status === 401
+      && ['expired_token', 'invalid_token'].includes(error.code)
+    )
+  }
+
+  async #createAjaxResultFromResponse<T>(
+    response: AjaxResponse<T>,
+    requestId: string,
+    method: string,
+    params: TypeCallParams
+  ): Promise<AjaxResult<T>> {
+    const result = new AjaxResult<T>({
+      answer: response.payload,
+      query: { method, params, requestId },
+      status: response.status
+    })
+
+    // 5. Обновляем operating статистику
+    if (response.payload?.time) {
+      await this.#restrictionManager.updateStats(requestId, method, response.payload.time)
+    }
+
+    return result
+  }
+  // endregion ////
   // endregion ////
 
   // region Prepare ////
+  /**
+   * Makes the function name safe and adds JSON format
+   */
+  #prepareMethod(
+    requestId: string,
+    method: string
+  ): string {
+    const baseUrl = `${encodeURIComponent(method)}.json`
+
+    /**
+     * @memo For task methods, skip telemetry
+     * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
+     */
+    if (method.includes('task.')) {
+      return `${baseUrl}`
+    }
+
+    const queryParams = new URLSearchParams({
+      [this.#requestIdGenerator.getQueryStringParameterName()]: requestId,
+      [this.#requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
+      [this.#requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
+    })
+    return `${baseUrl}?${queryParams.toString()}`
+  }
+
   /**
    * Processes function parameters and adds authorization
    */
@@ -917,31 +922,6 @@ export default class Http implements TypeHttp {
     }
 
     return result
-  }
-
-  /**
-   * Makes the function name safe and adds JSON format
-   */
-  #prepareMethod(
-    requestId: string,
-    method: string
-  ): string {
-    const baseUrl = `${encodeURIComponent(method)}.json`
-
-    /**
-     * @memo For task methods, skip telemetry
-     * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
-     */
-    if (method.includes('task.')) {
-      return `${baseUrl}`
-    }
-
-    const queryParams = new URLSearchParams({
-      [this.#requestIdGenerator.getQueryStringParameterName()]: requestId,
-      [this.#requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
-      [this.#requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
-    })
-    return `${baseUrl}?${queryParams.toString()}`
   }
 
   /**

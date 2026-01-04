@@ -1,3 +1,5 @@
+import type { AjaxQuery } from './ajax-result'
+
 export type AnswerError = {
   error: string
   errorDescription: string
@@ -13,11 +15,7 @@ type ErrorDetails = {
   code: string
   description?: string
   status: number
-  requestInfo?: {
-    method?: string
-    url?: string
-    params?: Record<string, unknown> | unknown
-  }
+  requestInfo?: Partial<AjaxQuery> & { url?: string }
   originalError?: unknown
 }
 
@@ -76,17 +74,13 @@ export class AjaxError extends Error {
   static fromResponse(response: {
     status: number
     data?: { error?: string, error_description?: string }
-    config?: { method?: string, url?: string, params?: unknown }
+    config?: ErrorDetails['requestInfo']
   }): AjaxError {
     return new AjaxError({
       code: response.data?.error || 'unknown_error',
       description: response.data?.error_description,
       status: response.status,
-      requestInfo: {
-        method: response.config?.method?.toUpperCase(),
-        url: response.config?.url,
-        params: response.config?.params
-      }
+      requestInfo: response.config
     })
   }
 
@@ -139,7 +133,7 @@ export class AjaxError extends Error {
     let output = `[${this.name}] ${this.code} (${this._status}): ${this.message}`
 
     if (this.requestInfo) {
-      output += `\nRequest: ${this.requestInfo.method} ${this.requestInfo.url}`
+      output += `\nRequest: ${this.requestInfo?.requestId ? `[${this.requestInfo.requestId}] ` : ''}${this.requestInfo.method} ${this.requestInfo.url}`
     }
 
     if (this.stack) {

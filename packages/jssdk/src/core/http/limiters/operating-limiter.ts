@@ -69,13 +69,13 @@ export class OperatingLimiter implements ILimiter {
     return stats
   }
 
-  async canProceed(method: string, params?: any): Promise<boolean> {
-    const timeToFree = await this.getTimeToFree(method, params)
+  async canProceed(requestId: string, method: string, params?: any): Promise<boolean> {
+    const timeToFree = await this.getTimeToFree(requestId, method, params)
     return timeToFree === 0
   }
 
-  async waitIfNeeded(method: string, params?: any): Promise<number> {
-    return this.getTimeToFree(method, params)
+  async waitIfNeeded(requestId: string, method: string, params?: any): Promise<number> {
+    return this.getTimeToFree(requestId, method, params)
   }
 
   /**
@@ -85,11 +85,16 @@ export class OperatingLimiter implements ILimiter {
    * - не достигнут - нет блокировки
    * - достигли - блокируем до времени разблокировки + 1 секунда
    */
-  async getTimeToFree(method: string, params?: any, _error?: any): Promise<number> {
+  async getTimeToFree(
+    requestId: string,
+    method: string,
+    params?: any,
+    _error?: any
+  ): Promise<number> {
     this.#cleanupOldStats()
 
     if (method === 'batch') {
-      return this.#getTimeToFreeBatch(params)
+      return this.#getTimeToFreeBatch(requestId, params)
     }
 
     const stats = this.#methodStats.get(method)
@@ -114,7 +119,7 @@ export class OperatingLimiter implements ILimiter {
   /**
    * Для `batch` из команд возвращает максимальное время до освобождения метода от operating лимита (в мс)
    */
-  async #getTimeToFreeBatch(params: any): Promise<number> {
+  async #getTimeToFreeBatch(requestId: string, params: any): Promise<number> {
     let maxWait = 0
 
     if (!params?.cmd || !Array.isArray(params.cmd)) {
@@ -126,7 +131,7 @@ export class OperatingLimiter implements ILimiter {
       .filter(Boolean)
 
     for (const methodName of batchMethods) {
-      const waitTime = await this.getTimeToFree(`batch::${methodName}`, {})
+      const waitTime = await this.getTimeToFree(requestId, `batch::${methodName}`, {})
       maxWait = Math.max(maxWait, waitTime)
     }
 
@@ -136,7 +141,7 @@ export class OperatingLimiter implements ILimiter {
   /**
    * Обновляет статистику operating времени для метода
    */
-  async updateStats(method: string, data: PayloadTime): Promise<void> {
+  async updateStats(requestId: string, method: string, data: PayloadTime): Promise<void> {
     this.#cleanupOldStats()
 
     // все в секундах
@@ -166,7 +171,7 @@ export class OperatingLimiter implements ILimiter {
 
       // Логируем если близко к лимиту
       this.getLogger().warn(
-        `⚠️ Method ${method}: use ${usagePercent.toFixed(1)}% operating limit`,
+        `[${requestId}] Method ${method}: use ${usagePercent.toFixed(1)}% operating limit`,
         `(${(stats.operating / 1000).toFixed(1)} sec from ${(this.#config.limitMs / 1000).toFixed(1)} sec)`
       )
     }

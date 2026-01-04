@@ -45,19 +45,19 @@ export class AdaptiveDelayer implements ILimiter {
   }
   // endregion ////
 
-  async canProceed(): Promise<boolean> {
+  async canProceed(_requestId: string, _method: string, _params?: any): Promise<boolean> {
     return true // Adaptive delay doesn't block, only delays
   }
 
   /**
    * Возвращает адаптивную задержку на основе предыдущего опыта
    */
-  async waitIfNeeded(method: string, params?: any): Promise<number> {
+  async waitIfNeeded(requestId: string, method: string, params?: any): Promise<number> {
     if (!this.#config.enabled) {
       return 0
     }
 
-    const delay = this.#calculateDelay(method, params)
+    const delay = this.#calculateDelay(requestId, method, params)
 
     if (delay > 0) {
       this.incrementAdaptiveDelays()
@@ -69,10 +69,11 @@ export class AdaptiveDelayer implements ILimiter {
 
   /**
    * Считает адаптивную задержку на основе предыдущего опыта
+   * @todo add requestId [${requestId}]
    */
-  #calculateDelay(method: string, params?: any): number {
+  #calculateDelay(requestId: string, method: string, params?: any): number {
     if (method === 'batch') {
-      return this.#calculateBatchDelay(params)
+      return this.#calculateBatchDelay(requestId, params)
     }
 
     const stats = this.#operatingLimiter.getMethodStat(method)
@@ -97,7 +98,7 @@ export class AdaptiveDelayer implements ILimiter {
       const waitDelay = Math.min(adaptiveDelay, this.#config.maxDelay)
 
       this.getLogger().log(
-        `⚠️ Method ${method}: предыдущий запрос использовал ${(usagePercent).toFixed(1)}% operating limit`,
+        `[${requestId}] Method ${method}: предыдущий запрос использовал ${(usagePercent).toFixed(1)}% operating limit`,
         `Задержка:`,
         `- расчетная ${(adaptiveDelay / 1000).toFixed(2)} sec.`,
         `- фактическая ${(waitDelay / 1000).toFixed(2)} sec.`
@@ -110,11 +111,9 @@ export class AdaptiveDelayer implements ILimiter {
   }
 
   /**
-   * Для `batch` из команд применяет адаптивную задержку на основе предыдущего опыта
-   * @todo проверить для объектной натации
-   * @todo проверить для всех натаций
+   * Для `batch` применяет адаптивную задержку на основе предыдущего опыта из команд
    */
-  #calculateBatchDelay(params: any): number {
+  #calculateBatchDelay(requestId: string, params: any): number {
     let maxDelay = 0
 
     if (!params?.cmd || !Array.isArray(params.cmd)) {
@@ -128,14 +127,14 @@ export class AdaptiveDelayer implements ILimiter {
     const batchMethodsUnique = [...new Set(batchMethods)]
 
     for (const methodName of batchMethodsUnique) {
-      const delay = this.#calculateDelay(`batch::${methodName}`, {})
+      const delay = this.#calculateDelay(requestId, `batch::${methodName}`, {})
       maxDelay = Math.max(maxDelay, delay)
     }
 
     return maxDelay
   }
 
-  async updateStats(_method: string, _data: any): Promise<void> {
+  async updateStats(_requestId: string, _method: string, _data: any): Promise<void> {
     // Adaptive delayer updates based on operating limiter
   }
 

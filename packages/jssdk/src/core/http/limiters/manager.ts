@@ -95,7 +95,7 @@ export class RestrictionManager {
     let waitTime
     let iterator = 1
     do {
-      waitTime = await this.#rateLimiter.waitIfNeeded()
+      waitTime = await this.#rateLimiter.waitIfNeeded(requestId, method)
       if (waitTime > 0) {
         this.incrementStats('limitHits')
         this.getLogger().warn(
@@ -108,10 +108,14 @@ export class RestrictionManager {
     } while (waitTime > 0)
   }
 
-  async updateStats(method: string, timeData: any): Promise<void> {
-    await this.#operatingLimiter.updateStats(method, timeData)
-    await this.#adaptiveDelayer.updateStats(method, timeData)
-    await this.#rateLimiter.updateStats(method, timeData)
+  async updateStats(
+    requestId: string,
+    method: string,
+    timeData: any
+  ): Promise<void> {
+    await this.#operatingLimiter.updateStats(requestId, method, timeData)
+    await this.#adaptiveDelayer.updateStats(requestId, method, timeData)
+    await this.#rateLimiter.updateStats(requestId, method, timeData)
   }
 
   async handleError(
@@ -125,14 +129,14 @@ export class RestrictionManager {
     if (this.#isRateLimitError(error)) {
       this.getLogger().warn(`[${requestId}][QUERY_LIMIT_EXCEEDED] Ошибка: rate limit превышен.`)
       // Так как это обработка ошибки то учитываем количество попыток
-      return (await this.#handleRateLimitExceeded()) * Math.pow(1.5, attempt)
+      return (await this.#handleRateLimitExceeded(requestId)) * Math.pow(1.5, attempt)
     }
 
     // Operating limit exceeded
     if (this.#isOperatingLimitError(error)) {
       this.getLogger().warn(`[${requestId}][OPERATION_TIME_LIMIT] Ошибка: operating limit превышен.`)
       // Так как это обработка ошибки то увеличим минимум до 10 секунд
-      return Math.max(10_000, await this.#handleOperatingLimitError(method, params, error))
+      return Math.max(10_000, await this.#handleOperatingLimitError(requestId, method, params, error))
     }
 
     // Иные исключения
@@ -140,7 +144,7 @@ export class RestrictionManager {
       this.getLogger().warn(`[${requestId}]${error?.code ? `[${error.code}] ` : ''}Ошибка: ${error.message}.`)
 
       // Так как это обработка ошибки то учитываем количество попыток
-      return (await this.#getErrorBackoff()) * Math.pow(2, attempt)
+      return (await this.#getErrorBackoff(requestId)) * Math.pow(2, attempt)
     }
 
     return 0 // Не повторяем
@@ -157,8 +161,8 @@ export class RestrictionManager {
   /**
    * Задержака при превышение rate limit
    */
-  async #handleRateLimitExceeded(): Promise<number> {
-    return this.#rateLimiter.handleExceeded()
+  async #handleRateLimitExceeded(requestId: string): Promise<number> {
+    return this.#rateLimiter.handleExceeded(requestId)
   }
 
   /**
@@ -175,8 +179,8 @@ export class RestrictionManager {
    * Задержака при ошибке operating limit
    * @memo Сейчас в ошибках не приходят тайминги по операциям - по этой причине будем брать данные из прошлого запроса
    */
-  async #handleOperatingLimitError(method: string, params?: any, _error?: any): Promise<number> {
-    return this.#operatingLimiter.getTimeToFree(method, params, _error)
+  async #handleOperatingLimitError(requestId: string, method: string, params?: any, _error?: any): Promise<number> {
+    return this.#operatingLimiter.getTimeToFree(requestId, method, params, _error)
   }
 
   /**
@@ -198,7 +202,7 @@ export class RestrictionManager {
   /**
    * Задержака при не понятных ошибках
    */
-  async #getErrorBackoff(): Promise<number> {
+  async #getErrorBackoff(_requestId: string): Promise<number> {
     return this.#config.retryDelay!
   }
 
@@ -251,32 +255,6 @@ export class RestrictionManager {
   }
 
   async setConfig(params: RestrictionParams): Promise<void> {
-    // @todo
-    // // Мерджим переданные параметры с текущими
-    // this.#restrictionParams = {
-    //   ...this.#restrictionParams,
-    //   ...params,
-    //   rateLimit: {
-    //     ...this.#restrictionParams.rateLimit,
-    //     ...params.rateLimit
-    //   } as RateLimitConfig,
-    //   operatingLimit: {
-    //     ...this.#restrictionParams.operatingLimit,
-    //     ...params.operatingLimit
-    //   } as OperatingLimitConfig,
-    //   adaptiveConfig: {
-    //     ...this.#restrictionParams.adaptiveConfig,
-    //     ...params.adaptiveConfig
-    //   } as AdaptiveConfig
-    // }
-    //
-    // this.getLogger().log(`new restriction manager params`, this.#restrictionParams)
-    //
-    // // Обновляем внутреннее состояние rate limiter
-    // this.#tokens = this.#restrictionParams.rateLimit!.burstLimit!
-    // this.#refillIntervalMs = 1000 / this.#restrictionParams.rateLimit!.drainRate!
-    // this.#lastRefill = Date.now()
-
     this.#config = params
     await this.#rateLimiter.setConfig(params.rateLimit!)
     await this.#operatingLimiter.setConfig(params.operatingLimit!)

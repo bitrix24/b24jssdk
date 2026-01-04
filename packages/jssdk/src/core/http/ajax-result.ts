@@ -13,7 +13,7 @@ import type { TypeCallParams, TypeHttp } from '../../types/http'
 export type AjaxQuery = Readonly<{
   method: string
   params: TypeCallParams
-  // start: number
+  requestId: string
 }>
 
 export type AjaxResultParams<T = unknown> = Readonly<{

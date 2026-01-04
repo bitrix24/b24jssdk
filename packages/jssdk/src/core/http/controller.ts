@@ -171,12 +171,13 @@ export default class Http implements TypeHttp {
     })
   }
 
+  // @todo add requestId to paramas logger
   #logAttempt(requestId: string, method: string, attempt: number, maxRetries: number): void {
-    this.getLogger().log(`[${requestId}] [request] Attempt`, {
+    this.getLogger().log(`[${requestId}] [request] attempt`, {
+      requestId,
       method,
       attempt,
-      maxRetries,
-      timestamp: Date.now()
+      maxRetries
     })
   }
 

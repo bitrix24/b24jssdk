@@ -156,10 +156,13 @@ export class RateLimiter implements ILimiter {
       if (this.#config.adaptiveEnabled) {
         this.getLogger().log(
           `[${requestId}] [rateLimiter] текущие показатели:`,
-          `\n- успешных много: (${this.#successTimestamps.length} >= ${this.#successThreshold}) ${this.#successTimestamps.length >= this.#successThreshold}`,
-          `\n- ошибок мало: (${this.#errorTimestamps.length} < ${(this.#errorThreshold / 2)}) ${this.#errorTimestamps.length < (this.#errorThreshold / 2)}`,
-          `\n- drainRate: (${this.#config.drainRate} < ${this.#originalConfig.drainRate}) ${this.#config.drainRate < this.#originalConfig.drainRate}`,
-          `\n- burstLimit: (${this.#config.burstLimit} < ${this.#originalConfig.burstLimit}) ${this.#config.burstLimit < this.#originalConfig.burstLimit}`
+          {
+            requestId,
+            success: `(${this.#successTimestamps.length} >= ${this.#successThreshold}) ${this.#successTimestamps.length >= this.#successThreshold}`,
+            fail: `(${this.#errorTimestamps.length} < ${(this.#errorThreshold / 2)}) ${this.#errorTimestamps.length < (this.#errorThreshold / 2)}}`,
+            drainRate: `(${this.#config.drainRate} < ${this.#originalConfig.drainRate}) ${this.#config.drainRate < this.#originalConfig.drainRate}`,
+            burstLimit: `(${this.#config.burstLimit} < ${this.#originalConfig.burstLimit}) ${this.#config.burstLimit < this.#originalConfig.burstLimit}`
+          }
         )
       }
 

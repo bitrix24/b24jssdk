@@ -72,7 +72,6 @@ export class AdaptiveDelayer implements ILimiter {
 
   /**
    * Считает адаптивную задержку на основе предыдущего опыта
-   * @todo add requestId [${requestId}]
    */
   #calculateDelay(requestId: string, method: string, params?: any): number {
     if (method === 'batch') {

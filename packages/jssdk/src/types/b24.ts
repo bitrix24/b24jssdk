@@ -7,10 +7,10 @@ import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
   BatchNamedCommandsUniversal,
-  ICallBatchResult,
   TypeCallParams
 } from './http'
 import type { AuthActions } from './auth'
+import type { PayloadTime } from './payloads'
 
 /**
  * @todo перевод
@@ -61,13 +61,13 @@ export type TypeB24 = {
    * Calling the RestApi function
    * @param method - REST API method name
    * @param params - Parameters for the method.
-   * @param requestId
+   * @param requestIdOrStart
    * @returns Promise with AjaxResult
    */
   callMethod<T = unknown>(
     method: string,
     params?: TypeCallParams,
-    requestId?: string
+    requestIdOrStart?: number | string
   ): Promise<AjaxResult<T>>
 
   /**
@@ -125,7 +125,7 @@ export type TypeB24 = {
   callBatch<T = any>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: IB24BatchOptions
-  ): Promise<Result<ICallBatchResult<T>> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>>
+  ): Promise<Result<{ result: Record<string | number, AjaxResult<T>> | AjaxResult<T>[], time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>>
 
   /**
    * @deprecated Use the method `callBatch` with the options object

@@ -87,16 +87,26 @@ export abstract class AbstractB24 implements TypeB24 {
    * @todo test start
    * @param method - REST API method name
    * @param params - Parameters for the method.
-   * @param requestId
+   * @param requestIdOrStart
    * @returns Promise with AjaxResult
    * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
    */
   callMethod<T = unknown>(
     method: string,
     params?: TypeCallParams,
-    requestId?: string
+    requestIdOrStart?: string | number
   ): Promise<AjaxResult<T>> {
     params = params || {}
+
+    let requestId = undefined
+    if (
+      typeof requestIdOrStart === 'number'
+      && !('start' in params)
+    ) {
+      params.start = requestIdOrStart
+    } else if (typeof requestIdOrStart === 'string') {
+      requestId = requestIdOrStart
+    }
 
     return this.getHttpClient().call<T>(method, params, requestId)
   }

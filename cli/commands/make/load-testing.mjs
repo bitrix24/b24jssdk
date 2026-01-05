@@ -23,6 +23,7 @@ const commandsList = [
  * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --limiter=batch
  * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --limiter=realtime
  * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --limiter=default
+ * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --example=1 --limiter=default
  * node -r dotenv/config ./cli/index.mjs make loadTesting --total=60 --async
  */
 export default defineCommand({
@@ -109,11 +110,11 @@ export default defineCommand({
     async function callCommand1(commandNumber) {
       try {
         const { method, params } = commandsList[Math.floor(Math.random() * commandsList.length)]
-        logger.info('callMethod >>>', method)
+        logger.log('callMethod >>>', method)
 
         const response = await b24.callMethod(method, params, commandNumber)
 
-        logger.info(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
+        logger.log(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
@@ -147,11 +148,11 @@ export default defineCommand({
           ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }]
         ]
 
-        logger.info(`callBatch|array[${batchCalls.length}] >>>`, ['server.time', 'crm.item.list', '...'])
+        logger.log(`callBatch|array[${batchCalls.length}] >>>`, ['server.time', 'crm.item.list', '...'])
 
         const response = await b24.callBatch(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true, requestId: commandNumber })
 
-        logger.info(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
+        logger.log(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
@@ -199,11 +200,11 @@ export default defineCommand({
           }
         }
 
-        logger.info('callBatch|object >>>', { cmd1: batchCalls.cmd1.method, cmd2: batchCalls.cmd2.method, cmd3: '...' })
+        logger.log('callBatch|object >>>', { cmd1: batchCalls.cmd1.method, cmd2: batchCalls.cmd2.method, cmd3: '...' })
 
         const response = await b24.callBatch(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true, requestId: commandNumber })
 
-        logger.info(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
+        logger.log(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
@@ -235,11 +236,11 @@ export default defineCommand({
           params
         ])
 
-        logger.info(`callBatchByChunk|array[${batchCalls.length}] >>>`, [method, method, '...'])
+        logger.log(`callBatchByChunk|array[${batchCalls.length}] >>>`, [method, method, '...'])
 
         const response = await b24.callBatchByChunk(batchCalls, { isHaltOnError: true, requestId: commandNumber })
 
-        logger.info(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
+        logger.log(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
@@ -267,13 +268,13 @@ export default defineCommand({
       logger.log('🚀 Starting calling of random commands in Bitrix24')
       logger.log(`📊 Planned to calling: ${args.total} commands`)
 
-      const healthCheckData = await b24.healthCheck()
+      const healthCheckData = await b24.healthCheck('healthCheck')
       logger.log(`📊 health check: ${healthCheckData ? 'success' : 'fail'}`)
       if (!healthCheckData) {
         return
       }
 
-      const pingData = await b24.ping()
+      const pingData = await b24.ping('ping')
       logger.log(`📊 ping: ${pingData} ms.`)
 
       logger.log('─'.repeat(50))

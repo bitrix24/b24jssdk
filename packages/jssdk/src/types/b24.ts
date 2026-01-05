@@ -170,10 +170,10 @@ export type TypeB24 = {
   /**
    * Метод для проверки доступности
    */
-  healthCheck(): Promise<boolean>
+  healthCheck(requestId?: string): Promise<boolean>
 
   /**
    * Метод для тестирования скорости ответа
    */
-  ping(): Promise<number>
+  ping(requestId?: string): Promise<number>
 }

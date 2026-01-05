@@ -14,9 +14,7 @@ export class RestrictionManager {
   #operatingLimiter: OperatingLimiter
   #adaptiveDelayer: AdaptiveDelayer
   #config: RestrictionParams
-  #stats: Pick<RestrictionManagerStats, 'totalRequests' | 'retries' | 'consecutiveErrors' | 'limitHits'> = {
-    /** Общее количество запросов */
-    totalRequests: 0,
+  #stats: Pick<RestrictionManagerStats, 'retries' | 'consecutiveErrors' | 'limitHits'> = {
     /** Повторные попытки */
     retries: 0,
     /** Последовательные ошибки */
@@ -64,23 +62,17 @@ export class RestrictionManager {
 
   async applyOperatingLimits(requestId: string, method: string, params?: any): Promise<void> {
     // 1. Check operating limit
-    const operatingWait = await this.#operatingLimiter.waitIfNeeded(method, params)
+    const operatingWait = await this.#operatingLimiter.waitIfNeeded(requestId, method, params)
     if (operatingWait > 0) {
       this.incrementStats('limitHits')
-      this.getLogger().warn(
-        `[${requestId}] Метод ${method}: заблокирован по operating limit.`,
-        `Ждем ${(operatingWait / 1000).toFixed(2)} sec.`
-      )
+      this.#logMethodBlocked(this.#operatingLimiter.getTitle(), requestId, method, operatingWait)
       await this.#delay(operatingWait)
     } else {
       // 2. Apply adaptive delay
-      const adaptiveDelay = await this.#adaptiveDelayer.waitIfNeeded(method, params)
+      const adaptiveDelay = await this.#adaptiveDelayer.waitIfNeeded(requestId, method, params)
       if (adaptiveDelay > 0) {
         this.incrementStats('limitHits')
-        this.getLogger().warn(
-          `[${requestId}] Метод ${method}: заблокирован по ${method === 'batch' ? 'максимальному ' : ''}adaptive delay.`,
-          `Ждем ${(adaptiveDelay / 1000).toFixed(2)} sec.`
-        )
+        this.#logMethodBlocked(this.#adaptiveDelayer.getTitle(), requestId, method, adaptiveDelay)
         await this.#delay(adaptiveDelay)
       }
     }
@@ -93,17 +85,14 @@ export class RestrictionManager {
   async checkRateLimit(requestId: string, method: string): Promise<void> {
     // 3. Apply rate limit
     let waitTime
-    let iterator = 1
+    let times = 1
     do {
       waitTime = await this.#rateLimiter.waitIfNeeded(requestId, method)
       if (waitTime > 0) {
         this.incrementStats('limitHits')
-        this.getLogger().warn(
-          `[${requestId}] Метод ${method}: заблокирован по rate limit | ${iterator} раз`,
-          `Ждем ${(waitTime / 1000).toFixed(2)} sec.`
-        )
+        this.#logMethodBlockedWithTimes(this.#rateLimiter.getTitle(), requestId, method, waitTime, times)
         await this.#delay(waitTime)
-        iterator++
+        times++
       }
     } while (waitTime > 0)
   }
@@ -127,24 +116,34 @@ export class RestrictionManager {
   ): Promise<number> {
     // Rate limit exceeded
     if (this.#isRateLimitError(error)) {
-      this.getLogger().warn(`[${requestId}][QUERY_LIMIT_EXCEEDED] Ошибка: rate limit превышен.`)
       // Так как это обработка ошибки то учитываем количество попыток
-      return (await this.#handleRateLimitExceeded(requestId)) * Math.pow(1.5, attempt)
+      const wait = (await this.#handleRateLimitExceeded(requestId)) * Math.pow(1.5, attempt)
+      this.#logError(this.#rateLimiter.getTitle(), requestId, 'QUERY_LIMIT_EXCEEDED', error.message, method, wait)
+      return wait
     }
 
     // Operating limit exceeded
     if (this.#isOperatingLimitError(error)) {
-      this.getLogger().warn(`[${requestId}][OPERATION_TIME_LIMIT] Ошибка: operating limit превышен.`)
       // Так как это обработка ошибки то увеличим минимум до 10 секунд
-      return Math.max(10_000, await this.#handleOperatingLimitError(requestId, method, params, error))
+      const wait = Math.max(10_000, await this.#handleOperatingLimitError(requestId, method, params, error))
+      this.#logError(this.#operatingLimiter.getTitle(), requestId, 'OPERATION_TIME_LIMIT', error.message, method, wait)
+      return wait
     }
 
     // Иные исключения
     if (!this.#isNeedThrowError(error)) {
-      this.getLogger().warn(`[${requestId}]${error?.code ? `[${error.code}] ` : ''}Ошибка: ${error.message}.`)
-
       // Так как это обработка ошибки то учитываем количество попыток
-      return (await this.#getErrorBackoff(requestId)) * Math.pow(2, attempt)
+      const baseDelay = await this.#getErrorBackoff(requestId)
+      const maxDelay = Math.max(30_000, baseDelay)
+      const delay = Math.min(maxDelay, baseDelay * Math.pow(2, attempt))
+
+      // Добавить jitter для предотвращения thundering herd
+      const jitter = delay * 0.1 * (Math.random() * 2 - 1) // ±10% jitter
+      const wait = Math.max(100, delay + jitter)
+
+      this.#logSomeError(requestId, error?.code ? `${error.code}` : '?', error.message, method, wait)
+
+      return wait
     }
 
     return 0 // Не повторяем
@@ -217,7 +216,7 @@ export class RestrictionManager {
     this.#stats.consecutiveErrors = 0
   }
 
-  incrementStats(stat: keyof Pick<RestrictionManagerStats, 'totalRequests' | 'retries' | 'consecutiveErrors' | 'limitHits'>): void {
+  incrementStats(stat: keyof Pick<RestrictionManagerStats, 'retries' | 'consecutiveErrors' | 'limitHits'>): void {
     this.#stats[stat]++
   }
 
@@ -247,7 +246,6 @@ export class RestrictionManager {
     this.#errorCounts.clear()
 
     this.#stats = {
-      totalRequests: 0,
       retries: 0,
       consecutiveErrors: 0,
       limitHits: 0
@@ -278,4 +276,50 @@ export class RestrictionManager {
   async waiteDelay(ms: number): Promise<void> {
     return this.#delay(ms)
   }
+
+  // region Log ////
+  #logMethodBlocked(limiter: string, requestId: string, method: string, wait: number) {
+    this.getLogger().warn(`${limiter} blocked method ${method}`, {
+      requestId,
+      method,
+      wait,
+      limiter
+    })
+  }
+
+  #logMethodBlockedWithTimes(limiter: string, requestId: string, method: string, wait: number, times: number) {
+    this.getLogger().warn(`${limiter} blocked method ${method} | ${times} times`, {
+      requestId,
+      method,
+      times,
+      wait,
+      limiter
+    })
+  }
+
+  #logError(limiter: string, requestId: string, code: string, message: string, method: string, wait: number) {
+    this.getLogger().error(`${limiter} recognized the ${code} error for the ${method} method`, {
+      requestId,
+      method,
+      wait,
+      limiter,
+      error: {
+        code,
+        message
+      }
+    })
+  }
+
+  #logSomeError(requestId: string, code: string, message: string, method: string, wait: number) {
+    this.getLogger().error(`Recognized the ${code} error for the ${method} method`, {
+      requestId,
+      method,
+      wait,
+      error: {
+        code,
+        message
+      }
+    })
+  }
+  // endregion ////
 }

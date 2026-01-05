@@ -17,6 +17,10 @@ export class AdaptiveDelayer implements ILimiter {
 
   private _logger: null | LoggerBrowser = null
 
+  getTitle(): string {
+    return 'adaptiveDelayer'
+  }
+
   constructor(config: AdaptiveConfig, operatingLimiter: OperatingLimiter) {
     this.#config = config
     this.#operatingLimiter = operatingLimiter
@@ -58,7 +62,6 @@ export class AdaptiveDelayer implements ILimiter {
     }
 
     const delay = this.#calculateDelay(requestId, method, params)
-
     if (delay > 0) {
       this.incrementAdaptiveDelays()
       this.#stats.totalAdaptiveDelay += delay
@@ -95,15 +98,9 @@ export class AdaptiveDelayer implements ILimiter {
         adaptiveDelay += 7_000 // 7 секунд по умолчанию
       }
 
-      const waitDelay = Math.min(adaptiveDelay, this.#config.maxDelay)
+      const waitDelay = Number.parseInt(Math.min(adaptiveDelay, this.#config.maxDelay).toFixed(0))
 
-      this.getLogger().log(
-        `[${requestId}] Method ${method}: предыдущий запрос использовал ${(usagePercent).toFixed(1)}% operating limit`,
-        `Задержка:`,
-        `- расчетная ${(adaptiveDelay / 1000).toFixed(2)} sec.`,
-        `- фактическая ${(waitDelay / 1000).toFixed(2)} sec.`
-      )
-
+      this.#logStat(requestId, method, usagePercent, adaptiveDelay, waitDelay)
       return waitDelay
     }
 
@@ -165,4 +162,18 @@ export class AdaptiveDelayer implements ILimiter {
   incrementAdaptiveDelays(): void {
     this.#stats.adaptiveDelays++
   }
+
+  // region Log ////
+  #logStat(requestId: string, method: string, percent: number, adaptiveDelay: number, waitDelay: number) {
+    this.getLogger().log(`${this.getTitle()} state for method ${method}`, {
+      requestId,
+      method,
+      percent: Number.parseFloat(percent.toFixed(2)),
+      delays: {
+        calculated: adaptiveDelay,
+        actual: waitDelay
+      }
+    })
+  }
+  // endregion ////
 }

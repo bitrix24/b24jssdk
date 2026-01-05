@@ -29,6 +29,10 @@ export class OperatingLimiter implements ILimiter {
 
   private _logger: null | LoggerBrowser = null
 
+  getTitle(): string {
+    return 'operatingLimiter'
+  }
+
   constructor(config: OperatingLimitConfig) {
     this.#config = config
   }
@@ -170,10 +174,7 @@ export class OperatingLimiter implements ILimiter {
       this.#stats.heavyRequestCount++
 
       // Логируем если близко к лимиту
-      this.getLogger().warn(
-        `[${requestId}] Method ${method}: use ${usagePercent.toFixed(1)}% operating limit`,
-        `(${(stats.operating / 1000).toFixed(1)} sec from ${(this.#config.limitMs / 1000).toFixed(1)} sec)`
-      )
+      this.#logStat(requestId, method, usagePercent, stats.operating)
     }
   }
 
@@ -217,4 +218,18 @@ export class OperatingLimiter implements ILimiter {
   async setConfig(config: OperatingLimitConfig): Promise<void> {
     this.#config = config
   }
+
+  // region Log ////
+  #logStat(requestId: string, method: string, percent: number, operating: number) {
+    this.getLogger().info(`${this.getTitle()} detected limit for method ${method}`, {
+      requestId,
+      method,
+      operating: {
+        percent: Number.parseFloat(percent.toFixed(2)),
+        current: Number.parseFloat(operating.toFixed(0)),
+        max: this.#config.limitMs
+      }
+    })
+  }
+  // endregion ////
 }

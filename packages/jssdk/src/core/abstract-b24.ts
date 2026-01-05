@@ -463,9 +463,9 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * @inheritDoc
    */
-  async healthCheck(): Promise<boolean> {
+  async healthCheck(requestId?: string): Promise<boolean> {
     try {
-      const response = await this.callMethod('server.time', {})
+      const response = await this.callMethod('server.time', {}, requestId)
       return response.isSuccess
     } catch {
       return false
@@ -475,11 +475,11 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * @inheritDoc
    */
-  async ping(): Promise<number> {
+  async ping(requestId?: string): Promise<number> {
     const startTime = Date.now()
 
     try {
-      await this.callMethod('server.time', {})
+      await this.callMethod('server.time', {}, requestId)
       return Date.now() - startTime
     } catch {
       return -1

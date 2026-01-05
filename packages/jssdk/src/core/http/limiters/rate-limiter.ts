@@ -30,6 +30,10 @@ export class RateLimiter implements ILimiter {
     this.#refillIntervalMs = 1000 / config.drainRate
   }
 
+  getTitle(): string {
+    return 'rateLimiter'
+  }
+
   // region Logger ////
   setLogger(logger: LoggerBrowser): void {
     this._logger = logger
@@ -154,16 +158,7 @@ export class RateLimiter implements ILimiter {
       // Адаптивное регулирование: если стабильно работаем - восстанавливаем лимиты
 
       if (this.#config.adaptiveEnabled) {
-        this.getLogger().log(
-          `[${requestId}] [rateLimiter] текущие показатели:`,
-          {
-            requestId,
-            success: `(${this.#successTimestamps.length} >= ${this.#successThreshold}) ${this.#successTimestamps.length >= this.#successThreshold}`,
-            fail: `(${this.#errorTimestamps.length} < ${(this.#errorThreshold / 2)}) ${this.#errorTimestamps.length < (this.#errorThreshold / 2)}}`,
-            drainRate: `(${this.#config.drainRate} < ${this.#originalConfig.drainRate}) ${this.#config.drainRate < this.#originalConfig.drainRate}`,
-            burstLimit: `(${this.#config.burstLimit} < ${this.#originalConfig.burstLimit}) ${this.#config.burstLimit < this.#originalConfig.burstLimit}`
-          }
-        )
+        this.#logStat(requestId)
       }
 
       if (this.#config.adaptiveEnabled && this.#shouldRestoreLimits()) {
@@ -247,7 +242,7 @@ export class RateLimiter implements ILimiter {
       const queueLength = this.#lockQueue.push(resolve)
 
       if (queueLength > 1) {
-        this.getLogger().log(`[${requestId}] [rateLimiter] Запрос в очереди: ${queueLength} ожидающих`)
+        this.#logAcquireQueue(requestId, queueLength)
       }
       // Если это первый в очереди, сразу разрешаем
       if (this.#lockQueue.length === 1) {
@@ -315,10 +310,7 @@ export class RateLimiter implements ILimiter {
     this.#config.burstLimit = newBurstLimit
     this.#refillIntervalMs = 1000 / newDrainRate
 
-    this.getLogger().warn(
-      `[${requestId}] [rateLimiter] Уменьшаем лимиты из-за частых ошибок:`,
-      `drainRate=${newDrainRate.toFixed(2)}, burstLimit=${newBurstLimit}`
-    )
+    this.#logReduceLimits(requestId, newDrainRate, newBurstLimit)
 
     // Сбрасываем статистику ошибок после уменьшения
     this.#errorTimestamps = []
@@ -353,10 +345,7 @@ export class RateLimiter implements ILimiter {
     this.#config.burstLimit = newBurstLimit
     this.#refillIntervalMs = 1000 / newDrainRate
 
-    this.getLogger().warn(
-      `[${requestId}] [rateLimiter] Увеличиваем лимиты при стабильной работе:`,
-      `drainRate=${newDrainRate.toFixed(2)}, burstLimit=${newBurstLimit}`
-    )
+    this.#logRestoreLimits(requestId, newDrainRate, newBurstLimit)
 
     // Сбрасываем статистику успехов после восстановления
     this.#errorTimestamps = []
@@ -403,4 +392,113 @@ export class RateLimiter implements ILimiter {
   #cleanupOldSuccesses(): void {
     this.#successTimestamps = this.#successTimestamps.slice(-1 * this.#successThreshold)
   }
+
+  // region Log ////
+  #logReduceLimits(requestId: string, currentDrainRate: number, currentBurstLimit: number) {
+    const originalDrainRate = this.#originalConfig.drainRate
+    const drainRateCondition = currentDrainRate < originalDrainRate
+
+    const originalBurstLimit = this.#originalConfig.burstLimit
+    const burstLimitCondition = currentBurstLimit < originalBurstLimit
+
+    this.getLogger().warn(
+      `${this.getTitle()} is lowering limits due to frequent errors`, {
+        requestId,
+        drainRate: {
+          current: currentDrainRate,
+          original: originalDrainRate,
+          condition: drainRateCondition,
+          formatted: `(${currentDrainRate} < ${originalDrainRate}) ${drainRateCondition}`
+        },
+        burstLimit: {
+          current: currentBurstLimit,
+          original: originalBurstLimit,
+          condition: burstLimitCondition,
+          formatted: `(${currentBurstLimit} < ${originalBurstLimit}) ${burstLimitCondition}`
+        }
+      }
+    )
+  }
+
+  #logRestoreLimits(requestId: string, currentDrainRate: number, currentBurstLimit: number) {
+    const originalDrainRate = this.#originalConfig.drainRate
+    const drainRateCondition = currentDrainRate < originalDrainRate
+
+    const originalBurstLimit = this.#originalConfig.burstLimit
+    const burstLimitCondition = currentBurstLimit < originalBurstLimit
+
+    this.getLogger().warn(
+      `${this.getTitle()} increases limits during stable operation`, {
+        requestId,
+        drainRate: {
+          current: currentDrainRate,
+          original: originalDrainRate,
+          condition: drainRateCondition,
+          formatted: `(${currentDrainRate} < ${originalDrainRate}) ${drainRateCondition}`
+        },
+        burstLimit: {
+          current: currentBurstLimit,
+          original: originalBurstLimit,
+          condition: burstLimitCondition,
+          formatted: `(${currentBurstLimit} < ${originalBurstLimit}) ${burstLimitCondition}`
+        }
+      }
+    )
+  }
+
+  #logAcquireQueue(requestId: string, queueLength: number) {
+    this.getLogger().log(`${this.getTitle()} request in queue`, {
+      requestId,
+      queueLength
+    })
+  }
+
+  #logStat(
+    requestId: string
+  ): void {
+    const successCount = this.#successTimestamps.length
+    const successThreshold = this.#successThreshold
+    const successCondition = successCount >= successThreshold
+
+    const errorCount = this.#errorTimestamps.length
+    const errorThreshold = this.#errorThreshold
+    const failCondition = errorCount < (errorThreshold / 2)
+
+    const currentDrainRate = this.#config.drainRate
+    const originalDrainRate = this.#originalConfig.drainRate
+    const drainRateCondition = currentDrainRate < originalDrainRate
+
+    const currentBurstLimit = this.#config.burstLimit
+    const originalBurstLimit = this.#originalConfig.burstLimit
+    const burstLimitCondition = currentBurstLimit < originalBurstLimit
+
+    this.getLogger().log(`${this.getTitle()} state`, {
+      requestId,
+      success: {
+        count: successCount,
+        threshold: successThreshold,
+        condition: successCondition,
+        formatted: `(${successCount} >= ${successThreshold}) ${successCondition}`
+      },
+      fail: {
+        count: errorCount,
+        threshold: errorThreshold / 2,
+        condition: failCondition,
+        formatted: `(${errorCount} < ${errorThreshold / 2}) ${failCondition}`
+      },
+      drainRate: {
+        current: currentDrainRate,
+        original: originalDrainRate,
+        condition: drainRateCondition,
+        formatted: `(${currentDrainRate} < ${originalDrainRate}) ${drainRateCondition}`
+      },
+      burstLimit: {
+        current: currentBurstLimit,
+        original: originalBurstLimit,
+        condition: burstLimitCondition,
+        formatted: `(${currentBurstLimit} < ${originalBurstLimit}) ${burstLimitCondition}`
+      }
+    })
+  }
+  // endregion ////
 }

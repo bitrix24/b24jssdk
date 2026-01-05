@@ -113,8 +113,6 @@ export interface RestrictionParams {
  * Статистика работы ограничителя
  */
 export interface RestrictionManagerStats {
-  /** Общее количество запросов */
-  totalRequests: number
   /** Повторные попытки */
   retries: number
   /** Последовательные ошибки */
@@ -134,6 +132,7 @@ export interface RestrictionManagerStats {
 }
 
 export interface ILimiter {
+  getTitle(): string
   setConfig(config: any): Promise<void>
   setLogger(logger: LoggerBrowser): void
   getLogger(): LoggerBrowser

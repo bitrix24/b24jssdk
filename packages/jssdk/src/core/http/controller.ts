@@ -36,6 +36,7 @@ interface BatchResponseData<T = unknown> {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BITRIX24_OAUTH_SERVER_URL = 'https://oauth.bitrix.info'
+const MAX_BATCH_COMMANDS = 50
 
 /**
  * Class for working with RestApi requests via http
@@ -55,6 +56,15 @@ export default class Http implements TypeHttp {
   #isClientSideWarning: boolean = false
   #clientSideWarningMessage: string = ''
 
+  #metrics = {
+    totalRequests: 0,
+    successfulRequests: 0,
+    failedRequests: 0,
+    totalDuration: 0,
+    byMethod: new Map<string, { count: number, totalDuration: number }>(),
+    lastErrors: [] as Array<{ method: string, error: string, timestamp: number }>
+  }
+
   constructor(
     baseURL: string,
     authActions: AuthActions,
@@ -71,6 +81,8 @@ export default class Http implements TypeHttp {
         ...defaultHeaders,
         ...(options ? (options as any).headers : {})
       },
+      timeout: 30_000,
+      timeoutErrorMessage: 'Request timeout exceeded',
       ...(options && { ...options, headers: undefined })
     })
 
@@ -127,14 +139,35 @@ export default class Http implements TypeHttp {
   getStats(): RestrictionManagerStats & {
     adaptiveDelayAvg: number
     errorCounts: Record<string, number>
+    totalRequests: number
+    successfulRequests: number
+    failedRequests: number
+    totalDuration: number
+    byMethod: Map<string, { count: number, totalDuration: number }>
+    lastErrors: { method: string, error: string, timestamp: number }[]
   } {
-    return this.#restrictionManager.getStats()
+    return {
+      ...this.#restrictionManager.getStats(),
+      totalRequests: this.#metrics.totalDuration,
+      successfulRequests: this.#metrics.successfulRequests,
+      failedRequests: this.#metrics.failedRequests,
+      totalDuration: this.#metrics.totalDuration,
+      byMethod: this.#metrics.byMethod,
+      lastErrors: this.#metrics.lastErrors
+    }
   }
 
   /**
    * @inheritDoc
    */
   async reset(): Promise<void> {
+    this.#metrics.totalDuration = 0
+    this.#metrics.successfulRequests = 0
+    this.#metrics.failedRequests = 0
+    this.#metrics.totalDuration = 0
+    this.#metrics.byMethod.clear()
+    this.#metrics.lastErrors = []
+
     return this.#restrictionManager.reset()
   }
   // endregion ////
@@ -149,132 +182,71 @@ export default class Http implements TypeHttp {
   }
   // endregion ////
 
-  // region Log ////
-  #sanitizeParams(params: TypeCallParams): Record<string, unknown> {
-    const sanitized = { ...params }
-    const sensitiveKeys = ['auth', 'password', 'token', 'secret', 'access_token', 'refresh_token']
-
-    sensitiveKeys.forEach((key) => {
-      if (key in sanitized && sanitized[key]) {
-        sanitized[key] = '***REDACTED***'
-      }
-    })
-
-    return sanitized
-  }
-
-  #logRequest(requestId: string, method: string, params: TypeCallParams): void {
-    this.getLogger().log(`[${requestId}] [request] starting`, {
-      method,
-      params: this.#sanitizeParams(params),
-      timestamp: Date.now()
-    })
-  }
-
-  // @todo add requestId to paramas logger
-  #logAttempt(requestId: string, method: string, attempt: number, maxRetries: number): void {
-    this.getLogger().log(`[${requestId}] [request] attempt`, {
-      requestId,
-      method,
-      attempt,
-      maxRetries
-    })
-  }
-
-  #logRefreshingAuthToken(requestId: string): void {
-    this.getLogger().info(`[${requestId}] refreshing auth token`)
-  }
-
-  #logAuthErrorDetected(requestId: string): void {
-    this.getLogger().info(`[${requestId}] auth error detected`)
-  }
-
-  #logSuccessfulRequest(requestId: string, method: string, duration: number): void {
-    this.getLogger().log(`[${requestId}] [request] successful`, {
-      method,
-      durationMs: duration,
-      durationSec: (duration / 1000).toFixed(2)
-    })
-  }
-
-  #logFailedRequest(
-    requestId: string,
+  #updateMetrics(
     method: string,
-    attempt: number,
-    error: AjaxError
+    isSuccess: boolean,
+    duration: number,
+    error?: unknown
   ): void {
-    this.getLogger().log(`[${requestId}] [request] failed`, {
-      method,
-      attempt,
-      errorCode: error.code,
-      errorMessage: error.message,
-      status: error.status
-    })
-  }
+    this.#metrics.totalRequests++
 
-  #logAttemptRetry(
-    requestId: string,
-    method: string,
-    waitTime: number,
-    attempt: number,
-    maxRetries: number
-  ): void {
-    this.getLogger().warn(
-      `[${requestId}] Ждем ${(waitTime / 1000).toFixed(2)} sec.`,
-      {
-        method,
-        attempt,
-        maxRetries
+    if (isSuccess) {
+      this.#metrics.successfulRequests++
+    } else {
+      this.#metrics.failedRequests++
+
+      if (error instanceof AjaxError) {
+        this.#metrics.lastErrors.push({
+          method,
+          error: error.message,
+          timestamp: Date.now()
+        })
+
+        if (this.#metrics.lastErrors.length > 100) {
+          this.#metrics.lastErrors = this.#metrics.lastErrors.slice(-100)
+        }
       }
-    )
-  }
-
-  #logAllAttemptsExhausted(requestId: string, method: string, maxRetries: number): void {
-    this.getLogger().log(`[${requestId}] All retry attempts exhausted`, {
-      method,
-      maxRetries
-    })
-  }
-
-  #logBatchStart(
-    requestId: string,
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
-    options: ICallBatchOptions
-  ): void {
-    const callCount = Array.isArray(calls)
-      ? calls.length
-      : Object.keys(calls).length
-
-    this.getLogger().log(`[${requestId}] [batch request] starting `, {
-      callCount,
-      isHaltOnError: options.isHaltOnError,
-      timestamp: Date.now()
-    })
-  }
-
-  #logBatchCompletion(requestId: string, total: number, errors: number): void {
-    this.getLogger().log(`[${requestId}] [batch request] completed`, {
-      totalCalls: total,
-      successful: total - errors,
-      failed: errors,
-      successRate: ((total - errors) / total * 100).toFixed(1) + '%'
-    })
-  }
-
-  // Проверяем предупреждения для клиентской стороны
-  #checkClientSideWarning(): void {
-    if (
-      this.#isClientSideWarning
-      && !this.isServerSide()
-      && Type.isStringFilled(this.#clientSideWarningMessage)
-    ) {
-      this.getLogger().warn(this.#clientSideWarningMessage)
     }
+
+    // Метрики по методам
+    if (!this.#metrics.byMethod.has(method)) {
+      this.#metrics.byMethod.set(method, { count: 0, totalDuration: 0 })
+    }
+
+    const methodMetrics = this.#metrics.byMethod.get(method)!
+    methodMetrics.count++
+    methodMetrics.totalDuration += duration
   }
-  // endregion ////
 
   // region Actions Call ////
   // region batch ////
+  #validateBatchCommands(
+    requestId: string,
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
+  ): void {
+    const count = Array.isArray(calls) ? calls.length : Object.keys(calls).length
+
+    if (count > MAX_BATCH_COMMANDS) {
+      throw new AjaxError({
+        code: 'JSSDK_BATCH_TOO_LARGE',
+        description: `Batch too large: ${count} commands (max: ${MAX_BATCH_COMMANDS})`,
+        status: 400,
+        requestInfo: { method: 'batch', params: { cmd: calls }, requestId },
+        originalError: null
+      })
+    }
+
+    if (count === 0) {
+      throw new AjaxError({
+        code: 'JSSDK_BATCH_EMPTY',
+        description: 'Batch must contain at least one command',
+        status: 400,
+        requestInfo: { method: 'batch', params: { cmd: calls }, requestId },
+        originalError: null
+      })
+    }
+  }
+
   async batch<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: ICallBatchOptions
@@ -287,6 +259,8 @@ export default class Http implements TypeHttp {
     const requestId = opts.requestId ?? this.#requestIdGenerator.getRequestId()
 
     this.#logBatchStart(requestId, calls, opts)
+
+    this.#validateBatchCommands(requestId, calls)
 
     if (Array.isArray(calls)) {
       return this.#batchAsArray(requestId, calls, opts)
@@ -305,12 +279,9 @@ export default class Http implements TypeHttp {
       return Promise.resolve(new Result())
     }
 
-    const response = await this.call<T>(
+    const response = await this.call<BatchPayload<T>>(
       'batch',
-      {
-        halt: options.isHaltOnError ? 1 : 0,
-        cmd
-      },
+      { halt: options.isHaltOnError ? 1 : 0, cmd },
       requestId
     )
 
@@ -320,11 +291,7 @@ export default class Http implements TypeHttp {
       isObjectMode: true
     }
 
-    return this.#processBatchResponse<T>(
-      cmd,
-      response,
-      opts
-    )
+    return this.#processBatchResponse<T>(cmd, response, opts)
   }
 
   #prepareBatchCommandsObject(calls: BatchNamedCommandsUniversal): Record<string, string> {
@@ -350,12 +317,9 @@ export default class Http implements TypeHttp {
       return Promise.resolve(new Result())
     }
 
-    const response = await this.call<T>(
+    const response = await this.call<BatchPayload<T>>(
       'batch',
-      {
-        halt: options.isHaltOnError ? 1 : 0,
-        cmd
-      },
+      { halt: options.isHaltOnError ? 1 : 0, cmd },
       requestId
     )
 
@@ -365,11 +329,7 @@ export default class Http implements TypeHttp {
       isObjectMode: false
     }
 
-    return this.#processBatchResponse<T>(
-      cmd,
-      response,
-      opts
-    )
+    return this.#processBatchResponse<T>(cmd, response, opts)
   }
 
   #prepareBatchCommandsArray(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal): string[] {
@@ -416,14 +376,20 @@ export default class Http implements TypeHttp {
   // Основной метод обработки ответа batch
   async #processBatchResponse<T>(
     cmd: Record<string, string> | string[],
-    response: AjaxResult<T>,
+    response: AjaxResult<BatchPayload<T>>,
     options: Required<ICallBatchOptions> & { isObjectMode: boolean }
   ): Promise<Result<ICallBatchResult<T>>> {
-    const responseData = response.getData() as BatchPayload<T>
+    const responseData = response.getData()
 
     const responseResult = responseData.result
     const responseTime = responseData.time
-    const results = await this.#processBatchItems<T>(cmd, response, responseResult)
+
+    const responseHelper = {
+      requestId: response.getQuery().requestId,
+      status: response.getStatus()
+    }
+
+    const results = await this.#processBatchItems<T>(cmd, responseHelper, responseResult)
 
     return this.#handleBatchResults<T>(results, responseTime, options)
   }
@@ -431,7 +397,7 @@ export default class Http implements TypeHttp {
   // Обработка элементов batch
   async #processBatchItems<T>(
     cmd: Record<string, string> | string[],
-    response: AjaxResult<T>,
+    responseHelper: { requestId: string, status: number },
     responseResult: BatchPayloadResult<T>
   ): Promise<Map<string | number, AjaxResult<T>>> {
     const results = new Map<string | number, AjaxResult<T>>()
@@ -442,7 +408,7 @@ export default class Http implements TypeHttp {
       : Object.entries(cmd)
 
     for (const [index, row] of entries) {
-      await this.#processBatchItem<T>(row, index, response, responseResult as BatchResponseData<T>, results)
+      await this.#processBatchItem<T>(row, index, responseHelper, responseResult as BatchResponseData<T>, results)
     }
 
     return results
@@ -452,79 +418,12 @@ export default class Http implements TypeHttp {
   async #processBatchItem<T>(
     row: string,
     index: string | number,
-    response: AjaxResult<T>,
+    responseHelper: { requestId: string, status: number },
     responseResult: BatchResponseData<T>,
     results: Map<string | number, AjaxResult<T>>
   ): Promise<void> {
-    // region Tools ////
-    function getResultByIndex<T>(
-      rows: T[] | Record<string | number, T> | undefined,
-      index: string | number
-    ): T | undefined {
-      if (!rows) return undefined
-
-      if (Array.isArray(rows)) {
-        return rows[index as number]
-      } else {
-        return rows[index]
-      }
-    }
-
-    function getResultErrorByIndex(
-      rows: string[] | Record<string | number, string> | undefined,
-      index: string | number
-    ): string | undefined {
-      if (!rows) return undefined
-
-      if (Array.isArray(rows)) {
-        return rows[index as number]
-      } else {
-        return rows[index]
-      }
-    }
-
-    function getResultTotalByIndex(
-      rows: NumberString[] | Record<string | number, NumberString> | undefined,
-      index: string | number
-    ): NumberString | undefined {
-      if (!rows) return undefined
-
-      if (Array.isArray(rows)) {
-        return rows[index as number]
-      } else {
-        return rows[index]
-      }
-    }
-
-    function getResultNextByIndex(
-      rows: NumberString[] | Record<string | number, NumberString> | undefined,
-      index: string | number
-    ): NumberString | undefined {
-      if (!rows) return undefined
-
-      if (Array.isArray(rows)) {
-        return rows[index as number]
-      } else {
-        return rows[index]
-      }
-    }
-
-    function getResultTimeByIndex(
-      rows: PayloadTime[] | Record<string | number, PayloadTime> | undefined,
-      index: string | number
-    ): PayloadTime | undefined {
-      if (!rows) return undefined
-
-      if (Array.isArray(rows)) {
-        return rows[index as number]
-      } else {
-        return rows[index]
-      }
-    }
-    // endregion ///
-
-    const resultData = getResultByIndex(responseResult.result, index)
-    const resultError = getResultErrorByIndex(responseResult.result_error, index)
+    const resultData = this.#getBatchResultByIndex(responseResult.result, index)
+    const resultError = this.#getBatchResultByIndex(responseResult.result_error, index)
 
     if (
       typeof resultData !== 'undefined'
@@ -533,29 +432,42 @@ export default class Http implements TypeHttp {
       const [methodName, queryString] = row.split('?')
 
       // Обновляем operating статистику для каждого метода в batch
-      const timeData = getResultTimeByIndex(responseResult.result_time, index)
-      if (typeof timeData !== 'undefined') {
-        await this.#restrictionManager.updateStats(response.getQuery().requestId, `batch::${methodName}`, timeData)
+      const resultTime = this.#getBatchResultByIndex(responseResult.result_time, index)
+      if (typeof resultTime !== 'undefined') {
+        await this.#restrictionManager.updateStats(responseHelper.requestId, `batch::${methodName}`, resultTime)
       }
 
       const result = new AjaxResult<T>({
         answer: {
           result: (resultData ?? {}) as T,
           error: resultError,
-          total: getResultTotalByIndex(responseResult.result_total, index),
-          next: getResultNextByIndex(responseResult.result_next, index),
-          time: timeData!
+          total: this.#getBatchResultByIndex(responseResult.result_total, index),
+          next: this.#getBatchResultByIndex(responseResult.result_next, index),
+          time: resultTime!
         },
         query: {
           method: methodName,
           params: qs.parse(queryString || ''),
-          requestId: response.getQuery().requestId
+          requestId: responseHelper.requestId
         },
-        status: response.getStatus()
+        status: responseHelper.status
       })
 
       results.set(index, result)
     }
+  }
+
+  #getBatchResultByIndex<T>(
+    data: T[] | Record<string | number, T> | undefined,
+    index: string | number
+  ): T | undefined {
+    if (!data) return undefined
+
+    if (Array.isArray(data)) {
+      return data[index as number]
+    }
+
+    return (data as Record<string | number, T>)[index]
   }
 
   // Обработка результатов batch
@@ -579,6 +491,14 @@ export default class Http implements TypeHttp {
          */
 
         if (!options.isHaltOnError && !data.isSuccess) {
+          this.#logBatchSubCallFailed(
+            options.requestId,
+            index,
+            data.getQuery().method,
+            error.code,
+            error.status,
+            error.message
+          )
           if (options.isObjectMode) {
             result.addError(error, String(index))
           } else {
@@ -623,6 +543,33 @@ export default class Http implements TypeHttp {
   }
   // endregion ////
 
+  #validateParams(requestId: string, method: string, params: TypeCallParams): void {
+    // Checking for cyclic references (especially important when logging)
+    try {
+      JSON.stringify(params)
+    } catch (error) {
+      throw new AjaxError({
+        code: 'JSSDK_INVALID_PARAMS',
+        description: 'Parameters contain circular references',
+        status: 400,
+        requestInfo: { method, params, requestId },
+        originalError: error
+      })
+    }
+
+    // Size check (It is especially important for batch)
+    // const paramsSize = JSON.stringify(params).length
+    // if (paramsSize > 1024 * 1024) { // 1MB
+    //   throw new AjaxError({
+    //     code: 'JSSDK_PARAMS_TOO_LARGE',
+    //     description: `Parameters too large: ${(paramsSize / 1024 / 1024).toFixed(2)}MB`,
+    //     status: 400,
+    //     requestInfo: { method, params, requestId },
+    //     originalError: null
+    //   })
+    // }
+  }
+
   /**
    * Calling the RestApi function
    * @param method - REST API method name
@@ -638,6 +585,7 @@ export default class Http implements TypeHttp {
     requestId = requestId ?? this.#requestIdGenerator.getRequestId()
     const maxRetries = this.#restrictionManager.getParams().maxRetries!
 
+    this.#validateParams(requestId, method, params)
     this.#logRequest(requestId, method, params)
 
     let lastError: AjaxError | null = null
@@ -655,27 +603,26 @@ export default class Http implements TypeHttp {
         const duration = Date.now() - startTime
 
         // 6. Обновляем статистику
-        this.#restrictionManager.incrementStats('totalRequests')
         this.#restrictionManager.resetErrors(method)
+        this.#updateMetrics(method, true, duration)
 
         this.#logSuccessfulRequest(requestId, method, duration)
-
         return result
       } catch (error: unknown) {
         lastError = this.#convertToAjaxError(requestId, error, method, params)
-        // const duration = Date.now() - startTime
+        const duration = Date.now() - startTime
 
-        this.#restrictionManager.incrementStats('totalRequests')
         this.#restrictionManager.incrementError(method)
+        this.#updateMetrics(method, false, duration, error)
 
-        this.#logFailedRequest(requestId, method, attempt + 1, lastError)
+        this.#logFailedRequest(requestId, method, attempt + 1, maxRetries, lastError)
 
         if (attempt < maxRetries) {
           const waitTime = await this.#restrictionManager.handleError(requestId, method, params, error, attempt)
           if (waitTime > 0) {
             this.#restrictionManager.incrementStats('limitHits')
 
-            this.#logAttemptRetry(requestId, method, waitTime, attempt + 1, maxRetries)
+            this.#logAttemptRetryWaiteDelay(requestId, method, waitTime, attempt + 1, maxRetries)
             await this.#restrictionManager.waiteDelay(waitTime)
 
             this.#restrictionManager.incrementStats('retries')
@@ -685,7 +632,7 @@ export default class Http implements TypeHttp {
         }
 
         // Выбрасываем исключение - больше попыток не будет
-        this.#logAllAttemptsExhausted(requestId, method, maxRetries)
+        this.#logAllAttemptsExhausted(requestId, method, attempt + 1, maxRetries)
         throw error
       }
     }
@@ -725,6 +672,28 @@ export default class Http implements TypeHttp {
     let errorCode = String(error.code || 'JSSDK_AXIOS_ERROR')
     let errorDescription = error.message
     const status = error.response?.status || 0
+
+    // Обработка network error
+    if (errorCode === 'ERR_NETWORK') {
+      return new AjaxError({
+        code: 'NETWORK_ERROR',
+        description: 'Network connection failed',
+        status: 0,
+        requestInfo: { method, params, requestId },
+        originalError: error
+      })
+    }
+
+    // Обработка timeout
+    if (errorCode === 'ECONNABORTED' || error.message.includes('timeout')) {
+      return new AjaxError({
+        code: 'REQUEST_TIMEOUT',
+        description: 'Request timeout exceeded',
+        status: 408,
+        requestInfo: { method, params, requestId },
+        originalError: error
+      })
+    }
 
     if (error.response?.data && typeof error.response.data === 'object') {
       const responseData = error.response.data as TypeDescriptionError
@@ -772,7 +741,7 @@ export default class Http implements TypeHttp {
   ): Promise<AjaxResult<T>> {
     const authData = await this.#ensureAuth(requestId)
 
-    this.#checkClientSideWarning()
+    this.#checkClientSideWarning(requestId)
 
     const response = await this.#makeRequestWithAuthRetry<T>(requestId, method, params, authData)
 
@@ -909,9 +878,6 @@ export default class Http implements TypeHttp {
       result.logTag = this.#logTag
     }
 
-    // result[this.#requestIdGenerator.getQueryStringParameterName()] = this.#requestIdGenerator.getRequestId()
-    // result[this.#requestIdGenerator.getQueryStringSdkParameterName()] = '__SDK_VERSION__'
-
     /** @memo we skip auth for hook */
     if (authData.refresh_token !== 'hook') {
       result.auth = authData.access_token
@@ -948,5 +914,164 @@ export default class Http implements TypeHttp {
     return typeof window === 'undefined'
   }
 
+  // endregion ////
+
+  // region Log ////
+  #sanitizeParams(params: TypeCallParams): Record<string, unknown> {
+    const sanitized = { ...params }
+    const sensitiveKeys = ['auth', 'password', 'token', 'secret', 'access_token', 'refresh_token']
+
+    sensitiveKeys.forEach((key) => {
+      if (key in sanitized && sanitized[key]) {
+        sanitized[key] = '***REDACTED***'
+      }
+    })
+
+    return sanitized
+  }
+
+  #logRequest(requestId: string, method: string, params: TypeCallParams): void {
+    this.getLogger().log(`http request starting`, {
+      requestId,
+      method,
+      params: this.#sanitizeParams(params),
+      timestamp: Date.now()
+    })
+  }
+
+  #logAttempt(requestId: string, method: string, attempt: number, maxRetries: number): void {
+    this.getLogger().info(`http request attempt`, {
+      requestId,
+      method,
+      attempt: {
+        current: attempt,
+        max: maxRetries
+      }
+    })
+  }
+
+  #logRefreshingAuthToken(requestId: string): void {
+    this.getLogger().info(`http refreshing auth token`, { requestId })
+  }
+
+  #logAuthErrorDetected(requestId: string): void {
+    this.getLogger().info(`http auth error detected`, { requestId })
+  }
+
+  #logSuccessfulRequest(requestId: string, method: string, duration: number): void {
+    this.getLogger().log(`http request successful`, {
+      requestId,
+      method,
+      duration: {
+        ms: duration,
+        sec: (duration / 1000).toFixed(2)
+      }
+    })
+  }
+
+  #logFailedRequest(
+    requestId: string,
+    method: string,
+    attempt: number,
+    maxRetries: number,
+    error: AjaxError
+  ): void {
+    this.getLogger().log(`http request failed`, {
+      requestId,
+      method,
+      attempt: {
+        current: attempt,
+        max: maxRetries
+      },
+      error: {
+        code: error.code,
+        message: error.message,
+        status: error.status
+      }
+    })
+  }
+
+  #logAttemptRetryWaiteDelay(
+    requestId: string,
+    method: string,
+    wait: number,
+    attempt: number,
+    maxRetries: number
+  ): void {
+    this.getLogger().log(
+      `http wait ${(wait / 1000).toFixed(2)} sec.`,
+      {
+        requestId,
+        method,
+        wait: wait,
+        attempt: {
+          current: attempt,
+          max: maxRetries
+        }
+      }
+    )
+  }
+
+  #logAllAttemptsExhausted(requestId: string, method: string, attempt: number, maxRetries: number): void {
+    this.getLogger().error(`http all retry attempts exhausted`, {
+      requestId,
+      method,
+      attempt: {
+        current: attempt,
+        max: maxRetries
+      }
+    })
+  }
+
+  #logBatchStart(
+    requestId: string,
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
+    options: ICallBatchOptions
+  ): void {
+    const callCount = Array.isArray(calls)
+      ? calls.length
+      : Object.keys(calls).length
+
+    this.getLogger().log(`http batch request starting `, {
+      requestId,
+      callCount,
+      isHaltOnError: options.isHaltOnError,
+      timestamp: Date.now()
+    })
+  }
+
+  #logBatchCompletion(requestId: string, total: number, errors: number): void {
+    this.getLogger().log(`http batch request completed`, {
+      requestId,
+      totalCalls: total,
+      successful: total - errors,
+      failed: errors,
+      successRate: ((total - errors) / total * 100).toFixed(1) + '%'
+    })
+  }
+
+  #logBatchSubCallFailed(requestId: string, index: string | number, method: string, code: string, status: number, errorMessage: string): void {
+    this.getLogger().log(`http batch sub-call failed`, {
+      requestId,
+      index,
+      method,
+      error: {
+        code: code,
+        message: errorMessage,
+        status
+      }
+    })
+  }
+
+  // Проверяем предупреждения для клиентской стороны
+  #checkClientSideWarning(requestId: string): void {
+    if (
+      this.#isClientSideWarning
+      && !this.isServerSide()
+      && Type.isStringFilled(this.#clientSideWarningMessage)
+    ) {
+      this.getLogger().warn(this.#clientSideWarningMessage, { requestId })
+    }
+  }
   // endregion ////
 }

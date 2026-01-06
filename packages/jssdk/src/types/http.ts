@@ -5,7 +5,6 @@ import type { PayloadTime } from './payloads'
 import type { RestrictionParams, RestrictionManagerStats } from './limiters'
 
 /**
- * @todo перевод
  * @todo fix docs
  */
 
@@ -20,22 +19,24 @@ export type TypeCallParams = {
 
 // region Batch interface ////
 /**
- * Опции для batch вызова
+ * Options for batch calls
  */
 export interface ICallBatchOptions {
   /**
-   * Останавливать ли выполнение при первой ошибке
+   * Whether to stop execution on the first error
    * @default true
    */
   isHaltOnError?: boolean
+  /**
+   * Unique request identifier for tracking. Used for query deduplication and debugging.
+   */
   requestId?: string
 }
 
 /**
- * Результат batch вызова
+ * Result of the batch call
  */
 export interface ICallBatchResult<T = unknown> {
-  // @todo ICallBatchResult -> Map<string | number, AjaxResult<T>>
   result?: Map<string | number, AjaxResult<T>>
   time?: PayloadTime
 }
@@ -102,22 +103,31 @@ export type TypeHttp = {
   ): Promise<AjaxResult<T>>
 
   /**
-   * Устанавливает параметры ограничений
+   * Sets the restriction parameters
    */
   setRestrictionManagerParams(params: RestrictionParams): Promise<void>
 
   /**
-   * Возвращает текущие параметры ограничений
+   * Returns the current constraint settings
    */
   getRestrictionManagerParams(): RestrictionParams
 
   /**
-   * Возвращает статистику работы
+   * Returns job statistics
    */
-  getStats(): RestrictionManagerStats & { adaptiveDelayAvg: number }
+  getStats(): RestrictionManagerStats & {
+    adaptiveDelayAvg: number
+    errorCounts: Record<string, number>
+    totalRequests: number
+    successfulRequests: number
+    failedRequests: number
+    totalDuration: number
+    byMethod: Map<string, { count: number, totalDuration: number }>
+    lastErrors: { method: string, error: string, timestamp: number }[]
+  }
 
   /**
-   * Сбрасывает лимитеры и статистику
+   * Resets limiters and statistics
    */
   reset(): Promise<void>
 

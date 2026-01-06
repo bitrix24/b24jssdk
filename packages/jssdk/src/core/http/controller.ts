@@ -40,9 +40,9 @@ const MAX_BATCH_COMMANDS = 50
 
 /**
  * Class for working with RestApi requests via http
- * @todo перевод
  * @todo docs
- * @link https://dev.1c-bitrix.ru/rest_help/
+ *
+ * @link https://bitrix24.github.io/b24jssdk/
  */
 export default class Http implements TypeHttp {
   #clientAxios: AxiosInstance
@@ -90,7 +90,7 @@ export default class Http implements TypeHttp {
     this.#requestIdGenerator = new RequestIdGenerator()
 
     /**
-     * Основные параметры ограничений
+     * Basic parameters of restrictions
      */
     const params: RestrictionParams = {
       ...ParamsFactory.getDefault(),
@@ -124,7 +124,7 @@ export default class Http implements TypeHttp {
   }
   // endregion ////
 
-  // region RestrictionManager методы ////
+  // region RestrictionManager ////
   async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {
     await this.#restrictionManager.setConfig(params)
   }
@@ -208,7 +208,7 @@ export default class Http implements TypeHttp {
       }
     }
 
-    // Метрики по методам
+    // Metrics by Method
     if (!this.#metrics.byMethod.has(method)) {
       this.#metrics.byMethod.set(method, { count: 0, totalDuration: 0 })
     }
@@ -345,7 +345,7 @@ export default class Http implements TypeHttp {
     return cmd
   }
 
-  // Вспомогательные методы для подготовки команд batch
+  // Helper methods for preparing batch commands
   #parseBatchRow(row: CommandObject<string, TypeCallParams | undefined> | CommandTuple<string, TypeCallParams | undefined>): {
     method: string
     params?: Record<string, unknown>
@@ -373,7 +373,7 @@ export default class Http implements TypeHttp {
     return `${method}?${qs.stringify(params || {})}`
   }
 
-  // Основной метод обработки ответа batch
+  // The main method for processing the batch response
   async #processBatchResponse<T>(
     cmd: Record<string, string> | string[],
     response: AjaxResult<BatchPayload<T>>,
@@ -394,7 +394,7 @@ export default class Http implements TypeHttp {
     return this.#handleBatchResults<T>(results, responseTime, options)
   }
 
-  // Обработка элементов batch
+  // Processing batch elements
   async #processBatchItems<T>(
     cmd: Record<string, string> | string[],
     responseHelper: { requestId: string, status: number },
@@ -402,7 +402,7 @@ export default class Http implements TypeHttp {
   ): Promise<Map<string | number, AjaxResult<T>>> {
     const results = new Map<string | number, AjaxResult<T>>()
 
-    // Обработка всех команд
+    // Processing all commands
     const entries = Array.isArray(cmd)
       ? cmd.entries()
       : Object.entries(cmd)
@@ -414,7 +414,7 @@ export default class Http implements TypeHttp {
     return results
   }
 
-  // Обработка каждого элемента ответа (processResponse)
+  // Process each response element
   async #processBatchItem<T>(
     row: string,
     index: string | number,
@@ -431,7 +431,7 @@ export default class Http implements TypeHttp {
     ) {
       const [methodName, queryString] = row.split('?')
 
-      // Обновляем operating статистику для каждого метода в batch
+      // Update operating statistics for each method in the batch
       const resultTime = this.#getBatchResultByIndex(responseResult.result_time, index)
       if (typeof resultTime !== 'undefined') {
         await this.#restrictionManager.updateStats(responseHelper.requestId, `batch::${methodName}`, resultTime)
@@ -470,7 +470,7 @@ export default class Http implements TypeHttp {
     return (data as Record<string | number, T>)[index]
   }
 
-  // Обработка результатов batch
+  // Processing batch results
   #handleBatchResults<T>(
     results: Map<string | number, AjaxResult<T>>,
     responseTime: PayloadTime | undefined,
@@ -486,8 +486,9 @@ export default class Http implements TypeHttp {
         const error = this.#createErrorFromAjaxResult(data)
 
         /*
-         * Тут должен быть код аналогичный #isOperatingLimitError с проверкой ошибки 'Method is blocked due to operation time limit.'
-         * Однако `batch` исполняется без повторных попыток, по этой причине будет сразу ошибка
+         * This should contain code similar to #isOperatingLimitError with a check for
+         * the error 'Method is blocked due to operation time limit.'
+         * However, `batch` is executed without retries, so there will be an immediate error.
          */
 
         if (!options.isHaltOnError && !data.isSuccess) {
@@ -516,7 +517,7 @@ export default class Http implements TypeHttp {
       dataResult.set(index, data)
     }
 
-    // Логируем результаты
+    // Log the results
     this.#logBatchCompletion(options.requestId, results.size, errorsCnt)
 
     result.setData({
@@ -595,17 +596,18 @@ export default class Http implements TypeHttp {
       try {
         this.#logAttempt(requestId, method, attempt + 1, maxRetries)
 
-        // Применяем operating лимиты через менеджер
+        // Apply operating limits via the manager
         await this.#restrictionManager.applyOperatingLimits(requestId, method, params)
 
-        // 3. Выполняем запрос с учетом авторизации, rate limit, обновляем operating статистики
+        // 3. We execute the request taking into account authorization, rate limit, and update operating statistics.
         const result = await this.#executeSingleCall<T>(requestId, method, params)
         const duration = Date.now() - startTime
 
-        // 6. Обновляем статистику
+        // 6. Updating statistics
         this.#restrictionManager.resetErrors(method)
         this.#updateMetrics(method, true, duration)
 
+        // Log the results
         this.#logSuccessfulRequest(requestId, method, duration)
         return result
       } catch (error: unknown) {
@@ -615,6 +617,7 @@ export default class Http implements TypeHttp {
         this.#restrictionManager.incrementError(method)
         this.#updateMetrics(method, false, duration, error)
 
+        // Log the results
         this.#logFailedRequest(requestId, method, attempt + 1, maxRetries, lastError)
 
         if (attempt < maxRetries) {
@@ -631,7 +634,7 @@ export default class Http implements TypeHttp {
           continue
         }
 
-        // Выбрасываем исключение - больше попыток не будет
+        // Throw an exception - there will be no more attempts
         this.#logAllAttemptsExhausted(requestId, method, attempt + 1, maxRetries)
         throw error
       }
@@ -673,7 +676,7 @@ export default class Http implements TypeHttp {
     let errorDescription = error.message
     const status = error.response?.status || 0
 
-    // Обработка network error
+    // Handling network errors
     if (errorCode === 'ERR_NETWORK') {
       return new AjaxError({
         code: 'NETWORK_ERROR',
@@ -684,7 +687,7 @@ export default class Http implements TypeHttp {
       })
     }
 
-    // Обработка timeout
+    // Handling timeout
     if (errorCode === 'ECONNABORTED' || error.message.includes('timeout')) {
       return new AjaxError({
         code: 'REQUEST_TIMEOUT',
@@ -729,10 +732,10 @@ export default class Http implements TypeHttp {
 
   // region Execute Single Call ////
   /**
-   * Выполняет одиночный вызов с
-   * - обработкой 401 ошибки
-   * - проверкой rate limit
-   * - обновляем operating статистики
+   * Performs a single call with
+   * - 401 error handling
+   * - rate limit check
+   * - updating operating statistics
    */
   async #executeSingleCall<T = unknown>(
     requestId: string,
@@ -745,11 +748,11 @@ export default class Http implements TypeHttp {
 
     const response = await this.#makeRequestWithAuthRetry<T>(requestId, method, params, authData)
 
-    // Создаем и возвращаем результат
+    // Create and return the result
     return this.#createAjaxResultFromResponse<T>(response, requestId, method, params)
   }
 
-  // Получаем/обновляем авторизацию
+  // Get/update authorization
   async #ensureAuth(requestId: string): Promise<AuthData> {
     let authData = this.#authActions.getAuthData()
     if (authData === false) {
@@ -759,7 +762,7 @@ export default class Http implements TypeHttp {
     return authData
   }
 
-  // Выполняем запрос с обработкой 401 ошибок
+  // Execute the request with 401 error handling
   async #makeRequestWithAuthRetry<T>(
     requestId: string,
     method: string,
@@ -767,19 +770,19 @@ export default class Http implements TypeHttp {
     authData: AuthData
   ): Promise<AjaxResponse<T>> {
     try {
-      // 4. Применяем rate лимит через менеджер
+      // 4. Apply the rate limit through the manager
       await this.#restrictionManager.checkRateLimit(requestId, method)
 
       return await this.#makeAxiosRequest<T>(requestId, method, params, authData)
     } catch (error) {
-      // Если это ошибка авторизации (401), то пробуем обновить токен и повторить
+      // If this is an authorization error (401), then we try to update the token and repeat
       if (this.#isAuthError(error)) {
         this.#logAuthErrorDetected(requestId)
         this.#logRefreshingAuthToken(requestId)
 
         const refreshedAuthData = await this.#authActions.refreshAuth()
 
-        // 4. Применяем rate лимит через менеджер
+        // 4. Apply the rate limit through the manager
         await this.#restrictionManager.checkRateLimit(requestId, method)
 
         return await this.#makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
@@ -829,7 +832,7 @@ export default class Http implements TypeHttp {
       status: response.status
     })
 
-    // 5. Обновляем operating статистику
+    // 5. Update operating statistics
     if (response.payload?.time) {
       await this.#restrictionManager.updateStats(requestId, method, response.payload.time)
     }
@@ -901,7 +904,6 @@ export default class Http implements TypeHttp {
     this.#isClientSideWarning = value
     this.#clientSideWarningMessage = message
   }
-
   // endregion ////
 
   // region Tools ////
@@ -913,7 +915,6 @@ export default class Http implements TypeHttp {
   protected isServerSide(): boolean {
     return typeof window === 'undefined'
   }
-
   // endregion ////
 
   // region Log ////
@@ -1063,7 +1064,7 @@ export default class Http implements TypeHttp {
     })
   }
 
-  // Проверяем предупреждения для клиентской стороны
+  // Check client-side warnings
   #checkClientSideWarning(requestId: string): void {
     if (
       this.#isClientSideWarning

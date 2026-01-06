@@ -16,10 +16,9 @@ import type { ListPayload, PayloadTime } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
 
 /**
- * @todo перевод
  * @todo docs
+ * @todo test all example
  */
-
 export abstract class AbstractB24 implements TypeB24 {
   static readonly batchSize = 50
 
@@ -83,31 +82,36 @@ export abstract class AbstractB24 implements TypeB24 {
   abstract getTargetOriginWithPath(): string
 
   /**
-   * Calling the RestApi function
-   * @todo test start
-   * @param method - REST API method name
-   * @param params - Parameters for the method.
-   * @param requestIdOrStart
-   * @returns Promise with AjaxResult
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
+   * @inheritDoc
+   *
+   * @template T - The expected data type in the response (default is `unknown`).
+   *
+   * @example
+   * // Simple call
+   * const response = await b24.callMethod('crm.item.get', { entityTypeId: 3, id: 123 })
+   * if (!response.isSuccess) {
+   *   throw new Error(`Failed to fetch item: ${response.getErrorMessages().join('; ')}`)
+   * }
+   * console.log(response.getData().result.item.name)
+   *
+   * @example
+   * // Call with type
+   * interface CrmItem { id: number, name: string, lastName: string }
+   * const response = await b24.callMethod<{ item: CrmItem[] }>('crm.item.get', { entityTypeId: 3, id: 123 })
+   *
+   * @example
+   * // With request tracking
+   * const response = await b24.callMethod('crm.item.list', { entityTypeId: 3 }, 'contact-list-123')
+   *
+   * @see {https://bitrix24.github.io/b24jssdk/docs/hook/methods/call-method/ Js SDK documentation}
+   * @see {https://apidocs.bitrix24.com/sdk/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html Bitrix24 REST API documentation}
    */
   callMethod<T = unknown>(
     method: string,
     params?: TypeCallParams,
-    requestIdOrStart?: string | number
+    requestId?: string
   ): Promise<AjaxResult<T>> {
     params = params || {}
-
-    let requestId = undefined
-    if (
-      typeof requestIdOrStart === 'number'
-      && !('start' in params)
-    ) {
-      params.start = requestIdOrStart
-    } else if (typeof requestIdOrStart === 'string') {
-      requestId = requestIdOrStart
-    }
-
     return this.getHttpClient().call<T>(method, params, requestId)
   }
 
@@ -183,7 +187,49 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
-   * @todo test start
+   *
+   * @template T - The type of the elements of the returned array (default is `unknown`).
+   *
+   * @example
+   * // Get all contacts without counting the total number
+   * const sixMonthAgo = new Date()
+   * sixMonthAgo.setMonth((new Date()).getMonth() - 6)
+   * sixMonthAgo.setHours(0, 0, 0)
+   * const response = await b24.callFastListMethod(
+   *   'crm.item.list',
+   *   {
+   *     entityTypeId: 3,
+   *     filter: { '>=createdTime': sixMonthAgo }, // created at least 6 months ago
+   *     select: ['id', 'name']
+   *   },
+   *   'id',
+   *   'items',
+   *   'contact-list-123'
+   * )
+   * if (!response.isSuccess) {
+   *   throw new Error(`Failed to fetch items: ${response.getErrorMessages().join('; ')}`)
+   * }
+   * const list = response.getData()
+   * console.log(`List: ${list?.length}`) // Number of contacts received
+   *
+   * @example
+   * // Call with type
+   * interface Task { id: number, title: string }
+   * const response = await b24.callFastListMethod<Task>(
+   *   'tasks.task.list',
+   *   {
+   *     filter: { REAL_STATUS: [2, 3] }, // Tasks in progress and pending execution
+   *     select: ['ID', 'TITLE']
+   *   },
+   *   'id',
+   *   'tasks' // The key under which the tasks are located in the response
+   * )
+   *
+   * @see {@link callMethod} To call arbitrary API methods
+   *
+   * @warning This method does not support pagination.
+   *
+   * @see {https://bitrix24.github.io/b24jssdk/docs/hook/methods/call-fast-list-method/ Js SDK documentation}
    */
   async callFastListMethod<T = unknown>(
     method: string,
@@ -253,7 +299,56 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
-   * @todo test start
+   *
+   * @template T - The type of items in the returned arrays (default is `unknown`).
+   *
+   * @example
+   * // Iterate over all CRM contacts in chunks
+   * interface CrmItem { id: number, name: string, lastName: string }
+   * const sixMonthAgo = new Date()
+   * sixMonthAgo.setMonth((new Date()).getMonth() - 6)
+   * sixMonthAgo.setHours(0, 0, 0)
+   * const generator = b24.fetchListMethod<CrmItem>(
+   *   'crm.item.list',
+   *   {
+   *     entityTypeId: 3,
+   *     filter: { '>createdTime': sixMonthAgo }, // created at least 6 months ago
+   *     select: ['id', 'name', 'lastName']
+   *   },
+   *   'id',
+   *   'items',
+   *   'contact-list-123'
+   * )
+   *
+   * for await (const chunk of generator) {
+   *   console.log(`Processing ${chunk.length} contacts`)
+   *   // Process chunk (e.g., save to database, analyze, etc.)
+   * }
+   *
+   * @example
+   * // Process tasks with custom type
+   * interface Task { id: number; title: string }
+   * const taskGenerator = b24.fetchListMethod<Task>(
+   *   'tasks.task.list',
+   *   { filter: { 'REAL_STATUS': 5 } }, // Completed tasks only
+   *   'id'
+   * )
+   *
+   * let totalTasks = 0
+   * for await (const chunk of taskGenerator) {
+   *   totalTasks += chunk.length
+   *   // Process completed tasks
+   * }
+   * console.log(`Total completed tasks: ${totalTasks}`)
+   *
+   * @note The generator automatically handles pagination using the "fast algorithm"
+   *     (iterating by ID ranges), which is more efficient than traditional offset-based pagination
+   *     for large datasets.
+   *
+   * @see {@link https://apidocs.bitrix24.com/settings/performance/huge-data.html Bitrix24: Fast algorithm for large data}
+   * @see {@link callFastListMethod} For single-call retrieval without pagination
+   * @see {@link callMethod} To call arbitrary API methods
+   * @see {https://bitrix24.github.io/b24jssdk/docs/hook/methods/fetch-list-method/ Js SDK documentation}
    */
   async* fetchListMethod<T = unknown>(
     method: string,
@@ -316,8 +411,75 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
+   *
+   * @template T - The data type returned by batch query commands (default is `unknown`)
+   *
+   * @example
+   * // Batch query with an array of tuples
+   * const response = await b24.callBatch([
+   *   ['crm.item.get', { entityTypeId: 3, id: 1 }],
+   *   ['crm.item.get', { entityTypeId: 3, id: 2 }],
+   *   ['crm.item.get', { entityTypeId: 3, id: 3 }]
+   * ], { isHaltOnError: true, returnAjaxResult: true })
+   *
+   * if (!response.isSuccess) {
+   *   throw new Error(`Failed: ${response.getErrorMessages().join('; ')}`)
+   * }
+   *
+   * const results = response.getData() // AjaxResult<T>[]
+   * results.forEach((result, index) => {
+   *   if (result.isSuccess) {
+   *    console.log(`Contact ${index + 1}:`, result.getData()?.item)
+   *   }
+   * })
+   *
+   * @example
+   * // Batch request with an array of objects
+   * const response = await b24.callBatch([
+   *   { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } },
+   *   { method: 'crm.item.get', params: { entityTypeId: 3, id: 2 } }
+   * ], { isHaltOnError: true, returnAjaxResult: true })
+   *
+   * @example
+   * // Batch query with named commands
+   * const response = await b24.callBatch({
+   *   Contact: { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } },
+   *   Deal: ['crm.item.get', { entityTypeId: 2, id: 2 }],
+   *   Company: ['crm.item.get', { entityTypeId: 4, id: 3 }]
+   * }, { isHaltOnError: true, returnAjaxResult: true })
+   *
+   * if (!response.isSuccess) {
+   *   throw new Error(`Failed: ${response.getErrorMessages().join('; ')}`)
+   * }
+   *
+   *  const results = response.getData() // Record<string, AjaxResult<T>>
+   *  console.log('Contact:', results.Contact.getData()?.item)
+   *  console.log('Deal:', results.Deal.getData()?.item)
+   *  console.log('Company:', results.Company.getData()?.item)
+   *
+   * @example
+   * // Batch request with types
+   * interface Contact { id: number, name: string }
+   * interface Deal { id: number, title: string }
+   *
+   * const response = await b24.callBatch<{ item: Contact } | { item: Deal }>({
+   *   Contact: ['crm.item.get', { entityTypeId: 3, id: 1 }],
+   *   Deal: ['crm.item.get', { entityTypeId: 2, id: 2 }]
+   * }, { isHaltOnError: true, returnAjaxResult: false })
+   *
+   * @warning The maximum number of commands in one batch request is 50.
+   *     If you need to execute more than 50 commands, you need to split them into several batches.
+   * @note A batch request executes faster than sequential single calls,
+   *     but if one command fails, the entire batch may fail
+   *     (depending on API settings and options).
+   *
+   * @see {https://bitrix24.github.io/b24jssdk/docs/hook/call-batch/ Js SDK documentation}
+   * @see {@link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html Bitrix24 batch query documentation}
+   * @see {@link callMethod} To call arbitrary API methods
+   *
+   * @todo test results
    */
-  async callBatch<T = any>(
+  async callBatch<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     optionsOrIsHaltOnError?: IB24BatchOptions | boolean,
     returnAjaxResult?: boolean,
@@ -434,8 +596,35 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
+   *
+   * @template T - The data type returned by commands (default: `unknown`)
+   *
+   * @example
+   * // Execute a large number of commands with automatic splitting
+   * const commands = Array.from({ length: 150 }, (_, i) =>
+   *   ['crm.item.get', { entityTypeId: 3, id: i + 1 }]
+   * )
+   *
+   * const response = await b24.callBatchByChunk<Contact>(commands, { isHaltOnError: true, requestId: 'contact-list-123' })
+   *
+   * if (!response.isSuccess) {
+   *   throw new Error(`Failed: ${response.getErrorMessages().join('; ')}`)
+   * }
+   *
+   * const data = response.getData()
+   * const contacts: Contact[] = []
+   * data.forEach((chunkRow: { item: Contact }) => {
+   *   contacts.push(chunkRow.item)
+   * })
+   * console.log(`Successfully retrieved ${contacts.length} contacts`)
+   *
+   * @tip For very large command sets, consider using server-side task queues instead of bulk batch requests.
+   *
+   * @see {https://bitrix24.github.io/b24jssdk/docs/hook/call-batch-by-chunk/ Js SDK documentation}
+   * @see {@link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html Bitrix24 batch query documentation}
+   * @see {@link callBatch} To execute batch queries of up to 50 commands
    */
-  async callBatchByChunk<T = any>(
+  async callBatchByChunk<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
     optionsOrIsHaltOnError?: ICallBatchOptions | boolean
   ): Promise<Result<T[]>> {
@@ -472,6 +661,11 @@ export abstract class AbstractB24 implements TypeB24 {
   // region Utility Methods ////
   /**
    * @inheritDoc
+   *
+   * @note The method uses a minimal API request (`server.time`) to check availability.
+   *   Does not overload the server with large amounts of data.
+   *
+   * @see {@link ping} To measure API response speed
    */
   async healthCheck(requestId?: string): Promise<boolean> {
     try {
@@ -484,6 +678,15 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
+   *
+   * @note The method uses a minimal API request (`server.time`).
+   *   Does not overload the server with large amounts of data.
+   * @warning Response time may vary depending on server load, network conditions
+   *     and API client settings (timeouts, retries).
+   * @tip For consistent results, it is recommended to perform multiple measurements
+   *     and use the median value.
+   *
+   * @see {@link healthCheck} To check API availability
    */
   async ping(requestId?: string): Promise<number> {
     const startTime = Date.now()
@@ -516,6 +719,13 @@ export abstract class AbstractB24 implements TypeB24 {
     }
 
     return this._http
+  }
+
+  /**
+   * @inheritDoc
+   */
+  setHttpClient(client: TypeHttp): void {
+    this._http = client
   }
 
   /**

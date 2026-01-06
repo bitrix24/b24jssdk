@@ -1,6 +1,7 @@
 import type { NumberString } from './common'
 import type { HandlerAuthParams } from './handler'
 import type { EnumAppStatus } from './b24-helper'
+import type { ApiVersion } from './b24'
 
 export type TypeDescriptionError = {
   readonly error: 'invalid_token' | 'expired_token' | string
@@ -151,5 +152,7 @@ export interface AuthActions {
   getAuthData: () => false | AuthData
   refreshAuth: () => Promise<AuthData>
   getUniq: (prefix: string) => string
+  apiVersion: ApiVersion
   isAdmin: boolean
+  getTargetOriginWithPath(): string
 }

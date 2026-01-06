@@ -343,13 +343,7 @@ const clearHook = async () => {
                   description="The result of the script execution can be seen in the developer console."
                   class="rounded-b-none"
                   orientation="horizontal"
-                >
-                  <template #actions>
-                    <B24Kbd value="ctrl" size="sm" />
-                    <B24Kbd value="shift" size="sm" />
-                    <B24Kbd value="i" size="sm" />
-                  </template>
-                </B24Alert>
+                />
                 <ClientOnly>
                   <component :is="camelName || 'div'" v-bind="{ ...componentProps, ...optionsValues }" />
                 </ClientOnly>

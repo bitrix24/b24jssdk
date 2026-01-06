@@ -1,9 +1,11 @@
 import type { LoggerBrowser } from '../logger/browser'
-import { AbstractB24 } from '../core/abstract-b24'
+import type { AuthActions, B24HookParams } from '../types/auth'
+import type { RestrictionParams } from '../types/limiters'
 import type { TypeB24 } from '../types/b24'
+import { AbstractB24 } from '../core/abstract-b24'
 import Http from '../core/http/controller'
 import { AuthHookManager } from './auth'
-import type { AuthActions, B24HookParams } from '../types/auth'
+import { ApiVersion } from '../types/b24'
 
 /**
  * B24.Hook Manager.
@@ -13,16 +15,28 @@ import type { AuthActions, B24HookParams } from '../types/auth'
 export class B24Hook extends AbstractB24 implements TypeB24 {
   readonly #authHookManager: AuthHookManager
 
+  readonly #version: ApiVersion
+
   // region Init ////
-  constructor(b24HookParams: B24HookParams) {
+  constructor(
+    b24HookParams: B24HookParams,
+    options?: {
+      version?: ApiVersion
+      restrictionParams?: Partial<RestrictionParams>
+    }
+  ) {
     super()
 
-    this.#authHookManager = new AuthHookManager(b24HookParams)
+    this.#version = options?.version ?? ApiVersion.v2
+    this.#authHookManager = new AuthHookManager(
+      b24HookParams,
+      this.#version
+    )
 
     this._http = new Http(
-      this.#authHookManager.getTargetOriginWithPath(),
       this.#authHookManager,
-      this._getHttpOptions()
+      this._getHttpOptions(),
+      options?.restrictionParams
     )
     this._http.setClientSideWarning(
       true,
@@ -62,7 +76,10 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
   }
 
   /**
-   * Get the account address BX24 with Path ( https://name.bitrix24.com/rest/1/xxxxx )
+   * Get the account address BX24 with path
+   * - for ver1 `https://name.bitrix24.com/rest/{id}/{webhook}`
+   * - for ver2 `https://name.bitrix24.com/rest/{id}/{webhook}`
+   * - for ver3` https://name.bitrix24.com/rest/api/{id}/{webhook}`
    */
   override getTargetOriginWithPath(): string {
     this._ensureInitialized()
@@ -72,7 +89,13 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
   // endregion ////
 
   // region Tools ////
-  public static fromWebhookUrl(url: string): B24Hook {
+  public static fromWebhookUrl(
+    url: string,
+    options?: {
+      version?: ApiVersion
+      restrictionParams?: Partial<RestrictionParams>
+    }
+  ): B24Hook {
     if (!url.trim()) {
       throw new Error('Webhook URL cannot be empty')
     }
@@ -102,11 +125,14 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     }
     const userId = Number.parseInt(userIdStr, 10)
 
-    return new B24Hook({
-      b24Url: parsedUrl.origin,
-      userId,
-      secret
-    })
+    return new B24Hook(
+      {
+        b24Url: parsedUrl.origin,
+        userId,
+        secret
+      },
+      options
+    )
   }
   // endregion ////
 }

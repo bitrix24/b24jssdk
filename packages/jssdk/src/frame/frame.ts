@@ -1,5 +1,6 @@
-import { B24LangList } from '../core/language/list'
 import type { B24FrameQueryParams, MessageInitData } from '../types/auth'
+import { B24LangList } from '../core/language/list'
+import { ApiVersion } from '../types/b24'
 
 /**
  * Application Frame Data Manager
@@ -11,7 +12,13 @@ export class AppFrame {
   #path: null | string = null
   #lang: null | string = null
 
-  constructor(queryParams: B24FrameQueryParams) {
+  readonly #version: ApiVersion
+
+  constructor(
+    queryParams: B24FrameQueryParams,
+    version: ApiVersion = ApiVersion.v2
+  ) {
+    this.#version = version
     if (queryParams.DOMAIN) {
       this.#domain = queryParams.DOMAIN
       this.#domain = this.#domain.replace(/:(80|443)$/, '')
@@ -26,6 +33,10 @@ export class AppFrame {
     if (queryParams.APP_SID) {
       this.#appSid = queryParams.APP_SID
     }
+  }
+
+  get apiVersion(): ApiVersion {
+    return this.#version
   }
 
   /**
@@ -70,17 +81,27 @@ export class AppFrame {
   }
 
   /**
-   * Get the account address BX24 with Path (https://name.bitrix24.com/rest)
+   * Get the account address BX24 with path
+   * - for ver1 `https://name.bitrix24.com/rest`
+   * - for ver2 `https://name.bitrix24.com/rest`
+   * - for ver3` https://name.bitrix24.com/rest/api`
    */
   getTargetOriginWithPath(): string {
-    return this.getTargetOrigin() + (this.#path ?? '')
+    switch (this.apiVersion) {
+      case ApiVersion.v1:
+      case ApiVersion.v2:
+        return `${this.getTargetOrigin()}/rest`
+      case ApiVersion.v3:
+      default:
+        return `${this.getTargetOrigin()}/rest/api`
+    }
   }
 
   /**
    * Returns the localization of the B24 interface
-   * @return {B24LangList} - default B24LangList.en
+   * @return {B24LangList} - default `B24LangList.en`
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-get-lang.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-get-lang.html
    */
   getLang(): B24LangList {
     return (this.#lang as B24LangList) || B24LangList.en

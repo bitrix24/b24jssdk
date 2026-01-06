@@ -5,7 +5,7 @@ import useScrollSize from '../tools/scroll-size'
 /**
  * Parent window manager
  *
- * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/
+ * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/
  */
 export class ParentManager {
   #messageManager: MessageManager
@@ -19,7 +19,7 @@ export class ParentManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-close-application.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-close-application.html
    */
   async closeApplication(): Promise<void> {
     return this.#messageManager.send(MessageCommands.closeApplication, {
@@ -35,7 +35,7 @@ export class ParentManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-fit-window.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-fit-window.html
    *
    * @memo in certain situations it may not be executed (placement of the main window after installing the application), in this case isSafely mode will work
    */
@@ -58,7 +58,7 @@ export class ParentManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-resize-window.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-resize-window.html
    *
    * @memo in certain situations it may not be executed, in this case isSafely mode will be triggered
    */
@@ -132,7 +132,7 @@ export class ParentManager {
    *
    * @return {Promise<{scrollWidth: number; scrollHeight: number}>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-get-scroll-size.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-get-scroll-size.html
    */
   getScrollSize(): {
     scrollWidth: number
@@ -147,7 +147,7 @@ export class ParentManager {
    * @param {number} scroll should specify the vertical scrollbar position (0 - scroll to the very top)
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-scroll-parent-window.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-scroll-parent-window.html
    */
   async scrollParentWindow(scroll: number): Promise<void> {
     if (!Number.isInteger(scroll)) {
@@ -169,7 +169,7 @@ export class ParentManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-reload-window.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-reload-window.html
    */
   async reloadWindow(): Promise<void> {
     return this.#messageManager.send(MessageCommands.reloadWindow, {
@@ -184,7 +184,7 @@ export class ParentManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-set-title.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-set-title.html
    */
   async setTitle(title: string): Promise<void> {
     return this.#messageManager.send(MessageCommands.setTitle, {
@@ -201,7 +201,7 @@ export class ParentManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-call-to.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-im-call-to.html
    */
   async imCallTo(userId: number, isVideo: boolean = true): Promise<void> {
     return this.#messageManager.send(MessageCommands.imCallTo, {
@@ -218,7 +218,7 @@ export class ParentManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-phone-to.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-im-phone-to.html
    */
   async imPhoneTo(phone: string): Promise<void> {
     return this.#messageManager.send(MessageCommands.imPhoneTo, {
@@ -240,7 +240,7 @@ export class ParentManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-open-messenger.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-im-open-messenger.html
    * @link https://dev.1c-bitrix.ru/learning/course/index.php?COURSE_ID=93&LESSON_ID=20152&LESSON_PATH=7657.7883.8025.20150.20152
    *
    */
@@ -269,7 +269,7 @@ export class ParentManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-im-open-history.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-im-open-history.html
    */
   async imOpenHistory(
     dialogId: number | `chat${number}` | `imol|${number}`

@@ -1,13 +1,13 @@
 /**
  * Data Types and Object Structure in the REST API bizproc
- * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-activity/bizproc-activity-add.html
- * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-robot/bizproc-robot-add.html
+ * @link https://apidocs.bitrix24.com/sdk/bizproc/bizproc-activity/bizproc-activity-add.html
+ * @link https://apidocs.bitrix24.com/sdk/bizproc/bizproc-robot/bizproc-robot-add.html
  * @todo add docs
  */
 import { EnumCrmEntityTypeId } from '../crm'
 
 /**
- * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-activity/bizproc-activity-add.html
+ * @link https://apidocs.bitrix24.com/sdk/bizproc/bizproc-activity/bizproc-activity-add.html
  */
 export enum EnumBitrix24Edition {
   undefined = 'undefined',
@@ -23,7 +23,7 @@ export enum EnumBizprocBaseType {
 }
 
 /**
- * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-workflow-start.html
+ * @link https://apidocs.bitrix24.com/sdk/bizproc/bizproc-workflow-start.html
  */
 export enum EnumBizprocDocumentType {
   undefined = 'undefined',
@@ -64,7 +64,7 @@ export function convertBizprocDocumentTypeToCrmEntityTypeId(
 }
 
 /**
- * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-activity/bizproc-activity-add.html
+ * @link https://apidocs.bitrix24.com/sdk/bizproc/bizproc-activity/bizproc-activity-add.html
  */
 export function getDocumentType(
   documentType: EnumBizprocDocumentType,
@@ -139,7 +139,7 @@ export function getDocumentType(
 }
 
 /**
- * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-workflow-start.html
+ * @link https://apidocs.bitrix24.com/sdk/bizproc/bizproc-workflow-start.html
  */
 export function getDocumentId(
   documentType: EnumBizprocDocumentType,
@@ -195,7 +195,7 @@ export function getDocumentId(
 }
 
 /**
- * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-workflow-start.html
+ * @link https://apidocs.bitrix24.com/sdk/bizproc/bizproc-workflow-start.html
  */
 export function getDocumentTypeForFilter(
   documentType: EnumBizprocDocumentType

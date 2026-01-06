@@ -32,7 +32,7 @@ export class SliderManager {
   /**
    * When the method is called, a pop-up window with the application frame will be opened.
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-open-application.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-open-application.html
    */
   async openSliderAppPage(params: any = {}): Promise<any> {
     return this.#messageManager.send(MessageCommands.openApplication, params)
@@ -43,7 +43,7 @@ export class SliderManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-close-application.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-close-application.html
    */
   async closeSliderAppPage(): Promise<void> {
     return this.#messageManager.send(MessageCommands.closeApplication, {
@@ -87,7 +87,7 @@ export class SliderManager {
    * @param {number} width - Number in the range from 1640 to 1200, from 1200 to 950, from 950 to 900, from 900 ...
    * @return {Promise<StatusClose>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-open-path.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-open-path.html
    * @memo /^\/(crm\/(deal|lead|contact|company|type)|marketplace|company\/personal\/user\/[0-9]+|workgroups\/group\/[0-9]+)\//
    */
   async openPath(url: URL, width: number = 1640): Promise<StatusClose> {

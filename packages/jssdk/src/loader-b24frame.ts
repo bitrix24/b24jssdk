@@ -1,5 +1,7 @@
-import { B24Frame } from './frame'
 import type { B24FrameQueryParams } from './types/auth'
+import type { RestrictionParams } from './types/limiters'
+import type { ApiVersion } from './types/b24'
+import { B24Frame } from './frame'
 
 type whileB24InitCallback = {
   resolve: (b24Frame: B24Frame) => void
@@ -46,7 +48,12 @@ function processResult(): void {
 }
 // endregion ////
 
-export async function initializeB24Frame(): Promise<B24Frame> {
+export async function initializeB24Frame(
+  options?: {
+    version?: ApiVersion
+    restrictionParams?: Partial<RestrictionParams>
+  }
+): Promise<B24Frame> {
   // region isInit ////
   if (isInit && null !== $b24Frame) {
     return Promise.resolve($b24Frame)
@@ -95,7 +102,10 @@ export async function initializeB24Frame(): Promise<B24Frame> {
       reject(connectError)
     }
 
-    $b24Frame = new B24Frame(queryParams)
+    $b24Frame = new B24Frame(
+      queryParams,
+      options
+    )
 
     $b24Frame
       .init()

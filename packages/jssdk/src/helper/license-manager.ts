@@ -24,7 +24,7 @@ export class LicenseManager extends AbstractHelper {
 
   /**
    * Set RestrictionManager params by license
-   * @link https://apidocs.bitrix24.com/api-reference/common/system/app-info.html
+   * @link https://apidocs.bitrix24.com/sdk/common/system/app-info.html
    */
   makeRestrictionManagerParams(): void {
     if (!this.data?.license) {

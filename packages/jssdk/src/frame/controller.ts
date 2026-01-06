@@ -1,17 +1,19 @@
 import type { LoggerBrowser } from '../logger/browser'
+import type { B24LangList } from '../core/language/list'
+import type { AuthActions, MessageInitData, B24FrameQueryParams } from '../types/auth'
+import type { RestrictionParams } from '../types/limiters'
+import type { TypeB24 } from '../types/b24'
 import { AbstractB24 } from '../core/abstract-b24'
 import Http from '../core/http/controller'
 import { AppFrame } from './frame'
 import { MessageManager, MessageCommands } from './message'
-import type { B24LangList } from '../core/language/list'
 import { AuthManager } from './auth'
 import { ParentManager } from './parent'
 import { OptionsManager } from './options'
 import { DialogManager } from './dialog'
 import { SliderManager } from './slider'
 import { PlacementManager } from './placement'
-import type { TypeB24 } from '../types/b24'
-import type { AuthActions, MessageInitData, B24FrameQueryParams } from '../types/auth'
+import { ApiVersion } from '../types/b24'
 
 /**
  * B24 Manager. Replacement api.bitrix24.com
@@ -32,16 +34,32 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
   readonly #sliderManager: SliderManager
   readonly #placementManager: PlacementManager
 
+  readonly #version: ApiVersion
+  readonly #restrictionParams: undefined | Partial<RestrictionParams>
+
   // region Init ////
-  constructor(queryParams: B24FrameQueryParams) {
+  constructor(
+    queryParams: B24FrameQueryParams,
+    options?: {
+      version?: ApiVersion
+      restrictionParams?: Partial<RestrictionParams>
+    }
+  ) {
     super()
+
+    this.#version = options?.version ?? ApiVersion.v2
+    this.#restrictionParams = options?.restrictionParams
 
     this.#appFrame = new AppFrame(queryParams)
 
     this.#messageManager = new MessageManager(this.#appFrame)
     this.#messageManager.subscribe()
 
-    this.#authManager = new AuthManager(this.#appFrame, this.#messageManager)
+    this.#authManager = new AuthManager(
+      this.#appFrame,
+      this.#messageManager,
+      this.#version
+    )
     this.#parentManager = new ParentManager(this.#messageManager)
     this.#optionsManager = new OptionsManager(this.#messageManager)
     this.#dialogManager = new DialogManager(this.#messageManager)
@@ -100,38 +118,34 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
   }
 
   override async init(): Promise<void> {
-    return this.#messageManager
-      .send(MessageCommands.getInitData, {})
-      .then((data: MessageInitData) => {
-        this.getLogger().log('init data:', data)
+    const data: MessageInitData = await this.#messageManager.send(MessageCommands.getInitData, {})
 
-        this.#appFrame.initData(data)
-        this.#authManager.initData(data)
-        this.#placementManager.initData(data)
-        this.#optionsManager.initData(data)
+    this.getLogger().log('init data:', data)
 
-        this.#isInstallMode = data.INSTALL
-        this.#isFirstRun = data.FIRST_RUN
+    this.#appFrame.initData(data)
+    this.#authManager.initData(data)
+    this.#placementManager.initData(data)
+    this.#optionsManager.initData(data)
 
-        this._http = new Http(
-          this.#appFrame.getTargetOriginWithPath(),
-          this.#authManager,
-          this._getHttpOptions()
-        )
+    this.#isInstallMode = data.INSTALL
+    this.#isFirstRun = data.FIRST_RUN
 
-        this._isInit = true
+    this._http = new Http(
+      this.#authManager,
+      this._getHttpOptions(),
+      this.#restrictionParams
+    )
 
-        /**
-         * @memo Writes the fact of the 1st launch to `app_options`
-         */
-        if (this.#isFirstRun) {
-          return this.#messageManager.send(MessageCommands.setInstall, {
-            install: true
-          })
-        }
+    this._isInit = true
 
-        return Promise.resolve()
-      })
+    /**
+     * @memo Writes the fact of the 1st launch to `app_options`
+     */
+    if (this.#isFirstRun) {
+      return this.#messageManager.send(MessageCommands.setInstall, { install: true })
+    }
+
+    return Promise.resolve()
   }
 
   /**
@@ -148,7 +162,7 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
   /**
    * Signals that the installer or application setup has finished running.
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-functions/bx24-install-finish.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-functions/bx24-install-finish.html
    */
   async installFinish(): Promise<any> {
     if (!this.isInstallMode) {
@@ -169,15 +183,18 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
    */
   override getTargetOrigin(): string {
     this._ensureInitialized()
-    return this.#appFrame.getTargetOrigin()
+    return this.#authManager.getTargetOrigin()
   }
 
   /**
-   * Get the account address BX24 with Path ( https://name.bitrix24.com/rest )
+   * Get the account address BX24 with path
+   * - for ver1 `https://name.bitrix24.com/rest`
+   * - for ver2 `https://name.bitrix24.com/rest`
+   * - for ver3` https://name.bitrix24.com/rest/api`
    */
   override getTargetOriginWithPath(): string {
     this._ensureInitialized()
-    return this.#appFrame.getTargetOriginWithPath()
+    return this.#authManager.getTargetOriginWithPath()
   }
 
   /**
@@ -191,7 +208,7 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
   /**
    * Returns the localization of the B24 interface
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-get-lang.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-get-lang.html
    */
   getLang(): B24LangList {
     this._ensureInitialized()

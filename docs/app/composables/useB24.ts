@@ -1,6 +1,6 @@
-import { ref } from 'vue'
-import { B24Hook, B24Frame, LoggerBrowser, Result } from '@bitrix24/b24jssdk'
 import type { B24FrameQueryParams } from '@bitrix24/b24jssdk'
+import { ref } from 'vue'
+import { B24Hook, B24Frame, LoggerBrowser, Result, ApiVersion, ParamsFactory } from '@bitrix24/b24jssdk'
 
 const sessionKey = 'b24Hook'
 const isUseB24HookFromEnv = ref(false)
@@ -13,6 +13,11 @@ export const useB24 = () => {
   const HOOK_REPLACE_IN_EXAMPLE = 'useB24().get() as B24Hook || '
 
   const config = useRuntimeConfig()
+
+  const b24Config = {
+    version: ApiVersion.v3,
+    restrictionParams: ParamsFactory.getDefault()
+  }
 
   function buildLogger(loggerTitle?: string) {
     // @memo For Docs use full debug
@@ -40,7 +45,7 @@ export const useB24 = () => {
       ) {
         sessionStorage.setItem(sessionKey, newValue)
         try {
-          $b24 = B24Hook.fromWebhookUrl(newValue)
+          $b24 = B24Hook.fromWebhookUrl(newValue, b24Config)
           nextTick(() => {
             type.value = 'B24Hook'
           })
@@ -84,7 +89,7 @@ export const useB24 = () => {
 
       // now init b24Frame
       const { $initializeB24Frame } = useNuxtApp()
-      return set(await $initializeB24Frame())
+      return set(await $initializeB24Frame(b24Config))
     } catch {
       // set(undefined)
     }

@@ -2,7 +2,7 @@ import type { BoolString, ISODate, TextType } from '../common'
 
 /**
  * Data Types and Object Structure in the REST API Catalog
- * @link https://apidocs.bitrix24.com/api-reference/catalog/data-types.html
+ * @link https://apidocs.bitrix24.com/sdk/catalog/data-types.html
  */
 
 export enum CatalogProductType {

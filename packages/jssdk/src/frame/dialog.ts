@@ -115,7 +115,7 @@ export type SelectedCRM = {
 /**
  * Select dialog manager
  *
- * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-dialogues/index.html
+ * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-dialogues/index.html
  */
 export class DialogManager {
   #messageManager: MessageManager
@@ -130,7 +130,7 @@ export class DialogManager {
    *
    * @return {Promise<null|SelectedUser>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-dialogues/bx24-select-user.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-dialogues/bx24-select-user.html
    */
   async selectUser(): Promise<null | SelectedUser> {
     return this.#messageManager.send(MessageCommands.selectUser, {
@@ -144,7 +144,7 @@ export class DialogManager {
    *
    * @return {Promise<SelectedUser[]>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-dialogues/bx24-select-users.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-dialogues/bx24-select-users.html
    */
   async selectUsers(): Promise<SelectedUser[]> {
     return this.#messageManager.send(MessageCommands.selectUser, {
@@ -159,7 +159,7 @@ export class DialogManager {
    * @param {string[]} blockedAccessPermissions
    * @return {Promise<SelectedAccess[]>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-dialogues/bx24-select-access.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-dialogues/bx24-select-access.html
    */
   async selectAccess(
     blockedAccessPermissions: string[] = []
@@ -177,7 +177,7 @@ export class DialogManager {
    * @param {SelectCRMParams} params
    * @return {Promise<SelectedCRM>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-dialogues/bx24-select-crm.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-dialogues/bx24-select-crm.html
    */
   async selectCRM(params?: SelectCRMParams): Promise<SelectedCRM> {
     console.warn(`@deprecated selectCRM`)

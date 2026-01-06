@@ -1,4 +1,5 @@
 import type { AuthActions, AuthData, B24HookParams } from '../types/auth'
+import { ApiVersion } from '../types/b24'
 
 /**
  * Authorization Manager
@@ -9,7 +10,13 @@ export class AuthHookManager implements AuthActions {
   readonly #b24TargetRest: string
   readonly #b24Target: string
 
-  constructor(b24HookParams: B24HookParams) {
+  readonly #version: ApiVersion
+
+  constructor(
+    b24HookParams: B24HookParams,
+    version: ApiVersion = ApiVersion.v2
+  ) {
+    this.#version = version
     this.#b24HookParams = Object.freeze(Object.assign({}, b24HookParams))
     this.#domain = this.#b24HookParams.b24Url
       .replaceAll('https://', '')
@@ -18,6 +25,10 @@ export class AuthHookManager implements AuthActions {
 
     this.#b24TargetRest = `https://${this.#domain}/rest`
     this.#b24Target = `https://${this.#domain}`
+  }
+
+  get apiVersion(): ApiVersion {
+    return this.#version
   }
 
   /**
@@ -54,10 +65,20 @@ export class AuthHookManager implements AuthActions {
   }
 
   /**
-   * Get the account address BX24 with Path ( https://name.bitrix24.com/rest/1/xxxxx )
+   * Get the account address BX24 with path
+   * - for ver1 `https://name.bitrix24.com/rest/{id}/{webhook}`
+   * - for ver2 `https://name.bitrix24.com/rest/{id}/{webhook}`
+   * - for ver3` https://name.bitrix24.com/rest/api/{id}/{webhook}`
    */
   getTargetOriginWithPath(): string {
-    return `${this.#b24TargetRest}/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`
+    switch (this.apiVersion) {
+      case ApiVersion.v1:
+      case ApiVersion.v2:
+        return `${this.#b24TargetRest}/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`
+      case ApiVersion.v3:
+      default:
+        return `${this.#b24TargetRest}/api/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`
+    }
   }
 
   /**

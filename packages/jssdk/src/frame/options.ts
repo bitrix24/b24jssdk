@@ -5,7 +5,7 @@ import type { MessageInitData } from '../types/auth'
 /**
  * Manager for working with application settings via communication with the parent window
  *
- * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/options/index.html
+ * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/options/index.html
  */
 export class OptionsManager {
   #messageManager: MessageManager
@@ -35,7 +35,7 @@ export class OptionsManager {
   /**
    * Getting application option
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/options/bx24-app-option-get.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/options/bx24-app-option-get.html
    */
   appGet(option: string): any {
     if (this.#appOptions && !!this.#appOptions[option]) {
@@ -48,7 +48,7 @@ export class OptionsManager {
   /**
    * Updates application data through the parent window
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/options/bx24-app-option-set.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/options/bx24-app-option-set.html
    */
   async appSet(option: string, value: any): Promise<void> {
     if (!this.#appOptions) {
@@ -67,7 +67,7 @@ export class OptionsManager {
   /**
    * Getting user option
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/options/bx24-user-option-get.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/options/bx24-user-option-get.html
    */
   userGet(option: string): any {
     if (this.#userOptions && !!this.#userOptions[option]) {
@@ -80,7 +80,7 @@ export class OptionsManager {
   /**
    * Updates user data through the parent window
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/options/bx24-user-option-set.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/options/bx24-user-option-set.html
    */
   async userSet(option: string, value: any): Promise<void> {
     if (!this.#appOptions) {

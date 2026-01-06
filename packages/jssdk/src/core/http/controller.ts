@@ -5,7 +5,9 @@ import { RestrictionManager } from './limiters/manager'
 import { Result } from '../result'
 import { AjaxError } from './ajax-error'
 import { AjaxResult } from './ajax-result'
+import { versionManager } from './version-manager'
 import Type from '../../tools/type'
+import { ApiVersion } from '../../types/b24'
 import type { TypeCallParams, TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, CommandObject, CommandTuple, ICallBatchResult } from '../../types/http'
 import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
 import type { AjaxResultParams } from './ajax-result'
@@ -66,7 +68,6 @@ export default class Http implements TypeHttp {
   }
 
   constructor(
-    baseURL: string,
     authActions: AuthActions,
     options?: null | object,
     restrictionParams?: Partial<RestrictionParams>
@@ -75,8 +76,11 @@ export default class Http implements TypeHttp {
       // 'X-Sdk': '__SDK_USER_AGENT__-v-__SDK_VERSION__'
     }
 
+    this.#authActions = authActions
+    this.#requestIdGenerator = new RequestIdGenerator()
+
     this.#clientAxios = axios.create({
-      baseURL: baseURL,
+      baseURL: this.#authActions.getTargetOriginWithPath(),
       headers: {
         ...defaultHeaders,
         ...(options ? (options as any).headers : {})
@@ -85,9 +89,6 @@ export default class Http implements TypeHttp {
       timeoutErrorMessage: 'Request timeout exceeded',
       ...(options && { ...options, headers: undefined })
     })
-
-    this.#authActions = authActions
-    this.#requestIdGenerator = new RequestIdGenerator()
 
     /**
      * Basic parameters of restrictions
@@ -850,14 +851,23 @@ export default class Http implements TypeHttp {
     requestId: string,
     method: string
   ): string {
-    const baseUrl = `${encodeURIComponent(method)}.json`
+    let baseUrl = this.#authActions.getTargetOriginWithPath()
+    if (
+      this.#authActions.apiVersion === ApiVersion.v3
+      && !versionManager.isSupport(this.#authActions.apiVersion, method)
+    ) {
+      baseUrl = baseUrl.replace('/rest/api', '/rest')
+    }
+
+    // not use `.json` (in ver2 def json, in ver3 only json)
+    const methodUrl = `/${encodeURIComponent(method)}`
 
     /**
      * @memo For task methods, skip telemetry
      * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
      */
     if (method.includes('task.')) {
-      return `${baseUrl}`
+      return `${baseUrl}${methodUrl}`
     }
 
     const queryParams = new URLSearchParams({
@@ -865,7 +875,7 @@ export default class Http implements TypeHttp {
       [this.#requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
       [this.#requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
     })
-    return `${baseUrl}?${queryParams.toString()}`
+    return `${baseUrl}${methodUrl}?${queryParams.toString()}`
   }
 
   /**

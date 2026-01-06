@@ -1,15 +1,17 @@
-/**
- * OAuth Authorization Manager
- *
- * @link https://apidocs.bitrix24.com/api-reference/oauth/index.html
- */
+import type { AxiosInstance } from 'axios'
+import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth, HandlerRefreshAuth, TypeDescriptionError } from '../types/auth'
+import type { TypeHttp } from '../types/http'
+import axios, { AxiosError } from 'axios'
 import { RefreshTokenError } from './refresh-token-error'
 import Type from '../tools/type'
 import { EnumAppStatus } from '../types/b24-helper'
-import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, TypeDescriptionError, CallbackRefreshAuth, CustomRefreshAuth, HandlerRefreshAuth } from '../types/auth'
-import type { TypeHttp } from '../types/http'
-import axios, { type AxiosInstance, AxiosError } from 'axios'
+import { ApiVersion } from '../types/b24'
 
+/**
+ * OAuth Authorization Manager
+ *
+ * @link https://apidocs.bitrix24.com/sdk/oauth/index.html
+ */
 export class AuthOAuthManager implements AuthActions {
   #clientAxios: AxiosInstance
   #callbackRefreshAuth: null | CallbackRefreshAuth = null
@@ -24,12 +26,16 @@ export class AuthOAuthManager implements AuthActions {
   // 'https://oauth.bitrix.info' ////
   readonly #oAuthTarget: string
 
+  readonly #version: ApiVersion
+
   #isAdmin: null | boolean = null
 
   constructor(
     b24OAuthParams: B24OAuthParams,
-    oAuthSecret: B24OAuthSecret
+    oAuthSecret: B24OAuthSecret,
+    version: ApiVersion = ApiVersion.v2
   ) {
+    this.#version = version
     this.#authOptions = Object.assign({}, b24OAuthParams) as B24OAuthParams
     this.#oAuthSecret = Object.freeze(Object.assign({}, oAuthSecret)) as B24OAuthSecret
 
@@ -50,6 +56,10 @@ export class AuthOAuthManager implements AuthActions {
         'Content-Type': 'application/json'
       }
     })
+  }
+
+  get apiVersion(): ApiVersion {
+    return this.#version
   }
 
   /**
@@ -198,10 +208,20 @@ export class AuthOAuthManager implements AuthActions {
   }
 
   /**
-   * Get the account address BX24 with Path ( https://name.bitrix24.com/rest )
+   * Get the account address BX24 with path
+   * - for ver1 `https://name.bitrix24.com/rest`
+   * - for ver2 `https://name.bitrix24.com/rest`
+   * - for ver3` https://name.bitrix24.com/rest/api`
    */
   getTargetOriginWithPath(): string {
-    return `${this.#b24TargetRest}`
+    switch (this.apiVersion) {
+      case ApiVersion.v1:
+      case ApiVersion.v2:
+        return `${this.#b24TargetRest}`
+      case ApiVersion.v3:
+      default:
+        return `${this.#b24TargetRest}/api`
+    }
   }
 
   /**
@@ -215,10 +235,24 @@ export class AuthOAuthManager implements AuthActions {
     return this.#isAdmin
   }
 
-  async initIsAdmin(http: TypeHttp) {
-    const response = await http.call('profile', {})
+  async initIsAdmin(
+    http: TypeHttp,
+    requestId?: string
+  ) {
+    const response = await http.call('profile', {}, requestId)
     if (!response.isSuccess) {
       throw new Error(response.getErrorMessages().join(';'))
+    }
+
+    // @todo test for ver3
+    if (this.apiVersion === ApiVersion.v3) {
+      const data: { id: number, admin: boolean } = response.getData().result
+
+      if (data?.admin) {
+        this.#isAdmin = true
+      }
+
+      return
     }
 
     const data: {

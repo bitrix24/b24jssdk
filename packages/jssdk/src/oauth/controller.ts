@@ -1,32 +1,45 @@
+import type { LoggerBrowser } from '../logger/browser'
+import type { AuthActions, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth } from '../types/auth'
+import type { RestrictionParams } from '../types/limiters'
+import type { TypeB24 } from '../types/b24'
+import { AbstractB24 } from '../core/abstract-b24'
+import Http from '../core/http/controller'
+import { AuthOAuthManager } from './auth'
+import { ApiVersion } from '../types/b24'
+
 /**
  * B24.OAuth Manager
  * @todo add docs
  *
- * @link https://apidocs.bitrix24.com/api-reference/oauth/index.html
+ * @link https://apidocs.bitrix24.com/sdk/oauth/index.html
  */
-import type { LoggerBrowser } from '../logger/browser'
-import { AbstractB24 } from '../core/abstract-b24'
-import type { TypeB24 } from '../types/b24'
-import Http from '../core/http/controller'
-import { AuthOAuthManager } from './auth'
-import type { AuthActions, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth } from '../types/auth'
-
 export class B24OAuth extends AbstractB24 implements TypeB24 {
   readonly #authOAuthManager: AuthOAuthManager
+
+  readonly #version: ApiVersion
 
   // region Init ////
   constructor(
     authOptions: B24OAuthParams,
-    oAuthSecret: B24OAuthSecret
+    oAuthSecret: B24OAuthSecret,
+    options?: {
+      version?: ApiVersion
+      restrictionParams?: Partial<RestrictionParams>
+    }
   ) {
     super()
 
-    this.#authOAuthManager = new AuthOAuthManager(authOptions, oAuthSecret)
+    this.#version = options?.version ?? ApiVersion.v2
+    this.#authOAuthManager = new AuthOAuthManager(
+      authOptions,
+      oAuthSecret,
+      this.#version
+    )
 
     this._http = new Http(
-      this.#authOAuthManager.getTargetOriginWithPath(),
       this.#authOAuthManager,
-      this._getHttpOptions()
+      this._getHttpOptions(),
+      options?.restrictionParams
     )
     this._http.setClientSideWarning(
       true,
@@ -43,9 +56,9 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
   /**
    * Used to initialize information about the current user.
    */
-  public async initIsAdmin(): Promise<void> {
+  public async initIsAdmin(requestId?: string): Promise<void> {
     this._ensureInitialized()
-    return this.#authOAuthManager.initIsAdmin(this._http!)
+    return this.#authOAuthManager.initIsAdmin(this._http!, requestId)
   }
 
   /**
@@ -106,7 +119,10 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
   }
 
   /**
-   * Get the account address BX24 with Path ( https://name.bitrix24.com/rest/1/xxxxx )
+   * Get the account address BX24 with path
+   * - for ver1 `https://name.bitrix24.com/rest`
+   * - for ver2 `https://name.bitrix24.com/rest`
+   * - for ver3` https://name.bitrix24.com/rest/api`
    */
   override getTargetOriginWithPath(): string {
     this._ensureInitialized()

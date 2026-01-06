@@ -1,6 +1,6 @@
-import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import type { MessageCommands } from './commands'
 import type { AppFrame } from '../frame'
+import { LoggerBrowser, LoggerType } from '../../logger/browser'
 import Text from '../../tools/text'
 import Type from '../../tools/type'
 import { omit } from '../../tools'

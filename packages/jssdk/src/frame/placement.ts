@@ -7,11 +7,10 @@ import Type from '../tools/type'
  * Placement Manager
  *
  * @see https://apidocs.bitrix24.com/api-reference/widgets/ui-interaction/index.html
- * @see https://dev.1c-bitrix.ru/learning/course/index.php?COURSE_ID=99&CHAPTER_ID=02535&LESSON_PATH=8771.5380.2535
  */
 export class PlacementManager {
   #messageManager: MessageManager
-  #title: string = ''
+  #placement: string = ''
   #options: object = {}
 
   constructor(messageManager: MessageManager) {
@@ -23,20 +22,26 @@ export class PlacementManager {
    * @param data
    */
   initData(data: MessageInitData): PlacementManager {
-    this.#title = data.PLACEMENT || 'DEFAULT'
-    const options = data.PLACEMENT_OPTIONS
-
-    this.#options = Object.freeze(options)
+    this.#placement = data.PLACEMENT || 'DEFAULT'
+    this.#options = Object.freeze(data.PLACEMENT_OPTIONS)
 
     return this
   }
 
+  /**
+   * Symlink on `placement`
+   * For backward compatibility
+   */
   get title(): string {
-    return this.#title
+    return this.#placement
+  }
+
+  get placement(): string {
+    return this.#placement
   }
 
   get isDefault(): boolean {
-    return this.title === 'DEFAULT'
+    return this.placement === 'DEFAULT'
   }
 
   get options(): any {

@@ -22,6 +22,7 @@
     "noImplicitThis": true,
     "declaration": true,
     "esModuleInterop": true,
+    "types": ["node"],
     "lib": [
       "ESNext",
       "dom",
@@ -30,7 +31,6 @@
     ],
     "jsx": "preserve",
     "jsxImportSource": "vue",
-    "types": [],
     "declarationMap": false,
     "sourceMap": false,
     "noEmit": true,

@@ -16,7 +16,7 @@ const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl(
 )
 
 async function getTask(id: number): Promise<Task | null> {
-  const response = await $b24.call<{ item: Task }>(
+  const response = await $b24.callMethod<{ item: Task }>(
     'tasks.task.get',
     {
       id,

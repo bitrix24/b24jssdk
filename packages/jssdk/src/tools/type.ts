@@ -437,6 +437,4 @@ class TypeManager {
   }
 }
 
-const Type = new TypeManager()
-
-export default Type
+export const Type = new TypeManager()

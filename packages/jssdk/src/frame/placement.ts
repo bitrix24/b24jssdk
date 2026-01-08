@@ -1,7 +1,7 @@
 import type { MessageManager } from './message'
-import { MessageCommands } from './message'
 import type { MessageInitData } from '../types/auth'
-import Type from '../tools/type'
+import { MessageCommands } from './message'
+import { Type } from '../tools/type'
 
 /**
  * Placement Manager

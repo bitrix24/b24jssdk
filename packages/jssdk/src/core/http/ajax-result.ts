@@ -1,5 +1,5 @@
-import Type from '../../tools/type'
-import Text from '../../tools/text'
+import { Type } from '../../tools/type'
+import { Text } from '../../tools/text'
 import { Result, type IResult } from '../result'
 import { AjaxError } from './ajax-error'
 import type { NumberString } from '../../types/common'

@@ -1,8 +1,8 @@
+import type { RpcCommand, RpcCommandResult, TypeRpcResponseAwaiters, JsonRpcRequest, RpcRequest, TypeConnector, TypeJsonRpcConfig, TypePullClientMessageBatch } from '../types/pull'
 import { LoggerBrowser, LoggerType } from '../logger/browser'
 import { ErrorNotConnected, ErrorTimeout } from './errors'
-import Type from '../tools/type'
-import Text from '../tools/text'
-import type { RpcCommand, RpcCommandResult, TypeRpcResponseAwaiters, JsonRpcRequest, RpcRequest, TypeConnector, TypeJsonRpcConfig, TypePullClientMessageBatch } from '../types/pull'
+import { Type } from '../tools/type'
+import { Text } from '../tools/text'
 import { ListRpcError } from '../types/pull'
 
 const JSON_RPC_VERSION = '2.0'

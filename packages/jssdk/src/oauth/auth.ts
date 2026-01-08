@@ -3,7 +3,7 @@ import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, CallbackRef
 import type { TypeHttp } from '../types/http'
 import axios, { AxiosError } from 'axios'
 import { RefreshTokenError } from './refresh-token-error'
-import Type from '../tools/type'
+import { Type } from '../tools/type'
 import { EnumAppStatus } from '../types/b24-helper'
 import { ApiVersion } from '../types/b24'
 

@@ -1,6 +1,6 @@
-import { LoggerBrowser, LoggerType } from '../logger/browser'
-import Type from '../tools/type'
 import type { ConnectorParent, ConnectorCallbacks, ConnectorConfig, TypeConnector } from '../types/pull'
+import { LoggerBrowser, LoggerType } from '../logger/browser'
+import { Type } from '../tools/type'
 import { ConnectionType } from '../types/pull'
 
 export abstract class AbstractConnector implements TypeConnector {

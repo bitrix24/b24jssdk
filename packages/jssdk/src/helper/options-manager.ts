@@ -3,8 +3,8 @@ import { AbstractHelper } from './abstract-helper'
 import type { TypeB24 } from '../types/b24'
 import type { Result } from '../core/result'
 import { TypeOption } from '../types/b24-helper'
-import Type from '../tools/type'
-import Text from '../tools/text'
+import { Type } from '../tools/type'
+import { Text } from '../tools/text'
 
 export class OptionsManager extends AbstractHelper {
   protected override _data: Map<string, any>

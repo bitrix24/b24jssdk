@@ -1,4 +1,4 @@
-import Type from './type'
+import { Type } from './type'
 
 let UA: string = ''
 try {
@@ -194,6 +194,4 @@ class BrowserManager {
   }
 }
 
-const Browser = new BrowserManager()
-
-export default Browser
+export const Browser = new BrowserManager()

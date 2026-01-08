@@ -1,6 +1,6 @@
-import { LoggerBrowser, LoggerType } from '../logger/browser'
-import Text from '../tools/text'
 import type { StorageManagerParams, TypeStorageManager } from '../types/pull'
+import { LoggerBrowser, LoggerType } from '../logger/browser'
+import { Text } from '../tools/text'
 
 export class StorageManager implements TypeStorageManager {
   private _logger: null | LoggerBrowser = null

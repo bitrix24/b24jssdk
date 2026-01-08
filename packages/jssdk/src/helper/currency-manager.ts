@@ -1,8 +1,8 @@
-import { AbstractHelper, UnhandledMatchError } from './abstract-helper'
 import type { BoolString, ISODate, NumberString } from '../types/common'
 import type { Currency, CurrencyFormat } from '../types/b24-helper'
-import Type from '../tools/type'
-import Text from '../tools/text'
+import { AbstractHelper, UnhandledMatchError } from './abstract-helper'
+import { Type } from '../tools/type'
+import { Text } from '../tools/text'
 
 type CurrencyFormatInit = {
   DECIMALS: NumberString

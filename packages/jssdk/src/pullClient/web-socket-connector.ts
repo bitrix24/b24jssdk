@@ -1,7 +1,7 @@
-import Text from '../tools/text'
+import type { ConnectorConfig } from '../types/pull'
+import { Text } from '../tools/text'
 import { AbstractConnector } from './abstract-connector'
 import { ConnectionType } from '../types/pull'
-import type { ConnectorConfig } from '../types/pull'
 
 export class WebSocketConnector extends AbstractConnector {
   private _socket: null | WebSocket

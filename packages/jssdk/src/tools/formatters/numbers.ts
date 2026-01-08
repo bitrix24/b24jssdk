@@ -1,4 +1,4 @@
-import Type from '../type'
+import { Type } from '../type'
 
 export default class FormatterNumbers {
   private static isInternalConstructing: boolean = false

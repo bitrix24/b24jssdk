@@ -1,8 +1,8 @@
 import type { MessageCommands } from './commands'
 import type { AppFrame } from '../frame'
 import { LoggerBrowser, LoggerType } from '../../logger/browser'
-import Text from '../../tools/text'
-import Type from '../../tools/type'
+import { Type } from '../../tools/type'
+import { Text } from '../../tools/text'
 import { omit } from '../../tools'
 
 interface PromiseHandlers {

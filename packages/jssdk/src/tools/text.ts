@@ -1,6 +1,6 @@
 import { DateTime, type DateTimeOptions } from 'luxon'
 import uuidv7 from './uuidv7'
-import Type from './type'
+import { Type } from './type'
 
 const reEscape = /[&<>'"]/g
 const reUnescape = /&(?:amp|#38|lt|#60|gt|#62|apos|#39|quot|#34)/g
@@ -244,6 +244,4 @@ class TextManager {
   }
 }
 
-const Text = new TextManager()
-
-export default Text
+export const Text = new TextManager()

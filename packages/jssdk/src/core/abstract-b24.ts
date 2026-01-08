@@ -1,17 +1,9 @@
 import { LoggerBrowser, LoggerType } from '../logger/browser'
 import { Result } from './result'
+import { Type } from './../tools/type'
 import type { AjaxResult } from './http/ajax-result'
-import Type from './../tools/type'
 import type { TypeB24, IB24BatchOptions } from '../types/b24'
-import type {
-  TypeHttp,
-  BatchCommandsUniversal,
-  BatchCommandsArrayUniversal,
-  BatchCommandsObjectUniversal,
-  BatchNamedCommandsUniversal,
-  ICallBatchOptions,
-  TypeCallParams
-} from '../types/http'
+import type { TypeHttp, BatchCommandsUniversal, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, ICallBatchOptions, TypeCallParams } from '../types/http'
 import type { ListPayload, PayloadTime } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
 

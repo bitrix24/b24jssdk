@@ -1,4 +1,4 @@
-import Text from '../tools/text'
+import { Text } from '../tools/text'
 
 /**
  * Interface defining the structure and methods of a Result object.

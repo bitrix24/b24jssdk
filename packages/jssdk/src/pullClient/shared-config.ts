@@ -1,13 +1,9 @@
 import { LoggerBrowser, LoggerType } from '../logger/browser'
-import Type from '../tools/type'
-import Text from '../tools/text'
+import { Type } from '../tools/type'
+import { Text } from '../tools/text'
 import { StorageManager } from './storage-manager'
-import {
-  LsKeys,
-  type SharedConfigCallbacks,
-  type SharedConfigParams,
-  type TypeStorageManager
-} from '../types/pull'
+import { LsKeys } from '../types/pull'
+import type { SharedConfigCallbacks, SharedConfigParams, TypeStorageManager } from '../types/pull'
 
 export class SharedConfig {
   private _logger: null | LoggerBrowser = null

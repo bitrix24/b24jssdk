@@ -7,16 +7,9 @@ import { LicenseManager } from './license-manager'
 import { CurrencyManager } from './currency-manager'
 import { OptionsManager } from './options-manager'
 import { B24PullClientManager } from '../pullClient'
-import Text from '../tools/text'
+import { Text } from '../tools/text'
 import { LoadDataType, TypeSpecificUrl } from '../types/b24-helper'
-import type {
-  TypeApp,
-  TypeB24Form,
-  TypeEnumAppStatus,
-  TypeLicense,
-  TypePayment,
-  TypeUser
-} from '../types/b24-helper'
+import type { TypeApp, TypeB24Form, TypeEnumAppStatus, TypeLicense, TypePayment, TypeUser } from '../types/b24-helper'
 import type { GenderString } from '../types/common'
 import type { TypePullMessage } from '../types/pull'
 import type { BatchNamedCommandsUniversal } from '../types/http'

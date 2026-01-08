@@ -1,8 +1,8 @@
-import Type from '../tools/type'
-import Text from '../tools/text'
+import type { ConnectorConfig } from '../types/pull'
+import { Type } from '../tools/type'
+import { Text } from '../tools/text'
 import { AbstractConnector } from './abstract-connector'
 import { ConnectionType } from '../types/pull'
-import type { ConnectorConfig } from '../types/pull'
 
 const LONG_POLLING_TIMEOUT = 60
 

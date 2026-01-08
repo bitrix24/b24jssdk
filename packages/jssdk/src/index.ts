@@ -1,10 +1,10 @@
 export * from './logger/browser'
 
 export * from './types/common'
-export { default as Type } from './tools/type'
+export * from './tools/type'
 export * from './tools/index'
-export { default as Text } from './tools/text'
-export { default as Browser } from './tools/browser'
+export * from './tools/text'
+export * from './tools/browser'
 
 export * from './types/http'
 export * from './types/limiters'

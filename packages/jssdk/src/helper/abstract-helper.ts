@@ -1,5 +1,6 @@
-import { LoggerBrowser, LoggerType } from '../logger/browser'
 import type { TypeB24 } from '../types/b24'
+import type { LoggerInterface } from '../logger'
+import { LoggerFactory } from '../logger'
 
 export class UnhandledMatchError extends Error {
   constructor(value: string, ...args: any[]) {
@@ -12,42 +13,29 @@ export class UnhandledMatchError extends Error {
 
 export abstract class AbstractHelper {
   protected _b24: TypeB24
-  protected _logger: null | LoggerBrowser = null
   protected _data: any = null
+
+  protected _logger: LoggerInterface
 
   // region Init ////
   constructor(b24: TypeB24) {
     this._b24 = b24
+    this._logger = LoggerFactory.createNullLogger()
   }
 
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: false,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
   // endregion ////
 
   /**
    * Initializes the data received
-   * @param data
    */
-  async initData(data: any): Promise<void> {
-    this.getLogger().log(data)
+  async initData(_data: any): Promise<void> {
     return Promise.reject(new Error('Rewrite this function'))
   }
 

@@ -1,4 +1,4 @@
-import type { LoggerBrowser } from '../logger/browser'
+import type { LoggerInterface } from './logger'
 import type { Result } from '../core/result'
 import type { AjaxResult } from '../core/http/ajax-result'
 import type { PayloadTime } from './payloads'
@@ -78,8 +78,8 @@ export interface IRequestIdGenerator {
  * Interface for HTTP client
  */
 export type TypeHttp = {
-  setLogger(logger: LoggerBrowser): void
-  getLogger(): LoggerBrowser
+  setLogger(logger: LoggerInterface): void
+  getLogger(): LoggerInterface
 
   /**
    * Executing batch queries

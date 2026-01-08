@@ -1,9 +1,9 @@
-import { LoggerBrowser, LoggerType } from '../../../logger/browser'
 import type { ILimiter, RateLimitConfig } from '../../../types/limiters'
+import type { LoggerInterface } from '../../../types/logger'
+import { LoggerFactory } from '../../../logger'
 
 /**
- * Rate limiting (Leaky Bucket)
- * с адаптивным регулированием
+ * Rate limiting (Leaky Bucket) with adaptive control
  */
 export class RateLimiter implements ILimiter {
   #tokens: number
@@ -12,17 +12,18 @@ export class RateLimiter implements ILimiter {
   #config: RateLimitConfig
   #lockQueue: Array<() => void> = []
 
-  #originalConfig: RateLimitConfig // Оригинальная конфигурация для восстановления
-  #errorThreshold: number = 5 // Порог ошибок за 60 секунд для уменьшения лимитов
-  #successThreshold: number = 20 // Порог успехов подряд для восстановления лимитов
-  #minDrainRate: number = 0.5 // Минимальный drainRate
-  #minBurstLimit: number = 5 // Минимальный burstLimit
-  #errorTimestamps: number[] = [] // Временные метки ошибок (последние 60 секунд)
-  #successTimestamps: number[] = [] // Временные метки успешных запросов (последние 60 секунд)
+  #originalConfig: RateLimitConfig // Original configuration for recovery
+  #errorThreshold: number = 5 // 60-second error threshold to reduce limits
+  #successThreshold: number = 20 // Consecutive success threshold for restoring limits
+  #minDrainRate: number = 0.5 // Minimum drain rate
+  #minBurstLimit: number = 5 // Minimum burst limit
+  #errorTimestamps: number[] = [] // Error timestamps (last 60 seconds)
+  #successTimestamps: number[] = [] // Timestamps of successful requests
 
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
 
   constructor(config: RateLimitConfig) {
+    this._logger = LoggerFactory.createNullLogger()
     this.#config = config
     this.#originalConfig = { ...config }
     this.#tokens = config.burstLimit
@@ -35,24 +36,11 @@ export class RateLimiter implements ILimiter {
   }
 
   // region Logger ////
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: true,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
   // endregion ////
@@ -90,24 +78,24 @@ export class RateLimiter implements ILimiter {
       const now = Date.now()
       const timePassed = now - this.#lastRefill
 
-      // Пополняем токены
+      // Replenishing tokens
       const refillAmount = timePassed * this.#config.drainRate / 1_000
       this.#tokens = Math.min(
         this.#config.burstLimit,
         this.#tokens + refillAmount
       )
 
-      // Всегда обновляем время последнего пополнения
+      // We always update the time of the last replenishment
       this.#lastRefill = now
 
-      // Если достаточно токенов
+      // If there are enough tokens
       if (this.#tokens >= 1) {
         // Consume token
         this.#tokens -= 1
         return 0
       }
 
-      // Вычисляем время ожидания для 1 токена
+      // Calculating the waiting time for 1 token
       const deficit = 1 - this.#tokens
       return Math.ceil(deficit * this.#refillIntervalMs)
     } finally {
@@ -116,23 +104,22 @@ export class RateLimiter implements ILimiter {
   }
 
   /**
-   * Обработчик ошибки.
-   * Если много ошибок, то будем понижать лимиты
+   * Error handler.
+   * If there are a lot of errors, we'll lower the limits.
    */
   async handleExceeded(requestId: string): Promise<number> {
     await this.#acquireLock(requestId)
 
     try {
-      // Записываем ошибку
       this.#recordError()
 
-      // Адаптивное регулирование: если много ошибок - уменьшаем лимиты
+      // Adaptive regulation: if there are many errors, we reduce the limits
       if (this.#config.adaptiveEnabled && this.#shouldReduceLimits()) {
         this.#reduceLimits(requestId)
       }
 
       this.#tokens = 0
-      // Ждем время для восстановления хотя бы одного токена + 1sec
+      // Wait for the time to restore at least one token + 1sec
       return this.#refillIntervalMs + 1_000
     } finally {
       this.#releaseLock()
@@ -140,11 +127,11 @@ export class RateLimiter implements ILimiter {
   }
 
   /**
-   * Обработчик успешного запроса.
-   * Если все нормально, то будем восстанавливать лимиты
+   * Successful request handler.
+   * If everything is OK, we'll restore the limits.
    */
   async updateStats(requestId: string, method: string, _data: any): Promise<void> {
-    // пропускаем учет подзапросов `batch`
+    // skip accounting of `batch` subqueries
     if (method.startsWith('batch::')) {
       return
     }
@@ -152,11 +139,9 @@ export class RateLimiter implements ILimiter {
     await this.#acquireLock(requestId)
 
     try {
-      // Записываем успешный запрос
       this.#recordSuccess()
 
-      // Адаптивное регулирование: если стабильно работаем - восстанавливаем лимиты
-
+      // Adaptive regulation: if we operate stably, we restore the limits
       if (this.#config.adaptiveEnabled) {
         this.#logStat(requestId)
       }
@@ -181,7 +166,7 @@ export class RateLimiter implements ILimiter {
       this.#errorTimestamps = []
       this.#successTimestamps = []
 
-      // Восстанавливаем оригинальные настройки при reset
+      // Restore original settings during reset
       this.#config.drainRate = this.#originalConfig.drainRate
       this.#config.burstLimit = this.#originalConfig.burstLimit
       this.#refillIntervalMs = 1000 / this.#config.drainRate
@@ -219,12 +204,12 @@ export class RateLimiter implements ILimiter {
       this.#originalConfig = { ...config }
       this.#refillIntervalMs = 1000 / this.#config.drainRate
 
-      // Если новая конфигурация увеличивает burstLimit, мы можем увеличить текущее количество токенов
+      // If the new configuration increases burstLimit, we can increase the current number of tokens
       if (config.burstLimit > this.#tokens) {
         this.#tokens = Math.min(config.burstLimit, this.#tokens)
       }
 
-      // Сбрасываем статистику при изменении конфигурации
+      // Reset statistics when changing configuration
       this.#errorTimestamps = []
       this.#successTimestamps = []
     } finally {
@@ -233,18 +218,18 @@ export class RateLimiter implements ILimiter {
   }
 
   /**
-   * Приобретаем блокировку для критической секции
-   * Использует очередь промисов
+   * Acquire a lock for the critical section
+   * Uses a promise queue
    */
   async #acquireLock(requestId: string): Promise<void> {
     return new Promise<void>((resolve) => {
-      // Добавляем в очередь разрешающую функцию
+      // Add the resolution function to the queue
       const queueLength = this.#lockQueue.push(resolve)
 
       if (queueLength > 1) {
         this.#logAcquireQueue(requestId, queueLength)
       }
-      // Если это первый в очереди, сразу разрешаем
+      // If it's the first one in the queue, we allow it immediately
       if (this.#lockQueue.length === 1) {
         resolve()
       }
@@ -252,13 +237,13 @@ export class RateLimiter implements ILimiter {
   }
 
   /**
-   * Освобождает блокировку и разрешает следующему в очереди
+   * Releases the lock and allows the next person in the queue to proceed
    */
   #releaseLock(): void {
-    // Удаляем текущий разрешитель из начала очереди
+    // Remove the current resolver from the front of the queue
     this.#lockQueue.shift()
 
-    // Если есть ожидающие, разрешаем следующего
+    // If there are any waiting, resolve the next one
     if (this.#lockQueue.length > 0) {
       const nextResolve = this.#lockQueue[0]
       nextResolve()
@@ -266,19 +251,19 @@ export class RateLimiter implements ILimiter {
   }
 
   /**
-   * Проверяет, нужно ли уменьшать лимиты
+   * Checks whether the limits need to be reduced
    */
   #shouldReduceLimits(): boolean {
-    // Если за последние 60 секунд больше ошибок, чем порог
+    // If there are more errors than the threshold in the last 60 seconds
     return this.#errorTimestamps.length >= this.#errorThreshold
   }
 
   /**
-   * Проверяет, нужно ли восстанавливать лимиты
-   * Восстанавливаем если:
-   * 1. Много успешных запросов (больше порога)
-   * 2. Мало ошибок (меньше половины порога)
-   * 3. Текущие лимиты ниже оригинальных
+   * Checks whether limits need to be restored
+   * Restore if:
+   *   1. Many successful requests (more than the threshold)
+   *   2. Few errors (less than half the threshold)
+   *   3. Current limits are lower than the original ones
    */
   #shouldRestoreLimits(): boolean {
     return this.#successTimestamps.length >= this.#successThreshold
@@ -290,35 +275,35 @@ export class RateLimiter implements ILimiter {
   }
 
   /**
-   * Уменьшает лимиты при частых ошибках
+   * Reduces limits for frequent errors
    */
   #reduceLimits(requestId: string): void {
-    // Уменьшаем drainRate на 20%, но не ниже минимума
+    // Reduce drainRate by 20%, but not below the minimum
     const newDrainRate = Math.max(
       this.#minDrainRate,
       Number.parseFloat((this.#config.drainRate * 0.8).toFixed(2))
     )
 
-    // Уменьшаем burstLimit на 20%, но не ниже минимума
+    // Reduce burstLimit by 20%, but not below the minimum
     const newBurstLimit = Math.max(
       this.#minBurstLimit,
       Number.parseFloat((this.#config.burstLimit * 0.8).toFixed(2))
     )
 
-    // Применяем новые лимиты
+    // Applying new limits
     this.#config.drainRate = newDrainRate
     this.#config.burstLimit = newBurstLimit
     this.#refillIntervalMs = 1000 / newDrainRate
 
     this.#logReduceLimits(requestId, newDrainRate, newBurstLimit)
 
-    // Сбрасываем статистику ошибок после уменьшения
+    // Reset error statistics after reduction
     this.#errorTimestamps = []
     this.#successTimestamps = []
   }
 
   /**
-   * Восстанавливает лимиты при стабильной работе
+   * Restores limits during stable operation
    */
   #restoreLimits(requestId: string): void {
     if (
@@ -328,66 +313,63 @@ export class RateLimiter implements ILimiter {
       return
     }
 
-    // Восстанавливаем drainRate на 10% к оригинальному значению
+    // Restore drainRate to 10% of its original value
     const newDrainRate = Math.min(
       this.#originalConfig.drainRate,
       Number.parseFloat((this.#config.drainRate * 1.1).toFixed(2))
     )
 
-    // Восстанавливаем burstLimit на 10% к оригинальному значению
+    // Restore burstLimit to 10% of its original value
     const newBurstLimit = Math.min(
       this.#originalConfig.burstLimit,
       Number.parseFloat((this.#config.burstLimit * 1.1).toFixed(2))
     )
 
-    // Применяем новые лимиты
+    // Applying new limits
     this.#config.drainRate = newDrainRate
     this.#config.burstLimit = newBurstLimit
     this.#refillIntervalMs = 1000 / newDrainRate
 
     this.#logRestoreLimits(requestId, newDrainRate, newBurstLimit)
 
-    // Сбрасываем статистику успехов после восстановления
+    // Reset success statistics after recovery
     this.#errorTimestamps = []
     this.#successTimestamps = []
   }
 
   /**
-   * Записывает ошибку во временную историю
+   * Writes an error to the temporary history
    */
   #recordError(): void {
     const now = Date.now()
     this.#errorTimestamps.push(now)
 
-    // Очищаем ВСЕ успехи
+    // Clear ALL progress
     this.#successTimestamps = []
-    // Очищаем старые ошибки
     this.#cleanupOldErrors(now)
   }
 
   /**
-   * Очищает старые ошибки (старше 60 секунд)
+   * Clears old errors (older than 60 seconds)
    */
   #cleanupOldErrors(now: number): void {
-    const cutoff = now - 60_000 // 60 секунд
+    const cutoff = now - 60_000
     this.#errorTimestamps = this.#errorTimestamps.filter(timestamp => timestamp > cutoff)
   }
 
   /**
-   * Записывает успешный запрос во временную историю
+   * Writes a successful request to the temporary history
    */
   #recordSuccess(): void {
     const now = Date.now()
     this.#successTimestamps.push(now)
 
-    // Очищаем старые успехи
     this.#cleanupOldSuccesses()
-    // Очищаем старые ошибки
     this.#cleanupOldErrors(now)
   }
 
   /**
-   * Очищает старые успехи
+   * Clears old progress
    */
   #cleanupOldSuccesses(): void {
     this.#successTimestamps = this.#successTimestamps.slice(-1 * this.#successThreshold)
@@ -401,7 +383,7 @@ export class RateLimiter implements ILimiter {
     const originalBurstLimit = this.#originalConfig.burstLimit
     const burstLimitCondition = currentBurstLimit < originalBurstLimit
 
-    this.getLogger().warn(
+    this.getLogger().warning(
       `${this.getTitle()} is lowering limits due to frequent errors`, {
         requestId,
         drainRate: {
@@ -427,7 +409,7 @@ export class RateLimiter implements ILimiter {
     const originalBurstLimit = this.#originalConfig.burstLimit
     const burstLimitCondition = currentBurstLimit < originalBurstLimit
 
-    this.getLogger().warn(
+    this.getLogger().warning(
       `${this.getTitle()} increases limits during stable operation`, {
         requestId,
         drainRate: {
@@ -447,7 +429,7 @@ export class RateLimiter implements ILimiter {
   }
 
   #logAcquireQueue(requestId: string, queueLength: number) {
-    this.getLogger().log(`${this.getTitle()} request in queue`, {
+    this.getLogger().debug(`${this.getTitle()} request in queue`, {
       requestId,
       queueLength
     })
@@ -472,7 +454,7 @@ export class RateLimiter implements ILimiter {
     const originalBurstLimit = this.#originalConfig.burstLimit
     const burstLimitCondition = currentBurstLimit < originalBurstLimit
 
-    this.getLogger().log(`${this.getTitle()} state`, {
+    this.getLogger().debug(`${this.getTitle()} state`, {
       requestId,
       success: {
         count: successCount,

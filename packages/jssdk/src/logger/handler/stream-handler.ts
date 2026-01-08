@@ -1,43 +1,47 @@
 import type { Writable } from 'node:stream'
-import type { Handler, LogRecord } from '../../types/logger'
+import type { Handler, HandlerOptions, LogRecord } from '../../types/logger'
 import { LogLevel } from '../../types/logger'
 import { AbstractHandler } from './abstract-handler'
-import { LineFormatter } from '../formatter/line-formatter'
+import { LineFormatter } from '../formatter'
 
 /**
  * Stream Handler
  *
  * Node.js stream handler for writing logs to streams.
- *
- * @property {Writable} stream - Stream for writing logs.
  */
 export class StreamHandler extends AbstractHandler implements Handler {
+  /**
+   * Stream for writing logs.
+   * @private
+   */
   private stream: Writable
 
   /**
    * Creates a StreamHandler instance.
    *
-   * @param {Writable} stream - Stream to write to (e.g., process.stdout, process.stderr, fs.WriteStream).
    * @param {LogLevel} level - Minimum log level.
-   * @param {boolean} bubble - Determines whether the handler should bubble the record to the next handler.
+   * @param options
+   *     - `stream: Writable` - Stream to write to (e.g., `process.stdout`, `process.stderr`, `fs.WriteStream`)
+   *     - `bubble?: boolean` - Determines whether the handler should bubble the record to the next handler.
    */
   constructor(
-    stream: Writable,
     level: LogLevel = LogLevel.DEBUG,
-    bubble: boolean = true
+    options: HandlerOptions & { stream: Writable }
   ) {
-    super(level, bubble)
+    const opts = {
+      bubble: true,
+      ...options
+    }
+    super(level, opts.bubble)
 
-    this.stream = stream
+    this.stream = opts.stream
     this.setFormatter(new LineFormatter())
   }
 
   /**
    * @inheritDoc
    */
-  public override handle(record: LogRecord): void {
-    if (!this.isHandling(record.level)) return
-
+  public override async handle(record: LogRecord): Promise<boolean> {
     try {
       const formatter = this.getFormatter()!
       const message = formatter.format(record) + '\n'
@@ -45,7 +49,10 @@ export class StreamHandler extends AbstractHandler implements Handler {
     } catch (error) {
       // If stream write fails, log to stderr
       console.error(`StreamHandler write error: ${error}`)
+      return false
     }
+
+    return true
   }
 
   /**

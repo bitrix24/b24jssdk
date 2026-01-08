@@ -1,10 +1,11 @@
 import type { AdaptiveConfig, ILimiter } from '../../../types/limiters'
 import type { OperatingLimiter } from './operating-limiter'
-import { LoggerBrowser, LoggerType } from '../../../logger/browser'
+import type { LoggerInterface } from '../../../types/logger'
+import { LoggerFactory } from '../../../logger'
 
 /**
  * Adaptive delayer
- * @todo перевод
+ *
  * @todo docs
  */
 export class AdaptiveDelayer implements ILimiter {
@@ -15,36 +16,24 @@ export class AdaptiveDelayer implements ILimiter {
     totalAdaptiveDelay: 0
   }
 
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
 
   getTitle(): string {
     return 'adaptiveDelayer'
   }
 
   constructor(config: AdaptiveConfig, operatingLimiter: OperatingLimiter) {
+    this._logger = LoggerFactory.createNullLogger()
     this.#config = config
     this.#operatingLimiter = operatingLimiter
   }
 
   // region Logger ////
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: true,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
   // endregion ////
@@ -54,7 +43,7 @@ export class AdaptiveDelayer implements ILimiter {
   }
 
   /**
-   * Возвращает адаптивную задержку на основе предыдущего опыта
+   * Returns an adaptive delay based on previous experience
    */
   async waitIfNeeded(requestId: string, method: string, params?: any): Promise<number> {
     if (!this.#config.enabled) {
@@ -71,7 +60,7 @@ export class AdaptiveDelayer implements ILimiter {
   }
 
   /**
-   * Считает адаптивную задержку на основе предыдущего опыта
+   * Calculates adaptive delay based on previous experience
    */
   #calculateDelay(requestId: string, method: string, params?: any): number {
     if (method === 'batch') {
@@ -94,7 +83,7 @@ export class AdaptiveDelayer implements ILimiter {
       if (stats.operating_reset_at > now) {
         adaptiveDelay += (stats.operating_reset_at - now) * this.#config.coefficient
       } else {
-        adaptiveDelay += 7_000 // 7 секунд по умолчанию
+        adaptiveDelay += 7_000 // 7 seconds by default
       }
 
       const waitDelay = Number.parseInt(Math.min(adaptiveDelay, this.#config.maxDelay).toFixed(0))
@@ -107,7 +96,7 @@ export class AdaptiveDelayer implements ILimiter {
   }
 
   /**
-   * Для `batch` применяет адаптивную задержку на основе предыдущего опыта из команд
+   * For `batch`, applies adaptive delay based on previous experience from commands
    */
   #calculateBatchDelay(requestId: string, params: any): number {
     let maxDelay = 0
@@ -164,7 +153,7 @@ export class AdaptiveDelayer implements ILimiter {
 
   // region Log ////
   #logStat(requestId: string, method: string, percent: number, adaptiveDelay: number, waitDelay: number) {
-    this.getLogger().log(`${this.getTitle()} state for method ${method}`, {
+    this.getLogger().debug(`${this.getTitle()} state for method ${method}`, {
       requestId,
       method,
       percent: Number.parseFloat(percent.toFixed(2)),

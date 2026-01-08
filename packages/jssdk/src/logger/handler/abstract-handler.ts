@@ -11,14 +11,19 @@ export abstract class AbstractHandler implements Handler {
 
   constructor(
     level: LogLevel = LogLevel.DEBUG,
-    bubble: boolean = true
+    bubble?: boolean
   ) {
     this.level = level
-    this.bubble = bubble
+
+    if (bubble !== undefined) this.bubble = bubble
   }
 
   public isHandling(level: LogLevel): boolean {
     return level >= this.level
+  }
+
+  public shouldBubble(): boolean {
+    return this.bubble
   }
 
   public setFormatter(formatter: Formatter): void {
@@ -32,5 +37,5 @@ export abstract class AbstractHandler implements Handler {
   /**
    * @inheritDoc
    */
-  public abstract handle(record: LogRecord): void
+  public abstract handle(record: LogRecord): Promise<boolean>
 }

@@ -1,4 +1,4 @@
-import type { LoggerBrowser } from '../logger/browser'
+import type { LoggerInterface } from '../logger'
 import type { TypeB24 } from './b24'
 import type { ISODate, NumberString } from './common'
 
@@ -29,7 +29,7 @@ export enum ConnectionType {
 }
 
 export type TypeConnector = {
-  setLogger(logger: LoggerBrowser): void
+  setLogger(logger: LoggerInterface): void
   destroy(): void
   connect(): void
   disconnect(code: number, reason: string): void
@@ -68,8 +68,8 @@ export type StorageManagerParams = {
 }
 
 export type TypeStorageManager = {
-  setLogger(logger: LoggerBrowser): void
-  getLogger(): LoggerBrowser
+  setLogger(logger: LoggerInterface): void
+  getLogger(): LoggerInterface
 
   set(name: string, value: any): void
   get(name: string, defaultValue: any): any

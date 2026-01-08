@@ -25,15 +25,15 @@ Indicates whether the data is initialized. [Similar function](https://apidocs.bi
 ## Example
 
 ```ts [Example.ts]
-import { B24Hook, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, LoggerFactory } from '@bitrix24/b24jssdk'
 
 // Define the dev mode
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
 
-const $logger = LoggerBrowser.build('MyApp', devMode)
+const $logger = LoggerFactory.createForBrowser('MyApp', devMode)
 const $b24 = B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/xxxx/')
 
-$logger.info($b24.isInit)  // true
+$logger.info('isInit', { isInit: $b24.isInit })  // true
 ```
 
 ## Next Steps

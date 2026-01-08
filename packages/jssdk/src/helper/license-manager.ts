@@ -1,5 +1,5 @@
-import { AbstractHelper } from './abstract-helper'
 import type { TypeLicense } from '../types/b24-helper'
+import { AbstractHelper } from './abstract-helper'
 import { ParamsFactory } from '../core/http/limiters/params-factory'
 
 export class LicenseManager extends AbstractHelper {
@@ -11,7 +11,7 @@ export class LicenseManager extends AbstractHelper {
   override async initData(data: TypeLicense): Promise<void> {
     this._data = data
 
-    this.makeRestrictionManagerParams()
+    await this.makeRestrictionManagerParams()
   }
 
   get data(): TypeLicense {
@@ -26,19 +26,17 @@ export class LicenseManager extends AbstractHelper {
    * Set RestrictionManager params by license
    * @link https://apidocs.bitrix24.com/sdk/common/system/app-info.html
    */
-  makeRestrictionManagerParams(): void {
+  async makeRestrictionManagerParams(): Promise<void> {
     if (!this.data?.license) {
       return
     }
 
     const restrictionParams = ParamsFactory.fromTariffPlan(this.data.license)
-    this.getLogger().log(
-      `LICENSE ${this.data.license} => set restriction manager params`,
+    this.getLogger().debug('set restriction manager params', {
+      license: this.data.license,
       restrictionParams
-    )
+    })
 
-    this._b24
-      .getHttpClient()
-      .setRestrictionManagerParams(restrictionParams)
+    await this._b24.getHttpClient().setRestrictionManagerParams(restrictionParams)
   }
 }

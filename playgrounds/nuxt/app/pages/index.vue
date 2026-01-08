@@ -1,20 +1,14 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import type { B24Frame } from '@bitrix24/b24jssdk'
-import { B24LangList, LoadDataType, LoggerBrowser, useB24Helper } from '@bitrix24/b24jssdk'
+import { B24LangList, LoadDataType, LoggerFactory, useB24Helper } from '@bitrix24/b24jssdk'
 import SimpleProfile from '~/components/SimpleProfile.vue'
 import SimpleAppInfo from '~/components/SimpleAppInfo.vue'
 
-const route = useRoute()
-
-console.log(route.path)
 const { $initializeB24Frame } = useNuxtApp()
 
 let $b24: B24Frame
-const $logger = LoggerBrowser.build(
-  '[playground: jssdk-nuxt] App',
-  true
-)
+const $logger = LoggerFactory.createForBrowserDevelopment('[playground: jssdk-nuxt] App')
 const b24CurrentLang = ref(B24LangList.en)
 const { initB24Helper, destroyB24Helper, getB24Helper } = useB24Helper()
 const isInit = ref(false)
@@ -23,11 +17,13 @@ const stopInterval = ref(0)
 
 onMounted(async () => {
   try {
-    $logger.warn('onMounted >> ')
+    $logger.notice('onMounted')
     $b24 = await $initializeB24Frame()
     $b24.setLogger($logger)
     b24CurrentLang.value = $b24.getLang()
-    $logger.log('locale >>>', b24CurrentLang.value)
+    $logger.debug('current lang', {
+      locale: b24CurrentLang.value
+    })
     await initB24Helper(
       $b24,
       [
@@ -44,13 +40,13 @@ onMounted(async () => {
     stopInterval.value = window.setInterval(() => {
       isShowComponent1.value = Math.floor(Math.random() * 10) > 6
       isShowComponent2.value = Math.floor(Math.random() * 10) > 6
-      $logger.info({
+      $logger.info('interval', {
         isShowComponent1: isShowComponent1.value,
         isShowComponent2: isShowComponent2.value
       })
     }, 5_000)
   } catch (error) {
-    $logger.error(error)
+    $logger.error('some error', { error })
     showError({
       statusCode: 404,
       statusMessage: (error instanceof Error) ? error.message : (error as string),

@@ -1,5 +1,5 @@
 import type { Result } from '@bitrix24/b24jssdk'
-import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type BatchResponse = {
   CompanyList?: { items: Record<string, any> }
@@ -7,7 +7,7 @@ type BatchResponse = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:BatchObject', devMode)
+const $logger = LoggerFactory.createForBrowser('Example:BatchObject', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
@@ -51,7 +51,10 @@ try {
     createdTime: new Date(item.createdTime)
   }))
 
-  $logger.info('response >> ', dataCompanyList, dataContactList)
+  $logger.info('response', {
+    dataCompanyList,
+    dataContactList
+  })
 } catch (error) {
-  $logger.error(error)
+  $logger.error('some error', { error })
 }

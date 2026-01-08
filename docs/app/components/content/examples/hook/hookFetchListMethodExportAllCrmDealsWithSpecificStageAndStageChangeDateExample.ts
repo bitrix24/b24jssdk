@@ -1,5 +1,5 @@
 import type { ISODate } from '@bitrix24/b24jssdk'
-import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, LoggerFactory } from '@bitrix24/b24jssdk'
 import { createWriteStream } from 'node:fs'
 
 type Deal = {
@@ -11,7 +11,7 @@ type Deal = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:ExportAllDealsByStage', devMode)
+const $logger = LoggerFactory.createForBrowser('Example:ExportAllDealsByStage', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 const outputFile = createWriteStream('deals_export.jsonl', { flags: 'a' })
@@ -42,12 +42,14 @@ try {
     }
 
     totalExported += chunk.length
-    $logger.log(`Exported deals: ${totalExported}`)
+    $logger.debug(`Exported deals: ${totalExported}`)
   }
 
-  $logger.info(`Export complete. Total exported: ${totalExported}.`)
+  $logger.info(`Export complete`, {
+    total: totalExported
+  })
 } catch (error) {
-  $logger.error(error)
+  $logger.error('some error', { error })
 } finally {
   outputFile.end()
 }

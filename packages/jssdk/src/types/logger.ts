@@ -70,17 +70,81 @@ export interface Formatter {
   format(record: LogRecord): any
 }
 
+export interface HandlerOptions {
+  bubble?: boolean
+  [key: string]: any
+}
+
 export interface Handler {
   /**
    * Handles a log record.
    *
    * @param {LogRecord} record - Log record to handle.
-   * @returns {void}
+   * @returns {boolean}
    */
-  handle(record: LogRecord): void
+  handle(record: LogRecord): Promise<boolean>
   isHandling(level: LogLevel): boolean
+  shouldBubble(): boolean
   setFormatter(formatter: Formatter): void
   getFormatter(): Formatter | null
 }
 
 export type Processor = (record: LogRecord) => LogRecord
+
+export interface LoggerInterface {
+  /**
+   * Logs with an arbitrary level.
+   */
+  log(level: LogLevel, message: string, context?: Record<string, any>): Promise<void>
+
+  /**
+   * Detailed debug information.
+   */
+  debug(message: string, context?: Record<string, any>): void
+
+  /**
+   * Interesting events.
+   *
+   * Example: User logs in, SQL logs.
+   */
+  info(message: string, context?: Record<string, any>): void
+
+  /**
+   * Normal but significant events.
+   */
+  notice(message: string, context?: Record<string, any>): void
+
+  /**
+   * Exceptional occurrences that are not errors.
+   *
+   * Example: Use of deprecated APIs, poor use of an API, undesirable things
+   *          that are not necessarily wrong.
+   */
+  warning(message: string, context?: Record<string, any>): void
+
+  /**
+   * Runtime errors that do not require immediate action but should typically
+   * be logged and monitored.
+   */
+  error(message: string, context?: Record<string, any>): void
+
+  /**
+   * Critical conditions
+   *
+   * Example: Application component unavailable, unexpected exception
+   */
+  critical(message: string, context?: Record<string, any>): void
+
+  /**
+   * Action must be taken immediately.
+   *
+   * Example: Entire website down, database unavailable, etc. This should
+   *          trigger the SMS alerts and wake you up.
+   */
+  alert(message: string, context?: Record<string, any>): void
+
+  /**
+   * System is unusable.
+   */
+  emergency(message: string, context?: Record<string, any>): void
+}

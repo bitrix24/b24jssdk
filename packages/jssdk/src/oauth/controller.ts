@@ -1,4 +1,3 @@
-import type { LoggerBrowser } from '../logger/browser'
 import type { AuthActions, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
 import type { TypeB24 } from '../types/b24'
@@ -47,10 +46,6 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     )
 
     this._isInit = true
-  }
-
-  public override setLogger(logger: LoggerBrowser): void {
-    super.setLogger(logger)
   }
 
   /**

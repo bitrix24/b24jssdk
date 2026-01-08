@@ -1,5 +1,5 @@
 import type { AjaxResult } from '@bitrix24/b24jssdk'
-import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type CrmItem = {
   id: number
@@ -8,7 +8,7 @@ type CrmItem = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:getCrmItem', devMode)
+const $logger = LoggerFactory.createForBrowser('Example:getCrmItem', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 async function getCrmItem(entityTypeId: number, itemId: number): Promise<CrmItem> {
@@ -27,7 +27,7 @@ async function getCrmItem(entityTypeId: number, itemId: number): Promise<CrmItem
 // Use for the company
 try {
   const company = await getCrmItem(EnumCrmEntityTypeId.company, 5284)
-  $logger.info(`Company: ${company?.title}`)
+  $logger.info(`Company: ${company?.title}`, { company })
 } catch (error) {
-  $logger.error(error)
+  $logger.error('some error', { error })
 }

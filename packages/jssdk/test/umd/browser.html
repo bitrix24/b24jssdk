@@ -49,7 +49,7 @@
       ];
 
       async function runTests() {
-        const $logger = B24Js.LoggerBrowser.build('Test', true)
+        const $logger = B24Js.LoggerFactory.createForBrowser('Test', true)
 
         try {
           let isAllSuccess = true
@@ -57,12 +57,16 @@
             const response = await test.action()
             if (!response.isSuccess) {
               isAllSuccess = false
-              $logger.error(test.name, response.getErrorMessages())
+              $logger.error(test.name, { messages: response.getErrorMessages() })
             } else {
-              $logger.info(test.name, 'success');
+              $logger.info(test.name, {
+                status: 'success'
+              });
               const data = response.getData()
               if (data?.message) {
-                $logger.log(test.name, data?.message)
+                $logger.debug(test.name, {
+                  message: data?.message
+                })
               }
             }
           }
@@ -73,8 +77,8 @@
             $logger.error('We get some problems');
           }
 
-        } catch (e) {
-          $logger.error('Tests failed:', e);
+        } catch (error) {
+          $logger.error('Tests failed', { error });
         }
       }
 

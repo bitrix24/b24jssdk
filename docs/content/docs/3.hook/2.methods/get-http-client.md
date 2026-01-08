@@ -30,44 +30,40 @@ Returns an HTTP client implementing the [`TypeHttp`](https://github.com/bitrix24
 
 ## Example
 
-In this example, we will set fine-tuning a `LoggerBrowser` for HttpClient.
+@todo
+
+In this example, we will set fine-tuning a `LoggerInterface` for HttpClient.
 
 Then get the current time on the Bitrix24 side and see logs in console. 
 
 ::code-group
 
 ```ts [Example.ts]
-import { B24Hook, LoggerBrowser, LoggerType } from '@bitrix24/b24jssdk'
+import { B24Hook, LoggerFactory, LogLevel } from '@bitrix24/b24jssdk'
 
 // Define the dev mode
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
 
-const $logger = LoggerBrowser.build('MyApp', devMode)
+const $logger = LoggerFactory.createForBrowser('MyApp', devMode)
 const $b24 = B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/xxxx/')
 
 // init custom logger for debug
-const loggerForDebugB24 = LoggerBrowser.build('MyApp:DebugB24')
-loggerForDebugB24.setConfig({
-  [LoggerType.desktop]: false,
-  [LoggerType.log]: true,
-  [LoggerType.info]: true,
-  [LoggerType.warn]: true,
-  [LoggerType.error]: true,
-  [LoggerType.trace]: true
-})
+const loggerForDebugB24 = Logger.create('MyApp:DebugB24')
+loggerForDebugB24.pushHandler(new ConsoleHandler(LogLevel.DEBUG))
 
 const httpClient = $b24.getHttpClient()
 httpClient.setLogger(loggerForDebugB24)
 
 // call some method and see log in console
 const response = await $b24.callMethod('server.time')
-$logger.log(`Server time: ${response.getData()?.result}`)
+$logger.debug(`Server time`, { result: response.getData()?.result })
 ```
 
 ```ts [TypeHttp.ts]
+// @todo
 type TypeHttp = {
-  setLogger(logger: LoggerBrowser): void
-  getLogger(): LoggerBrowser
+  setLogger(logger: LoggerInterface): void
+  getLogger(): LoggerInterface
 
   batch(calls: any[] | object, isHaltOnError: boolean, returnAjaxResult: boolean): Promise<Result>
 

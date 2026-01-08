@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { TypeB24, Result, LoggerBrowser } from '@bitrix24/b24jssdk'
+import type { TypeB24, Result, LoggerInterface } from '@bitrix24/b24jssdk'
 import type { TableColumn } from '@bitrix24/b24ui-nuxt'
 import { AjaxError, EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
 // Initialization
 let $b24: undefined | TypeB24 = undefined
-let $logger: undefined | LoggerBrowser = undefined
+let $logger: undefined | LoggerInterface = undefined
 
 // Defining type for contact item
 interface ContactItem {
@@ -60,7 +60,7 @@ async function loadContacts(): Promise<void> {
 
   try {
     isLoading.value = true
-    $logger.info('Loading contacts...')
+    $logger.notice('Loading contacts...')
 
     const start = (currentPage.value - 1) * pageSize.value
 
@@ -104,9 +104,12 @@ async function loadContacts(): Promise<void> {
     contacts.value = dataList
     totalContacts.value = data?.total || 0
 
-    $logger.info(`Loaded ${dataList.length} contacts, total: ${totalContacts.value}`)
+    $logger.info(`Loaded some contacts`, {
+      length: dataList.length,
+      total: totalContacts.value
+    })
   } catch (error: unknown) {
-    $logger.error('Request failed:', error)
+    $logger.error('Request failed', { error })
     throw error
   } finally {
     isLoading.value = false
@@ -128,7 +131,7 @@ onMounted(async () => {
   $b24 = b24Instance.get()
   $logger = b24Instance.buildLogger()
 
-  $logger.info('Hi from contact list')
+  $logger.notice('Hi from contact list')
 
   try {
     if (!$b24) {
@@ -138,7 +141,7 @@ onMounted(async () => {
     // Load initial data
     await loadContacts()
   } catch (error) {
-    $logger!.error(error)
+    $logger!.error('some error', { error })
 
     const processErrorData = {}
     let statusMessage = 'Error'

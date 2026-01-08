@@ -1,6 +1,7 @@
-import { LoggerBrowser, LoggerType } from '../logger/browser'
+import type { LoggerInterface } from '../logger'
+import { LoggerFactory } from '../logger'
 import { Result } from './result'
-import { Type } from './../tools/type'
+import { Type } from '../tools/type'
 import type { AjaxResult } from './http/ajax-result'
 import type { TypeB24, IB24BatchOptions } from '../types/b24'
 import type { TypeHttp, BatchCommandsUniversal, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, ICallBatchOptions, TypeCallParams } from '../types/http'
@@ -16,11 +17,12 @@ export abstract class AbstractB24 implements TypeB24 {
 
   protected _isInit: boolean = false
   protected _http: null | TypeHttp = null
-  protected _logger: null | LoggerBrowser = null
+  protected _logger: LoggerInterface
 
   // region Init ////
   protected constructor() {
     this._isInit = false
+    this._logger = LoggerFactory.createNullLogger()
   }
 
   /**
@@ -37,25 +39,12 @@ export abstract class AbstractB24 implements TypeB24 {
 
   destroy(): void {}
 
-  public setLogger(logger: LoggerBrowser): void {
+  public setLogger(logger: LoggerInterface): void {
     this._logger = logger
-    this.getHttpClient().setLogger(this.getLogger())
+    this.getHttpClient().setLogger(this._logger)
   }
 
-  public getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: false,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  public getLogger(): LoggerInterface {
     return this._logger
   }
   // endregion ////
@@ -244,11 +233,19 @@ export abstract class AbstractB24 implements TypeB24 {
     let isContinue = true
 
     do {
-      this.getLogger().log({ method, requestParams })
+      this.getLogger().debug('callFastListMethod', {
+        method,
+        requestId,
+        requestParams
+      })
       const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, requestId)
 
       if (!response.isSuccess) {
-        this.getLogger().error(response.getErrorMessages())
+        this.getLogger().error('callFastListMethod', {
+          method,
+          requestId,
+          messages: response.getErrorMessages()
+        })
         result.addErrors([...response.getErrors()])
         isContinue = false
         break
@@ -360,11 +357,20 @@ export abstract class AbstractB24 implements TypeB24 {
 
     let isContinue = true
     do {
-      this.getLogger().log({ method, requestParams })
+      this.getLogger().debug('fetchListMethod', {
+        method,
+        requestId,
+        requestParams
+      })
       const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, requestId)
 
       if (!response.isSuccess) {
-        this.getLogger().error(response.getErrorMessages())
+        this.getLogger().error('fetchListMethod', {
+          method,
+          requestId,
+          messages: response.getErrorMessages()
+        })
+
         throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)
       }
 
@@ -497,7 +503,11 @@ export abstract class AbstractB24 implements TypeB24 {
           time?: PayloadTime
         }>()
         if (!response.isSuccess) {
-          this.getLogger().error(response.getErrorMessages())
+          this.getLogger().error('callBatch', {
+            calls,
+            options,
+            messages: response.getErrorMessages()
+          })
           result.addErrors([...response.getErrors()])
         }
 
@@ -519,7 +529,11 @@ export abstract class AbstractB24 implements TypeB24 {
       }>()
 
       if (!response.isSuccess) {
-        this.getLogger().error(response.getErrorMessages())
+        this.getLogger().error('callBatch', {
+          calls,
+          options,
+          messages: response.getErrorMessages()
+        })
         result.addErrors([...response.getErrors()])
       }
 
@@ -537,7 +551,11 @@ export abstract class AbstractB24 implements TypeB24 {
       if (Array.isArray(calls)) {
         const result = new Result<AjaxResult<T>[]>()
         if (!response.isSuccess) {
-          this.getLogger().error(response.getErrorMessages())
+          this.getLogger().error('callBatch', {
+            calls,
+            options,
+            messages: response.getErrorMessages()
+          })
           result.addErrors([...response.getErrors()])
         }
 
@@ -552,7 +570,11 @@ export abstract class AbstractB24 implements TypeB24 {
 
       const result = new Result<Record<string | number, AjaxResult<T>>>()
       if (!response.isSuccess) {
-        this.getLogger().error(response.getErrorMessages())
+        this.getLogger().error('callBatch', {
+          calls,
+          options,
+          messages: response.getErrorMessages()
+        })
         result.addErrors([...response.getErrors()])
       }
 
@@ -565,7 +587,11 @@ export abstract class AbstractB24 implements TypeB24 {
     } else {
       const result = new Result<T>()
       if (!response.isSuccess) {
-        this.getLogger().error(response.getErrorMessages())
+        this.getLogger().error('callBatch', {
+          calls,
+          options,
+          messages: response.getErrorMessages()
+        })
         result.addErrors([...response.getErrors()])
       }
 
@@ -637,7 +663,11 @@ export abstract class AbstractB24 implements TypeB24 {
     for (const chunkRequest of chunks) {
       const response = await this.getHttpClient().batch<T[]>(chunkRequest, options)
       if (!response.isSuccess) {
-        this.getLogger().error(response.getErrorMessages())
+        this.getLogger().error('callBatchByChunk', {
+          calls,
+          options,
+          messages: response.getErrorMessages()
+        })
         result.addErrors([...response.getErrors()])
       }
 

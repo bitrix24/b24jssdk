@@ -1,44 +1,29 @@
-import { LoggerBrowser, LoggerType } from '../logger/browser'
 import type { AjaxResult } from '../core/http/ajax-result'
-import type {
-  TypeChanel,
-  TypeChannelManagerParams,
-  TypePublicIdDescriptor
-} from '../types/pull'
+import type { TypeChanel, TypeChannelManagerParams, TypePublicIdDescriptor } from '../types/pull'
 import type { TypeB24 } from '../types/b24'
 import type { Payload } from '../types/payloads'
+import type { LoggerInterface } from '../logger'
+import { LoggerFactory } from '../logger'
 
 export class ChannelManager {
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
   private _publicIds: Map<number, TypeChanel>
   private _restClient: TypeB24
   private _getPublicListMethod: string
 
   constructor(params: TypeChannelManagerParams) {
+    this._logger = LoggerFactory.createNullLogger()
     this._publicIds = new Map()
 
     this._restClient = params.b24
     this._getPublicListMethod = params.getPublicListMethod
   }
 
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: false,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
 
@@ -93,7 +78,7 @@ export class ChannelManager {
           resolve(result)
         })
         .catch((error: Error | string) => {
-          this.getLogger().error(error)
+          this.getLogger().error('some error in getPublicIds', { error })
           return resolve({})
         })
     })

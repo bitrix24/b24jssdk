@@ -1,10 +1,11 @@
 import type { ConnectorParent, ConnectorCallbacks, ConnectorConfig, TypeConnector } from '../types/pull'
-import { LoggerBrowser, LoggerType } from '../logger/browser'
+import type { LoggerInterface } from '../logger'
+import { LoggerFactory } from '../logger'
 import { Type } from '../tools/type'
 import { ConnectionType } from '../types/pull'
 
 export abstract class AbstractConnector implements TypeConnector {
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
 
   protected _connected: boolean = false
 
@@ -18,6 +19,8 @@ export abstract class AbstractConnector implements TypeConnector {
   protected _callbacks: ConnectorCallbacks
 
   protected constructor(config: ConnectorConfig) {
+    this._logger = LoggerFactory.createNullLogger()
+
     this._parent = config.parent
     this._connectionType = ConnectionType.Undefined
 
@@ -33,24 +36,11 @@ export abstract class AbstractConnector implements TypeConnector {
     } as ConnectorCallbacks
   }
 
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: false,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
 

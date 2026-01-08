@@ -1,14 +1,15 @@
 import type { RestrictionParams } from '../../../types/limiters'
 
 /**
- * Фабрика для создания параметров ограничений
- * @todo перевод
+ * Factory for creating constraint parameters
+ *
  * @todo docs
  */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class ParamsFactory {
   /**
-   * Параметры по умолчанию для обычных тарифов
+   * Default parameters for regular tariffs
+   *
    * @see Http.#restrictionParams
    */
   static getDefault(): RestrictionParams {
@@ -19,8 +20,8 @@ export class ParamsFactory {
         adaptiveEnabled: true
       },
       operatingLimit: {
-        windowMs: 600_000, // 10 минут
-        limitMs: 480_000, // 480 секунд
+        windowMs: 600_000, // 10 min
+        limitMs: 480_000, // 480 sec
         heavyPercent: 80
       },
       adaptiveConfig: {
@@ -35,7 +36,7 @@ export class ParamsFactory {
   }
 
   /**
-   * Параметры для тарифа Enterprise
+   * Parameters for the Enterprise plan
    */
   static getEnterprise(): RestrictionParams {
     return {
@@ -49,7 +50,7 @@ export class ParamsFactory {
   }
 
   /**
-   * Параметры для массовой обработки данных
+   * Parameters for bulk data processing
    */
   static getBatchProcessing(): RestrictionParams {
     return {
@@ -62,26 +63,26 @@ export class ParamsFactory {
       operatingLimit: {
         windowMs: 600_000,
         limitMs: 480_000,
-        heavyPercent: 50 // Больше порог для уведомлений
+        heavyPercent: 50 // Higher threshold for notifications
       },
       adaptiveConfig: {
         enabled: true,
-        thresholdPercent: 50, // Больше порог
-        coefficient: 0.015, // Больше пауза
-        maxDelay: 10_000 // Макс 10 секунд
+        thresholdPercent: 50, // More threshold
+        coefficient: 0.015, // More pause
+        maxDelay: 10_000 // Max 10 seconds
       },
-      maxRetries: 5 // Больше попыток
+      maxRetries: 5 // More attempts
     }
   }
 
   /**
-   * Параметры для реального времени
+   * Real-time parameters
    */
   static getRealtime(): RestrictionParams {
     return {
       ...this.getDefault(),
       adaptiveConfig: {
-        enabled: false, // Выключено
+        enabled: false, // Off
         thresholdPercent: 100,
         coefficient: 0.001,
         maxDelay: 480_000
@@ -91,7 +92,7 @@ export class ParamsFactory {
   }
 
   /**
-   * Параметры на основе тарифного плана
+   * Tariff plan based parameters
    */
   static fromTariffPlan(plan: string): RestrictionParams {
     switch (plan.toLowerCase()) {

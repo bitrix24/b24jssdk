@@ -60,7 +60,7 @@ export class CurrencyManager extends AbstractHelper {
         throw error
       }
 
-      console.error(error)
+      this.getLogger().error('Failed to load data', { error })
       throw new Error('Failed to load data')
     }
   }
@@ -134,7 +134,7 @@ export class CurrencyManager extends AbstractHelper {
         }
       })
     } catch (error) {
-      console.error(error)
+      this.getLogger().error('Failed to load data', { error })
     }
   }
 

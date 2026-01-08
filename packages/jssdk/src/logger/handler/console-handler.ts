@@ -1,7 +1,7 @@
-import type { Handler, LogRecord } from '../../types/logger'
+import type { Handler, HandlerOptions, LogRecord } from '../../types/logger'
 import { LogLevel } from '../../types/logger'
 import { AbstractHandler } from './abstract-handler'
-import { LineFormatter } from '../formatter/line-formatter'
+import { LineFormatter } from '../formatter'
 
 /**
  * Console Handler
@@ -11,12 +11,16 @@ export class ConsoleHandler extends AbstractHandler implements Handler {
   private readonly useStyles: boolean
 
   constructor(
-    useStyles: boolean = true,
     level: LogLevel = LogLevel.DEBUG,
-    bubble: boolean = true
+    options?: HandlerOptions & { useStyles?: boolean }
   ) {
-    super(level, bubble)
-    this.useStyles = useStyles
+    const opts = {
+      useStyles: true,
+      ...options
+    }
+
+    super(level, opts.bubble)
+    this.useStyles = opts.useStyles
     this._initStyles()
     this.setFormatter(new LineFormatter())
   }
@@ -53,23 +57,26 @@ export class ConsoleHandler extends AbstractHandler implements Handler {
   /**
    * @inheritDoc
    */
-  public override handle(record: LogRecord): void {
-    if (!this.isHandling(record.level)) return
-
+  public override async handle(record: LogRecord): Promise<boolean> {
     const formatter = this.getFormatter()!
     const message = formatter.format(record)
 
+    let method = this._getConsoleMethod(record.level)
+    if (record.context['needTrace'] === true) {
+      method = 'trace'
+    }
+
     if (this.useStyles && this.styles.has(record.level)) {
       const style = this.styles.get(record.level)!
-      const method = this._getConsoleMethod(record.level)
       console[method](style[0], style[1], message)
     } else {
-      const method = this._getConsoleMethod(record.level)
       console[method](message)
     }
+
+    return true
   }
 
-  private _getConsoleMethod(level: LogLevel): 'log' | 'info' | 'warn' | 'error' {
+  private _getConsoleMethod(level: LogLevel): 'log' | 'info' | 'warn' | 'error' | 'trace' {
     switch (level) {
       case LogLevel.INFO:
       case LogLevel.NOTICE:

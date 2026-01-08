@@ -1,4 +1,4 @@
-import type { LoggerBrowser } from '../logger/browser'
+import type { LoggerInterface } from '../logger'
 import type { AjaxResult } from '../core/http/ajax-result'
 import type { Result } from '../core/result'
 import type {
@@ -48,8 +48,8 @@ export type TypeB24 = {
   init(): Promise<void>
   destroy(): void
 
-  getLogger(): LoggerBrowser
-  setLogger(logger: LoggerBrowser): void
+  getLogger(): LoggerInterface
+  setLogger(logger: LoggerInterface): void
 
   get auth(): AuthActions
 

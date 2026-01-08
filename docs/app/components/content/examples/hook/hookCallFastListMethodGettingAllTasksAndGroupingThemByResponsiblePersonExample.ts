@@ -1,5 +1,5 @@
 import type { NumberString } from '@bitrix24/b24jssdk'
-import { B24Hook, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type Task = {
   id: NumberString
@@ -8,7 +8,7 @@ type Task = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:AllTasks', devMode)
+const $logger = LoggerFactory.createForBrowser('Example:AllTasks', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
@@ -27,7 +27,7 @@ try {
   }
 
   const activeTasks = response.getData()
-  console.log(`Active tasks: ${activeTasks?.length}`)
+  $logger.debug(`Active tasks: ${activeTasks?.length}`)
 
   // Group by responsible
   const tasksByResponsible = (activeTasks || []).reduce((acc: Record<number, Task[]>, task) => {
@@ -40,7 +40,7 @@ try {
     return acc
   }, {})
 
-  $logger.info('Tasks by Responsible Person:', tasksByResponsible)
+  $logger.info('Tasks by Responsible Person', { tasksByResponsible })
 } catch (error) {
-  $logger.error(error)
+  $logger.error('some error', { error })
 }

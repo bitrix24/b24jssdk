@@ -1,5 +1,6 @@
 import type { RpcCommand, RpcCommandResult, TypeRpcResponseAwaiters, JsonRpcRequest, RpcRequest, TypeConnector, TypeJsonRpcConfig, TypePullClientMessageBatch } from '../types/pull'
-import { LoggerBrowser, LoggerType } from '../logger/browser'
+import type { LoggerInterface } from '../logger'
+import { LoggerFactory } from '../logger'
 import { ErrorNotConnected, ErrorTimeout } from './errors'
 import { Type } from '../tools/type'
 import { Text } from '../tools/text'
@@ -8,7 +9,7 @@ import { ListRpcError } from '../types/pull'
 const JSON_RPC_VERSION = '2.0'
 
 export class JsonRpc {
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
 
   private _connector: TypeConnector
   private _idCounter: number = 0
@@ -18,6 +19,7 @@ export class JsonRpc {
   private _rpcResponseAwaiters: Map<number, TypeRpcResponseAwaiters> = new Map()
 
   constructor(options: TypeJsonRpcConfig) {
+    this._logger = LoggerFactory.createNullLogger()
     this._connector = options.connector
 
     if (Type.isPlainObject(options.handlers)) {
@@ -27,24 +29,11 @@ export class JsonRpc {
     }
   }
 
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: false,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
 
@@ -140,12 +129,7 @@ export class JsonRpc {
       return
     }
 
-    this.getLogger().error(
-      new Error(
-        `${Text.getDateForLog()}: Pull: Received rpc response with unknown id`
-      ),
-      response
-    )
+    this.getLogger().error(`${Text.getDateForLog()}: Pull: Received rpc response with unknown id`, { response })
   }
 
   parseJsonRpcMessage(
@@ -156,10 +140,8 @@ export class JsonRpc {
       decoded = JSON.parse(message)
     } catch (error) {
       this.getLogger().error(
-        new Error(
-          `${Text.getDateForLog()}: Pull: Could not decode json rpc message`
-        ),
-        error
+        `${Text.getDateForLog()}: Pull: Could not decode json rpc message`,
+        { error }
       )
 
       return []
@@ -174,8 +156,8 @@ export class JsonRpc {
       return []
     } else {
       this.getLogger().error(
-        new Error(`${Text.getDateForLog()}: Pull: unknown rpc packet`),
-        decoded
+        `${Text.getDateForLog()}: Pull: unknown rpc packet`,
+        { decoded }
       )
     }
 
@@ -221,10 +203,8 @@ export class JsonRpc {
         }
       } else {
         this.getLogger().error(
-          new Error(
-            `${Text.getDateForLog()}: Pull: unknown rpc command in batch`
-          ),
-          command
+          `${Text.getDateForLog()}: Pull: unknown rpc command in batch`,
+          { command }
         )
 
         result.push({

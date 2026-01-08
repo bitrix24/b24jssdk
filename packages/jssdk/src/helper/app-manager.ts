@@ -1,5 +1,6 @@
+import type { TypeApp } from '../types/b24-helper'
 import { AbstractHelper } from './abstract-helper'
-import { StatusDescriptions, type TypeApp } from '../types/b24-helper'
+import { StatusDescriptions } from '../types/b24-helper'
 
 export class AppManager extends AbstractHelper {
   protected override _data: null | TypeApp = null

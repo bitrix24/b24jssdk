@@ -1,4 +1,5 @@
-import { LoggerBrowser, LoggerType } from '../logger/browser'
+import type { LoggerInterface } from '../logger'
+import { LoggerFactory } from '../logger'
 import { Type } from '../tools/type'
 import { Text } from '../tools/text'
 import { Browser } from '../tools/browser'
@@ -46,7 +47,7 @@ const EmptyConfig = {
  */
 export class PullClient implements ConnectorParent {
   // region Params ////
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
   private _restClient: TypeB24
   private _status: PullStatus
   private _context: string
@@ -135,6 +136,7 @@ export class PullClient implements ConnectorParent {
    * @param params
    */
   constructor(params: TypePullClientParams) {
+    this._logger = LoggerFactory.createNullLogger()
     this._restClient = params.b24
     this._status = PullStatus.Offline
     this._context = 'master'
@@ -220,7 +222,7 @@ export class PullClient implements ConnectorParent {
     this._onPingTimeoutHandler = this.onPingTimeout.bind(this)
   }
 
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
     this._jsonRpcAdapter?.setLogger(this.getLogger())
     this._storage?.setLogger(this.getLogger())
@@ -231,20 +233,7 @@ export class PullClient implements ConnectorParent {
     this._connectors.longPolling?.setLogger(this.getLogger())
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: false,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
 
@@ -474,9 +463,7 @@ export class PullClient implements ConnectorParent {
       typeof handler.getModuleId !== 'function'
       || typeof handler.getModuleId() !== 'string'
     ) {
-      this.getLogger().error(
-        `${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string.`
-      )
+      this.getLogger().error(`${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string.`)
       return () => {}
     }
 
@@ -518,9 +505,9 @@ export class PullClient implements ConnectorParent {
 
         if (method) {
           if (this._debug && this._context !== 'master') {
-            this.getLogger().warn(
+            this.getLogger().warning(
               `${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string`,
-              data
+              { data }
             )
           }
 
@@ -611,8 +598,8 @@ export class PullClient implements ConnectorParent {
           this.status = PullStatus.Offline
           this.stopCheckConfig()
           this.getLogger().error(
-            `${Text.getDateForLog()}: Pull: could not read push-server config `,
-            error
+            `${Text.getDateForLog()}: Pull: could not read push-server config`,
+            { error }
           )
           reject(error)
         })
@@ -632,7 +619,7 @@ export class PullClient implements ConnectorParent {
       this._restartTimeout = null
     }
 
-    this.getLogger().log(
+    this.getLogger().debug(
       `${Text.getDateForLog()}: Pull: restarting with code ${disconnectCode}`
     )
 
@@ -651,13 +638,13 @@ export class PullClient implements ConnectorParent {
         this.updateWatch()
         this.startCheckConfig()
         this.connect().catch((error) => {
-          this.getLogger().error(error)
+          this.getLogger().error('restart error', { error })
         })
       },
       (error) => {
         this.getLogger().error(
           `${Text.getDateForLog()}: Pull: could not read push-server config `,
-          error
+          { error }
         )
 
         this.status = PullStatus.Offline
@@ -863,12 +850,12 @@ export class PullClient implements ConnectorParent {
               return resolve(result)
             })
             .catch((error) => {
-              this.getLogger().error(error)
+              this.getLogger().error('getUsersLastSeen', { error })
               reject(error)
             })
         })
         .catch((error) => {
-          this.getLogger().error(error)
+          this.getLogger().error('getUsersLastSeen', { error })
           reject(error)
         })
     })
@@ -1387,15 +1374,11 @@ export class PullClient implements ConnectorParent {
         })
       }
     } catch (error) {
-      this.getLogger().warn(
-        '\n========= PULL ERROR ===========\n'
-        + 'Error type: broadcastMessages execute error\n'
-        + 'Error event: ',
-        error,
-        '\n' + 'Message: ',
-        message,
-        '\n' + '================================\n'
-      )
+      this.getLogger().warning('PULL ERROR', {
+        errorType: 'broadcastMessages execute error',
+        errorEvent: error,
+        message
+      })
     }
 
     if (message.extra && message.extra.revision_web) {
@@ -1427,9 +1410,7 @@ export class PullClient implements ConnectorParent {
     messageBatchList: TypePullClientMessageBatch[]
   ): Promise<any> {
     if (!this.isPublishingEnabled()) {
-      this.getLogger().error(
-        `Client publishing is not supported or is disabled`
-      )
+      this.getLogger().error(`Client publishing is not supported or is disabled`)
       return Promise.reject(
         new Error(`Client publishing is not supported or is disabled`)
       )
@@ -1782,8 +1763,8 @@ export class PullClient implements ConnectorParent {
           localStorage.removeItem('history')
         }
         this.getLogger().error(
-          `${Text.getDateForLog()}: Pull: Could not cache config in local storage. Error: `,
-          error
+          `${Text.getDateForLog()}: Pull: Could not cache config in local storage.`,
+          { error }
         )
       }
     }
@@ -1889,7 +1870,7 @@ export class PullClient implements ConnectorParent {
 
     this._reconnectTimeout = setTimeout(() => {
       this.connect().catch((error) => {
-        this.getLogger().error(error)
+        this.getLogger().error('scheduleReconnect', { error })
       })
     }, connectionDelay * 1_000)
   }
@@ -2150,8 +2131,8 @@ export class PullClient implements ConnectorParent {
     }
 
     this.getLogger().error(
-      `${Text.getDateForLog()}: Pull: Long polling connection error `,
-      error
+      `${Text.getDateForLog()}: Pull: Long polling connection error`,
+      { error }
     )
 
     this.scheduleReconnect()
@@ -2279,8 +2260,8 @@ export class PullClient implements ConnectorParent {
     }
 
     this.getLogger().error(
-      `${Text.getDateForLog()}: Pull: WebSocket connection error `,
-      error
+      `${Text.getDateForLog()}: Pull: WebSocket connection error`,
+      { error }
     )
     this.scheduleReconnect()
     if (this._connectPromise) {
@@ -2330,8 +2311,8 @@ export class PullClient implements ConnectorParent {
             messageFields = JSON.parse(message.body)
           } catch (error) {
             this.getLogger().error(
-              `${Text.getDateForLog()}: Pull: Could not parse message body `,
-              error
+              `${Text.getDateForLog()}: Pull: Could not parse message body`,
+              { error }
             )
             continue
           }
@@ -2357,8 +2338,8 @@ export class PullClient implements ConnectorParent {
       }
     } catch (error) {
       this.getLogger().error(
-        `${Text.getDateForLog()}: Pull: Could not parse message `,
-        error
+        `${Text.getDateForLog()}: Pull: Could not parse message`,
+        { error }
       )
     }
 
@@ -2373,14 +2354,10 @@ export class PullClient implements ConnectorParent {
 
     const dataArray = pullEvent.match(/#!NGINXNMS!#(.*?)#!NGINXNME!#/g)
     if (dataArray === null) {
-      const text
-        = '\n========= PULL ERROR ===========\n'
-          + 'Error type: parseResponse error parsing message\n'
-          + '\n'
-          + `Data string: ${pullEvent}`
-          + '\n'
-          + '================================\n\n'
-      this.getLogger().warn(text)
+      this.getLogger().warning('PULL ERROR', {
+        errorType: 'parseResponse error parsing message',
+        dataString: pullEvent
+      })
 
       return []
     }
@@ -2448,7 +2425,7 @@ export class PullClient implements ConnectorParent {
 
   private onOnline(): void {
     this.connect().catch((error) => {
-      this.getLogger().error(error)
+      this.getLogger().error('onOnline', { error })
     })
   }
 
@@ -2467,7 +2444,7 @@ export class PullClient implements ConnectorParent {
       } catch (error) {
         this.getLogger().error(
           `${Text.getDateForLog()}: Pull: Could not save session info in local storage. Error: `,
-          error
+          { error }
         )
       }
     }
@@ -2618,9 +2595,7 @@ export class PullClient implements ConnectorParent {
       return
     }
 
-    this.getLogger().warn(
-      `No pings are received in ${PING_TIMEOUT * 2} seconds. Reconnecting`
-    )
+    this.getLogger().warning(`No pings are received in ${PING_TIMEOUT * 2} seconds. Reconnecting`)
     this.disconnect(CloseReasons.STUCK, 'connection stuck')
 
     this.scheduleReconnect()
@@ -2660,7 +2635,7 @@ export class PullClient implements ConnectorParent {
    */
   private checkDuplicate(mid: string): boolean {
     if (this._session.lastMessageIds.includes(mid)) {
-      this.getLogger().warn(`Duplicate message ${mid} skipped`)
+      this.getLogger().warning(`Duplicate message ${mid} skipped`)
       return false
     } else {
       this._session.lastMessageIds.push(mid)
@@ -2691,25 +2666,29 @@ export class PullClient implements ConnectorParent {
       && message.extra.sender.type === SenderType.Client
     ) {
       this.getLogger().info(
-        `onPullClientEvent-${message.module_id}`,
-        message.command,
-        message.params,
-        message.extra
+        `onPullClientEvent-${message.module_id}`, {
+          command: message.command,
+          params: message.params,
+          extra: message.extra
+        }
       )
     } else if (message.module_id == 'online') {
       this.getLogger().info(
-        `onPullOnlineEvent`,
-        message.command,
-        message.params,
-        message.extra
+        `onPullOnlineEvent`, {
+          command: message.command,
+          params: message.params,
+          extra: message.extra
+        }
       )
     } else {
       this.getLogger().info(
         `onPullEvent`,
-        message.module_id,
-        message.command,
-        message.params,
-        message.extra
+        {
+          moduleId: message.module_id,
+          command: message.command,
+          params: message.params,
+          extra: message.extra
+        }
       )
     }
   }
@@ -2720,7 +2699,7 @@ export class PullClient implements ConnectorParent {
    */
   private logToConsole(message: string, force: boolean = false): void {
     if (this._loggingEnabled || force) {
-      this.getLogger().log(`${Text.getDateForLog()}: ${message}`)
+      this.getLogger().debug(`${Text.getDateForLog()}: ${message}`)
     }
   }
 
@@ -2747,7 +2726,7 @@ export class PullClient implements ConnectorParent {
    * @param text
    */
   private showNotification(text: string): void {
-    this.getLogger().warn(text)
+    this.getLogger().notice(text)
 
     /* /
     if(this._notificationPopup || typeof BX.PopupWindow === 'undefined')

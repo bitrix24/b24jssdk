@@ -1,4 +1,4 @@
-import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type Company = {
   id: number
@@ -6,7 +6,7 @@ type Company = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:AllCrmItems', devMode)
+const $logger = LoggerFactory.createForBrowser('Example:AllCrmItems', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
@@ -29,7 +29,7 @@ try {
   }
 
   const list = response.getData()
-  $logger.info(`Companies list (${list?.length}):`, list)
+  $logger.info(`Companies list (${list?.length})`, { list })
 } catch (error) {
-  $logger.error(error)
+  $logger.error('some error', { error })
 }

@@ -1,4 +1,4 @@
-import type { LoggerBrowser } from '../logger/browser'
+import type { LoggerInterface } from '../logger'
 import type { B24LangList } from '../core/language/list'
 import type { AuthActions, MessageInitData, B24FrameQueryParams } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
@@ -72,7 +72,7 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
     this._isInit = false
   }
 
-  public override setLogger(logger: LoggerBrowser): void {
+  public override setLogger(logger: LoggerInterface): void {
     super.setLogger(logger)
     this.#messageManager.setLogger(this.getLogger())
   }
@@ -120,7 +120,9 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
   override async init(): Promise<void> {
     const data: MessageInitData = await this.#messageManager.send(MessageCommands.getInitData, {})
 
-    this.getLogger().log('init data:', data)
+    this.getLogger().debug('init data', {
+      data
+    })
 
     this.#appFrame.initData(data)
     this.#authManager.initData(data)

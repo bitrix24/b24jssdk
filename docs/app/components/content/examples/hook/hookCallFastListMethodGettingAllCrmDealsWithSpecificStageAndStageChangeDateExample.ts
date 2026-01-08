@@ -1,5 +1,5 @@
 import type { ISODate } from '@bitrix24/b24jssdk'
-import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type Deal = {
   id: number
@@ -10,7 +10,7 @@ type Deal = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:AllDealsByStage', devMode)
+const $logger = LoggerFactory.createForBrowser('Example:AllDealsByStage', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
@@ -38,8 +38,10 @@ try {
   const wonDeals = response.getData()
   const totalRevenue = (wonDeals || []).reduce((sum, deal) => sum + (deal.opportunity || 0), 0)
 
-  $logger.info(`Won deals: ${wonDeals?.length}`)
-  $logger.info(`Total amount: ${totalRevenue}`)
+  $logger.info('response', {
+    wonDeals: wonDeals?.length,
+    totalAmount: totalRevenue
+  })
 } catch (error) {
-  $logger.error(error)
+  $logger.error('some error', { error })
 }

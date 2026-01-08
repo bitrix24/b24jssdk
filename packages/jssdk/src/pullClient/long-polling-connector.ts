@@ -105,9 +105,7 @@ export class LongPollingConnector extends AbstractConnector {
   override send(buffer: ArrayBuffer | string): boolean {
     const path = this._parent.getPublicationPath()
     if (!path) {
-      this.getLogger().error(
-        new Error(`${Text.getDateForLog()}: Pull: publication path is empty`)
-      )
+      this.getLogger().error(`${Text.getDateForLog()}: Pull: publication path is empty`)
       return false
     }
 

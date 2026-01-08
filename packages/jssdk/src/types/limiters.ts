@@ -1,4 +1,4 @@
-import type { LoggerBrowser } from '../logger/browser'
+import type { LoggerInterface } from './logger'
 /**
  * @todo перевод
  * @todo docs
@@ -134,8 +134,8 @@ export interface RestrictionManagerStats {
 export interface ILimiter {
   getTitle(): string
   setConfig(config: any): Promise<void>
-  setLogger(logger: LoggerBrowser): void
-  getLogger(): LoggerBrowser
+  setLogger(logger: LoggerInterface): void
+  getLogger(): LoggerInterface
   canProceed(requestId: string, method: string, params?: any): Promise<boolean>
   waitIfNeeded(requestId: string, method: string, params?: any): Promise<number>
   updateStats(requestId: string, method: string, data: any): Promise<void>

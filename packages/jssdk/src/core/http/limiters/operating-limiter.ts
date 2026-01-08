@@ -1,14 +1,15 @@
 import type { OperatingLimitConfig, ILimiter } from '../../../types/limiters'
 import type { PayloadTime } from '../../../types/payloads'
-import { LoggerBrowser, LoggerType } from '../../../logger/browser'
+import type { LoggerInterface } from '../../../types/logger'
+import { LoggerFactory } from '../../../logger'
 
 interface OperatingStats {
   /*
-   * operating время за 10 минут (в мс)
+   * operating time in 10 minutes (in ms)
    */
   operating: number
   /**
-   * Время сброса (timestamp в мс)
+   * reset time (timestamp in ms)
    */
   operating_reset_at: number
   lastUpdated: number
@@ -16,46 +17,34 @@ interface OperatingStats {
 
 /**
  * Operating limiting
- * @todo перевод
+ *
  * @todo docs
  */
 export class OperatingLimiter implements ILimiter {
   #config: OperatingLimitConfig
   #methodStats = new Map<string, OperatingStats>()
   #stats = {
-    /** Тяжелые запросы */
+    /** Heavy requests */
     heavyRequestCount: 0
   }
 
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
 
   getTitle(): string {
     return 'operatingLimiter'
   }
 
   constructor(config: OperatingLimitConfig) {
+    this._logger = LoggerFactory.createNullLogger()
     this.#config = config
   }
 
   // region Logger ////
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: true,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
   // endregion ////
@@ -83,11 +72,12 @@ export class OperatingLimiter implements ILimiter {
   }
 
   /**
-   * Возвращает время до освобождения метода от operating лимита (в мс)
-   * Анализ происходит по прошлому вызову функции. Нужно понимать что речь идет об блокировках до 10 минут
-   * Это довольно жесткая блокировка по лимиту:
-   * - не достигнут - нет блокировки
-   * - достигли - блокируем до времени разблокировки + 1 секунда
+   * Returns the time until the method's operating limit is released (in ms)
+   * The analysis is based on the previous function call.
+   * It's important to understand that we're talking about locks of up to 10 minutes.
+   * This is a fairly strict lock based on the limit:
+   *   - not reached - no lock
+   *   - reached - lock until the unlock time + 1 second
    */
   async getTimeToFree(
     requestId: string,
@@ -106,22 +96,22 @@ export class OperatingLimiter implements ILimiter {
       return 0
     }
 
-    // Use limit with buffer. При рассчетах operating лимита будем на 5 секунд меньше брать
+    // Use limit with buffer. When calculating the operating limit, we will take 5 seconds less
     const limitWithBuffer = Math.max(1_000, this.#config.limitMs - 5_000)
     if (stats.operating >= limitWithBuffer) {
       const now = Date.now()
       if (stats.operating_reset_at > now) {
-        // Возвращаем время до reset_at + 1 секунда
+        // Return the time before reset_at + 1 second
         return (stats.operating_reset_at - now) + 1_000
       }
-      return 5_000 // 5 секунд по умолчанию
+      return 5_000 // 5 seconds by default
     }
 
     return 0
   }
 
   /**
-   * Для `batch` из команд возвращает максимальное время до освобождения метода от operating лимита (в мс)
+   * For `batch` commands, returns the maximum time until the method reaches the operating limit (in ms)
    */
   async #getTimeToFreeBatch(requestId: string, params: any): Promise<number> {
     let maxWait = 0
@@ -143,12 +133,12 @@ export class OperatingLimiter implements ILimiter {
   }
 
   /**
-   * Обновляет статистику operating времени для метода
+   * Updates operating time statistics for the method
    */
   async updateStats(requestId: string, method: string, data: PayloadTime): Promise<void> {
     this.#cleanupOldStats()
 
-    // все в секундах
+    // all in seconds
     const { operating, operating_reset_at } = data
     if (operating === undefined || operating === null) {
       return
@@ -173,13 +163,13 @@ export class OperatingLimiter implements ILimiter {
     if (usagePercent > this.#config.heavyPercent) {
       this.#stats.heavyRequestCount++
 
-      // Логируем если близко к лимиту
+      // log if close to the limit
       this.#logStat(requestId, method, usagePercent, stats.operating)
     }
   }
 
   /**
-   * Очистка устаревших данных по operating лимита
+   * Clearing outdated operating limit data
    */
   #cleanupOldStats(): void {
     const now = Date.now()

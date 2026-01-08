@@ -1,3 +1,10 @@
+import type { LoggerInterface } from '../types/logger'
+import { LoggerFactory } from './logger-factory'
+
+/**
+ * @deprecate use `Logger`
+ * @link https://bitrix24.github.io/b24jssdk/docs/logger/
+ */
 export enum LoggerType {
   desktop = 'desktop',
   log = 'log',
@@ -7,173 +14,137 @@ export enum LoggerType {
   trace = 'trace'
 }
 
-interface LoggerTypes {
-  desktop: boolean
-  log: boolean
-  info: boolean
-  warn: boolean
-  error: boolean
-  trace: boolean
-}
+const deprecateMessage = '@deprecate: use Logger. https://bitrix24.github.io/b24jssdk/docs/logger/'
 
-// region StyleCollection ////
-const styleCollection: Map<string, string[]> = new Map()
+export class LoggerBrowser implements LoggerInterface {
+  #logger: LoggerInterface
 
-styleCollection.set('title', [
-  '%c#title#',
-  'color: #959ca4; font-style: italic; padding: 0 6px; border-top: 1px solid #ccc; border-left: 1px solid #ccc; border-bottom: 1px solid #ccc'
-])
-
-styleCollection.set(LoggerType.desktop, [
-  `%cDESKTOP`,
-  'color: white; font-style: italic; background-color: #29619b; padding: 0 6px; border: 1px solid #29619b'
-])
-
-styleCollection.set(LoggerType.log, [
-  `%cLOG`,
-  'color: #2a323b; font-style: italic; background-color: #ccc; padding: 0 6px; border: 1px solid #ccc'
-])
-
-styleCollection.set(LoggerType.info, [
-  `%cINFO`,
-  'color: #fff; font-style: italic; background-color: #6b7f96; padding: 0 6px; border: 1px solid #6b7f96'
-])
-
-styleCollection.set(LoggerType.warn, [
-  `%cWARNING`,
-  'color: #f0a74f; font-style: italic; padding: 0 6px; border: 1px solid #f0a74f'
-])
-
-styleCollection.set(LoggerType.error, [
-  `%cERROR`,
-  'color: white; font-style: italic; background-color: #8a3232; padding: 0 6px; border: 1px solid #8a3232'
-])
-
-styleCollection.set(LoggerType.trace, [
-  `%cTRACE`,
-  'color: #2a323b; font-style: italic; background-color: #ccc; padding: 0 6px; border: 1px solid #ccc'
-])
-// endregion ////
-
-export class LoggerBrowser {
-  readonly #title: string
-  #types: LoggerTypes = {
-    desktop: true,
-    log: false,
-    info: false,
-    warn: false,
-    error: true,
-    trace: true
-  }
-
+  /**
+   * @deprecated
+   */
   static build(title: string, isDevelopment: boolean = false): LoggerBrowser {
-    const logger = new LoggerBrowser(title)
+    return new LoggerBrowser(title, isDevelopment)
+  }
 
+  private constructor(title: string, isDevelopment: boolean = false) {
+    console.warn(deprecateMessage)
     if (isDevelopment) {
-      logger.enable(LoggerType.log)
-      logger.enable(LoggerType.info)
-      logger.enable(LoggerType.warn)
+      this.#logger = LoggerFactory.createForBrowserDevelopment(title)
+    } else {
+      this.#logger = LoggerFactory.createForBrowserProduction(title)
     }
-
-    return logger
   }
-
-  private constructor(title: string) {
-    this.#title = title
-  }
-
-  // region Styles ////
-  #getStyle(type: LoggerType): string[] {
-    const resultText: string[] = []
-    const resultStyle: string[] = []
-
-    if (styleCollection.has('title')) {
-      const styleTitle = styleCollection.get('title') as string[]
-      if (styleTitle[0]) {
-        resultText.push(styleTitle[0].replace('#title#', this.#title))
-        resultStyle.push(styleTitle[1] || '')
-      }
-    }
-
-    if (styleCollection.has(type)) {
-      const styleBadge = styleCollection.get(type) as string[]
-      if (styleBadge[0]) {
-        resultText.push(styleBadge[0])
-        resultStyle.push(styleBadge[1] || '')
-      }
-    }
-
-    return [resultText.join(''), ...resultStyle]
-  }
-  // endregion ////
 
   // region Config ////
-  setConfig(types: Record<string | LoggerType, boolean>): void {
-    for (const type in types) {
-      this.#types[type as LoggerType] = types[type] as boolean
-    }
+  /**
+   * @deprecated
+   */
+  setConfig(_types: Record<string | LoggerType, boolean>): void {
+    console.warn(deprecateMessage)
   }
 
-  enable(type: LoggerType): boolean {
-    if (typeof this.#types[type] === 'undefined') {
-      return false
-    }
-
-    this.#types[type] = true
-
+  /**
+   * @deprecated
+   */
+  enable(_type: LoggerType): boolean {
+    console.warn(deprecateMessage)
     return true
   }
 
-  disable(type: LoggerType): boolean {
-    if (typeof this.#types[type] === 'undefined') {
-      return false
-    }
-
-    this.#types[type] = false
-
+  /**
+   * @deprecated
+   */
+  disable(_type: LoggerType): boolean {
+    console.warn(deprecateMessage)
     return true
   }
 
-  isEnabled(type: LoggerType): boolean {
-    return this.#types[type]
+  /**
+   * @deprecated
+   */
+  isEnabled(_type: LoggerType): boolean {
+    console.warn(deprecateMessage)
+    return false
   }
   // endregion ////
 
   // region Functions ////
   desktop(...params: any[]): void {
-    if (this.isEnabled(LoggerType.desktop)) {
-      console.log(...this.#getStyle(LoggerType.desktop), ...params)
+    console.warn(deprecateMessage)
+    const context = {
+      needDesktop: true,
+      params: { ...params }
     }
+    this.#logger.debug('desktop', context)
   }
 
-  log(...params: any[]): void {
-    if (this.isEnabled(LoggerType.log)) {
-      console.log(...this.#getStyle(LoggerType.log), ...params)
-    }
+  public async log(...params: any[]): Promise<void> {
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.debug('log', context)
   }
 
   info(...params: any[]): void {
-    if (this.isEnabled(LoggerType.info)) {
-      console.info(...this.#getStyle(LoggerType.info), ...params)
-    }
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.info('info', context)
   }
 
   warn(...params: any[]): void {
-    if (this.isEnabled(LoggerType.warn)) {
-      console.warn(...this.#getStyle(LoggerType.warn), ...params)
-    }
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.warning('warn', context)
   }
 
   error(...params: any[]): void {
-    if (this.isEnabled(LoggerType.error)) {
-      console.error(...this.#getStyle(LoggerType.error), ...params)
-    }
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.error('error', context)
   }
 
   trace(...params: any[]): void {
-    if (this.isEnabled(LoggerType.trace)) {
-      console.trace(...this.#getStyle(LoggerType.trace), ...params)
+    console.warn(deprecateMessage)
+    const context = {
+      needTrace: true,
+      params: { ...params }
     }
+    this.#logger.debug('trace', context)
+  }
+
+  debug(...params: any[]): void {
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.debug('debug', context)
+  }
+
+  notice(...params: any[]): void {
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.info('notice', context)
+  }
+
+  warning(...params: any[]): void {
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.warning('warning', context)
+  }
+
+  critical(...params: any[]): void {
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.critical('critical', context)
+  }
+
+  alert(...params: any[]): void {
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.alert('alert', context)
+  }
+
+  emergency(...params: any[]): void {
+    console.warn(deprecateMessage)
+    const context = { params: { ...params } }
+    this.#logger.emergency('alert', context)
   }
   // endregion ////
 }

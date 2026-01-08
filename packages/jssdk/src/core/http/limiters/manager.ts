@@ -1,13 +1,14 @@
 import type { RestrictionParams, RestrictionManagerStats } from '../../../types/limiters'
+import type { LoggerInterface } from '../../../types/logger'
+import { LoggerFactory } from '../../../logger'
 import { RateLimiter } from './rate-limiter'
 import { OperatingLimiter } from './operating-limiter'
 import { AdaptiveDelayer } from './adaptive-delayer'
-import { LoggerBrowser, LoggerType } from '../../../logger/browser'
 
 /**
- * Менеджер управления задержками
- * @todo перевод
- * @todo docs?
+ * Delay Management Manager
+ *
+ * @todo docs
  */
 export class RestrictionManager {
   #rateLimiter: RateLimiter
@@ -15,19 +16,20 @@ export class RestrictionManager {
   #adaptiveDelayer: AdaptiveDelayer
   #config: RestrictionParams
   #stats: Pick<RestrictionManagerStats, 'retries' | 'consecutiveErrors' | 'limitHits'> = {
-    /** Повторные попытки */
+    /** Retry attempts */
     retries: 0,
-    /** Последовательные ошибки */
+    /** Consecutive errors */
     consecutiveErrors: 0,
-    /** Срабатывания limit */
+    /** Limit triggers */
     limitHits: 0
   }
 
   #errorCounts = new Map<string, number>()
 
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
 
   constructor(params: RestrictionParams) {
+    this._logger = LoggerFactory.createNullLogger()
     this.#config = params
     this.#rateLimiter = new RateLimiter(params.rateLimit!)
     this.#operatingLimiter = new OperatingLimiter(params.operatingLimit!)
@@ -35,27 +37,14 @@ export class RestrictionManager {
   }
 
   // region Logger ////
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
     this.#rateLimiter.setLogger(this._logger)
     this.#operatingLimiter.setLogger(this._logger)
     this.#adaptiveDelayer.setLogger(this._logger)
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: true,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
   // endregion ////
@@ -79,8 +68,8 @@ export class RestrictionManager {
   }
 
   /**
-   * Проверяет и ждет rate limit
-   * Цикл нужен для паралельных запросов (Promise.all())
+   * Checks and waits for the rate limit
+   * The loop is needed for parallel requests (Promise.all())
    */
   async checkRateLimit(requestId: string, method: string): Promise<void> {
     // 3. Apply rate limit
@@ -116,7 +105,7 @@ export class RestrictionManager {
   ): Promise<number> {
     // Rate limit exceeded
     if (this.#isRateLimitError(error)) {
-      // Так как это обработка ошибки то учитываем количество попыток
+      // Since this is error handling, we take into account the number of attempts
       const wait = (await this.#handleRateLimitExceeded(requestId)) * Math.pow(1.5, attempt)
       this.#logError(this.#rateLimiter.getTitle(), requestId, 'QUERY_LIMIT_EXCEEDED', error.message, method, wait)
       return wait
@@ -124,20 +113,20 @@ export class RestrictionManager {
 
     // Operating limit exceeded
     if (this.#isOperatingLimitError(error)) {
-      // Так как это обработка ошибки то увеличим минимум до 10 секунд
+      // Since this is error handling, we will increase the minimum to 10 seconds.
       const wait = Math.max(10_000, await this.#handleOperatingLimitError(requestId, method, params, error))
       this.#logError(this.#operatingLimiter.getTitle(), requestId, 'OPERATION_TIME_LIMIT', error.message, method, wait)
       return wait
     }
 
-    // Иные исключения
+    // Other exceptions
     if (!this.#isNeedThrowError(error)) {
-      // Так как это обработка ошибки то учитываем количество попыток
+      // Since this is error handling, we take into account the number of attempts
       const baseDelay = await this.#getErrorBackoff(requestId)
       const maxDelay = Math.max(30_000, baseDelay)
       const delay = Math.min(maxDelay, baseDelay * Math.pow(2, attempt))
 
-      // Добавить jitter для предотвращения thundering herd
+      // Add jitter to prevent thundering herd
       const jitter = delay * 0.1 * (Math.random() * 2 - 1) // ±10% jitter
       const wait = Math.max(100, delay + jitter)
 
@@ -146,11 +135,11 @@ export class RestrictionManager {
       return wait
     }
 
-    return 0 // Не повторяем
+    return 0 // We don't repeat
   }
 
   /**
-   * Проверяет является ли ошибка rate limit
+   * Checks if the error is a rate limit
    */
   #isRateLimitError(error: any): boolean {
     return error.status === 503
@@ -158,16 +147,17 @@ export class RestrictionManager {
   }
 
   /**
-   * Задержака при превышение rate limit
+   * Delay when exceeding the rate limit
    */
   async #handleRateLimitExceeded(requestId: string): Promise<number> {
     return this.#rateLimiter.handleExceeded(requestId)
   }
 
   /**
-   * Проверяет является ли ошибка operating limit
-   * @memo `OPERATION_TIME_LIMIT` && `429` - получены практическим путем
-   * @memo для `batch` запросов это не работает
+   * Checks if the error is an operating limit
+   *
+   * @memo `OPERATION_TIME_LIMIT` && `429` - obtained through practical means
+   * @memo This doesn't work for `batch` queries.
    */
   #isOperatingLimitError(error: any): boolean {
     return error.status === 429
@@ -175,15 +165,17 @@ export class RestrictionManager {
   }
 
   /**
-   * Задержака при ошибке operating limit
-   * @memo Сейчас в ошибках не приходят тайминги по операциям - по этой причине будем брать данные из прошлого запроса
+   * Operating limit error delay
+   *
+   * @memo Currently, the errors don't include timings for operations.
+   *       For this reason, we will take data from the previous request
    */
   async #handleOperatingLimitError(requestId: string, method: string, params?: any, _error?: any): Promise<number> {
     return this.#operatingLimiter.getTimeToFree(requestId, method, params, _error)
   }
 
   /**
-   * Проверяет нужно ли прекратить попытки при не понятных ошибках
+   * Checks whether attempts should be stopped if errors are encountered that are unclear.
    */
   #isNeedThrowError(error: any): boolean {
     return [
@@ -199,7 +191,7 @@ export class RestrictionManager {
   }
 
   /**
-   * Задержака при не понятных ошибках
+   * Delay due to unknown errors
    */
   async #getErrorBackoff(_requestId: string): Promise<number> {
     return this.#config.retryDelay!
@@ -221,7 +213,7 @@ export class RestrictionManager {
   }
 
   /**
-   * Возвращает статистику работы
+   * Returns job statistics
    */
   getStats(): RestrictionManagerStats & {
     adaptiveDelayAvg: number
@@ -237,7 +229,7 @@ export class RestrictionManager {
   }
 
   /**
-   * Сбрасывает лимитеры и статистику
+   * Resets limiters and statistics
    */
   async reset(): Promise<void> {
     await this.#rateLimiter.reset()
@@ -264,14 +256,14 @@ export class RestrictionManager {
   }
 
   /**
-   * Функция задержки
+   * Delay function
    */
   async #delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
   }
 
   /**
-   * Публичный доступ к функции задержки
+   * Public access to the delay function
    */
   async waiteDelay(ms: number): Promise<void> {
     return this.#delay(ms)
@@ -279,7 +271,7 @@ export class RestrictionManager {
 
   // region Log ////
   #logMethodBlocked(limiter: string, requestId: string, method: string, wait: number) {
-    this.getLogger().warn(`${limiter} blocked method ${method}`, {
+    this.getLogger().warning(`${limiter} blocked method ${method}`, {
       requestId,
       method,
       wait,
@@ -288,7 +280,7 @@ export class RestrictionManager {
   }
 
   #logMethodBlockedWithTimes(limiter: string, requestId: string, method: string, wait: number, times: number) {
-    this.getLogger().warn(`${limiter} blocked method ${method} | ${times} times`, {
+    this.getLogger().warning(`${limiter} blocked method ${method} | ${times} times`, {
       requestId,
       method,
       times,

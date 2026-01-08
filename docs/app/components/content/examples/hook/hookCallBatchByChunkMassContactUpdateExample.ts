@@ -1,5 +1,5 @@
 import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
-import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type Contact = {
   id: number
@@ -8,7 +8,7 @@ type Contact = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:BatchObject', devMode)
+const $logger = LoggerFactory.createForBrowser('Example:BatchObject', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
@@ -26,7 +26,7 @@ try {
   const contacts: Contact[] = contactResponse.getData() || []
 
   if (contacts.length === 0) {
-    $logger.warn('No contacts to update')
+    $logger.warning('No contacts to update')
   } else {
     $logger.info(`Contacts found for update: ${contacts.length}`)
 
@@ -57,8 +57,11 @@ try {
       updatedContactIds.push(chunkRow.item.id)
     })
 
-    $logger.info(`Contacts with ID updated [${updatedContactIds.length}]: ${updatedContactIds.join(', ')}`)
+    $logger.info('Contacts with ID updated', {
+      length: updatedContactIds.length,
+      updatedContactIds: updatedContactIds.join(', ')
+    })
   }
 } catch (error) {
-  $logger.error(error)
+  $logger.error('some error', { error })
 }

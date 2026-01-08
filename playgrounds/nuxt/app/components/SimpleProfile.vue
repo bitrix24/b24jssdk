@@ -1,21 +1,18 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import type { B24Frame } from '@bitrix24/b24jssdk'
-import { LoadDataType, LoggerBrowser, useB24Helper } from '@bitrix24/b24jssdk'
+import { LoadDataType, LoggerFactory, useB24Helper } from '@bitrix24/b24jssdk'
 
 const { $initializeB24Frame } = useNuxtApp()
 
 let $b24: B24Frame
-const $logger = LoggerBrowser.build(
-  '[playground: jssdk-nuxt] Profile',
-  true
-)
+const $logger = LoggerFactory.createForBrowserDevelopment('[playground: jssdk-nuxt] Profile')
 const { initB24Helper, getB24Helper } = useB24Helper()
 const isInit = ref(false)
 const $isInitB24Helper = ref(false)
 
 onMounted(async () => {
-  $logger.warn('onMounted >> ')
+  $logger.notice('onMounted')
 
   try {
     $b24 = await $initializeB24Frame()
@@ -31,7 +28,7 @@ onMounted(async () => {
 
     isInit.value = true
   } catch (error) {
-    $logger.error(error)
+    $logger.error('some error', { error })
     showError({
       statusCode: 404,
       statusMessage: (error instanceof Error) ? error.message : (error as string),
@@ -43,7 +40,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  $logger.warn('onUnmounted << ')
+  $logger.notice('onUnmounted')
 })
 
 const b24Helper = computed(() => {

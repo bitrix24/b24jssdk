@@ -1,5 +1,5 @@
 import type { NumberString, ISODate } from '@bitrix24/b24jssdk'
-import { B24Hook, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type Task = {
   id: NumberString
@@ -9,7 +9,7 @@ type Task = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:ProcessAllTasks', devMode)
+const $logger = LoggerFactory.createForBrowser('Example:ProcessAllTasks', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 const overdueTasks: any[] = []
@@ -38,7 +38,10 @@ try {
 
     overdueTasks.push(...overdueInChunk)
 
-    $logger.info(`Processed tasks ${chunk.length}, expired found: ${overdueInChunk.length}`)
+    $logger.info('stat', {
+      processed: chunk.length,
+      expired: overdueInChunk.length
+    })
 
     // You can perform intermediate actions on the overdue tasks found
     if (overdueInChunk.length > 0) {
@@ -49,10 +52,10 @@ try {
 
   $logger.info(`Total number of overdue tasks found: ${overdueTasks.length}`)
 } catch (error) {
-  $logger.error(error)
+  $logger.error('some error', { error })
 }
 
 async function processOverdueTasks(overdue: Task[]) {
   // some process
-  $logger.info('Process overdue:', overdue)
+  $logger.info('Process overdue', { overdue })
 }

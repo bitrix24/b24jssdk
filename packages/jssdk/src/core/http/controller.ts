@@ -1,4 +1,5 @@
-import { LoggerBrowser, LoggerType } from '../../logger/browser'
+import type { LoggerInterface } from '../../logger'
+import { LoggerFactory } from '../../logger'
 import RequestIdGenerator from './request-id-generator'
 import { ParamsFactory } from './limiters/params-factory'
 import { RestrictionManager } from './limiters/manager'
@@ -42,9 +43,10 @@ const MAX_BATCH_COMMANDS = 50
 
 /**
  * Class for working with RestApi requests via http
- * @todo docs
  *
  * @link https://bitrix24.github.io/b24jssdk/
+ *
+ * @todo docs
  */
 export default class Http implements TypeHttp {
   #clientAxios: AxiosInstance
@@ -52,7 +54,7 @@ export default class Http implements TypeHttp {
   #requestIdGenerator: RequestIdGenerator
   #restrictionManager: RestrictionManager
 
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
 
   #logTag: string = ''
   #isClientSideWarning: boolean = false
@@ -72,6 +74,8 @@ export default class Http implements TypeHttp {
     options?: null | object,
     restrictionParams?: Partial<RestrictionParams>
   ) {
+    this._logger = LoggerFactory.createNullLogger()
+
     const defaultHeaders = {
       // 'X-Sdk': '__SDK_USER_AGENT__-v-__SDK_VERSION__'
     }
@@ -102,25 +106,12 @@ export default class Http implements TypeHttp {
   }
 
   // region Logger ////
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
     this.#restrictionManager.setLogger(this._logger)
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: true,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
   // endregion ////
@@ -942,7 +933,7 @@ export default class Http implements TypeHttp {
   }
 
   #logRequest(requestId: string, method: string, params: TypeCallParams): void {
-    this.getLogger().log(`http request starting`, {
+    this.getLogger().debug(`http request starting`, {
       requestId,
       method,
       params: this.#sanitizeParams(params),
@@ -970,7 +961,7 @@ export default class Http implements TypeHttp {
   }
 
   #logSuccessfulRequest(requestId: string, method: string, duration: number): void {
-    this.getLogger().log(`http request successful`, {
+    this.getLogger().debug(`http request successful`, {
       requestId,
       method,
       duration: {
@@ -987,7 +978,7 @@ export default class Http implements TypeHttp {
     maxRetries: number,
     error: AjaxError
   ): void {
-    this.getLogger().log(`http request failed`, {
+    this.getLogger().debug(`http request failed`, {
       requestId,
       method,
       attempt: {
@@ -1009,7 +1000,7 @@ export default class Http implements TypeHttp {
     attempt: number,
     maxRetries: number
   ): void {
-    this.getLogger().log(
+    this.getLogger().debug(
       `http wait ${(wait / 1000).toFixed(2)} sec.`,
       {
         requestId,
@@ -1043,7 +1034,7 @@ export default class Http implements TypeHttp {
       ? calls.length
       : Object.keys(calls).length
 
-    this.getLogger().log(`http batch request starting `, {
+    this.getLogger().debug(`http batch request starting `, {
       requestId,
       callCount,
       isHaltOnError: options.isHaltOnError,
@@ -1052,7 +1043,7 @@ export default class Http implements TypeHttp {
   }
 
   #logBatchCompletion(requestId: string, total: number, errors: number): void {
-    this.getLogger().log(`http batch request completed`, {
+    this.getLogger().debug(`http batch request completed`, {
       requestId,
       totalCalls: total,
       successful: total - errors,
@@ -1062,7 +1053,7 @@ export default class Http implements TypeHttp {
   }
 
   #logBatchSubCallFailed(requestId: string, index: string | number, method: string, code: string, status: number, errorMessage: string): void {
-    this.getLogger().log(`http batch sub-call failed`, {
+    this.getLogger().debug(`http batch sub-call failed`, {
       requestId,
       index,
       method,
@@ -1081,7 +1072,7 @@ export default class Http implements TypeHttp {
       && !this.isServerSide()
       && Type.isStringFilled(this.#clientSideWarningMessage)
     ) {
-      this.getLogger().warn(this.#clientSideWarningMessage, { requestId })
+      this.getLogger().warning(this.#clientSideWarningMessage, { requestId })
     }
   }
   // endregion ////

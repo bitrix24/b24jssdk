@@ -1,5 +1,5 @@
 import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
-import { B24Hook, EnumCrmEntityTypeId, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type Deal = {
   id: number
@@ -10,7 +10,7 @@ type Deal = {
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerBrowser.build('Example:MassDealCreation', devMode)
+const $logger = LoggerFactory.createForBrowser('Example:MassDealCreation', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
@@ -44,7 +44,9 @@ try {
     createdDealIds.push(chunkRow.item.id)
   })
 
-  $logger.info(`Created deals with ID: ${createdDealIds.join(', ')}`)
+  $logger.info('Created deals with ID', {
+    createdDealIds
+  })
 } catch (error) {
-  $logger.error(error)
+  $logger.error('some error', { error })
 }

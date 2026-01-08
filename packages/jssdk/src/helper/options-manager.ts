@@ -82,7 +82,7 @@ export class OptionsManager extends AbstractHelper {
         data = defValue
       }
     } catch (error) {
-      this.getLogger().error(error)
+      this.getLogger().error('Failed JSON parse', { error })
       data = defValue
     }
 
@@ -99,7 +99,7 @@ export class OptionsManager extends AbstractHelper {
     try {
       data = JSON.parse(data)
     } catch (error) {
-      this.getLogger().error(error)
+      this.getLogger().error('Failed JSON parse', { error })
       data = defValue
     }
 
@@ -182,7 +182,7 @@ export class OptionsManager extends AbstractHelper {
 
       return defaultValue
     } catch (error) {
-      this.getLogger().warn(error, data)
+      this.getLogger().error('Failed JSON parse', { error })
     }
 
     return defaultValue

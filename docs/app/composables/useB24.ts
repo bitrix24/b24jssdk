@@ -1,6 +1,6 @@
-import type { B24FrameQueryParams } from '@bitrix24/b24jssdk'
+import type { B24FrameQueryParams, LoggerInterface } from '@bitrix24/b24jssdk'
 import { ref } from 'vue'
-import { B24Hook, B24Frame, LoggerBrowser, Result, ApiVersion, ParamsFactory } from '@bitrix24/b24jssdk'
+import { B24Hook, B24Frame, LoggerFactory, Result, ApiVersion, ParamsFactory } from '@bitrix24/b24jssdk'
 
 const sessionKey = 'b24Hook'
 const isUseB24HookFromEnv = ref(false)
@@ -19,9 +19,9 @@ export const useB24 = () => {
     restrictionParams: ParamsFactory.getDefault()
   }
 
-  function buildLogger(loggerTitle?: string) {
-    // @memo For Docs use full debug
-    return LoggerBrowser.build(loggerTitle ?? 'JsSdk Docs', true)
+  // @memo For Docs use full debug
+  function buildLogger(loggerTitle?: string): LoggerInterface {
+    return LoggerFactory.createForBrowserDevelopment(loggerTitle ?? 'JsSdk Docs')
   }
 
   function get() {

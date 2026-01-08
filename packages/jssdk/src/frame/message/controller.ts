@@ -1,6 +1,7 @@
 import type { MessageCommands } from './commands'
 import type { AppFrame } from '../frame'
-import { LoggerBrowser, LoggerType } from '../../logger/browser'
+import type { LoggerInterface } from '../../logger'
+import { LoggerFactory } from '../../logger'
 import { Type } from '../../tools/type'
 import { Text } from '../../tools/text'
 import { omit } from '../../tools'
@@ -34,10 +35,13 @@ export class MessageManager {
   #appFrame: AppFrame
   #callbackPromises: Map<string, PromiseHandlers>
   #callbackSingletone: Map<string, (...args: any[]) => void>
-  protected _logger: null | LoggerBrowser = null
+
+  protected _logger: LoggerInterface
+
   private readonly runCallbackHandler: OmitThisParameter<(event: MessageEvent) => void>
 
   constructor(appFrame: AppFrame) {
+    this._logger = LoggerFactory.createNullLogger()
     this.#appFrame = appFrame
 
     this.#callbackPromises = new Map()
@@ -46,24 +50,11 @@ export class MessageManager {
     this.runCallbackHandler = this._runCallback.bind(this)
   }
 
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: false,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
 
@@ -154,25 +145,28 @@ export class MessageManager {
         cmd += ':' + listParams.filter(Boolean).join(':')
       }
 
-      this.getLogger().log(`send to ${this.#appFrame.getTargetOrigin()}`, {
-        cmd
+      this.getLogger().debug(`send to ${this.#appFrame.getTargetOrigin()}`, {
+        cmd,
+        origin: this.#appFrame.getTargetOrigin()
       })
 
       parent.postMessage(cmd, this.#appFrame.getTargetOrigin())
 
       if (params?.isSafely) {
+        const safelyTime = Number.parseInt(String(params?.safelyTime || 900))
         this.#callbackPromises.get(keyPromise)!.timeoutId = window.setTimeout(
           () => {
             if (this.#callbackPromises.has(keyPromise)) {
-              this.getLogger().warn(
-                `Action ${command.toString()} stop by timeout`
-              )
+              this.getLogger().warning(`action ${command.toString()} stop by timeout`, {
+                command: command.toString(),
+                safelyTime
+              })
 
               this.#callbackPromises.delete(keyPromise)
               resolve({ isSafely: true })
             }
           },
-          Number.parseInt(String(params?.safelyTime || 900))
+          safelyTime
         )
       }
     })
@@ -190,8 +184,9 @@ export class MessageManager {
     }
 
     if (event.data) {
-      this.getLogger().log(`get from ${event.origin}`, {
-        data: event.data
+      this.getLogger().debug(`get from ${event.origin}`, {
+        data: event.data,
+        origin: event.origin
       })
 
       const tmp = event.data.split(':')

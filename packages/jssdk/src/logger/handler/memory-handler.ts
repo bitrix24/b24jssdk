@@ -1,35 +1,37 @@
-import type { Handler, LogRecord } from '../../types/logger'
+import type { Handler, HandlerOptions, LogRecord } from '../../types/logger'
 import { LogLevel } from '../../types/logger'
 import { AbstractHandler } from './abstract-handler'
 
 /**
  * Memory Handler
- *
- * @todo ??
  */
 export class MemoryHandler extends AbstractHandler implements Handler {
   private records: LogRecord[] = []
   private readonly limit: number
 
   constructor(
-    limit: number = 1_000,
     level: LogLevel = LogLevel.DEBUG,
-    bubble: boolean = true
+    options?: HandlerOptions & { limit?: number }
   ) {
-    super(level, bubble)
-    this.limit = limit
+    const opts = {
+      bubble: true,
+      limit: 1_000,
+      ...options
+    }
+    super(level, opts.bubble)
+    this.limit = opts.limit
   }
 
   /**
    * @inheritDoc
    */
-  public override handle(record: LogRecord): void {
-    if (!this.isHandling(record.level)) return
-
+  public override async handle(record: LogRecord): Promise<boolean> {
     this.records.push(record)
     if (this.records.length > this.limit) {
       this.records.shift()
     }
+
+    return true
   }
 
   getRecords(): LogRecord[] {

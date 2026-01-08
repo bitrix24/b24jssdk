@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ProgressProps } from '@bitrix24/b24ui-nuxt'
+import type { TypeB24, LoggerInterface } from '@bitrix24/b24jssdk'
 import { B24Frame, AjaxError } from '@bitrix24/b24jssdk'
-import type { TypeB24, LoggerBrowser } from '@bitrix24/b24jssdk'
 import { ref, onMounted } from 'vue'
 // import { withoutTrailingSlash } from 'ufo'
 import Market1Icon from '@bitrix24/b24icons-vue/main/Market1Icon'
@@ -25,7 +25,7 @@ const isShowDebug = ref(false)
 // const appUrl = withoutTrailingSlash(config.public.siteUrl)
 
 let $b24: undefined | TypeB24 = undefined
-let $logger: undefined | LoggerBrowser = undefined
+let $logger: undefined | LoggerInterface = undefined
 
 const confetti = useConfetti()
 
@@ -350,7 +350,7 @@ onMounted(async () => {
   $b24 = b24Instance.get()
   $logger = b24Instance.buildLogger()
 
-  $logger.info('Hi from install page')
+  $logger.notice('Hi from install page')
 
   try {
     if (!$b24) {
@@ -366,7 +366,7 @@ onMounted(async () => {
       await step.action($b24)
     }
   } catch (error: any) {
-    $logger!.error(error)
+    $logger!.error('some error', { error })
 
     const processErrorData = {}
     let statusMessage = 'Error'

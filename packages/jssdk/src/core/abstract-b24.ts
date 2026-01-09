@@ -7,6 +7,8 @@ import type { TypeB24, IB24BatchOptions } from '../types/b24'
 import type { TypeHttp, BatchCommandsUniversal, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, ICallBatchOptions, TypeCallParams } from '../types/http'
 import type { ListPayload, PayloadTime } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
+import { versionManager } from './http/version-manager'
+import { ApiVersion } from '../types/b24'
 
 /**
  * @todo docs
@@ -87,13 +89,46 @@ export abstract class AbstractB24 implements TypeB24 {
    * @see {https://bitrix24.github.io/b24jssdk/docs/hook/methods/call-method/ Js SDK documentation}
    * @see {https://apidocs.bitrix24.com/sdk/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html Bitrix24 REST API documentation}
    */
-  callMethod<T = unknown>(
+  async callMethod<T = unknown>(
     method: string,
     params?: TypeCallParams,
     requestId?: string
   ): Promise<AjaxResult<T>> {
     params = params || {}
-    return this.getHttpClient().call<T>(method, params, requestId)
+
+    if (versionManager.isSupport(ApiVersion.v3, method)) {
+      return this.getHttpClient(ApiVersion.v3).call<T>(method, params, requestId)
+    } else if (versionManager.isSupport(ApiVersion.v2, method)) {
+      return this.getHttpClient(ApiVersion.v2).call<T>(method, params, requestId)
+    } else if (versionManager.isSupport(ApiVersion.v1, method)) {
+      return this.getHttpClient(ApiVersion.v1).call<T>(method, params, requestId)
+    }
+
+    throw new Error(`Api not support method ${method}`)
+  }
+
+  async callV3<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>> {
+    if (!versionManager.isSupport(ApiVersion.v3, method)) {
+      throw new Error(`Api:v3 not support method ${method}`)
+    }
+    params = params || {}
+    return this.getHttpClient(ApiVersion.v3).call<T>(method, params, requestId)
+  }
+
+  async callV2<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>> {
+    if (!versionManager.isSupport(ApiVersion.v2, method)) {
+      throw new Error(`Api:v2 not support method ${method}`)
+    }
+    params = params || {}
+    return this.getHttpClient(ApiVersion.v2).call<T>(method, params, requestId)
+  }
+
+  async callV1<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>> {
+    if (!versionManager.isSupport(ApiVersion.v1, method)) {
+      throw new Error(`Api:v1 not support method ${method}`)
+    }
+    params = params || {}
+    return this.getHttpClient(ApiVersion.v1).call<T>(method, params, requestId)
   }
 
   /**
@@ -734,19 +769,31 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
+   *
+   * @todo fix docs
+   * @todo remove def value
    */
-  getHttpClient(): TypeHttp {
+  getHttpClient(version: ApiVersion = ApiVersion.v2): TypeHttp {
     if (!this.isInit || null === this._http) {
       throw new Error(`Http not init`)
     }
 
-    return this._http
+    switch (version) {
+      case ApiVersion.v3:
+        return this._http
+      case ApiVersion.v1:
+      case ApiVersion.v2:
+      default:
+        return this._http
+    }
   }
 
   /**
    * @inheritDoc
+   *
+   * @todo fix docs
    */
-  setHttpClient(client: TypeHttp): void {
+  setHttpClient(_version: ApiVersion, client: TypeHttp): void {
     this._http = client
   }
 

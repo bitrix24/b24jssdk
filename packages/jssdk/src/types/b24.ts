@@ -212,12 +212,12 @@ export type TypeB24 = {
   /**
    * Returns Http client for requests
    */
-  getHttpClient(): TypeHttp
+  getHttpClient(version: ApiVersion): TypeHttp
 
   /**
    * Set Http client for requests
    */
-  setHttpClient(client: TypeHttp): void
+  setHttpClient(version: ApiVersion, client: TypeHttp): void
 
   /**
    * Checks the availability of the Bitrix24 REST API.

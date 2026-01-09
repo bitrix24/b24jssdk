@@ -1,4 +1,4 @@
-import { B24Hook, LoggerFactory, ApiVersion, ParamsFactory } from '@bitrix24/b24jssdk'
+import { B24Hook, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type Task = {
   id: number
@@ -7,13 +7,7 @@ type Task = {
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
 const $logger = LoggerFactory.createForBrowser('Example:taskGet', devMode)
-const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl(
-  'https://your_domain.bitrix24.com/rest/1/webhook_code/',
-  {
-    version: ApiVersion.v3,
-    restrictionParams: ParamsFactory.getDefault()
-  }
-)
+const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 async function getTask(id: number): Promise<Task | null> {
   const response = await $b24.callMethod<{ item: Task }>(

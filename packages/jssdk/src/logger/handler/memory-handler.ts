@@ -2,6 +2,10 @@ import type { Handler, HandlerOptions, LogRecord } from '../../types/logger'
 import { LogLevel } from '../../types/logger'
 import { AbstractHandler } from './abstract-handler'
 
+export interface MemoryHandlerOptions extends HandlerOptions {
+  limit?: number
+}
+
 /**
  * Memory Handler
  */
@@ -11,7 +15,7 @@ export class MemoryHandler extends AbstractHandler implements Handler {
 
   constructor(
     level: LogLevel = LogLevel.DEBUG,
-    options?: HandlerOptions & { limit?: number }
+    options?: MemoryHandlerOptions
   ) {
     const opts = {
       bubble: true,

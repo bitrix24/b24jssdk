@@ -2,6 +2,10 @@ import type { Handler, HandlerOptions, LogRecord, Formatter } from '../../types/
 import { LogLevel } from '../../types/logger'
 import { AbstractHandler } from './abstract-handler'
 
+export interface ConsolaAdapterOptions extends HandlerOptions {
+  consolaInstance: any
+}
+
 /**
  * Adapter for Consola
  *
@@ -13,7 +17,7 @@ export class ConsolaAdapter extends AbstractHandler implements Handler {
 
   constructor(
     level: LogLevel = LogLevel.DEBUG,
-    options: HandlerOptions & { consolaInstance: any }
+    options: ConsolaAdapterOptions
   ) {
     const opts = {
       bubble: true,

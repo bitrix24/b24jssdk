@@ -38,6 +38,7 @@ export * from './core/language/list'
 
 export * from './tools/scroll-size'
 export * from './tools/use-formatters'
+export * from './tools/environment'
 
 export * from './hook/index'
 export * from './frame/index'

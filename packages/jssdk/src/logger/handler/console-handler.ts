@@ -3,6 +3,10 @@ import { LogLevel } from '../../types/logger'
 import { AbstractHandler } from './abstract-handler'
 import { LineFormatter } from '../formatter'
 
+export interface ConsoleHandlerOptions extends HandlerOptions {
+  useStyles?: boolean
+}
+
 /**
  * Console Handler
  */
@@ -12,7 +16,7 @@ export class ConsoleHandler extends AbstractHandler implements Handler {
 
   constructor(
     level: LogLevel = LogLevel.DEBUG,
-    options?: HandlerOptions & { useStyles?: boolean }
+    options?: ConsoleHandlerOptions
   ) {
     const opts = {
       useStyles: true,

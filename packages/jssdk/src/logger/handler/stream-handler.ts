@@ -4,6 +4,10 @@ import { LogLevel } from '../../types/logger'
 import { AbstractHandler } from './abstract-handler'
 import { LineFormatter } from '../formatter'
 
+export interface StreamHandlerOptions extends HandlerOptions {
+  stream: Writable
+}
+
 /**
  * Stream Handler
  *
@@ -26,7 +30,7 @@ export class StreamHandler extends AbstractHandler implements Handler {
    */
   constructor(
     level: LogLevel = LogLevel.DEBUG,
-    options: HandlerOptions & { stream: Writable }
+    options: StreamHandlerOptions
   ) {
     const opts = {
       bubble: true,

@@ -2,6 +2,10 @@ import type { Handler, HandlerOptions, LogRecord, Formatter, LogLevelName } from
 import { LogLevel } from '../../types/logger'
 import { AbstractHandler } from './abstract-handler'
 
+export interface WinstonAdapterOptions extends HandlerOptions {
+  winstonLogger: any
+}
+
 /**
  * Adapter for Winston
  *
@@ -13,7 +17,7 @@ export class WinstonAdapter extends AbstractHandler implements Handler {
 
   constructor(
     level: LogLevel = LogLevel.DEBUG,
-    options: HandlerOptions & { winstonLogger: any }
+    options: WinstonAdapterOptions
   ) {
     const opts = {
       bubble: true,

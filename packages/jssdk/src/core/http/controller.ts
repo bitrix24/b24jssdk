@@ -8,6 +8,7 @@ import { AjaxError } from './ajax-error'
 import { AjaxResult } from './ajax-result'
 import { versionManager } from './version-manager'
 import { Type } from '../../tools/type'
+import { Environment, getEnvironment } from '../../tools/environment'
 import { ApiVersion } from '../../types/b24'
 import type { TypeCallParams, TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, CommandObject, CommandTuple, ICallBatchResult } from '../../types/http'
 import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
@@ -914,7 +915,7 @@ export default class Http implements TypeHttp {
    * @protected
    */
   protected isServerSide(): boolean {
-    return typeof window === 'undefined'
+    return (getEnvironment() !== Environment.BROWSE)
   }
   // endregion ////
 

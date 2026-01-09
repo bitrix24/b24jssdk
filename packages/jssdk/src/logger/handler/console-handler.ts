@@ -72,9 +72,9 @@ export class ConsoleHandler extends AbstractHandler implements Handler {
 
     if (this.useStyles && this.styles.has(record.level)) {
       const style = this.styles.get(record.level)!
-      console[method](style[0], style[1], message)
+      console[method](style[0], style[1], message, record.context, record.extra)
     } else {
-      console[method](message)
+      console[method](message, record.context, record.extra)
     }
 
     return true

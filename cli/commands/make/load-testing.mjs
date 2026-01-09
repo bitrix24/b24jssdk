@@ -1,6 +1,4 @@
-// ConsoleHandler
-import { ParamsFactory, B24Hook, EnumCrmEntityTypeId, Logger, LogLevel, ConsolaAdapter, ConsoleHandler } from '@bitrix24/b24jssdk'
-import { consola } from 'consola'
+import { ParamsFactory, B24Hook, EnumCrmEntityTypeId, Logger, LogLevel, NullLogger, ConsoleHandler, TelegramHandler } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 
 // Arrays for generating commands
@@ -55,8 +53,7 @@ export default defineCommand({
     let errors = []
 
     const logger = Logger.create('loadTesting')
-      // .pushHandler(new ConsoleHandler(LogLevel.DEBUG))
-      .pushHandler(new ConsolaAdapter(LogLevel.INFO, { consolaInstance: consola.create({ defaults: { tag: 'loadTesting' } }) }))
+      .pushHandler(new ConsoleHandler(LogLevel.DEBUG))
 
     // region Initialize Bitrix24 connection ////
     const hookPath = process.env?.B24_HOOK || ''
@@ -69,8 +66,24 @@ export default defineCommand({
     logger.info(`Connected to Bitrix24: ${b24.getTargetOrigin()}`)
 
     const loggerForDebugB24 = Logger.create('b24')
-      // .pushHandler(new ConsoleHandler(LogLevel.DEBUG))
-      .pushHandler(new ConsolaAdapter(LogLevel.DEBUG, { consolaInstance: consola.create({ defaults: { tag: 'b24' } }) }))
+      .pushHandler(new ConsoleHandler(LogLevel.NOTICE))
+
+    const tgBotToken = process.env?.TG_BOT_TOKEN || ''
+    const tgChatId = process.env?.TG_CHAT_ID || ''
+    let telegramHandler
+    if (tgBotToken && tgChatId) {
+      telegramHandler = new TelegramHandler(LogLevel.ERROR, {
+        botToken: tgBotToken,
+        chatId: tgChatId,
+        parseMode: 'HTML',
+        disableNotification: true,
+        disableWebPagePreview: false,
+        warnInBrowser: false // Not warn in browser
+      })
+      loggerForDebugB24.pushHandler(telegramHandler)
+    } else {
+      telegramHandler = new NullLogger()
+    }
 
     b24.setLogger(loggerForDebugB24)
 
@@ -107,28 +120,30 @@ export default defineCommand({
     async function callCommand1(commandNumber) {
       try {
         const { method, params } = commandsList[Math.floor(Math.random() * commandsList.length)]
-        logger.debug('callMethod >>>', method)
+        logger.debug(`call|${method}`, { requestId: commandNumber })
 
         const response = await b24.callMethod(method, params, commandNumber)
-
-        logger.debug(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
         }
 
         const data = response.getData()
-        logger.debug('[DEBUG] callMethod: operating', data.time.operating)
-        logger.debug('[DEBUG] callMethod: data', typeof data.result.items === 'undefined'
-          ? data.result
-          : data.result.items.map(item => item.id).slice(0, 10).join(',')
-        )
+        logger.debug('response', {
+          requestId: commandNumber,
+          method,
+          operatingStats: b24.getHttpClient().getStats().operatingStats,
+          operating: data.time.operating,
+          data: typeof data.result.items === 'undefined'
+            ? data.result
+            : data.result.items.map(item => item.id).slice(0, 10).join(',')
+        })
 
         return { success: true, data }
       } catch (error) {
         const errorMessage = `Error calling command ${commandNumber}:\n${error.message}`
         errors.push(errorMessage)
-        logger.error(`❌ ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, { error })
         return { success: false, error: errorMessage }
       } finally {
         commandsCount++
@@ -145,11 +160,11 @@ export default defineCommand({
           ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'], filter: { '>id': 200 } }]
         ]
 
-        logger.debug(`callBatch|array[${batchCalls.length}] >>>`, ['server.time', 'crm.item.list', '...'])
+        logger.debug(`callBatch|array`, {
+          requestId: commandNumber
+        })
 
         const response = await b24.callBatch(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true, requestId: commandNumber })
-
-        logger.debug(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
@@ -157,15 +172,20 @@ export default defineCommand({
 
         const data = response.getData()
 
-        logger.debug('[DEBUG] callBatch|array: _self.operating:', data.time.operating)
-        logger.debug('[DEBUG] callBatch|array: inner.operating:', data.result.map(responseAjax => responseAjax.getData().time.operating).join(', '))
-        logger.debug('[DEBUG] callBatch|array:', data.result.slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', ')))
+        logger.debug('response', {
+          requestId: commandNumber,
+          method: 'callBatch|array',
+          operatingStats: b24.getHttpClient().getStats().operatingStats,
+          self: data.time.operating,
+          inner: data.result.map(responseAjax => responseAjax.getData().time.operating).join(', '),
+          data: data.result.slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', '))
+        })
 
         return { success: true, data }
       } catch (error) {
         const errorMessage = `Error calling command ${commandNumber}:\n${error.message}`
         errors.push(errorMessage)
-        logger.error(`❌ ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, { error })
         return { success: false, error: errorMessage }
       } finally {
         commandsCount++
@@ -197,11 +217,11 @@ export default defineCommand({
           }
         }
 
-        logger.debug('callBatch|object >>>', { cmd1: batchCalls.cmd1.method, cmd2: batchCalls.cmd2.method, cmd3: '...' })
+        logger.debug(`callBatch|object`, {
+          requestId: commandNumber
+        })
 
         const response = await b24.callBatch(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true, requestId: commandNumber })
-
-        logger.debug(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
@@ -209,15 +229,20 @@ export default defineCommand({
 
         const data = response.getData()
 
-        logger.debug('[DEBUG] callBatch|object: _self.operating:', data.time.operating)
-        logger.debug('[DEBUG] callBatch|object: inner.operating:', Object.values(data.result).map(responseAjax => responseAjax.getData().time.operating).join(', '))
-        logger.debug('[DEBUG] callBatch|object:', Object.values(data.result).slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', ')))
+        logger.debug('response', {
+          requestId: commandNumber,
+          method: 'callBatch|object',
+          operatingStats: b24.getHttpClient().getStats().operatingStats,
+          self: data.time.operating,
+          inner: Object.values(data.result).map(responseAjax => responseAjax.getData().time.operating).join(', '),
+          data: Object.values(data.result).slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', '))
+        })
 
         return { success: true, data }
       } catch (error) {
         const errorMessage = `Error calling command ${commandNumber}:\n${error.message}`
         errors.push(errorMessage)
-        logger.error(`❌ ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, { error })
         return { success: false, error: errorMessage }
       } finally {
         commandsCount++
@@ -233,11 +258,11 @@ export default defineCommand({
           params
         ])
 
-        logger.debug(`callBatchByChunk|array[${batchCalls.length}] >>>`, [method, method, '...'])
+        logger.debug(`callBatchByChunk|array`, {
+          requestId: commandNumber
+        })
 
         const response = await b24.callBatchByChunk(batchCalls, { isHaltOnError: true, requestId: commandNumber })
-
-        logger.debug(`📈 operating stats:`, b24.getHttpClient().getStats().operatingStats)
 
         if (!response.isSuccess) {
           throw new Error(response.getErrorMessages().join(';\n'))
@@ -245,13 +270,18 @@ export default defineCommand({
 
         const data = response.getData()
 
-        logger.debug('[DEBUG] callBatchByChunk|array:', data.slice(0, 2).map(row => typeof row.items === 'undefined' ? row : row.items.map(item => item.id).slice(0, 5).join(', ')))
+        logger.debug('response', {
+          requestId: commandNumber,
+          method: 'callBatchByChunk|array',
+          operatingStats: b24.getHttpClient().getStats().operatingStats,
+          data: data.slice(0, 2).map(row => typeof row.items === 'undefined' ? row : row.items.map(item => item.id).slice(0, 5).join(', '))
+        })
 
         return { success: true, data }
       } catch (error) {
         const errorMessage = `Error calling command ${commandNumber}:\n${error.message}`
         errors.push(errorMessage)
-        logger.error(`❌ ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, { error })
         return { success: false, error: errorMessage }
       } finally {
         commandsCount++
@@ -273,7 +303,6 @@ export default defineCommand({
 
       const pingData = await b24.ping('ping')
       logger.debug(`📊 ping: ${pingData} ms.`)
-
       logger.debug('─'.repeat(50))
 
       const startTime = Date.now()

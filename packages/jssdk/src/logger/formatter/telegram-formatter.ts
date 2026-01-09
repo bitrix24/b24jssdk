@@ -6,14 +6,16 @@ import { AbstractFormatter } from './abstract-formatter'
  *
  * Formats a log entry for sending to Telegram.
  * Supports HTML markup with escaped special characters.
+ *
+ * @link https://core.telegram.org/bots/api#html-style
  */
 export class TelegramFormatter extends AbstractFormatter implements Formatter {
   private useHtml: boolean
   private maxMessageLength: number
 
   constructor(
-    dateFormat: string = 'YYYY-MM-DD HH:mm:ss',
     useHtml: boolean = true,
+    dateFormat: string = 'YYYY-MM-DD HH:mm:ss',
     maxMessageLength: number = 4096
   ) {
     super(dateFormat)
@@ -44,15 +46,13 @@ export class TelegramFormatter extends AbstractFormatter implements Formatter {
     const level = record.levelName
 
     if (this.useHtml) {
-      return this._escapeHtml(
-        `<b>${level}</b> | <code>${record.channel}</code>\n` +
-        `🕒 ${date}\n` +
-        `📝 ${record.message}`
-      )
+      return `<b>${level}</b> | <code>${record.channel}</code>\n`
+        + `<i>Time:</i> ${date}\n`
+        + `<i>Message:</i>\n${record.message}`
     } else {
-      return `${level} | ${record.channel}\n` +
-        `Time: ${date}\n` +
-        `Message: ${record.message}`
+      return `*${level}* \`${record.channel}\`\n`
+        + `_Time:_ \`${date}\`\n`
+        + `_Message:_\n${record.message}`
     }
   }
 
@@ -63,9 +63,9 @@ export class TelegramFormatter extends AbstractFormatter implements Formatter {
     if (record.context && Object.keys(record.context).length > 0) {
       const contextStr = JSON.stringify(record.context, null, 2)
       if (this.useHtml) {
-        parts.push(`<b>Context:</b>\n<pre>${this._escapeHtml(contextStr)}</pre>`)
+        parts.push(`<i>Context:</i>\n<pre><code class="language-json">${this._escapeHtml(contextStr)}</code></pre>`)
       } else {
-        parts.push(`Context:\n${contextStr}`)
+        parts.push(`_Context:_\n\`\`\`json\n${contextStr}\n\`\`\``)
       }
     }
 
@@ -73,9 +73,9 @@ export class TelegramFormatter extends AbstractFormatter implements Formatter {
     if (record.extra && Object.keys(record.extra).length > 0) {
       const extraStr = JSON.stringify(record.extra, null, 2)
       if (this.useHtml) {
-        parts.push(`<b>Extra:</b>\n<pre>${this._escapeHtml(extraStr)}</pre>`)
+        parts.push(`<i>Extra:</i>\n<pre><code class="language-json">${this._escapeHtml(extraStr)}</code></pre>`)
       } else {
-        parts.push(`Extra:\n${extraStr}`)
+        parts.push(`_Extra:_\n\`\`\`json\n${extraStr}\n\`\`\``)
       }
     }
 
@@ -89,6 +89,28 @@ export class TelegramFormatter extends AbstractFormatter implements Formatter {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;')
+  }
+
+  protected _escapeMarkdownV2(text: string): string {
+    return text
+      .replace(/_/g, '\\_')
+      .replace(/\*/g, '\\*')
+      .replace(/\[/g, '\\[')
+      .replace(/\]/g, '\\]')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
+      .replace(/~/g, '\\~')
+      .replace(/`/g, '\\`')
+      .replace(/>/g, '\\>')
+      .replace(/#/g, '\\#')
+      .replace(/\+/g, '\\+')
+      .replace(/-/g, '\\-')
+      .replace(/=/g, '\\=')
+      .replace(/\|/g, '\\|')
+      .replace(/\{/g, '\\{')
+      .replace(/\}/g, '\\}')
+      .replace(/\./g, '\\.')
+      .replace(/!/g, '\\!')
   }
 
   /**

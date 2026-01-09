@@ -271,7 +271,7 @@ export class RestrictionManager {
 
   // region Log ////
   #logMethodBlocked(limiter: string, requestId: string, method: string, wait: number) {
-    this.getLogger().warning(`${limiter} blocked method ${method}`, {
+    this.getLogger().notice(`${limiter} blocked method ${method}`, {
       requestId,
       method,
       wait,
@@ -280,7 +280,7 @@ export class RestrictionManager {
   }
 
   #logMethodBlockedWithTimes(limiter: string, requestId: string, method: string, wait: number, times: number) {
-    this.getLogger().warning(`${limiter} blocked method ${method} | ${times} times`, {
+    this.getLogger().notice(`${limiter} blocked method ${method} | ${times} times`, {
       requestId,
       method,
       times,
@@ -303,7 +303,7 @@ export class RestrictionManager {
   }
 
   #logSomeError(requestId: string, code: string, message: string, method: string, wait: number) {
-    this.getLogger().error(`Recognized the ${code} error for the ${method} method`, {
+    this.getLogger().error(`recognized the ${code} error for the ${method} method`, {
       requestId,
       method,
       wait,

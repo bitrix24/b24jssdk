@@ -53,11 +53,7 @@ export class TelegramHandler extends AbstractHandler implements Handler {
     this.warnInBrowser = options.warnInBrowser !== false // By default, we warn you in the browser
 
     // Set the default formatter
-    this.setFormatter(new TelegramFormatter(
-      'YYYY-MM-DD HH:mm:ss',
-      this.parseMode === 'HTML',
-      4096 // Maximum message length in Telegram
-    ))
+    this.setFormatter(new TelegramFormatter(this.parseMode === 'HTML'))
   }
 
   /**
@@ -111,19 +107,19 @@ export class TelegramHandler extends AbstractHandler implements Handler {
   protected async _handleInNode(message: string, _record: LogRecord): Promise<boolean> {
     try {
       const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`
-
+      const config = JSON.stringify({
+        chat_id: this.chatId,
+        text: message,
+        parse_mode: this.parseMode,
+        disable_notification: this.disableNotification,
+        disable_web_page_preview: this.disableWebPagePreview
+      })
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          chat_id: this.chatId,
-          text: message,
-          parse_mode: this.parseMode,
-          disable_notification: this.disableNotification,
-          disable_web_page_preview: this.disableWebPagePreview
-        })
+        body: config
       })
 
       const result = await response.json()

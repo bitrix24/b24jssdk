@@ -16,6 +16,7 @@
 * feat(Logger): add new logger system
 * fix(tools\Type|Text|Browser): improve export
 * feat(tools\environment): added tool for environment detection
+* feat(logger\handler\TelegramHandler): add Telegram handler
 
 ## [2.1.0](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.1.0) (2025-12-xx)
 ## [1.1.0](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.1.0) (2025-12-xx)

@@ -1073,7 +1073,7 @@ export default class Http implements TypeHttp {
       && !this.isServerSide()
       && Type.isStringFilled(this.#clientSideWarningMessage)
     ) {
-      this.getLogger().warning(this.#clientSideWarningMessage, { requestId })
+      console.warn(this.#clientSideWarningMessage, { requestId })
     }
   }
   // endregion ////

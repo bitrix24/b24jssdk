@@ -10,7 +10,7 @@ export class LineFormatter extends AbstractFormatter implements Formatter {
   protected formatString: string
 
   constructor(
-    formatString: string = '{date} [{channel}] {levelName}: {message} {context} {extra}',
+    formatString: string = '[{channel}] {levelName}: {message} {context} {extra} {date}',
     dateFormat: string = 'YYYY-MM-DD HH:mm:ss'
   ) {
     super(dateFormat)

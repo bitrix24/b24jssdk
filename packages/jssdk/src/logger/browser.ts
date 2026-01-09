@@ -69,82 +69,82 @@ export class LoggerBrowser implements LoggerInterface {
   // endregion ////
 
   // region Functions ////
-  desktop(...params: any[]): void {
+  public async desktop(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = {
       needDesktop: true,
       params: { ...params }
     }
-    this.#logger.debug('desktop', context)
+    return this.#logger.debug('desktop', context)
   }
 
   public async log(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.debug('log', context)
+    return this.#logger.debug('log', context)
   }
 
-  info(...params: any[]): void {
+  public async info(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.info('info', context)
+    return this.#logger.info('info', context)
   }
 
-  warn(...params: any[]): void {
+  public async warn(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.warning('warn', context)
+    return this.#logger.warning('warn', context)
   }
 
-  error(...params: any[]): void {
+  public async error(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.error('error', context)
+    return this.#logger.error('error', context)
   }
 
-  trace(...params: any[]): void {
+  public async trace(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = {
       needTrace: true,
       params: { ...params }
     }
-    this.#logger.debug('trace', context)
+    return this.#logger.debug('trace', context)
   }
 
-  debug(...params: any[]): void {
+  public async debug(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.debug('debug', context)
+    return this.#logger.debug('debug', context)
   }
 
-  notice(...params: any[]): void {
+  public async notice(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.info('notice', context)
+    return this.#logger.info('notice', context)
   }
 
-  warning(...params: any[]): void {
+  public async warning(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.warning('warning', context)
+    return this.#logger.warning('warning', context)
   }
 
-  critical(...params: any[]): void {
+  public async critical(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.critical('critical', context)
+    return this.#logger.critical('critical', context)
   }
 
-  alert(...params: any[]): void {
+  public async alert(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.alert('alert', context)
+    return this.#logger.alert('alert', context)
   }
 
-  emergency(...params: any[]): void {
+  public async emergency(...params: any[]): Promise<void> {
     console.warn(deprecateMessage)
     const context = { params: { ...params } }
-    this.#logger.emergency('alert', context)
+    return this.#logger.emergency('alert', context)
   }
   // endregion ////
 }

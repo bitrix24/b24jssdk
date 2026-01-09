@@ -100,19 +100,19 @@ export interface LoggerInterface {
   /**
    * Detailed debug information.
    */
-  debug(message: string, context?: Record<string, any>): void
+  debug(message: string, context?: Record<string, any>): Promise<void>
 
   /**
    * Interesting events.
    *
    * Example: User logs in, SQL logs.
    */
-  info(message: string, context?: Record<string, any>): void
+  info(message: string, context?: Record<string, any>): Promise<void>
 
   /**
    * Normal but significant events.
    */
-  notice(message: string, context?: Record<string, any>): void
+  notice(message: string, context?: Record<string, any>): Promise<void>
 
   /**
    * Exceptional occurrences that are not errors.
@@ -120,20 +120,20 @@ export interface LoggerInterface {
    * Example: Use of deprecated APIs, poor use of an API, undesirable things
    *          that are not necessarily wrong.
    */
-  warning(message: string, context?: Record<string, any>): void
+  warning(message: string, context?: Record<string, any>): Promise<void>
 
   /**
    * Runtime errors that do not require immediate action but should typically
    * be logged and monitored.
    */
-  error(message: string, context?: Record<string, any>): void
+  error(message: string, context?: Record<string, any>): Promise<void>
 
   /**
    * Critical conditions
    *
    * Example: Application component unavailable, unexpected exception
    */
-  critical(message: string, context?: Record<string, any>): void
+  critical(message: string, context?: Record<string, any>): Promise<void>
 
   /**
    * Action must be taken immediately.
@@ -141,10 +141,10 @@ export interface LoggerInterface {
    * Example: Entire website down, database unavailable, etc. This should
    *          trigger the SMS alerts and wake you up.
    */
-  alert(message: string, context?: Record<string, any>): void
+  alert(message: string, context?: Record<string, any>): Promise<void>
 
   /**
    * System is unusable.
    */
-  emergency(message: string, context?: Record<string, any>): void
+  emergency(message: string, context?: Record<string, any>): Promise<void>
 }

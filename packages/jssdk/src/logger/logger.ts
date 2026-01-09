@@ -44,7 +44,6 @@ export class Logger extends AbstractLogger implements LoggerInterface {
   }
   // endregion ////
 
-  // region logging methods ////
   /**
    * @inheritDoc
    */
@@ -79,5 +78,4 @@ export class Logger extends AbstractLogger implements LoggerInterface {
       }
     }
   }
-  // endregion ////
 }

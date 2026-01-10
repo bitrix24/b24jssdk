@@ -1,8 +1,8 @@
-import { B24Hook, LoggerFactory, AjaxError } from '@bitrix24/b24jssdk'
+import { B24Hook, LoggerFactory } from '@bitrix24/b24jssdk'
 
 type Task = {
-  id: number
-  title: string
+  ID: number
+  TITLE: string
 }
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
@@ -13,12 +13,11 @@ const loggerForDebugB24 = LoggerFactory.createForBrowser('b24', false)
 $b24.setLogger(loggerForDebugB24)
 
 async function getTask(id: number, requestId: string): Promise<Task | null> {
-  // We can use $b24.callV3() or $b24.callMethod()
-  const response = await $b24.callMethod<{ item: Task }>(
+  const response = await $b24.callV2<{ item: Task }>(
     'tasks.task.get',
     {
-      id,
-      select: ['id', 'title']
+      taskId: id,
+      select: ['ID', 'TITLE']
     },
     requestId
   )
@@ -31,23 +30,16 @@ async function getTask(id: number, requestId: string): Promise<Task | null> {
 }
 
 // Usage
-const requestId = 'test-task-v3'
+const requestId = 'test-task-v2'
 try {
   const task = await getTask(2, requestId)
-  $logger.info(`Task: ${task?.title}`, {
+  $logger.info(`Task: ${task?.TITLE}`, {
     requestId,
     task
   })
 } catch (error) {
-  if (error instanceof AjaxError) {
-    $logger.critical(error.message, {
-      requestId,
-      code: error.code
-    })
-  } else {
-    $logger.alert('some error', {
-      requestId,
-      error
-    })
-  }
+  $logger.alert('some error', {
+    requestId,
+    error
+  })
 }

@@ -1,7 +1,7 @@
 /**
  * Data Types and Object Structure in the REST API bizproc activity and robot
- * @link https://apidocs.bitrix24.com/sdk/bizproc/bizproc-activity/index.html
- * @link https://apidocs.bitrix24.com/sdk/bizproc/bizproc-robot/index.html
+ * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-activity/index.html
+ * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-robot/index.html
  *
  * @todo add docs
  */

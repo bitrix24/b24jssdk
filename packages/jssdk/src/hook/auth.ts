@@ -9,14 +9,11 @@ export class AuthHookManager implements AuthActions {
   readonly #domain: string
   readonly #b24TargetRest: string
   readonly #b24Target: string
-
-  readonly #version: ApiVersion
+  readonly #b24TargetRestWithPath: Map<ApiVersion, string>
 
   constructor(
-    b24HookParams: B24HookParams,
-    version: ApiVersion = ApiVersion.v2
+    b24HookParams: B24HookParams
   ) {
-    this.#version = version
     this.#b24HookParams = Object.freeze(Object.assign({}, b24HookParams))
     this.#domain = this.#b24HookParams.b24Url
       .replaceAll('https://', '')
@@ -25,16 +22,17 @@ export class AuthHookManager implements AuthActions {
 
     this.#b24TargetRest = `https://${this.#domain}/rest`
     this.#b24Target = `https://${this.#domain}`
-  }
 
-  get apiVersion(): ApiVersion {
-    return this.#version
+    this.#b24TargetRestWithPath = new Map()
+    this.#b24TargetRestWithPath.set(ApiVersion.v1, `${this.#b24TargetRest}/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`)
   }
 
   /**
    * @see Http.#prepareParams
    */
-  getAuthData(): false | AuthData {
+  public getAuthData(): false | AuthData {
     return {
       access_token: this.#b24HookParams.secret,
       refresh_token: 'hook',
@@ -45,11 +43,11 @@ export class AuthHookManager implements AuthActions {
     }
   }
 
-  refreshAuth(): Promise<AuthData> {
+  public refreshAuth(): Promise<AuthData> {
     return Promise.resolve(this.getAuthData() as AuthData)
   }
 
-  getUniq(prefix: string): string {
+  public getUniq(prefix: string): string {
     const authData = this.getAuthData()
     if (authData === false) {
       throw new Error('AuthData not init')
@@ -58,27 +56,20 @@ export class AuthHookManager implements AuthActions {
   }
 
   /**
-   * Get the account address BX24 ( https://name.bitrix24.com )
+   * @inheritDoc
    */
-  getTargetOrigin(): string {
+  public getTargetOrigin(): string {
     return `${this.#b24Target}`
   }
 
   /**
    * Get the account address BX24 with path
-   * - for ver1 `https://name.bitrix24.com/rest/{id}/{webhook}`
-   * - for ver2 `https://name.bitrix24.com/rest/{id}/{webhook}`
-   * - for ver3` https://name.bitrix24.com/rest/api/{id}/{webhook}`
+   *   - ver1 `https://your_domain.bitrix24.com/rest/{id}/{webhook}`
+   *   - ver2 `https://your_domain.bitrix24.com/rest/{id}/{webhook}`
+   *   - ver3` https://your_domain.bitrix24.com/rest/api/{id}/{webhook}`
    */
-  getTargetOriginWithPath(): string {
-    switch (this.apiVersion) {
-      case ApiVersion.v1:
-      case ApiVersion.v2:
-        return `${this.#b24TargetRest}/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`
-      case ApiVersion.v3:
-      default:
-        return `${this.#b24TargetRest}/api/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`
-    }
+  public getTargetOriginWithPath(): Map<ApiVersion, string> {
+    return this.#b24TargetRestWithPath
   }
 
   /**

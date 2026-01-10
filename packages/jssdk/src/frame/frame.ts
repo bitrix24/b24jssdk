@@ -11,14 +11,13 @@ export class AppFrame {
   #appSid: null | string = null
   #path: null | string = null
   #lang: null | string = null
-
-  readonly #version: ApiVersion
+  #b24TargetRest: string
+  #b24Target: string
+  readonly #b24TargetRestWithPath: Map<ApiVersion, string>
 
   constructor(
-    queryParams: B24FrameQueryParams,
-    version: ApiVersion = ApiVersion.v2
+    queryParams: B24FrameQueryParams
   ) {
-    this.#version = version
     if (queryParams.DOMAIN) {
       this.#domain = queryParams.DOMAIN
       this.#domain = this.#domain.replace(/:(80|443)$/, '')
@@ -33,10 +32,15 @@ export class AppFrame {
     if (queryParams.APP_SID) {
       this.#appSid = queryParams.APP_SID
     }
-  }
 
-  get apiVersion(): ApiVersion {
-    return this.#version
+    this.#b24TargetRestWithPath = new Map()
+
+    this.#b24Target = `${this.#protocol ? 'https' : 'http'}://${this.#domain}`
+    this.#b24TargetRest = `${this.#b24Target}/rest`
+
+    this.#b24TargetRestWithPath.set(ApiVersion.v1, `${this.#b24TargetRest}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api`)
   }
 
   /**
@@ -59,6 +63,13 @@ export class AppFrame {
     this.#protocol = Number.parseInt(data.PROTOCOL) === 1
     this.#domain = this.#domain.replace(/:(80|443)$/, '')
 
+    this.#b24Target = `${this.#protocol ? 'https' : 'http'}://${this.#domain}`
+    this.#b24TargetRest = `${this.#b24Target}/rest`
+
+    this.#b24TargetRestWithPath.set(ApiVersion.v1, `${this.#b24TargetRest}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api`)
+
     return this
   }
 
@@ -74,27 +85,20 @@ export class AppFrame {
   }
 
   /**
-   * Get the account address BX24 (https://name.bitrix24.com)
+   * Get the account address BX24 (https://your_domain.bitrix24.com)
    */
   getTargetOrigin(): string {
-    return `${this.#protocol ? 'https' : 'http'}://${this.#domain}`
+    return this.#b24Target
   }
 
   /**
    * Get the account address BX24 with path
-   * - for ver1 `https://name.bitrix24.com/rest`
-   * - for ver2 `https://name.bitrix24.com/rest`
-   * - for ver3` https://name.bitrix24.com/rest/api`
+   *   - ver1 `https://your_domain.bitrix24.com/rest/`
+   *   - ver2 `https://your_domain.bitrix24.com/rest/`
+   *   - ver3` https://your_domain.bitrix24.com/rest/api/`
    */
-  getTargetOriginWithPath(): string {
-    switch (this.apiVersion) {
-      case ApiVersion.v1:
-      case ApiVersion.v2:
-        return `${this.getTargetOrigin()}/rest`
-      case ApiVersion.v3:
-      default:
-        return `${this.getTargetOrigin()}/rest/api`
-    }
+  getTargetOriginWithPath(): Map<ApiVersion, string> {
+    return this.#b24TargetRestWithPath
   }
 
   /**

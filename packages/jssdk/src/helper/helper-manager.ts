@@ -284,7 +284,7 @@ export class B24HelperManager {
   }
 
   /**
-   * Get the account address BX24 (https://name.bitrix24.com)
+   * Get the account address BX24 (https://your_domain.bitrix24.com)
    */
   get hostName(): string {
     return this._b24.getTargetOrigin()

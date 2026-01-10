@@ -1,31 +1,31 @@
-import type { LoggerInterface } from '../logger'
+import type { LoggerInterface } from './logger'
 import type { AjaxResult } from '../core/http/ajax-result'
 import type { Result } from '../core/result'
-import type {
-  TypeHttp,
-  ICallBatchOptions,
-  BatchCommandsArrayUniversal,
-  BatchCommandsObjectUniversal,
-  BatchNamedCommandsUniversal,
-  TypeCallParams
-} from './http'
+import type { TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, TypeCallParams } from './http'
 import type { AuthActions } from './auth'
 import type { PayloadTime } from './payloads'
+import type { RestrictionParams } from './limiters'
 
 /**
  * @todo fix docs
  */
 
 export enum ApiVersion {
-  v1 = 'v1',
+  v3 = 'v3',
   v2 = 'v2',
-  v3 = 'v3'
+  v1 = 'v1'
 }
 
 /**
  * Options for batch calls
  */
 export interface IB24BatchOptions extends ICallBatchOptions {
+  /**
+   * Api Version
+   * If the option is empty, then automatic detection is performed using the specified methods.
+   */
+  apiVersion?: ApiVersion
+
   /**
    * Whether to return an AjaxResult object instead of data
    * @default false
@@ -53,15 +53,26 @@ export type TypeB24 = {
 
   get auth(): AuthActions
 
+  setLogTag(logTag?: string): void
+  clearLogTag(): void
+
   /**
-   * Get the account address BX24 ( https://name.bitrix24.com )
+   * Sets the restriction parameters
+   */
+  setRestrictionManagerParams(params: RestrictionParams): Promise<void>
+
+  /**
+   * Get the account address BX24 ( https://your_domain.bitrix24.com )
    */
   getTargetOrigin(): string
 
   /**
-   * Get the account address BX24 ( https://name.bitrix24.com/rest )
+   * Get the account address BX24 with path
+   *   - ver1 `https://your_domain.bitrix24.com/rest/`
+   *   - ver2 `https://your_domain.bitrix24.com/rest/`
+   *   - ver3` https://your_domain.bitrix24.com/rest/api/`
    */
-  getTargetOriginWithPath(): string
+  getTargetOriginWithPath(): Map<ApiVersion, string>
 
   /**
    * Calls the Bitrix24 REST API method.
@@ -150,8 +161,7 @@ export type TypeB24 = {
     // @deprecated Use the method `callBatch` with the options object
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     isHaltOnError?: boolean,
-    returnAjaxResult?: boolean,
-    returnTime?: boolean
+    returnAjaxResult?: boolean
   ): Promise<Result>
 
   /**

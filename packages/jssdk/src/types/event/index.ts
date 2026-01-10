@@ -1,6 +1,6 @@
 /**
  * Data Types and Object Structure in the REST API event handler
- * @link https://apidocs.bitrix24.com/sdk/events/index.html
+ * @link https://apidocs.bitrix24.com/api-reference/events/index.html
  * @todo add docs
  */
 import type { BoolString } from '../common'
@@ -26,7 +26,7 @@ export interface EventOnAppInstallHandlerParams extends EventHandlerParams {
 
 /**
  * @todo fix this application_token
- * @see https://apidocs.bitrix24.com/sdk/events/safe-event-handlers.html
+ * @see https://apidocs.bitrix24.com/api-reference/events/safe-event-handlers.html
  */
 export interface EventOnAppUnInstallHandlerParams {
   event: string

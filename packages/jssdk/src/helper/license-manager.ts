@@ -24,7 +24,7 @@ export class LicenseManager extends AbstractHelper {
 
   /**
    * Set RestrictionManager params by license
-   * @link https://apidocs.bitrix24.com/sdk/common/system/app-info.html
+   * @link https://apidocs.bitrix24.com/api-reference/common/system/app-info.html
    */
   async makeRestrictionManagerParams(): Promise<void> {
     if (!this.data?.license) {
@@ -37,6 +37,6 @@ export class LicenseManager extends AbstractHelper {
       restrictionParams
     })
 
-    await this._b24.getHttpClient().setRestrictionManagerParams(restrictionParams)
+    await this._b24.setRestrictionManagerParams(restrictionParams)
   }
 }

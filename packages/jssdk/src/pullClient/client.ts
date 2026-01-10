@@ -42,9 +42,6 @@ const EmptyConfig = {
   exp: 0
 } as TypePullClientConfig
 
-/**
- * @todo fix logic for _loggingEnabled
- */
 export class PullClient implements ConnectorParent {
   // region Params ////
   private _logger: LoggerInterface
@@ -1619,7 +1616,7 @@ export class PullClient implements ConnectorParent {
     }
 
     return new Promise((resolve, reject) => {
-      this._restClient.getHttpClient().setLogTag(logTag)
+      this._restClient.setLogTag(logTag)
 
       this._restClient
         .callMethod(this._configGetMethod, {
@@ -1650,7 +1647,7 @@ export class PullClient implements ConnectorParent {
           reject(error)
         })
         .finally(() => {
-          this._restClient.getHttpClient().clearLogTag()
+          this._restClient.clearLogTag()
         })
     })
   }

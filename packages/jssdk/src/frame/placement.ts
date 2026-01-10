@@ -6,7 +6,7 @@ import { Type } from '../tools/type'
 /**
  * Placement Manager
  *
- * @see https://apidocs.bitrix24.com/sdk/widgets/ui-interaction/index.html
+ * @see https://apidocs.bitrix24.com/api-reference/widgets/ui-interaction/index.html
  */
 export class PlacementManager {
   #messageManager: MessageManager
@@ -57,7 +57,7 @@ export class PlacementManager {
    *
    * @return {Promise<any>}
    *
-   * @link https://apidocs.bitrix24.com/sdk/widgets/ui-interaction/bx24-placement-get-interface.html
+   * @link https://apidocs.bitrix24.com/api-reference/widgets/ui-interaction/bx24-placement-get-interface.html
    */
   async getInterface(): Promise<any> {
     return this.#messageManager.send(
@@ -74,7 +74,7 @@ export class PlacementManager {
    * @param {(...args: any[]) => void} callBack
    * @return {Promise<any>}
    *
-   * @link https://apidocs.bitrix24.com/sdk/widgets/ui-interaction/bx24-placement-bind-event.html
+   * @link https://apidocs.bitrix24.com/api-reference/widgets/ui-interaction/bx24-placement-bind-event.html
    */
   async bindEvent(
     eventName: string,
@@ -96,7 +96,7 @@ export class PlacementManager {
    * @param { Record<string, any> } parameters
    * @return { Promise<any> }
    *
-   * @link https://apidocs.bitrix24.com/sdk/widgets/ui-interaction/bx24-placement-call.html
+   * @link https://apidocs.bitrix24.com/api-reference/widgets/ui-interaction/bx24-placement-call.html
    * @memo For the `setValue` command, use the following parameters { value: string }
    */
   async call(command: string, parameters: Record<string, any> = {}): Promise<any> {

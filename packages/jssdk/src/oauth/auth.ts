@@ -1,5 +1,5 @@
 import type { AxiosInstance } from 'axios'
-import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth, HandlerRefreshAuth, TypeDescriptionError } from '../types/auth'
+import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth, HandlerRefreshAuth, TypeDescriptionError, TypeDescriptionErrorV3 } from '../types/auth'
 import type { TypeHttp } from '../types/http'
 import axios, { AxiosError } from 'axios'
 import { RefreshTokenError } from './refresh-token-error'
@@ -10,7 +10,8 @@ import { ApiVersion } from '../types/b24'
 /**
  * OAuth Authorization Manager
  *
- * @link https://apidocs.bitrix24.com/sdk/oauth/index.html
+ * @link https://apidocs.bitrix24.com/settings/oauth/index.html
+ * @link https://bitrix24.github.io/b24jssdk/docs/oauth/
  */
 export class AuthOAuthManager implements AuthActions {
   #clientAxios: AxiosInstance
@@ -23,19 +24,15 @@ export class AuthOAuthManager implements AuthActions {
   readonly #domain: string
   readonly #b24TargetRest: string
   readonly #b24Target: string
-  // 'https://oauth.bitrix.info' ////
-  readonly #oAuthTarget: string
-
-  readonly #version: ApiVersion
+  readonly #b24TargetRestWithPath: Map<ApiVersion, string>
+  readonly #oAuthTarget: string // 'https://oauth.bitrix.info'
 
   #isAdmin: null | boolean = null
 
   constructor(
     b24OAuthParams: B24OAuthParams,
-    oAuthSecret: B24OAuthSecret,
-    version: ApiVersion = ApiVersion.v2
+    oAuthSecret: B24OAuthSecret
   ) {
-    this.#version = version
     this.#authOptions = Object.assign({}, b24OAuthParams) as B24OAuthParams
     this.#oAuthSecret = Object.freeze(Object.assign({}, oAuthSecret)) as B24OAuthSecret
 
@@ -56,17 +53,18 @@ export class AuthOAuthManager implements AuthActions {
         'Content-Type': 'application/json'
       }
     })
-  }
 
-  get apiVersion(): ApiVersion {
-    return this.#version
+    this.#b24TargetRestWithPath = new Map()
+    this.#b24TargetRestWithPath.set(ApiVersion.v1, `${this.#b24TargetRest}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api`)
   }
 
   /**
    * Returns authorization data
    * @see Http.#prepareParams
    */
-  getAuthData(): false | AuthData {
+  public getAuthData(): false | AuthData {
     return this.#authExpires > Date.now()
       ? ({
           access_token: this.#authOptions.accessToken,
@@ -83,7 +81,7 @@ export class AuthOAuthManager implements AuthActions {
   /**
    * Updates authorization data
    */
-  async refreshAuth(): Promise<AuthData> {
+  public async refreshAuth(): Promise<AuthData> {
     try {
       let payload: undefined | HandlerRefreshAuth = undefined
 
@@ -139,30 +137,39 @@ export class AuthOAuthManager implements AuthActions {
       return authData
     } catch (error) {
       if (error instanceof AxiosError) {
-        let answerError = {
-          error: error?.code || 0,
-          errorDescription: error?.message || ''
+        const answerError = {
+          code: error?.code || 0,
+          description: error?.message || ''
         }
 
         if (
           error.response
           && error.response.data
-          && !Type.isUndefined((error.response.data as TypeDescriptionError).error)
+          && !Type.isUndefined(error.response.data.error)
         ) {
-          const response = error.response.data as {
-            error: string
-            error_description: string
-          } as TypeDescriptionError
+          const responseData = error.response.data as TypeDescriptionError | TypeDescriptionErrorV3
 
-          answerError = {
-            error: response.error,
-            errorDescription: response.error_description
+          if (
+            responseData.error
+            && typeof responseData.error === 'object'
+            && 'code' in responseData.error
+          ) {
+            answerError.code = responseData.error.code
+            answerError.description = responseData.error.message
+            if (responseData.error.validation) {
+              responseData.error.validation.forEach((row) => {
+                answerError.description += `${row?.message || JSON.stringify(row)}`
+              })
+            }
+          } else if (responseData.error && typeof responseData.error === 'string') {
+            answerError.code = responseData.error
+            answerError.description = (responseData as TypeDescriptionError)?.error_description ?? answerError.description
           }
         }
 
         throw new RefreshTokenError({
-          code: String(answerError.error),
-          description: answerError.errorDescription,
+          code: String(answerError.code),
+          description: answerError.description,
           status: error.response?.status || 0,
           requestInfo: {
             method: '/oauth/token/'
@@ -179,49 +186,39 @@ export class AuthOAuthManager implements AuthActions {
     }
   }
 
-  setCallbackRefreshAuth(cb: CallbackRefreshAuth): void {
+  public setCallbackRefreshAuth(cb: CallbackRefreshAuth): void {
     this.#callbackRefreshAuth = cb
   }
 
-  removeCallbackRefreshAuth(): void {
+  public removeCallbackRefreshAuth(): void {
     this.#callbackRefreshAuth = null
   }
 
-  setCustomRefreshAuth(cb: CustomRefreshAuth): void {
+  public setCustomRefreshAuth(cb: CustomRefreshAuth): void {
     this.#customRefreshAuth = cb
   }
 
-  removeCustomRefreshAuth(): void {
+  public removeCustomRefreshAuth(): void {
     this.#customRefreshAuth = null
   }
   // endregion ////
 
-  getUniq(prefix: string): string {
+  public getUniq(prefix: string): string {
     return [prefix, this.#authOptions.memberId || ''].join('_')
   }
 
   /**
-   * Get the account address BX24 ( https://name.bitrix24.com )
+   * @inheritDoc
    */
-  getTargetOrigin(): string {
+  public getTargetOrigin(): string {
     return `${this.#b24Target}`
   }
 
   /**
-   * Get the account address BX24 with path
-   * - for ver1 `https://name.bitrix24.com/rest`
-   * - for ver2 `https://name.bitrix24.com/rest`
-   * - for ver3` https://name.bitrix24.com/rest/api`
+   * @inheritDoc
    */
-  getTargetOriginWithPath(): string {
-    switch (this.apiVersion) {
-      case ApiVersion.v1:
-      case ApiVersion.v2:
-        return `${this.#b24TargetRest}`
-      case ApiVersion.v3:
-      default:
-        return `${this.#b24TargetRest}/api`
-    }
+  public getTargetOriginWithPath(): Map<ApiVersion, string> {
+    return this.#b24TargetRestWithPath
   }
 
   /**
@@ -235,24 +232,34 @@ export class AuthOAuthManager implements AuthActions {
     return this.#isAdmin
   }
 
-  async initIsAdmin(
-    http: TypeHttp,
-    requestId?: string
-  ) {
-    const response = await http.call('profile', {}, requestId)
-    if (!response.isSuccess) {
-      throw new Error(response.getErrorMessages().join(';'))
-    }
+  public async initIsAdmin(http: TypeHttp, requestId?: string): Promise<void> {
+    // set def value
+    this.#isAdmin = false
 
-    // @todo test for ver3
-    if (this.apiVersion === ApiVersion.v3) {
-      const data: { id: number, admin: boolean } = response.getData().result
+    // region ver3 ////
+    if (http.apiVersion === ApiVersion.v3) {
+      const response = await http.call('profile', {}, requestId)
+      if (!response.isSuccess) {
+        throw new Error(response.getErrorMessages().join(';'))
+      }
 
-      if (data?.admin) {
+      /**
+       * @todo Fix the type (`profile`), then the new API will be available
+       */
+      const data: { profile: { id: number, admin: boolean } } = response.getData().result
+
+      if (data.profile?.admin) {
         this.#isAdmin = true
       }
 
       return
+    }
+    // endregion ////
+
+    // region ver2|ver1 ////
+    const response = await http.call('profile', {}, requestId)
+    if (!response.isSuccess) {
+      throw new Error(response.getErrorMessages().join(';'))
     }
 
     const data: {
@@ -263,5 +270,6 @@ export class AuthOAuthManager implements AuthActions {
     if (data?.ADMIN) {
       this.#isAdmin = true
     }
+    // endregion ////
   }
 }

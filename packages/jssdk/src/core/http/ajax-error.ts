@@ -33,22 +33,22 @@ export class AjaxError extends Error {
   // private _status: number
   // private _answerError: AnswerError
 
-  constructor(details: ErrorDetails) {
-    const message = AjaxError.formatErrorMessage(details)
+  constructor(params: ErrorDetails) {
+    const message = AjaxError.formatErrorMessage(params)
     super(message)
 
     this.name = 'AjaxError' as const
-    this.code = details.code
-    this._status = details.status
-    this.requestInfo = details.requestInfo
-    this.originalError = details.originalError
+    this.code = params.code
+    this._status = params.status
+    this.requestInfo = params.requestInfo
+    this.originalError = params.originalError
     this.timestamp = new Date()
 
     this.cleanErrorStack()
   }
 
   /**
-   * @deprecated use error.message
+   * @deprecated use `error.message`
    */
   get answerError(): AnswerError {
     return {
@@ -143,18 +143,19 @@ export class AjaxError extends Error {
     return output
   }
 
-  private static formatErrorMessage(details: ErrorDetails): string {
-    const parts = [details.code]
-
-    if (details.description) {
-      parts.push(`- ${details.description}`)
+  private static formatErrorMessage(params: ErrorDetails): string {
+    if (!params?.description) {
+      if (
+        params.requestInfo?.method
+        && params.requestInfo.url
+      ) {
+        return `${params.code} (on ${params.requestInfo.method}${params.requestInfo?.url ? ' ' + params.requestInfo.url : ''})`
+      } else {
+        return `${params.code})`
+      }
     }
 
-    if (details.requestInfo?.method && details.requestInfo.url) {
-      parts.push(`(on ${details.requestInfo.method} ${details.requestInfo.url})`)
-    }
-
-    return parts.join(' ')
+    return `${params.description}`
   }
 
   private cleanErrorStack() {

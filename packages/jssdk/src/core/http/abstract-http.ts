@@ -1,36 +1,36 @@
 import type { LoggerInterface } from '../../logger'
+import type { TypeCallParams, TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, CommandObject, CommandTuple, ICallBatchResult } from '../../types/http'
+import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
+import type { AjaxResultParams } from './ajax-result'
+import type { AuthActions, AuthData, TypeDescriptionError, TypeDescriptionErrorV3 } from '../../types/auth'
+import type { BatchPayload, BatchPayloadResult, PayloadTime } from '../../types/payloads'
+import type { NumberString } from '../../types/common'
+import type { AxiosInstance } from 'axios'
+import axios, { AxiosError } from 'axios'
+import * as qs from 'qs-esm'
 import { LoggerFactory } from '../../logger'
-import RequestIdGenerator from './request-id-generator'
+import { RequestIdGenerator } from './request-id-generator'
 import { ParamsFactory } from './limiters/params-factory'
 import { RestrictionManager } from './limiters/manager'
 import { Result } from '../result'
 import { AjaxError } from './ajax-error'
 import { AjaxResult } from './ajax-result'
-import { versionManager } from './version-manager'
 import { Type } from '../../tools/type'
 import { Environment, getEnvironment } from '../../tools/environment'
 import { ApiVersion } from '../../types/b24'
-import type { TypeCallParams, TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, CommandObject, CommandTuple, ICallBatchResult } from '../../types/http'
-import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
-import type { AjaxResultParams } from './ajax-result'
-import type { AuthActions, AuthData, TypeDescriptionError } from '../../types/auth'
-import type { BatchPayload, BatchPayloadResult, PayloadTime } from '../../types/payloads'
-import type { NumberString } from '../../types/common'
-import axios, { type AxiosInstance, AxiosError } from 'axios'
-import * as qs from 'qs-esm'
 
-type AjaxResponse<T = unknown> = {
+export type AjaxResponse<T = unknown> = {
   status: number
   payload: AjaxResultParams<T>
 }
 
-type TypePrepareParams = TypeCallParams & {
+export type TypePrepareParams = TypeCallParams & {
   data?: Record<string, any>
   logTag?: string
   auth?: string
 }
 
-interface BatchResponseData<T = unknown> {
+export interface BatchResponseData<T = unknown> {
   readonly result?: T[] | Record<string | number, T>
   readonly result_error?: string[] | Record<string | number, string>
   readonly result_total?: NumberString[] | Record<string | number, NumberString>
@@ -38,30 +38,30 @@ interface BatchResponseData<T = unknown> {
   readonly result_time?: PayloadTime[] | Record<string | number, PayloadTime>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const BITRIX24_OAUTH_SERVER_URL = 'https://oauth.bitrix.info'
 const MAX_BATCH_COMMANDS = 50
 
 /**
- * Class for working with RestApi requests via http
+ * Abstract Class for working with RestApi requests via http
  *
  * @link https://bitrix24.github.io/b24jssdk/
  *
  * @todo docs
  */
-export default class Http implements TypeHttp {
-  #clientAxios: AxiosInstance
-  #authActions: AuthActions
-  #requestIdGenerator: RequestIdGenerator
-  #restrictionManager: RestrictionManager
+export abstract class AbstractHttp implements TypeHttp {
+  protected _clientAxios: AxiosInstance
+  protected _authActions: AuthActions
+  protected _requestIdGenerator: RequestIdGenerator
+  protected _restrictionManager: RestrictionManager
 
-  private _logger: LoggerInterface
+  protected _logger: LoggerInterface
 
-  #logTag: string = ''
-  #isClientSideWarning: boolean = false
-  #clientSideWarningMessage: string = ''
+  protected _logTag: string = ''
+  protected _isClientSideWarning: boolean = false
+  protected _clientSideWarningMessage: string = ''
 
-  #metrics = {
+  protected _version: ApiVersion
+
+  protected _metrics = {
     totalRequests: 0,
     successfulRequests: 0,
     failedRequests: 0,
@@ -75,17 +75,18 @@ export default class Http implements TypeHttp {
     options?: null | object,
     restrictionParams?: Partial<RestrictionParams>
   ) {
+    this._version = ApiVersion.v1
+
     this._logger = LoggerFactory.createNullLogger()
 
     const defaultHeaders = {
       // 'X-Sdk': '__SDK_USER_AGENT__-v-__SDK_VERSION__'
     }
 
-    this.#authActions = authActions
-    this.#requestIdGenerator = new RequestIdGenerator()
+    this._authActions = authActions
+    this._requestIdGenerator = new RequestIdGenerator()
 
-    this.#clientAxios = axios.create({
-      baseURL: this.#authActions.getTargetOriginWithPath(),
+    this._clientAxios = axios.create({
       headers: {
         ...defaultHeaders,
         ...(options ? (options as any).headers : {})
@@ -103,33 +104,37 @@ export default class Http implements TypeHttp {
       ...restrictionParams
     }
 
-    this.#restrictionManager = new RestrictionManager(params)
+    this._restrictionManager = new RestrictionManager(params)
+  }
+
+  get apiVersion(): ApiVersion {
+    return this._version
   }
 
   // region Logger ////
-  setLogger(logger: LoggerInterface): void {
+  public setLogger(logger: LoggerInterface): void {
     this._logger = logger
-    this.#restrictionManager.setLogger(this._logger)
+    this._restrictionManager.setLogger(this._logger)
   }
 
-  getLogger(): LoggerInterface {
+  public getLogger(): LoggerInterface {
     return this._logger
   }
   // endregion ////
 
   // region RestrictionManager ////
-  async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {
-    await this.#restrictionManager.setConfig(params)
+  public async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {
+    await this._restrictionManager.setConfig(params)
   }
 
-  getRestrictionManagerParams(): RestrictionParams {
-    return this.#restrictionManager.getParams()
+  public getRestrictionManagerParams(): RestrictionParams {
+    return this._restrictionManager.getParams()
   }
 
   /**
    * @inheritDoc
    */
-  getStats(): RestrictionManagerStats & {
+  public getStats(): RestrictionManagerStats & {
     adaptiveDelayAvg: number
     errorCounts: Record<string, number>
     totalRequests: number
@@ -140,80 +145,80 @@ export default class Http implements TypeHttp {
     lastErrors: { method: string, error: string, timestamp: number }[]
   } {
     return {
-      ...this.#restrictionManager.getStats(),
-      totalRequests: this.#metrics.totalDuration,
-      successfulRequests: this.#metrics.successfulRequests,
-      failedRequests: this.#metrics.failedRequests,
-      totalDuration: this.#metrics.totalDuration,
-      byMethod: this.#metrics.byMethod,
-      lastErrors: this.#metrics.lastErrors
+      ...this._restrictionManager.getStats(),
+      totalRequests: this._metrics.totalDuration,
+      successfulRequests: this._metrics.successfulRequests,
+      failedRequests: this._metrics.failedRequests,
+      totalDuration: this._metrics.totalDuration,
+      byMethod: this._metrics.byMethod,
+      lastErrors: this._metrics.lastErrors
     }
   }
 
   /**
    * @inheritDoc
    */
-  async reset(): Promise<void> {
-    this.#metrics.totalDuration = 0
-    this.#metrics.successfulRequests = 0
-    this.#metrics.failedRequests = 0
-    this.#metrics.totalDuration = 0
-    this.#metrics.byMethod.clear()
-    this.#metrics.lastErrors = []
+  public async reset(): Promise<void> {
+    this._metrics.totalDuration = 0
+    this._metrics.successfulRequests = 0
+    this._metrics.failedRequests = 0
+    this._metrics.totalDuration = 0
+    this._metrics.byMethod.clear()
+    this._metrics.lastErrors = []
 
-    return this.#restrictionManager.reset()
+    return this._restrictionManager.reset()
   }
   // endregion ////
 
   // region LogTag ////
-  setLogTag(logTag: string): void {
-    this.#logTag = logTag
+  public setLogTag(logTag?: string): void {
+    this._logTag = logTag ?? ''
   }
 
-  clearLogTag(): void {
-    this.#logTag = ''
+  public clearLogTag(): void {
+    this._logTag = ''
   }
   // endregion ////
 
-  #updateMetrics(
+  protected _updateMetrics(
     method: string,
     isSuccess: boolean,
     duration: number,
     error?: unknown
   ): void {
-    this.#metrics.totalRequests++
+    this._metrics.totalRequests++
 
     if (isSuccess) {
-      this.#metrics.successfulRequests++
+      this._metrics.successfulRequests++
     } else {
-      this.#metrics.failedRequests++
+      this._metrics.failedRequests++
 
       if (error instanceof AjaxError) {
-        this.#metrics.lastErrors.push({
+        this._metrics.lastErrors.push({
           method,
           error: error.message,
           timestamp: Date.now()
         })
 
-        if (this.#metrics.lastErrors.length > 100) {
-          this.#metrics.lastErrors = this.#metrics.lastErrors.slice(-100)
+        if (this._metrics.lastErrors.length > 100) {
+          this._metrics.lastErrors = this._metrics.lastErrors.slice(-100)
         }
       }
     }
 
     // Metrics by Method
-    if (!this.#metrics.byMethod.has(method)) {
-      this.#metrics.byMethod.set(method, { count: 0, totalDuration: 0 })
+    if (!this._metrics.byMethod.has(method)) {
+      this._metrics.byMethod.set(method, { count: 0, totalDuration: 0 })
     }
 
-    const methodMetrics = this.#metrics.byMethod.get(method)!
+    const methodMetrics = this._metrics.byMethod.get(method)!
     methodMetrics.count++
     methodMetrics.totalDuration += duration
   }
 
   // region Actions Call ////
   // region batch ////
-  #validateBatchCommands(
+  protected _validateBatchCommands(
     requestId: string,
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
   ): void {
@@ -240,7 +245,7 @@ export default class Http implements TypeHttp {
     }
   }
 
-  async batch<T = unknown>(
+  public async batch<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: ICallBatchOptions
   ): Promise<Result<ICallBatchResult<T>>> {
@@ -249,25 +254,25 @@ export default class Http implements TypeHttp {
       ...options
     }
 
-    const requestId = opts.requestId ?? this.#requestIdGenerator.getRequestId()
+    const requestId = opts.requestId ?? this._requestIdGenerator.getRequestId()
 
-    this.#logBatchStart(requestId, calls, opts)
+    this._logBatchStart(requestId, calls, opts)
 
-    this.#validateBatchCommands(requestId, calls)
+    this._validateBatchCommands(requestId, calls)
 
     if (Array.isArray(calls)) {
-      return this.#batchAsArray(requestId, calls, opts)
+      return this._batchAsArray(requestId, calls, opts)
     }
 
-    return this.#batchAsObject(requestId, calls, opts)
+    return this._batchAsObject(requestId, calls, opts)
   }
 
-  async #batchAsObject<T = unknown>(
+  protected async _batchAsObject<T = unknown>(
     requestId: string,
     calls: BatchNamedCommandsUniversal,
     options: ICallBatchOptions
   ): Promise<Result<ICallBatchResult<T>>> {
-    const cmd = this.#prepareBatchCommandsObject(calls)
+    const cmd = this._prepareBatchCommandsObject(calls)
     if (Object.keys(cmd).length === 0) {
       return Promise.resolve(new Result())
     }
@@ -284,28 +289,28 @@ export default class Http implements TypeHttp {
       isObjectMode: true
     }
 
-    return this.#processBatchResponse<T>(cmd, response, opts)
+    return this._processBatchResponse<T>(cmd, response, opts)
   }
 
-  #prepareBatchCommandsObject(calls: BatchNamedCommandsUniversal): Record<string, string> {
+  protected _prepareBatchCommandsObject(calls: BatchNamedCommandsUniversal): Record<string, string> {
     const cmd: Record<string, string> = {}
 
     Object.entries(calls).forEach(([index, row]) => {
-      const command = this.#parseBatchRow(row)
+      const command = this._parseBatchRow(row)
       if (command) {
-        cmd[index] = this.#buildBatchCommandString(command.method, command.params)
+        cmd[index] = this._buildBatchCommandString(command.method, command.params)
       }
     })
 
     return cmd
   }
 
-  async #batchAsArray<T = unknown>(
+  protected async _batchAsArray<T = unknown>(
     requestId: string,
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
     options: ICallBatchOptions
   ): Promise<Result<ICallBatchResult<T>>> {
-    const cmd = this.#prepareBatchCommandsArray(calls)
+    const cmd = this._prepareBatchCommandsArray(calls)
     if (cmd.length === 0) {
       return Promise.resolve(new Result())
     }
@@ -322,29 +327,33 @@ export default class Http implements TypeHttp {
       isObjectMode: false
     }
 
-    return this.#processBatchResponse<T>(cmd, response, opts)
+    return this._processBatchResponse<T>(cmd, response, opts)
   }
 
-  #prepareBatchCommandsArray(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal): string[] {
+  protected _prepareBatchCommandsArray(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal): string[] {
     const cmd: string[] = []
 
     calls.forEach((row) => {
-      const command = this.#parseBatchRow(row)
+      const command = this._parseBatchRow(row)
       if (command) {
-        cmd.push(this.#buildBatchCommandString(command.method, command.params))
+        cmd.push(this._buildBatchCommandString(command.method, command.params))
       }
     })
 
     return cmd
   }
 
-  // Helper methods for preparing batch commands
-  #parseBatchRow(row: CommandObject<string, TypeCallParams | undefined> | CommandTuple<string, TypeCallParams | undefined>): {
+  /*
+   * Helper methods for preparing batch commands
+   *
+   * @see AbstractB24._automaticallyObtainApiVersion()
+   */
+  protected _parseBatchRow(row: CommandObject<string, TypeCallParams | undefined> | CommandTuple<string, TypeCallParams | undefined>): {
     method: string
     params?: Record<string, unknown>
   } | null {
-    if (row && typeof row === 'object') {
-      if ('method' in row && typeof row.method === 'string') {
+    if (row) {
+      if (typeof row === 'object' && 'method' in row && typeof row.method === 'string') {
         return {
           method: row.method,
           params: row.params as Record<string, unknown> | undefined
@@ -362,12 +371,12 @@ export default class Http implements TypeHttp {
     return null
   }
 
-  #buildBatchCommandString(method: string, params?: Record<string, unknown>): string {
+  protected _buildBatchCommandString(method: string, params?: Record<string, unknown>): string {
     return `${method}?${qs.stringify(params || {})}`
   }
 
   // The main method for processing the batch response
-  async #processBatchResponse<T>(
+  protected async _processBatchResponse<T>(
     cmd: Record<string, string> | string[],
     response: AjaxResult<BatchPayload<T>>,
     options: Required<ICallBatchOptions> & { isObjectMode: boolean }
@@ -382,13 +391,13 @@ export default class Http implements TypeHttp {
       status: response.getStatus()
     }
 
-    const results = await this.#processBatchItems<T>(cmd, responseHelper, responseResult)
+    const results = await this._processBatchItems<T>(cmd, responseHelper, responseResult)
 
-    return this.#handleBatchResults<T>(results, responseTime, options)
+    return this._handleBatchResults<T>(results, responseTime, options)
   }
 
   // Processing batch elements
-  async #processBatchItems<T>(
+  protected async _processBatchItems<T>(
     cmd: Record<string, string> | string[],
     responseHelper: { requestId: string, status: number },
     responseResult: BatchPayloadResult<T>
@@ -401,22 +410,22 @@ export default class Http implements TypeHttp {
       : Object.entries(cmd)
 
     for (const [index, row] of entries) {
-      await this.#processBatchItem<T>(row, index, responseHelper, responseResult as BatchResponseData<T>, results)
+      await this._processBatchItem<T>(row, index, responseHelper, responseResult as BatchResponseData<T>, results)
     }
 
     return results
   }
 
   // Process each response element
-  async #processBatchItem<T>(
+  protected async _processBatchItem<T>(
     row: string,
     index: string | number,
     responseHelper: { requestId: string, status: number },
     responseResult: BatchResponseData<T>,
     results: Map<string | number, AjaxResult<T>>
   ): Promise<void> {
-    const resultData = this.#getBatchResultByIndex(responseResult.result, index)
-    const resultError = this.#getBatchResultByIndex(responseResult.result_error, index)
+    const resultData = this._getBatchResultByIndex(responseResult.result, index)
+    const resultError = this._getBatchResultByIndex(responseResult.result_error, index)
 
     if (
       typeof resultData !== 'undefined'
@@ -425,17 +434,17 @@ export default class Http implements TypeHttp {
       const [methodName, queryString] = row.split('?')
 
       // Update operating statistics for each method in the batch
-      const resultTime = this.#getBatchResultByIndex(responseResult.result_time, index)
+      const resultTime = this._getBatchResultByIndex(responseResult.result_time, index)
       if (typeof resultTime !== 'undefined') {
-        await this.#restrictionManager.updateStats(responseHelper.requestId, `batch::${methodName}`, resultTime)
+        await this._restrictionManager.updateStats(responseHelper.requestId, `batch::${methodName}`, resultTime)
       }
 
       const result = new AjaxResult<T>({
         answer: {
           result: (resultData ?? {}) as T,
           error: resultError,
-          total: this.#getBatchResultByIndex(responseResult.result_total, index),
-          next: this.#getBatchResultByIndex(responseResult.result_next, index),
+          total: this._getBatchResultByIndex(responseResult.result_total, index),
+          next: this._getBatchResultByIndex(responseResult.result_next, index),
           time: resultTime!
         },
         query: {
@@ -450,7 +459,7 @@ export default class Http implements TypeHttp {
     }
   }
 
-  #getBatchResultByIndex<T>(
+  protected _getBatchResultByIndex<T>(
     data: T[] | Record<string | number, T> | undefined,
     index: string | number
   ): T | undefined {
@@ -464,7 +473,7 @@ export default class Http implements TypeHttp {
   }
 
   // Processing batch results
-  #handleBatchResults<T>(
+  protected _handleBatchResults<T>(
     results: Map<string | number, AjaxResult<T>>,
     responseTime: PayloadTime | undefined,
     options: Required<ICallBatchOptions> & { isObjectMode: boolean }
@@ -476,7 +485,7 @@ export default class Http implements TypeHttp {
 
     for (const [index, data] of results) {
       if (data.getStatus() !== 200 || !data.isSuccess) {
-        const error = this.#createErrorFromAjaxResult(data)
+        const error = this._createErrorFromAjaxResult(data)
 
         /*
          * This should contain code similar to #isOperatingLimitError with a check for
@@ -485,7 +494,7 @@ export default class Http implements TypeHttp {
          */
 
         if (!options.isHaltOnError && !data.isSuccess) {
-          this.#logBatchSubCallFailed(
+          this._logBatchSubCallFailed(
             options.requestId,
             index,
             data.getQuery().method,
@@ -511,7 +520,7 @@ export default class Http implements TypeHttp {
     }
 
     // Log the results
-    this.#logBatchCompletion(options.requestId, results.size, errorsCnt)
+    this._logBatchCompletion(options.requestId, results.size, errorsCnt)
 
     result.setData({
       result: dataResult,
@@ -522,7 +531,7 @@ export default class Http implements TypeHttp {
   }
 
   // initError
-  #createErrorFromAjaxResult(data: AjaxResult): AjaxError {
+  protected _createErrorFromAjaxResult(data: AjaxResult): AjaxError {
     if (data.hasError('base-error')) {
       return data.errors.get('base-error') as AjaxError
     }
@@ -537,7 +546,7 @@ export default class Http implements TypeHttp {
   }
   // endregion ////
 
-  #validateParams(requestId: string, method: string, params: TypeCallParams): void {
+  protected _validateParams(requestId: string, method: string, params: TypeCallParams): void {
     // Checking for cyclic references (especially important when logging)
     try {
       JSON.stringify(params)
@@ -571,65 +580,68 @@ export default class Http implements TypeHttp {
    * @param requestId - Request id
    * @returns Promise with AjaxResult
    */
-  async call<T = unknown>(
+  public async call<T = unknown>(
     method: string,
     params: TypeCallParams,
     requestId?: string
   ): Promise<AjaxResult<T>> {
-    requestId = requestId ?? this.#requestIdGenerator.getRequestId()
-    const maxRetries = this.#restrictionManager.getParams().maxRetries!
+    requestId = requestId ?? this._requestIdGenerator.getRequestId()
+    const maxRetries = this._restrictionManager.getParams().maxRetries!
 
-    this.#validateParams(requestId, method, params)
-    this.#logRequest(requestId, method, params)
+    this._validateParams(requestId, method, params)
+    this._logRequest(requestId, method, params)
 
     let lastError: AjaxError | null = null
     const startTime = Date.now()
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        this.#logAttempt(requestId, method, attempt + 1, maxRetries)
+        this._logAttempt(requestId, method, attempt + 1, maxRetries)
 
         // Apply operating limits via the manager
-        await this.#restrictionManager.applyOperatingLimits(requestId, method, params)
+        await this._restrictionManager.applyOperatingLimits(requestId, method, params)
 
         // 3. We execute the request taking into account authorization, rate limit, and update operating statistics.
-        const result = await this.#executeSingleCall<T>(requestId, method, params)
+        const result = await this._executeSingleCall<T>(requestId, method, params)
         const duration = Date.now() - startTime
 
         // 6. Updating statistics
-        this.#restrictionManager.resetErrors(method)
-        this.#updateMetrics(method, true, duration)
+        this._restrictionManager.resetErrors(method)
+        this._updateMetrics(method, true, duration)
 
         // Log the results
-        this.#logSuccessfulRequest(requestId, method, duration)
+        this._logSuccessfulRequest(requestId, method, duration)
         return result
       } catch (error: unknown) {
-        lastError = this.#convertToAjaxError(requestId, error, method, params)
+        lastError = this._convertToAjaxError(requestId, error, method, params)
         const duration = Date.now() - startTime
 
-        this.#restrictionManager.incrementError(method)
-        this.#updateMetrics(method, false, duration, error)
+        this._restrictionManager.incrementError(method)
+        this._updateMetrics(method, false, duration, lastError)
 
         // Log the results
-        this.#logFailedRequest(requestId, method, attempt + 1, maxRetries, lastError)
+        this._logFailedRequest(requestId, method, attempt + 1, maxRetries, lastError)
 
         if (attempt < maxRetries) {
-          const waitTime = await this.#restrictionManager.handleError(requestId, method, params, error, attempt)
+          const waitTime = await this._restrictionManager.handleError(requestId, method, params, lastError, attempt)
+          // We don't repeat if waitTime === 0
           if (waitTime > 0) {
-            this.#restrictionManager.incrementStats('limitHits')
+            this._restrictionManager.incrementStats('limitHits')
 
-            this.#logAttemptRetryWaiteDelay(requestId, method, waitTime, attempt + 1, maxRetries)
-            await this.#restrictionManager.waiteDelay(waitTime)
+            this._logAttemptRetryWaiteDelay(requestId, method, waitTime, attempt + 1, maxRetries)
+            await this._restrictionManager.waiteDelay(waitTime)
 
-            this.#restrictionManager.incrementStats('retries')
+            this._restrictionManager.incrementStats('retries')
+
+            continue
           }
-
-          continue
         }
 
-        // Throw an exception - there will be no more attempts
-        this.#logAllAttemptsExhausted(requestId, method, attempt + 1, maxRetries)
-        throw error
+        if (attempt + 1 === maxRetries) {
+          // Throw an exception - there will be no more attempts
+          this._logAllAttemptsExhausted(requestId, method, attempt + 1, maxRetries)
+        }
+        throw lastError
       }
     }
 
@@ -642,7 +654,7 @@ export default class Http implements TypeHttp {
     })
   }
 
-  #convertToAjaxError(
+  protected _convertToAjaxError(
     requestId: string,
     error: unknown,
     method: string,
@@ -653,13 +665,13 @@ export default class Http implements TypeHttp {
     }
 
     if (error instanceof AxiosError) {
-      return this.#convertAxiosErrorToAjaxError(requestId, error, method, params)
+      return this._convertAxiosErrorToAjaxError(requestId, error, method, params)
     }
 
-    return this.#convertUnknownErrorToAjaxError(requestId, error, method, params)
+    return this._convertUnknownErrorToAjaxError(requestId, error, method, params)
   }
 
-  #convertAxiosErrorToAjaxError(
+  protected _convertAxiosErrorToAjaxError(
     requestId: string,
     error: AxiosError,
     method: string,
@@ -692,10 +704,22 @@ export default class Http implements TypeHttp {
     }
 
     if (error.response?.data && typeof error.response.data === 'object') {
-      const responseData = error.response.data as TypeDescriptionError
-      if (responseData.error) {
+      const responseData = error.response.data as TypeDescriptionError | TypeDescriptionErrorV3
+      if (
+        responseData.error
+        && typeof responseData.error === 'object'
+        && 'code' in responseData.error
+      ) {
+        errorCode = responseData.error.code
+        errorDescription = responseData.error.message
+        if (responseData.error.validation) {
+          responseData.error.validation.forEach((row) => {
+            errorDescription += `${row?.message || JSON.stringify(row)}`
+          })
+        }
+      } else if (responseData.error && typeof responseData.error === 'string') {
         errorCode = responseData.error
-        errorDescription = responseData.error_description || errorDescription
+        errorDescription = (responseData as TypeDescriptionError)?.error_description ?? errorDescription
       }
     }
 
@@ -708,7 +732,7 @@ export default class Http implements TypeHttp {
     })
   }
 
-  #convertUnknownErrorToAjaxError(
+  protected _convertUnknownErrorToAjaxError(
     requestId: string,
     error: unknown,
     method: string,
@@ -730,33 +754,33 @@ export default class Http implements TypeHttp {
    * - rate limit check
    * - updating operating statistics
    */
-  async #executeSingleCall<T = unknown>(
+  protected async _executeSingleCall<T = unknown>(
     requestId: string,
     method: string,
     params: TypeCallParams
   ): Promise<AjaxResult<T>> {
-    const authData = await this.#ensureAuth(requestId)
+    const authData = await this._ensureAuth(requestId)
 
-    this.#checkClientSideWarning(requestId)
+    this._checkClientSideWarning(requestId)
 
-    const response = await this.#makeRequestWithAuthRetry<T>(requestId, method, params, authData)
+    const response = await this._makeRequestWithAuthRetry<T>(requestId, method, params, authData)
 
     // Create and return the result
-    return this.#createAjaxResultFromResponse<T>(response, requestId, method, params)
+    return this._createAjaxResultFromResponse<T>(response, requestId, method, params)
   }
 
   // Get/update authorization
-  async #ensureAuth(requestId: string): Promise<AuthData> {
-    let authData = this.#authActions.getAuthData()
+  protected async _ensureAuth(requestId: string): Promise<AuthData> {
+    let authData = this._authActions.getAuthData()
     if (authData === false) {
-      this.#logRefreshingAuthToken(requestId)
-      authData = await this.#authActions.refreshAuth()
+      this._logRefreshingAuthToken(requestId)
+      authData = await this._authActions.refreshAuth()
     }
     return authData
   }
 
   // Execute the request with 401 error handling
-  async #makeRequestWithAuthRetry<T>(
+  protected async _makeRequestWithAuthRetry<T>(
     requestId: string,
     method: string,
     params: TypeCallParams,
@@ -764,36 +788,40 @@ export default class Http implements TypeHttp {
   ): Promise<AjaxResponse<T>> {
     try {
       // 4. Apply the rate limit through the manager
-      await this.#restrictionManager.checkRateLimit(requestId, method)
+      await this._restrictionManager.checkRateLimit(requestId, method)
 
-      return await this.#makeAxiosRequest<T>(requestId, method, params, authData)
+      return await this._makeAxiosRequest<T>(requestId, method, params, authData)
     } catch (error) {
       // If this is an authorization error (401), then we try to update the token and repeat
-      if (this.#isAuthError(error)) {
-        this.#logAuthErrorDetected(requestId)
-        this.#logRefreshingAuthToken(requestId)
+      if (this._isAuthError(error)) {
+        this._logAuthErrorDetected(requestId)
+        this._logRefreshingAuthToken(requestId)
 
-        const refreshedAuthData = await this.#authActions.refreshAuth()
+        const refreshedAuthData = await this._authActions.refreshAuth()
 
         // 4. Apply the rate limit through the manager
-        await this.#restrictionManager.checkRateLimit(requestId, method)
+        await this._restrictionManager.checkRateLimit(requestId, method)
 
-        return await this.#makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
+        return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
       }
 
       throw error
     }
   }
 
-  async #makeAxiosRequest<T>(
+  protected async _makeAxiosRequest<T>(
     requestId: string,
     method: string,
     params: TypeCallParams,
     authData: AuthData
   ): Promise<AjaxResponse<T>> {
-    const response = await this.#clientAxios.post<AjaxResultParams<T>>(
-      this.#prepareMethod(requestId, method),
-      this.#prepareParams(authData, params)
+    const response = await this._clientAxios.post<AjaxResultParams<T>>(
+      this._prepareMethod(
+        requestId,
+        method,
+        this.getBaseUrl()
+      ),
+      this._prepareParams(authData, params)
     )
 
     return {
@@ -802,7 +830,7 @@ export default class Http implements TypeHttp {
     }
   }
 
-  #isAuthError(error: unknown): boolean {
+  protected _isAuthError(error: unknown): boolean {
     if (!(error instanceof AjaxError)) {
       return false
     }
@@ -813,7 +841,7 @@ export default class Http implements TypeHttp {
     )
   }
 
-  async #createAjaxResultFromResponse<T>(
+  protected async _createAjaxResultFromResponse<T>(
     response: AjaxResponse<T>,
     requestId: string,
     method: string,
@@ -827,7 +855,7 @@ export default class Http implements TypeHttp {
 
     // 5. Update operating statistics
     if (response.payload?.time) {
-      await this.#restrictionManager.updateStats(requestId, method, response.payload.time)
+      await this._restrictionManager.updateStats(requestId, method, response.payload.time)
     }
 
     return result
@@ -839,19 +867,11 @@ export default class Http implements TypeHttp {
   /**
    * Makes the function name safe and adds JSON format
    */
-  #prepareMethod(
+  protected _prepareMethod(
     requestId: string,
-    method: string
+    method: string,
+    baseUrl: string
   ): string {
-    let baseUrl = this.#authActions.getTargetOriginWithPath()
-    if (
-      this.#authActions.apiVersion === ApiVersion.v3
-      && !versionManager.isSupport(this.#authActions.apiVersion, method)
-    ) {
-      baseUrl = baseUrl.replace('/rest/api', '/rest')
-    }
-
-    // not use `.json` (in ver2 def json, in ver3 only json)
     const methodUrl = `/${encodeURIComponent(method)}`
 
     /**
@@ -863,9 +883,9 @@ export default class Http implements TypeHttp {
     }
 
     const queryParams = new URLSearchParams({
-      [this.#requestIdGenerator.getQueryStringParameterName()]: requestId,
-      [this.#requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
-      [this.#requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
+      [this._requestIdGenerator.getQueryStringParameterName()]: requestId,
+      [this._requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
+      [this._requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
     })
     return `${baseUrl}${methodUrl}?${queryParams.toString()}`
   }
@@ -873,14 +893,14 @@ export default class Http implements TypeHttp {
   /**
    * Processes function parameters and adds authorization
    */
-  #prepareParams(
+  protected _prepareParams(
     authData: AuthData,
     params: TypeCallParams
   ): TypePrepareParams {
     const result: TypePrepareParams = { ...params }
 
-    if (this.#logTag.length > 0) {
-      result.logTag = this.#logTag
+    if (this._logTag.length > 0) {
+      result.logTag = this._logTag
     }
 
     /** @memo we skip auth for hook */
@@ -903,8 +923,8 @@ export default class Http implements TypeHttp {
     value: boolean,
     message: string
   ): void {
-    this.#isClientSideWarning = value
-    this.#clientSideWarningMessage = message
+    this._isClientSideWarning = value
+    this._clientSideWarningMessage = message
   }
   // endregion ////
 
@@ -917,10 +937,17 @@ export default class Http implements TypeHttp {
   protected isServerSide(): boolean {
     return (getEnvironment() !== Environment.BROWSE)
   }
+
+  /**
+   * Get the BX24 account address with the path based on the API version
+   */
+  public getBaseUrl(): string {
+    return this._authActions.getTargetOriginWithPath().get(this._version)!
+  }
   // endregion ////
 
   // region Log ////
-  #sanitizeParams(params: TypeCallParams): Record<string, unknown> {
+  protected _sanitizeParams(params: TypeCallParams): Record<string, unknown> {
     const sanitized = { ...params }
     const sensitiveKeys = ['auth', 'password', 'token', 'secret', 'access_token', 'refresh_token']
 
@@ -933,19 +960,21 @@ export default class Http implements TypeHttp {
     return sanitized
   }
 
-  #logRequest(requestId: string, method: string, params: TypeCallParams): void {
+  protected _logRequest(requestId: string, method: string, params: TypeCallParams): void {
     this.getLogger().debug(`http request starting`, {
       requestId,
       method,
-      params: this.#sanitizeParams(params),
+      params: this._sanitizeParams(params),
+      api: this.apiVersion,
       timestamp: Date.now()
     })
   }
 
-  #logAttempt(requestId: string, method: string, attempt: number, maxRetries: number): void {
+  protected _logAttempt(requestId: string, method: string, attempt: number, maxRetries: number): void {
     this.getLogger().info(`http request attempt`, {
       requestId,
       method,
+      api: this.apiVersion,
       attempt: {
         current: attempt,
         max: maxRetries
@@ -953,26 +982,33 @@ export default class Http implements TypeHttp {
     })
   }
 
-  #logRefreshingAuthToken(requestId: string): void {
-    this.getLogger().info(`http refreshing auth token`, { requestId })
+  protected _logRefreshingAuthToken(requestId: string): void {
+    this.getLogger().info(`http refreshing auth token`, {
+      requestId,
+      api: this.apiVersion
+    })
   }
 
-  #logAuthErrorDetected(requestId: string): void {
-    this.getLogger().info(`http auth error detected`, { requestId })
+  protected _logAuthErrorDetected(requestId: string): void {
+    this.getLogger().info(`http auth error detected`, {
+      requestId,
+      api: this.apiVersion
+    })
   }
 
-  #logSuccessfulRequest(requestId: string, method: string, duration: number): void {
+  protected _logSuccessfulRequest(requestId: string, method: string, duration: number): void {
     this.getLogger().debug(`http request successful`, {
       requestId,
       method,
+      api: this.apiVersion,
       duration: {
         ms: duration,
-        sec: (duration / 1000).toFixed(2)
+        sec: Number.parseFloat((duration / 1000).toFixed(2))
       }
     })
   }
 
-  #logFailedRequest(
+  protected _logFailedRequest(
     requestId: string,
     method: string,
     attempt: number,
@@ -982,6 +1018,7 @@ export default class Http implements TypeHttp {
     this.getLogger().debug(`http request failed`, {
       requestId,
       method,
+      api: this.apiVersion,
       attempt: {
         current: attempt,
         max: maxRetries
@@ -994,7 +1031,7 @@ export default class Http implements TypeHttp {
     })
   }
 
-  #logAttemptRetryWaiteDelay(
+  protected _logAttemptRetryWaiteDelay(
     requestId: string,
     method: string,
     wait: number,
@@ -1006,6 +1043,7 @@ export default class Http implements TypeHttp {
       {
         requestId,
         method,
+        api: this.apiVersion,
         wait: wait,
         attempt: {
           current: attempt,
@@ -1015,10 +1053,11 @@ export default class Http implements TypeHttp {
     )
   }
 
-  #logAllAttemptsExhausted(requestId: string, method: string, attempt: number, maxRetries: number): void {
-    this.getLogger().error(`http all retry attempts exhausted`, {
+  protected _logAllAttemptsExhausted(requestId: string, method: string, attempt: number, maxRetries: number): void {
+    this.getLogger().warning(`http all retry attempts exhausted`, {
       requestId,
       method,
+      api: this.apiVersion,
       attempt: {
         current: attempt,
         max: maxRetries
@@ -1026,7 +1065,7 @@ export default class Http implements TypeHttp {
     })
   }
 
-  #logBatchStart(
+  protected _logBatchStart(
     requestId: string,
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options: ICallBatchOptions
@@ -1038,14 +1077,16 @@ export default class Http implements TypeHttp {
     this.getLogger().debug(`http batch request starting `, {
       requestId,
       callCount,
+      api: this.apiVersion,
       isHaltOnError: options.isHaltOnError,
       timestamp: Date.now()
     })
   }
 
-  #logBatchCompletion(requestId: string, total: number, errors: number): void {
+  protected _logBatchCompletion(requestId: string, total: number, errors: number): void {
     this.getLogger().debug(`http batch request completed`, {
       requestId,
+      api: this.apiVersion,
       totalCalls: total,
       successful: total - errors,
       failed: errors,
@@ -1053,11 +1094,12 @@ export default class Http implements TypeHttp {
     })
   }
 
-  #logBatchSubCallFailed(requestId: string, index: string | number, method: string, code: string, status: number, errorMessage: string): void {
+  protected _logBatchSubCallFailed(requestId: string, index: string | number, method: string, code: string, status: number, errorMessage: string): void {
     this.getLogger().debug(`http batch sub-call failed`, {
       requestId,
       index,
       method,
+      api: this.apiVersion,
       error: {
         code: code,
         message: errorMessage,
@@ -1067,13 +1109,13 @@ export default class Http implements TypeHttp {
   }
 
   // Check client-side warnings
-  #checkClientSideWarning(requestId: string): void {
+  protected _checkClientSideWarning(requestId: string): void {
     if (
-      this.#isClientSideWarning
+      this._isClientSideWarning
       && !this.isServerSide()
-      && Type.isStringFilled(this.#clientSideWarningMessage)
+      && Type.isStringFilled(this._clientSideWarningMessage)
     ) {
-      console.warn(this.#clientSideWarningMessage, { requestId })
+      console.warn(this._clientSideWarningMessage, { requestId })
     }
   }
   // endregion ////

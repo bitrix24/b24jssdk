@@ -3,6 +3,7 @@ import type { Result } from '../core/result'
 import type { AjaxResult } from '../core/http/ajax-result'
 import type { PayloadTime } from './payloads'
 import type { RestrictionParams, RestrictionManagerStats } from './limiters'
+import type { ApiVersion } from './b24'
 
 /**
  * @todo fix docs
@@ -78,6 +79,7 @@ export interface IRequestIdGenerator {
  * Interface for HTTP client
  */
 export type TypeHttp = {
+  apiVersion: ApiVersion
   setLogger(logger: LoggerInterface): void
   getLogger(): LoggerInterface
 

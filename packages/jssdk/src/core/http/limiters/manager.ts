@@ -1,5 +1,7 @@
 import type { RestrictionParams, RestrictionManagerStats } from '../../../types/limiters'
 import type { LoggerInterface } from '../../../types/logger'
+import type { TypeDescriptionError, TypeDescriptionErrorV3 } from '../../../types/auth'
+import { AxiosError } from 'axios'
 import { LoggerFactory } from '../../../logger'
 import { RateLimiter } from './rate-limiter'
 import { OperatingLimiter } from './operating-limiter'
@@ -178,6 +180,28 @@ export class RestrictionManager {
    * Checks whether attempts should be stopped if errors are encountered that are unclear.
    */
   #isNeedThrowError(error: any): boolean {
+    const answerError = {
+      code: error?.code ?? '-1',
+      description: error?.message ?? ''
+    }
+
+    // if (error instanceof AxiosError) {
+    //   if (error.response?.data && typeof error.response.data === 'object') {
+    //     const responseData = error.response.data as TypeDescriptionError | TypeDescriptionErrorV3
+    //     if (
+    //       responseData.error
+    //       && typeof responseData.error === 'object'
+    //       && 'code' in responseData.error
+    //     ) {
+    //       answerError.code = responseData.error.code
+    //       answerError.description = responseData.error.message
+    //     } else if (responseData.error && typeof responseData.error === 'string') {
+    //       answerError.code = responseData.error
+    //       answerError.description = (responseData as TypeDescriptionError)?.error_description ?? answerError.description
+    //     }
+    //   }
+    // }
+
     return [
       '100', 'NOT_FOUND',
       'INTERNAL_SERVER_ERROR', 'ERROR_UNEXPECTED_ANSWER', 'PORTAL_DELETED',
@@ -185,9 +209,10 @@ export class RestrictionManager {
       'NO_AUTH_FOUND', 'INVALID_REQUEST',
       'OVERLOAD_LIMIT', 'expired_token',
       'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
-      'ERROR_MANIFEST_IS_NOT_AVAILABLE'
-    ].includes(error?.code ?? '-1')
-    || (error?.message ?? '').includes('Could not find value for parameter')
+      'ERROR_MANIFEST_IS_NOT_AVAILABLE',
+      'BITRIX_REST_V3_EXCEPTION_ENTITYNOTFOUNDEXCEPTION'
+    ].includes(answerError.code)
+    || (answerError.description ?? '').includes('Could not find value for parameter')
   }
 
   /**

@@ -22,7 +22,7 @@ export class LoggerFactory {
   static createForBrowserDevelopment(channel: string): LoggerInterface {
     const logger = new Logger(channel)
     const handler = new ConsoleHandler(LogLevel.DEBUG)
-    handler.setFormatter(new LineFormatter('[{channel}] {levelName}: {message}'))
+    handler.setFormatter(new LineFormatter('[{channel}]: {message}'))
     logger.pushHandler(handler)
     return logger
   }
@@ -30,7 +30,7 @@ export class LoggerFactory {
   static createForBrowserProduction(channel: string): LoggerInterface {
     const logger = new Logger(channel)
     const handler = new ConsoleHandler(LogLevel.ERROR)
-    handler.setFormatter(new LineFormatter('[{channel}] {levelName}: {message}'))
+    handler.setFormatter(new LineFormatter('[{channel}]: {message}'))
     logger.pushHandler(handler)
     return logger
   }

@@ -210,7 +210,9 @@ export class RestrictionManager {
       'OVERLOAD_LIMIT', 'expired_token',
       'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
       'ERROR_MANIFEST_IS_NOT_AVAILABLE',
-      'BITRIX_REST_V3_EXCEPTION_ENTITYNOTFOUNDEXCEPTION'
+      'BITRIX_REST_V3_EXCEPTION_ENTITYNOTFOUNDEXCEPTION',
+      'BITRIX_REST_V3_EXCEPTION_UNKNOWNDTOPROPERTYEXCEPTION',
+      'BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION'
     ].includes(answerError.code)
     || (answerError.description ?? '').includes('Could not find value for parameter')
   }

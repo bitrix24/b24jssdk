@@ -23,7 +23,9 @@ class VersionManager {
       '/tasks.task.update',
       '/tasks.task.delete',
       '/tasks.task.add',
-      '/tasks.task.get'
+      '/tasks.task.get',
+      // @todo remove this
+      '/tasks.task.list'
     ]
   }
 

@@ -34,4 +34,31 @@ export class LoggerFactory {
     logger.pushHandler(handler)
     return logger
   }
+
+  static async forcedLog(
+    logger: LoggerInterface,
+    action: 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical' | 'alert' | 'emergency',
+    message: string,
+    context: Record<string, any>
+  ): Promise<void> {
+    if (logger instanceof NullLogger) {
+      switch (action) {
+        case 'debug':
+          console.log(message, context)
+          return
+        case 'info':
+        case 'notice':
+          console.info(message, context)
+          return
+        case 'warning':
+          console.warn(message, context)
+          return
+        default:
+          console.error(message, context)
+          return
+      }
+    }
+
+    return logger[action](message, context)
+  }
 }

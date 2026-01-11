@@ -1,4 +1,4 @@
-import type { LoggerInterface } from '../logger'
+import { type LoggerInterface, NullLogger } from "../logger";
 import type { AjaxResult } from './http/ajax-result'
 import type { IB24BatchOptions, TypeB24 } from '../types/b24'
 import type {
@@ -124,11 +124,16 @@ export abstract class AbstractB24 implements TypeB24 {
 
   public async callV2<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>> {
     if (versionManager.isSupport(ApiVersion.v3, method)) {
-      this.getLogger().warning(`The method ${method} is available in API version 3. It's worth migrating to the new API.`, {
-        code: 'AVAILABLE_API_VERSION_3',
-        method,
-        requestId
-      })
+      LoggerFactory.forcedLog(
+        this.getLogger(),
+        'warning',
+        `The method ${method} is available in API version 3. It's worth migrating to the new API.`,
+        {
+          method,
+          requestId,
+          code: 'JSSDK_AVAILABLE_API_VERSION_3'
+        }
+      )
     }
 
     if (!versionManager.isSupport(ApiVersion.v2, method)) {
@@ -140,11 +145,16 @@ export abstract class AbstractB24 implements TypeB24 {
 
   public async callV1<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>> {
     if (versionManager.isSupport(ApiVersion.v3, method)) {
-      this.getLogger().warning(`The method ${method} is available in API version 3. It's worth migrating to the new API.`, {
-        code: 'AVAILABLE_API_VERSION_3',
-        method,
-        requestId
-      })
+      LoggerFactory.forcedLog(
+        this.getLogger(),
+        'warning',
+        `The method ${method} is available in API version 3. It's worth migrating to the new API.`,
+        {
+          method,
+          requestId,
+          code: 'JSSDK_AVAILABLE_API_VERSION_3'
+        }
+      )
     }
 
     if (!versionManager.isSupport(ApiVersion.v1, method)) {
@@ -937,7 +947,7 @@ export abstract class AbstractB24 implements TypeB24 {
    */
   public async healthCheck(requestId?: string): Promise<boolean> {
     try {
-      const response = await this.callMethod('server.time', {}, requestId)
+      const response = await this.callV2('server.time', {}, requestId)
       return response.isSuccess
     } catch {
       return false
@@ -962,7 +972,7 @@ export abstract class AbstractB24 implements TypeB24 {
     const startTime = Date.now()
 
     try {
-      await this.callMethod('server.time', {}, requestId)
+      await this.callV2('server.time', {}, requestId)
       return Date.now() - startTime
     } catch {
       return -1

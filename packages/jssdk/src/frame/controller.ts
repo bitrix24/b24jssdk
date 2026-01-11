@@ -120,9 +120,7 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
   public override async init(): Promise<void> {
     const data: MessageInitData = await this.#messageManager.send(MessageCommands.getInitData, {})
 
-    this.getLogger().debug('init data', {
-      data
-    })
+    this.getLogger().debug('init data', { data })
 
     this.#appFrame.initData(data)
     this.#authManager.initData(data)

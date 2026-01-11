@@ -1,4 +1,4 @@
-import type { LoggerInterface } from '../../logger'
+import { type LoggerInterface, NullLogger } from "../../logger";
 import type { TypeCallParams, TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, CommandObject, CommandTuple, ICallBatchResult } from '../../types/http'
 import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
 import type { AjaxResultParams } from './ajax-result'
@@ -711,8 +711,14 @@ export abstract class AbstractHttp implements TypeHttp {
         && 'code' in responseData.error
       ) {
         errorCode = responseData.error.code
-        errorDescription = responseData.error.message
+        errorDescription = responseData.error.message.trimEnd()
         if (responseData.error.validation) {
+          if (errorDescription.length > 0) {
+            if (!errorDescription.endsWith('.')) {
+              errorDescription += `.`
+            }
+            errorDescription += ` `
+          }
           responseData.error.validation.forEach((row) => {
             errorDescription += `${row?.message || JSON.stringify(row)}`
           })
@@ -1115,7 +1121,15 @@ export abstract class AbstractHttp implements TypeHttp {
       && !this.isServerSide()
       && Type.isStringFilled(this._clientSideWarningMessage)
     ) {
-      console.warn(this._clientSideWarningMessage, { requestId })
+      LoggerFactory.forcedLog(
+        this.getLogger(),
+        'warning',
+        this._clientSideWarningMessage,
+        {
+          requestId,
+          code: 'JSSDK_CLIENT_SIDE_WARNING'
+        }
+      )
     }
   }
   // endregion ////

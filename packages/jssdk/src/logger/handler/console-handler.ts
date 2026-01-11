@@ -70,12 +70,24 @@ export class ConsoleHandler extends AbstractHandler implements Handler {
       method = 'trace'
     }
 
+    const context = record.context && Object.keys(record.context).length > 0
+      ? record.context
+      : undefined
+    const extra = record.extra && Object.keys(record.extra).length > 0
+      ? record.extra
+      : undefined
+
+    const params = []
     if (this.useStyles && this.styles.has(record.level)) {
       const style = this.styles.get(record.level)!
-      console[method](style[0], style[1], message, record.context, record.extra)
-    } else {
-      console[method](message, record.context, record.extra)
+      params.push(style[0], style[1])
     }
+    params.push(message)
+    params.push(context)
+    params.push(extra)
+    console[method](
+      ...params.filter(Boolean)
+    )
 
     return true
   }

@@ -43,6 +43,8 @@ export const useB24 = () => {
         sessionStorage.setItem(sessionKey, newValue)
         try {
           $b24 = B24Hook.fromWebhookUrl(newValue, b24Config)
+          // @todo uncomment this
+          // $b24.offClientSideWarning()
           nextTick(() => {
             type.value = 'B24Hook'
           })

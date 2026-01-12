@@ -1,4 +1,4 @@
-import { type LoggerInterface, NullLogger } from "../logger";
+import type { LoggerInterface } from '../logger'
 import type { AjaxResult } from './http/ajax-result'
 import type { IB24BatchOptions, TypeB24 } from '../types/b24'
 import type {
@@ -187,7 +187,7 @@ export abstract class AbstractB24 implements TypeB24 {
       ...params,
       start: 0
     }
-    return this.callMethod(method, sendParams).then(async (response) => {
+    return this.callV2(method, sendParams).then(async (response) => {
       let list: any[] = []
 
       let resultData
@@ -484,6 +484,7 @@ export abstract class AbstractB24 implements TypeB24 {
    * @see AbstractHttp._parseBatchRow()
    * @protected
    *
+   * @todo make single use (AbstractHttp._parseBatchRow())
    * @todo test methods
    *   `[['crm.item.get', { entityTypeId: 3, id: 1 }]`
    *   `[{ method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } }]`

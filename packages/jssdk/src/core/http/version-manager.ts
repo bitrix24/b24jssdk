@@ -9,23 +9,22 @@ class VersionManager {
      * @see https://apidocs.bitrix24.com/api-reference/rest-v3/index.html#openapi
      */
     this.#supportMethods = [
-      '/batch',
-      '/scopes',
-      '/rest.scope.list',
+      '/batch', // @todo
+      '/scopes', // done
+      '/rest.scope.list', // done
       '/rest.documentation.openapi',
       '/documentation',
-      '/main.eventlog.list',
-      '/main.eventlog.get',
-      '/main.eventlog.tail',
+      /** @see /settings/configs/event_log.php */
+      '/main.eventlog.list', // done
+      '/main.eventlog.get', // done
+      '/main.eventlog.tail', // done
       '/tasks.task.chat.message.send',
       '/tasks.task.access.get',
       '/tasks.task.file.attach',
-      '/tasks.task.update',
+      '/tasks.task.update', // done
       '/tasks.task.delete',
       '/tasks.task.add',
-      '/tasks.task.get',
-      // @todo remove this
-      '/tasks.task.list'
+      '/tasks.task.get' // done
     ]
   }
 

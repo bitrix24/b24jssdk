@@ -1,7 +1,5 @@
 import type { RestrictionParams, RestrictionManagerStats } from '../../../types/limiters'
 import type { LoggerInterface } from '../../../types/logger'
-import type { TypeDescriptionError, TypeDescriptionErrorV3 } from '../../../types/auth'
-import { AxiosError } from 'axios'
 import { LoggerFactory } from '../../../logger'
 import { RateLimiter } from './rate-limiter'
 import { OperatingLimiter } from './operating-limiter'
@@ -210,9 +208,15 @@ export class RestrictionManager {
       'OVERLOAD_LIMIT', 'expired_token',
       'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
       'ERROR_MANIFEST_IS_NOT_AVAILABLE',
+      'BITRIX_REST_V3_EXCEPTION_ACCESSDENIEDEXCEPTION',
+      'BITRIX_REST_V3_EXCEPTION_INVALIDJSONEXCEPTION',
+      'BITRIX_REST_V3_EXCEPTION_INVALIDFILTEREXCEPTION',
+      'BITRIX_REST_V3_EXCEPTION_INVALIDSELECTEXCEPTION',
       'BITRIX_REST_V3_EXCEPTION_ENTITYNOTFOUNDEXCEPTION',
+      'BITRIX_REST_V3_EXCEPTION_METHODNOTFOUNDEXCEPTION',
       'BITRIX_REST_V3_EXCEPTION_UNKNOWNDTOPROPERTYEXCEPTION',
-      'BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION'
+      'BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION',
+      'BITRIX_REST_V3_EXCEPTION_VALIDATION_DTOVALIDATIONEXCEPTION'
     ].includes(answerError.code)
     || (answerError.description ?? '').includes('Could not find value for parameter')
   }

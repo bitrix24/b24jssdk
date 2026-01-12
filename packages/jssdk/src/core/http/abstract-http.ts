@@ -1,5 +1,16 @@
-import { type LoggerInterface, NullLogger } from "../../logger";
-import type { TypeCallParams, TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, CommandObject, CommandTuple, ICallBatchResult } from '../../types/http'
+import type { LoggerInterface } from '../../logger'
+import type {
+  TypeCallParams,
+  TypeHttp,
+  ICallBatchOptions,
+  BatchCommandsArrayUniversal,
+  BatchCommandsObjectUniversal,
+  BatchNamedCommandsUniversal,
+  CommandObject,
+  CommandTuple,
+  ICallBatchResult,
+  BatchCommandV3
+} from '../../types/http'
 import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
 import type { AjaxResultParams } from './ajax-result'
 import type { AuthActions, AuthData, TypeDescriptionError, TypeDescriptionErrorV3 } from '../../types/auth'
@@ -80,7 +91,8 @@ export abstract class AbstractHttp implements TypeHttp {
     this._logger = LoggerFactory.createNullLogger()
 
     const defaultHeaders = {
-      // 'X-Sdk': '__SDK_USER_AGENT__-v-__SDK_VERSION__'
+      // 'X-Sdk'
+      'User-Agent': '__SDK_USER_AGENT__/__SDK_VERSION__'
     }
 
     this._authActions = authActions
@@ -277,6 +289,7 @@ export abstract class AbstractHttp implements TypeHttp {
       return Promise.resolve(new Result())
     }
 
+    // @todo ! api ver3
     const response = await this.call<BatchPayload<T>>(
       'batch',
       { halt: options.isHaltOnError ? 1 : 0, cmd },
@@ -298,7 +311,7 @@ export abstract class AbstractHttp implements TypeHttp {
     Object.entries(calls).forEach(([index, row]) => {
       const command = this._parseBatchRow(row)
       if (command) {
-        cmd[index] = this._buildBatchCommandString(command.method, command.params)
+        cmd[index] = this._buildBatchCommandString(command)
       }
     })
 
@@ -315,11 +328,22 @@ export abstract class AbstractHttp implements TypeHttp {
       return Promise.resolve(new Result())
     }
 
-    const response = await this.call<BatchPayload<T>>(
-      'batch',
-      { halt: options.isHaltOnError ? 1 : 0, cmd },
-      requestId
-    )
+    let response
+
+    if (this.apiVersion === ApiVersion.v3) {
+      // @todo ! api ver3 `params.halt` - waite docs
+      response = await this.call<BatchPayload<T>>(
+        'batch',
+        cmd,
+        requestId
+      )
+    } else {
+      response = await this.call<BatchPayload<T>>(
+        'batch',
+        { halt: options.isHaltOnError ? 1 : 0, cmd },
+        requestId
+      )
+    }
 
     const opts = {
       isHaltOnError: !!options.isHaltOnError,
@@ -336,7 +360,7 @@ export abstract class AbstractHttp implements TypeHttp {
     calls.forEach((row) => {
       const command = this._parseBatchRow(row)
       if (command) {
-        cmd.push(this._buildBatchCommandString(command.method, command.params))
+        cmd.push(this._buildBatchCommandString(command))
       }
     })
 
@@ -348,22 +372,19 @@ export abstract class AbstractHttp implements TypeHttp {
    *
    * @see AbstractB24._automaticallyObtainApiVersion()
    */
-  protected _parseBatchRow(row: CommandObject<string, TypeCallParams | undefined> | CommandTuple<string, TypeCallParams | undefined>): {
-    method: string
-    params?: Record<string, unknown>
-  } | null {
+  protected _parseBatchRow(row: CommandObject<string, TypeCallParams | undefined> | CommandTuple<string, TypeCallParams | undefined>): BatchCommandV3 | null {
     if (row) {
       if (typeof row === 'object' && 'method' in row && typeof row.method === 'string') {
         return {
           method: row.method,
-          params: row.params as Record<string, unknown> | undefined
+          query: row.params as Record<string, unknown> | undefined
         }
       }
 
       if (Array.isArray(row) && row.length > 0 && typeof row[0] === 'string') {
         return {
           method: row[0],
-          params: row[1] as Record<string, unknown> | undefined
+          query: row[1] as Record<string, unknown> | undefined
         }
       }
     }
@@ -371,11 +392,13 @@ export abstract class AbstractHttp implements TypeHttp {
     return null
   }
 
-  protected _buildBatchCommandString(method: string, params?: Record<string, unknown>): string {
-    return `${method}?${qs.stringify(params || {})}`
+  protected _buildBatchCommandString(command: BatchCommandV3): string {
+    return `${command.method}?${qs.stringify(command.query || {})}`
   }
 
-  // The main method for processing the batch response
+  /**
+   * The main method for processing the batch response
+   */
   protected async _processBatchResponse<T>(
     cmd: Record<string, string> | string[],
     response: AjaxResult<BatchPayload<T>>,
@@ -388,7 +411,8 @@ export abstract class AbstractHttp implements TypeHttp {
 
     const responseHelper = {
       requestId: response.getQuery().requestId,
-      status: response.getStatus()
+      status: response.getStatus(),
+      time: responseTime
     }
 
     const results = await this._processBatchItems<T>(cmd, responseHelper, responseResult)
@@ -396,10 +420,12 @@ export abstract class AbstractHttp implements TypeHttp {
     return this._handleBatchResults<T>(results, responseTime, options)
   }
 
-  // Processing batch elements
+  /**
+   * Processing batch elements
+   */
   protected async _processBatchItems<T>(
     cmd: Record<string, string> | string[],
-    responseHelper: { requestId: string, status: number },
+    responseHelper: { requestId: string, status: number, time: PayloadTime },
     responseResult: BatchPayloadResult<T>
   ): Promise<Map<string | number, AjaxResult<T>>> {
     const results = new Map<string | number, AjaxResult<T>>()
@@ -416,11 +442,13 @@ export abstract class AbstractHttp implements TypeHttp {
     return results
   }
 
-  // Process each response element
+  /**
+   * Process each response element
+   */
   protected async _processBatchItem<T>(
     row: string,
     index: string | number,
-    responseHelper: { requestId: string, status: number },
+    responseHelper: { requestId: string, status: number, time: PayloadTime },
     responseResult: BatchResponseData<T>,
     results: Map<string | number, AjaxResult<T>>
   ): Promise<void> {
@@ -829,7 +857,11 @@ export abstract class AbstractHttp implements TypeHttp {
       ),
       this._prepareParams(authData, params)
     )
-
+    // // @todo ! api ver3
+    // console.log('response', {
+    //   result: response,
+    //   time: response.data.time
+    // })
     return {
       status: response.status,
       payload: response.data
@@ -1096,7 +1128,7 @@ export abstract class AbstractHttp implements TypeHttp {
       totalCalls: total,
       successful: total - errors,
       failed: errors,
-      successRate: ((total - errors) / total * 100).toFixed(1) + '%'
+      successRate: total > 0 ? ((total - errors) / (total) * 100).toFixed(1) + '%' : '??'
     })
   }
 

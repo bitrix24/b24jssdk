@@ -42,6 +42,11 @@ export interface ICallBatchResult<T = unknown> {
   time?: PayloadTime
 }
 
+export type BatchCommandV3 = {
+  method: string
+  query?: Record<string, unknown>
+}
+
 export type CommandTuple<M extends string = string, P = undefined | TypeCallParams> = [M, P?]
 export interface CommandObject<M extends string = string, P = undefined | TypeCallParams> { method: M, params?: P }
 export type CommandUniversal<M extends string = string, P = undefined | TypeCallParams>

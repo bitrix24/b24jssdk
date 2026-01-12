@@ -1,21 +1,46 @@
-import { ParamsFactory, B24Hook, ApiVersion, EnumCrmEntityTypeId, Logger, LogLevel, LineFormatter, ConsoleHandler, TelegramHandler } from '@bitrix24/b24jssdk'
+import { ParamsFactory, B24Hook, ApiVersion, EnumCrmEntityTypeId, Logger, LogLevel, LineFormatter, ConsoleHandler, TelegramHandler, Text } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 
 // Arrays for generating commands
 
+/**
+ * New params
+ * fields: Record<string, any>
+ * filter:
+ *  FilterRule[]
+ *  FilterRule = [ filed , operation, value ]
+ *  FilterRuleOr = {
+ *    'logic' => 'OR',
+ *    'rule1' => FilterRule,
+ *    'rule2' => FilterRule
+ *  }
+ * pagination: { page: 0, limit: 200, offset: 0 }
+ * cursor: { field: string, value: number, order: string }
+ */
 const commandsListVer3 = [
-  // error - v2 notation - BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION
+  // error:
+  // BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION
   // { method: 'tasks.task.get', params: { taskId: 1, select: ['ID', 'TITLE'] } },
-  // error - BITRIX_REST_V3_EXCEPTION_UNKNOWNDTOPROPERTYEXCEPTION
+  // BITRIX_REST_V3_EXCEPTION_UNKNOWNDTOPROPERTYEXCEPTION
   // { method: 'tasks.task.get', params: { id: 1, select: ['ID', 'TITLE'] } },
-  // error - wring filter
-  { method: 'tasks.task.list', params: { filter: { id: 1 }, select: ['id', 'title'] } },
-  // normal
-  // { method: 'tasks.task.list', params: { filter: [['id', 'in', [1]]], select: ['id', 'title'] } },
-  // normal
-  // { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title'] } },
-  // error - BITRIX_REST_V3_EXCEPTION_ENTITYNOTFOUNDEXCEPTION
+  // BITRIX_REST_V3_EXCEPTION_METHODNOTFOUNDEXCEPTION
+  // { method: 'tasks.task.list', params: { filter: [['id', '=', 1]], select: ['id', 'title'] } },
+  // BITRIX_REST_V3_EXCEPTION_INVALIDFILTEREXCEPTION
+  // { method: 'main.eventlog.list', params: { filter: { id: 1 } } }
+  // BITRIX_REST_V3_EXCEPTION_ENTITYNOTFOUNDEXCEPTION
   // { method: 'tasks.task.get', params: { id: 2, select: ['id', 'title'] } }
+  // work, but not use
+  // { method: 'scopes', params: { filterModule: 'main' } },
+  // { method: 'rest.scope.list', params: { filterModule: 'tasks', _filterController: '', _filterMethod: '' } },
+  // @todo test this
+  // * { method: 'tasks.task.list', params: { filter: [['id', 'in', [1]]], select: ['id', 'title'] } },
+  // success:
+  // { method: 'main.eventlog.list', params: { order: { id: 'DESC' }, filter: [['id', '>', 0]], pagination: { page: 0, limit: 200, offset: 0 }, select: ['id', 'timestampX', 'requestUri', 'userAgent'] } },
+  // { method: 'main.eventlog.tail', params: { cursor: { field: 'id', value: 200, order: 'ASC' }, filter: [], select: ['id', 'timestampX', 'requestUri', 'userAgent'] } },
+  // { method: 'main.eventlog.get', params: { id: 207, select: ['id', 'timestampX', 'requestUri', 'userAgent'] } },
+  { method: 'tasks.task.update', params: { id: 1, fields: { title: `TEST: [${Text.getDateForLog()}]` } } },
+  { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title', 'siteId'] } }
+
 ]
 
 const commandsListVer2 = [
@@ -31,14 +56,13 @@ const commandsListVer2 = [
 /**
  * Command for Bitrix24 REST API load testing
  * Usage:
- * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000
- * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --example=1
- * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --example=2
- * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --limiter=batch
- * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --limiter=realtime
- * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --limiter=default
- * node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --example=1 --limiter=default
- * node -r dotenv/config ./cli/index.mjs make loadTesting --total=60 --async
+ * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000
+ * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --api=3
+ * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --example=1
+ * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --limiter=batch
+ * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --api=2 --example=1 --limiter=default
+ * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=2    --api=3 --example=1 --limiter=batch
+ * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=60   --async
  */
 export default defineCommand({
   meta: {
@@ -51,15 +75,19 @@ export default defineCommand({
       required: true
     },
     example: {
-      description: 'Номер примера 1...4 (def: 1)',
+      description: 'Example number [1, 2, ..., 4] (def: 1)',
       required: false
     },
     limiter: {
-      description: 'Какие настройки использовать (def: batch)',
+      description: 'What settings to use [default, realtime, batch] (def: batch)',
       required: false
     },
     async: {
-      description: 'Работать в асинхронном режиме (def: false)',
+      description: 'Work in asynchronous mode (def: false)',
+      required: false
+    },
+    api: {
+      description: 'Work in asynchronous mode [1,2,3] (def: 2)',
       required: false
     }
   },
@@ -84,6 +112,8 @@ export default defineCommand({
     const options = {
       restrictionParams: undefined
     }
+
+    const apiVersion = Number.parseInt(args?.api) === 3 ? ApiVersion.v3 : ApiVersion.v2
 
     // region B24->RestrictionManager ////
     if (args?.limiter === 'default') {
@@ -128,15 +158,30 @@ export default defineCommand({
      * Calling a single command
      */
     async function callCommand(example, commandNumber) {
+      if (apiVersion === ApiVersion.v3) {
+        switch (example) {
+          case 1:
+            return callCommand1V3(commandNumber)
+          case 2:
+            return callCommand2V3(commandNumber)
+          case 3:
+            return callCommand3V3(commandNumber)
+          case 4:
+            return callCommand4V3(commandNumber)
+        }
+
+        return callCommand1V3(commandNumber)
+      }
+
       switch (example) {
         case 1:
-          return callCommand1V3(commandNumber)
+          return callCommand1V2(commandNumber)
         case 2:
-          return callCommand2(commandNumber)
+          return callCommand2V2(commandNumber)
         case 3:
-          return callCommand3(commandNumber)
+          return callCommand3V2(commandNumber)
         case 4:
-          return callCommand4(commandNumber)
+          return callCommand4V2(commandNumber)
       }
 
       return callCommand1V2(commandNumber)
@@ -160,15 +205,18 @@ export default defineCommand({
           apiVersion: ApiVersion.v3,
           operatingStats: b24.getHttpClient(ApiVersion.v3).getStats().operatingStats,
           operating: data.time.operating,
-          data: typeof data.result.tasks === 'undefined'
-            ? data.result
-            : data.result.tasks.map(item => item.id).slice(0, 10).join(',')
+          data: JSON.stringify(data.result)
+          // data: typeof data.result.tasks === 'undefined'
+          //   ? data.result
+          //   : data.result.tasks.map(item => item.id).slice(0, 10).join(',')
         })
 
+        // @todo chane to Result
         return { success: true, data }
       } catch (error) {
+        // @todo chane to Result
         const errorMessage = `${error.message}`
-        errors.push(errorMessage)
+        errors.push(`[${error.code ?? '?'}] ${errorMessage}`)
         logger.error(`❌ ${errorMessage}`, {
           requestId: commandNumber,
           apiVersion: ApiVersion.v3,
@@ -209,15 +257,73 @@ export default defineCommand({
         return { success: true, data }
       } catch (error) {
         const errorMessage = `${error.message}`
-        errors.push(errorMessage)
-        logger.error(`❌ ${errorMessage}`, { error })
+        errors.push(`[${error.code ?? '?'}] ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, {
+          requestId: commandNumber,
+          apiVersion: ApiVersion.v2,
+          error: {
+            code: error.code ?? '?',
+            message: error.message ?? error
+          }
+        })
         return { success: false, error: errorMessage }
       } finally {
         commandsCount++
       }
     }
 
-    async function callCommand2(commandNumber) {
+    async function callCommand2V3(commandNumber) {
+      try {
+        const batchCalls = [
+          // 'server.time', {}],
+          ['tasks.task.get', { id: 1, select: ['id', 'title'] }],
+          ['tasks.task.get', { id: 3, select: ['id', 'title'] }]
+          // ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: [['id', '>', 2]] }]
+        ]
+
+        logger.debug(`callBatch|array`, {
+          requestId: commandNumber
+        })
+
+        const response = await b24.callBatchV3(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true, requestId: commandNumber })
+
+        if (!response.isSuccess) {
+          throw new Error(response.getErrorMessages().join(';\n'))
+        }
+
+        const data = response.getData()
+
+        logger.debug('response', {
+          requestId: commandNumber,
+          method: 'callBatch|array',
+          apiVersion: ApiVersion.v3,
+          operatingStats: b24.getHttpClient(ApiVersion.v3).getStats().operatingStats,
+          self: data.time.operating,
+          // @todo ! api ver3 waite docs - this fake
+          inner: data.result.map(responseAjax => responseAjax.getData().time.operating).join(', '),
+          someData: data.result.slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? JSON.stringify(responseAjax.getData().result) : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', '))
+          // someData: data.result.slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', '))
+        })
+
+        return { success: true, data }
+      } catch (error) {
+        const errorMessage = `${error.message}`
+        errors.push(`[${error.code ?? '?'}] ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, {
+          requestId: commandNumber,
+          apiVersion: ApiVersion.v3,
+          error: {
+            code: error.code ?? '?',
+            message: error.message ?? error
+          }
+        })
+        return { success: false, error: errorMessage }
+      } finally {
+        commandsCount++
+      }
+    }
+
+    async function callCommand2V2(commandNumber) {
       try {
         const batchCalls = [
           ['server.time', {}],
@@ -246,21 +352,93 @@ export default defineCommand({
           operatingStats: b24.getHttpClient(ApiVersion.v2).getStats().operatingStats,
           self: data.time.operating,
           inner: data.result.map(responseAjax => responseAjax.getData().time.operating).join(', '),
-          data: data.result.slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', '))
+          someData: data.result.slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', '))
         })
 
         return { success: true, data }
       } catch (error) {
         const errorMessage = `${error.message}`
-        errors.push(errorMessage)
-        logger.error(`❌ ${errorMessage}`, { error })
+        errors.push(`[${error.code ?? '?'}] ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, {
+          requestId: commandNumber,
+          apiVersion: ApiVersion.v2,
+          error: {
+            code: error.code ?? '?',
+            message: error.message ?? error
+          }
+        })
         return { success: false, error: errorMessage }
       } finally {
         commandsCount++
       }
     }
 
-    async function callCommand3(commandNumber) {
+    /**
+     * AjaxError::JSSDK_REST_V3_BATCH_FROM_OBJECT
+     * @todo ! api ver3 waite docs
+     */
+    async function callCommand3V3(commandNumber) {
+      try {
+        const batchCalls = {
+          cmd1: {
+            method: 'server.time',
+            params: {}
+          },
+          cmd2: {
+            method: 'crm.item.list',
+            params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }
+          },
+          cmd3: {
+            method: 'tasks.task.get',
+            params: { id: 1, select: ['id', 'title'] }
+          },
+          cmd4: {
+            method: 'tasks.task.get',
+            params: { id: 3, select: ['id', 'title'] }
+          }
+        }
+
+        logger.debug(`callBatch|object`, {
+          requestId: commandNumber
+        })
+
+        const response = await b24.callBatchV3(batchCalls, { isHaltOnError: true, returnAjaxResult: true, returnTime: true, requestId: commandNumber })
+
+        if (!response.isSuccess) {
+          throw new Error(response.getErrorMessages().join(';\n'))
+        }
+
+        const data = response.getData()
+
+        logger.debug('response', {
+          requestId: commandNumber,
+          method: 'callBatch|object',
+          apiVersion: ApiVersion.v3,
+          operatingStats: b24.getHttpClient(ApiVersion.v3).getStats().operatingStats,
+          self: data.time.operating,
+          inner: Object.values(data.result).map(responseAjax => responseAjax.getData().time.operating).join(', '),
+          someData: Object.values(data.result).slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', '))
+        })
+
+        return { success: true, data }
+      } catch (error) {
+        const errorMessage = `${error.message}`
+        errors.push(`[${error.code ?? '?'}] ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, {
+          requestId: commandNumber,
+          apiVersion: ApiVersion.v3,
+          error: {
+            code: error.code ?? '?',
+            message: error.message ?? error
+          }
+        })
+        return { success: false, error: errorMessage }
+      } finally {
+        commandsCount++
+      }
+    }
+
+    async function callCommand3V2(commandNumber) {
       try {
         const batchCalls = {
           cmd1: {
@@ -304,21 +482,75 @@ export default defineCommand({
           operatingStats: b24.getHttpClient(ApiVersion.v2).getStats().operatingStats,
           self: data.time.operating,
           inner: Object.values(data.result).map(responseAjax => responseAjax.getData().time.operating).join(', '),
-          data: Object.values(data.result).slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', '))
+          someData: Object.values(data.result).slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? responseAjax.getData().result : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', '))
         })
 
         return { success: true, data }
       } catch (error) {
         const errorMessage = `${error.message}`
-        errors.push(errorMessage)
-        logger.error(`❌ ${errorMessage}`, { error })
+        errors.push(`[${error.code ?? '?'}] ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, {
+          requestId: commandNumber,
+          apiVersion: ApiVersion.v2,
+          error: {
+            code: error.code ?? '?',
+            message: error.message ?? error
+          }
+        })
         return { success: false, error: errorMessage }
       } finally {
         commandsCount++
       }
     }
 
-    async function callCommand4(commandNumber) {
+    async function callCommand4V3(commandNumber) {
+      try {
+        const { method, params } = commandsListVer3[Math.floor(Math.random() * commandsListVer3.length)]
+
+        const batchCalls = Array.from({ length: 60 }, () => [
+          method,
+          params
+        ])
+
+        logger.debug(`callBatchByChunk|array`, {
+          requestId: commandNumber
+        })
+
+        const response = await b24.callBatchByChunkV3(batchCalls, { isHaltOnError: true, requestId: commandNumber })
+
+        if (!response.isSuccess) {
+          throw new Error(response.getErrorMessages().join(';\n'))
+        }
+
+        const data = response.getData()
+
+        logger.debug('response', {
+          requestId: commandNumber,
+          method: 'callBatchByChunk|array',
+          apiVersion: ApiVersion.v3,
+          operatingStats: b24.getHttpClient(ApiVersion.v2).getStats().operatingStats,
+          someData: data.slice(0, 2).map(row => typeof row.items === 'undefined' ? (row?.result ?? row?.item?.title ?? row) : row.items.map(item => item.id).slice(0, 5).join(', '))
+        })
+
+        return { success: true, data }
+      } catch (error) {
+        const errorMessage = `${error.message}`
+        errors.push(`[${error.code ?? '?'}] ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, {
+          requestId: commandNumber,
+          apiVersion: ApiVersion.v3,
+          error: {
+            code: error.code ?? '?',
+            message: error.message ?? error
+          }
+        })
+        return { success: false, error: errorMessage }
+      } finally {
+        commandsCount++
+      }
+    }
+
+    async function callCommand4V2(commandNumber) {
       try {
         const { method, params } = commandsListVer2[Math.floor(Math.random() * commandsListVer2.length)]
 
@@ -344,14 +576,21 @@ export default defineCommand({
           method: 'callBatchByChunk|array',
           apiVersion: ApiVersion.v2,
           operatingStats: b24.getHttpClient(ApiVersion.v2).getStats().operatingStats,
-          data: data.slice(0, 2).map(row => typeof row.items === 'undefined' ? row : row.items.map(item => item.id).slice(0, 5).join(', '))
+          someData: data.slice(0, 2).map(row => typeof row.items === 'undefined' ? row : row.items.map(item => item.id).slice(0, 5).join(', '))
         })
 
         return { success: true, data }
       } catch (error) {
         const errorMessage = `${error.message}`
-        errors.push(errorMessage)
-        logger.error(`❌ ${errorMessage}`, { error })
+        errors.push(`[${error.code ?? '?'}] ${errorMessage}`)
+        logger.error(`❌ ${errorMessage}`, {
+          requestId: commandNumber,
+          apiVersion: ApiVersion.v2,
+          error: {
+            code: error.code ?? '?',
+            message: error.message ?? error
+          }
+        })
         return { success: false, error: errorMessage }
       } finally {
         commandsCount++
@@ -364,6 +603,7 @@ export default defineCommand({
     async function callRandomCommands() {
       logger.notice('🚀 Starting calling of random commands in Bitrix24')
       logger.notice(`Planned to calling: ${args.total} commands`)
+      logger.notice(`ApiVersion: ${apiVersion}`)
 
       const healthCheckData = await b24.healthCheck('healthCheck')
       logger.notice(`Health check: ${healthCheckData ? 'success' : 'fail'}`)
@@ -378,7 +618,7 @@ export default defineCommand({
       const startTime = Date.now()
 
       if (args?.async) {
-        logger.info(`Паралельные запросы:`)
+        logger.info(`Parallel queries:`)
         for (let i = 0; i <= args.total; i++) {
           setTimeout(async () => {
             await callCommand(args?.example ?? 1, i + 1)

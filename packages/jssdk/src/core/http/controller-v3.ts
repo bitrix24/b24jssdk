@@ -14,7 +14,7 @@ import { AbstractHttp } from './abstract-http'
 import { ApiVersion } from '../../types/b24'
 import { AjaxResult } from './ajax-result'
 import { Result } from '../result'
-import {AjaxError} from "./ajax-error";
+import { AjaxError } from './ajax-error'
 
 /**
  * Class for working with RestApi v3 requests via http

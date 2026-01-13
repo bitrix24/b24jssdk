@@ -1,6 +1,6 @@
 import type { B24FrameQueryParams, LoggerInterface } from '@bitrix24/b24jssdk'
 import { ref } from 'vue'
-import { B24Hook, B24Frame, LoggerFactory, Result } from '@bitrix24/b24jssdk'
+import { B24Hook, B24Frame, LoggerFactory, Result, SdkError } from '@bitrix24/b24jssdk'
 
 const sessionKey = 'b24Hook'
 const isUseB24HookFromEnv = ref(false)
@@ -83,7 +83,12 @@ export const useB24 = () => {
       }
 
       if (!queryParams.DOMAIN || !queryParams.APP_SID) {
-        throw new Error('Unable to initialize Bitrix24Frame library!')
+        console.error('[docs] Unable to initialize Bitrix24Frame library!')
+        throw new SdkError({
+          code: 'JSSDK_CLIENT_SIDE_WARNING',
+          description: 'Well done! Now paste this URL into the B24 app settings',
+          status: 500
+        })
       }
 
       // now init b24Frame

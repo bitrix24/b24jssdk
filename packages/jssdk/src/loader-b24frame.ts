@@ -2,6 +2,7 @@ import type { B24FrameQueryParams } from './types/auth'
 import type { RestrictionParams } from './types/limiters'
 import type { ApiVersion } from './types/b24'
 import { B24Frame } from './frame'
+import { SdkError } from './core/sdk-error'
 
 type whileB24InitCallback = {
   resolve: (b24Frame: B24Frame) => void
@@ -98,7 +99,12 @@ export async function initializeB24Frame(
     }
 
     if (!queryParams.DOMAIN || !queryParams.APP_SID) {
-      connectError = new Error('Unable to initialize Bitrix24Frame library!')
+      // throw new Error('Unable to initialize Bitrix24Frame library!')
+      connectError = new SdkError({
+        code: 'JSSDK_CLIENT_SIDE_WARNING',
+        description: 'Well done! Now paste this URL into the B24 app settings',
+        status: 500
+      })
       reject(connectError)
     }
 

@@ -90,9 +90,10 @@ export abstract class AbstractHttp implements TypeHttp {
 
     this._logger = LoggerFactory.createNullLogger()
 
-    const defaultHeaders = {
-      // 'X-Sdk'
-      'User-Agent': '__SDK_USER_AGENT__/__SDK_VERSION__'
+    const defaultHeaders: Record<string, string> = {}
+
+    if (this.isServerSide()) {
+      defaultHeaders['User-Agent'] = '__SDK_USER_AGENT__/__SDK_VERSION__'
     }
 
     this._authActions = authActions

@@ -28,13 +28,13 @@ export enum AutoRefreshEvent {
 export interface AutoRefreshConfig {
   /**
    * Check interval in milliseconds
-   * @default 1_800_000 (30 min)
+   * @default 1_500_000 (25 min)
    */
   checkInterval?: number
 
   /**
    * Token expiration time for extension to be triggered (ms)
-   * @default 600000 (10 minutes)
+   * @default 720_000 (12 minutes)
    */
   refreshBeforeExpiry?: number
 

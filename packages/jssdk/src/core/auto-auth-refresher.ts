@@ -34,11 +34,9 @@ export class AutoAuthRefresher {
 
     // Setting default values
     this.config = {
-      checkInterval: 1_800_000, // 30 min
-      refreshBeforeExpiry: 600_000, // 10 minutes
+      checkInterval: 1_500_000, // 25 min
+      refreshBeforeExpiry: 720_000, // 12 minutes
       autoStart: true,
-      maxRetries: 3,
-      retryInterval: 5_000,
       onEvent: () => {},
       onRefresh: () => {},
       onError: () => {},

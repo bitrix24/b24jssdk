@@ -21,6 +21,22 @@ const props = withDefaults(defineProps<PageHeaderProps>(), {
   title: 'horizontal' as const
 })
 const slots = defineSlots<PageHeaderSlots>()
+
+// @todo remove this
+const b24Instance = useB24()
+const logger = b24Instance.buildLogger('tmp')
+const isShowAction = computed(() => {
+  return b24Instance.isFrame()
+})
+
+async function testAuth() {
+  const response = await b24Instance.get()!.callMethod('server.time')
+  if (!response.isSuccess) {
+    logger.error('Test Error', { error: new Error(`API Error: ${response.getErrorMessages().join('; ')}`) })
+  }
+
+  logger.notice('server.time', { data: response.getData().result })
+}
 </script>
 
 <template>
@@ -42,6 +58,15 @@ const slots = defineSlots<PageHeaderSlots>()
         </div>
         <div v-if="slots['links']" class="mt-[14px] flex flex-wrap flex-row items-center gap-[8px]">
           <slot name="links" />
+        </div>
+        <div v-if="isShowAction" class="mt-[14px] flex flex-wrap flex-row items-center gap-[8px]">
+          <B24Button
+            size="md"
+            color="air-primary-error"
+            label="testAuth"
+            loading-auto
+            @click="testAuth"
+          />
         </div>
       </div>
     </B24Card>

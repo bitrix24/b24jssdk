@@ -25,6 +25,7 @@ export * from './types/b24-helper'
 export * from './types/pull'
 
 export * from './core/result'
+export * from './core/sdk-error'
 export * from './core/http/ajax-error'
 export * from './core/http/ajax-result'
 export * from './core/http/limiters/params-factory'

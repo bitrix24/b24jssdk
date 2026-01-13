@@ -154,10 +154,11 @@ export type MessageInitData = RefreshAuthData & {
 export type AuthData = {
   access_token: string
   refresh_token: string
-  expires: number
-  expires_in: number
+  expires: number // timestamp in seconds
+  expires_in: number // in seconds
   domain: string
   member_id: string
+  [key: string]: any
 }
 
 /**

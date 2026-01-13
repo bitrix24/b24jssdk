@@ -170,10 +170,7 @@ export class AuthOAuthManager implements AuthActions {
         throw new RefreshTokenError({
           code: String(answerError.code),
           description: answerError.description,
-          status: error.response?.status || 0,
-          requestInfo: {
-            method: '/oauth/token/'
-          }
+          status: error.response?.status || 0
         })
       } else if (error instanceof Error) {
         throw error

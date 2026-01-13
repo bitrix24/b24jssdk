@@ -58,6 +58,7 @@ const commandsListVer2 = [
  * Usage:
  * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000
  * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --api=3
+ * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --example=5
  * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --example=1
  * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --limiter=batch
  * clear; node -r dotenv/config ./cli/index.mjs make loadTesting --total=1000 --api=2 --example=1 --limiter=default
@@ -168,6 +169,8 @@ export default defineCommand({
             return callCommand3V3(commandNumber)
           case 4:
             return callCommand4V3(commandNumber)
+          case 5:
+            return callCommand5()
         }
 
         return callCommand1V3(commandNumber)
@@ -182,6 +185,8 @@ export default defineCommand({
           return callCommand3V2(commandNumber)
         case 4:
           return callCommand4V2(commandNumber)
+        case 5:
+          return callCommand5()
       }
 
       return callCommand1V2(commandNumber)
@@ -598,6 +603,36 @@ export default defineCommand({
     }
 
     /**
+     * B24->AutoAuthRefresher
+     */
+    async function callCommand5() {
+      // _resolve, _reject
+      return new Promise(() => {
+        b24.setupAuthRefresh({
+          checkInterval: 3_000, // 3 sec
+          autoStart: false,
+          onEvent: (event, data) => {
+            logger.notice('The token event', {
+              event,
+              data: data ?? '?'
+            })
+          },
+          onRefresh: (authData) => {
+            logger.notice('The token has been automatically updated', {
+              domain: authData.domain,
+              expires: authData.expires,
+              expires_in: authData.expires_in
+            })
+          },
+          onError: (error) => {
+            logger.warning('Automatic token update error', { error })
+          }
+        }, logger)
+        b24.startAuthRefresh()
+      })
+    }
+
+    /**
      * Main function for calling random commands
      */
     async function callRandomCommands() {
@@ -650,6 +685,9 @@ export default defineCommand({
       } else {
         logger.notice('🎉 No errors encountered during creation process!')
       }
+
+      // destroy b24 - this stop AuthRefresh
+      b24.destroy()
     }
 
     /**

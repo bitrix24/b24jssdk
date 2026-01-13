@@ -62,7 +62,7 @@ async function testAuth() {
         <div v-if="isShowAction" class="mt-[14px] flex flex-wrap flex-row items-center gap-[8px]">
           <B24Button
             size="md"
-            color="air-primary-error"
+            color="air-primary-alert"
             label="testAuth"
             loading-auto
             @click="testAuth"

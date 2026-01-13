@@ -37,6 +37,8 @@ export class AutoAuthRefresher {
       checkInterval: 1_500_000, // 25 min
       refreshBeforeExpiry: 720_000, // 12 minutes
       autoStart: true,
+      maxRetries: 3,
+      retryInterval: 5_000,
       onEvent: () => {},
       onRefresh: () => {},
       onError: () => {},

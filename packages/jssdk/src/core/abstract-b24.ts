@@ -16,9 +16,10 @@ import type { RestrictionParams } from '../types/limiters'
 import { AutoAuthRefresher } from './auto-auth-refresher'
 import { LoggerFactory } from '../logger'
 import { Result } from './result'
+import { SdkError } from './sdk-error'
 import { Type } from '../tools/type'
 import { ApiVersion } from '../types/b24'
-import { versionManager } from './http/version-manager'
+import { versionManager } from './version-manager'
 
 /**
  * @todo docs
@@ -28,7 +29,6 @@ export abstract class AbstractB24 implements TypeB24 {
   static readonly batchSize = 50
 
   protected _isInit: boolean = false
-  protected _httpV1: null | TypeHttp = null
   protected _httpV2: null | TypeHttp = null
   protected _httpV3: null | TypeHttp = null
   protected _logger: LoggerInterface
@@ -54,14 +54,6 @@ export abstract class AbstractB24 implements TypeB24 {
 
   public destroy(): void {
     this.destroyAuthRefresh()
-  }
-
-  /**
-   * List of supported API versions
-   * The highest version must be first
-   */
-  protected getAllApiVersions(): ApiVersion[] {
-    return [ApiVersion.v3, ApiVersion.v2, ApiVersion.v1]
   }
   // endregion ////
 
@@ -110,10 +102,7 @@ export abstract class AbstractB24 implements TypeB24 {
   ): Promise<AjaxResult<T>> {
     params = params || {}
 
-    const version = this.getAllApiVersions().find(version => versionManager.isSupport(version, method))
-    if (!version) {
-      throw new Error(`Api not support method ${method}`)
-    }
+    const version = versionManager.automaticallyObtainApiVersion(method)
     const client = this.getHttpClient(version)
 
     return client.call<T>(method, params, requestId)
@@ -121,7 +110,11 @@ export abstract class AbstractB24 implements TypeB24 {
 
   public async callV3<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>> {
     if (!versionManager.isSupport(ApiVersion.v3, method)) {
-      throw new Error(`Api:v3 not support method ${method}`)
+      throw new SdkError({
+        code: 'JSSDK_CORE_B24_API_V3_NOT_SUPPORT_METHOD',
+        description: `Api:v3 not support method ${method}`,
+        status: 500
+      })
     }
     params = params || {}
     return this.getHttpClient(ApiVersion.v3).call<T>(method, params, requestId)
@@ -142,31 +135,14 @@ export abstract class AbstractB24 implements TypeB24 {
     }
 
     if (!versionManager.isSupport(ApiVersion.v2, method)) {
-      throw new Error(`Api:v2 not support method ${method}`)
+      throw new SdkError({
+        code: 'JSSDK_CORE_B24_API_V2_NOT_SUPPORT_METHOD',
+        description: `Api:v2 not support method ${method}`,
+        status: 500
+      })
     }
     params = params || {}
     return this.getHttpClient(ApiVersion.v2).call<T>(method, params, requestId)
-  }
-
-  public async callV1<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>> {
-    if (versionManager.isSupport(ApiVersion.v3, method)) {
-      LoggerFactory.forcedLog(
-        this.getLogger(),
-        'warning',
-        `The method ${method} is available in API version 3. It's worth migrating to the new API.`,
-        {
-          method,
-          requestId,
-          code: 'JSSDK_AVAILABLE_API_VERSION_3'
-        }
-      )
-    }
-
-    if (!versionManager.isSupport(ApiVersion.v1, method)) {
-      throw new Error(`Api:v1 not support method ${method}`)
-    }
-    params = params || {}
-    return this.getHttpClient(ApiVersion.v1).call<T>(method, params, requestId)
   }
 
   /**
@@ -287,6 +263,8 @@ export abstract class AbstractB24 implements TypeB24 {
    * @warning This method does not support pagination.
    *
    * @see {https://bitrix24.github.io/b24jssdk/docs/hook/methods/call-fast-list-method/ Js SDK documentation}
+   *
+   * @todo test option `start` - pagination for ver3
    */
   public async callFastListMethod<T = unknown>(
     method: string,
@@ -414,6 +392,8 @@ export abstract class AbstractB24 implements TypeB24 {
    * @see {@link callFastListMethod} For single-call retrieval without pagination
    * @see {@link callMethod} To call arbitrary API methods
    * @see {https://bitrix24.github.io/b24jssdk/docs/hook/methods/fetch-list-method/ Js SDK documentation}
+   *
+   * @todo test option `start` - pagination for ver3
    */
   public async* fetchListMethod<T = unknown>(
     method: string,
@@ -447,7 +427,11 @@ export abstract class AbstractB24 implements TypeB24 {
           messages: response.getErrorMessages()
         })
 
-        throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)
+        throw new SdkError({
+          code: 'JSSDK_CORE_B24_FETCH_LIST_METHOD',
+          description: `API Error: ${response.getErrorMessages().join('; ')}`,
+          status: 500
+        })
       }
 
       let resultData: T[] = []
@@ -481,72 +465,6 @@ export abstract class AbstractB24 implements TypeB24 {
         break
       }
     } while (isContinue)
-  }
-
-  /**
-   * Automatically obtain the API version
-   *
-   * @see AbstractHttp._parseBatchRow()
-   * @protected
-   *
-   * @todo make single use (AbstractHttp._parseBatchRow())
-   * @todo test methods
-   *   `[['crm.item.get', { entityTypeId: 3, id: 1 }]`
-   *   `[{ method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } }]`
-   *   `{ cmd1: { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } }, cmd2: ['crm.item.get', { entityTypeId: 2, id: 2 }] }`
-   */
-  protected _automaticallyObtainApiVersion(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
-  ): ApiVersion {
-    const cmd: string[] = []
-
-    function parseBatchRow(row: any): { method: string } | null {
-      if (row) {
-        if (typeof row === 'object' && 'method' in row && typeof row.method === 'string') {
-          return {
-            method: row.method
-          }
-        }
-
-        if (Array.isArray(row) && row.length > 0 && typeof row[0] === 'string') {
-          return {
-            method: row[0]
-          }
-        }
-      }
-
-      return null
-    }
-
-    if (Array.isArray(calls)) {
-      calls.forEach((row) => {
-        const command = parseBatchRow(row)
-        if (command) {
-          cmd.push(command.method)
-        }
-      })
-    } else {
-      Object.entries(calls).forEach(([_, row]) => {
-        const command = parseBatchRow(row)
-
-        if (command) {
-          cmd.push(command.method)
-        }
-      })
-    }
-
-    let isAllSupportV3 = true
-    for (const method in cmd) {
-      if (!versionManager.isSupport(ApiVersion.v3, method)) {
-        isAllSupportV3 = false
-        break
-      }
-    }
-
-    if (isAllSupportV3) {
-      return ApiVersion.v3
-    }
-    return ApiVersion.v2
   }
 
   /**
@@ -636,10 +554,10 @@ export abstract class AbstractB24 implements TypeB24 {
       options = optionsOrIsHaltOnError
     }
 
-    options.apiVersion = options.apiVersion ?? this._automaticallyObtainApiVersion(calls)
+    options.apiVersion = options.apiVersion ?? versionManager.automaticallyObtainApiVersionForBatch(calls)
 
     const response = await this.getHttpClient(options.apiVersion).batch<T>(calls, options)
-
+    // @todo fix this ////
     if (options.returnTime) {
       if (Array.isArray(calls)) {
         const result = new Result<{
@@ -773,6 +691,14 @@ export abstract class AbstractB24 implements TypeB24 {
 
     opts.apiVersion = ApiVersion.v3
 
+    if (versionManager.automaticallyObtainApiVersionForBatch(calls) !== opts.apiVersion) {
+      throw new SdkError({
+        code: 'JSSDK_CORE_B24_API_V3_NOT_SUPPORT_METHOD_IN_BATCH',
+        description: `Api:v3 not support method ${JSON.stringify(calls)}`,
+        status: 500
+      })
+    }
+
     return this.callBatch<T>(calls, opts)
   }
 
@@ -792,26 +718,6 @@ export abstract class AbstractB24 implements TypeB24 {
     }
 
     opts.apiVersion = ApiVersion.v2
-
-    return this.callBatch<T>(calls, opts)
-  }
-
-  public async callBatchV1<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
-    options?: IB24BatchOptions
-  ): Promise<Result<{ result: Record<string | number, AjaxResult<T>> | AjaxResult<T>[], time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>> {
-    let opts: IB24BatchOptions
-    if (options === undefined) {
-      opts = {
-        isHaltOnError: true,
-        returnAjaxResult: false,
-        returnTime: false
-      }
-    } else {
-      opts = options
-    }
-
-    opts.apiVersion = ApiVersion.v1
 
     return this.callBatch<T>(calls, opts)
   }
@@ -859,7 +765,7 @@ export abstract class AbstractB24 implements TypeB24 {
       options = optionsOrIsHaltOnError
     }
 
-    options.apiVersion = options.apiVersion ?? this._automaticallyObtainApiVersion(calls)
+    options.apiVersion = options.apiVersion ?? versionManager.automaticallyObtainApiVersionForBatch(calls)
 
     const result = new Result<T[]>()
 
@@ -917,24 +823,6 @@ export abstract class AbstractB24 implements TypeB24 {
     }
 
     opts.apiVersion = ApiVersion.v2
-
-    return this.callBatchByChunk<T>(calls, opts)
-  }
-
-  public async callBatchByChunkV1<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    options?: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'>
-  ): Promise<Result<T[]>> {
-    let opts: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'>
-    if (options === undefined) {
-      opts = {
-        isHaltOnError: true
-      }
-    } else {
-      opts = options
-    }
-
-    opts.apiVersion = ApiVersion.v1
 
     return this.callBatchByChunk<T>(calls, opts)
   }
@@ -1007,22 +895,28 @@ export abstract class AbstractB24 implements TypeB24 {
     switch (version) {
       case ApiVersion.v3:
         if (null === this._httpV3) {
-          throw new Error('HttpV3 not init')
+          throw new SdkError({
+            code: 'JSSDK_CORE_B24_HTTP_V3_NOT_INIT',
+            description: `HttpV3 not init`,
+            status: 500
+          })
         }
         return this._httpV3
       case ApiVersion.v2:
         if (null === this._httpV2) {
-          throw new Error('HttpV2 not init')
+          throw new SdkError({
+            code: 'JSSDK_CORE_B24_HTTP_V2_NOT_INIT',
+            description: `HttpV2 not init`,
+            status: 500
+          })
         }
         return this._httpV2
-      case ApiVersion.v1:
-        if (null === this._httpV1) {
-          throw new Error('HttpV1 not init')
-        }
-        return this._httpV1
     }
-
-    throw new Error('Wrong Api Version')
+    throw new SdkError({
+      code: 'JSSDK_CORE_B24_API_WRONG',
+      description: `Wrong Api Version ${version}`,
+      status: 500
+    })
   }
 
   /**
@@ -1038,18 +932,18 @@ export abstract class AbstractB24 implements TypeB24 {
       case ApiVersion.v2:
         this._httpV2 = client
         return
-      case ApiVersion.v1:
-        this._httpV1 = client
-        return
     }
-
-    throw new Error('Wrong Api Version')
+    throw new SdkError({
+      code: 'JSSDK_CORE_B24_API_WRONG',
+      description: `Wrong Api Version ${version}`,
+      status: 500
+    })
   }
 
   public setLogger(logger: LoggerInterface): void {
     this._logger = logger
 
-    this.getAllApiVersions().forEach((version) => {
+    versionManager.getAllApiVersions().forEach((version) => {
       this.getHttpClient(version).setLogger(this._logger)
     })
   }
@@ -1059,19 +953,19 @@ export abstract class AbstractB24 implements TypeB24 {
   }
 
   public setLogTag(logTag?: string): void {
-    this.getAllApiVersions().forEach((version) => {
+    versionManager.getAllApiVersions().forEach((version) => {
       this.getHttpClient(version).setLogTag(logTag)
     })
   }
 
   public clearLogTag() {
-    this.getAllApiVersions().forEach((version) => {
+    versionManager.getAllApiVersions().forEach((version) => {
       this.getHttpClient(version).clearLogTag()
     })
   }
 
   public async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {
-    const promises = this.getAllApiVersions().map(version =>
+    const promises = versionManager.getAllApiVersions().map(version =>
       this.getHttpClient(version).setRestrictionManagerParams(params)
     )
 
@@ -1092,7 +986,11 @@ export abstract class AbstractB24 implements TypeB24 {
    */
   protected _ensureInitialized(): void {
     if (!this._isInit) {
-      throw new Error('B24 not initialized')
+      throw new SdkError({
+        code: 'JSSDK_CORE_B24_NOT_INIT',
+        description: `B24 not initialized`,
+        status: 500
+      })
     }
   }
   // endregion ////

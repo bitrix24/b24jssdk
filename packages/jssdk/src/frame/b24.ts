@@ -4,9 +4,8 @@ import type { AuthActions, MessageInitData, B24FrameQueryParams } from '../types
 import type { RestrictionParams } from '../types/limiters'
 import type { TypeB24, ApiVersion } from '../types/b24'
 import { AbstractB24 } from '../core/abstract-b24'
-import { HttpV1 } from '../core/http/controller-v1'
-import { HttpV2 } from '../core/http/controller-v2'
-import { HttpV3 } from '../core/http/controller-v3'
+import { HttpV2 } from '../core/http/v2'
+import { HttpV3 } from '../core/http/v3'
 import { AppFrame } from './frame'
 import { MessageManager, MessageCommands } from './message'
 import { AuthManager } from './auth'
@@ -130,7 +129,6 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
     this.#isInstallMode = data.INSTALL
     this.#isFirstRun = data.FIRST_RUN
 
-    this._httpV1 = new HttpV1(this.#authManager, this._getHttpOptions(), this.#restrictionParams)
     this._httpV2 = new HttpV2(this.#authManager, this._getHttpOptions(), this.#restrictionParams)
     this._httpV3 = new HttpV3(this.#authManager, this._getHttpOptions(), this.#restrictionParams)
 

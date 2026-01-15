@@ -44,7 +44,7 @@ export class AjaxError extends SdkError {
   }
 
   /**
-   * @deprecated You don't need to set the error status. Left for compatibility.
+   * @memo You don't need to set the error status. Left for compatibility.
    */
   override set status(status: number) {
     this._status = status

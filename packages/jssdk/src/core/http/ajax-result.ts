@@ -7,7 +7,6 @@ import type { Payload, PayloadTime } from '../../types/payloads'
 import type { TypeCallParams, TypeHttp } from '../../types/http'
 
 /**
- * @todo clear
  * @todo docs
  */
 export type AjaxQuery = Readonly<{

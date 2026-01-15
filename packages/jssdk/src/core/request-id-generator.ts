@@ -1,5 +1,5 @@
-import type { IRequestIdGenerator } from '../../types/http'
-import { Text } from '../../tools/text'
+import type { IRequestIdGenerator } from '../types/http'
+import { Text } from '../tools/text'
 
 const DEFAULT_REQUEST_ID_HEADER_FIELD_NAME = 'X-Request-ID'
 const DEFAULT_QUERY_STRING_PARAMETER_NAME = 'bx24_request_id'

@@ -6,24 +6,18 @@ import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
   BatchNamedCommandsUniversal,
-  CommandObject,
-  CommandTuple,
-  ICallBatchResult,
-  BatchCommandV3
+  ICallBatchResult
 } from '../../types/http'
 import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
 import type { AjaxResultParams } from './ajax-result'
 import type { AuthActions, AuthData, TypeDescriptionError, TypeDescriptionErrorV3 } from '../../types/auth'
-import type { BatchPayload, BatchPayloadResult, PayloadTime } from '../../types/payloads'
-import type { NumberString } from '../../types/common'
 import type { AxiosInstance } from 'axios'
+import type { Result } from '../result'
 import axios, { AxiosError } from 'axios'
-import * as qs from 'qs-esm'
 import { LoggerFactory } from '../../logger'
-import { RequestIdGenerator } from './request-id-generator'
+import { RequestIdGenerator } from '../request-id-generator'
 import { ParamsFactory } from './limiters/params-factory'
 import { RestrictionManager } from './limiters/manager'
-import { Result } from '../result'
 import { AjaxError } from './ajax-error'
 import { AjaxResult } from './ajax-result'
 import { Type } from '../../tools/type'
@@ -40,16 +34,6 @@ export type TypePrepareParams = TypeCallParams & {
   logTag?: string
   auth?: string
 }
-
-export interface BatchResponseData<T = unknown> {
-  readonly result?: T[] | Record<string | number, T>
-  readonly result_error?: string[] | Record<string | number, string>
-  readonly result_total?: NumberString[] | Record<string | number, NumberString>
-  readonly result_next?: NumberString[] | Record<string | number, NumberString>
-  readonly result_time?: PayloadTime[] | Record<string | number, PayloadTime>
-}
-
-const MAX_BATCH_COMMANDS = 50
 
 /**
  * Abstract Class for working with RestApi requests via http
@@ -86,7 +70,7 @@ export abstract class AbstractHttp implements TypeHttp {
     options?: null | object,
     restrictionParams?: Partial<RestrictionParams>
   ) {
-    this._version = ApiVersion.v1
+    this._version = ApiVersion.v2
 
     this._logger = LoggerFactory.createNullLogger()
 
@@ -193,6 +177,7 @@ export abstract class AbstractHttp implements TypeHttp {
   }
   // endregion ////
 
+  // region Metrics ////
   protected _updateMetrics(
     method: string,
     isSuccess: boolean,
@@ -228,351 +213,14 @@ export abstract class AbstractHttp implements TypeHttp {
     methodMetrics.count++
     methodMetrics.totalDuration += duration
   }
+  // endregion ////
 
   // region Actions Call ////
   // region batch ////
-  protected _validateBatchCommands(
-    requestId: string,
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
-  ): void {
-    const count = Array.isArray(calls) ? calls.length : Object.keys(calls).length
-
-    if (count > MAX_BATCH_COMMANDS) {
-      throw new AjaxError({
-        code: 'JSSDK_BATCH_TOO_LARGE',
-        description: `Batch too large: ${count} commands (max: ${MAX_BATCH_COMMANDS})`,
-        status: 400,
-        requestInfo: { method: 'batch', params: { cmd: calls }, requestId },
-        originalError: null
-      })
-    }
-
-    if (count === 0) {
-      throw new AjaxError({
-        code: 'JSSDK_BATCH_EMPTY',
-        description: 'Batch must contain at least one command',
-        status: 400,
-        requestInfo: { method: 'batch', params: { cmd: calls }, requestId },
-        originalError: null
-      })
-    }
-  }
-
-  public async batch<T = unknown>(
+  public abstract batch<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: ICallBatchOptions
-  ): Promise<Result<ICallBatchResult<T>>> {
-    const opts = {
-      isHaltOnError: true,
-      ...options
-    }
-
-    const requestId = opts.requestId ?? this._requestIdGenerator.getRequestId()
-
-    this._logBatchStart(requestId, calls, opts)
-
-    this._validateBatchCommands(requestId, calls)
-
-    if (Array.isArray(calls)) {
-      return this._batchAsArray(requestId, calls, opts)
-    }
-
-    return this._batchAsObject(requestId, calls, opts)
-  }
-
-  protected async _batchAsObject<T = unknown>(
-    requestId: string,
-    calls: BatchNamedCommandsUniversal,
-    options: ICallBatchOptions
-  ): Promise<Result<ICallBatchResult<T>>> {
-    const cmd = this._prepareBatchCommandsObject(calls)
-    if (Object.keys(cmd).length === 0) {
-      return Promise.resolve(new Result())
-    }
-
-    // @todo ! api ver3
-    const response = await this.call<BatchPayload<T>>(
-      'batch',
-      { halt: options.isHaltOnError ? 1 : 0, cmd },
-      requestId
-    )
-
-    const opts = {
-      isHaltOnError: !!options.isHaltOnError,
-      requestId,
-      isObjectMode: true
-    }
-
-    return this._processBatchResponse<T>(cmd, response, opts)
-  }
-
-  protected _prepareBatchCommandsObject(calls: BatchNamedCommandsUniversal): Record<string, string> {
-    const cmd: Record<string, string> = {}
-
-    Object.entries(calls).forEach(([index, row]) => {
-      const command = this._parseBatchRow(row)
-      if (command) {
-        cmd[index] = this._buildBatchCommandString(command)
-      }
-    })
-
-    return cmd
-  }
-
-  protected async _batchAsArray<T = unknown>(
-    requestId: string,
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    options: ICallBatchOptions
-  ): Promise<Result<ICallBatchResult<T>>> {
-    const cmd = this._prepareBatchCommandsArray(calls)
-    if (cmd.length === 0) {
-      return Promise.resolve(new Result())
-    }
-
-    let response
-
-    if (this.apiVersion === ApiVersion.v3) {
-      // @todo ! api ver3 `params.halt` - waite docs
-      response = await this.call<BatchPayload<T>>(
-        'batch',
-        cmd,
-        requestId
-      )
-    } else {
-      response = await this.call<BatchPayload<T>>(
-        'batch',
-        { halt: options.isHaltOnError ? 1 : 0, cmd },
-        requestId
-      )
-    }
-
-    const opts = {
-      isHaltOnError: !!options.isHaltOnError,
-      requestId,
-      isObjectMode: false
-    }
-
-    return this._processBatchResponse<T>(cmd, response, opts)
-  }
-
-  protected _prepareBatchCommandsArray(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal): string[] {
-    const cmd: string[] = []
-
-    calls.forEach((row) => {
-      const command = this._parseBatchRow(row)
-      if (command) {
-        cmd.push(this._buildBatchCommandString(command))
-      }
-    })
-
-    return cmd
-  }
-
-  /*
-   * Helper methods for preparing batch commands
-   *
-   * @see AbstractB24._automaticallyObtainApiVersion()
-   */
-  protected _parseBatchRow(row: CommandObject<string, TypeCallParams | undefined> | CommandTuple<string, TypeCallParams | undefined>): BatchCommandV3 | null {
-    if (row) {
-      if (typeof row === 'object' && 'method' in row && typeof row.method === 'string') {
-        return {
-          method: row.method,
-          query: row.params as Record<string, unknown> | undefined
-        }
-      }
-
-      if (Array.isArray(row) && row.length > 0 && typeof row[0] === 'string') {
-        return {
-          method: row[0],
-          query: row[1] as Record<string, unknown> | undefined
-        }
-      }
-    }
-
-    return null
-  }
-
-  protected _buildBatchCommandString(command: BatchCommandV3): string {
-    return `${command.method}?${qs.stringify(command.query || {})}`
-  }
-
-  /**
-   * The main method for processing the batch response
-   */
-  protected async _processBatchResponse<T>(
-    cmd: Record<string, string> | string[],
-    response: AjaxResult<BatchPayload<T>>,
-    options: Required<ICallBatchOptions> & { isObjectMode: boolean }
-  ): Promise<Result<ICallBatchResult<T>>> {
-    const responseData = response.getData()
-
-    const responseResult = responseData.result
-    const responseTime = responseData.time
-
-    const responseHelper = {
-      requestId: response.getQuery().requestId,
-      status: response.getStatus(),
-      time: responseTime
-    }
-
-    const results = await this._processBatchItems<T>(cmd, responseHelper, responseResult)
-
-    return this._handleBatchResults<T>(results, responseTime, options)
-  }
-
-  /**
-   * Processing batch elements
-   */
-  protected async _processBatchItems<T>(
-    cmd: Record<string, string> | string[],
-    responseHelper: { requestId: string, status: number, time: PayloadTime },
-    responseResult: BatchPayloadResult<T>
-  ): Promise<Map<string | number, AjaxResult<T>>> {
-    const results = new Map<string | number, AjaxResult<T>>()
-
-    // Processing all commands
-    const entries = Array.isArray(cmd)
-      ? cmd.entries()
-      : Object.entries(cmd)
-
-    for (const [index, row] of entries) {
-      await this._processBatchItem<T>(row, index, responseHelper, responseResult as BatchResponseData<T>, results)
-    }
-
-    return results
-  }
-
-  /**
-   * Process each response element
-   */
-  protected async _processBatchItem<T>(
-    row: string,
-    index: string | number,
-    responseHelper: { requestId: string, status: number, time: PayloadTime },
-    responseResult: BatchResponseData<T>,
-    results: Map<string | number, AjaxResult<T>>
-  ): Promise<void> {
-    const resultData = this._getBatchResultByIndex(responseResult.result, index)
-    const resultError = this._getBatchResultByIndex(responseResult.result_error, index)
-
-    if (
-      typeof resultData !== 'undefined'
-      || typeof resultError !== 'undefined'
-    ) {
-      const [methodName, queryString] = row.split('?')
-
-      // Update operating statistics for each method in the batch
-      const resultTime = this._getBatchResultByIndex(responseResult.result_time, index)
-      if (typeof resultTime !== 'undefined') {
-        await this._restrictionManager.updateStats(responseHelper.requestId, `batch::${methodName}`, resultTime)
-      }
-
-      const result = new AjaxResult<T>({
-        answer: {
-          result: (resultData ?? {}) as T,
-          error: resultError,
-          total: this._getBatchResultByIndex(responseResult.result_total, index),
-          next: this._getBatchResultByIndex(responseResult.result_next, index),
-          time: resultTime!
-        },
-        query: {
-          method: methodName,
-          params: qs.parse(queryString || ''),
-          requestId: responseHelper.requestId
-        },
-        status: responseHelper.status
-      })
-
-      results.set(index, result)
-    }
-  }
-
-  protected _getBatchResultByIndex<T>(
-    data: T[] | Record<string | number, T> | undefined,
-    index: string | number
-  ): T | undefined {
-    if (!data) return undefined
-
-    if (Array.isArray(data)) {
-      return data[index as number]
-    }
-
-    return (data as Record<string | number, T>)[index]
-  }
-
-  // Processing batch results
-  protected _handleBatchResults<T>(
-    results: Map<string | number, AjaxResult<T>>,
-    responseTime: PayloadTime | undefined,
-    options: Required<ICallBatchOptions> & { isObjectMode: boolean }
-  ): Result<ICallBatchResult<T>> {
-    const result = new Result<ICallBatchResult<T>>()
-    const dataResult = new Map<string | number, AjaxResult<T>>()
-
-    let errorsCnt = 0
-
-    for (const [index, data] of results) {
-      if (data.getStatus() !== 200 || !data.isSuccess) {
-        const error = this._createErrorFromAjaxResult(data)
-
-        /*
-         * This should contain code similar to #isOperatingLimitError with a check for
-         * the error 'Method is blocked due to operation time limit.'
-         * However, `batch` is executed without retries, so there will be an immediate error.
-         */
-
-        if (!options.isHaltOnError && !data.isSuccess) {
-          this._logBatchSubCallFailed(
-            options.requestId,
-            index,
-            data.getQuery().method,
-            error.code,
-            error.status,
-            error.message
-          )
-          if (options.isObjectMode) {
-            result.addError(error, String(index))
-          } else {
-            result.addError(error)
-          }
-
-          errorsCnt++
-          continue
-        }
-
-        // return Promise.reject(error)
-        throw error
-      }
-
-      dataResult.set(index, data)
-    }
-
-    // Log the results
-    this._logBatchCompletion(options.requestId, results.size, errorsCnt)
-
-    result.setData({
-      result: dataResult,
-      time: responseTime
-    })
-
-    return result
-  }
-
-  // initError
-  protected _createErrorFromAjaxResult(data: AjaxResult): AjaxError {
-    if (data.hasError('base-error')) {
-      return data.errors.get('base-error') as AjaxError
-    }
-
-    return new AjaxError({
-      code: 'JSSDK_BATCH_SUB_ERROR',
-      description: data.getErrorMessages().join('; '),
-      status: data.getStatus(),
-      requestInfo: { ...data.getQuery() },
-      originalError: data.getErrors().next().value
-    })
-  }
+  ): Promise<Result<ICallBatchResult<T>>>
   // endregion ////
 
   protected _validateParams(requestId: string, method: string, params: TypeCallParams): void {
@@ -1130,20 +778,6 @@ export abstract class AbstractHttp implements TypeHttp {
       successful: total - errors,
       failed: errors,
       successRate: total > 0 ? ((total - errors) / (total) * 100).toFixed(1) + '%' : '??'
-    })
-  }
-
-  protected _logBatchSubCallFailed(requestId: string, index: string | number, method: string, code: string, status: number, errorMessage: string): void {
-    this.getLogger().debug(`http batch sub-call failed`, {
-      requestId,
-      index,
-      method,
-      api: this.apiVersion,
-      error: {
-        code: code,
-        message: errorMessage,
-        status
-      }
     })
   }
 

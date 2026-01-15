@@ -1,133 +1,125 @@
 import type { LoggerInterface } from './logger'
 /**
- * @todo перевод
  * @todo docs
  */
 
 /**
- * Настройки для operating limiting
+ * Settings for operating limiting
  */
 export interface OperatingLimitConfig {
   /**
-   * Период времени для operating лимита в миллисекундах
-   * По умолчанию: 10 минут (600_000 мс)
+   * Operating limit time period in milliseconds
+   * Default: 10 minutes (600_000 ms)
    */
   windowMs: number
   /**
-   * Максимальное суммарное время выполнения (operating) в миллисекундах
-   * По умолчанию: 480 секунд (480_000 мс)
-   * При рассчетах operating лимита будем на 5 секунд меньше брать
+   * Maximum total execution time (operating) in milliseconds
+   * Default: 480 seconds (480_000 ms)
+   * When calculating the operating limit, we will use 5 seconds less
    * @see Http.getTimeToFree
    */
   limitMs: number
   /**
-   * Порог для уведомлений о тяжелых запросах (%)
+   * Threshold for notifications about heavy queries (%)
    */
   heavyPercent: number
 }
 
 /**
- * Настройки для адаптивной паузы
+ * Adaptive pause settings
  */
 export interface AdaptiveConfig {
   /**
-   * Порог для тяжелых запросов (%)
-   * По умолчанию: 80% - это значит что `operating >= 384`
-   * Указывает при достижении в `operating` какого % от `operatingLimit.limitMs` нужно начинать ставить паузы
+   * Threshold for heavy queries (%)
+   * Default: 80% - this means that `operating >= 384`
+   * Specifies what % of `operatingLimit.limitMs` in `operating` should pause.
    */
   thresholdPercent: number
   /**
-   * Коэффициент умножения для паузы
-   * По умолчанию: 0.01 - при 0.002 будет пауза 1.2 sec при увеличивающейся нагрузке
-   * Если: operating_reset_at > Date.now()
-   *   То: Пауза = (operating_reset_at - Date.now()) * coefficient
-   *   Иначе: Пауза = 7_000
-   * Нет смысла указывать значение близкое к 1, тк это создаст бессмысленные задержки
-   * Другими словами: если coefficient === 1, то пауза будет до момента разблокировки, а наш код еще лимиты не выработал.
-   * Нужно понимать что цель адаптивной блокировки плавно нивелировать `operating` тяжолых запросов.
+   * Pause multiplier
+   * Default: 0.01 - 0.002 will result in a 1.2-second pause with increasing load
+   * If: operating_reset_at > Date.now()
+   * Then: Pause = (operating_reset_at - Date.now()) * coefficient
+   * Otherwise: Pause = 7_000
+   * There's no point in specifying a value close to 1, as this will create unnecessary delays.
+   * In other words: if coefficient === 1, the pause will last until the blocking is unblocked, and our code hasn't yet reached the limits.
+   * It's important to understand that the goal of adaptive blocking is to smoothly reduce the 'operating' of heavy queries.
    */
   coefficient: number
   /**
-   * Максимальная пауза (мс)
-   * По умолчанию: 7_000 мс
-   * Ограничивает максимальное расчетное время паузы
+   * Maximum pause (ms)
+   * Default: 7_000 ms
+   * Limits the maximum estimated pause time
    */
   maxDelay: number
   /**
-   * Включена ли адаптивная пауза
-   * По умолчанию: true
+   * Whether adaptive pause is enabled
+   * Default: true
    */
   enabled: boolean
 }
 
 /**
- * Настройки для rate limiting (Leaky Bucket)
+ * Rate limiting settings (Leaky Bucket)
  */
 export interface RateLimitConfig {
   /**
-   * X - лимит до блокировки (ёмкость "ведра")
-   * Для обычных тарифов: 50
-   * Для Enterprise: 250
+   * X - limit before blocking (bucket capacity)
+   * For standard plans: 50
+   * For Enterprise: 250
    */
   burstLimit: number
   /**
-   * Y - скорость утечки (запросов в секунду)
-   * Для обычных тарифов: 2
-   * Для Enterprise: 5
+   * Y - leak rate (requests per second)
+   * For standard plans: 2
+   * For Enterprise: 5
    */
   drainRate: number
   /**
-   * Включено ли адаптивное регулирование
-   * По умолчанию: true
+   * Whether adaptive control is enabled
+   * Default: true
    */
   adaptiveEnabled: boolean
 }
 
 /**
- * Параметры для управления всеми типами ограничений
+ * Parameters for managing all types of restrictions
  */
 export interface RestrictionParams {
-  /** Настройки rate limiting */
   rateLimit?: RateLimitConfig
-
-  /** Настройки operating limiting */
   operatingLimit?: OperatingLimitConfig
-
-  /** Настройки адаптивной задержки */
   adaptiveConfig?: AdaptiveConfig
-
   /**
-   * Максимальное количество повторных попыток
-   * По умолчанию: 3
+   * Maximum number of retries
+   * Default: 3
    */
   maxRetries?: number
-
   /**
-   * Базовая задержка между повторными попытками (мс)
-   * По умолчанию: 1_000
+   * Base delay between retries (ms)
+   * Default: 1_000
    */
   retryDelay?: number
 }
 
 /**
- * Статистика работы ограничителя
+ * Limiter operation statistics
  */
 export interface RestrictionManagerStats {
-  /** Повторные попытки */
+  /** Retries */
   retries: number
-  /** Последовательные ошибки */
+  /** Consecutive errors */
   consecutiveErrors: number
-  /** Срабатывания limit */
+  /** Limit hits */
   limitHits: number
-  /** Текущее количество токенов */
+  /** Current number of tokens */
   tokens: number
-  /** Адаптивные задержки */
+  /** Adaptive delays */
   adaptiveDelays: number
-  /** Суммарное время адаптивных задержек */
+  /** Total time of adaptive delays */
   totalAdaptiveDelay: number
-  /** Тяжелые запросы */
+  /** Heavy requests */
   heavyRequestCount: number
-  /** Статистика по методам в секундах */
+  /** Method statistics in seconds */
   operatingStats: { [method: string]: number }
 }
 

@@ -55,7 +55,6 @@ export class AuthOAuthManager implements AuthActions {
     })
 
     this.#b24TargetRestWithPath = new Map()
-    this.#b24TargetRestWithPath.set(ApiVersion.v1, `${this.#b24TargetRest}`)
     this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}`)
     this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api`)
   }
@@ -234,15 +233,16 @@ export class AuthOAuthManager implements AuthActions {
     this.#isAdmin = false
 
     // region ver3 ////
+    /**
+     * This is just a template. When API.v3 arrives, we'll replace it.
+     * @todo fix then the new API will be available
+     */
     if (http.apiVersion === ApiVersion.v3) {
       const response = await http.call('profile', {}, requestId)
       if (!response.isSuccess) {
         throw new Error(response.getErrorMessages().join(';'))
       }
 
-      /**
-       * @todo Fix the type (`profile`), then the new API will be available
-       */
       const data: { profile: { id: number, admin: boolean } } = response.getData().result
 
       if (data.profile?.admin) {
@@ -253,7 +253,7 @@ export class AuthOAuthManager implements AuthActions {
     }
     // endregion ////
 
-    // region ver2|ver1 ////
+    // region ver2 ////
     const response = await http.call('profile', {}, requestId)
     if (!response.isSuccess) {
       throw new Error(response.getErrorMessages().join(';'))

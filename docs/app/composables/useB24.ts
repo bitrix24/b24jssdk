@@ -50,7 +50,6 @@ export const useB24 = () => {
           },
           onRefresh: (authData) => {
             tmpLogger.notice('The token has been automatically updated', {
-              authData, // @todo remove this
               domain: authData.domain,
               expires: authData.expires,
               expires_in: authData.expires_in

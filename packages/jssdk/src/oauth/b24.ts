@@ -2,11 +2,10 @@ import type { AuthActions, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, 
 import type { RestrictionParams } from '../types/limiters'
 import type { TypeB24, ApiVersion } from '../types/b24'
 import { AbstractB24 } from '../core/abstract-b24'
-import { HttpV1 } from '../core/http/controller-v1'
-import { HttpV2 } from '../core/http/controller-v2'
-import { HttpV3 } from '../core/http/controller-v3'
+import { HttpV2 } from '../core/http/v2'
+import { HttpV3 } from '../core/http/v3'
 import { AuthOAuthManager } from './auth'
-import { versionManager } from '../core/http/version-manager'
+import { versionManager } from '../core/version-manager'
 
 /**
  * B24.OAuth Manager
@@ -36,8 +35,6 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
 
     const warningText = 'The B24OAuth object is intended exclusively for use on the server.\nA webhook contains a secret access key, which MUST NOT be used in client-side code (browser, mobile app).'
 
-    this._httpV1 = new HttpV1(this.#authOAuthManager, this._getHttpOptions(), options?.restrictionParams)
-    this._httpV1.setClientSideWarning(true, warningText)
     this._httpV2 = new HttpV2(this.#authOAuthManager, this._getHttpOptions(), options?.restrictionParams)
     this._httpV2.setClientSideWarning(true, warningText)
     this._httpV3 = new HttpV3(this.#authOAuthManager, this._getHttpOptions(), options?.restrictionParams)
@@ -55,12 +52,13 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     const method = 'profile'
 
     this._ensureInitialized()
-
-    const version = this.getAllApiVersions().find(version => versionManager.isSupport(version, method))
-
-    if (!version) return
-    const client = this.getHttpClient(version)
-    return this.#authOAuthManager.initIsAdmin(client, requestId)
+    try {
+      const version = versionManager.automaticallyObtainApiVersion(method)
+      const client = this.getHttpClient(version)
+      return this.#authOAuthManager.initIsAdmin(client, requestId)
+    } catch {
+      return
+    }
   }
 
   /**
@@ -103,7 +101,7 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
    * Disables warning about client-side query execution
    */
   public offClientSideWarning(): void {
-    this.getAllApiVersions().forEach((version) => {
+    versionManager.getAllApiVersions().forEach((version) => {
       this.getHttpClient(version).setClientSideWarning(false, '')
     })
   }

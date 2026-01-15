@@ -45,10 +45,15 @@ export interface ICallBatchResult<T = unknown> {
 export type BatchCommandV3 = {
   method: string
   query?: Record<string, unknown>
+  as?: string
+  parallel?: boolean
 }
 
 export type CommandTuple<M extends string = string, P = undefined | TypeCallParams> = [M, P?]
-export interface CommandObject<M extends string = string, P = undefined | TypeCallParams> { method: M, params?: P }
+/**
+ * @todo add docs - api v3 only use this ??
+ */
+export interface CommandObject<M extends string = string, P = undefined | TypeCallParams> { method: M, params?: P, as?: string, parallel?: boolean }
 export type CommandUniversal<M extends string = string, P = undefined | TypeCallParams>
   = | CommandTuple<M, P>
     | CommandObject<M, P>

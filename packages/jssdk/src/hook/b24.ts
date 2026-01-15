@@ -2,10 +2,10 @@ import type { AuthActions, B24HookParams } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
 import type { TypeB24, ApiVersion } from '../types/b24'
 import { AbstractB24 } from '../core/abstract-b24'
-import { HttpV1 } from '../core/http/controller-v1'
-import { HttpV2 } from '../core/http/controller-v2'
-import { HttpV3 } from '../core/http/controller-v3'
+import { HttpV2 } from '../core/http/v2'
+import { HttpV3 } from '../core/http/v3'
 import { AuthHookManager } from './auth'
+import { versionManager } from '../core/version-manager'
 
 /**
  * B24.Hook Manager.
@@ -32,8 +32,6 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
 
     const warningText = 'The B24Hook object is intended exclusively for use on the server.\nA webhook contains a secret access key, which MUST NOT be used in client-side code (browser, mobile app).'
 
-    this._httpV1 = new HttpV1(this.#authHookManager, this._getHttpOptions(), options?.restrictionParams)
-    this._httpV1.setClientSideWarning(true, warningText)
     this._httpV2 = new HttpV2(this.#authHookManager, this._getHttpOptions(), options?.restrictionParams)
     this._httpV2.setClientSideWarning(true, warningText)
     this._httpV3 = new HttpV3(this.#authHookManager, this._getHttpOptions(), options?.restrictionParams)
@@ -52,7 +50,7 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
    * Disables warning about client-side query execution
    */
   public offClientSideWarning(): void {
-    this.getAllApiVersions().forEach((version) => {
+    versionManager.getAllApiVersions().forEach((version) => {
       this.getHttpClient(version).setClientSideWarning(false, '')
     })
   }
@@ -81,7 +79,6 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
   // region Tools ////
   /**
    * Init Webhook from url
-   *   - ver1 `https://your_domain.bitrix24.com/rest/{id}/{webhook}`
    *   - ver2 `https://your_domain.bitrix24.com/rest/{id}/{webhook}`
    *   - ver3 `https://your_domain.bitrix24.com/rest/api/{id}/{webhook}`
    *

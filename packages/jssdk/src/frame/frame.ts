@@ -38,7 +38,6 @@ export class AppFrame {
     this.#b24Target = `${this.#protocol ? 'https' : 'http'}://${this.#domain}`
     this.#b24TargetRest = `${this.#b24Target}/rest`
 
-    this.#b24TargetRestWithPath.set(ApiVersion.v1, `${this.#b24TargetRest}`)
     this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}`)
     this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api`)
   }
@@ -66,7 +65,6 @@ export class AppFrame {
     this.#b24Target = `${this.#protocol ? 'https' : 'http'}://${this.#domain}`
     this.#b24TargetRest = `${this.#b24Target}/rest`
 
-    this.#b24TargetRestWithPath.set(ApiVersion.v1, `${this.#b24TargetRest}`)
     this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}`)
     this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api`)
 
@@ -93,7 +91,6 @@ export class AppFrame {
 
   /**
    * Get the account address BX24 with path
-   *   - ver1 `https://your_domain.bitrix24.com/rest/`
    *   - ver2 `https://your_domain.bitrix24.com/rest/`
    *   - ver3` https://your_domain.bitrix24.com/rest/api/`
    */

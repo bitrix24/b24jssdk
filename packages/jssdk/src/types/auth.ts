@@ -177,7 +177,6 @@ export interface AuthActions {
 
   /**
    * Get the account address BX24 with path
-   *   - ver1 `https://your_domain.bitrix24.com/rest/`
    *   - ver2 `https://your_domain.bitrix24.com/rest/`
    *   - ver3` https://your_domain.bitrix24.com/rest/api/`
    */

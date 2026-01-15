@@ -24,7 +24,6 @@ export class AuthHookManager implements AuthActions {
     this.#b24Target = `https://${this.#domain}`
 
     this.#b24TargetRestWithPath = new Map()
-    this.#b24TargetRestWithPath.set(ApiVersion.v1, `${this.#b24TargetRest}/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`)
     this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`)
     this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api/${this.#b24HookParams.userId}/${this.#b24HookParams.secret}`)
   }
@@ -64,7 +63,6 @@ export class AuthHookManager implements AuthActions {
 
   /**
    * Get the account address BX24 with path
-   *   - ver1 `https://your_domain.bitrix24.com/rest/{id}/{webhook}`
    *   - ver2 `https://your_domain.bitrix24.com/rest/{id}/{webhook}`
    *   - ver3` https://your_domain.bitrix24.com/rest/api/{id}/{webhook}`
    */

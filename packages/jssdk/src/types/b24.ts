@@ -7,13 +7,12 @@ import type { PayloadTime } from './payloads'
 import type { RestrictionParams } from './limiters'
 
 /**
- * @todo fix docs
+ * @todo docs
  */
 
 export enum ApiVersion {
   v3 = 'v3',
-  v2 = 'v2',
-  v1 = 'v1'
+  v2 = 'v2'
 }
 
 /**
@@ -68,7 +67,6 @@ export type TypeB24 = {
 
   /**
    * Get the account address BX24 with path
-   *   - ver1 `https://your_domain.bitrix24.com/rest/`
    *   - ver2 `https://your_domain.bitrix24.com/rest/`
    *   - ver3` https://your_domain.bitrix24.com/rest/api/`
    */

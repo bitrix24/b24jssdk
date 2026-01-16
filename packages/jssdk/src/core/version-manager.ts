@@ -54,10 +54,10 @@ class VersionManager {
 
   public isSupport(version: ApiVersion, method: string): boolean {
     switch (version) {
-      case ApiVersion.v2:
-        return true
       case ApiVersion.v3:
         return this.#v3Support(method)
+      case ApiVersion.v2:
+        return true
     }
 
     return false
@@ -94,11 +94,11 @@ class VersionManager {
   public automaticallyObtainApiVersionForBatch(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
   ): ApiVersion {
-    const cmd = ParseRow.getMethodsFromCommands(calls)
+    const commands = ParseRow.getMethodsFromCommands(calls)
 
     let isAllSupportV3 = true
-    for (const method in cmd) {
-      if (!versionManager.isSupport(ApiVersion.v3, method)) {
+    for (const [_, method] of commands.entries()) {
+      if (!this.isSupport(ApiVersion.v3, method)) {
         isAllSupportV3 = false
         break
       }

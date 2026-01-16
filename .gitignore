@@ -69,6 +69,7 @@ docs/components.d.ts
 
 # local env files
 .env
+.env.test
 .env.local
 .env.development.local
 .env.test.local

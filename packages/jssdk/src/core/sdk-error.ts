@@ -20,6 +20,7 @@ export class SdkError extends Error {
 
     this.name = 'SdkError' as const
     this.code = params.code
+
     this._status = params.status
     this.originalError = params.originalError
     this.timestamp = new Date()

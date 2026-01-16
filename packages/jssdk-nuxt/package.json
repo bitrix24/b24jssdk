@@ -47,8 +47,7 @@
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare",
     "prepack": "pnpm build",
     "build": "nuxt-module-build build",
-    "typecheck": "nuxt typecheck",
-    "test": "vitest run"
+    "typecheck": "nuxt typecheck"
   },
   "dependencies": {
     "@nuxt/kit": "^4.2.2",
@@ -58,13 +57,11 @@
     "luxon": "^3.7.2"
   },
   "devDependencies": {
-    "@nuxt/test-utils": "^3.21.0",
     "@types/luxon": "^3.7.1",
-    "vitest": "^4.0.16",
     "@nuxt/devtools": "^3.1.1",
     "@nuxt/module-builder": "^1.0.2",
     "@nuxt/schema": "^4.2.2",
-    "@types/node": "^25.0.3",
+    "@types/node": "^25.0.9",
     "nuxt": "^4.2.2",
     "typescript": "^5.8.3",
     "vue-tsc": "^3.1.8"

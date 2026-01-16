@@ -116,6 +116,7 @@ export abstract class AbstractB24 implements TypeB24 {
         status: 500
       })
     }
+
     params = params || {}
     return this.getHttpClient(ApiVersion.v3).call<T>(method, params, requestId)
   }

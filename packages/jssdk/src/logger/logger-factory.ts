@@ -41,6 +41,10 @@ export class LoggerFactory {
     message: string,
     context: Record<string, any>
   ): Promise<void> {
+    if (typeof globalThis !== 'undefined' && 'vitest' in globalThis) {
+      return
+    }
+
     if (logger instanceof NullLogger) {
       switch (action) {
         case 'debug':

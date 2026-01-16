@@ -1,4 +1,4 @@
-import { ParamsFactory, B24Hook, EnumCrmEntityTypeId, ApiVersion, Logger, LogLevel, LineFormatter, ConsoleHandler } from '@bitrix24/b24jssdk'
+import { ParamsFactory, B24Hook, EnumCrmEntityTypeId, ApiVersion, Logger, LogLevel, LineFormatter, ConsoleHandler, Text } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 
 /**
@@ -173,8 +173,8 @@ export default defineCommand({
          *   `{ cmd1: { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } }, cmd2: ['crm.item.get', { entityTypeId: 2, id: 2 }] }`
          */
         const batchCallsAsArray = [
-          ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }],
-          { method: 'crm.item.list', params: { entityTypeId: -1 * EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 11 } } }
+          // ['tasks.task.update', { id: 1, fields: { title: `TEST: [${Text.getDateForLog()}]` } }],
+          { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title', 'siteId'] } }
         ]
         const batchCallsAsObject = {
           cmd1: { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 11 } } },

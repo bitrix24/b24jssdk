@@ -291,6 +291,7 @@ export abstract class AbstractHttp implements TypeHttp {
         return result
       } catch (error: unknown) {
         lastError = this._convertToAjaxError(requestId, error, method, params)
+
         const duration = Date.now() - startTime
 
         this._restrictionManager.incrementError(method)
@@ -401,7 +402,8 @@ export abstract class AbstractHttp implements TypeHttp {
           })
         }
       } else if (responseData.error && typeof responseData.error === 'string') {
-        errorCode = responseData.error
+
+        errorCode = responseData.error !== '0' ? responseData.error : errorCode
         errorDescription = (responseData as TypeDescriptionError)?.error_description ?? errorDescription
       }
     }

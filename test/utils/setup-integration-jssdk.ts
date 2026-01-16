@@ -24,7 +24,8 @@ export function setupB24Client(): B24Hook {
     restrictionParams: ParamsFactory.getDefault()
     // restrictionParams: ParamsFactory.getBatchProcessing()
   })
-  b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24'))
+  // b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24'))
+  b24.setLogger(LoggerFactory.createNullLogger())
 
   return b24
 }

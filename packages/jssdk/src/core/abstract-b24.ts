@@ -1,6 +1,6 @@
 import type { LoggerInterface } from '../logger'
 import type { AjaxResult } from './http/ajax-result'
-import type { IB24BatchOptions, TypeB24 } from '../types/b24'
+import type { CallBatchResult, IB24BatchOptions, TypeB24 } from '../types/b24'
 import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
@@ -543,7 +543,7 @@ export abstract class AbstractB24 implements TypeB24 {
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     optionsOrIsHaltOnError?: IB24BatchOptions | boolean,
     returnAjaxResult?: boolean
-  ): Promise<Result<{ result: Record<string | number, AjaxResult<T>> | AjaxResult<T>[], time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>> {
+  ): Promise<CallBatchResult<T>> {
     let options: IB24BatchOptions
     if (typeof optionsOrIsHaltOnError === 'boolean' || optionsOrIsHaltOnError === undefined) {
       options = {
@@ -678,7 +678,7 @@ export abstract class AbstractB24 implements TypeB24 {
   public async callBatchV3<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: IB24BatchOptions
-  ): Promise<Result<{ result: Record<string | number, AjaxResult<T>> | AjaxResult<T>[], time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>> {
+  ): Promise<CallBatchResult<T>> {
     let opts: IB24BatchOptions
     if (options === undefined) {
       opts = {
@@ -706,7 +706,7 @@ export abstract class AbstractB24 implements TypeB24 {
   public async callBatchV2<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: IB24BatchOptions
-  ): Promise<Result<{ result: Record<string | number, AjaxResult<T>> | AjaxResult<T>[], time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>> {
+  ): Promise<CallBatchResult<T>> {
     let opts: IB24BatchOptions
     if (options === undefined) {
       opts = {
@@ -951,18 +951,6 @@ export abstract class AbstractB24 implements TypeB24 {
 
   public getLogger(): LoggerInterface {
     return this._logger
-  }
-
-  public setLogTag(logTag?: string): void {
-    versionManager.getAllApiVersions().forEach((version) => {
-      this.getHttpClient(version).setLogTag(logTag)
-    })
-  }
-
-  public clearLogTag() {
-    versionManager.getAllApiVersions().forEach((version) => {
-      this.getHttpClient(version).clearLogTag()
-    })
   }
 
   public async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {

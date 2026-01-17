@@ -1,9 +1,7 @@
-import { ParamsFactory, B24Hook, LoggerFactory } from '@bitrix24/b24jssdk'
+import { ParamsFactory, B24Hook, LoggerFactory } from '../../packages/jssdk/src/index'
 
 declare global {
-  // eslint-disable-next-line no-var
   var b24: B24Hook | undefined
-  // eslint-disable-next-line no-var
   var testSetupComplete: boolean | undefined
 }
 
@@ -20,10 +18,12 @@ export function setupB24Client(): B24Hook {
     )
   }
 
+  // @todo fix this
   const b24 = B24Hook.fromWebhookUrl(hookPath, {
     restrictionParams: ParamsFactory.getDefault()
     // restrictionParams: ParamsFactory.getBatchProcessing()
   })
+  // @todo fix this
   // b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24'))
   b24.setLogger(LoggerFactory.createNullLogger())
 

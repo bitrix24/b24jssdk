@@ -143,9 +143,6 @@ export type TypeHttp = {
    */
   reset(): Promise<void>
 
-  setLogTag(logTag?: string): void
-  clearLogTag(): void
-
   /**
    * On|Off warning about client-side query execution
    * @param {boolean} value

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { setupB24Tests } from '../utils/hooks-integration-jssdk'
-import { AjaxError, SdkError } from '@bitrix24/b24jssdk'
+import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
+import { AjaxError, SdkError } from '../../../packages/jssdk/src/'
 
-describe('@apiV3 B24:callMethod', () => {
+describe('core callMethod @apiV2', () => {
   const { getB24Client } = setupB24Tests()
 
   it('server.time @apiV3 @notSupported', async () => {
@@ -88,19 +88,17 @@ describe('@apiV3 B24:callMethod', () => {
       select: ['id', 'title']
     }
     const requestId = `test@apiV3/${method}`
-    try {
-      /**
-       * @todo - this not throw exception
-       */
-      await b24.callV3(method, params, requestId)
-    } catch (error) {
-      if (
-        error instanceof AjaxError
-      ) {
-        expect(error.code).toBe('BITRIX_REST_V3_EXCEPTION_ENTITYNOTFOUNDEXCEPTION')
-      } else {
-        throw error
-      }
-    }
+    /**
+     * @todo - this not throw exception
+     */
+    const response = await b24.callV3(method, params, requestId)
+
+    expect(response.isSuccess).not.toBe(true)
+
+    const result = response.getData().result
+    expect(result).not.toHaveProperty('id')
+
+    const time = response.getData().time
+    expect(time).not.toHaveProperty('operating')
   })
 })

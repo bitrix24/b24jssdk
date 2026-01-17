@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { setupB24Tests } from '../utils/hooks-integration-jssdk'
-import { SdkError } from '@bitrix24/b24jssdk'
+import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
+import { SdkError } from '../../../packages/jssdk/src/'
 
-describe('@apiV2 B24:callMethod', () => {
+describe('core callMethod @apiV2', () => {
   const { getB24Client } = setupB24Tests()
   it('server.time @apiV2', async () => {
     const b24 = getB24Client()

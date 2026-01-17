@@ -38,6 +38,16 @@ export interface IB24BatchOptions extends ICallBatchOptions {
   returnTime?: boolean
 }
 
+export type CallBatchResult<T>
+  = Result<{
+    result: Record<string | number, AjaxResult<T>>
+      | AjaxResult<T>[]
+    time?: PayloadTime
+  }>
+  | Result<Record<string | number, AjaxResult<T>>
+  | AjaxResult<T>[]>
+  | Result<T>
+
 export type TypeB24 = {
   /**
    * @see {https://bitrix24.github.io/b24jssdk/docs/hook/ Js SDK documentation}
@@ -51,9 +61,6 @@ export type TypeB24 = {
   setLogger(logger: LoggerInterface): void
 
   get auth(): AuthActions
-
-  setLogTag(logTag?: string): void
-  clearLogTag(): void
 
   /**
    * Sets the restriction parameters
@@ -82,11 +89,9 @@ export type TypeB24 = {
    *
    * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an API call.
    */
-  callMethod<T = unknown>(
-    method: string,
-    params?: TypeCallParams,
-    requestId?: string
-  ): Promise<AjaxResult<T>>
+  callMethod<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>>
+  callV3<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>>
+  callV2<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>>
 
   /**
    * @deprecate: use callFastListMethod()
@@ -185,10 +190,9 @@ export type TypeB24 = {
    *          - For named commands, an object with keys corresponding to the command names
    *     - May contain a `time` field with execution time information
    */
-  callBatch<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
-    options?: IB24BatchOptions
-  ): Promise<Result<{ result: Record<string | number, AjaxResult<T>> | AjaxResult<T>[], time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>>
+  callBatch<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal, options?: IB24BatchOptions): Promise<CallBatchResult<T>>
+  callBatchV3<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal, options?: IB24BatchOptions): Promise<CallBatchResult<T>>
+  callBatchV2<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal, options?: IB24BatchOptions): Promise<CallBatchResult<T>>
 
   callBatchByChunk(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
@@ -212,10 +216,9 @@ export type TypeB24 = {
    *
    * @returns {Promise<Result<T[]>>} A promise that is resolved by the result of executing all commands.
    */
-  callBatchByChunk<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    options?: ICallBatchOptions
-  ): Promise<Result<T[]>>
+  callBatchByChunk<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal, options?: ICallBatchOptions): Promise<Result<T[]>>
+  callBatchByChunkV3<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal, options?: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'>): Promise<Result<T[]>>
+  callBatchByChunkV2<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal, options?: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'>): Promise<Result<T[]>>
 
   /**
    * Returns Http client for requests

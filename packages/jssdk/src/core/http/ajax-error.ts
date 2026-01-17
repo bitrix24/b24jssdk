@@ -24,6 +24,12 @@ export class AjaxError extends SdkError {
   public readonly requestInfo?: AjaxErrorDetails['requestInfo']
 
   constructor(params: AjaxErrorDetails) {
+    // @todo test this
+    // @memo get from PullClient.loadConfig
+    if (params.code === 'AUTHORIZE_ERROR' || params.code === 'WRONG_AUTH_TYPE') {
+      params.status = 403
+    }
+
     params.description = AjaxError.formatErrorMessage(params)
     super(params)
 

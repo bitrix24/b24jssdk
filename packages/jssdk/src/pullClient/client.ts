@@ -16,7 +16,6 @@ import type { TypeB24 } from '../types/b24'
 import type { AjaxResult } from '../core/http/ajax-result'
 import type { Payload } from '../types/payloads'
 import type { NumberString } from '../types/common'
-import type { AjaxError } from '../core/http/ajax-error'
 
 /**
  * @memo api revision - check module/pull/include.php
@@ -580,7 +579,7 @@ export class PullClient implements ConnectorParent {
     return (this._startingPromise = new Promise((resolve, reject) => {
       this.loadConfig('client_start')
         .then((config) => {
-          this.setConfig(config, allowConfigCaching)
+          this.setConfig(config as TypePullClientConfig, allowConfigCaching)
           this.init()
           this.updateWatch(true)
           this.startCheckConfig()
@@ -833,7 +832,7 @@ export class PullClient implements ConnectorParent {
           }
 
           this._restClient
-            .callMethod('pull.api.user.getLastSeen', params)
+            .callV2('pull.api.user.getLastSeen', params)
             .then((response: AjaxResult) => {
               const data = (
                 response.getData() as Payload<
@@ -1586,10 +1585,7 @@ export class PullClient implements ConnectorParent {
   // endregion ////
 
   // region Config ////
-  /**
-   * @param logTag
-   */
-  private async loadConfig(logTag?: string): Promise<TypePullClientConfig> {
+  private async loadConfig(_logTag?: string): Promise<TypePullClientConfig> {
     if (!this._config) {
       this._config = Object.assign({}, EmptyConfig)
 
@@ -1616,12 +1612,8 @@ export class PullClient implements ConnectorParent {
     }
 
     return new Promise((resolve, reject) => {
-      this._restClient.setLogTag(logTag)
-
       this._restClient
-        .callMethod(this._configGetMethod, {
-          CACHE: 'N'
-        })
+        .callV2(this._configGetMethod, { CACHE: 'N' })
         .then((response) => {
           const data = response.getData().result
 
@@ -1636,19 +1628,7 @@ export class PullClient implements ConnectorParent {
 
           resolve(config)
         })
-        .catch((error) => {
-          if (
-            error?.answerError?.error === 'AUTHORIZE_ERROR'
-            || error?.answerError?.error === 'WRONG_AUTH_TYPE'
-          ) {
-            ;(error as AjaxError).status = 403
-          }
-
-          reject(error)
-        })
-        .finally(() => {
-          this._restClient.clearLogTag()
-        })
+        .catch((error: unknown) => { reject(error) })
     })
   }
 
@@ -2523,9 +2503,7 @@ export class PullClient implements ConnectorParent {
 
         if (watchTags.length > 0) {
           this._restClient
-            .callMethod('pull.watch.extend', {
-              tags: watchTags
-            })
+            .callV2('pull.watch.extend', { tags: watchTags })
             .then((response: AjaxResult) => {
               /**
                * @memo test this

@@ -183,23 +183,17 @@ export class RestrictionManager {
       description: error?.message ?? ''
     }
 
-    // if (error instanceof AxiosError) {
-    //   if (error.response?.data && typeof error.response.data === 'object') {
-    //     const responseData = error.response.data as TypeDescriptionError | TypeDescriptionErrorV3
-    //     if (
-    //       responseData.error
-    //       && typeof responseData.error === 'object'
-    //       && 'code' in responseData.error
-    //     ) {
-    //       answerError.code = responseData.error.code
-    //       answerError.description = responseData.error.message
-    //     } else if (responseData.error && typeof responseData.error === 'string') {
-    //       answerError.code = responseData.error
-    //       answerError.description = (responseData as TypeDescriptionError)?.error_description ?? answerError.description
-    //     }
-    //   }
-    // }
+    return [
+      ...this.exceptionCodeForHard,
+      ...this.exceptionCodeForSoft
+    ].includes(answerError.code)
+    || (answerError.description ?? '').includes('Could not find value for parameter')
+  }
 
+  /**
+   * These exceptions will be thrown
+   */
+  get exceptionCodeForHard(): string[] {
     return [
       'ERR_BAD_REQUEST',
       'JSSDK_UNKNOWN_ERROR', // 'REQUEST_TIMEOUT', 'NETWORK_ERROR',
@@ -209,7 +203,15 @@ export class RestrictionManager {
       'NO_AUTH_FOUND', 'INVALID_REQUEST',
       'OVERLOAD_LIMIT', 'expired_token',
       'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
-      'ERROR_MANIFEST_IS_NOT_AVAILABLE',
+      'ERROR_MANIFEST_IS_NOT_AVAILABLE'
+    ]
+  }
+
+  /**
+   * These exceptions will be thrown into `AjaxResult` as `AjaxError`
+   */
+  get exceptionCodeForSoft(): string[] {
+    return [
       'BITRIX_REST_V3_EXCEPTION_ACCESSDENIEDEXCEPTION',
       'BITRIX_REST_V3_EXCEPTION_INVALIDJSONEXCEPTION',
       'BITRIX_REST_V3_EXCEPTION_INVALIDFILTEREXCEPTION',
@@ -219,8 +221,7 @@ export class RestrictionManager {
       'BITRIX_REST_V3_EXCEPTION_UNKNOWNDTOPROPERTYEXCEPTION',
       'BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION',
       'BITRIX_REST_V3_EXCEPTION_VALIDATION_DTOVALIDATIONEXCEPTION'
-    ].includes(answerError.code)
-    || (answerError.description ?? '').includes('Could not find value for parameter')
+    ]
   }
 
   /**

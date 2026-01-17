@@ -31,7 +31,6 @@ export type AjaxResponse<T = unknown> = {
 
 export type TypePrepareParams = TypeCallParams & {
   data?: Record<string, any>
-  logTag?: string
   auth?: string
 }
 
@@ -50,7 +49,6 @@ export abstract class AbstractHttp implements TypeHttp {
 
   protected _logger: LoggerInterface
 
-  protected _logTag: string = ''
   protected _isClientSideWarning: boolean = false
   protected _clientSideWarningMessage: string = ''
 
@@ -164,16 +162,6 @@ export abstract class AbstractHttp implements TypeHttp {
     this._metrics.lastErrors = []
 
     return this._restrictionManager.reset()
-  }
-  // endregion ////
-
-  // region LogTag ////
-  public setLogTag(logTag?: string): void {
-    this._logTag = logTag ?? ''
-  }
-
-  public clearLogTag(): void {
-    this._logTag = ''
   }
   // endregion ////
 
@@ -316,8 +304,19 @@ export abstract class AbstractHttp implements TypeHttp {
         }
 
         if (attempt + 1 === maxRetries) {
-          // Throw an exception - there will be no more attempts
           this._logAllAttemptsExhausted(requestId, method, attempt + 1, maxRetries)
+        }
+
+        /**
+         * We decide whether to throw an error in `AjaxResult` or throw an exception.
+         */
+        if (this._restrictionManager.exceptionCodeForSoft.includes(lastError.code)) {
+          return this._createAjaxResultWithErrorFromResponse<T>(
+            lastError,
+            requestId,
+            method,
+            params
+          )
         }
         throw lastError
       }
@@ -402,7 +401,6 @@ export abstract class AbstractHttp implements TypeHttp {
           })
         }
       } else if (responseData.error && typeof responseData.error === 'string') {
-
         errorCode = responseData.error !== '0' ? responseData.error : errorCode
         errorDescription = (responseData as TypeDescriptionError)?.error_description ?? errorDescription
       }
@@ -524,6 +522,7 @@ export abstract class AbstractHttp implements TypeHttp {
       return false
     }
 
+    // @todo test this
     return (
       error.status === 401
       && ['expired_token', 'invalid_token'].includes(error.code)
@@ -546,6 +545,24 @@ export abstract class AbstractHttp implements TypeHttp {
     if (response.payload?.time) {
       await this._restrictionManager.updateStats(requestId, method, response.payload.time)
     }
+
+    return result
+  }
+
+  protected _createAjaxResultWithErrorFromResponse<T>(
+    ajaxError: AjaxError,
+    requestId: string,
+    method: string,
+    params: TypeCallParams
+  ): AjaxResult<T> {
+    const result = new AjaxResult<T>({
+      // @todo ! fix this
+      answer: {  },
+      query: { method, params, requestId },
+      status: ajaxError.status
+    })
+
+    result.addError(ajaxError)
 
     return result
   }
@@ -587,10 +604,6 @@ export abstract class AbstractHttp implements TypeHttp {
     params: TypeCallParams
   ): TypePrepareParams {
     const result: TypePrepareParams = { ...params }
-
-    if (this._logTag.length > 0) {
-      result.logTag = this._logTag
-    }
 
     /** @memo we skip auth for hook */
     if (authData.refresh_token !== 'hook') {

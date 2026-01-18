@@ -14,7 +14,7 @@ import { LongPollingConnector } from './long-polling-connector'
 import type { StorageManagerParams, TypePullClientParams, TypePullClientSession, TypeStorageManager, SharedConfigParams, TypeChannelManagerParams, TypeConnector, RpcError, TypePullClientConfig, TypePullMessage, TypeSubscriptionOptions, TypeSubscriptionCommandHandler, TypePullClientEmitConfig, CommandHandlerFunctionV1, CommandHandlerFunctionV2, ConnectorParent, UserStatusCallback, TypePublicIdDescriptor, TypePullClientMessageBatch, TypeChanel, TypeSessionEvent, TypePullClientMessageBody } from '../types/pull'
 import type { TypeB24 } from '../types/b24'
 import type { AjaxResult } from '../core/http/ajax-result'
-import type { Payload } from '../types/payloads'
+import type { SuccessPayload } from '../types/payloads'
 import type { NumberString } from '../types/common'
 
 /**
@@ -835,9 +835,7 @@ export class PullClient implements ConnectorParent {
             .callV2('pull.api.user.getLastSeen', params)
             .then((response: AjaxResult) => {
               const data = (
-                response.getData() as Payload<
-                  Record<NumberString, NumberString>
-                >
+                response.getData() as SuccessPayload<Record<NumberString, NumberString>>
               ).result
               for (const userId in data) {
                 result[Number(userId)] = Number(data[userId])
@@ -1615,7 +1613,7 @@ export class PullClient implements ConnectorParent {
       this._restClient
         .callV2(this._configGetMethod, { CACHE: 'N' })
         .then((response) => {
-          const data = response.getData().result
+          const data = response.getData()!.result
 
           const timeShift = Math.floor(
             (Date.now() - new Date(data.serverTime).getTime()) / 1000
@@ -2508,9 +2506,7 @@ export class PullClient implements ConnectorParent {
               /**
                * @memo test this
                */
-              const updatedTags: NumberString[] = (
-                response.getData() as Payload<NumberString[]>
-              ).result
+              const updatedTags: NumberString[] = (response.getData() as SuccessPayload<NumberString[]>).result
 
               for (const tagId of updatedTags) {
                 this.clearWatch(tagId)

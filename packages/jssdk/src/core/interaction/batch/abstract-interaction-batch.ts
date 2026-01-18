@@ -117,8 +117,8 @@ export abstract class AbstractInteractionBatch {
       parallelDefaultValue: this.parallelDefaultValue,
       restrictionManager: this.restrictionManager,
       status: response.getStatus(),
-      data: responseData.result as BatchPayloadResult<T>,
-      time: responseData.time
+      data: responseData!.result as BatchPayloadResult<T>,
+      time: responseData!.time
     }
 
     const results = await this.processingStrategy.prepareItems<T>(this._commands, responseHelper)

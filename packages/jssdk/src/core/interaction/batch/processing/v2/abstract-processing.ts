@@ -66,8 +66,8 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
         answer: {
           result: (resultData ?? {}) as T,
           error: resultError,
-          total: this._getBatchResultByIndex(responseResult.result_total, index),
-          next: this._getBatchResultByIndex(responseResult.result_next, index),
+          total: Number.parseInt(this._getBatchResultByIndex(responseResult.result_total, index) || '0'),
+          next: Number.parseInt(this._getBatchResultByIndex(responseResult.result_next, index) || '0'),
           time: resultTime!
         },
         query: {

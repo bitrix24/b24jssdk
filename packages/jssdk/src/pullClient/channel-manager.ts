@@ -1,7 +1,7 @@
 import type { AjaxResult } from '../core/http/ajax-result'
 import type { TypeChanel, TypeChannelManagerParams, TypePublicIdDescriptor } from '../types/pull'
 import type { TypeB24 } from '../types/b24'
-import type { Payload } from '../types/payloads'
+import type { SuccessPayload } from '../types/payloads'
 import type { LoggerInterface } from '../logger'
 import { LoggerFactory } from '../logger'
 
@@ -60,8 +60,7 @@ export class ChannelManager {
           users: unknownUsers
         })
         .then((response: AjaxResult) => {
-          const data = (response.getData() as Payload<TypePublicIdDescriptor>)
-            .result
+          const data = (response.getData() as SuccessPayload<TypePublicIdDescriptor>).result
 
           /**
            * @memo test this

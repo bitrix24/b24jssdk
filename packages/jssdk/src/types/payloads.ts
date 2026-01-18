@@ -1,4 +1,5 @@
 import type { ISODate } from './common'
+import type { TypeDescriptionError, TypeDescriptionErrorV3 } from './auth'
 
 export type PayloadTime = {
   readonly start: number
@@ -22,14 +23,17 @@ export type GetPayload<P> = {
   readonly time: PayloadTime
 }
 
+// @todo ! add api3
 export type ListPayload<P> = {
   readonly result: any | P[]
-  readonly error?: string
+  // @todo remove this
+  // readonly error?: string
   readonly total: number
   readonly next?: number
   readonly time: PayloadTime
 }
 
+// @todo ! add api3
 export type BatchPayloadResult<C> = {
   readonly result:
     | { readonly [P in keyof C]?: C[P] }
@@ -53,4 +57,12 @@ export type BatchPayload<C> = {
   readonly time: PayloadTime
 }
 
-export type Payload<P> = GetPayload<P> | ListPayload<P> | BatchPayload<P>
+// @todo ! add api3 tail / add / update and etc
+export type Payload<P>
+  = TypeDescriptionErrorV3
+    | TypeDescriptionError
+    | GetPayload<P>
+    | ListPayload<P>
+    | BatchPayload<P>
+
+export type SuccessPayload<P> = Exclude<Payload<P>, TypeDescriptionErrorV3 | TypeDescriptionError>

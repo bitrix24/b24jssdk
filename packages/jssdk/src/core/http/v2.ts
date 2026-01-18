@@ -101,4 +101,28 @@ export class HttpV2 extends AbstractHttp implements TypeHttp {
     return response
   }
   // endregion ////
+
+  // region Prepare ////
+  /**
+   * @inheritDoc
+   */
+  protected override _prepareMethod(requestId: string, method: string, baseUrl: string): string {
+    const methodUrl = `/${encodeURIComponent(method)}`
+
+    /**
+     * @memo For task methods, skip telemetry
+     * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
+     */
+    if (method.includes('task.')) {
+      return `${baseUrl}${methodUrl}`
+    }
+
+    const queryParams = new URLSearchParams({
+      [this._requestIdGenerator.getQueryStringParameterName()]: requestId,
+      [this._requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
+      [this._requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
+    })
+    return `${baseUrl}${methodUrl}?${queryParams.toString()}`
+  }
+  // endregion ////
 }

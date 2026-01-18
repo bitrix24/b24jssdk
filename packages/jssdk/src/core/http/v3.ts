@@ -100,4 +100,20 @@ export class HttpV3 extends AbstractHttp implements TypeHttp {
     return response
   }
   // endregion ////
+
+  // region Prepare ////
+  /**
+   * @inheritDoc
+   */
+  protected override _prepareMethod(requestId: string, method: string, baseUrl: string): string {
+    const methodUrl = `/${encodeURIComponent(method)}`
+
+    const queryParams = new URLSearchParams({
+      [this._requestIdGenerator.getQueryStringParameterName()]: requestId,
+      [this._requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
+      [this._requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
+    })
+    return `${baseUrl}${methodUrl}?${queryParams.toString()}`
+  }
+  // endregion ////
 }

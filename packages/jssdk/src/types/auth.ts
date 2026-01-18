@@ -5,12 +5,14 @@ import type { ApiVersion } from './b24'
 
 /**
  * @link https://apidocs.bitrix24.com/api-reference/rest-v3/index.html#structure-of-an-unsuccessful-response
+ *
+ * @todo ! move to packages/jssdk/src/types/payloads.ts
  */
 export type TypeDescriptionErrorV3 = {
   readonly error: {
     code: string
     message: string
-    validation: {
+    validation?: {
       message?: string
       field?: string
       [key: string]: any
@@ -18,6 +20,7 @@ export type TypeDescriptionErrorV3 = {
   }
 }
 
+// @todo ! move to packages/jssdk/src/types/payloads.ts
 export type TypeDescriptionError = {
   readonly error: 'invalid_token' | 'expired_token' | string
   readonly error_description?: string

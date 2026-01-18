@@ -9,10 +9,10 @@ import type {
   ICallBatchResult
 } from '../../types/http'
 import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
-import type { AjaxResultParams } from './ajax-result'
 import type { AuthActions, AuthData, TypeDescriptionError, TypeDescriptionErrorV3 } from '../../types/auth'
 import type { AxiosInstance } from 'axios'
 import type { Result } from '../result'
+import type { SuccessPayload } from '../../types/payloads'
 import axios, { AxiosError } from 'axios'
 import { LoggerFactory } from '../../logger'
 import { RequestIdGenerator } from '../request-id-generator'
@@ -26,7 +26,7 @@ import { ApiVersion } from '../../types/b24'
 
 export type AjaxResponse<T = unknown> = {
   status: number
-  payload: AjaxResultParams<T>
+  payload: SuccessPayload<T>
 }
 
 export type TypePrepareParams = TypeCallParams & {
@@ -245,11 +245,7 @@ export abstract class AbstractHttp implements TypeHttp {
    * @param requestId - Request id
    * @returns Promise with AjaxResult
    */
-  public async call<T = unknown>(
-    method: string,
-    params: TypeCallParams,
-    requestId?: string
-  ): Promise<AjaxResult<T>> {
+  public async call<T = unknown>(method: string, params: TypeCallParams, requestId?: string): Promise<AjaxResult<T>> {
     requestId = requestId ?? this._requestIdGenerator.getRequestId()
     const maxRetries = this._restrictionManager.getParams().maxRetries!
 
@@ -311,12 +307,7 @@ export abstract class AbstractHttp implements TypeHttp {
          * We decide whether to throw an error in `AjaxResult` or throw an exception.
          */
         if (this._restrictionManager.exceptionCodeForSoft.includes(lastError.code)) {
-          return this._createAjaxResultWithErrorFromResponse<T>(
-            lastError,
-            requestId,
-            method,
-            params
-          )
+          return this._createAjaxResultWithErrorFromResponse<T>(lastError, requestId, method, params)
         }
         throw lastError
       }
@@ -331,12 +322,7 @@ export abstract class AbstractHttp implements TypeHttp {
     })
   }
 
-  protected _convertToAjaxError(
-    requestId: string,
-    error: unknown,
-    method: string,
-    params: TypeCallParams
-  ): AjaxError {
+  protected _convertToAjaxError(requestId: string, error: unknown, method: string, params: TypeCallParams): AjaxError {
     if (error instanceof AjaxError) {
       return error
     }
@@ -348,15 +334,10 @@ export abstract class AbstractHttp implements TypeHttp {
     return this._convertUnknownErrorToAjaxError(requestId, error, method, params)
   }
 
-  protected _convertAxiosErrorToAjaxError(
-    requestId: string,
-    error: AxiosError,
-    method: string,
-    params: TypeCallParams
-  ): AjaxError {
-    let errorCode = String(error.code || 'JSSDK_AXIOS_ERROR')
-    let errorDescription = error.message
-    const status = error.response?.status || 0
+  protected _convertAxiosErrorToAjaxError(requestId: string, axiosError: AxiosError, method: string, params: TypeCallParams): AjaxError {
+    let errorCode = `${axiosError.code || 'JSSDK_AXIOS_ERROR'}`
+    let errorDescription = axiosError.message
+    const status = axiosError.response?.status || 0
 
     // Handling network errors
     if (errorCode === 'ERR_NETWORK') {
@@ -365,23 +346,27 @@ export abstract class AbstractHttp implements TypeHttp {
         description: 'Network connection failed',
         status: 0,
         requestInfo: { method, params, requestId },
-        originalError: error
+        originalError: axiosError
       })
     }
 
     // Handling timeout
-    if (errorCode === 'ECONNABORTED' || error.message.includes('timeout')) {
+    if (errorCode === 'ECONNABORTED' || axiosError.message.includes('timeout')) {
       return new AjaxError({
         code: 'REQUEST_TIMEOUT',
         description: 'Request timeout exceeded',
         status: 408,
         requestInfo: { method, params, requestId },
-        originalError: error
+        originalError: axiosError
       })
     }
 
-    if (error.response?.data && typeof error.response.data === 'object') {
-      const responseData = error.response.data as TypeDescriptionError | TypeDescriptionErrorV3
+    /**
+     * @todo make single function
+     * @see AjaxResult.#processErrors()
+     */
+    if (axiosError.response?.data && typeof axiosError.response.data === 'object') {
+      const responseData = axiosError.response.data as TypeDescriptionError | TypeDescriptionErrorV3
       if (
         responseData.error
         && typeof responseData.error === 'object'
@@ -411,16 +396,11 @@ export abstract class AbstractHttp implements TypeHttp {
       description: errorDescription,
       status,
       requestInfo: { method, params, requestId },
-      originalError: error
+      originalError: axiosError
     })
   }
 
-  protected _convertUnknownErrorToAjaxError(
-    requestId: string,
-    error: unknown,
-    method: string,
-    params: TypeCallParams
-  ): AjaxError {
+  protected _convertUnknownErrorToAjaxError(requestId: string, error: unknown, method: string, params: TypeCallParams): AjaxError {
     return new AjaxError({
       code: 'JSSDK_UNKNOWN_ERROR',
       description: error instanceof Error ? error.message : String(error),
@@ -437,18 +417,10 @@ export abstract class AbstractHttp implements TypeHttp {
    * - rate limit check
    * - updating operating statistics
    */
-  protected async _executeSingleCall<T = unknown>(
-    requestId: string,
-    method: string,
-    params: TypeCallParams
-  ): Promise<AjaxResult<T>> {
-    const authData = await this._ensureAuth(requestId)
-
+  protected async _executeSingleCall<T = unknown>(requestId: string, method: string, params: TypeCallParams): Promise<AjaxResult<T>> {
     this._checkClientSideWarning(requestId)
-
+    const authData = await this._ensureAuth(requestId)
     const response = await this._makeRequestWithAuthRetry<T>(requestId, method, params, authData)
-
-    // Create and return the result
     return this._createAjaxResultFromResponse<T>(response, requestId, method, params)
   }
 
@@ -463,12 +435,7 @@ export abstract class AbstractHttp implements TypeHttp {
   }
 
   // Execute the request with 401 error handling
-  protected async _makeRequestWithAuthRetry<T>(
-    requestId: string,
-    method: string,
-    params: TypeCallParams,
-    authData: AuthData
-  ): Promise<AjaxResponse<T>> {
+  protected async _makeRequestWithAuthRetry<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData): Promise<AjaxResponse<T>> {
     try {
       // 4. Apply the rate limit through the manager
       await this._restrictionManager.checkRateLimit(requestId, method)
@@ -488,29 +455,30 @@ export abstract class AbstractHttp implements TypeHttp {
         return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
       }
 
+      // @todo ! api ver3 - remove this
+      if (error instanceof AxiosError) {
+        console.log('response::Success', {
+          status: error.status,
+          response: error?.response?.data
+        })
+      }
+
       throw error
     }
   }
 
-  protected async _makeAxiosRequest<T>(
-    requestId: string,
-    method: string,
-    params: TypeCallParams,
-    authData: AuthData
-  ): Promise<AjaxResponse<T>> {
-    const response = await this._clientAxios.post<AjaxResultParams<T>>(
-      this._prepareMethod(
-        requestId,
-        method,
-        this.getBaseUrl()
-      ),
+  protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData): Promise<AjaxResponse<T>> {
+    const response = await this._clientAxios.post<SuccessPayload<T>>(
+      this._prepareMethod(requestId, method, this.getBaseUrl()),
       this._prepareParams(authData, params)
     )
-    // // @todo ! api ver3
-    // console.log('response', {
-    //   result: response,
-    //   time: response.data.time
-    // })
+
+    // @todo ! api ver3 - remove this
+    console.log('response::Success', {
+      result: response.data.result,
+      time: response.data.time
+    })
+
     return {
       status: response.status,
       payload: response.data
@@ -529,12 +497,7 @@ export abstract class AbstractHttp implements TypeHttp {
     )
   }
 
-  protected async _createAjaxResultFromResponse<T>(
-    response: AjaxResponse<T>,
-    requestId: string,
-    method: string,
-    params: TypeCallParams
-  ): Promise<AjaxResult<T>> {
+  protected async _createAjaxResultFromResponse<T>(response: AjaxResponse<T>, requestId: string, method: string, params: TypeCallParams): Promise<AjaxResult<T>> {
     const result = new AjaxResult<T>({
       answer: response.payload,
       query: { method, params, requestId },
@@ -542,22 +505,27 @@ export abstract class AbstractHttp implements TypeHttp {
     })
 
     // 5. Update operating statistics
-    if (response.payload?.time) {
-      await this._restrictionManager.updateStats(requestId, method, response.payload.time)
+    if (result.isSuccess) {
+      const time = result.getData()?.time
+      await this._restrictionManager.updateStats(requestId, method, time!)
     }
 
     return result
   }
 
-  protected _createAjaxResultWithErrorFromResponse<T>(
-    ajaxError: AjaxError,
-    requestId: string,
-    method: string,
-    params: TypeCallParams
-  ): AjaxResult<T> {
+  /**
+   * This works in conjunction with the AbstractHttp._convertAxiosErrorToAjaxError function
+   *
+   * @todo should be refactored to handle and use only AjaxResult
+   */
+  protected _createAjaxResultWithErrorFromResponse<T>(ajaxError: AjaxError, requestId: string, method: string, params: TypeCallParams): AjaxResult<T> {
     const result = new AjaxResult<T>({
-      // @todo ! fix this
-      answer: {  },
+      answer: {
+        error: {
+          code: ajaxError.code,
+          message: ajaxError.message
+        }
+      },
       query: { method, params, requestId },
       status: ajaxError.status
     })
@@ -573,36 +541,12 @@ export abstract class AbstractHttp implements TypeHttp {
   /**
    * Makes the function name safe and adds JSON format
    */
-  protected _prepareMethod(
-    requestId: string,
-    method: string,
-    baseUrl: string
-  ): string {
-    const methodUrl = `/${encodeURIComponent(method)}`
-
-    /**
-     * @memo For task methods, skip telemetry
-     * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
-     */
-    if (method.includes('task.')) {
-      return `${baseUrl}${methodUrl}`
-    }
-
-    const queryParams = new URLSearchParams({
-      [this._requestIdGenerator.getQueryStringParameterName()]: requestId,
-      [this._requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
-      [this._requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
-    })
-    return `${baseUrl}${methodUrl}?${queryParams.toString()}`
-  }
+  protected abstract _prepareMethod(requestId: string, method: string, baseUrl: string): string
 
   /**
    * Processes function parameters and adds authorization
    */
-  protected _prepareParams(
-    authData: AuthData,
-    params: TypeCallParams
-  ): TypePrepareParams {
+  protected _prepareParams(authData: AuthData, params: TypeCallParams): TypePrepareParams {
     const result: TypePrepareParams = { ...params }
 
     /** @memo we skip auth for hook */

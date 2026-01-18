@@ -305,12 +305,17 @@ export abstract class AbstractB24 implements TypeB24 {
         isContinue = false
         break
       }
+      const responseData = response.getData()
+      if (!responseData) {
+        isContinue = false
+        break
+      }
 
       let resultData: T[] = []
       if (null === customKeyForResult) {
-        resultData = response.getData().result as T[]
+        resultData = responseData.result as T[]
       } else {
-        resultData = response.getData().result[customKeyForResult] as T[]
+        resultData = responseData.result[customKeyForResult] as T[]
       }
 
       if (resultData.length === 0) {
@@ -434,12 +439,17 @@ export abstract class AbstractB24 implements TypeB24 {
           status: 500
         })
       }
+      const responseData = response.getData()
+      if (!responseData) {
+        isContinue = false
+        break
+      }
 
       let resultData: T[] = []
       if (null === customKeyForResult) {
-        resultData = response.getData().result as T[]
+        resultData = responseData.result as T[]
       } else {
-        resultData = response.getData().result[customKeyForResult] as T[]
+        resultData = responseData.result[customKeyForResult] as T[]
       }
 
       if (resultData.length === 0) {
@@ -661,7 +671,7 @@ export abstract class AbstractB24 implements TypeB24 {
       if (Array.isArray(calls)) {
         const dataResult = []
         for (const [_index, data] of response.getData()!.result!) {
-          dataResult.push(data.getData().result)
+          dataResult.push(data.getData()!.result)
         }
 
         return result.setData(dataResult as T)
@@ -669,7 +679,7 @@ export abstract class AbstractB24 implements TypeB24 {
 
       const dataResult: Record<string, any> = {}
       for (const [index, data] of response.getData()!.result!) {
-        dataResult[index] = data.getData().result
+        dataResult[index] = data.getData()!.result
       }
       return result.setData(dataResult as T)
     }
@@ -785,7 +795,7 @@ export abstract class AbstractB24 implements TypeB24 {
       }
 
       for (const [_index, data] of response.getData()!.result!) {
-        dataResult.push(data.getData().result)
+        dataResult.push(data.getData()!.result)
       }
     }
 

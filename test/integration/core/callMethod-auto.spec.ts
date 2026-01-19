@@ -1,37 +1,29 @@
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
-import { AjaxError, SdkError } from '../../../packages/jssdk/src/'
+import { AjaxError } from '../../../packages/jssdk/src/'
+import type { SdkError } from '../../../packages/jssdk/src/'
 
-describe('core callMethod @apiV3', () => {
+describe('core callMethod @apiAuto isSuccess', () => {
   const { getB24Client, getMapId } = setupB24Tests()
 
-  it('server.time @apiV3 @notSupported', async () => {
+  it('server.time @apiAuto @apiV2', async () => {
     const b24 = getB24Client()
 
     const method = 'server.time'
     const params = {}
-    const requestId = `test@apiV3/${method}`
-    try {
-      // @todo on this
-      const response = await b24.callV3(method, params, requestId)
+    const requestId = `test@apiAuto/${method}`
+    const response = await b24.callMethod(method, params, requestId)
 
-      expect(response.isSuccess).toBe(true)
-      const result = response.getData().result
-      const time = response.getData().time
-      expect(result).toBeDefined()
-      expect(time).toHaveProperty('operating')
-      expect(time.operating).toBeGreaterThanOrEqual(0)
-      expect(time.operating_reset_at).toBeGreaterThanOrEqual(0)
-    } catch (error) {
-      if (!(error instanceof SdkError)) {
-        throw error
-      }
-
-      expect(error.code).toEqual('JSSDK_CORE_B24_API_V3_NOT_SUPPORT_METHOD')
-    }
+    expect(response.isSuccess).toBe(true)
+    const result = response.getData().result
+    const time = response.getData().time
+    expect(result).toBeDefined()
+    expect(time).toHaveProperty('operating')
+    expect(time.operating).toBeGreaterThanOrEqual(0)
+    expect(time.operating_reset_at).toBeGreaterThanOrEqual(0)
   })
 
-  it('tasks.task.get @apiV3 isSuccess', async () => {
+  it('tasks.task.get @apiAuto @apiV3 isSuccess', async () => {
     const b24 = getB24Client()
 
     const method = 'tasks.task.get'
@@ -39,8 +31,8 @@ describe('core callMethod @apiV3', () => {
       id: getMapId().taskSuccess,
       select: ['id', 'title']
     }
-    const requestId = `test@apiV3/${method}`
-    const response = await b24.callV3(method, params, requestId)
+    const requestId = `test@apiAuto/${method}`
+    const response = await b24.callMethod(method, params, requestId)
 
     expect(response.isSuccess).toBe(true)
 
@@ -54,7 +46,7 @@ describe('core callMethod @apiV3', () => {
     expect(time.operating_reset_at).toBeGreaterThan(0)
   })
 
-  it('tasks.task.get @apiV3 !isSuccess fail Id', async () => {
+  it('tasks.task.get @apiAuto @apiV3 !isSuccess fail Id', async () => {
     const b24 = getB24Client()
 
     const method = 'tasks.task.get'
@@ -62,9 +54,9 @@ describe('core callMethod @apiV3', () => {
       id: getMapId().taskFail,
       select: ['id', 'title']
     }
-    const requestId = `test@apiV3/${method}`
+    const requestId = `test@apiAuto/${method}`
     try {
-      await b24.callV3(method, params, requestId)
+      await b24.callMethod(method, params, requestId)
     } catch (error) {
       if (
         error instanceof AjaxError
@@ -76,7 +68,7 @@ describe('core callMethod @apiV3', () => {
     }
   })
 
-  it('tasks.task.get @apiV3 !isSuccess wrong Id', async () => {
+  it('tasks.task.get @apiAuto @apiV3 !isSuccess wrong Id', async () => {
     const b24 = getB24Client()
 
     const method = 'tasks.task.get'
@@ -84,9 +76,9 @@ describe('core callMethod @apiV3', () => {
       id: getMapId().taskWrong,
       select: ['id', 'title']
     }
-    const requestId = `test@apiV3/${method}`
+    const requestId = `test@apiAuto/${method}`
 
-    const response = await b24.callV3(method, params, requestId)
+    const response = await b24.callMethod(method, params, requestId)
 
     expect(response.isSuccess).not.toBe(true)
 

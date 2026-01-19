@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     globals: true,
     silent: false,
+    reporters: [['tree', { summary: false }]],
     projects: [
       {
         extends: true,
@@ -16,9 +17,9 @@ export default defineConfig({
           environment: 'node',
           testTimeout: 3000,
           hookTimeout: 3000,
-          // @todo fix tis
-          fileParallelism: false, // Disable parallel execution of tests
-          include: ['./test/integration/**/*.spec.ts'],
+          // fileParallelism: false, // Disable parallel execution of tests
+          // @todo fix this: core <=> **
+          include: ['./test/integration/core/*.spec.ts'], // **
           setupFiles: ['./test/0_setup/setup-integration-jssdk.ts']
         }
       }

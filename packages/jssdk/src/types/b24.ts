@@ -40,12 +40,11 @@ export interface IB24BatchOptions extends ICallBatchOptions {
 
 export type CallBatchResult<T>
   = Result<{
-    result: Record<string | number, AjaxResult<T>>
-      | AjaxResult<T>[]
+    result: Record<string | number, AjaxResult<T>> | AjaxResult<T>[]
     time?: PayloadTime
   }>
-  | Result<Record<string | number, AjaxResult<T>>
-  | AjaxResult<T>[]>
+  | Result<Record<string | number, AjaxResult<T>>>
+  | Result<AjaxResult<T>[]>
   | Result<T>
 
 export type TypeB24 = {

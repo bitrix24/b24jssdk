@@ -64,8 +64,9 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
 
       const result = new AjaxResult<T>({
         answer: {
+          error: resultError ? (typeof resultError === 'string' ? resultError : resultError.error) : undefined,
+          error_description: resultError ? (typeof resultError === 'string' ? undefined : resultError.error_description) : undefined,
           result: (resultData ?? {}) as T,
-          error: resultError,
           total: Number.parseInt(this._getBatchResultByIndex(responseResult.result_total, index) || '0'),
           next: Number.parseInt(this._getBatchResultByIndex(responseResult.result_next, index) || '0'),
           time: resultTime!
@@ -83,10 +84,12 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
       return
     }
 
-    throw new SdkError({
-      code: 'JSSDK_INTERACTION_BATCH_STRATEGY_V2_EMPTY_COMMAND_RESPONSE',
-      description: `There were difficulties parsing the response for batch { index: ${index}, method: ${command.method} }`,
-      status: 500
-    })
+    if (responseHelper.parallelDefaultValue) {
+      throw new SdkError({
+        code: 'JSSDK_INTERACTION_BATCH_STRATEGY_V2_EMPTY_COMMAND_RESPONSE',
+        description: `There were difficulties parsing the response for batch { index: ${index}, method: ${command.method} }`,
+        status: 500
+      })
+    }
   }
 }

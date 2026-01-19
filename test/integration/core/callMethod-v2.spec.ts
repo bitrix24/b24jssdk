@@ -2,14 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
 import { SdkError } from '../../../packages/jssdk/src/'
 
-describe('core callMethod @apiV2', () => {
-  const { getB24Client } = setupB24Tests()
+describe('core callMethod @apiV2 isSuccess', () => {
+  const { getB24Client, getMapId } = setupB24Tests()
   it('server.time @apiV2', async () => {
     const b24 = getB24Client()
 
     const method = 'server.time'
     const params = {}
-    const requestId = `test@apiV3/${method}`
+    const requestId = `test@apiV2/${method}`
     const response = await b24.callV2(method, params, requestId)
 
     expect(response.isSuccess).toBe(true)
@@ -17,12 +17,12 @@ describe('core callMethod @apiV2', () => {
     expect(response.getData().time).toHaveProperty('operating')
   })
 
-  it('tasks.task.get @apiV2', async () => {
+  it('tasks.task.get @apiV2 isSuccess', async () => {
     const b24 = getB24Client()
 
     const method = 'tasks.task.get'
     const params = {
-      taskId: 1,
+      taskId: getMapId().taskSuccess,
       select: ['ID', 'TITLE']
     }
     const requestId = `test@apiV2/${method}`
@@ -41,12 +41,12 @@ describe('core callMethod @apiV2', () => {
     expect(time.operating_reset_at).toBeGreaterThan(0)
   })
 
-  it('tasks.task.get @apiV2 fail Id', async () => {
+  it('tasks.task.get @apiV2 !isSuccess fail Id', async () => {
     const b24 = getB24Client()
 
     const method = 'tasks.task.get'
     const params = {
-      taskId: -1,
+      taskId: getMapId().taskFail,
       select: ['ID', 'TITLE']
     }
     const requestId = `test@apiV2/${method}`
@@ -63,12 +63,12 @@ describe('core callMethod @apiV2', () => {
     }
   })
 
-  it('tasks.task.get @apiV2 wrong Id', async () => {
+  it('tasks.task.get @apiV2 !isSuccess wrong Id', async () => {
     const b24 = getB24Client()
 
     const method = 'tasks.task.get'
     const params = {
-      taskId: 2,
+      taskId: getMapId().taskWrong,
       select: ['ID', 'TITLE']
     }
     const requestId = `test@apiV2/${method}`

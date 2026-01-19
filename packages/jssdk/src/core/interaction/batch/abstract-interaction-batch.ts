@@ -10,11 +10,12 @@ import type { BatchPayload, BatchPayloadResult, PayloadTime } from '../../../typ
 import type { Result } from '../../result'
 import type { AjaxResult } from '../../http/ajax-result'
 import type { NumberString } from '../../../types/common'
+import type { TypeDescriptionError } from '../../../types/auth'
 import { SdkError } from '../../sdk-error'
 
 export interface BatchResponseData<T = unknown> {
   readonly result?: T[] | Record<string | number, T>
-  readonly result_error?: string[] | Record<string | number, string>
+  readonly result_error?: (string | TypeDescriptionError)[] | Record<string | number, string | TypeDescriptionError>
   readonly result_total?: NumberString[] | Record<string | number, NumberString>
   readonly result_next?: NumberString[] | Record<string | number, NumberString>
   readonly result_time?: PayloadTime[] | Record<string | number, PayloadTime>

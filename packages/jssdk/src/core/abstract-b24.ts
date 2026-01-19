@@ -301,7 +301,9 @@ export abstract class AbstractB24 implements TypeB24 {
           requestId,
           messages: response.getErrorMessages()
         })
-        result.addErrors([...response.getErrors()])
+        for (const [index, error] of response.errors) {
+          result.addError(error, index)
+        }
         isContinue = false
         break
       }
@@ -581,7 +583,9 @@ export abstract class AbstractB24 implements TypeB24 {
             options,
             messages: response.getErrorMessages()
           })
-          result.addErrors([...response.getErrors()])
+          for (const [index, error] of response.errors) {
+            result.addError(error, index)
+          }
         }
 
         const dataResult: AjaxResult<T>[] = []
@@ -607,7 +611,10 @@ export abstract class AbstractB24 implements TypeB24 {
           options,
           messages: response.getErrorMessages()
         })
-        result.addErrors([...response.getErrors()])
+
+        for (const [index, error] of response.errors) {
+          result.addError(error, index)
+        }
       }
 
       const dataResult: Record<string | number, AjaxResult<T>> = {}
@@ -629,7 +636,9 @@ export abstract class AbstractB24 implements TypeB24 {
             options,
             messages: response.getErrorMessages()
           })
-          result.addErrors([...response.getErrors()])
+          for (const [index, error] of response.errors) {
+            result.addError(error, index)
+          }
         }
 
         const dataResult: AjaxResult<T>[] = []
@@ -648,7 +657,9 @@ export abstract class AbstractB24 implements TypeB24 {
           options,
           messages: response.getErrorMessages()
         })
-        result.addErrors([...response.getErrors()])
+        for (const [index, error] of response.errors) {
+          result.addError(error, index)
+        }
       }
 
       const dataResult: Record<string | number, AjaxResult<T>> = {}
@@ -665,13 +676,17 @@ export abstract class AbstractB24 implements TypeB24 {
           options,
           messages: response.getErrorMessages()
         })
-        result.addErrors([...response.getErrors()])
+        for (const [index, error] of response.errors) {
+          result.addError(error, index)
+        }
       }
 
       if (Array.isArray(calls)) {
         const dataResult = []
         for (const [_index, data] of response.getData()!.result!) {
-          dataResult.push(data.getData()!.result)
+          if (data.isSuccess) {
+            dataResult.push(data.getData()!.result)
+          }
         }
 
         return result.setData(dataResult as T)
@@ -679,7 +694,9 @@ export abstract class AbstractB24 implements TypeB24 {
 
       const dataResult: Record<string, any> = {}
       for (const [index, data] of response.getData()!.result!) {
-        dataResult[index] = data.getData()!.result
+        if (data.isSuccess) {
+          dataResult[index] = data.getData()!.result
+        }
       }
       return result.setData(dataResult as T)
     }
@@ -791,7 +808,9 @@ export abstract class AbstractB24 implements TypeB24 {
           options,
           messages: response.getErrorMessages()
         })
-        result.addErrors([...response.getErrors()])
+        for (const [index, error] of response.errors) {
+          result.addError(error, index)
+        }
       }
 
       for (const [_index, data] of response.getData()!.result!) {

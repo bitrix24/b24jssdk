@@ -75,13 +75,18 @@ export abstract class AbstractProcessing implements IProcessingStrategy {
          * However, `batch` is executed without retries, so there will be an immediate error.
          */
 
-        if (responseHelper.parallelDefaultValue && !data.isSuccess) {
-          this._processResponseError<T>(result, ajaxError, `${index}`)
-          dataResult.set(index, data)
-          continue
-        }
+        // @todo fix docs
+        // @memo we not throw ajaxError
+        this._processResponseError<T>(result, ajaxError, `${index}`)
+        dataResult.set(index, data)
 
-        throw ajaxError
+        // if (responseHelper.parallelDefaultValue && !data.isSuccess) {
+        //   this._processResponseError<T>(result, ajaxError, `${index}`)
+        //   dataResult.set(index, data)
+        //   continue
+        // }
+        //
+        // throw ajaxError
       }
 
       dataResult.set(index, data)

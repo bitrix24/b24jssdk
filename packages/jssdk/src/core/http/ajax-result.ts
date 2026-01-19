@@ -35,16 +35,42 @@ type ErrorData = {
 export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResult<Payload<T>> {
   private readonly _status: number
   private readonly _query: AjaxQuery
-  protected override _data: Payload<T>
+  protected override _data: Payload<T> | null | undefined
 
   constructor(options: AjaxResultOptions<T>) {
     super()
 
-    this._data = Object.freeze(options.answer)
+    this._data = options.answer ? Object.freeze(options.answer) : undefined
     this._query = Object.freeze(structuredClone(options.query))
     this._status = options.status
 
     this.#processErrors()
+  }
+
+  override get isSuccess(): boolean {
+    return this.#getIsSuccess()
+  }
+
+  /**
+   * @todo test this predicate
+   */
+  #getIsSuccess(): this is { getData: () => SuccessPayload<T> } {
+    return this._errors.size === 0
+  }
+
+  override getData(): undefined | SuccessPayload<T> {
+    if (!this.isSuccess) {
+      return undefined
+    }
+
+    const payload = this._data as SuccessPayload<T>
+
+    return Object.freeze({
+      result: payload.result,
+      next: 'next' in payload ? payload.next : undefined,
+      total: 'total' in payload ? payload.total : undefined,
+      time: payload.time
+    }) as SuccessPayload<T>
   }
 
   /**
@@ -54,8 +80,9 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * @see AbstractHttp._convertAxiosErrorToAjaxError()
    */
   #processErrors(): void {
-    if (this._data && typeof this._data === 'object') {
+    if (this._data && typeof this._data === 'object' && 'error' in this._data) {
       const responseData = this._data as TypeDescriptionError | TypeDescriptionErrorV3
+
       if (
         responseData.error
         && typeof responseData.error === 'object'
@@ -104,21 +131,6 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
         requestId: this._query.requestId
       }
     })
-  }
-
-  override getData(): undefined | SuccessPayload<T> {
-    if (!this.isSuccess) {
-      return undefined
-    }
-
-    const payload = this._data as SuccessPayload<T>
-
-    return Object.freeze({
-      result: payload.result,
-      next: 'next' in payload ? payload.next : undefined,
-      total: 'total' in payload ? payload.total : undefined,
-      time: payload.time
-    }) as SuccessPayload<T>
   }
 
   /**

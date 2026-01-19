@@ -24,8 +24,8 @@ export function setupB24Client(): B24Hook {
     // restrictionParams: ParamsFactory.getBatchProcessing()
   })
   // @todo fix this
-  b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24'))
-  // b24.setLogger(LoggerFactory.createNullLogger())
+  // b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24'))
+  b24.setLogger(LoggerFactory.createNullLogger())
 
   return b24
 }

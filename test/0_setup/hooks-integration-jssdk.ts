@@ -16,8 +16,21 @@ export const useB24TestHooks = () => {
     b24.destroy()
   })
 
+  function getMapId(): Record<string, number> {
+    return {
+      taskSuccess: 1,
+      taskFail: -1,
+      taskWrong: 2,
+      crmCompanySuccessMin: 2,
+      crmCompanySuccessMax: 11,
+      crmCompanyFail: -1,
+      crmCompanyWrong: 1
+    }
+  }
+
   return {
-    getB24Client
+    getB24Client,
+    getMapId
   }
 }
 

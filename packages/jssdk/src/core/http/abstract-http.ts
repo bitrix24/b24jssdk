@@ -455,26 +455,33 @@ export abstract class AbstractHttp implements TypeHttp {
         return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
       }
 
-      // @todo ! api ver3 - remove this
-      if (error instanceof AxiosError) {
-        console.log('response::Success', {
-          status: error.status,
-          response: error?.response?.data
-        })
-      }
+      // @todo remove this
+      // if (error instanceof AxiosError) {
+      //   console.log('response::Error', {
+      //     status: error.status,
+      //     response: error?.response?.data
+      //   })
+      // }
 
       throw error
     }
   }
 
   protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData): Promise<AjaxResponse<T>> {
+    // @todo ! remove this
+    console.log('response::Success', {
+      step: '0.1.1',
+      method: this._prepareMethod(requestId, method, this.getBaseUrl()),
+      params: this._prepareParams(authData, params)
+    })
     const response = await this._clientAxios.post<SuccessPayload<T>>(
       this._prepareMethod(requestId, method, this.getBaseUrl()),
       this._prepareParams(authData, params)
     )
 
-    // @todo ! api ver3 - remove this
+    // @todo ! remove this
     console.log('response::Success', {
+      step: '0.1.2',
       result: response.data.result,
       time: response.data.time
     })
@@ -490,7 +497,7 @@ export abstract class AbstractHttp implements TypeHttp {
       return false
     }
 
-    // @todo test this
+    // @todo ! test this
     return (
       error.status === 401
       && ['expired_token', 'invalid_token'].includes(error.code)
@@ -515,11 +522,9 @@ export abstract class AbstractHttp implements TypeHttp {
 
   /**
    * This works in conjunction with the AbstractHttp._convertAxiosErrorToAjaxError function
-   *
-   * @todo should be refactored to handle and use only AjaxResult
    */
   protected _createAjaxResultWithErrorFromResponse<T>(ajaxError: AjaxError, requestId: string, method: string, params: TypeCallParams): AjaxResult<T> {
-    const result = new AjaxResult<T>({
+    return new AjaxResult<T>({
       answer: {
         error: {
           code: ajaxError.code,
@@ -529,10 +534,10 @@ export abstract class AbstractHttp implements TypeHttp {
       query: { method, params, requestId },
       status: ajaxError.status
     })
-
-    result.addError(ajaxError)
-
-    return result
+    //
+    // result.addError(ajaxError)
+    //
+    // return result
   }
   // endregion ////
   // endregion ////

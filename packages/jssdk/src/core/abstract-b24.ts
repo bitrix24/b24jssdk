@@ -10,10 +10,8 @@ import type {
   TypeHttp
 } from '../types/http'
 import type { ListPayload } from '../types/payloads'
-import type { AuthActions, AuthData } from '../types/auth'
-import type { AutoRefreshConfig, AutoRefreshStats } from '../types/auth-auto-refresh'
+import type { AuthActions } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
-import { AutoAuthRefresher } from './auto-auth-refresher'
 import { LoggerFactory } from '../logger'
 import { Result } from './result'
 import { SdkError } from './sdk-error'
@@ -32,7 +30,6 @@ export abstract class AbstractB24 implements TypeB24 {
   protected _httpV2: null | TypeHttp = null
   protected _httpV3: null | TypeHttp = null
   protected _logger: LoggerInterface
-  protected _autoAuthRefresher: AutoAuthRefresher | null = null
 
   // region Init ////
   protected constructor() {
@@ -52,9 +49,7 @@ export abstract class AbstractB24 implements TypeB24 {
     return
   }
 
-  public destroy(): void {
-    this.destroyAuthRefresh()
-  }
+  public destroy(): void {}
   // endregion ////
 
   // region Core ////
@@ -942,76 +937,6 @@ export abstract class AbstractB24 implements TypeB24 {
         description: `B24 not initialized`,
         status: 500
       })
-    }
-  }
-  // endregion ////
-
-  // region Auth Auto Refresher ////
-  /**
-   * Sets up automatic renewal of authorization
-   */
-  public setupAuthRefresh(config?: AutoRefreshConfig, logger?: LoggerInterface): AutoAuthRefresher {
-    // We stop the existing one
-    if (this._autoAuthRefresher) {
-      this._autoAuthRefresher.destroy()
-    }
-
-    // Let's create a new one
-    this._autoAuthRefresher = new AutoAuthRefresher(
-      this.auth,
-      {
-        onRefresh: (authData: AuthData) => {
-          this.getLogger().notice('The token has been automatically updated', {
-            domain: authData.domain,
-            expires: authData.expires,
-            expires_in: authData.expires_in
-          })
-        },
-        onError: (error) => {
-          this.getLogger().warning('Automatic token update error', { error })
-        },
-        ...config
-      },
-      logger || this.getLogger()
-    )
-
-    return this._autoAuthRefresher
-  }
-
-  /**
-   * Starts automatic renewal of authorization
-   */
-  public startAuthRefresh(): void {
-    if (!this._autoAuthRefresher) {
-      this.setupAuthRefresh()
-    }
-
-    this._autoAuthRefresher!.start()
-  }
-
-  /**
-   * Stops automatic renewal of authorization
-   */
-  public stopAuthRefresh(): void {
-    if (this._autoAuthRefresher) {
-      this._autoAuthRefresher.stop()
-    }
-  }
-
-  /**
-   * Returns authorization auto-renewal statistics
-   */
-  public getAuthRefreshStats(): AutoRefreshStats | null {
-    return this._autoAuthRefresher?.stats || null
-  }
-
-  /**
-   * Clears auto-renewal authorization resources
-   */
-  public destroyAuthRefresh(): void {
-    if (this._autoAuthRefresher) {
-      this._autoAuthRefresher.destroy()
-      this._autoAuthRefresher = null
     }
   }
   // endregion ////

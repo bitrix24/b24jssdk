@@ -3,7 +3,6 @@ import type { AjaxResult } from '../core/http/ajax-result'
 import type { Result } from '../core/result'
 import type { TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, TypeCallParams } from './http'
 import type { AuthActions } from './auth'
-import type { PayloadTime } from './payloads'
 import type { RestrictionParams } from './limiters'
 
 /**

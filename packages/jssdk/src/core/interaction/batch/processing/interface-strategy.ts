@@ -1,5 +1,5 @@
 import type { BatchCommandV3, ICallBatchResult } from '../../../../types/http'
-import type {BatchPayload, BatchPayloadResult, PayloadTime} from '../../../../types/payloads'
+import type { BatchPayload } from '../../../../types/payloads'
 import type { AjaxResult } from '../../../http/ajax-result'
 import type { RestrictionManager } from '../../../http/limiters/manager'
 import type { Result } from '../../../result'

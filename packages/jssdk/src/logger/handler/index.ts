@@ -1,4 +1,5 @@
 export * from './console-handler'
+export * from './console-v2-handler'
 export * from './memory-handler'
 export * from './stream-handler'
 export * from './consola-adapter'

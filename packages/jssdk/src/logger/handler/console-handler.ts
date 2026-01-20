@@ -11,8 +11,8 @@ export interface ConsoleHandlerOptions extends HandlerOptions {
  * Console Handler
  */
 export class ConsoleHandler extends AbstractHandler implements Handler {
-  private styles: Map<LogLevel, string[]> = new Map()
-  private readonly useStyles: boolean
+  protected _styles: Map<LogLevel, string[]> = new Map()
+  protected readonly _useStyles: boolean
 
   constructor(
     level: LogLevel = LogLevel.DEBUG,
@@ -24,35 +24,35 @@ export class ConsoleHandler extends AbstractHandler implements Handler {
     }
 
     super(level, opts.bubble)
-    this.useStyles = opts.useStyles
+    this._useStyles = opts.useStyles
     this._initStyles()
     this.setFormatter(new LineFormatter())
   }
 
-  private _initStyles(): void {
+  protected _initStyles(): void {
     const style: string = 'color: _color_; background: _bg_; padding: 2px 6px; border-radius: 3px; font-size: 11px;'
 
-    this.styles.set(LogLevel.DEBUG, [
+    this._styles.set(LogLevel.DEBUG, [
       '%cDEBUG',
       style.replace('_color_', '#666666').replace('_bg_', '#F0F0F0')
     ])
-    this.styles.set(LogLevel.INFO, [
+    this._styles.set(LogLevel.INFO, [
       '%cINFO',
       style.replace('_color_', 'white').replace('_bg_', '#2196F3')
     ])
-    this.styles.set(LogLevel.NOTICE, [
+    this._styles.set(LogLevel.NOTICE, [
       '%cNOTICE',
       style.replace('_color_', 'white').replace('_bg_', '#213BF3')
     ])
-    this.styles.set(LogLevel.WARNING, [
+    this._styles.set(LogLevel.WARNING, [
       '%cWARN',
       style.replace('_color_', 'white').replace('_bg_', '#FF9800')
     ])
-    this.styles.set(LogLevel.ERROR, [
+    this._styles.set(LogLevel.ERROR, [
       '%cERROR',
       style.replace('_color_', 'white').replace('_bg_', '#F44336')
     ])
-    this.styles.set(LogLevel.CRITICAL, [
+    this._styles.set(LogLevel.CRITICAL, [
       '%cCRITICAL',
       style.replace('_color_', 'white').replace('_bg_', '#9C27B0')
     ])
@@ -70,21 +70,12 @@ export class ConsoleHandler extends AbstractHandler implements Handler {
       method = 'trace'
     }
 
-    const context = record.context && Object.keys(record.context).length > 0
-      ? record.context
-      : undefined
-    const extra = record.extra && Object.keys(record.extra).length > 0
-      ? record.extra
-      : undefined
-
     const params = []
-    if (this.useStyles && this.styles.has(record.level)) {
-      const style = this.styles.get(record.level)!
+    if (this._useStyles && this._styles.has(record.level)) {
+      const style = this._styles.get(record.level)!
       params.push(style[0], style[1])
     }
     params.push(message)
-    params.push(context)
-    params.push(extra)
     console[method](
       ...params.filter(Boolean)
     )
@@ -92,7 +83,7 @@ export class ConsoleHandler extends AbstractHandler implements Handler {
     return true
   }
 
-  private _getConsoleMethod(level: LogLevel): 'log' | 'info' | 'warn' | 'error' | 'trace' {
+  protected _getConsoleMethod(level: LogLevel): 'log' | 'info' | 'warn' | 'error' | 'trace' {
     switch (level) {
       case LogLevel.INFO:
       case LogLevel.NOTICE:

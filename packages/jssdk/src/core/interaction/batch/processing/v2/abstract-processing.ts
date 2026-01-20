@@ -1,10 +1,11 @@
-import type { BatchCommandV3 } from '../../../../../types/http'
-import type { IProcessingStrategy, ResponseHelper } from '../interface-strategy'
+import type { BatchCommandV3, ICallBatchResult } from '../../../../../types/http'
+import type { IProcessingStrategy, ResponseHelper, ResultItems } from '../interface-strategy'
 import type { BatchResponseData } from '../../abstract-interaction-batch'
 import * as qs from 'qs-esm'
 import { AbstractProcessing } from '../interface-strategy'
 import { SdkError } from '../../../../sdk-error'
 import { AjaxResult } from '../../../../http/ajax-result'
+import { Result } from '../../../../result'
 
 export abstract class AbstractProcessingV2 extends AbstractProcessing implements IProcessingStrategy {
   protected _buildRow(command: BatchCommandV3): string {
@@ -40,13 +41,33 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
     return result
   }
 
+  // region prepareItems ////
+  public override async prepareItems<T>(
+    commands: BatchCommandV3[],
+    responseHelper: ResponseHelper<T>
+  ): Promise<ResultItems<T>> {
+    const results: ResultItems<T> = new Map()
+
+    for (const [index, command] of commands.entries()) {
+      await this._processResponseItem<T>(
+        command,
+        // @memo for apiVer2 in this pace we get objectIndex from `command.as` OR array `index` from `commands[]`
+        command.as ?? index,
+        responseHelper,
+        results
+      )
+    }
+
+    return results
+  }
+
   protected override async _processResponseItem<T>(
     command: BatchCommandV3,
     index: string | number,
     responseHelper: ResponseHelper<T>,
     results: Map<string | number, AjaxResult<T>>
   ): Promise<void> {
-    const responseResult = responseHelper.data as BatchResponseData<T>
+    const responseResult = responseHelper.response.getData()!.result as BatchResponseData<T>
     const resultData = this._getBatchResultByIndex(responseResult.result, index)
     const resultError = this._getBatchResultByIndex(responseResult.result_error, index)
 
@@ -76,7 +97,7 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
           params: command.query || {},
           requestId: responseHelper.requestId
         },
-        status: responseHelper.status
+        status: responseHelper.response.getStatus()
       })
 
       results.set(index, result)
@@ -92,4 +113,46 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
       })
     }
   }
+  // endregion ////
+
+  // region handleResults ////
+  public override async handleResults<T>(_commands: BatchCommandV3[], results: ResultItems<T>, responseHelper: ResponseHelper<T>): Promise<Result<ICallBatchResult<T>>> {
+    const result = new Result<ICallBatchResult<T>>()
+    const dataResult: ResultItems<T> = new Map()
+
+    for (const [index, data] of results) {
+      if (data.getStatus() !== 200 || !data.isSuccess) {
+        const ajaxError = this._createErrorFromAjaxResult(data)
+
+        /*
+         * This should contain code similar to #isOperatingLimitError with a check for
+         * the error 'Method is blocked due to operation time limit.'
+         * However, `batch` is executed without retries, so there will be an immediate error.
+         */
+
+        // @todo fix docs
+        // @memo we not throw ajaxError
+        this._processResponseError<T>(result, ajaxError, `${index}`)
+        dataResult.set(index, data)
+
+        // if (responseHelper.parallelDefaultValue && !data.isSuccess) {
+        //   this._processResponseError<T>(result, ajaxError, `${index}`)
+        //   dataResult.set(index, data)
+        //   continue
+        // }
+        //
+        // throw ajaxError
+      }
+
+      dataResult.set(index, data)
+    }
+
+    result.setData({
+      result: dataResult,
+      time: responseHelper.response.getData()!.time
+    })
+
+    return result
+  }
+  // endregion ////
 }

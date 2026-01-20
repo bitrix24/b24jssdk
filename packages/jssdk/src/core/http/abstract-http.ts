@@ -442,6 +442,16 @@ export abstract class AbstractHttp implements TypeHttp {
 
       return await this._makeAxiosRequest<T>(requestId, method, params, authData)
     } catch (error) {
+      if (error instanceof AxiosError) {
+        this.getLogger().info(
+          `post/catchError`, {
+            requestId,
+            status: error.status,
+            responseData: JSON.stringify(error?.response?.data, null, 0)
+          }
+        )
+      }
+
       // If this is an authorization error (401), then we try to update the token and repeat
       if (this._isAuthError(error)) {
         this._logAuthErrorDetected(requestId)
@@ -455,36 +465,33 @@ export abstract class AbstractHttp implements TypeHttp {
         return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
       }
 
-      // @todo remove this
-      // if (error instanceof AxiosError) {
-      //   console.log('response::Error', {
-      //     status: error.status,
-      //     response: error?.response?.data
-      //   })
-      // }
-
       throw error
     }
   }
 
   protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData): Promise<AjaxResponse<T>> {
-    // @todo ! remove this
-    console.log('response::Success', {
-      step: '0.1.1',
-      method: this._prepareMethod(requestId, method, this.getBaseUrl()),
-      params: this._prepareParams(authData, params)
-    })
-    const response = await this._clientAxios.post<SuccessPayload<T>>(
-      this._prepareMethod(requestId, method, this.getBaseUrl()),
-      this._prepareParams(authData, params)
+    const methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
+
+    const paramsFormatted = this._prepareParams(authData, params)
+
+    this.getLogger().info(
+      `post/send`, {
+        requestId,
+        method: methodFormatted,
+        params: JSON.stringify(paramsFormatted, null, 0)
+      }
     )
 
-    // @todo ! remove this
-    console.log('response::Success', {
-      step: '0.1.2',
-      result: response.data.result,
-      time: response.data.time
-    })
+    const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted)
+
+    this.getLogger().info(
+      `post/response`, {
+        requestId,
+        // responseFull: JSON.stringify(response.data, null, 2),
+        result: JSON.stringify(response.data.result, null, 0),
+        time: JSON.stringify(response.data.time, null, 0)
+      }
+    )
 
     return {
       status: response.status,

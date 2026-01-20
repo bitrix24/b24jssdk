@@ -6,7 +6,7 @@ import type {
   ICallBatchOptions, ICallBatchResult
 } from '../../../types/http'
 import type { RestrictionManager } from '../../http/limiters/manager'
-import type { BatchPayload, BatchPayloadResult, PayloadTime } from '../../../types/payloads'
+import type { BatchPayload, PayloadTime } from '../../../types/payloads'
 import type { Result } from '../../result'
 import type { AjaxResult } from '../../http/ajax-result'
 import type { NumberString } from '../../../types/common'
@@ -103,28 +103,6 @@ export abstract class AbstractInteractionBatch {
   // endregion ////
 
   // region Response ////
-  public async prepareResponse<T>(response: AjaxResult<BatchPayload<T>>): Promise<Result<ICallBatchResult<T>>> {
-    if (!this.processingStrategy) {
-      throw new SdkError({
-        code: 'JSSDK_INTERACTION_BATCH_EMPTY_PROCESSING_STRATEGY',
-        description: 'ProcessingStrategy not set',
-        status: 500
-      })
-    }
-
-    const responseData = response.getData()
-    const responseHelper = {
-      requestId: response.getQuery().requestId,
-      parallelDefaultValue: this.parallelDefaultValue,
-      restrictionManager: this.restrictionManager,
-      status: response.getStatus(),
-      data: responseData!.result as BatchPayloadResult<T>,
-      time: responseData!.time
-    }
-
-    const results = await this.processingStrategy.prepareItems<T>(this._commands, responseHelper)
-
-    return this.processingStrategy.handleResults<T>(results, responseHelper)
-  }
+  public abstract prepareResponse<T>(response: AjaxResult<BatchPayload<T>>): Promise<Result<ICallBatchResult<T>>>
   // endregion ////
 }

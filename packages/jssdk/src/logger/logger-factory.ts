@@ -2,8 +2,7 @@ import type { LoggerInterface } from '../types/logger'
 import { LogLevel } from '../types/logger'
 import { Logger } from './logger'
 import { NullLogger } from './null-logger'
-import { ConsoleHandler } from './handler'
-import { LineFormatter } from './formatter'
+import { ConsoleV2Handler } from './handler'
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class LoggerFactory {
@@ -19,18 +18,16 @@ export class LoggerFactory {
     return LoggerFactory.createForBrowserProduction(channel)
   }
 
-  static createForBrowserDevelopment(channel: string): LoggerInterface {
+  static createForBrowserDevelopment(channel: string, level: LogLevel = LogLevel.DEBUG): LoggerInterface {
     const logger = new Logger(channel)
-    const handler = new ConsoleHandler(LogLevel.DEBUG)
-    handler.setFormatter(new LineFormatter('[{channel}]: {message}'))
+    const handler = new ConsoleV2Handler(level)
     logger.pushHandler(handler)
     return logger
   }
 
-  static createForBrowserProduction(channel: string): LoggerInterface {
+  static createForBrowserProduction(channel: string, level: LogLevel = LogLevel.ERROR): LoggerInterface {
     const logger = new Logger(channel)
-    const handler = new ConsoleHandler(LogLevel.ERROR)
-    handler.setFormatter(new LineFormatter('[{channel}]: {message}'))
+    const handler = new ConsoleV2Handler(level)
     logger.pushHandler(handler)
     return logger
   }

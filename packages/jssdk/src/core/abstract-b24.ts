@@ -5,11 +5,11 @@ import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
   BatchCommandsUniversal,
-  BatchNamedCommandsUniversal,
+  BatchNamedCommandsUniversal, ICallBatchResult,
   TypeCallParams,
   TypeHttp
 } from '../types/http'
-import type { ListPayload, PayloadTime } from '../types/payloads'
+import type { ListPayload } from '../types/payloads'
 import type { AuthActions, AuthData } from '../types/auth'
 import type { AutoRefreshConfig, AutoRefreshStats } from '../types/auth-auto-refresh'
 import type { RestrictionParams } from '../types/limiters'
@@ -556,167 +556,19 @@ export abstract class AbstractB24 implements TypeB24 {
     optionsOrIsHaltOnError?: IB24BatchOptions | boolean,
     returnAjaxResult?: boolean
   ): Promise<CallBatchResult<T>> {
-    let options: IB24BatchOptions
-    if (typeof optionsOrIsHaltOnError === 'boolean' || optionsOrIsHaltOnError === undefined) {
-      options = {
-        isHaltOnError: optionsOrIsHaltOnError ?? true,
-        returnAjaxResult: returnAjaxResult ?? false,
-        returnTime: false
-      }
-    } else {
-      options = optionsOrIsHaltOnError
-    }
-
+    const options = this._normalizeBatchOptions(optionsOrIsHaltOnError, returnAjaxResult)
     options.apiVersion = options.apiVersion ?? versionManager.automaticallyObtainApiVersionForBatch(calls)
 
     const response = await this.getHttpClient(options.apiVersion).batch<T>(calls, options)
-    // @todo fix this ////
-    if (options.returnTime) {
-      if (Array.isArray(calls)) {
-        const result = new Result<{
-          result: AjaxResult<T>[]
-          time?: PayloadTime
-        }>()
-        if (!response.isSuccess) {
-          this.getLogger().error('callBatch', {
-            calls,
-            options,
-            messages: response.getErrorMessages()
-          })
-          for (const [index, error] of response.errors) {
-            result.addError(error, index)
-          }
-        }
 
-        const dataResult: AjaxResult<T>[] = []
-
-        for (const [_index, data] of response.getData()!.result!) {
-          dataResult.push(data)
-        }
-
-        return result.setData({
-          result: dataResult,
-          time: response.getData()?.time
-        })
-      }
-
-      const result = new Result<{
-        result: Record<string | number, AjaxResult<T>>
-        time?: PayloadTime
-      }>()
-
-      if (!response.isSuccess) {
-        this.getLogger().error('callBatch', {
-          calls,
-          options,
-          messages: response.getErrorMessages()
-        })
-
-        for (const [index, error] of response.errors) {
-          result.addError(error, index)
-        }
-      }
-
-      const dataResult: Record<string | number, AjaxResult<T>> = {}
-
-      for (const [index, data] of response.getData()!.result!) {
-        dataResult[index] = data
-      }
-
-      return result.setData({
-        result: dataResult,
-        time: response.getData()?.time
-      })
-    } else if (options.returnAjaxResult) {
-      if (Array.isArray(calls)) {
-        const result = new Result<AjaxResult<T>[]>()
-        if (!response.isSuccess) {
-          this.getLogger().error('callBatch', {
-            calls,
-            options,
-            messages: response.getErrorMessages()
-          })
-          for (const [index, error] of response.errors) {
-            result.addError(error, index)
-          }
-        }
-
-        const dataResult: AjaxResult<T>[] = []
-
-        for (const [_index, data] of response.getData()!.result!) {
-          dataResult.push(data)
-        }
-
-        return result.setData(dataResult)
-      }
-
-      const result = new Result<Record<string | number, AjaxResult<T>>>()
-      if (!response.isSuccess) {
-        this.getLogger().error('callBatch', {
-          calls,
-          options,
-          messages: response.getErrorMessages()
-        })
-        for (const [index, error] of response.errors) {
-          result.addError(error, index)
-        }
-      }
-
-      const dataResult: Record<string | number, AjaxResult<T>> = {}
-
-      for (const [index, data] of response.getData()!.result!) {
-        dataResult[index] = data
-      }
-      return result.setData(dataResult)
-    } else {
-      const result = new Result<T>()
-      if (!response.isSuccess) {
-        this.getLogger().error('callBatch', {
-          calls,
-          options,
-          messages: response.getErrorMessages()
-        })
-        for (const [index, error] of response.errors) {
-          result.addError(error, index)
-        }
-      }
-
-      if (Array.isArray(calls)) {
-        const dataResult = []
-        for (const [_index, data] of response.getData()!.result!) {
-          if (data.isSuccess) {
-            dataResult.push(data.getData()!.result)
-          }
-        }
-
-        return result.setData(dataResult as T)
-      }
-
-      const dataResult: Record<string, any> = {}
-      for (const [index, data] of response.getData()!.result!) {
-        if (data.isSuccess) {
-          dataResult[index] = data.getData()!.result
-        }
-      }
-      return result.setData(dataResult as T)
-    }
+    return this._processBatchResponse<T>(response, calls, options)
   }
 
   public async callBatchV3<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: IB24BatchOptions
   ): Promise<CallBatchResult<T>> {
-    let opts: IB24BatchOptions
-    if (options === undefined) {
-      opts = {
-        isHaltOnError: true,
-        returnAjaxResult: false,
-        returnTime: false
-      }
-    } else {
-      opts = options
-    }
-
+    const opts = this._normalizeBatchOptions(options)
     opts.apiVersion = ApiVersion.v3
 
     if (versionManager.automaticallyObtainApiVersionForBatch(calls) !== opts.apiVersion) {
@@ -734,17 +586,7 @@ export abstract class AbstractB24 implements TypeB24 {
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
     options?: IB24BatchOptions
   ): Promise<CallBatchResult<T>> {
-    let opts: IB24BatchOptions
-    if (options === undefined) {
-      opts = {
-        isHaltOnError: true,
-        returnAjaxResult: false,
-        returnTime: false
-      }
-    } else {
-      opts = options
-    }
-
+    const opts = this._normalizeBatchOptions(options)
     opts.apiVersion = ApiVersion.v2
 
     return this.callBatch<T>(calls, opts)
@@ -782,17 +624,10 @@ export abstract class AbstractB24 implements TypeB24 {
    */
   public async callBatchByChunk<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    optionsOrIsHaltOnError?: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'> | boolean
+    optionsOrIsHaltOnError?: Omit<IB24BatchOptions, 'returnAjaxResult'> | boolean
   ): Promise<Result<T[]>> {
-    let options: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'>
-    if (typeof optionsOrIsHaltOnError === 'boolean' || optionsOrIsHaltOnError === undefined) {
-      options = {
-        isHaltOnError: optionsOrIsHaltOnError ?? true
-      }
-    } else {
-      options = optionsOrIsHaltOnError
-    }
-
+    const options = this._normalizeBatchOptions(optionsOrIsHaltOnError)
+    options.returnAjaxResult = false
     options.apiVersion = options.apiVersion ?? versionManager.automaticallyObtainApiVersionForBatch(calls)
 
     const result = new Result<T[]>()
@@ -804,17 +639,18 @@ export abstract class AbstractB24 implements TypeB24 {
       const response = await this.getHttpClient(options.apiVersion).batch<T[]>(chunkRequest, options)
       if (!response.isSuccess) {
         this.getLogger().error('callBatchByChunk', {
+          messages: response.getErrorMessages(),
           calls,
-          options,
-          messages: response.getErrorMessages()
+          options
         })
-        for (const [index, error] of response.errors) {
-          result.addError(error, index)
-        }
+        this._addBatchErrorsIfAny(response, result)
       }
 
       for (const [_index, data] of response.getData()!.result!) {
-        dataResult.push(data.getData()!.result)
+        // @memo Add only success rows
+        if (data.isSuccess) {
+          dataResult.push(data.getData()!.result)
+        }
       }
     }
 
@@ -823,17 +659,10 @@ export abstract class AbstractB24 implements TypeB24 {
 
   public async callBatchByChunkV3<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    options?: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'>
+    options?: Omit<IB24BatchOptions, 'returnAjaxResult'>
   ): Promise<Result<T[]>> {
-    let opts: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'>
-    if (options === undefined) {
-      opts = {
-        isHaltOnError: true
-      }
-    } else {
-      opts = options
-    }
-
+    const opts = this._normalizeBatchOptions(options)
+    opts.returnAjaxResult = false
     opts.apiVersion = ApiVersion.v3
 
     return this.callBatchByChunk<T>(calls, opts)
@@ -841,17 +670,10 @@ export abstract class AbstractB24 implements TypeB24 {
 
   public async callBatchByChunkV2<T = unknown>(
     calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    options?: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'>
+    options?: Omit<IB24BatchOptions, 'returnAjaxResult'>
   ): Promise<Result<T[]>> {
-    let opts: Omit<IB24BatchOptions, 'returnAjaxResult' | 'returnTime'>
-    if (options === undefined) {
-      opts = {
-        isHaltOnError: true
-      }
-    } else {
-      opts = options
-    }
-
+    const opts = this._normalizeBatchOptions(options)
+    opts.returnAjaxResult = false
     opts.apiVersion = ApiVersion.v2
 
     return this.callBatchByChunk<T>(calls, opts)
@@ -905,6 +727,117 @@ export abstract class AbstractB24 implements TypeB24 {
   // endregion ////
 
   // region Tools ////
+  protected _normalizeBatchOptions(
+    optionsOrIsHaltOnError: IB24BatchOptions | boolean | undefined,
+    returnAjaxResult?: boolean
+  ): IB24BatchOptions {
+    if (typeof optionsOrIsHaltOnError === 'boolean' || optionsOrIsHaltOnError === undefined) {
+      return {
+        isHaltOnError: optionsOrIsHaltOnError ?? true,
+        returnAjaxResult: returnAjaxResult ?? false
+      }
+    }
+    return optionsOrIsHaltOnError
+  }
+
+  protected _addBatchErrorsIfAny(
+    response: Result<ICallBatchResult<any>>,
+    result: Result
+  ): void {
+    if (!response.isSuccess) {
+      for (const [index, error] of response.errors) {
+        result.addError(error, index)
+      }
+    }
+  }
+
+  protected _processBatchResponse<T>(
+    response: Result<ICallBatchResult<T>>,
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
+    options: IB24BatchOptions
+  ): CallBatchResult<T> {
+    const isArrayCall = Array.isArray(calls)
+
+    if (options.returnAjaxResult) {
+      return this._createBatchResultWithAjax<T>(response, isArrayCall)
+    } else {
+      return this._createBatchResultSimple<T>(response, isArrayCall)
+    }
+  }
+
+  // region BatchResultWithAjax ////
+  protected _createBatchResultWithAjax<T>(
+    response: Result<ICallBatchResult<T>>,
+    isArrayCall: boolean
+  ): CallBatchResult<T> {
+    return isArrayCall
+      ? this._createBatchArrayResult<T>(response)
+      : this._createBatchObjectResult<T>(response)
+  }
+
+  protected _createBatchArrayResult<T>(response: Result<ICallBatchResult<T>>): Result<AjaxResult<T>[]> {
+    const result = new Result<AjaxResult<T>[]>()
+    this._addBatchErrorsIfAny(response, result)
+
+    const dataResult: AjaxResult<T>[] = []
+    for (const [_index, data] of response.getData()!.result!) {
+      dataResult.push(data)
+    }
+
+    return result.setData(dataResult)
+  }
+
+  protected _createBatchObjectResult<T>(response: Result<ICallBatchResult<T>>): Result<Record<string | number, AjaxResult<T>>> {
+    const result = new Result<Record<string | number, AjaxResult<T>>>()
+    this._addBatchErrorsIfAny(response, result)
+
+    const dataResult: Record<string | number, any> = {}
+    for (const [index, data] of response.getData()!.result!) {
+      dataResult[index] = data
+    }
+
+    return result.setData(dataResult)
+  }
+  // endregion ////
+
+  // region BatchResultSimple ////
+  protected _createBatchResultSimple<T>(
+    response: Result<ICallBatchResult<T>>,
+    isArrayCall: boolean
+  ): CallBatchResult<T> {
+    const result = new Result<T>()
+    this._addBatchErrorsIfAny(response, result)
+    return result.setData(
+      this._extractBatchSimpleData<T>(response, isArrayCall)
+    )
+  }
+
+  protected _extractBatchSimpleData<T>(
+    response: Result<ICallBatchResult<T>>,
+    isArrayCall: boolean
+  ): T {
+    if (isArrayCall) {
+      const dataResult: any[] = []
+      for (const [_index, data] of response.getData()!.result!) {
+        // @memo Add only success rows
+        if (data.isSuccess) {
+          dataResult.push(data.getData()!.result)
+        }
+      }
+      return dataResult as T
+    } else {
+      const dataResult: Record<string | number, any> = {}
+      for (const [index, data] of response.getData()!.result!) {
+        // @memo Add only success rows
+        if (data.isSuccess) {
+          dataResult[index] = data.getData()!.result
+        }
+      }
+      return dataResult as T
+    }
+  }
+  // endregion ////
+
   public chunkArray<T = unknown>(array: Array<T>, chunkSize: number = 50): T[][] {
     const result: T[][] = []
     for (let i = 0; i < array.length; i += chunkSize) {

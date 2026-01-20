@@ -1,3 +1,4 @@
+// LogLevel
 import { ParamsFactory, B24Hook, LoggerFactory } from '../../packages/jssdk/src/index'
 
 declare global {
@@ -24,7 +25,7 @@ export function setupB24Client(): B24Hook {
     // restrictionParams: ParamsFactory.getBatchProcessing()
   })
   // @todo fix this
-  // b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24'))
+  // b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24', LogLevel.INFO))
   b24.setLogger(LoggerFactory.createNullLogger())
 
   return b24

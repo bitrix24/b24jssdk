@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
-import { AjaxError, SdkError } from '../../../packages/jssdk/src/'
+import { AjaxError, SdkError, Text } from '../../../packages/jssdk/src/'
 
+/**
+ * @todo add test new type functions `Aggregate`, `Tail`
+ */
 describe('core callMethod @apiV3', () => {
   const { getB24Client, getMapId } = setupB24Tests()
 
@@ -96,5 +99,35 @@ describe('core callMethod @apiV3', () => {
 
     const result = response.getData()
     expect(result).toBeUndefined()
+  })
+
+  it('tasks.task.update @apiV3 isSuccess', async () => {
+    const b24 = getB24Client()
+
+    const method = 'tasks.task.update'
+    const params = {
+      id: getMapId().taskSuccess,
+      fields: {
+        title: `TEST: [${Text.getDateForLog()}]`
+      }
+    }
+    const requestId = `test@apiV3/${method}`
+
+    /**
+     * This is the load to see the operating
+     */
+    // await Promise.all(Array.from({ length: 20 }, () => b24.callV3(method, params, requestId)))
+
+    const response = await b24.callV3(method, params, requestId)
+
+    expect(response.isSuccess).toBe(true)
+    const result = response.getData().result
+    const time = response.getData().time
+    expect(result).toBeDefined()
+    expect(result).toHaveProperty('result')
+    expect(result.result).toBeTruthy()
+    expect(time).toHaveProperty('operating')
+    expect(time.operating).toBeGreaterThanOrEqual(0)
+    expect(time.operating_reset_at).toBeGreaterThanOrEqual(0)
   })
 })

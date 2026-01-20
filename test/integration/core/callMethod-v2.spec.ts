@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
 import { SdkError } from '../../../packages/jssdk/src/'
 
-describe('core callMethod @apiV2 isSuccess', () => {
+describe('core callMethod @apiV2', () => {
   const { getB24Client, getMapId } = setupB24Tests()
-  it('server.time @apiV2', async () => {
+  it('server.time @apiV2 isSuccess', async () => {
     const b24 = getB24Client()
 
     const method = 'server.time'

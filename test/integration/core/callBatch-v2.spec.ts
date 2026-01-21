@@ -30,7 +30,6 @@ describe('core callBatch @apiV2', () => {
 
     const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
     expect(resultData.length).toBeGreaterThan(0)
-
     for (const resultRow of resultData) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)

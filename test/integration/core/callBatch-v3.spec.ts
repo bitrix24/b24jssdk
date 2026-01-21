@@ -130,7 +130,6 @@ describe('core callBatch @apiV3', () => {
     // await Promise.all(Array.from({ length: 20 }, () => b24.callV3(batchCalls[0][0], batchCalls[0][1], requestId)))
 
     const response = await b24.callBatchV3<({ id: number } | { result: boolean })[]>(batchCalls, options)
-
     expect(response.isSuccess).toBe(true)
 
     const resultData = (response as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()

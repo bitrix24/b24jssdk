@@ -56,7 +56,7 @@ describe('core callMethod @apiV2', () => {
       if (
         error instanceof SdkError
       ) {
-        expect(error.message).toBe('wrong task id')
+        expect(error.code).toBe('ERR_BAD_REQUEST')
       } else {
         throw error
       }

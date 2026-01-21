@@ -12,7 +12,6 @@ export const useB24TestHooks = () => {
 
   afterAll(() => {
     const b24 = getB24Client()
-    // destroy b24 - this stop AuthRefresh
     b24.destroy()
   })
 

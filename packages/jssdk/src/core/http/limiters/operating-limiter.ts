@@ -211,13 +211,13 @@ export class OperatingLimiter implements ILimiter {
 
   // region Log ////
   #logStat(requestId: string, method: string, percent: number, operating: number) {
-    this.getLogger().info(`${this.getTitle()} detected limit for method ${method}`, {
+    this.getLogger().debug(`${this.getTitle()} detected limit for method ${method}`, {
       requestId,
       method,
       operating: {
         percent: Number.parseFloat(percent.toFixed(2)),
-        current: Number.parseFloat(operating.toFixed(0)),
-        max: this.#config.limitMs
+        current: Number.parseFloat((operating / 1000).toFixed(0)),
+        max: Number.parseFloat((this.#config.limitMs / 1000).toFixed(0))
       }
     })
   }

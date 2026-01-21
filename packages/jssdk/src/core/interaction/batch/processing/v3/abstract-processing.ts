@@ -61,23 +61,27 @@ export abstract class AbstractProcessingV3 extends AbstractProcessing implements
   ): Promise<void> {
     const responseResult = responseHelper.response.getData()!.result as BatchResponseData<T>
     const resultData = this._getBatchResultByIndex((responseResult as T[] | Record<string | number, T> | undefined), index)
+    const methodName = command.method
 
     /**
      * @todo ! api ver3 waite docs - this fake
      */
     const resultError = undefined
+
+    /**
+     * @todo ! api ver3 waite docs - this fake
+     */
+    const resultTime = responseHelper.response.getData()!.time
     // Update operating statistics for each method in the batch
+    if (typeof resultTime !== 'undefined') {
+      await responseHelper.restrictionManager.updateStats(responseHelper.requestId, `batch::${methodName}`, resultTime)
+    }
+
     const result = new AjaxResult<T>({
       answer: {
         result: (resultData ?? {}) as T,
-        /**
-         * @todo ! api ver3 waite docs - this fake
-         */
         error: resultError,
-        /**
-         * @todo ! api ver3 waite docs - this fake
-         */
-        time: responseHelper.response.getData()!.time
+        time: resultTime
       },
       query: {
         method: command.method,

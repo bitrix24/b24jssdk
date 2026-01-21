@@ -421,6 +421,7 @@ export abstract class AbstractHttp implements TypeHttp {
     this._checkClientSideWarning(requestId)
     const authData = await this._ensureAuth(requestId)
     const response = await this._makeRequestWithAuthRetry<T>(requestId, method, params, authData)
+
     return this._createAjaxResultFromResponse<T>(response, requestId, method, params)
   }
 
@@ -473,22 +474,26 @@ export abstract class AbstractHttp implements TypeHttp {
     const methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
 
     const paramsFormatted = this._prepareParams(authData, params)
+    const paramsFormattedForLog = JSON.stringify(paramsFormatted, null, 0)
 
+    const maxLogLength = 300
+    const sliceLogLength = 100
     this.getLogger().info(
       `post/send`, {
         requestId,
         method: methodFormatted,
-        params: JSON.stringify(paramsFormatted, null, 0)
+        params: paramsFormattedForLog.length > maxLogLength ? paramsFormattedForLog.slice(0, sliceLogLength) + '...' : paramsFormattedForLog
       }
     )
 
     const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted)
 
+    const resultFormattedForLog = JSON.stringify(response.data.result, null, 0)
     this.getLogger().info(
       `post/response`, {
         requestId,
         // responseFull: JSON.stringify(response.data, null, 2),
-        result: JSON.stringify(response.data.result, null, 0),
+        result: resultFormattedForLog.length > maxLogLength ? resultFormattedForLog.slice(0, sliceLogLength) + '...' : resultFormattedForLog,
         time: JSON.stringify(response.data.time, null, 0)
       }
     )

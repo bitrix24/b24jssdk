@@ -2,8 +2,7 @@
 import { ParamsFactory, B24Hook, LoggerFactory } from '../../packages/jssdk/src/index'
 
 declare global {
-  var b24: B24Hook | undefined
-  var testSetupComplete: boolean | undefined
+  var b24Integration: B24Hook | undefined
 }
 
 /**
@@ -14,17 +13,12 @@ export function setupB24Client(): B24Hook {
   const hookPath = process.env.B24_HOOK
 
   if (!hookPath) {
-    throw new Error(
-      'B24_HOOK environment variable is not set! Please configure it in your .env.test file'
-    )
+    throw new Error('B24_HOOK environment variable is not set! Please configure it in your .env.test file')
   }
 
-  // @todo fix this
   const b24 = B24Hook.fromWebhookUrl(hookPath, {
     restrictionParams: ParamsFactory.getDefault()
-    // restrictionParams: ParamsFactory.getBatchProcessing()
   })
-  // @todo fix this
   // b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24', LogLevel.INFO))
   b24.setLogger(LoggerFactory.createNullLogger())
 
@@ -36,14 +30,13 @@ export function setupB24Client(): B24Hook {
  * Called once before all tests
  */
 export function setupTestGlobals(): void {
-  if (globalThis.testSetupComplete) {
-    return // Already configured
+  if (
+    typeof globalThis.b24Integration === 'undefined'
+    || !(globalThis.b24Integration instanceof B24Hook)
+  ) {
+    globalThis.b24Integration = setupB24Client()
+    // console.log(`B24 client initialized [${globalThis.b24Integration.getTargetOrigin()}]`)
   }
-
-  globalThis.b24 = setupB24Client()
-  globalThis.testSetupComplete = true
-
-  // console.log('B24 client initialized.')
 }
 
 /**
@@ -51,14 +44,13 @@ export function setupTestGlobals(): void {
  * @throws {Error} If the client is not initialized
  */
 export function getB24Client(): B24Hook {
-  if (!globalThis.b24) {
+  if (!globalThis.b24Integration) {
     throw new Error('B24 client is not initialized. Call setupTestGlobals() first.')
   }
-  return globalThis.b24
+  return globalThis.b24Integration
 }
 
 export default {
-  setupB24Client,
   setupTestGlobals,
   getB24Client
 }

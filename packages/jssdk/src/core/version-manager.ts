@@ -19,7 +19,7 @@ class VersionManager {
      * @see https://apidocs.bitrix24.com/api-reference/rest-v3/index.html#openapi
      */
     this.#supportMethods = [
-      '/batch', // @todo
+      '/batch', // done
       '/scopes', // done
       '/rest.scope.list', // done
       '/rest.documentation.openapi',
@@ -36,7 +36,11 @@ class VersionManager {
       '/tasks.task.add',
       '/tasks.task.get' // done
       // @todo When API.v3 arrives - change in AuthOAuthManager.initIsAdmin()
-      // '/profile'
+      // '/profile' // waite
+      // '/main.message.get' // waite
+      // '/main.chat.update' // waite
+      // '/main.chat.list' // waite
+      // '/main.user.list' // waite
     ]
   }
 

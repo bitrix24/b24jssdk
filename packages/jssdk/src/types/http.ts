@@ -10,11 +10,36 @@ import type { ApiVersion } from './b24'
  */
 
 export type TypeCallParams = {
-  order?: Record<string, string>
+  order?: Record<string, 'ASC' | 'DESC' | 'asc' | 'desc' | string>
   filter?: any
   select?: string[]
   params?: any // @see tasks.task.list
+  /**
+   * Used only in Api:V2
+   */
   start?: number
+  /**
+   * Used only in Api:V3
+   */
+  pagination?: {
+    limit?: number
+    /**
+     * Minimum 1
+     */
+    page?: number
+    /**
+     * You need to use either `page` or `offset`. There's no point in using both.
+     */
+    offset?: number
+  }
+  /**
+   * Used only in Api:V3
+   */
+  cursor?: {
+    field: string
+    value: number
+    order: 'ASC' | 'DESC' | 'asc' | 'desc' | string
+  }
   [key: string]: any
 }
 

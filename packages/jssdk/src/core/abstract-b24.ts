@@ -344,6 +344,75 @@ export abstract class AbstractB24 implements TypeB24 {
   }
 
   /**
+   * @todo ! test this
+   */
+  public async callFastListMethodV3<T = unknown>(
+    method: string,
+    params: Omit<TypeCallParams, 'pagination'> = {},
+    idKey: string = 'id',
+    customKeyForResult: string,
+    requestId?: string,
+    limit?: number
+  ): Promise<Result<T[]>> {
+    const batchSize = limit ?? 50
+    const result: Result<T[]> = new Result()
+    const requestParams: TypeCallParams = {
+      ...params,
+      order: { ...(params['order'] || {}), [idKey]: 'ASC' },
+      filter: [...(params['filter'] || [])],
+      pagination: { page: 0, limit: batchSize }
+    }
+
+    let allItems: T[] = []
+    let isContinue = true
+    let nextId = 0
+    do {
+      const sendParams = { ...requestParams }
+      sendParams.filter.push([idKey, '>', nextId])
+      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, requestId)
+
+      if (!response.isSuccess) {
+        this.getLogger().error('callFastListMethod', { method, requestId, messages: response.getErrorMessages() })
+
+        for (const [index, error] of response.errors) {
+          result.addError(error, index)
+        }
+        isContinue = false
+        break
+      }
+      const responseData = response.getData()
+      if (!responseData) {
+        isContinue = false
+        break
+      }
+
+      const resultData = responseData.result[customKeyForResult] as T[]
+      if (resultData.length === 0) {
+        isContinue = false
+        break
+      }
+
+      allItems = [...allItems, ...resultData]
+
+      if (resultData.length < AbstractB24.batchSize) {
+        isContinue = false
+        break
+      }
+
+      // Update the filter for the next iteration
+      const lastItem = resultData[resultData.length - 1] as Record<string, any>
+      if (lastItem && typeof lastItem[idKey] !== 'undefined') {
+        nextId = Number.parseInt(lastItem[idKey] as string)
+      } else {
+        isContinue = false
+        break
+      }
+    } while (isContinue)
+
+    return result.setData(allItems)
+  }
+
+  /**
    * @inheritDoc
    *
    * @template T - The type of items in the returned arrays (default is `unknown`).
@@ -395,8 +464,6 @@ export abstract class AbstractB24 implements TypeB24 {
    * @see {@link callFastListMethod} For single-call retrieval without pagination
    * @see {@link callMethod} To call arbitrary API methods
    * @see {https://bitrix24.github.io/b24jssdk/docs/hook/methods/fetch-list-method/ Js SDK documentation}
-   *
-   * @todo test option `start` - pagination for ver3
    */
   public async* fetchListMethod<T = unknown>(
     method: string,
@@ -416,22 +483,13 @@ export abstract class AbstractB24 implements TypeB24 {
 
     let isContinue = true
     do {
-      this.getLogger().debug('fetchListMethod', {
-        method,
-        requestId,
-        requestParams
-      })
-      const response: AjaxResult<T> = await this.callMethod<T>(method, requestParams, requestId)
+      const response: AjaxResult<T> = await this.callV2<T>(method, requestParams, requestId)
 
       if (!response.isSuccess) {
-        this.getLogger().error('fetchListMethod', {
-          method,
-          requestId,
-          messages: response.getErrorMessages()
-        })
+        this.getLogger().error('fetchListMethod', { method, requestId, messages: response.getErrorMessages() })
 
         throw new SdkError({
-          code: 'JSSDK_CORE_B24_FETCH_LIST_METHOD',
+          code: 'JSSDK_CORE_B24_FETCH_LIST_METHOD_API_V2',
           description: `API Error: ${response.getErrorMessages().join('; ')}`,
           status: 500
         })
@@ -463,11 +521,73 @@ export abstract class AbstractB24 implements TypeB24 {
 
       // Update the filter for the next iteration
       const lastItem = resultData[resultData.length - 1] as Record<string, any>
-      if (
-        lastItem
-        && typeof lastItem[idKey] !== 'undefined'
-      ) {
+      if (lastItem && typeof lastItem[idKey] !== 'undefined') {
         requestParams.filter[moreIdKey] = Number.parseInt(lastItem[idKey] as string)
+      } else {
+        isContinue = false
+        break
+      }
+    } while (isContinue)
+  }
+
+  /**
+   * @todo ! test this
+   */
+  public async* fetchListMethodV3<T = unknown>(
+    method: string,
+    params: Omit<TypeCallParams, 'pagination'> = {},
+    idKey: string = 'id',
+    customKeyForResult: string,
+    requestId?: string,
+    limit?: number
+  ): AsyncGenerator<T[]> {
+    const batchSize = limit ?? 50
+    const requestParams: TypeCallParams = {
+      ...params,
+      order: { ...(params['order'] || {}), [idKey]: 'ASC' },
+      filter: [...(params['filter'] || [])],
+      pagination: { page: 0, limit: batchSize }
+    }
+
+    let isContinue = true
+    let nextId = 0
+    do {
+      const sendParams = { ...requestParams }
+      sendParams.filter.push([idKey, '>', nextId])
+      const response: AjaxResult<T> = await this.callMethod<T>(method, sendParams, requestId)
+
+      if (!response.isSuccess) {
+        this.getLogger().error('fetchListMethod', { method, requestId, messages: response.getErrorMessages() })
+
+        throw new SdkError({
+          code: 'JSSDK_CORE_B24_FETCH_LIST_METHOD_API_V3',
+          description: `API Error: ${response.getErrorMessages().join('; ')}`,
+          status: 500
+        })
+      }
+      const responseData = response.getData()
+      if (!responseData) {
+        isContinue = false
+        break
+      }
+
+      const resultData: T[] = responseData.result[customKeyForResult] as T[]
+      if (resultData.length === 0) {
+        isContinue = false
+        break
+      }
+
+      yield resultData
+
+      if (resultData.length < batchSize) {
+        isContinue = false
+        break
+      }
+
+      // Update the filter for the next iteration
+      const lastItem = resultData[resultData.length - 1] as Record<string, any>
+      if (lastItem && typeof lastItem[idKey] !== 'undefined') {
+        nextId = Number.parseInt(lastItem[idKey] as string)
       } else {
         isContinue = false
         break

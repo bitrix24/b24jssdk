@@ -23,7 +23,13 @@ export const useB24TestHooks = () => {
       crmCompanySuccessMin: 2,
       crmCompanySuccessMax: 11,
       crmCompanyFail: -1,
-      crmCompanyWrong: 1
+      crmCompanyWrong: 1,
+      // @memo get from `main.eventlog.list`
+      eventLogMessageSuccessV1: 361,
+      eventLogMessageSuccessV2: 359,
+      // @memo this wrong value @see test/integration/core/callBatch-v3.spec.ts:483
+      messageSuccessV1: 1,
+      messageSuccessV2: 2
     }
   }
 

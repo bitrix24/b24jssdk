@@ -4,6 +4,8 @@ import type { Result } from '../core/result'
 import type { TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, TypeCallParams } from './http'
 import type { AuthActions } from './auth'
 import type { RestrictionParams } from './limiters'
+import type { ActionsManager } from '../core/actions/manager'
+import type { ToolsManager } from '../core/tools/manager'
 
 /**
  * @todo docs
@@ -50,6 +52,9 @@ export type TypeB24 = {
 
   get auth(): AuthActions
 
+  get actions(): ActionsManager
+  get tools(): ToolsManager
+
   /**
    * Sets the restriction parameters
    */
@@ -78,75 +83,6 @@ export type TypeB24 = {
    * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an API call.
    */
   callMethod<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>>
-  callV3<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>>
-  callV2<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>>
-
-  /**
-   * @deprecate: use callFastListMethod()
-   */
-  callListMethod(
-    method: string,
-    params?: Omit<TypeCallParams, 'start'>,
-    progress?: null | ((progress: number) => void),
-    customKeyForResult?: string | null
-  ): Promise<Result>
-
-  /**
-   * Fast data retrieval without counting the total number of records.
-   * An optimized version of `callListMethod` that doesn't perform queries
-   * to determine the total number of elements (which can be resource-intensive with large data sets).
-   *
-   * @param {string} method - The name of the REST API method that returns a list of data
-   *     (for example: `crm.item.list`, `tasks.task.list`).
-   * @param {Omit<TypeCallParams, 'start'>} [params] - Request parameters, excluding the `start` parameter,
-   *     since the method is designed to obtain all data in one call.
-   *     - Note: Use `filter`, `order`, and `select` to control the selection.
-   * @param {string} [idKey='ID'] - The name of the field containing the unique identifier of the element.
-   *     Default is 'ID' (uppercase). Alternatively, it can be 'id' (lowercase).
-   *     or another field, depending on the API data structure.
-   * @param {string | null} [customKeyForResult] - A custom key indicating that the result will be
-   *     grouped by this field. If null or omitted, a flat array is returned.
-   *     Example: `items` to group a list of CRM items.
-   * @param {string} [requestId] - Unique request identifier for tracking.
-   *     Used for query deduplication and debugging.
-   *
-   * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an API call.
-   */
-  callFastListMethod<T = unknown>(
-    method: string,
-    params?: Omit<TypeCallParams, 'start'>,
-    idKey?: string,
-    customKeyForResult?: string | null,
-    requestId?: string
-  ): Promise<Result<T[]>>
-
-  /**
-   * Calls a REST service list method and returns an async generator for efficient large data retrieval.
-   * Implements the fast algorithm for iterating over large datasets without loading all data into memory at once.
-   *
-   * @param {string} method - The REST API method name that returns a list (e.g., `crm.item.list`, `tasks.task.list`).
-   * @param {Omit<TypeCallParams, 'start'>} [params] - Request parameters, excluding the `start` parameter,
-   *     since the method is designed to obtain all data in one call.
-   *     - Note: Use `filter`, `order`, and `select` to control the selection.
-   * @param {string} [idKey='ID'] - The name of the field containing the unique identifier of the element.
-   *     Default is 'ID' (uppercase). Alternatively, it can be 'id' (lowercase).
-   *     or another field, depending on the API data structure.
-   * @param {string | null} [customKeyForResult] - A custom key indicating that the result will be
-   *     grouped by this field. If null or omitted, a flat array is returned.
-   *     Example: `items` to group a list of CRM items.
-   * @param {string} [requestId] - Unique request identifier for tracking.
-   *     Used for query deduplication and debugging.
-   *
-   * @returns {AsyncGenerator<T[]>} An async generator that yields chunks of data as arrays of type `T`.
-   *     Each iteration returns the next page/batch of results until all data is fetched.
-   */
-  fetchListMethod<T = unknown>(
-    method: string,
-    params?: Omit<TypeCallParams, 'start'>,
-    idKey?: string,
-    customKeyForResult?: string | null,
-    requestId?: string
-  ): AsyncGenerator<T[]>
 
   callBatch(
     // @deprecated Use the method `callBatch` with the options object
@@ -216,31 +152,4 @@ export type TypeB24 = {
    * Set Http client for requests
    */
   setHttpClient(version: ApiVersion, client: TypeHttp): void
-
-  /**
-   * Checks the availability of the Bitrix24 REST API.
-   * Performs a simple request to the API to verify the service is operational and that the required access rights are present.
-   *
-   * @param {string} [requestId] - Unique request identifier for tracking.
-   *   Used for query deduplication and debugging.
-   *
-   * @returns {Promise<boolean>} Promise that resolves to a Boolean value:
-   *   - `true`: the API is available and responding
-   *   - `false`: the API is unavailable, an error occurred, or the required access rights are missing
-   */
-  healthCheck(requestId?: string): Promise<boolean>
-
-  /**
-   * Measures the response speed of the Bitrix24 REST API.
-   * Performs a test request and returns the response time in milliseconds.
-   * Useful for performance monitoring and diagnosing latency issues.
-   *
-   * @param {string} [requestId] - Unique request identifier for tracking.
-   * Used for query deduplication and debugging.
-   *
-   * @returns {Promise<number>} Promise that resolves to a response time in milliseconds:
-   * - Positive number: time from sending the request to receiving the response
-   * - In case of an error or timeout: `-1`
-   */
-  ping(requestId?: string): Promise<number>
 }

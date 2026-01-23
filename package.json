@@ -27,6 +27,7 @@
     "package-jssdk:test:run": "vitest run --project jsSdk:integration",
     "package-jssdk:test:run-integration-core": "vitest run -t \"core\" --project jsSdk:integration",
     "package-jssdk:test-integration-core": "vitest -t \"core\" --project jsSdk:integration",
+    "package-jssdk:test-integration-core-tools": "vitest -t \"coreTools\" --project jsSdk:integration",
     "package-jssdk:test-integration-core-v3-batch:ref": "vitest -t \"use batch:ref @apiV3\" --project jsSdk:integration",
     "package-jssdk:test:run-underLoad-v3-call": "vitest run -t \"tasksTaskGet @apiV3\" --project jsSdk:underLoad",
     "package-jssdk:test:run-underLoad-v3-batch": "vitest run -t \"TasksTaskGet batch @apiV3\" --project jsSdk:underLoad",

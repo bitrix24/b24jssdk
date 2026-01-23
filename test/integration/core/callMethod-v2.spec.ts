@@ -10,7 +10,7 @@ describe('core callMethod @apiV2', () => {
     const method = 'server.time'
     const params = {}
     const requestId = `test@apiV2/${method}`
-    const response = await b24.callV2(method, params, requestId)
+    const response = await b24.actions.v2.call.make({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
     expect(response.getData().result).toBeDefined()
@@ -26,7 +26,7 @@ describe('core callMethod @apiV2', () => {
       select: ['ID', 'TITLE']
     }
     const requestId = `test@apiV2/${method}`
-    const response = await b24.callV2(method, params, requestId)
+    const response = await b24.actions.v2.call.make({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
 
@@ -51,7 +51,7 @@ describe('core callMethod @apiV2', () => {
     }
     const requestId = `test@apiV2/${method}`
     try {
-      await b24.callV2(method, params, requestId)
+      await b24.actions.v2.call.make({ method, params, requestId })
     } catch (error) {
       if (
         error instanceof SdkError
@@ -72,7 +72,7 @@ describe('core callMethod @apiV2', () => {
       select: ['ID', 'TITLE']
     }
     const requestId = `test@apiV2/${method}`
-    const response = await b24.callV2(method, params, requestId)
+    const response = await b24.actions.v2.call.make({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
 

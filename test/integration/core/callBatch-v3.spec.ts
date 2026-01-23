@@ -8,9 +8,6 @@ import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
 import { AjaxResult, Text } from '../../../packages/jssdk/src/'
 
-/**
- * @todo add test batch inner link
- */
 describe('core callBatch @apiV3', () => {
   const { getB24Client, getMapId } = setupB24Tests()
   it('as BatchCommandsArrayUniversal @apiV3 isSuccess isHaltOnError returnAjax', async () => {

@@ -832,7 +832,10 @@ export class PullClient implements ConnectorParent {
           }
 
           this._restClient
-            .callV2('pull.api.user.getLastSeen', params)
+            .actions.v2.call.make({
+              method: 'pull.api.user.getLastSeen',
+              params
+            })
             .then((response: AjaxResult) => {
               const data = (
                 response.getData() as SuccessPayload<Record<NumberString, NumberString>>
@@ -1611,7 +1614,10 @@ export class PullClient implements ConnectorParent {
 
     return new Promise((resolve, reject) => {
       this._restClient
-        .callV2(this._configGetMethod, { CACHE: 'N' })
+        .actions.v2.call.make({
+          method: this._configGetMethod,
+          params: { CACHE: 'N' }
+        })
         .then((response) => {
           const data = response.getData()!.result
 
@@ -2501,7 +2507,10 @@ export class PullClient implements ConnectorParent {
 
         if (watchTags.length > 0) {
           this._restClient
-            .callV2('pull.watch.extend', { tags: watchTags })
+            .actions.v2.call.make({
+              method: 'pull.watch.extend',
+              params: { tags: watchTags }
+            })
             .then((response: AjaxResult) => {
               /**
                * @memo test this

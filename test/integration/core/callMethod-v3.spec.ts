@@ -16,7 +16,7 @@ describe('core callMethod @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     try {
       // @todo on this
-      const response = await b24.callV3(method, params, requestId)
+      const response = await b24.actions.v3.call.make({ method, params, requestId })
 
       expect(response.isSuccess).toBe(true)
       const result = response.getData().result
@@ -43,7 +43,7 @@ describe('core callMethod @apiV3', () => {
       select: ['id', 'title']
     }
     const requestId = `test@apiV3/${method}`
-    const response = await b24.callV3(method, params, requestId)
+    const response = await b24.actions.v3.call.make({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
 
@@ -67,7 +67,7 @@ describe('core callMethod @apiV3', () => {
     }
     const requestId = `test@apiV3/${method}`
     try {
-      await b24.callV3(method, params, requestId)
+      await b24.actions.v3.call.make({ method, params, requestId })
     } catch (error) {
       if (
         error instanceof AjaxError
@@ -89,7 +89,7 @@ describe('core callMethod @apiV3', () => {
     }
     const requestId = `test@apiV3/${method}`
 
-    const response = await b24.callV3(method, params, requestId)
+    const response = await b24.actions.v3.call.make({ method, params, requestId })
 
     expect(response.isSuccess).not.toBe(true)
 
@@ -118,7 +118,7 @@ describe('core callMethod @apiV3', () => {
      */
     // await Promise.all(Array.from({ length: 20 }, () => b24.callV3(method, params, requestId)))
 
-    const response = await b24.callV3(method, params, requestId)
+    const response = await b24.actions.v3.call.make({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
     const result = response.getData().result

@@ -5,6 +5,8 @@ import { LoggerFactory } from '../../logger'
 import { Ping } from './ping'
 import { HealthCheck } from './healthcheck'
 
+const pingName = Symbol('ping')
+const healthCheckName = Symbol('healthCheck')
 /**
  * Some tools for TypeB24
  * @todo add docs
@@ -31,18 +33,16 @@ export class ToolsManager {
   }
 
   get ping(): Ping {
-    const toolName = Symbol('ping')
-    if (!this._mapTools.has(toolName)) {
-      this._mapTools.set(toolName, new Ping(this._b24, this._logger))
+    if (!this._mapTools.has(pingName)) {
+      this._mapTools.set(pingName, new Ping(this._b24, this._logger))
     }
-    return this._mapTools.get(toolName)! as Ping
+    return this._mapTools.get(pingName)! as Ping
   }
 
   get healthCheck(): HealthCheck {
-    const toolName = Symbol('healthCheck')
-    if (!this._mapTools.has(toolName)) {
-      this._mapTools.set(toolName, new HealthCheck(this._b24, this._logger))
+    if (!this._mapTools.has(healthCheckName)) {
+      this._mapTools.set(healthCheckName, new HealthCheck(this._b24, this._logger))
     }
-    return this._mapTools.get(toolName)! as HealthCheck
+    return this._mapTools.get(healthCheckName)! as HealthCheck
   }
 }

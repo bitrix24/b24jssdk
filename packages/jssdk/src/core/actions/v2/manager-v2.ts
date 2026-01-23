@@ -6,6 +6,10 @@ import { Call } from './call'
 import { CallFastListMethod } from './call-fast-list'
 import { FetchListMethod } from './fetch-list'
 
+const callName = Symbol('call_V2')
+const callFastListMethodName = Symbol('callFastListMethod_V2')
+const fetchListMethodName = Symbol('fetchListMethod_v2')
+
 /**
  * Some actions for TypeB24 by Api:v2
  */
@@ -31,26 +35,23 @@ export class ActionsManagerV2 {
   }
 
   get call(): Call {
-    const toolName = Symbol('call')
-    if (!this._mapActions.has(toolName)) {
-      this._mapActions.set(toolName, new Call(this._b24, this._logger))
+    if (!this._mapActions.has(callName)) {
+      this._mapActions.set(callName, new Call(this._b24, this._logger))
     }
-    return this._mapActions.get(toolName)! as Call
+    return this._mapActions.get(callName)! as Call
   }
 
   get callFastListMethod(): CallFastListMethod {
-    const toolName = Symbol('callFastListMethod')
-    if (!this._mapActions.has(toolName)) {
-      this._mapActions.set(toolName, new CallFastListMethod(this._b24, this._logger))
+    if (!this._mapActions.has(callFastListMethodName)) {
+      this._mapActions.set(callFastListMethodName, new CallFastListMethod(this._b24, this._logger))
     }
-    return this._mapActions.get(toolName)! as CallFastListMethod
+    return this._mapActions.get(callFastListMethodName)! as CallFastListMethod
   }
 
   get fetchListMethod(): FetchListMethod {
-    const toolName = Symbol('fetchListMethod')
-    if (!this._mapActions.has(toolName)) {
-      this._mapActions.set(toolName, new FetchListMethod(this._b24, this._logger))
+    if (!this._mapActions.has(fetchListMethodName)) {
+      this._mapActions.set(fetchListMethodName, new FetchListMethod(this._b24, this._logger))
     }
-    return this._mapActions.get(toolName)! as FetchListMethod
+    return this._mapActions.get(fetchListMethodName)! as FetchListMethod
   }
 }

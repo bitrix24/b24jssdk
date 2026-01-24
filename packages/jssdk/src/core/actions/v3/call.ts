@@ -6,22 +6,48 @@ import { versionManager } from '../../version-manager'
 import { ApiVersion } from '../../../types/b24'
 import { SdkError } from '../../sdk-error'
 
-export type ActionCall = ActionOptions & {
+export type ActionCallV3 = ActionOptions & {
   method: string
   params?: TypeCallParams
   requestId?: string
 }
 
 /**
- * Call by Api:v3
+ * Calls the Bitrix24 REST API method `restApi:v3`
+ *
  * @todo add docs
+ * @todo test example
  */
-export class Call extends AbstractAction {
-  public override async make<T = unknown>(options: ActionCall): Promise<AjaxResult<T>> {
+export class CallV3 extends AbstractAction {
+  /**
+   * Calls the Bitrix24 REST API method.
+   *
+   * @template T - The expected data type in the response (default is `unknown`).
+   *
+   * @param {ActionCallV3} options - parameters for executing the request.
+   *     - `method: string` - REST API method name (eg: `crm.item.get`)
+   *     - `params?: TypeCallParams` - Parameters for calling the method.
+   *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
+   *
+   * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an API call.
+   *
+   * @example
+   * interface TaskItem { id: number, title: string }
+   * const response = await b24.actions.v2.call.make<{ item: TaskItem }>({
+   *   method: 'tasks.task.get',
+   *   params: { id: 123, select: ['id', 'title'] },
+   *   requestId: 'tasks-task-123'
+   * })
+   * if (!response.isSuccess) {
+   *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
+   * }
+   * console.log(response.getData().result.item.title)
+   */
+  public override async make<T = unknown>(options: ActionCallV3): Promise<AjaxResult<T>> {
     if (!versionManager.isSupport(ApiVersion.v3, options.method)) {
       throw new SdkError({
-        code: 'JSSDK_CORE_B24_API_V3_NOT_SUPPORT_METHOD',
-        description: `Api:v3 not support method ${options.method}`,
+        code: 'JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3',
+        description: `restApi:v3 not support method ${options.method}`,
         status: 500
       })
     }

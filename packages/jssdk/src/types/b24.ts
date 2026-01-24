@@ -1,7 +1,7 @@
 import type { LoggerInterface } from './logger'
 import type { AjaxResult } from '../core/http/ajax-result'
 import type { Result } from '../core/result'
-import type { TypeHttp, ICallBatchOptions, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, TypeCallParams } from './http'
+import type { TypeHttp, ICallBatchOptions } from './http'
 import type { AuthActions } from './auth'
 import type { RestrictionParams } from './limiters'
 import type { ActionsManager } from '../core/actions/manager'
@@ -50,9 +50,19 @@ export type TypeB24 = {
   getLogger(): LoggerInterface
   setLogger(logger: LoggerInterface): void
 
+  /**
+   * Returns the AuthActions interface for handling authorization.
+   */
   get auth(): AuthActions
 
+  /**
+   * Returns the ActionsManager interface for working with Bitrix24 methods. Dependent on the REST API version.
+   */
   get actions(): ActionsManager
+
+  /**
+   * Returns the ToolsManager interface for access to Bitrix24 utilities independent of the REST API version.
+   */
   get tools(): ToolsManager
 
   /**
@@ -61,95 +71,79 @@ export type TypeB24 = {
   setRestrictionManagerParams(params: RestrictionParams): Promise<void>
 
   /**
-   * Get the account address BX24 ( https://your_domain.bitrix24.com )
+   * Get the account address Bitrix24 ( `https://your_domain.bitrix24.com` )
    */
   getTargetOrigin(): string
 
   /**
-   * Get the account address BX24 with path
-   *   - ver2 `https://your_domain.bitrix24.com/rest/`
-   *   - ver3` https://your_domain.bitrix24.com/rest/api/`
+   * Get the account address Bitrix24 with path
+   *  - `restApi:v3` `https://your_domain.bitrix24.com/rest/api/`
+   *  - `restApi:v2` `https://your_domain.bitrix24.com/rest/`
    */
   getTargetOriginWithPath(): Map<ApiVersion, string>
 
   /**
    * Calls the Bitrix24 REST API method.
    *
-   * @param {string} method - REST API method name (eg: `crm.item.get`).
-   * @param {TypeCallParams} [params] - Parameters for calling the method.
-   * @param {string} [requestId] - Unique request identifier for tracking.
-   *     Used for query deduplication and debugging.
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link CallV3.make `b24.actions.v3.call.make(options)`}
+   *   - for `restApi:v2` use {@link CallV2.make `b24.actions.v2.call.make(options)`}
    *
-   * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an API call.
+   * @removed 2.0.0
    */
-  callMethod<T = unknown>(method: string, params?: TypeCallParams, requestId?: string): Promise<AjaxResult<T>>
-
-  callBatch(
-    // @deprecated Use the method `callBatch` with the options object
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
-    isHaltOnError?: boolean,
-    returnAjaxResult?: boolean
-  ): Promise<Result>
+  callMethod(method: string, params?: object, start?: number): Promise<AjaxResult>
 
   /**
-   * Executes a batch request to the Bitrix24 REST API with a maximum number of commands of no more than 50.
-   * Allows you to execute multiple requests in a single API call, significantly improving performance.
+   * Calls a Bitrix24 REST API list method to retrieve all data.
    *
-   * @param {BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal} calls - Commands to execute in a batch.
-   *     Supports several formats:
-   *     1. Array of tuples: `[['method1', params1], ['method2', params2], ...]`
-   *     2. Array of objects: `[{method: 'method1', params: params1}, {method: 'method2', params: params2}, ...]`
-   *     3. An object with named commands: `{cmd1: {method: 'method1', params: params1}, cmd2: ['method2', params2], ...}`
-   * @param {IB24BatchOptions} [options] - Additional options for executing a batch request.
-   *     - `isHaltOnError?: boolean` - Whether to stop execution on the first error (default: true)
-   *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging (default: undefined)
-   *     - `returnAjaxResult?: boolean` - Whether to return an AjaxResult object instead of data (default: false)
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link CallListV3.make `b24.actions.v3.callList.make(options)`}
+   *   - for `restApi:v3` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
    *
-   * @returns {Promise<Result<{ result: Record<string | number, AjaxResult<T>> | AjaxResult<T>[], time?: PayloadTime }> | Result<Record<string | number, AjaxResult<T>> | AjaxResult<T>[]> | Result<T>>}
-   *     A promise that is resolved by the result of executing a batch request:
-   *     - On success: a `Result` object with the command execution results
-   *     - The structure of the results depends on the format of the `calls` input data:
-   *          - For an array of commands, an array of results in the same order
-   *          - For named commands, an object with keys corresponding to the command names
-   *     - May contain a `time` field with execution time information
+   * @removed 2.0.0
    */
-  callBatch<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal, options?: IB24BatchOptions): Promise<CallBatchResult<T>>
-  callBatchV3<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal, options?: IB24BatchOptions): Promise<CallBatchResult<T>>
-  callBatchV2<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal, options?: IB24BatchOptions): Promise<CallBatchResult<T>>
-
-  callBatchByChunk(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    // @deprecated Use the method `callBatchByChunk` with the options object
-    isHaltOnError: boolean
-  ): Promise<Result>
+  callListMethod(method: string, params?: object, progress?: null | ((progress: number) => void), customKeyForResult?: string | null): Promise<Result>
 
   /**
-   * Executes a batch request with automatic chunking for any number of commands.
-   * Unlike `callBatch`, which is limited to 50 commands, this method automatically splits
-   * a large set of commands into multiple batches and executes them sequentially.
+   * Calls a Bitrix24 REST API list method and returns an async generator.
    *
-   * @param {BatchCommandsArrayUniversal | BatchCommandsObjectUniversal} calls - Commands to execute.
-   *     Supports two formats:
-   *     1. Array of tuples: `[['method1', params1], ['method2', params2], ...]`
-   *     2. Array of objects: `[{method: 'method1', params: params1}, {method: 'method2', params: params2}, ...]`
-   *     - Note: Named commands are not supported as they are difficult to process when chunking.
-   * @param {ICallBatchOptions} [options] - Additional options for executing a batch request.
-   *     - `isHaltOnError?: boolean` - Whether to stop execution on the first error (default: true)
-   *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging (default: undefined)
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link FetchListV3.make `b24.actions.v3.fetchList.make(options)`}
+   *   - for `restApi:v3` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
    *
-   * @returns {Promise<Result<T[]>>} A promise that is resolved by the result of executing all commands.
+   * @removed 2.0.0
    */
-  callBatchByChunk<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal, options?: ICallBatchOptions): Promise<Result<T[]>>
-  callBatchByChunkV3<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal, options?: Omit<IB24BatchOptions, 'returnAjaxResult'>): Promise<Result<T[]>>
-  callBatchByChunkV2<T = unknown>(calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal, options?: Omit<IB24BatchOptions, 'returnAjaxResult'>): Promise<Result<T[]>>
+  fetchListMethod(method: string, params?: any, idKey?: string, customKeyForResult?: string | null): AsyncGenerator<any[]>
 
   /**
-   * Returns Http client for requests
+   * Executes a batch request to the Bitrix24 REST API
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}
+   *   - for `restApi:v3` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
+   *
+   * @removed 2.0.0
+   */
+  callBatch(calls: Array<any> | object, isHaltOnError?: boolean, returnAjaxResult?: boolean): Promise<Result>
+
+  /**
+   * Executes a batch request to the Bitrix24 REST API with automatic chunking for any number of commands.
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link BatchByChunkV3.make `b24.actions.v3.batchByChunk.make(options)`}
+   *   - for `restApi:v3` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
+   *
+   * @removed 2.0.0
+   */
+  callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result>
+
+  /**
+   * Returns the HTTP client to perform the request.
    */
   getHttpClient(version: ApiVersion): TypeHttp
 
   /**
-   * Set Http client for requests
+   * Set HTTP client
    */
   setHttpClient(version: ApiVersion, client: TypeHttp): void
 }

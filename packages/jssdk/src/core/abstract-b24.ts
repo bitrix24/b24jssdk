@@ -5,15 +5,17 @@ import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
   BatchCommandsUniversal,
-  BatchNamedCommandsUniversal, ICallBatchResult,
+  BatchNamedCommandsUniversal,
   TypeCallParams,
   TypeHttp
 } from '../types/http'
+import type { ListPayload } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
 import { LoggerFactory } from '../logger'
 import { Result } from './result'
 import { SdkError } from './sdk-error'
+import { Type } from '../tools/type'
 import { ApiVersion } from '../types/b24'
 import { versionManager } from './version-manager'
 import { ActionsManager } from './actions/manager'
@@ -82,31 +84,46 @@ export abstract class AbstractB24 implements TypeB24 {
   public abstract getTargetOriginWithPath(): Map<ApiVersion, string>
 
   /**
-   * @inheritDoc
+   * Calls the Bitrix24 REST API method.
    *
-   * @template T - The expected data type in the response (default is `unknown`).
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link CallV3.make `b24.actions.v3.call.make(options)`}
+   *   - for `restApi:v2` use {@link CallV2.make `b24.actions.v2.call.make(options)`}
    *
-   * @example
-   * // Simple call
-   * const response = await b24.callMethod('crm.item.get', { entityTypeId: 3, id: 123 })
-   * if (!response.isSuccess) {
-   *   throw new Error(`Failed to fetch item: ${response.getErrorMessages().join('; ')}`)
-   * }
-   * console.log(response.getData().result.item.name)
-   *
-   * @example
-   * // Call with type
-   * interface CrmItem { id: number, name: string, lastName: string }
-   * const response = await b24.callMethod<{ item: CrmItem[] }>('crm.item.get', { entityTypeId: 3, id: 123 })
-   *
-   * @example
-   * // With request tracking
-   * const response = await b24.callMethod('crm.item.list', { entityTypeId: 3 }, 'contact-list-123')
-   *
-   * @see {https://bitrix24.github.io/b24jssdk/docs/hook/methods/call-method/ Js SDK documentation}
-   * @see {https://apidocs.bitrix24.com/sdk/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html Bitrix24 REST API documentation}
+   * @removed 2.0.0
    */
-  public async callMethod<T = unknown>(
+  public async callMethod(method: string, params?: object, start?: number): Promise<AjaxResult> {
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.callMethod() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.call.make(options) or b24.actions.v2.call.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'callMethod',
+        replacement: 'b24.actions.v3.call.make(options) | b24.actions.v2.call.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
+      }
+    )
+
+    params = params || {}
+    if (
+      !('start' in params)
+      && Number.isInteger(start)
+    ) {
+      (params as any).start = start
+    }
+
+    return this._innerCallMethod(
+      method,
+      params
+    )
+  }
+
+  /**
+   * @removed 2.0.0
+   */
+  protected async _innerCallMethod<T = unknown>(
     method: string,
     params?: TypeCallParams,
     requestId?: string
@@ -120,154 +137,162 @@ export abstract class AbstractB24 implements TypeB24 {
   }
 
   /**
-   * @inheritDoc
+   * Calls a Bitrix24 REST API list method to retrieve all data.
    *
-   * @template T - The data type returned by batch query commands (default is `unknown`)
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link CallListV3.make `b24.actions.v3.callList.make(options)`}
+   *   - for `restApi:v3` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
    *
-   * @example
-   * // Batch query with an array of tuples
-   * const response = await b24.callBatch([
-   *   ['crm.item.get', { entityTypeId: 3, id: 1 }],
-   *   ['crm.item.get', { entityTypeId: 3, id: 2 }],
-   *   ['crm.item.get', { entityTypeId: 3, id: 3 }]
-   * ], { isHaltOnError: true, returnAjaxResult: true })
-   *
-   * if (!response.isSuccess) {
-   *   throw new Error(`Failed: ${response.getErrorMessages().join('; ')}`)
-   * }
-   *
-   * const results = response.getData() // AjaxResult<T>[]
-   * results.forEach((result, index) => {
-   *   if (result.isSuccess) {
-   *    console.log(`Contact ${index + 1}:`, result.getData()?.item)
-   *   }
-   * })
-   *
-   * @example
-   * // Batch request with an array of objects
-   * const response = await b24.callBatch([
-   *   { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } },
-   *   { method: 'crm.item.get', params: { entityTypeId: 3, id: 2 } }
-   * ], { isHaltOnError: true, returnAjaxResult: true })
-   *
-   * @example
-   * // Batch query with named commands
-   * const response = await b24.callBatch({
-   *   Contact: { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } },
-   *   Deal: ['crm.item.get', { entityTypeId: 2, id: 2 }],
-   *   Company: ['crm.item.get', { entityTypeId: 4, id: 3 }]
-   * }, { isHaltOnError: true, returnAjaxResult: true })
-   *
-   * if (!response.isSuccess) {
-   *   throw new Error(`Failed: ${response.getErrorMessages().join('; ')}`)
-   * }
-   *
-   *  const results = response.getData() // Record<string, AjaxResult<T>>
-   *  console.log('Contact:', results.Contact.getData()?.item)
-   *  console.log('Deal:', results.Deal.getData()?.item)
-   *  console.log('Company:', results.Company.getData()?.item)
-   *
-   * @example
-   * // Batch request with types
-   * interface Contact { id: number, name: string }
-   * interface Deal { id: number, title: string }
-   *
-   * const response = await b24.callBatch<{ item: Contact } | { item: Deal }>({
-   *   Contact: ['crm.item.get', { entityTypeId: 3, id: 1 }],
-   *   Deal: ['crm.item.get', { entityTypeId: 2, id: 2 }]
-   * }, { isHaltOnError: true, returnAjaxResult: false })
-   *
-   * @warning The maximum number of commands in one batch request is 50.
-   *     If you need to execute more than 50 commands, you need to split them into several batches.
-   * @note A batch request executes faster than sequential single calls,
-   *     but if one command fails, the entire batch may fail
-   *     (depending on API settings and options).
-   *
-   * @see {https://bitrix24.github.io/b24jssdk/docs/hook/call-batch/ Js SDK documentation}
-   * @see {@link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html Bitrix24 batch query documentation}
-   * @see {@link callMethod} To call arbitrary API methods
-   *
-   * @todo test examples
-   * @todo test results
+   * @removed 2.0.0
    */
-  public async callBatch<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
-    optionsOrIsHaltOnError?: IB24BatchOptions | boolean,
-    returnAjaxResult?: boolean
-  ): Promise<CallBatchResult<T>> {
-    const options = this._normalizeBatchOptions(optionsOrIsHaltOnError, returnAjaxResult)
-    options.apiVersion = options.apiVersion ?? versionManager.automaticallyObtainApiVersionForBatch(calls)
+  public async callListMethod(method: string, params?: object, progress?: null | ((progress: number) => void), customKeyForResult?: string | null): Promise<Result> {
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.callListMethod() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.callList.make(options) or b24.actions.v2.callList.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'callListMethod',
+        replacement: 'b24.actions.v3.callList.make(options) | b24.actions.v2.callList.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
+      }
+    )
 
-    const response = await this.getHttpClient(options.apiVersion).batch<T>(calls, options)
+    const result = new Result()
 
-    return this._processBatchResponse<T>(response, calls, options)
+    if (Type.isFunction(progress) && null !== progress) {
+      progress(0)
+    }
+
+    const sendParams: TypeCallParams = {
+      ...params,
+      start: 0
+    }
+    return this.actions.v2.call.make({
+      method,
+      params: sendParams
+    }).then(async (response) => {
+      let list: any[] = []
+
+      let resultData
+      if (customKeyForResult) {
+        resultData = (response.getData() as ListPayload<any>).result[customKeyForResult] as []
+      } else {
+        resultData = (response.getData() as ListPayload<any>).result as []
+      }
+
+      list = [...list, ...resultData]
+      if (response.isMore()) {
+        let responseLoop: false | AjaxResult = response
+        while (true) {
+          responseLoop = await responseLoop.getNext(this.getHttpClient(ApiVersion.v2))
+
+          if (responseLoop === false) {
+            break
+          }
+
+          let resultData = undefined
+          if (customKeyForResult) {
+            resultData = (responseLoop.getData() as ListPayload<any>).result[customKeyForResult] as []
+          } else {
+            resultData = (responseLoop.getData() as ListPayload<any>).result as []
+          }
+
+          list = [...list, ...resultData]
+
+          if (progress) {
+            const total = responseLoop.getTotal()
+            progress(total > 0 ? Math.round((100 * list.length) / total) : 100)
+          }
+        }
+      }
+
+      result.setData(list)
+      if (progress) {
+        progress(100)
+      }
+
+      return result
+    })
   }
 
-  public async callBatchV3<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
-    options?: IB24BatchOptions
-  ): Promise<CallBatchResult<T>> {
-    const opts = this._normalizeBatchOptions(options)
-    opts.apiVersion = ApiVersion.v3
+  /**
+   * Calls a Bitrix24 REST API list method and returns an async generator.
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link FetchListV3.make `b24.actions.v3.fetchList.make(options)`}
+   *   - for `restApi:v3` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
+   *
+   * @removed 2.0.0
+   */
+  public async* fetchListMethod(method: string, params?: any, idKey?: string, customKeyForResult?: string | null): AsyncGenerator<any[]> {
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.fetchListMethod() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.fetchList.make(options) or b24.actions.v2.fetchList.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'fetchListMethod',
+        replacement: 'b24.actions.v3.fetchList.make(options) | b24.actions.v2.fetchList.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
+      }
+    )
 
-    if (versionManager.automaticallyObtainApiVersionForBatch(calls) !== opts.apiVersion) {
-      throw new SdkError({
-        code: 'JSSDK_CORE_B24_API_V3_NOT_SUPPORT_METHOD_IN_BATCH',
-        description: `Api:v3 not support method ${JSON.stringify(calls)}`,
-        status: 500
+    return this.actions.v2.fetchList.make({
+      method,
+      params,
+      idKey,
+      customKeyForResult: customKeyForResult === null ? undefined : customKeyForResult
+    })
+  }
+
+  /**
+   * Executes a batch request to the Bitrix24 REST API
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}
+   *   - for `restApi:v3` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
+   *
+   * @removed 2.0.0
+   */
+  public async callBatch(calls: Array<any> | object, isHaltOnError?: boolean, returnAjaxResult?: boolean): Promise<Result> {
+    const callsTyped = calls as BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
+
+    const apiVersion = versionManager.automaticallyObtainApiVersionForBatch(callsTyped)
+
+    if (apiVersion === ApiVersion.v3) {
+      return this.actions.v3.batch.make({
+        calls: callsTyped,
+        options: {
+          isHaltOnError: isHaltOnError ?? true,
+          returnAjaxResult: returnAjaxResult ?? false
+        }
       })
     }
 
-    return this.callBatch<T>(calls, opts)
+    return this.actions.v2.batch.make({
+      calls: callsTyped,
+      options: {
+        isHaltOnError: isHaltOnError ?? true,
+        returnAjaxResult: returnAjaxResult ?? false
+      }
+    })
   }
 
   /**
-   * @todo ! move to actions
+   * Executes a batch request to the Bitrix24 REST API with automatic chunking for any number of commands.
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link BatchByChunkV3.make `b24.actions.v3.batchByChunk.make(options)`}
+   *   - for `restApi:v3` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
+   *
+   * @removed 2.0.0
+   *
+   * @todo ! fix this
    */
-  public async callBatchV2<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
-    options?: IB24BatchOptions
-  ): Promise<CallBatchResult<T>> {
-    const opts = this._normalizeBatchOptions(options)
-    opts.apiVersion = ApiVersion.v2
-
-    return this.callBatch<T>(calls, opts)
-  }
-
-  /**
-   * @inheritDoc
-   *
-   * @template T - The data type returned by commands (default: `unknown`)
-   *
-   * @example
-   * // Execute a large number of commands with automatic splitting
-   * const commands = Array.from({ length: 150 }, (_, i) =>
-   *   ['crm.item.get', { entityTypeId: 3, id: i + 1 }]
-   * )
-   *
-   * const response = await b24.callBatchByChunk<Contact>(commands, { isHaltOnError: true, requestId: 'contact-list-123' })
-   *
-   * if (!response.isSuccess) {
-   *   throw new Error(`Failed: ${response.getErrorMessages().join('; ')}`)
-   * }
-   *
-   * const data = response.getData()
-   * const contacts: Contact[] = []
-   * data.forEach((chunkRow: { item: Contact }) => {
-   *   contacts.push(chunkRow.item)
-   * })
-   * console.log(`Successfully retrieved ${contacts.length} contacts`)
-   *
-   * @tip For very large command sets, consider using server-side task queues instead of bulk batch requests.
-   *
-   * @see {https://bitrix24.github.io/b24jssdk/docs/hook/call-batch-by-chunk/ Js SDK documentation}
-   * @see {@link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html Bitrix24 batch query documentation}
-   * @see {@link callBatch} To execute batch queries of up to 50 commands
-   */
-  public async callBatchByChunk<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    optionsOrIsHaltOnError?: Omit<IB24BatchOptions, 'returnAjaxResult'> | boolean
-  ): Promise<Result<T[]>> {
+  public async callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result> {
     const options = this._normalizeBatchOptions(optionsOrIsHaltOnError)
     options.returnAjaxResult = false
     options.apiVersion = options.apiVersion ?? versionManager.automaticallyObtainApiVersionForBatch(calls)
@@ -298,157 +323,9 @@ export abstract class AbstractB24 implements TypeB24 {
 
     return result.setData(dataResult)
   }
-
-  /**
-   * @todo ! move to actions
-   */
-  public async callBatchByChunkV3<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    options?: Omit<IB24BatchOptions, 'returnAjaxResult'>
-  ): Promise<Result<T[]>> {
-    const opts = this._normalizeBatchOptions(options)
-    opts.returnAjaxResult = false
-    opts.apiVersion = ApiVersion.v3
-
-    return this.callBatchByChunk<T>(calls, opts)
-  }
-
-  /**
-   * @todo ! move to actions
-   */
-  public async callBatchByChunkV2<T = unknown>(
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-    options?: Omit<IB24BatchOptions, 'returnAjaxResult'>
-  ): Promise<Result<T[]>> {
-    const opts = this._normalizeBatchOptions(options)
-    opts.returnAjaxResult = false
-    opts.apiVersion = ApiVersion.v2
-
-    return this.callBatchByChunk<T>(calls, opts)
-  }
   // endregion ////
 
   // region Tools ////
-  protected _normalizeBatchOptions(
-    optionsOrIsHaltOnError: IB24BatchOptions | boolean | undefined,
-    returnAjaxResult?: boolean
-  ): IB24BatchOptions {
-    if (typeof optionsOrIsHaltOnError === 'boolean' || optionsOrIsHaltOnError === undefined) {
-      return {
-        isHaltOnError: optionsOrIsHaltOnError ?? true,
-        returnAjaxResult: returnAjaxResult ?? false
-      }
-    }
-    return optionsOrIsHaltOnError
-  }
-
-  protected _addBatchErrorsIfAny(
-    response: Result<ICallBatchResult<any>>,
-    result: Result
-  ): void {
-    if (!response.isSuccess) {
-      for (const [index, error] of response.errors) {
-        result.addError(error, index)
-      }
-    }
-  }
-
-  protected _processBatchResponse<T>(
-    response: Result<ICallBatchResult<T>>,
-    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal,
-    options: IB24BatchOptions
-  ): CallBatchResult<T> {
-    const isArrayCall = Array.isArray(calls)
-
-    if (options.returnAjaxResult) {
-      return this._createBatchResultWithAjax<T>(response, isArrayCall)
-    } else {
-      return this._createBatchResultSimple<T>(response, isArrayCall)
-    }
-  }
-
-  // region BatchResultWithAjax ////
-  protected _createBatchResultWithAjax<T>(
-    response: Result<ICallBatchResult<T>>,
-    isArrayCall: boolean
-  ): CallBatchResult<T> {
-    return isArrayCall
-      ? this._createBatchArrayResult<T>(response)
-      : this._createBatchObjectResult<T>(response)
-  }
-
-  protected _createBatchArrayResult<T>(response: Result<ICallBatchResult<T>>): Result<AjaxResult<T>[]> {
-    const result = new Result<AjaxResult<T>[]>()
-    this._addBatchErrorsIfAny(response, result)
-
-    const dataResult: AjaxResult<T>[] = []
-    for (const [_index, data] of response.getData()!.result!) {
-      dataResult.push(data)
-    }
-
-    return result.setData(dataResult)
-  }
-
-  protected _createBatchObjectResult<T>(response: Result<ICallBatchResult<T>>): Result<Record<string | number, AjaxResult<T>>> {
-    const result = new Result<Record<string | number, AjaxResult<T>>>()
-    this._addBatchErrorsIfAny(response, result)
-
-    const dataResult: Record<string | number, any> = {}
-    for (const [index, data] of response.getData()!.result!) {
-      dataResult[index] = data
-    }
-
-    return result.setData(dataResult)
-  }
-  // endregion ////
-
-  // region BatchResultSimple ////
-  protected _createBatchResultSimple<T>(
-    response: Result<ICallBatchResult<T>>,
-    isArrayCall: boolean
-  ): CallBatchResult<T> {
-    const result = new Result<T>()
-    this._addBatchErrorsIfAny(response, result)
-    return result.setData(
-      this._extractBatchSimpleData<T>(response, isArrayCall)
-    )
-  }
-
-  protected _extractBatchSimpleData<T>(
-    response: Result<ICallBatchResult<T>>,
-    isArrayCall: boolean
-  ): T {
-    if (isArrayCall) {
-      const dataResult: any[] = []
-      for (const [_index, data] of response.getData()!.result!) {
-        // @memo Add only success rows
-        if (data.isSuccess) {
-          dataResult.push(data.getData()!.result)
-        }
-      }
-      return dataResult as T
-    } else {
-      const dataResult: Record<string | number, any> = {}
-      for (const [index, data] of response.getData()!.result!) {
-        // @memo Add only success rows
-        if (data.isSuccess) {
-          dataResult[index] = data.getData()!.result
-        }
-      }
-      return dataResult as T
-    }
-  }
-  // endregion ////
-
-  public chunkArray<T = unknown>(array: Array<T>, chunkSize: number = 50): T[][] {
-    const result: T[][] = []
-    for (let i = 0; i < array.length; i += chunkSize) {
-      const chunk = array.slice(i, i + chunkSize)
-      result.push(chunk)
-    }
-    return result
-  }
-
   /**
    * @inheritDoc
    *
@@ -520,6 +397,11 @@ export abstract class AbstractB24 implements TypeB24 {
     return this._logger
   }
 
+  /**
+   * @inheritDoc
+   *
+   * @todo fix docs
+   */
   public async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {
     const promises = versionManager.getAllApiVersions().map(version =>
       this.getHttpClient(version).setRestrictionManagerParams(params)

@@ -4,7 +4,7 @@ import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
 
-export type ActionCallFastListMethod = ActionOptions & {
+export type ActionCallListV3 = ActionOptions & {
   method: string
   params?: Omit<TypeCallParams, 'pagination'>
   idKey?: string
@@ -18,8 +18,9 @@ export type ActionCallFastListMethod = ActionOptions & {
  * Fast data retrieval without counting the total number of records.
  *
  * @todo add docs
+ * @todo test
  */
-export class CallFastListMethod extends AbstractAction {
+export class CallListV3 extends AbstractAction {
   /**
    * Fast data retrieval without counting the total number of records.
    * An optimized version of `callListMethod` that doesn't perform queries
@@ -27,7 +28,7 @@ export class CallFastListMethod extends AbstractAction {
    *
    * @todo test
    */
-  public override async make<T = unknown>(options: ActionCallFastListMethod): Promise<Result<T[]>> {
+  public override async make<T = unknown>(options: ActionCallListV3): Promise<Result<T[]>> {
     const batchSize = options?.limit ?? 50
     const result: Result<T[]> = new Result()
 

@@ -4,7 +4,7 @@ import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 
-export type ActionCallFastListMethod = ActionOptions & {
+export type ActionFetchListV3 = ActionOptions & {
   method: string
   params?: Omit<TypeCallParams, 'pagination'>
   idKey?: string
@@ -20,14 +20,14 @@ export type ActionCallFastListMethod = ActionOptions & {
  * @todo add docs
  * @todo add test
  */
-export class FetchListMethod extends AbstractAction {
+export class FetchListV3 extends AbstractAction {
   /**
    * Calls a REST service list method and returns an async generator for efficient large data retrieval.
    * Implements the fast algorithm for iterating over large datasets without loading all data into memory at once.
    *
    * @todo test
    */
-  public override async* make<T = unknown>(options: ActionCallFastListMethod): AsyncGenerator<T[]> {
+  public override async* make<T = unknown>(options: ActionFetchListV3): AsyncGenerator<T[]> {
     const batchSize = options?.limit ?? 50
 
     const idKey = options?.idKey ?? 'id'

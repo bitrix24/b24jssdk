@@ -2,13 +2,17 @@ import type { TypeB24 } from '../../../types/b24'
 import type { LoggerInterface } from '../../../types/logger'
 import type { AbstractAction } from '../abstract-action'
 import { LoggerFactory } from '../../../logger'
-import { Call } from './call'
-import { CallFastListMethod } from './call-fast-list'
-import { FetchListMethod } from './fetch-list'
+import { CallV3 } from './call'
+import { CallListV3 } from './call-list'
+import { FetchListV3 } from './fetch-list'
+import { BatchV3 } from './batch'
+import { BatchByChunkV3 } from './batch-by-chunk'
 
 const callName = Symbol('call_V3')
-const callFastListMethodName = Symbol('callFastListMethod_V3')
-const fetchListMethodName = Symbol('fetchListMethod_v3')
+const callListName = Symbol('callList_V3')
+const fetchListName = Symbol('fetchList_V3')
+const batchName = Symbol('batch_V3')
+const batchByChunkName = Symbol('batchByChunk_V3')
 /**
  * Some actions for TypeB24 by Api:v3
  */
@@ -33,24 +37,38 @@ export class ActionsManagerV3 {
     return this._logger
   }
 
-  get call(): Call {
+  get call(): CallV3 {
     if (!this._mapActions.has(callName)) {
-      this._mapActions.set(callName, new Call(this._b24, this._logger))
+      this._mapActions.set(callName, new CallV3(this._b24, this._logger))
     }
-    return this._mapActions.get(callName)! as Call
+    return this._mapActions.get(callName)! as CallV3
   }
 
-  get callFastListMethod(): CallFastListMethod {
-    if (!this._mapActions.has(callFastListMethodName)) {
-      this._mapActions.set(callFastListMethodName, new CallFastListMethod(this._b24, this._logger))
+  get callList(): CallListV3 {
+    if (!this._mapActions.has(callListName)) {
+      this._mapActions.set(callListName, new CallListV3(this._b24, this._logger))
     }
-    return this._mapActions.get(callFastListMethodName)! as CallFastListMethod
+    return this._mapActions.get(callListName)! as CallListV3
   }
 
-  get fetchListMethod(): FetchListMethod {
-    if (!this._mapActions.has(fetchListMethodName)) {
-      this._mapActions.set(fetchListMethodName, new FetchListMethod(this._b24, this._logger))
+  get fetchList(): FetchListV3 {
+    if (!this._mapActions.has(fetchListName)) {
+      this._mapActions.set(fetchListName, new FetchListV3(this._b24, this._logger))
     }
-    return this._mapActions.get(fetchListMethodName)! as FetchListMethod
+    return this._mapActions.get(fetchListName)! as FetchListV3
+  }
+
+  get batch(): BatchV3 {
+    if (!this._mapActions.has(batchName)) {
+      this._mapActions.set(batchName, new BatchV3(this._b24, this._logger))
+    }
+    return this._mapActions.get(batchName)! as BatchV3
+  }
+
+  get batchByChunk(): BatchByChunkV3 {
+    if (!this._mapActions.has(batchByChunkName)) {
+      this._mapActions.set(batchByChunkName, new BatchByChunkV3(this._b24, this._logger))
+    }
+    return this._mapActions.get(batchByChunkName)! as BatchByChunkV3
   }
 }

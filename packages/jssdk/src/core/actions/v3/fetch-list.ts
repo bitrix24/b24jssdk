@@ -14,18 +14,56 @@ export type ActionFetchListV3 = ActionOptions & {
 }
 
 /**
- * Api:v3
- * Calls a REST service list method and returns an async generator for efficient large data retrieval.
+ * Calls a REST API list method and returns an async generator for efficient large data retrieval. `restApi:v3`
  *
  * @todo add docs
- * @todo add test
+ * @todo test self
+ * @todo test example
  */
 export class FetchListV3 extends AbstractAction {
   /**
-   * Calls a REST service list method and returns an async generator for efficient large data retrieval.
+   * Calls a REST API list method and returns an async generator for efficient large data retrieval.
    * Implements the fast algorithm for iterating over large datasets without loading all data into memory at once.
    *
-   * @todo test
+   * @template T - The type of items in the returned arrays (default is `unknown`).
+   *
+   * @param {ActionFetchListV3} options - parameters for executing the request.
+   *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
+   *     - `params?: Omit<TypeCallParams, 'pagination'>` - Request parameters, excluding the `pagination` parameter,
+   *         since the method is designed to obtain all data in one call.
+   *         Note: Use `filter`, `order`, and `select` to control the selection.
+   *     - `idKey?: string` - The name of the field containing the unique identifier of the element.
+   *         Default is 'id'. Alternatively, it can be another field, depending on the REST API data structure.
+   *     - `customKeyForResult: string` - A custom key indicating that the response REST API will be
+   *        grouped by this field.
+   *        Example: `items` to group a list of CRM items.
+   *    - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
+   *    - `limit?: number` - How many records to retrieve at a time. Default is `50`. Maximum is `1000`.
+   *
+   * @returns {AsyncGenerator<T[]>} An async generator that yields chunks of data as arrays of type `T`.
+   *     Each iteration returns the next page/batch of results until all data is fetched.
+   *
+   * @example
+   * interface MainEventLogItem { id: number, userId: number }
+   * sixMonthAgo.setMonth((new Date()).getMonth() - 6)
+   * sixMonthAgo.setHours(0, 0, 0)
+   * const generator = b24.actions.v3.fetchList.make<MainEventLogItem>({
+   *   method: 'main.eventlog.list',
+   *   params: {
+   *     filter: [
+   *      ['timestampX', '>=', sixMonthAgo] // created at least 6 months ago
+   *     ],
+   *     select: ['id', 'userId']
+   *   },
+   *   idKey: 'id',
+   *   customKeyForResult: 'items',
+   *   requestId: 'eventlog-123',
+   *   limit: 60
+   * })
+   * for await (const chunk of generator) {
+   *   // Process chunk (e.g., save to database, analyze, etc.)
+   *   console.log(`Processing ${chunk.length} items`)
+   * }
    */
   public override async* make<T = unknown>(options: ActionFetchListV3): AsyncGenerator<T[]> {
     const batchSize = options?.limit ?? 50

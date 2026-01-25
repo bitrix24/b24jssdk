@@ -29,14 +29,14 @@ export class CallV2 extends AbstractAction {
    *     - `params?: TypeCallParams` - Parameters for calling the method.
    *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
    *
-   * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an API call.
+   * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an REST API call.
    *
    * @example
    * interface CrmItem { id: number, name: string, lastName: string }
    * const response = await b24.actions.v2.call.make<{ item: CrmItem }>({
    *   method: 'crm.item.get',
    *   params: { entityTypeId: 3, id: 123 },
-   *   requestId: 'contact-item-123'
+   *   requestId: 'item-123'
    * })
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)

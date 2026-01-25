@@ -14,18 +14,67 @@ export type ActionBatchByChunkV3 = ActionOptions & {
 }
 
 /**
- * Api:v3
+ * Executes a batch request with automatic chunking for any number of commands. `restApi:v3`
+ *
  * @todo add docs
- * @todo add test
+ * @todo test self
+ * @todo test example
  */
 export class BatchByChunkV3 extends AbstractBatch {
+  /**
+   * Executes a batch request with automatic chunking for any number of commands.
+   * Unlike `BatchV3`, which is limited to 50 commands, this method automatically splits
+   * a large set of commands into multiple batches and executes them sequentially.
+   *
+   * @template T - The data type returned by commands (default: `unknown`)
+   *
+   * @param {ActionBatchByChunkV3} options - parameters for executing the request.
+   *     - `calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal` - Commands to execute in a batch.
+   *        Supports several formats:
+   *        1. Array of tuples: `[['method1', params1], ['method2', params2], ...]`
+   *        2. Array of objects: `[{ method: 'method1', params: params1 }, { method: 'method2', params: params2 }, ...]`
+   *        - Note: Named commands are not supported as they are difficult to process when chunking.
+   *     - `options?: Omit<IB24BatchOptions, 'returnAjaxResult'>` - Additional options for executing a batch request.
+   *        - `isHaltOnError?: boolean` - Whether to stop execution on the first error (default: true)
+   *        - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging (default: undefined)
+   *
+   * @returns {Promise<Result<T[]>>} A promise that is resolved by the result of executing all commands.
+   *
+   * @example
+   * interface TaskItem { id: number, title: string }
+   * const commands = Array.from({ length: 150 }, (_, i) =>
+   *   ['tasks.task.get', { id: i + 1, select: ['id', 'title'] }]
+   * )
+   *
+   * const response = await b24.b24.actions.v3.batch.make<TaskItem>({
+   *   calls: commands,
+   *   options: {
+   *     isHaltOnError: false,
+   *     requestId: 'batch-by-chunk-123'
+   *   }
+   * )
+   *
+   * if (!response.isSuccess) {
+   *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
+   * }
+   *
+   * const data = response.getData()
+   * const items: TaskItem[] = []
+   * data.forEach((chunkRow: { item: TaskItem }) => {
+   *   items.push(chunkRow.item)
+   * })
+   * console.log(`Successfully retrieved ${items.length} items`)
+   *
+   *
+   * @tip For very large command sets, consider using server-side task queues instead of bulk batch requests.
+   */
   public override async make<T = unknown>(options: ActionBatchByChunkV3): Promise<Result<T[]>> {
     const batchSize = 50
 
     const opts = {
       ...options.options,
       returnAjaxResult: false,
-      apiVersion: ApiVersion.v2
+      apiVersion: ApiVersion.v3
     }
 
     // callBatchByChunk

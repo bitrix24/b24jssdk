@@ -2,7 +2,7 @@ import type { ToolOptions } from './abstract-tool'
 import { AbstractTool } from './abstract-tool'
 
 /**
- * Ping
+ * Ping `restApi:v2`
  *
  * @todo use apiVer3
  * @todo add docs
@@ -15,6 +15,12 @@ export class Ping extends AbstractTool {
    *
    * @note The method uses a minimal API request (`server.time`) to check availability.
    *   Does not overload the server with large amounts of data.
+   *
+   * @warning Response time may vary depending on server load, network conditions
+   *     and HTTP client settings (timeouts, retries).
+   *
+   * @tip For consistent results, it is recommended to perform multiple measurements
+   *     and use the median value.
    *
    * @param options Some options for executing
    *   - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging (default: undefined)

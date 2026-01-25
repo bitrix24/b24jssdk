@@ -77,7 +77,8 @@ describe('core callMethod @apiV2', () => {
     expect(response.isSuccess).toBe(true)
 
     const result = response.getData().result
-    expect(result).not.toHaveProperty('id')
+
+    expect(result).not.toHaveProperty('task')
 
     const time = response.getData().time
     expect(time).toHaveProperty('operating')

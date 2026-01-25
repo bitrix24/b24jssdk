@@ -6,14 +6,14 @@ import type { Result } from '../../result'
 import type { ICallBatchResult } from '../../../types/http'
 
 /**
- * Working with batch requests in API ver2
+ * Working with batch requests in `restApi:v2`
  */
 
-export const MAX_BATCH_COMMANDS = 50
+export const MAX_BATCH_COMMANDS_V2 = 50
 
 export class InteractionBatchV2 extends AbstractInteractionBatch {
   override get maxSize(): number {
-    return MAX_BATCH_COMMANDS
+    return MAX_BATCH_COMMANDS_V2
   }
 
   // region Response ////

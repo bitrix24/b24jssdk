@@ -13,19 +13,54 @@ export type ActionCallListV2 = ActionOptions & {
 }
 
 /**
- * Api:v2
- * Fast data retrieval without counting the total number of records.
+ * Fast data retrieval without counting the total number of records. `restApi:v2`
  *
  * @todo add docs
- * @todo test
+ * @todo test self
+ * @todo test example
  */
 export class CallListV2 extends AbstractAction {
   /**
    * Fast data retrieval without counting the total number of records.
-   * An optimized version of `callListMethod` that doesn't perform queries
-   * to determine the total number of elements (which can be resource-intensive with large data sets).
    *
-   * @todo test
+   * @template T - The type of the elements of the returned array (default is `unknown`).
+   *
+   * @param {ActionCallListV2} options - parameters for executing the request.
+   *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
+   *     - `params?: Omit<TypeCallParams, 'start'>` - Request parameters, excluding the `start` parameter,
+   *         since the method is designed to obtain all data in one call.
+   *         Note: Use `filter`, `order`, and `select` to control the selection.
+   *     - `idKey?: string` - The name of the field containing the unique identifier of the element.
+   *         Default is 'ID' (uppercase). Alternatively, it can be 'id' (lowercase).
+   *         or another field, depending on the REST API data structure.
+   *     - `customKeyForResult?: string` - A custom key indicating that the response REST API will be
+   *        grouped by this field.
+   *        Example: `items` to group a list of CRM items.
+   *    - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
+   *
+   * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.
+   *
+   * @example
+   * interface CrmItem { id: number, name: string }
+   * const sixMonthAgo = new Date()
+   * sixMonthAgo.setMonth((new Date()).getMonth() - 6)
+   * sixMonthAgo.setHours(0, 0, 0)
+   * const response = await b24.actions.v2.callList.make<CrmItem>({
+   *   method: 'crm.item.list',
+   *   params: {
+   *     entityTypeId: 3,
+   *     filter: { '>=createdTime': sixMonthAgo }, // created at least 6 months ago
+   *     select: ['id', 'name']
+   *   },
+   *   idKey: 'id',
+   *   customKeyForResult: 'items',
+   *   requestId: 'list-123'
+   * })
+   * if (!response.isSuccess) {
+   *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
+   * }
+   * const list = response.getData()
+   * console.log(`Result: ${list?.length}`) // Number of items received
    */
   public override async make<T = unknown>(options: ActionCallListV2): Promise<Result<T[]>> {
     const batchSize = 50

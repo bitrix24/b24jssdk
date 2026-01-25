@@ -2,7 +2,7 @@ import type { ToolOptions } from './abstract-tool'
 import { AbstractTool } from './abstract-tool'
 
 /**
- * HealthCheck
+ * HealthCheck `restApi:v2`
  *
  * @todo use apiVer3
  * @todo add docs

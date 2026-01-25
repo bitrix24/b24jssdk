@@ -6,18 +6,17 @@ import type { ICallBatchResult } from '../../../types/http'
 import { SdkError } from '../../sdk-error'
 
 /**
- * Working with batch requests in API ver3
- * @todo make it work
+ * Working with batch requests in `restApi:v3`
  */
 
 /**
  * @todo waite docs apiVer3
  */
-export const MAX_BATCH_COMMANDS = 50
+export const MAX_BATCH_COMMANDS_V3 = 50
 
 export class InteractionBatchV3 extends AbstractInteractionBatch {
   override get maxSize(): number {
-    return MAX_BATCH_COMMANDS
+    return MAX_BATCH_COMMANDS_V3
   }
 
   public override async prepareResponse<T>(response: AjaxResult<BatchPayload<T>>): Promise<Result<ICallBatchResult<T>>> {

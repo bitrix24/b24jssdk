@@ -29,14 +29,14 @@ export class CallV3 extends AbstractAction {
    *     - `params?: TypeCallParams` - Parameters for calling the method.
    *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
    *
-   * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an API call.
+   * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an REST API call.
    *
    * @example
    * interface TaskItem { id: number, title: string }
-   * const response = await b24.actions.v2.call.make<{ item: TaskItem }>({
+   * const response = await b24.actions.v3.call.make<{ item: TaskItem }>({
    *   method: 'tasks.task.get',
    *   params: { id: 123, select: ['id', 'title'] },
-   *   requestId: 'tasks-task-123'
+   *   requestId: 'task-123'
    * })
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)

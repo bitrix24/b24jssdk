@@ -1,31 +1,32 @@
 import type { LoggerInterface } from '../logger'
 import type { AjaxResult } from './http/ajax-result'
-import type { CallBatchResult, IB24BatchOptions, TypeB24 } from '../types/b24'
-import type {
-  BatchCommandsArrayUniversal,
-  BatchCommandsObjectUniversal,
-  BatchCommandsUniversal,
-  BatchNamedCommandsUniversal,
-  TypeCallParams,
-  TypeHttp
-} from '../types/http'
+import type { TypeB24 } from '../types/b24'
+import type { BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, TypeCallParams, TypeHttp } from '../types/http'
 import type { ListPayload } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
-import { LoggerFactory } from '../logger'
+import { Type } from '../tools/type'
 import { Result } from './result'
 import { SdkError } from './sdk-error'
-import { Type } from '../tools/type'
 import { ApiVersion } from '../types/b24'
 import { versionManager } from './version-manager'
+import { LoggerFactory } from '../logger'
 import { ActionsManager } from './actions/manager'
 import { ToolsManager } from './tools/manager'
 
 /**
  * @todo docs
- * @todo test all example
+ * @todo ! test all example
+ * @todo ! test all functions
  */
 export abstract class AbstractB24 implements TypeB24 {
+  /**
+   * Maximum length for batch response
+   * @deprecated This const is deprecated and will be removed in version `2.0.0`
+   *     - for `restApi:v3` use {@link InteractionBatchV3.maxSize}
+   *     - for `restApi:v2` use {@link InteractionBatchV2.maxSize}
+   * @removed 2.0.0
+   */
   static readonly batchSize = 50
 
   protected _isInit: boolean = false
@@ -91,6 +92,7 @@ export abstract class AbstractB24 implements TypeB24 {
    *   - for `restApi:v2` use {@link CallV2.make `b24.actions.v2.call.make(options)`}
    *
    * @removed 2.0.0
+   * @memo Only for `restApi:v2`
    */
   public async callMethod(method: string, params?: object, start?: number): Promise<AjaxResult> {
     LoggerFactory.forcedLog(
@@ -107,6 +109,7 @@ export abstract class AbstractB24 implements TypeB24 {
     )
 
     params = params || {}
+    // @todo ! test this: start from props move to params.start
     if (
       !('start' in params)
       && Number.isInteger(start)
@@ -114,26 +117,13 @@ export abstract class AbstractB24 implements TypeB24 {
       (params as any).start = start
     }
 
-    return this._innerCallMethod(
-      method,
-      params
-    )
-  }
+    // @todo remove this
+    // const apiVersion = versionManager.automaticallyObtainApiVersion(method)
+    // if (apiVersion === ApiVersion.v3) {
+    //   return this._actionsManager.v3.call.make({ method, params })
+    // }
 
-  /**
-   * @removed 2.0.0
-   */
-  protected async _innerCallMethod<T = unknown>(
-    method: string,
-    params?: TypeCallParams,
-    requestId?: string
-  ): Promise<AjaxResult<T>> {
-    params = params || {}
-
-    const version = versionManager.automaticallyObtainApiVersion(method)
-    const client = this.getHttpClient(version)
-
-    return client.call<T>(method, params, requestId)
+    return this._actionsManager.v2.call.make({ method, params })
   }
 
   /**
@@ -141,9 +131,10 @@ export abstract class AbstractB24 implements TypeB24 {
    *
    * @deprecated This method is deprecated and will be removed in version `2.0.0`
    *   - for `restApi:v3` use {@link CallListV3.make `b24.actions.v3.callList.make(options)`}
-   *   - for `restApi:v3` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
+   *   - for `restApi:v2` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
    *
    * @removed 2.0.0
+   * @memo Only for `restApi:v2`
    */
   public async callListMethod(method: string, params?: object, progress?: null | ((progress: number) => void), customKeyForResult?: string | null): Promise<Result> {
     LoggerFactory.forcedLog(
@@ -222,10 +213,12 @@ export abstract class AbstractB24 implements TypeB24 {
    *
    * @deprecated This method is deprecated and will be removed in version `2.0.0`
    *   - for `restApi:v3` use {@link FetchListV3.make `b24.actions.v3.fetchList.make(options)`}
-   *   - for `restApi:v3` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
+   *   - for `restApi:v2` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
    *
    * @removed 2.0.0
+   * @memo Only for `restApi:v2`
    */
+  // eslint-disable-next-line require-yield
   public async* fetchListMethod(method: string, params?: any, idKey?: string, customKeyForResult?: string | null): AsyncGenerator<any[]> {
     LoggerFactory.forcedLog(
       this._logger,
@@ -253,31 +246,44 @@ export abstract class AbstractB24 implements TypeB24 {
    *
    * @deprecated This method is deprecated and will be removed in version `2.0.0`
    *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}
-   *   - for `restApi:v3` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
+   *   - for `restApi:v2` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
    *
    * @removed 2.0.0
+   * @memo Only for `restApi:v2`
    */
   public async callBatch(calls: Array<any> | object, isHaltOnError?: boolean, returnAjaxResult?: boolean): Promise<Result> {
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.callBatch() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.batch.make(options) or b24.actions.v2.batch.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'callBatch',
+        replacement: 'b24.actions.v3.batch.make(options) | b24.actions.v2.batch.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
+      }
+    )
+
     const callsTyped = calls as BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
-
-    const apiVersion = versionManager.automaticallyObtainApiVersionForBatch(callsTyped)
-
-    if (apiVersion === ApiVersion.v3) {
-      return this.actions.v3.batch.make({
-        calls: callsTyped,
-        options: {
-          isHaltOnError: isHaltOnError ?? true,
-          returnAjaxResult: returnAjaxResult ?? false
-        }
-      })
+    const options = {
+      isHaltOnError: isHaltOnError ?? true,
+      returnAjaxResult: returnAjaxResult ?? false
     }
+
+    // @todo remove this
+    // const apiVersion = versionManager.automaticallyObtainApiVersionForBatch(callsTyped)
+    //
+    // if (apiVersion === ApiVersion.v3) {
+    //   return this.actions.v3.batch.make({
+    //     calls: callsTyped,
+    //     options
+    //   })
+    // }
 
     return this.actions.v2.batch.make({
       calls: callsTyped,
-      options: {
-        isHaltOnError: isHaltOnError ?? true,
-        returnAjaxResult: returnAjaxResult ?? false
-      }
+      options
     })
   }
 
@@ -286,50 +292,50 @@ export abstract class AbstractB24 implements TypeB24 {
    *
    * @deprecated This method is deprecated and will be removed in version `2.0.0`
    *   - for `restApi:v3` use {@link BatchByChunkV3.make `b24.actions.v3.batchByChunk.make(options)`}
-   *   - for `restApi:v3` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
+   *   - for `restApi:v2` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
    *
    * @removed 2.0.0
-   *
-   * @todo ! fix this
+   * @memo Only for `restApi:v2`
    */
   public async callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result> {
-    const options = this._normalizeBatchOptions(optionsOrIsHaltOnError)
-    options.returnAjaxResult = false
-    options.apiVersion = options.apiVersion ?? versionManager.automaticallyObtainApiVersionForBatch(calls)
-
-    const result = new Result<T[]>()
-
-    const dataResult: T[] = []
-    const chunks = this.chunkArray(calls as BatchCommandsUniversal, AbstractB24.batchSize) as BatchCommandsArrayUniversal[] | BatchCommandsObjectUniversal[]
-
-    for (const chunkRequest of chunks) {
-      const response = await this.getHttpClient(options.apiVersion).batch<T[]>(chunkRequest, options)
-      if (!response.isSuccess) {
-        this.getLogger().error('callBatchByChunk', {
-          messages: response.getErrorMessages(),
-          calls,
-          options
-        })
-        this._addBatchErrorsIfAny(response, result)
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.callBatchByChunk() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.batchByChunk.make(options) or b24.actions.v2.batchByChunk.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'callBatchByChunk',
+        replacement: 'b24.actions.v3.batchByChunk.make(options) | b24.actions.v2.batchByChunk.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
       }
+    )
 
-      for (const [_index, data] of response.getData()!.result!) {
-        // @memo Add only success rows
-        if (data.isSuccess) {
-          dataResult.push(data.getData()!.result)
-        }
-      }
+    const callsTyped = calls as BatchCommandsArrayUniversal | BatchCommandsObjectUniversal
+    const options = {
+      isHaltOnError,
+      returnAjaxResult: false
     }
 
-    return result.setData(dataResult)
+    // @todo remove this
+    // const apiVersion = versionManager.automaticallyObtainApiVersionForBatch(calls)
+    // if (apiVersion === ApiVersion.v3) {
+    //   return this.actions.v3.batchByChunk.make({
+    //     calls: callsTyped,
+    //     options
+    //   })
+    // }
+
+    return this.actions.v2.batchByChunk.make({
+      calls: callsTyped,
+      options
+    })
   }
   // endregion ////
 
   // region Tools ////
   /**
    * @inheritDoc
-   *
-   * @todo fix docs
    */
   public getHttpClient(version: ApiVersion): TypeHttp {
     this._ensureInitialized()
@@ -363,8 +369,6 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
-   *
-   * @todo fix docs
    */
   public setHttpClient(version: ApiVersion, client: TypeHttp): void {
     switch (version) {
@@ -399,8 +403,6 @@ export abstract class AbstractB24 implements TypeB24 {
 
   /**
    * @inheritDoc
-   *
-   * @todo fix docs
    */
   public async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {
     const promises = versionManager.getAllApiVersions().map(version =>

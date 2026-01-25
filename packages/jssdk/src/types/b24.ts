@@ -98,7 +98,7 @@ export type TypeB24 = {
    *
    * @deprecated This method is deprecated and will be removed in version `2.0.0`
    *   - for `restApi:v3` use {@link CallListV3.make `b24.actions.v3.callList.make(options)`}
-   *   - for `restApi:v3` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
+   *   - for `restApi:v2` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
    *
    * @removed 2.0.0
    */
@@ -109,7 +109,7 @@ export type TypeB24 = {
    *
    * @deprecated This method is deprecated and will be removed in version `2.0.0`
    *   - for `restApi:v3` use {@link FetchListV3.make `b24.actions.v3.fetchList.make(options)`}
-   *   - for `restApi:v3` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
+   *   - for `restApi:v2` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
    *
    * @removed 2.0.0
    */
@@ -120,7 +120,7 @@ export type TypeB24 = {
    *
    * @deprecated This method is deprecated and will be removed in version `2.0.0`
    *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}
-   *   - for `restApi:v3` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
+   *   - for `restApi:v2` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
    *
    * @removed 2.0.0
    */
@@ -131,7 +131,7 @@ export type TypeB24 = {
    *
    * @deprecated This method is deprecated and will be removed in version `2.0.0`
    *   - for `restApi:v3` use {@link BatchByChunkV3.make `b24.actions.v3.batchByChunk.make(options)`}
-   *   - for `restApi:v3` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
+   *   - for `restApi:v2` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
    *
    * @removed 2.0.0
    */

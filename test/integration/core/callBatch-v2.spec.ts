@@ -24,7 +24,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArray'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.callBatchV2<{ id: number }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+      calls: batchCalls,
+      options
+    })
 
     expect(response.isSuccess).toBe(true)
 
@@ -55,7 +58,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArrayObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.callBatchV2<{ id: number }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+      calls: batchCalls,
+      options
+    })
     expect(response.isSuccess).toBe(true)
 
     const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
@@ -102,7 +108,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.callBatchV2<{ id: number }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+      calls: batchCalls,
+      options
+    })
     expect(response.isSuccess).toBe(true)
 
     const resultData = (response as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()
@@ -135,7 +144,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArray'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: false, requestId }
-    const response = await b24.callBatchV2<{ items: { id: number }[] }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }[]>({
+      calls: batchCalls,
+      options
+    })
 
     expect(response.isSuccess).toBe(true)
 
@@ -166,7 +178,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArray'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
-    const response = await b24.callBatchV2<{ id: number }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+      calls: batchCalls,
+      options
+    })
 
     expect(response.isSuccess).toBe(false)
 
@@ -211,7 +226,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArrayObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
-    const response = await b24.callBatchV2<{ id: number }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+      calls: batchCalls,
+      options
+    })
 
     expect(response.isSuccess).toBe(false)
 
@@ -286,7 +304,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
-    const response = await b24.callBatchV2<{ id: number }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+      calls: batchCalls,
+      options
+    })
     expect(response.isSuccess).toBe(false)
 
     const resultData = (response as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()
@@ -334,7 +355,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArray'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: false, requestId }
-    const response = await b24.callBatchV2<{ items: { id: number }[] }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }[]>({
+      calls: batchCalls,
+      options
+    })
 
     expect(response.isSuccess).toBe(false)
 
@@ -365,7 +389,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArray'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.callBatchV2<{ id: number }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+      calls: batchCalls,
+      options
+    })
 
     expect(response.isSuccess).toBe(false)
 
@@ -411,7 +438,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArrayObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.callBatchV2<{ id: number }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+      calls: batchCalls,
+      options
+    })
     expect(response.isSuccess).toBe(false)
 
     const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
@@ -485,7 +515,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.callBatchV2<{ id: number }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+      calls: batchCalls,
+      options
+    })
     expect(response.isSuccess).toBe(false)
 
     const resultData = (response as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()
@@ -532,7 +565,10 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArray'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: false, requestId }
-    const response = await b24.callBatchV2<{ items: { id: number }[] }[]>(batchCalls, options)
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }[]>({
+      calls: batchCalls,
+      options
+    })
 
     expect(response.isSuccess).toBe(false)
 

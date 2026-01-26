@@ -1,10 +1,10 @@
 import type { ActionOptions } from '../abstract-action'
+import type { CallBatchResult, IB24BatchOptions } from '../../../types/b24'
 import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
   BatchNamedCommandsUniversal
 } from '../../../types/http'
-import type { CallBatchResult, IB24BatchOptions } from '../../../types/b24'
 import { AbstractBatch } from '../abstract-batch'
 import { ApiVersion } from '../../../types/b24'
 import { versionManager } from '../../version-manager'
@@ -20,8 +20,6 @@ export type ActionBatchV3 = ActionOptions & {
  * Allows you to execute multiple requests in a single API call, significantly improving performance.
  *
  * @todo add docs
- * @todo test self
- * @todo test example
  */
 export class BatchV3 extends AbstractBatch {
   /**
@@ -69,7 +67,7 @@ export class BatchV3 extends AbstractBatch {
    * const results = response.getData() as AjaxResult<{ item: TaskItem }>[]
    * results.forEach((result, index) => {
    *   if (result.isSuccess) {
-   *    console.log(`Item ${index + 1}:`, result.getData()?.item)
+   *    console.log(`Item ${index + 1}:`, result.getData().result.item)
    *   }
    * })
    *
@@ -91,8 +89,8 @@ export class BatchV3 extends AbstractBatch {
    * interface MainEventLogItem { id: number, userId: number }
    * const response = await b24.actions.v3.batch.make<{ item: TaskItem } | { items: MainEventLogItem[] }>({
    *   calls: {
-   *     Contact: { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } },
-   *     MainEventLog: ['main.eventlog.list', { select: ['id', 'userId'] }]
+   *     Task: { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title'] } },
+   *     MainEventLog: ['main.eventlog.list', { select: ['id', 'userId'], pagination: { limit: 5 } }]
    *   },
    *   options: {
    *     isHaltOnError: true,
@@ -102,8 +100,8 @@ export class BatchV3 extends AbstractBatch {
    * })
    *
    * const results = response.getData() as Record<string, AjaxResult<{ item: TaskItem } | { items: MainEventLogItem[] }>>
-   * console.log('Contact:', results.Contact.getData()?.item)
-   * console.log('MainEventLog:', results.MainEventLog.getData()?.items)
+   * console.log('Task:', results.Task.getData().result.item as TaskItem)
+   * console.log('MainEventLog:', results.MainEventLog.getData().result.items as MainEventLogItem[])
    *
    * @warning The maximum number of commands in one batch request is 50.
    * @note A batch request executes faster than sequential single calls,

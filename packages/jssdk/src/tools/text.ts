@@ -1,6 +1,7 @@
 import { DateTime, type DateTimeOptions } from 'luxon'
 import uuidv7 from './uuidv7'
 import { Type } from './type'
+import { SdkError } from '../core/sdk-error'
 
 const reEscape = /[&<>'"]/g
 const reUnescape = /&(?:amp|#38|lt|#60|gt|#62|apos|#39|quot|#34)/g
@@ -207,6 +208,21 @@ class TextManager {
     }
 
     return DateTime.fromISO(dateString, opts)
+  }
+
+  /**
+   * Convert Date to Bitrix24 REST API FORMAT Y-m-d\TH:i:sP
+   * @param date
+   */
+  toB24Format(
+    date: string | DateTime | Date
+  ): string {
+    if (typeof date === 'string') {
+      return date
+    } else if (date instanceof Date) {
+      return this.toB24Format(DateTime.fromJSDate(date))
+    }
+    return date.toFormat('yyyy-MM-dd\'T\'HH:mm:ssZZ')
   }
 
   getDateForLog(): string {

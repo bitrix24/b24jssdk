@@ -41,6 +41,8 @@ export class CallListV2 extends AbstractAction {
    * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.
    *
    * @example
+   * import { Text } from '@bitrix24/b24jssdk'
+   *
    * interface CrmItem { id: number, name: string }
    * const sixMonthAgo = new Date()
    * sixMonthAgo.setMonth((new Date()).getMonth() - 6)
@@ -49,7 +51,7 @@ export class CallListV2 extends AbstractAction {
    *   method: 'crm.item.list',
    *   params: {
    *     entityTypeId: 3,
-   *     filter: { '>=createdTime': sixMonthAgo }, // created at least 6 months ago
+   *     filter: { '>=createdTime': Text.toB24Format(sixMonthAgo) }, // created at least 6 months ago
    *     select: ['id', 'name']
    *   },
    *   idKey: 'id',

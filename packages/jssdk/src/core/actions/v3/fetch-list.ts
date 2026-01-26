@@ -18,7 +18,6 @@ export type ActionFetchListV3 = ActionOptions & {
  *
  * @todo add docs
  * @todo test self
- * @todo test example
  */
 export class FetchListV3 extends AbstractAction {
   /**
@@ -44,14 +43,17 @@ export class FetchListV3 extends AbstractAction {
    *     Each iteration returns the next page/batch of results until all data is fetched.
    *
    * @example
+   * import { Text } from '@bitrix24/b24jssdk'
+   *
    * interface MainEventLogItem { id: number, userId: number }
+   * const sixMonthAgo = new Date()
    * sixMonthAgo.setMonth((new Date()).getMonth() - 6)
    * sixMonthAgo.setHours(0, 0, 0)
    * const generator = b24.actions.v3.fetchList.make<MainEventLogItem>({
    *   method: 'main.eventlog.list',
    *   params: {
    *     filter: [
-   *      ['timestampX', '>=', sixMonthAgo] // created at least 6 months ago
+   *      ['timestampX', '>=', Text.toB24Format(sixMonthAgo)] // created at least 6 months ago
    *     ],
    *     select: ['id', 'userId']
    *   },

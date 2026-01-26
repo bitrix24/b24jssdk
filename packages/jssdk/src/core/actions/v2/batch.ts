@@ -18,7 +18,6 @@ export type ActionBatchV2 = ActionOptions & {
  * Allows you to execute multiple requests in a single API call, significantly improving performance.
  *
  * @todo add docs
- * @todo test self
  * @todo test example
  */
 export class BatchV2 extends AbstractBatch {
@@ -100,8 +99,8 @@ export class BatchV2 extends AbstractBatch {
    * })
    *
    * const results = response.getData() as Record<string, AjaxResult<{ item: Contact } | { item: Deal }>>
-   * console.log('Contact:', results.Contact.getData()?.item)
-   * console.log('Deal:', results.Deal.getData()?.item)
+   * console.log('Contact:', results.Contact.getData().result.item as Contact)
+   * console.log('Deal:', results.Deal.getData().result.item as Deal)
    *
    * @warning The maximum number of commands in one batch request is 50.
    * @note A batch request executes faster than sequential single calls,

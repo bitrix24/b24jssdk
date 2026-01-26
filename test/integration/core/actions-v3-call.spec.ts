@@ -5,7 +5,7 @@ import { AjaxError, SdkError, Text } from '../../../packages/jssdk/src/'
 /**
  * @todo add test new type functions `Aggregate`, `Tail`
  */
-describe('core callMethod @apiV3', () => {
+describe('core.actions.call @apiV3', () => {
   const { getB24Client, getMapId } = setupB24Tests()
 
   it('server.time @apiV3 @notSupported', async () => {
@@ -15,7 +15,6 @@ describe('core callMethod @apiV3', () => {
     const params = {}
     const requestId = `test@apiV3/${method}`
     try {
-      // @todo on this
       const response = await b24.actions.v3.call.make({ method, params, requestId })
 
       expect(response.isSuccess).toBe(true)
@@ -30,7 +29,7 @@ describe('core callMethod @apiV3', () => {
         throw error
       }
 
-      expect(error.code).toEqual('JSSDK_CORE_B24_API_V3_NOT_SUPPORT_METHOD')
+      expect(error.code).toEqual('JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3')
     }
   })
 
@@ -50,6 +49,7 @@ describe('core callMethod @apiV3', () => {
     const result = response.getData().result
     expect(result.item).toBeDefined()
     expect(result.item.id).toBeDefined()
+    expect(result.item.title).toBeDefined()
 
     const time = response.getData().time
     expect(time).toHaveProperty('operating')
@@ -113,19 +113,17 @@ describe('core callMethod @apiV3', () => {
     }
     const requestId = `test@apiV3/${method}`
 
-    /**
-     * This is the load to see the operating
-     */
-    // await Promise.all(Array.from({ length: 20 }, () => b24.callV3(method, params, requestId)))
-
     const response = await b24.actions.v3.call.make({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
+
     const result = response.getData().result
     const time = response.getData().time
+
     expect(result).toBeDefined()
     expect(result).toHaveProperty('result')
     expect(result.result).toBeTruthy()
+
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
     expect(time.operating_reset_at).toBeGreaterThanOrEqual(0)

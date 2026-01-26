@@ -18,7 +18,6 @@ export type ActionCallListV3 = ActionOptions & {
  *
  * @todo add docs
  * @todo test self
- * @todo test example
  */
 export class CallListV3 extends AbstractAction {
   /**
@@ -42,14 +41,17 @@ export class CallListV3 extends AbstractAction {
    * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.
    *
    * @example
+   * import { Text } from '@bitrix24/b24jssdk'
+   *
    * interface MainEventLogItem { id: number, userId: number }
+   * const sixMonthAgo = new Date()
    * sixMonthAgo.setMonth((new Date()).getMonth() - 6)
    * sixMonthAgo.setHours(0, 0, 0)
    * const response = await b24.actions.v3.callList.make<MainEventLogItem>({
    *   method: 'main.eventlog.list',
    *   params: {
    *     filter: [
-   *      ['timestampX', '>=', sixMonthAgo] // created at least 6 months ago
+   *      ['timestampX', '>=', Text.toB24Format(sixMonthAgo)] // created at least 6 months ago
    *     ],
    *     select: ['id', 'userId']
    *   },

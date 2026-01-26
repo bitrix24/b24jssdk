@@ -42,17 +42,17 @@ export class BatchByChunkV3 extends AbstractBatch {
    *
    * @example
    * interface TaskItem { id: number, title: string }
-   * const commands = Array.from({ length: 150 }, (_, i) =>
+   * const commands: BatchCommandsArrayUniversal = Array.from({ length: 150 }, (_, i) =>
    *   ['tasks.task.get', { id: i + 1, select: ['id', 'title'] }]
    * )
    *
-   * const response = await b24.b24.actions.v3.batch.make<TaskItem>({
+   * const response = await b24.actions.v3.batchByChunk.make<{ item: TaskItem }>({
    *   calls: commands,
    *   options: {
    *     isHaltOnError: false,
    *     requestId: 'batch-by-chunk-123'
    *   }
-   * )
+   * })
    *
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
@@ -60,11 +60,10 @@ export class BatchByChunkV3 extends AbstractBatch {
    *
    * const data = response.getData()
    * const items: TaskItem[] = []
-   * data.forEach((chunkRow: { item: TaskItem }) => {
+   * data.forEach((chunkRow) => {
    *   items.push(chunkRow.item)
    * })
    * console.log(`Successfully retrieved ${items.length} items`)
-   *
    *
    * @tip For very large command sets, consider using server-side task queues instead of bulk batch requests.
    */
@@ -87,11 +86,6 @@ export class BatchByChunkV3 extends AbstractBatch {
       const response = await this._b24.getHttpClient(ApiVersion.v3).batch<T[]>(chunkRequest, opts)
 
       if (!response.isSuccess) {
-        this._logger.error('callBatchByChunk Api:v3', {
-          messages: response.getErrorMessages(),
-          calls: chunkRequest,
-          options: opts
-        })
         this._addBatchErrorsIfAny(response, result)
       }
 

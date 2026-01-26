@@ -46,13 +46,13 @@ export class BatchByChunkV2 extends AbstractBatch {
    *   ['crm.item.get', { entityTypeId: 3, id: i + 1 }]
    * )
    *
-   * const response = await b24.b24.actions.v2.batch.make<Contact>({
+   * const response = await b24.actions.v2.batchByChunk.make<{ item: Contact }>({
    *   calls: commands,
    *   options: {
    *     isHaltOnError: false,
    *     requestId: 'batch-by-chunk-123'
    *   }
-   * )
+   * })
    *
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
@@ -60,11 +60,10 @@ export class BatchByChunkV2 extends AbstractBatch {
    *
    * const data = response.getData()
    * const items: Contact[] = []
-   * data.forEach((chunkRow: { item: Contact }) => {
+   * data.forEach((chunkRow) => {
    *   items.push(chunkRow.item)
    * })
    * console.log(`Successfully retrieved ${items.length} items`)
-   *
    *
    * @tip For very large command sets, consider using server-side task queues instead of bulk batch requests.
    */
@@ -87,11 +86,6 @@ export class BatchByChunkV2 extends AbstractBatch {
       const response = await this._b24.getHttpClient(ApiVersion.v2).batch<T[]>(chunkRequest, opts)
 
       if (!response.isSuccess) {
-        this._logger.error('callBatchByChunk Api:v2', {
-          messages: response.getErrorMessages(),
-          calls: chunkRequest,
-          options: opts
-        })
         this._addBatchErrorsIfAny(response, result)
       }
 

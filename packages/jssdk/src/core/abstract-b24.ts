@@ -108,10 +108,13 @@ export abstract class AbstractB24 implements TypeB24 {
       }
     )
 
-    params = params || {}
-    // @todo ! test this: start from props move to params.start
+    params = { ...params }
+
     if (
-      !('start' in params)
+      !(
+        'start' in params
+        && Number.isInteger(params.start)
+      )
       && Number.isInteger(start)
     ) {
       (params as any).start = start
@@ -218,7 +221,6 @@ export abstract class AbstractB24 implements TypeB24 {
    * @removed 2.0.0
    * @memo Only for `restApi:v2`
    */
-  // eslint-disable-next-line require-yield
   public async* fetchListMethod(method: string, params?: any, idKey?: string, customKeyForResult?: string | null): AsyncGenerator<any[]> {
     LoggerFactory.forcedLog(
       this._logger,
@@ -232,13 +234,13 @@ export abstract class AbstractB24 implements TypeB24 {
         code: 'JSSDK_CORE_DEPRECATED_METHOD'
       }
     )
-
-    return this.actions.v2.fetchList.make({
+    const options = {
       method,
       params,
       idKey,
       customKeyForResult: customKeyForResult === null ? undefined : customKeyForResult
-    })
+    }
+    yield* this.actions.v2.fetchList.make(options)
   }
 
   /**

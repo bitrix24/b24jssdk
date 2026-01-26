@@ -187,8 +187,8 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     // @todo ! Correction -> we can use pagination to navigate to the next page
     if (http.apiVersion === ApiVersion.v3) {
       throw new SdkError({
-        code: 'JSSDK_CORE_B24_API_V3_NOT_SUPPORT_METHOD',
-        description: `Api:v3 not support method getNext`,
+        code: 'JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3',
+        description: `restApi:v3 not support method getNext`,
         status: 500
       })
     }

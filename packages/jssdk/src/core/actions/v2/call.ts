@@ -16,7 +16,6 @@ export type ActionCallV2 = ActionOptions & {
  * Calls the Bitrix24 REST API method `restApi:v2`
  *
  * @todo add docs
- * @todo test example
  */
 export class CallV2 extends AbstractAction {
   /**

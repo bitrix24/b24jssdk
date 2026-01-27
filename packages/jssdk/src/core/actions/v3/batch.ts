@@ -59,7 +59,6 @@ export class BatchV3 extends AbstractBatch {
    *     requestId: 'batch-123'
    *   }
    * })
-   *
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
@@ -83,6 +82,9 @@ export class BatchV3 extends AbstractBatch {
    *     requestId: 'batch-123'
    *   }
    * })
+   * if (!response.isSuccess) {
+   *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
+   * }
    *
    * @example
    * interface TaskItem { id: number, title: string }
@@ -98,6 +100,9 @@ export class BatchV3 extends AbstractBatch {
    *     requestId: 'batch-123'
    *   }
    * })
+   * if (!response.isSuccess) {
+   *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
+   * }
    *
    * const results = response.getData() as Record<string, AjaxResult<{ item: TaskItem } | { items: MainEventLogItem[] }>>
    * console.log('Task:', results.Task.getData().result.item as TaskItem)

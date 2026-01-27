@@ -20,6 +20,8 @@ export const useB24TestHooks = () => {
       taskSuccess: 1,
       taskFail: -1,
       taskWrong: 2,
+      crmDealSuccessMin: 1,
+      crmDealSuccessMax: 1,
       crmContactSuccessMin: 1,
       crmContactSuccessMax: 11,
       crmCompanySuccessMin: 1,

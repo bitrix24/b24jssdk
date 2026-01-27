@@ -1,12 +1,11 @@
 import type { AjaxResult, BatchCommandsArrayUniversal } from '../../../packages/jssdk/src/'
+import { SdkError, Text } from '../../../packages/jssdk/src/'
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
-// import { Text } from '../../../packages/jssdk/src/'
 
 describe('js-docs.actions @apiV3', () => {
   const { getB24Client, getMapId } = setupB24Tests()
 
-  // @todo ! uncoment
   it('CallV3', async () => {
     const b24 = getB24Client()
 
@@ -30,79 +29,84 @@ describe('js-docs.actions @apiV3', () => {
   })
 
   /**
-   * @todo ! waite wile rest unLock
+   * @todo Please fix this when `restApi:v3` is ready.
    */
-  // it('CallListV3', async () => {
-  //   const b24 = getB24Client()
-  //
-  //   interface MainEventLogItem { id: number, userId: number }
-  //   const sixMonthAgo = new Date()
-  //   sixMonthAgo.setMonth((new Date()).getMonth() - 6)
-  //   sixMonthAgo.setHours(0, 0, 0)
-  //   const response = await b24.actions.v3.callList.make<MainEventLogItem>({
-  //     method: 'main.eventlog.list',
-  //     params: {
-  //       filter: [
-  //         ['timestampX', '>=', Text.toB24Format(sixMonthAgo)] // created at least 6 months ago
-  //       ],
-  //       select: ['id', 'userId']
-  //     },
-  //     idKey: 'id',
-  //     customKeyForResult: 'items',
-  //     requestId: 'eventlog-123',
-  //     limit: 60
-  //   })
-  //   if (!response.isSuccess) {
-  //     throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
-  //   }
-  //   const list = response.getData()
-  //
-  //   b24.getLogger().info('response', {
-  //     data: list?.length // Number of items received
-  //   })
-  //
-  //   // expect(response.isSuccess).toBe(true)
-  //   // const result = response.getData().result
-  //   // expect(result.item).toBeDefined()
-  //   // expect(result.item).toBeDefined()
-  //   // expect(result.item.title).toBeDefined()
-  // })
+  it('CallListV3', async () => {
+    const b24 = getB24Client()
+
+    try {
+      interface MainEventLogItem { id: number, userId: number }
+      const sixMonthAgo = new Date()
+      sixMonthAgo.setMonth((new Date()).getMonth() - 6)
+      sixMonthAgo.setHours(0, 0, 0)
+      const response = await b24.actions.v3.callList.make<MainEventLogItem>({
+        method: 'main.eventlog.list',
+        params: {
+          filter: [
+            ['timestampX', '>=', Text.toB24Format(sixMonthAgo)] // created at least 6 months ago
+          ],
+          select: ['id', 'userId']
+        },
+        idKey: 'id',
+        customKeyForResult: 'items',
+        requestId: 'eventlog-123',
+        limit: 60
+      })
+      if (!response.isSuccess) {
+        throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
+      }
+      const list = response.getData()
+      expect(list.length).toBeGreaterThan(0)
+      b24.getLogger().debug('response', {
+        data: list?.length // Number of items received
+      })
+
+      expect(response.isSuccess).toBe(true)
+    } catch (error) {
+      if (!(error instanceof SdkError)) {
+        throw error
+      }
+      expect(error.code).toEqual('INTERNAL_SERVER_ERROR')
+      console.warn('❌ Some problem in b24.actions.v3.callList.make for main.eventlog.list')
+    }
+  })
 
   /**
-   * @todo ! waite wile rest unLock
+   * @todo Please fix this when `restApi:v3` is ready.
    */
-  // it('FetchListV3', async () => {
-  //   const b24 = getB24Client()
-  //
-  //   interface MainEventLogItem { id: number, userId: number }
-  //   const sixMonthAgo = new Date()
-  //   sixMonthAgo.setMonth((new Date()).getMonth() - 6)
-  //   sixMonthAgo.setHours(0, 0, 0)
-  //   const generator = b24.actions.v3.fetchList.make<MainEventLogItem>({
-  //     method: 'main.eventlog.list',
-  //     params: {
-  //       // filter: [
-  //       //   // ['timestampX', '>=', Text.toB24Format(sixMonthAgo)] // created at least 6 months ago
-  //       // ],
-  //       select: ['id', 'userId']
-  //     },
-  //     idKey: 'id',
-  //     customKeyForResult: 'items',
-  //     requestId: 'eventlog-123'
-  //     // limit: 60
-  //   })
-  //   for await (const chunk of generator) {
-  //     b24.getLogger().info('response', {
-  //       data: chunk?.length
-  //     })
-  //   }
-  //
-  //   // expect(response.isSuccess).toBe(true)
-  //   // const result = response.getData().result
-  //   // expect(result.item).toBeDefined()
-  //   // expect(result.item).toBeDefined()
-  //   // expect(result.item.title).toBeDefined()
-  // })
+  it('FetchListV3', async () => {
+    const b24 = getB24Client()
+    try {
+      interface MainEventLogItem { id: number, userId: number }
+      const sixMonthAgo = new Date()
+      sixMonthAgo.setMonth((new Date()).getMonth() - 6)
+      sixMonthAgo.setHours(0, 0, 0)
+      const generator = b24.actions.v3.fetchList.make<MainEventLogItem>({
+        method: 'main.eventlog.list',
+        params: {
+          filter: [
+            ['timestampX', '>=', Text.toB24Format(sixMonthAgo)] // created at least 6 months ago
+          ],
+          select: ['id', 'userId']
+        },
+        idKey: 'id',
+        customKeyForResult: 'items',
+        requestId: 'eventlog-123',
+        limit: 10
+      })
+      for await (const chunk of generator) {
+        expect(chunk.length).toBeGreaterThan(0)
+        // Process chunk (e.g., save to database, analyze, etc.)
+        b24.getLogger().debug(`Processing ${chunk.length} items`, { data: chunk })
+      }
+    } catch (error) {
+      if (!(error instanceof SdkError)) {
+        throw error
+      }
+      expect(error.code).toEqual('INTERNAL_SERVER_ERROR')
+      console.warn('❌ Some problem in b24.actions.v3.fetchList.make for main.eventlog.list')
+    }
+  })
 
   it('BatchV3 as BatchCommandsArrayUniversal', async () => {
     const b24 = getB24Client()

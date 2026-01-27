@@ -1,5 +1,5 @@
-import { ParamsFactory, B24Hook, LoggerFactory, LogLevel } from '../../packages/jssdk/src/index'
-// import { ParamsFactory, B24Hook } from '../../packages/jssdk/src/index'
+// import { ParamsFactory, B24Hook, LoggerFactory, LogLevel } from '../../packages/jssdk/src/index'
+import { ParamsFactory, B24Hook } from '../../packages/jssdk/src/index'
 
 declare global {
   var b24Integration: B24Hook | undefined
@@ -17,7 +17,7 @@ export function setupB24Client(): B24Hook {
   }
 
   const b24 = B24Hook.fromWebhookUrl(hookPath, { restrictionParams: ParamsFactory.getDefault() })
-  b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24', LogLevel.INFO))
+  // b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24', LogLevel.INFO))
 
   return b24
 }

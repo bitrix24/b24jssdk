@@ -17,7 +17,6 @@ export type ActionFetchListV3 = ActionOptions & {
  * Calls a REST API list method and returns an async generator for efficient large data retrieval. `restApi:v3`
  *
  * @todo add docs
- * @todo test self
  */
 export class FetchListV3 extends AbstractAction {
   /**

@@ -31,10 +31,15 @@ export class CallV2 extends AbstractAction {
    * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an REST API call.
    *
    * @example
+   * import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+   *
    * interface CrmItem { id: number, name: string, lastName: string }
    * const response = await b24.actions.v2.call.make<{ item: CrmItem }>({
    *   method: 'crm.item.get',
-   *   params: { entityTypeId: 3, id: 123 },
+   *   params: {
+   *     entityTypeId: EnumCrmEntityTypeId.contact,
+   *     id: 123
+   *   },
    *   requestId: 'item-123'
    * })
    * if (!response.isSuccess) {

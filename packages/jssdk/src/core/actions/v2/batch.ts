@@ -18,7 +18,6 @@ export type ActionBatchV2 = ActionOptions & {
  * Allows you to execute multiple requests in a single API call, significantly improving performance.
  *
  * @todo add docs
- * @todo test example
  */
 export class BatchV2 extends AbstractBatch {
   /**
@@ -45,12 +44,14 @@ export class BatchV2 extends AbstractBatch {
    *          - For named commands, an object with keys corresponding to the command names
    *
    * @example
+   * import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+   *
    * interface Contact { id: number, name: string }
    * const response = await b24.actions.v2.batch.make<{ item: Contact }>({
    *   calls: [
-   *     ['crm.item.get', { entityTypeId: 3, id: 1 }],
-   *     ['crm.item.get', { entityTypeId: 3, id: 2 }],
-   *     ['crm.item.get', { entityTypeId: 3, id: 3 }]
+   *     ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.contact, id: 1 }],
+   *     ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.contact, id: 2 }],
+   *     ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.contact, id: 3 }]
    *   ],
    *   options: {
    *     isHaltOnError: true,
@@ -58,7 +59,6 @@ export class BatchV2 extends AbstractBatch {
    *     requestId: 'batch-123'
    *   }
    * })
-   *
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
@@ -66,15 +66,17 @@ export class BatchV2 extends AbstractBatch {
    * const results = response.getData() as AjaxResult<{ item: Contact }>[]
    * results.forEach((result, index) => {
    *   if (result.isSuccess) {
-   *    console.log(`Item ${index + 1}:`, result.getData()?.item)
+   *    console.log(`Item ${index + 1}:`, result.getData().result.item)
    *   }
    * })
    *
    * @example
+   * import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+   *
    * const response = await b24.actions.v2.batch.make({
    *   calls: [
-   *     { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } },
-   *     { method: 'crm.item.get', params: { entityTypeId: 3, id: 2 } }
+   *     { method: 'crm.item.get', params: { entityTypeId: EnumCrmEntityTypeId.contact, id: 1 } },
+   *     { method: 'crm.item.get', params: { entityTypeId: EnumCrmEntityTypeId.contact, id: 2 } }
    *   ],
    *   options: {
    *     isHaltOnError: true,
@@ -82,14 +84,19 @@ export class BatchV2 extends AbstractBatch {
    *     requestId: 'batch-123'
    *   }
    * })
+   * if (!response.isSuccess) {
+   *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
+   * }
    *
    * @example
+   * import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+   *
    * interface Contact { id: number, name: string }
    * interface Deal { id: number, title: string }
    * const response = await b24.actions.v2.batch.make<{ item: Contact } | { item: Deal }>({
    *   calls: {
-   *     Contact: { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } },
-   *     Deal: ['crm.item.get', { entityTypeId: 2, id: 2 }]
+   *     Contact: { method: 'crm.item.get', params: { entityTypeId: EnumCrmEntityTypeId.contact, id: 1 } },
+   *     Deal: ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.deal, id: 2 }]
    *   },
    *   options: {
    *     isHaltOnError: true,
@@ -97,6 +104,9 @@ export class BatchV2 extends AbstractBatch {
    *     requestId: 'batch-123'
    *   }
    * })
+   * if (!response.isSuccess) {
+   *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
+   * }
    *
    * const results = response.getData() as Record<string, AjaxResult<{ item: Contact } | { item: Deal }>>
    * console.log('Contact:', results.Contact.getData().result.item as Contact)

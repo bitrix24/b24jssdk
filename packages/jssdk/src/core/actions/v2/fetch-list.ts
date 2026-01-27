@@ -16,8 +16,6 @@ export type ActionFetchListV2 = ActionOptions & {
  * Calls a REST API list method and returns an async generator for efficient large data retrieval. `restApi:v2`
  *
  * @todo add docs
- * @todo test self
- * @todo test example
  */
 export class FetchListV2 extends AbstractAction {
   /**
@@ -43,18 +41,21 @@ export class FetchListV2 extends AbstractAction {
    *     Each iteration returns the next page/batch of results until all data is fetched.
    *
    * @example
-   * import { Text } from '@bitrix24/b24jssdk'
+   * import { EnumCrmEntityTypeId, Text } from '@bitrix24/b24jssdk'
    *
-   * interface CrmItem { id: number, name: string }
+   * interface CrmItem { id: number, title: string }
    * const sixMonthAgo = new Date()
    * sixMonthAgo.setMonth((new Date()).getMonth() - 6)
    * sixMonthAgo.setHours(0, 0, 0)
    * const generator = b24.actions.v2.fetchList.make<CrmItem>({
    *   method: 'crm.item.list',
    *   params: {
-   *     entityTypeId: 3,
-   *     filter: { '>=createdTime': Text.toB24Format(sixMonthAgo) }, // created at least 6 months ago
-   *     select: ['id', 'name']
+   *     entityTypeId: EnumCrmEntityTypeId.company,
+   *     filter: {
+   *       '=%title': 'A%',
+   *       '>=createdTime': Text.toB24Format(sixMonthAgo) // created at least 6 months ago
+   *     },
+   *     select: ['id', 'title']
    *   },
    *   idKey: 'id',
    *   customKeyForResult: 'items',

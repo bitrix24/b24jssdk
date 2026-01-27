@@ -17,7 +17,6 @@ export type ActionCallListV3 = ActionOptions & {
  * Fast data retrieval without counting the total number of records. `restApi:v3`
  *
  * @todo add docs
- * @todo test self
  */
 export class CallListV3 extends AbstractAction {
   /**

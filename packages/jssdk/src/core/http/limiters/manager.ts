@@ -197,13 +197,17 @@ export class RestrictionManager {
     return [
       'ERR_BAD_REQUEST',
       'JSSDK_UNKNOWN_ERROR', // 'REQUEST_TIMEOUT', 'NETWORK_ERROR',
-      '100', 'NOT_FOUND',
+      '100',
       'INTERNAL_SERVER_ERROR', 'ERROR_UNEXPECTED_ANSWER', 'PORTAL_DELETED',
       'ERROR_BATCH_METHOD_NOT_ALLOWED', 'ERROR_BATCH_LENGTH_EXCEEDED',
-      'NO_AUTH_FOUND', 'INVALID_REQUEST',
+      'NO_AUTH_FOUND',
+      'INVALID_REQUEST',
       'OVERLOAD_LIMIT', 'expired_token',
       'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
-      'ERROR_MANIFEST_IS_NOT_AVAILABLE'
+      'ERROR_MANIFEST_IS_NOT_AVAILABLE',
+      'allowed_only_intranet_user',
+      'NOT_FOUND',
+      'INVALID_ARG_VALUE'
     ]
   }
 

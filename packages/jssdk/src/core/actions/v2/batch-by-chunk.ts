@@ -17,8 +17,6 @@ export type ActionBatchByChunkV2 = ActionOptions & {
  * Executes a batch request with automatic chunking for any number of commands. `restApi:v2`
  *
  * @todo add docs
- * @todo test self
- * @todo test example
  */
 export class BatchByChunkV2 extends AbstractBatch {
   /**
@@ -41,9 +39,11 @@ export class BatchByChunkV2 extends AbstractBatch {
    * @returns {Promise<Result<T[]>>} A promise that is resolved by the result of executing all commands.
    *
    * @example
+   * import { EnumCrmEntityTypeId, Text } from '@bitrix24/b24jssdk'
+   *
    * interface Contact { id: number, name: string }
    * const commands = Array.from({ length: 150 }, (_, i) =>
-   *   ['crm.item.get', { entityTypeId: 3, id: i + 1 }]
+   *   ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.contact, id: i + 1 }]
    * )
    *
    * const response = await b24.actions.v2.batchByChunk.make<{ item: Contact }>({
@@ -53,7 +53,6 @@ export class BatchByChunkV2 extends AbstractBatch {
    *     requestId: 'batch-by-chunk-123'
    *   }
    * })
-   *
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }

@@ -16,8 +16,6 @@ export type ActionCallListV2 = ActionOptions & {
  * Fast data retrieval without counting the total number of records. `restApi:v2`
  *
  * @todo add docs
- * @todo test self
- * @todo test example
  */
 export class CallListV2 extends AbstractAction {
   /**
@@ -41,18 +39,21 @@ export class CallListV2 extends AbstractAction {
    * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.
    *
    * @example
-   * import { Text } from '@bitrix24/b24jssdk'
+   * import { EnumCrmEntityTypeId, Text } from '@bitrix24/b24jssdk'
    *
-   * interface CrmItem { id: number, name: string }
+   * interface CrmItem { id: number, title: string }
    * const sixMonthAgo = new Date()
    * sixMonthAgo.setMonth((new Date()).getMonth() - 6)
    * sixMonthAgo.setHours(0, 0, 0)
    * const response = await b24.actions.v2.callList.make<CrmItem>({
    *   method: 'crm.item.list',
    *   params: {
-   *     entityTypeId: 3,
-   *     filter: { '>=createdTime': Text.toB24Format(sixMonthAgo) }, // created at least 6 months ago
-   *     select: ['id', 'name']
+   *     entityTypeId:  EnumCrmEntityTypeId.company,
+   *     filter: {
+   *       '=%title': 'A%',
+   *       '>=createdTime': Text.toB24Format(sixMonthAgo) // created at least 6 months ago
+   *     },
+   *     select: ['id', 'title']
    *   },
    *   idKey: 'id',
    *   customKeyForResult: 'items',

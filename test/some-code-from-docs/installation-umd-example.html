@@ -1,37 +1,3 @@
----
-title: UMD
-description: 'Complete guide for using UMD version Bitrix24 JS SDK in you applications.'
----
-
-## Import
-
-### Via CDN
-
-You can include the library directly via CDN. Add the following `<script>` tag to your HTML file:
-
-```html
-<script src="https://unpkg.com/@bitrix24/b24jssdk@latest/dist/umd/index.min.js"></script>
-```
-
-### Local Import
-
-Download the UMD version of the library from [unpkg.com](https://unpkg.com/browse/@bitrix24/b24jssdk@latest/dist/) and add it to your project.
-
-Then include it in your HTML file:
-
-```html
-<script src="/path/to/umd/index.min.js"></script>
-```
-
-## Example
-
-After including, the library will be available through the global variable `B24Js`.
-
-Here's a simple example demonstrating how to get a list of companies.
-
-The example below assumes that the code is used within applications that open in frames in the Bitrix24 user interface:
-
-```html [example.html]
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,7 +9,7 @@ The example below assumes that the code is used within applications that open in
 <h1>Company Loader Example</h1>
 <p>Check developer console for results</p>
 
-<script src="https://unpkg.com/@bitrix24/b24jssdk@latest/dist/umd/index.min.js"></script>
+<script src="../../packages/jssdk/dist/umd/index.js"></script>
 <script>
   // Create logger
   const logger = B24Js.LoggerFactory.createForBrowser('B24/jsSdk::umd', true);
@@ -55,26 +21,26 @@ The example below assumes that the code is used within applications that open in
     try {
       logger.info('Loading companies...');
 
-      const response = await b24.callMethod(
-        'crm.item.list',
-        {
+      const response = await b24.actions.v2.call.make({
+        method: 'crm.item.list',
+        params: {
           entityTypeId: B24Js.EnumCrmEntityTypeId.company,
           order: { id: 'desc' },
           select: ['id', 'title', 'createdTime']
         }
-      );
+      });
 
       const data = response.getData().result;
 
-      const companies = (data?.items || []).map(function(item) {
+      const companies = (data?.items || []).map((item) => {
         return {
-          id: Number(item.id),
+          id: Number.parseInt(item.id),
           title: item.title,
           createdTime: B24Js.Text.toDateTime(item.createdTime) // @memo this is luxon/DateTime
         };
       });
 
-      logger.info('Companies loaded successfully', { companies });
+      logger.notice('Companies loaded successfully', { companies });
       return companies;
     } catch (error) {
       logger.error('Request failed', { error });
@@ -96,7 +62,7 @@ The example below assumes that the code is used within applications that open in
       // Further data processing...
       logger.info('Loaded ' + companies.length + ' companies');
     } catch (error) {
-      logger.error('Failed to load companies', { error })
+      logger.error('Some problems', { error })
     }
   }
 
@@ -107,18 +73,3 @@ The example below assumes that the code is used within applications that open in
 </script>
 </body>
 </html>
-```
-
-## Documentation
-
-::card-group
-
-::card
----
-title: B24Frame
-to: /docs/frame/
----
-To work with the application built into the Bitrix24 interface
-::
-
-::

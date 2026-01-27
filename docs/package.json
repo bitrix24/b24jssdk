@@ -11,14 +11,15 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "@bitrix24/b24jssdk-nuxt": "workspace:*",
     "@ai-sdk/deepseek": "^2.0.11",
     "@ai-sdk/mcp": "^1.0.13",
     "@ai-sdk/vue": "^3.0.50",
+    "@bitrix24/b24jssdk": "workspace:*",
+    "@bitrix24/b24jssdk-nuxt": "workspace:*",
+    "@bitrix24/b24ui-nuxt": "^2.2.1",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@nuxt/content": "^3.11.0",
     "@nuxt/image": "^2.0.0",
-    "@bitrix24/b24ui-nuxt": "^2.2.1",
     "@nuxt/kit": "^4.3.0",
     "@nuxtjs/mcp-toolkit": "^0.6.2",
     "@nuxtjs/plausible": "^2.0.1",

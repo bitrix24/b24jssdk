@@ -199,11 +199,11 @@ export class LoadTesterV2 extends AbstractLoadTester {
   protected override async _makeRequestBase(requestId: string, iterator: number): Promise<Result<TestResult>> {
     const start = Date.now()
     try {
-      const response = await this._b24.callV2(
-        this._method,
-        this._params,
+      const response = await this._b24.actions.v2.call.make({
+        method: this._method,
+        params: this._params,
         requestId
-      )
+      })
 
       if (!response.isSuccess) {
         throw new SdkError({
@@ -245,10 +245,10 @@ export class LoadTesterV2 extends AbstractLoadTester {
   protected override async _makeRequestBatch(requestId: string, iterator: number): Promise<Result<TestResult>> {
     const start = Date.now()
     try {
-      const response = await this._b24.callBatchV2(
-        this._params,
-        { isHaltOnError: true, returnAjaxResult: true, requestId }
-      )
+      const response = await this._b24.actions.v2.batch.make({
+        calls: this._params,
+        options: { isHaltOnError: true, returnAjaxResult: true, requestId }
+      })
 
       if (!response.isSuccess) {
         throw new SdkError({
@@ -294,10 +294,10 @@ export class LoadTesterV2 extends AbstractLoadTester {
         this._params.method,
         this._params.params
       ])
-      const response = await this._b24.callBatchByChunkV2(
-        batchCalls as BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-        { isHaltOnError: true, requestId }
-      )
+      const response = await this._b24.actions.v2.batchByChunk.make({
+        calls: batchCalls as BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
+        options: { isHaltOnError: true, requestId }
+      })
 
       if (!response.isSuccess) {
         throw new SdkError({
@@ -348,11 +348,11 @@ export class LoadTesterV3 extends AbstractLoadTester {
   protected override async _makeRequestBase(requestId: string, iterator: number): Promise<Result<TestResult>> {
     const start = Date.now()
     try {
-      const response = await this._b24.callV3(
-        this._method,
-        this._params,
+      const response = await this._b24.actions.v3.call.make({
+        method: this._method,
+        params: this._params,
         requestId
-      )
+      })
 
       if (!response.isSuccess) {
         throw new SdkError({
@@ -394,10 +394,10 @@ export class LoadTesterV3 extends AbstractLoadTester {
   protected override async _makeRequestBatch(requestId: string, iterator: number): Promise<Result<TestResult>> {
     const start = Date.now()
     try {
-      const response = await this._b24.callBatchV3(
-        this._params,
-        { isHaltOnError: true, returnAjaxResult: true, requestId }
-      )
+      const response = await this._b24.actions.v3.batch.make({
+        calls: this._params,
+        options: { isHaltOnError: true, returnAjaxResult: true, requestId }
+      })
 
       if (!response.isSuccess) {
         throw new SdkError({
@@ -445,10 +445,10 @@ export class LoadTesterV3 extends AbstractLoadTester {
         this._params.params
       ])
 
-      const response = await this._b24.callBatchByChunkV3(
-        batchCalls as BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
-        { isHaltOnError: true, requestId }
-      )
+      const response = await this._b24.actions.v3.batchByChunk.make({
+        calls: batchCalls as BatchCommandsArrayUniversal | BatchCommandsObjectUniversal,
+        options: { isHaltOnError: true, requestId }
+      })
 
       if (!response.isSuccess) {
         throw new SdkError({

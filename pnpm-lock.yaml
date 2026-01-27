@@ -66,6 +66,9 @@ importers:
       '@ai-sdk/vue':
         specifier: ^3.0.50
         version: 3.0.50(vue@3.5.27(typescript@5.8.3))(zod@4.3.6)
+      '@bitrix24/b24jssdk':
+        specifier: workspace:*
+        version: link:../packages/jssdk
       '@bitrix24/b24jssdk-nuxt':
         specifier: workspace:*
         version: link:../packages/jssdk-nuxt

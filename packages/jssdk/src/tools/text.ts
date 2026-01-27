@@ -1,4 +1,5 @@
-import { DateTime, type DateTimeOptions } from 'luxon'
+import type { DateTimeOptions } from 'luxon'
+import { DateTime } from 'luxon'
 import uuidv7 from './uuidv7'
 import { Type } from './type'
 

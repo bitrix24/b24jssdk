@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import type { ProgressProps } from '@bitrix24/b24ui-nuxt'
 import type { TypeB24, LoggerInterface } from '@bitrix24/b24jssdk'
-import { B24Frame, AjaxError } from '@bitrix24/b24jssdk'
+import { B24Frame, SdkError } from '@bitrix24/b24jssdk'
 import { ref, onMounted } from 'vue'
-// import { withoutTrailingSlash } from 'ufo'
 import Market1Icon from '@bitrix24/b24icons-vue/main/Market1Icon'
 
 // region Install ////
@@ -258,15 +257,15 @@ const steps = ref<Record<string, IStep>>({
 // region Actions ////
 async function makeInit(b24: TypeB24): Promise<void> {
   if (steps.value.init) {
-    const response = await b24.callBatch(
-      {
+    const response = await b24.actions.v2.batch.make({
+      calls: {
         // appInfo: { method: 'app.info' },
         profile: { method: 'profile' },
         userFieldTypeList: { method: 'userfieldtype.list' },
         placementList: { method: 'placement.get' }
       },
-      { isHaltOnError: false }
-    )
+      options: { isHaltOnError: false }
+    })
 
     steps.value.init.data = response.getData() as {
       // appInfo: {
@@ -367,13 +366,11 @@ onMounted(async () => {
     }
   } catch (error: any) {
     $logger!.error('some error', { error })
-
-    const processErrorData = {}
     let statusMessage = 'Error'
     let message = ''
     let statusCode = 404
 
-    if (error instanceof AjaxError) {
+    if (error instanceof SdkError) {
       statusCode = error.status
       statusMessage = error.name
       message = `${error.message}`
@@ -384,12 +381,10 @@ onMounted(async () => {
     }
 
     showError({
-      statusCode,
-      statusMessage,
+      status: statusCode,
+      statusText: statusMessage,
       message,
-      data: Object.assign({}, processErrorData),
-      cause: error,
-      fatal: true
+      cause: error
     })
   }
 })

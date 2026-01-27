@@ -23,9 +23,9 @@ try {
   sixMonthAgo.setMonth((new Date()).getMonth() - 6)
   sixMonthAgo.setHours(0, 0, 0)
 
-  for await (const chunk of $b24.fetchListMethod<Deal>(
-    'crm.item.list',
-    {
+  for await (const chunk of $b24.actions.v2.fetchList.make<Deal>({
+    method: 'crm.item.list',
+    params: {
       entityTypeId: EnumCrmEntityTypeId.company,
       filter: {
         '>createdTime': sixMonthAgo.toISOString(), // Created at least 6 months ago
@@ -33,9 +33,10 @@ try {
       },
       select: ['id', 'title', 'stageId', 'opportunity', 'createdTime']
     },
-    'id',
-    'items'
-  )) {
+    idKey: 'id',
+    customKeyForResult: 'items',
+    requestId: 'fetchList/crm.item.list'
+  })) {
     // Write each transaction to the file line by line
     for (const deal of chunk) {
       outputFile.write(JSON.stringify(deal) + '\n')

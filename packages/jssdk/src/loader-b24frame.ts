@@ -102,7 +102,7 @@ export async function initializeB24Frame(
       // throw new Error('Unable to initialize Bitrix24Frame library!')
       connectError = new SdkError({
         code: 'JSSDK_CLIENT_SIDE_WARNING',
-        description: 'Well done! Now paste this URL into the B24 app settings',
+        description: 'Well done! Now paste this URL into the Bitrix24 app settings',
         status: 500
       })
       reject(connectError)

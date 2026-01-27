@@ -14,7 +14,7 @@ export async function fetchComponentExample(name: string) {
   // Add to nitro prerender
   if (import.meta.server) {
     const event = useRequestEvent()
-    event?.node.res.setHeader(
+    event?.node?.res?.setHeader(
       'x-nitro-prerender',
       [event?.node.res.getHeader('x-nitro-prerender'), `/api/component-example/${name}.json`].filter(Boolean).join(',')
     )

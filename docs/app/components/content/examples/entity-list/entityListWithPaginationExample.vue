@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TypeB24, Result, LoggerInterface } from '@bitrix24/b24jssdk'
 import type { TableColumn } from '@bitrix24/b24ui-nuxt'
-import { AjaxError, EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+import { SdkError, EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
 // Initialization
 let $b24: undefined | TypeB24 = undefined
@@ -143,12 +143,11 @@ onMounted(async () => {
   } catch (error) {
     $logger!.error('some error', { error })
 
-    const processErrorData = {}
     let statusMessage = 'Error'
     let message = ''
     let statusCode = 404
 
-    if (error instanceof AjaxError) {
+    if (error instanceof SdkError) {
       statusCode = error.status
       statusMessage = error.name
       message = `${error.message}`
@@ -159,12 +158,10 @@ onMounted(async () => {
     }
 
     showError({
-      statusCode,
-      statusMessage,
+      status: statusCode,
+      statusText: statusMessage,
       message,
-      data: Object.assign({}, processErrorData),
-      cause: error,
-      fatal: true
+      cause: error
     })
   }
 })

@@ -36,29 +36,6 @@ export const useB24 = () => {
         nextTick(() => {
           type.value = 'B24Frame'
         })
-
-        const tmpLogger = LoggerFactory.createForBrowserDevelopment('JsSdk Docs')
-        $b24.setupAuthRefresh({
-          checkInterval: 1_500_000, // 25 min
-          refreshBeforeExpiry: 720_000, // 12 minutes
-          autoStart: true,
-          onEvent: (event, data) => {
-            tmpLogger.notice('The token event', {
-              event,
-              data: data ?? '?'
-            })
-          },
-          onRefresh: (authData) => {
-            tmpLogger.notice('The token has been automatically updated', {
-              domain: authData.domain,
-              expires: authData.expires,
-              expires_in: authData.expires_in
-            })
-          },
-          onError: (error) => {
-            tmpLogger.warning('Automatic token update error', { error })
-          }
-        }, tmpLogger)
       } else if (
         typeof newValue === 'string'
         && newValue.length > 0

@@ -7,14 +7,14 @@ const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_d
 
 try {
   // `return AjaxResult = true` returns an AjaxResult for each command
-  const response = await $b24.callBatch(
-    {
+  const response = await $b24.actions.v2.batch.make({
+    calls: {
       ServerTime: { method: 'server.time' },
       UserProfile: { method: 'user.current' },
       DealCount: { method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.deal, select: ['id'] } }
     },
-    { isHaltOnError: false, returnAjaxResult: true }
-  ) as Result<Record<string, AjaxResult>>
+    options: { isHaltOnError: false, returnAjaxResult: true }
+  }) as Result<Record<string, AjaxResult>>
 
   if (!response.isSuccess) {
     throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)
@@ -24,12 +24,12 @@ try {
 
   // We check each command separately
   if (data.ServerTime?.isSuccess) {
-    $logger.info('Server time:', data.ServerTime.getData().result)
+    $logger.info('Server time:', data.ServerTime.getData()!.result)
   }
 
   if (data.UserProfile?.isSuccess) {
     $logger.info('Current user', {
-      name: (data.UserProfile.getData().result as unknown as { NAME: string }).NAME
+      name: (data.UserProfile.getData()!.result as unknown as { NAME: string }).NAME
     })
   }
 

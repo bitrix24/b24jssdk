@@ -1,5 +1,5 @@
 import type { ISODate } from '@bitrix24/b24jssdk'
-import { B24Hook, EnumCrmEntityTypeId, LoggerFactory } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, LoggerFactory, Text } from '@bitrix24/b24jssdk'
 
 type Deal = {
   id: number
@@ -17,19 +17,19 @@ try {
   const sixMonthAgo = new Date()
   sixMonthAgo.setMonth((new Date()).getMonth() - 6)
   sixMonthAgo.setHours(0, 0, 0)
-  const response = await $b24.callFastListMethod<Deal>(
-    'crm.item.list',
-    {
+  const response = await $b24.actions.v2.callList.make<Deal>({
+    method: 'crm.item.list',
+    params: {
       entityTypeId: EnumCrmEntityTypeId.deal,
       filter: {
-        '>=movedTime': sixMonthAgo, // Stage changed at least 6 months ago
+        '>=movedTime': Text.toB24Format(sixMonthAgo), // Stage changed at least 6 months ago
         '=stageId': 'WON' // Only winning deals
       },
       select: ['id', 'title', 'opportunity', 'stageId', 'movedTime']
     },
-    'id',
-    'items'
-  )
+    idKey: 'id',
+    customKeyForResult: 'items'
+  })
 
   if (!response.isSuccess) {
     throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)

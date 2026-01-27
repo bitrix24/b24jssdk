@@ -30,7 +30,7 @@ async function initMcpToolsForB24RestApi() {
 }
 
 export default defineEventHandler(async (event) => {
-  const { messages } = await readBody(event)
+  const body: any = await readBody(event)
   const config = useRuntimeConfig()
 
   const httpTransport = new StreamableHTTPClientTransport(
@@ -87,7 +87,7 @@ Code Style Guidelines for Vue and Nuxt:
 - You have up to ${maxStepCount} tool calls to find the answer, so be strategic: start broad, then get specific if needed.
 - Format responses in a conversational way, not as documentation sections.
     `,
-    messages: convertToModelMessages(messages),
+    messages: convertToModelMessages(body?.messages),
     stopWhen: stepCountIs(maxStepCount),
     tools,
     onFinish: async () => {

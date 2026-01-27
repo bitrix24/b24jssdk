@@ -10,9 +10,9 @@ const $logger = LoggerFactory.createForBrowser('Example:AllCrmItems', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
-  const response = await $b24.callFastListMethod<Company>(
-    'crm.item.list',
-    {
+  const response = await $b24.actions.v2.callList.make<Company>({
+    method: 'crm.item.list',
+    params: {
       entityTypeId: EnumCrmEntityTypeId.company,
       filter: {
         // use some filter by title
@@ -20,9 +20,9 @@ try {
       },
       select: ['id', 'title']
     },
-    'id', // ID field in the response
-    'items' // The key under which the data is located (for methods like crm.item.list)
-  )
+    idKey: 'id', // ID field in the response
+    customKeyForResult: 'items' // The key under which the data is located (for methods like crm.item.list)
+  })
 
   if (!response.isSuccess) {
     throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)

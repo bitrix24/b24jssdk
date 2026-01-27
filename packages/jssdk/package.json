@@ -57,13 +57,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "axios": "^1.13.2",
-    "qs-esm": "^7.0.2",
+    "axios": "^1.13.3",
+    "qs-esm": "^7.0.3",
     "luxon": "^3.7.2"
   },
   "devDependencies": {
     "@types/luxon": "^3.7.1",
-    "@types/node": "^25.0.9",
+    "@types/node": "^25.0.10",
     "ts-node": "^10.9.2",
     "unbuild": "^3.6.1"
   }

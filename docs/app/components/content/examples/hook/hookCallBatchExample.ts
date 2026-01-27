@@ -11,8 +11,8 @@ const $logger = LoggerFactory.createForBrowser('Example:BatchObject', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
-  const response = await $b24.callBatch<BatchResponse>(
-    {
+  const response = await $b24.actions.v2.batch.make({
+    calls: {
       CompanyList: {
         method: 'crm.item.list',
         params: {
@@ -30,8 +30,8 @@ try {
         }
       }
     },
-    { isHaltOnError: true }
-  ) as Result<BatchResponse>
+    options: { isHaltOnError: true }
+  }) as Result<BatchResponse>
 
   if (!response.isSuccess) {
     throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)

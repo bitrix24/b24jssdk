@@ -30,10 +30,9 @@ onMounted(async () => {
   } catch (error) {
     $logger.error('some error', { error })
     showError({
-      statusCode: 404,
-      statusMessage: (error instanceof Error) ? error.message : (error as string),
-      cause: error,
-      fatal: true
+      status: 404,
+      statusText: (error instanceof Error) ? error.message : (error as string),
+      cause: error
     })
   }
   //*/

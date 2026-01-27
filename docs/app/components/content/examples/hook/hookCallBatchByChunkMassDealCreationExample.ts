@@ -30,7 +30,10 @@ try {
 
   $logger.info(`Creating ${dealCreationCalls.length} deals...`)
 
-  const response = await $b24.callBatchByChunk<{ item: Deal }>(dealCreationCalls, { isHaltOnError: true })
+  const response = await $b24.actions.v2.batchByChunk.make<{ item: Deal }>({
+    calls: dealCreationCalls,
+    options: { isHaltOnError: true }
+  })
 
   if (!response.isSuccess) {
     throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)

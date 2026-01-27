@@ -8,7 +8,7 @@ import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnI
 
 const { data: page } = await useAsyncData('index', () => queryCollection('index').first())
 if (!page.value) {
-  throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
+  throw createError({ status: 404, statusText: 'Page not found' })
 }
 
 // const config = useRuntimeConfig()

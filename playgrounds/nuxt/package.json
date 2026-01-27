@@ -10,11 +10,11 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "nuxt": "^4.2.2",
+    "nuxt": "^4.3.0",
     "@bitrix24/b24ui-nuxt": "^2.2.1"
   },
   "devDependencies": {
-    "typescript": "^5.8.3",
-    "vue-tsc": "^3.1.8"
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.2.4"
   }
 }

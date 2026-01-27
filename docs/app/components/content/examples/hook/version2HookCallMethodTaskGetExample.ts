@@ -13,20 +13,20 @@ const loggerForDebugB24 = LoggerFactory.createForBrowser('b24', false)
 $b24.setLogger(loggerForDebugB24)
 
 async function getTask(id: number, requestId: string): Promise<Task | null> {
-  const response = await $b24.callV2<{ item: Task }>(
-    'tasks.task.get',
-    {
+  const response = await $b24.actions.v2.call.make<{ item: Task }>({
+    method: 'tasks.task.get',
+    params: {
       taskId: id,
       select: ['ID', 'TITLE']
     },
     requestId
-  )
+  })
 
   if (!response.isSuccess) {
     throw new Error(`Failed to get task: ${response.getErrorMessages().join('; ')}`)
   }
 
-  return response.getData().result.item
+  return response.getData()!.result.item
 }
 
 // Usage

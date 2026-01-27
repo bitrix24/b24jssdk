@@ -15,14 +15,13 @@ const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl(webhookUrl!)
 async function testConnection(): Promise<boolean> {
   try {
     // Check the connection by requesting server time information
-    const response = await $b24.callMethod('server.time')
+    const responseTime = await $b24.tools.ping.make()
 
-    if (!response.isSuccess) {
-      throw new Error(`Connection error: ${response.getErrorMessages().join('; ')}`)
+    if (responseTime < 1) {
+      throw new Error(`Connection error`)
     }
 
-    const serverTime = response.getData().result
-    console.log(`Connected to Bitrix24: time ${serverTime}`)
+    console.log(`Connected to Bitrix24: time ${responseTime}`)
     return true
   } catch (error) {
     console.error('Problem connecting:', error)

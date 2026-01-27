@@ -16,17 +16,18 @@ const overdueTasks: any[] = []
 const today = new Date()
 
 try {
-  for await (const chunk of $b24.fetchListMethod<Task>(
-    'tasks.task.list',
-    {
+  for await (const chunk of $b24.actions.v2.fetchList.make<Task>({
+    method: 'tasks.task.list',
+    params: {
       filter: {
         REAL_STATUS: [2, 3] // Tasks in progress and pending execution
       },
       select: ['ID', 'TITLE', 'DEADLINE', 'RESPONSIBLE_ID']
     },
-    'ID',
-    'tasks' // The key under which the tasks are located in the response
-  )) {
+    idKey: 'ID',
+    customKeyForResult: 'tasks', // The key under which the tasks are located in the response
+    requestId: 'fetchList/tasks.task.list'
+  })) {
     // Filter overdue tasks
     const overdueInChunk = chunk.filter((task) => {
       if (!task.deadline) {

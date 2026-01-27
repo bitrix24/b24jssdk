@@ -12,15 +12,15 @@ const $logger = LoggerFactory.createForBrowser('Example:AllTasks', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
-  const response = await $b24.callFastListMethod<Task>(
-    'tasks.task.list',
-    {
+  const response = await $b24.actions.v2.callList.make<Task>({
+    method: 'tasks.task.list',
+    params: {
       filter: { REAL_STATUS: [2, 3] }, // Tasks in progress and pending execution
       select: ['ID', 'TITLE', 'RESPONSIBLE_ID']
     },
-    'id',
-    'tasks' // The key under which the tasks are located in the response
-  )
+    idKey: 'id',
+    customKeyForResult: 'tasks' // The key under which the tasks are located in the response
+  })
 
   if (!response.isSuccess) {
     throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)

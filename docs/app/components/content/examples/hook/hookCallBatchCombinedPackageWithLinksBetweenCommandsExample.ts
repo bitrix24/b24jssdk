@@ -14,8 +14,8 @@ const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_d
 const dealId = 1
 
 try {
-  const response = await $b24.callBatch(
-    {
+  const response = await $b24.actions.v2.batch.make({
+    calls: {
       // 1. We receive a transaction by ID
       Deal: {
         method: 'crm.item.get',
@@ -46,8 +46,8 @@ try {
         }
       }
     },
-    { isHaltOnError: true }
-  ) as Result<BatchResponse>
+    options: { isHaltOnError: true }
+  }) as Result<BatchResponse>
 
   if (!response.isSuccess) {
     throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)

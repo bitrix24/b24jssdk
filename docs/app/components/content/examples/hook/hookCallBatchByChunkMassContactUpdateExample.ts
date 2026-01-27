@@ -13,11 +13,17 @@ const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_d
 
 try {
   // First, we get all the contacts that need to be updated.
-  const contactResponse = await $b24.callFastListMethod<Contact>('crm.item.list', {
-    entityTypeId: EnumCrmEntityTypeId.contact,
-    filter: { '=sourceId': 'WEBFORM' }, // Contacts from web forms
-    select: ['id', 'name', 'lastName', 'sourceId']
-  }, 'id', 'items')
+  const contactResponse = await $b24.actions.v2.callList.make<Contact>({
+    method: 'crm.item.list',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.contact,
+      filter: { '=sourceId': 'WEBFORM' }, // Contacts from web forms
+      select: ['id', 'name', 'lastName', 'sourceId']
+    },
+    idKey: 'id',
+    customKeyForResult: 'items',
+    requestId: 'callList/crm.item.list'
+  })
 
   if (!contactResponse.isSuccess) {
     throw new Error(`Failed to retrieve contact list: ${contactResponse.getErrorMessages().join('; ')}`)
@@ -45,7 +51,10 @@ try {
     ])
 
     // We perform the update in chunks
-    const response = await $b24.callBatchByChunk<{ item: Contact }>(updateCalls, { isHaltOnError: false }) // Continue with errors
+    const response = await $b24.actions.v2.batchByChunk.make<{ item: Contact }>({
+      calls: updateCalls,
+      options: { isHaltOnError: false } // Continue with errors
+    })
 
     if (!response.isSuccess) {
       throw new Error(`API Error: ${response.getErrorMessages().join('; ')}`)

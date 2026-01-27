@@ -40,7 +40,7 @@ useHead({
 
 useSeoMeta({
   titleTemplate: '%s - Bitrix24 JS SDK',
-  title: String(props.error.statusCode)
+  title: (props.error as any)?.status
 })
 
 useServerSeoMeta({
@@ -71,7 +71,7 @@ onMounted(() => {
 const b24Instance = useB24()
 
 const isFromB24Ajax = computed(() => {
-  return (props.error.cause as any)?.name === 'AjaxError' && !b24Instance.isHookFromEnv() && !b24Instance.isFrame()
+  return ((props.error as any).cause as any)?.name === 'AjaxError' && !b24Instance.isHookFromEnv() && !b24Instance.isFrame()
 })
 
 function resetHook() {

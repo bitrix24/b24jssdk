@@ -87,7 +87,7 @@ Code Style Guidelines for Vue and Nuxt:
 - You have up to ${maxStepCount} tool calls to find the answer, so be strategic: start broad, then get specific if needed.
 - Format responses in a conversational way, not as documentation sections.
     `,
-    messages: convertToModelMessages(body?.messages),
+    messages: await convertToModelMessages(body?.messages),
     stopWhen: stepCountIs(maxStepCount),
     tools,
     onFinish: async () => {

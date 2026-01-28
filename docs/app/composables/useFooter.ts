@@ -1,8 +1,8 @@
 export function useFooter() {
   const links = [
     {
-      label: 'Templates',
-      to: '/templates/'
+      label: 'Examples',
+      to: '/docs/examples/'
     }
   ]
 

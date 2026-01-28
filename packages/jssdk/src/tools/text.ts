@@ -67,7 +67,7 @@ class TextManager {
    */
   encode(value: string): string {
     if (Type.isString(value)) {
-      return value.replace(reEscape, item => escapeEntities[item])
+      return value.replace(reEscape, item => escapeEntities[item]!)
     }
 
     return value
@@ -80,7 +80,7 @@ class TextManager {
    */
   decode(value: string): string {
     if (Type.isString(value)) {
-      return value.replace(reUnescape, item => unescapeEntities[item])
+      return value.replace(reUnescape, item => unescapeEntities[item]!)
     }
 
     return value
@@ -114,7 +114,7 @@ class TextManager {
     if (!regex.test(str)) {
       return str.match(/^[A-Z]+$/)
         ? str.toLowerCase()
-        : str[0].toLowerCase() + str.slice(1)
+        : str[0]!.toLowerCase() + str.slice(1)
     }
 
     str = str.toLowerCase()
@@ -122,7 +122,7 @@ class TextManager {
       letter ? letter.toUpperCase() : ''
     )
 
-    return str[0].toLowerCase() + str.substring(1)
+    return str[0]!.toLowerCase() + str.substring(1)
   }
 
   toPascalCase(str: string): string {
@@ -153,7 +153,7 @@ class TextManager {
       return str
     }
 
-    return str[0].toUpperCase() + str.substring(1)
+    return str[0]!.toUpperCase() + str.substring(1)
   }
 
   numberFormat(
@@ -175,7 +175,7 @@ class TextManager {
       .toString()
       .split('.')
 
-    if (s[0].length > 3) {
+    if (s[0] && s[0].length > 3) {
       s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, thousandsSep)
     }
 

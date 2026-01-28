@@ -37,6 +37,7 @@ const { mobileLinks } = useHeader()
       </B24SidebarHeader>
       <B24SidebarBody>
         <B24NavigationMenu
+          class="block lg:hidden"
           :items="mobileLinks"
           orientation="vertical"
         />

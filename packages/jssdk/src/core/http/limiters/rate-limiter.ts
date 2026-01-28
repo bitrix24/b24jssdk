@@ -245,7 +245,7 @@ export class RateLimiter implements ILimiter {
 
     // If there are any waiting, resolve the next one
     if (this.#lockQueue.length > 0) {
-      const nextResolve = this.#lockQueue[0]
+      const nextResolve = this.#lockQueue[0]!
       nextResolve()
     }
   }

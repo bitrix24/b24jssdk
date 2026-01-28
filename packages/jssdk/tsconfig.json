@@ -1,57 +1,66 @@
 {
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM"],
+
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "alwaysStrict": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+    "stripInternal": false,
+
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false,
+
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+
+    "outDir": "./dist/types-temp",
+    "noEmit": false,
+
+    "useDefineForClassFields": true,
+    "moduleDetection": "force",
+    "incremental": false,
+
+    "types": ["node"]
+  },
   "include": [
     "src"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "test"
-  ],
-  "compilerOptions": {
-    "outDir": "./dist",
-    "declarationDir": "dist/types",
-    "target": "ESNext",
-    "module": "ESNext",
-    "allowJs": true,
-    "resolveJsonModule": true,
-    "moduleDetection": "force",
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "moduleResolution": "Node",
-    "useDefineForClassFields": true,
-    "noImplicitThis": true,
-    "declaration": true,
-    "esModuleInterop": true,
-    "types": ["node"],
-    "lib": [
-      "ESNext",
-      "dom",
-      "dom.iterable",
-      "webworker"
-    ],
-    "jsx": "preserve",
-    "jsxImportSource": "vue",
-    "declarationMap": false,
-    "sourceMap": false,
-    "noEmit": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "alwaysStrict": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": false,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
-  },
-  "tsc-alias": {
-    "resolveFullPaths": true,
-    "verbose": true
-  }
+    "test",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.stories.ts",
+    "**/*.d.ts"
+  ]
 }

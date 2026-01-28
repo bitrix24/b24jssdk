@@ -44,11 +44,8 @@
     "docs:typecheck": "pnpm --filter ./docs typecheck",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration",
-    "package-jssdk:test-js-docs": "vitest -t \"js-docs\" --project jsSdk:integration",
+    "package-jssdk:test-integration-js-docs": "vitest -t \"js-docs\" --project jsSdk:integration",
     "package-jssdk:test-integration-core": "vitest -t \"core\" --project jsSdk:integration",
-    "package-jssdk:test-integration-core-tools": "vitest -t \"core.Tools\" --project jsSdk:integration",
-    "package-jssdk:test-integration-core-deprecated": "vitest -t \"core.deprecated @apiV2\" --project jsSdk:integration",
-    "package-jssdk:test-integration-core-v3-batch:ref": "vitest -t \"use batch:ref @apiV3\" --project jsSdk:integration",
     "package-jssdk:test:run-underLoad-v3-call": "vitest run -t \"tasksTaskGet @apiV3\" --project jsSdk:underLoad",
     "package-jssdk:test:run-underLoad-v3-batch": "vitest run -t \"TasksTaskGet batch @apiV3\" --project jsSdk:underLoad",
     "package-jssdk:test:run-underLoad-v3-batchByChunk": "vitest run -t \"TasksTaskGet batchByChunk @apiV3\" --project jsSdk:underLoad",
@@ -75,8 +72,7 @@
   "resolutions": {
     "@bitrix24/b24jssdk": "workspace:*",
     "@bitrix24/b24jssdk-nuxt": "workspace:*",
-    "typescript": "5.8.3",
-    "shiki": "3.18.0"
+    "typescript": "5.8.3"
   },
   "keywords": [
     "bitrix24",

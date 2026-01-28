@@ -24,7 +24,7 @@ export class JsonRpc {
 
     if (Type.isPlainObject(options.handlers)) {
       for (const method in options.handlers) {
-        this.handle(method, options.handlers[method])
+        this.handle(method, options.handlers[method]!)
       }
     }
   }
@@ -85,6 +85,7 @@ export class JsonRpc {
    * @param {JsonRpcRequest[]} batch
    * @returns {Promise[]}
    */
+  // @ts-expect-error When we rewrite it to something more modern, then we'll remove this
   private executeOutgoingRpcBatch(batch: JsonRpcRequest[]): Promise<any>[] {
     const requests: RpcRequest[] = []
     const promises: Promise<any>[] = []
@@ -176,7 +177,7 @@ export class JsonRpc {
     params
   }: RpcCommand): RpcCommandResult {
     if (method in this._handlers) {
-      return this._handlers[method].call(this, params || {})
+      return this._handlers[method]!.call(this, params || {})
     }
 
     return {

@@ -3,14 +3,17 @@
   "version": "1.0.1",
   "author": "Bitrix",
   "license": "MIT",
-  "description": "Bitrix24 REST API JS SDK",
+  "description": "Bitrix24 REST API JavaScript SDK",
   "keywords": [
     "bitrix24",
     "js",
+    "typescript",
+    "javascript",
     "nodejs",
-    "restapi",
-    "REST",
-    "API"
+    "sdk",
+    "rest-api",
+    "api",
+    "client"
   ],
   "homepage": "https://bitrix24.github.io/b24jssdk/",
   "repository": {
@@ -18,43 +21,47 @@
     "url": "git+https://github.com/bitrix24/b24jssdk.git",
     "directory": "packages/jssdk"
   },
+  "bugs": {
+    "url": "https://github.com/bitrix24/b24jssdk/issues"
+  },
   "sideEffects": false,
   "type": "module",
   "exports": {
-    "./package.json": "./package.json",
     ".": {
-      "types": "./dist/esm/index.d.mts",
+      "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.mjs"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "main": "./dist/esm/index.mjs",
   "module": "./dist/esm/index.mjs",
   "typesVersions": {
-    "*": {
-      ".": [
-        "./dist/esm/index.d.mts"
-      ]
-    }
+    "*": { ".": ["./dist/esm/index.d.ts"] }
   },
-  "unpkg": "dist/umd/index.min.js",
+  "unpkg": "./dist/umd/index.min.js",
+  "jsdelivr": "./dist/umd/index.min.js",
   "files": [
+    "dist/**",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*",
     "README.md",
     "README-AI.md",
     "LICENSE",
-    "dist",
     "package.json"
   ],
   "engines": {
     "node": "^18.0.0 || ^20.0.0 || >=22.0.0"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
+    "dev": "unbuild --stub",
     "dev:prepare": "pnpm run build",
-    "prepack": "pnpm run build",
     "build": "unbuild",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "pnpm run build"
   },
   "dependencies": {
     "axios": "^1.13.3",
@@ -65,6 +72,7 @@
     "@types/luxon": "^3.7.1",
     "@types/node": "^25.0.10",
     "ts-node": "^10.9.2",
+    "typescript": "^5.8.3",
     "unbuild": "^3.6.1"
   }
 }

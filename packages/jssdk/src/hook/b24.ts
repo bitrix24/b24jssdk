@@ -120,8 +120,8 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     const userIdIndex = pathParts[1] === 'api' ? 2 : 1
     const secretIndex = pathParts[1] === 'api' ? 3 : 2
 
-    const userIdStr = pathParts[userIdIndex]
-    const secret = pathParts[secretIndex]
+    const userIdStr = pathParts[userIdIndex]!
+    const secret = pathParts[secretIndex]!
 
     if (!/^\d+$/.test(userIdStr)) {
       throw new Error(`User ID must be numeric in webhook URL, received: ${userIdStr}`)

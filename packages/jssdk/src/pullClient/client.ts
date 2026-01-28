@@ -708,7 +708,7 @@ export class PullClient implements ConnectorParent {
         params: params
       },
       expiry: expiry
-    }
+    } as TypePullClientMessageBatch
 
     if (this.isJsonRpc()) {
       return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
@@ -745,7 +745,7 @@ export class PullClient implements ConnectorParent {
         params: params
       },
       expiry: expiry
-    }
+    } as TypePullClientMessageBatch
 
     if (this.isJsonRpc()) {
       return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
@@ -817,7 +817,7 @@ export class PullClient implements ConnectorParent {
           const unresolved = []
 
           for (let i = 0; i < userList.length; i++) {
-            if (!Object.prototype.hasOwnProperty.call(response, userList[i])) {
+            if (!Object.prototype.hasOwnProperty.call(response, userList[i]!)) {
               unresolved.push(userList[i])
             }
           }
@@ -1218,7 +1218,7 @@ export class PullClient implements ConnectorParent {
           (callback: CommandHandlerFunctionV1) => {
             callback(params.data as Record<string, any>, {
               type: params.type,
-              moduleId: params.moduleId
+              moduleId: params.moduleId ?? '?'
             })
           }
         )
@@ -1494,8 +1494,8 @@ export class PullClient implements ConnectorParent {
 
           receivers.push(
             Receiver.create({
-              id: this.encodeId(publicId),
-              signature: this.encodeId(signature)
+              id: this.encodeId(publicId!),
+              signature: this.encodeId(signature!)
             })
           )
         })
@@ -1571,7 +1571,7 @@ export class PullClient implements ConnectorParent {
     for (const userId in this._userStatusCallbacks) {
       if (
         Object.prototype.hasOwnProperty.call(this._userStatusCallbacks, userId)
-        && this._userStatusCallbacks[userId].length > 0
+        && this._userStatusCallbacks[userId]!.length > 0
       ) {
         this._jsonRpcAdapter?.executeOutgoingRpcCommand(
           RpcMethod.SubscribeStatusChange,
@@ -2343,14 +2343,14 @@ export class PullClient implements ConnectorParent {
       return []
     }
     for (let i = 0; i < dataArray.length; i++) {
-      dataArray[i] = dataArray[i].substring(12, dataArray[i].length - 12)
-      if (dataArray[i].length <= 0) {
+      dataArray[i] = dataArray[i]!.substring(12, dataArray[i]!.length - 12)
+      if (dataArray[i]!.length <= 0) {
         continue
       }
 
       let data
       try {
-        data = JSON.parse(dataArray[i])
+        data = JSON.parse(dataArray[i]!)
       } catch {
         continue
       }
@@ -2478,6 +2478,7 @@ export class PullClient implements ConnectorParent {
    * @param tagId
    * @param force
    */
+  // @ts-expect-error When we rewrite it to something more modern, then we'll remove this
   private extendWatch(tagId: string, force: boolean = false): void {
     if (this._watchTagsQueue.get(tagId)) {
       return

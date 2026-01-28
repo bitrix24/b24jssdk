@@ -5,6 +5,6 @@ hero:
   description: for using Bitrix24 REST API in local, production applications or via webhooks
   links:
     - label: Get started
-      to: /docs/getting-started/installation/vue/
+      to: /docs/getting-started/
       color: 'air-secondary-accent-2'
       iconName: 'PlayLIcon'

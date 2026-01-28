@@ -1,8 +1,6 @@
 import PlayLIcon from '@bitrix24/b24icons-vue/outline/PlayLIcon'
 import DeveloperResourcesIcon from '@bitrix24/b24icons-vue/outline/DeveloperResourcesIcon'
-import ViewmodeCodeIcon from '@bitrix24/b24icons-vue/editor/ViewmodeCodeIcon'
-import FormattingIcon from '@bitrix24/b24icons-vue/editor/FormattingIcon'
-// import FormIcon from '@bitrix24/b24icons-vue/outline/FormIcon'
+import FormIcon from '@bitrix24/b24icons-vue/outline/FormIcon'
 // import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
 import RobotIcon from '@bitrix24/b24icons-vue/outline/RobotIcon'
 import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
@@ -45,45 +43,27 @@ export function useSearch() {
         : []
     ),
     {
-      label: 'Docs',
+      label: 'Get started',
       description: 'Learn how to get started with Bitrix24 JS SDK.',
       icon: PlayLIcon,
       to: '/docs/getting-started/',
       active: route.path.startsWith('/docs/getting-started')
     },
     {
-      label: 'Components',
-      description: 'Explore the components available in Bitrix24 JS SDK.',
+      label: 'Working',
+      // @todo ! insert description
+      description: '',
       icon: DeveloperResourcesIcon,
-      to: '/docs/components/',
-      active: route.path.startsWith('/docs/components')
+      to: '/docs/working-with-the-rest-api/',
+      active: route.path.startsWith('/docs/working-with-the-rest-api')
     },
     {
-      label: 'Composables',
-      description: 'Learn how to use the composables available in Bitrix24 JS SDK.',
-      icon: ViewmodeCodeIcon,
-      to: '/docs/composables/define-shortcuts/',
-      active: route.path.startsWith('/docs/composables')
+      label: 'Examples',
+      icon: FormIcon,
+      description: 'Explore examples of working with the Bitrix24 JS SDK..',
+      to: '/docs/examples/',
+      active: route.path.startsWith('/docs/examples')
     },
-    {
-      label: 'Typography',
-      description: 'Discover the typography features and customization options in Bitrix24 JS SDK.',
-      icon: FormattingIcon,
-      to: '/docs/typography/',
-      active: route.path.startsWith('/docs/typography')
-    },
-    // {
-    //   label: 'Templates',
-    //   icon: FormIcon,
-    //   description: 'Explore official templates built with Bitrix24 JS SDK.',
-    //   to: '/templates/'
-    // },
-    // {
-    //   label: 'Showcase',
-    //   icon: DemonstrationOnIcon,
-    //   description: 'Explore some of the amazing projects built with Bitrix24 JS SDK.',
-    //   to: '/showcase/'
-    // },
     {
       label: 'GitHub',
       description: 'Check out the Bitrix24 JS SDK repository and follow development on GitHub.',

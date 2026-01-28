@@ -93,7 +93,7 @@ export async function initializeB24Frame(
     if (window.name) {
       const [domain, protocol, appSid] = window.name.split('|')
       queryParams.DOMAIN = domain
-      queryParams.PROTOCOL = Number.parseInt(protocol) === 1
+      queryParams.PROTOCOL = Number.parseInt(protocol ?? '0') === 1
       queryParams.APP_SID = appSid
       queryParams.LANG = null
     }

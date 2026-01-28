@@ -21,7 +21,7 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
       })
     }
 
-    const firstCommand = commands[0]
+    const firstCommand = commands[0]!
     const asObject = (typeof firstCommand.as === 'string' && firstCommand.as.length > 0)
 
     if (asObject) {

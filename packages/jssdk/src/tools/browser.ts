@@ -85,7 +85,7 @@ class BrowserManager {
         const res = navigator.userAgent.match(re)
 
         if (Type.isArrayLike(res) && res.length > 0) {
-          rv = Number.parseFloat(res[1])
+          rv = Number.parseFloat(res[1]!)
         }
       }
 
@@ -98,7 +98,7 @@ class BrowserManager {
           const res = navigator.userAgent.match(re)
 
           if (Type.isArrayLike(res) && res.length > 0) {
-            rv = Number.parseFloat(res[1])
+            rv = Number.parseFloat(res[1]!)
           }
         }
       }
@@ -186,7 +186,7 @@ class BrowserManager {
     if (re.exec(navigator.userAgent) != null) {
       const res = navigator.userAgent.match(re)
       if (Type.isArrayLike(res) && res.length > 0) {
-        return Number.parseFloat(res[1])
+        return Number.parseFloat(res[1]!)
       }
     }
 

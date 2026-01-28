@@ -4,6 +4,7 @@ import PlayLIcon from '@bitrix24/b24icons-vue/outline/PlayLIcon'
 // import ViewmodeCodeIcon from '@bitrix24/b24icons-vue/editor/ViewmodeCodeIcon'
 // import FormattingIcon from '@bitrix24/b24icons-vue/editor/FormattingIcon'
 import FormIcon from '@bitrix24/b24icons-vue/outline/FormIcon'
+import TerminalIcon from '@bitrix24/b24icons-vue/file-type/TerminalIcon'
 // import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
 import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
 
@@ -12,28 +13,19 @@ export function useHeader() {
 
   const desktopLinks = computed<NavigationMenuItem[]>(() => [
     {
-      label: 'Docs',
+      label: 'Get started',
       to: '/docs/getting-started/',
       active: route.path.startsWith('/docs/getting-started')
     },
     {
-      label: 'Frame',
-      to: '/docs/frame/',
-      active: route.path.startsWith('/docs/frame')
+      label: 'Working',
+      to: '/docs/working-with-the-rest-api/',
+      active: route.path.startsWith('/docs/working-with-the-rest-api')
     },
     {
-      label: 'Hook',
-      to: '/docs/hook/',
-      active: route.path.startsWith('/docs/hook')
-    },
-    {
-      label: 'OAuth',
-      to: '/docs/oauth/',
-      active: route.path.startsWith('/docs/oauth')
-    },
-    {
-      label: 'Templates',
-      to: '/templates/'
+      label: 'Examples',
+      to: '/docs/examples/',
+      active: route.path.startsWith('/docs/examples')
     }
   ])
 
@@ -45,9 +37,16 @@ export function useHeader() {
       active: route.path.startsWith('/docs/getting-started')
     },
     {
-      label: 'Templates',
-      to: '/templates/',
-      icon: FormIcon
+      label: 'Working',
+      to: '/docs/working-with-the-rest-api/',
+      icon: TerminalIcon,
+      active: route.path.startsWith('/docs/working-with-the-rest-api')
+    },
+    {
+      label: 'Examples',
+      to: '/docs/examples/',
+      icon: FormIcon,
+      active: route.path.startsWith('/docs/examples')
     },
     {
       label: 'GitHub',

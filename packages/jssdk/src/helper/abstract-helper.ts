@@ -7,7 +7,7 @@ export class UnhandledMatchError extends Error {
     super(...args)
     this.name = 'UnhandledMatchError'
     this.message = `Unhandled match value of type ${value}`
-    this.stack = new Error('for stack').stack
+    this.stack = `${new Error('for stack').stack}`
   }
 }
 

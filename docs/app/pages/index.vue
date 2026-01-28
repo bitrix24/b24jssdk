@@ -93,8 +93,9 @@ const { mobileLinks } = useHeader()
           <ProseP>
             {{ page.hero.description }}
           </ProseP>
-          <B24Separator class="my-4" type="dashed" />
-          <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-end gap-[6px]">
+        </div>
+        <div class="relative col-span-12 lg:col-end-13 lg:col-span-7 mb-6 lg:mb-0">
+          <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-[6px]">
             <B24Button
               v-for="link of page.hero.links"
               :key="link.label"
@@ -103,11 +104,6 @@ const { mobileLinks } = useHeader()
               :icon="iconFromIconName(link?.iconName)"
             />
           </div>
-        </div>
-        <div class="relative col-span-12 lg:col-end-13 lg:col-span-7 mb-6 lg:mb-0">
-          <B24Card>
-            @todo add Chat
-          </B24Card>
         </div>
       </div>
     </B24Card>

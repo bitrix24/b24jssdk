@@ -188,8 +188,8 @@ export function getDocumentId(
   }
 
   return [
-    tmp[0],
-    tmp[1],
+    tmp[0]!,
+    tmp[1]!,
     entityIdFormatted
   ]
 }
@@ -203,7 +203,7 @@ export function getDocumentTypeForFilter(
   const result = getDocumentType(documentType, 1)
 
   return [
-    result[0],
-    result[1]
+    result[0]!,
+    result[1]!
   ]
 }

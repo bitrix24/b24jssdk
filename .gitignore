@@ -100,3 +100,5 @@ coverage
 
 .todo.md
 /@tmp
+/test/some-code-from-docs/installation-umd-example/umd/
+/test/some-code-from-docs/installation-umd-example/index.zip

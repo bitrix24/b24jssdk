@@ -1,33 +1,26 @@
 # Changelog
 
-## [3.1.0](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v3.1.0) (2025-12-xx)
+## [1.0.1](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.0.1) (2026-01-xx)
 
 * chore(cli): add
-* docs: use Bitrix24 Ui (mcp, llms and more demo)
+* docs: use Bitrix24 UI (mcp, llms and more demo)
 * fix(TypeB24/TypeHttp): improve generics
-* feat(TypeB24): add `callFastListMethod()`, `callListMethod()` now deprecate
 * feat(TypeB24): remove `getSystemLogger`
 * feat(TypeB24.callBatchByChunk): now accumulates errors in Result
-* feat(TypeB24.callMethod/TypeHttp.call): deprecate param `start`, now use param `params.start`
-* feat(TypeB24.callMethod/TypeB24.callFastListMethod/TypeB24.fetchListMethod/TypeB24.callBatch/TypeB24.callBatchByChunk)!: add param requestId
 * feat(RestrictionManager): new restrictions
 * feat(PlacementManager): use the property name `placement` instead of `title`
 * feat(apiVersion): support api 3
-* feat(Logger): add new logger system
+* feat(logger\Logger): add new logger system
 * fix(logger\LoggerBrowser): marked as deprecated
+* feat(logger\handler\TelegramHandler): add Telegram handler
 * fix(tools\Type|Text|Browser): improve export
 * feat(tools\environment): added tool for environment detection
-* feat(logger\handler\TelegramHandler): add Telegram handler
 * feat(core\SdkError): add SdkError
-* feat(initializeB24Frame): now throw SdkError
-* feat(core): add tools and actions
+* fix(initializeB24Frame): now throw SdkError
 * fix(RefreshTokenError): extends SdkError
+* feat(core): add tools and actions
 * fix(frame\SliderManager): remove showAppForm
 * fix(frame\DialogManager): remove deprecated marker
-
-
-## [2.1.0](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.1.0) (2025-12-xx)
-## [1.1.0](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.1.0) (2025-12-xx)
 
 ## [0.5.1](https://github.com/bitrix24/b24jssdk/compare/v0.4.10...v0.5.1) (2025-10-29)
 

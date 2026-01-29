@@ -153,7 +153,6 @@ export class DialogManager {
   }
 
   /**
-   * @deprecated
    * Method displays a standard access permission selection dialog
    *
    * @param {string[]} blockedAccessPermissions
@@ -164,14 +163,12 @@ export class DialogManager {
   async selectAccess(
     blockedAccessPermissions: string[] = []
   ): Promise<SelectedAccess[]> {
-    console.warn(`@deprecated selectAccess`)
     return this.#messageManager.send(MessageCommands.selectAccess, {
       value: blockedAccessPermissions
     })
   }
 
   /**
-   * @deprecated
    * Method invokes the system dialog for selecting a CRM entity
    *
    * @param {SelectCRMParams} params
@@ -180,7 +177,6 @@ export class DialogManager {
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-dialogues/bx24-select-crm.html
    */
   async selectCRM(params?: SelectCRMParams): Promise<SelectedCRM> {
-    console.warn(`@deprecated selectCRM`)
     return this.#messageManager.send(MessageCommands.selectCRM, {
       entityType: params?.entityType,
       multiple: params?.multiple,

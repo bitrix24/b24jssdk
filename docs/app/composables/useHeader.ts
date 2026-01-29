@@ -23,6 +23,16 @@ export function useHeader() {
       active: route.path.startsWith('/docs/working-with-the-rest-api')
     },
     {
+      label: 'Logger',
+      to: '/docs/logger/',
+      active: route.path.startsWith('/docs/logger')
+    },
+    {
+      label: 'Limiters',
+      to: '/docs/limiters/',
+      active: route.path.startsWith('/docs/limiters')
+    },
+    {
       label: 'Examples',
       to: '/docs/examples/',
       active: route.path.startsWith('/docs/examples')
@@ -41,6 +51,20 @@ export function useHeader() {
       to: '/docs/working-with-the-rest-api/',
       icon: TerminalIcon,
       active: route.path.startsWith('/docs/working-with-the-rest-api')
+    },
+    {
+      label: 'Logger',
+      to: '/docs/logger/',
+      // @todo ! insert icon
+      icon: FormIcon,
+      active: route.path.startsWith('/docs/logger')
+    },
+    {
+      label: 'Limiters',
+      to: '/docs/limiters/',
+      // @todo ! insert icon
+      icon: FormIcon,
+      active: route.path.startsWith('/docs/limiters')
     },
     {
       label: 'Examples',

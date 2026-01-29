@@ -85,8 +85,8 @@ const { mobileLinks } = useHeader()
       class="mt-[22px]"
       :class="cardColorContext"
     >
-      <div class="pt-[88px] h-auto lg:h-[calc(100vh-200px)] lg:pt-[12px] grid content-center lg:grid-cols-12 gap-y-[54px] lg:gap-[22px] items-center justify-between">
-        <div class="col-span-12 lg:col-start-2 lg:col-span-4 flex flex-col gap-[12px] text-center lg:text-right">
+      <div class="pt-[88px] h-auto lg:h-[calc(100vh-200px)] lg:pt-[12px] grid content-center lg:grid-cols-12 gap-y-[54px] lg:gap-[22px] items-end lg:items-center justify-between">
+        <div class="col-span-12 lg:col-start-2 lg:col-span-5 flex flex-col gap-[12px] text-center lg:text-right">
           <ProseH1 class="mb-0 leading-(--ui-font-line-height-3xs)">
             <span class="text-(--ui-color-accent-main-primary)">@bitrix24/b24jssdk</span> <br>Bitrix24 JS SDK
           </ProseH1>
@@ -94,7 +94,7 @@ const { mobileLinks } = useHeader()
             {{ page.hero.description }}
           </ProseP>
         </div>
-        <div class="relative col-span-12 lg:col-end-13 lg:col-span-7 mb-6 lg:mb-0">
+        <div class="col-span-12 lg:col-end-12 lg:col-span-5 relative mb-6 lg:mb-0">
           <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-[6px]">
             <B24Button
               v-for="link of page.hero.links"

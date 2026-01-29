@@ -2765,26 +2765,5 @@ export class PullClient implements ConnectorParent {
     }
     // */
   }
-
-  // endregion ////
-
-  // region deprecated /////
-  /**
-   * @deprecated
-   */
-  /* /
-  getRestClientOptions()
-  {
-    let result = {};
-
-    if (this.guestMode && this.guestUserId !== 0)
-    {
-      result.queryParams = {
-        pull_guest_id: this.guestUserId
-      }
-    }
-    return result;
-  }
-  // */
   // endregion ////
 }

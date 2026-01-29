@@ -16,15 +16,12 @@ import { ToolsManager } from './tools/manager'
 
 /**
  * @todo docs
- * @todo ! test all example
- * @todo ! test all functions
  */
 export abstract class AbstractB24 implements TypeB24 {
   /**
-   * Maximum length for batch response
+   * Maximum length for batch response.
+   *
    * @deprecated This const is deprecated and will be removed in version `2.0.0`
-   *     - for `restApi:v3` use {@link InteractionBatchV3.maxSize}
-   *     - for `restApi:v2` use {@link InteractionBatchV2.maxSize}
    * @removed 2.0.0
    */
   static readonly batchSize = 50
@@ -244,7 +241,7 @@ export abstract class AbstractB24 implements TypeB24 {
   }
 
   /**
-   * Executes a batch request to the Bitrix24 REST API
+   * Executes a batch request to the Bitrix24 REST API.
    *
    * @deprecated This method is deprecated and will be removed in version `2.0.0`
    *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}

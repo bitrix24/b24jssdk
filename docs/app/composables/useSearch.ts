@@ -58,6 +58,24 @@ export function useSearch() {
       active: route.path.startsWith('/docs/working-with-the-rest-api')
     },
     {
+      label: 'Logger',
+      // @todo ! insert description
+      description: '',
+      // @todo ! insert icon
+      icon: DeveloperResourcesIcon,
+      to: '/docs/logger/',
+      active: route.path.startsWith('/docs/logger')
+    },
+    {
+      label: 'Limiters',
+      // @todo ! insert description
+      description: '',
+      // @todo ! insert icon
+      icon: DeveloperResourcesIcon,
+      to: '/docs/limiters/',
+      active: route.path.startsWith('/docs/limiters')
+    },
+    {
       label: 'Examples',
       icon: FormIcon,
       description: 'Explore examples of working with the Bitrix24 JS SDK..',

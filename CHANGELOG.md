@@ -21,6 +21,7 @@
 * feat(initializeB24Frame): now throw SdkError
 * feat(core): add tools and actions
 * fix(RefreshTokenError): extends SdkError
+* fix(frame\SliderManager): remove showAppForm
 
 ## [2.1.0](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.1.0) (2025-12-xx)
 ## [1.1.0](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.1.0) (2025-12-xx)

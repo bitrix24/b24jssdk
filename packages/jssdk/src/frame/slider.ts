@@ -168,14 +168,13 @@ export class SliderManager {
   }
 
   /**
-   * @deprecated
-   * @param params
+   * @todo test this and remove
    */
-  async showAppForm(params: any): Promise<void> {
-    console.warn(`@deprecated showAppForm`)
-    return this.#messageManager.send(MessageCommands.showAppForm, {
-      params: params,
-      isSafely: true
-    })
-  }
+  // async showAppForm(params: any): Promise<void> {
+  //   console.warn(`@deprecated showAppForm`)
+  //   return this.#messageManager.send(MessageCommands.showAppForm, {
+  //     params: params,
+  //     isSafely: true
+  //   })
+  // }
 }

@@ -22,6 +22,9 @@ export enum MessageCommands {
   selectUser = 'selectUser',
   selectAccess = 'selectAccess',
   selectCRM = 'selectCRM',
+  /**
+   * @memo this not work. Need test
+   */
   showAppForm = 'showAppForm',
   getInterface = 'getInterface',
   placementBindEvent = 'placementBindEvent'

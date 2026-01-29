@@ -18,81 +18,21 @@ import BrushIcon from '@bitrix24/b24icons-vue/actions/BrushIcon'
 import EarthLanguageIcon from '@bitrix24/b24icons-vue/main/EarthLanguageIcon'
 
 const categories = {
-  'components': [
+  'working-with-the-rest-api': [
     {
-      id: 'layout',
-      title: 'Layout',
+      id: 'actions',
+      title: 'Actions',
+      // @todo ! insert icon
       icon: LayersIcon
     },
     {
-      id: 'element',
-      title: 'Element',
+      id: 'tools',
+      title: 'Tools',
+      // @todo ! insert icon
       icon: ItemIcon
-    },
-    {
-      id: 'form',
-      title: 'Form',
-      icon: FormIcon
-    },
-    {
-      id: 'data',
-      title: 'Data',
-      icon: BulletedListIcon
-    },
-    {
-      id: 'navigation',
-      title: 'Navigation',
-      icon: LinkIcon
-    },
-    {
-      id: 'overlay',
-      title: 'Overlay',
-      icon: OpenChatIcon
-    },
-    {
-      id: 'page',
-      title: 'Page',
-      icon: PageIcon
-    },
-    {
-      id: 'dashboard',
-      title: 'Dashboard',
-      icon: CodeIcon
-    },
-    {
-      id: 'chat',
-      title: 'AI Chat',
-      icon: AiStarsIcon
-    },
-    {
-      id: 'content',
-      title: 'Content',
-      icon: TaskListIcon
-    },
-    {
-      id: 'color-mode',
-      title: 'Color Mode',
-      icon: BrushIcon
-    },
-    {
-      id: 'i18n',
-      title: 'i18n',
-      icon: EarthLanguageIcon
-    }
-  ],
-  'typography': [
-    {
-      id: 'components',
-      title: 'Components',
-      icon: ALetterIcon
     }
   ],
   'getting-started': [
-    {
-      id: 'theme',
-      title: 'Theme',
-      icon: undefined
-    },
     {
       id: 'integrations',
       title: 'Integrations',

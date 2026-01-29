@@ -60,7 +60,7 @@ export const collections = {
       include: 'docs/**/*'
     }],
     schema: z.object({
-      category: z.enum(['var11', 'var12']).optional(),
+      category: z.enum(['actions', 'tools']).optional(),
       badge: z.string().optional(),
       navigation: z.object({
         title: z.string().optional()

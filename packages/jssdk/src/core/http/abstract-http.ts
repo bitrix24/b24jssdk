@@ -106,6 +106,10 @@ export abstract class AbstractHttp implements TypeHttp {
     return this._version
   }
 
+  get ajaxClient(): AxiosInstance {
+    return this._clientAxios
+  }
+
   // region Logger ////
   public setLogger(logger: LoggerInterface): void {
     this._logger = logger

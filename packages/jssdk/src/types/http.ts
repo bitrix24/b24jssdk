@@ -4,6 +4,7 @@ import type { AjaxResult } from '../core/http/ajax-result'
 import type { PayloadTime } from './payloads'
 import type { RestrictionParams, RestrictionManagerStats } from './limiters'
 import type { ApiVersion } from './b24'
+import type { AxiosInstance } from 'axios'
 
 /**
  * @todo fix docs
@@ -115,6 +116,8 @@ export interface IRequestIdGenerator {
  */
 export type TypeHttp = {
   apiVersion: ApiVersion
+  ajaxClient: AxiosInstance | any
+
   setLogger(logger: LoggerInterface): void
   getLogger(): LoggerInterface
 

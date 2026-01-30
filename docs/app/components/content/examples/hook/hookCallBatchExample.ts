@@ -1,5 +1,6 @@
 import type { Result } from '@bitrix24/b24jssdk'
-import { B24Hook, EnumCrmEntityTypeId, LoggerFactory } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, LoggerFactory, ApiVersion } from '@bitrix24/b24jssdk'
+import * as http from 'node:http'
 
 type BatchResponse = {
   CompanyList?: { items: Record<string, any> }
@@ -11,6 +12,9 @@ const $logger = LoggerFactory.createForBrowser('Example:BatchObject', devMode)
 const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 
 try {
+  const axiosClient = $b24.getHttpClient(ApiVersion.v2).ajaxClient
+  axiosClient.default.httpAgent = new http.Agent({ keepAlive: false })
+  axiosClient.default.httpsAgent = new http.Agent({ keepAlive: false })
   const response = await $b24.actions.v2.batch.make({
     calls: {
       CompanyList: {

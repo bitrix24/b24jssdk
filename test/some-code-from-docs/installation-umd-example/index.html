@@ -19,7 +19,7 @@
    */
   async function loadCompanies(b24) {
     try {
-      logger.info('Loading companies...');
+      logger.debug('Loading companies...');
 
       const response = await b24.actions.v2.call.make({
         method: 'crm.item.list',
@@ -40,7 +40,7 @@
         };
       });
 
-      logger.notice('Companies loaded successfully', { companies });
+      logger.debug('Companies loaded successfully', { companies });
       return companies;
     } catch (error) {
       logger.error('Request failed', { error });

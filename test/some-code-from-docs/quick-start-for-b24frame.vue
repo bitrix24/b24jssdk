@@ -5,7 +5,7 @@ import { onMounted, onUnmounted } from 'vue'
 import { initializeB24Frame, LoggerFactory, EnumCrmEntityTypeId, Text } from '@bitrix24/b24jssdk'
 
 const devMode = typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.dev)
-const $logger = LoggerFactory.createForBrowser('MyApp', devMode)
+const $logger = LoggerFactory.createForBrowser('B24/jsSdk::vue', devMode)
 let $b24: undefined | B24Frame
 
 type CompanyResponse = { id: number, title: string, createdTime: ISODate }

@@ -48,7 +48,7 @@ useServerSeoMeta({
   twitterCard: 'summary_large_image'
 })
 
-const { rootNavigation } = useNavigation(navigation)
+const { rootNavigation, navigationByRestApiVersion } = useNavigation(navigation)
 
 provide('navigation', rootNavigation)
 
@@ -120,7 +120,7 @@ function resetHook() {
     </B24SidebarLayout>
 
     <ClientOnly>
-      <Search :files="files" :navigation="rootNavigation" />
+      <Search :files="files" :navigation="navigationByRestApiVersion" />
       <AIChatSlideover v-if="config.public.useAI" />
     </ClientOnly>
   </B24App>

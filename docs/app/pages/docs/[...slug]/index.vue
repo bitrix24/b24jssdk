@@ -44,8 +44,8 @@ if (!import.meta.prerender) {
     const pagePath = withTrailingSlash(page.value?.path)
     if (pagePath === route.path && page.value?.restApiVersion && page.value?.restApiVersion !== restApiVersion.value) {
       /** @memo this path */
-      if (route.path.endsWith(`/${page.value?.restApiVersion}/`)) {
-        navigateTo(`${route.path.split('/').slice(0, -2).join('/')}/${restApiVersion.value}/`)
+      if (route.path.endsWith(`-${page.value?.restApiVersion}/`)) {
+        navigateTo(route.path.replace(`-${page.value.restApiVersion}/`, `-${restApiVersion.value}/`))
       } else {
         navigateTo(`/docs/getting-started/`)
       }

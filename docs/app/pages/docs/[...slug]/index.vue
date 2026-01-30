@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
+import { withTrailingSlash } from 'ufo'
 import { kebabCase } from 'scule'
 import DesignIcon from '@bitrix24/b24icons-vue/outline/DesignIcon'
 import FavoriteIcon from '@bitrix24/b24icons-vue/outline/FavoriteIcon'
@@ -10,6 +11,7 @@ import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnI
 import Bitrix24Icon from '@bitrix24/b24icons-vue/common-service/Bitrix24Icon'
 
 const route = useRoute()
+const { restApiVersion } = useRestApiVersions()
 const config = useRuntimeConfig()
 
 definePageMeta({
@@ -21,6 +23,13 @@ if (!page.value) {
   throw createError({ status: 404, statusText: 'Page not found' })
 }
 
+// Update the restApiVersion if the page has different one
+watch(page, () => {
+  if (page.value?.restApiVersion && page.value?.restApiVersion !== restApiVersion.value) {
+    restApiVersion.value = page.value?.restApiVersion as string
+  }
+}, { immediate: true })
+
 const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
 
 const { findSurround } = useNavigation(navigation!)
@@ -28,15 +37,31 @@ const { findSurround } = useNavigation(navigation!)
 //  breadcrumb = computed(() => findBreadcrumb(page.value?.path as string))
 const surround = computed(() => findSurround(page.value?.path as string))
 
+if (!import.meta.prerender) {
+  // Redirect to the correct framework version if the page is not the current framework
+  watch(restApiVersion, () => {
+    const route = useRoute()
+    const pagePath = withTrailingSlash(page.value?.path)
+    if (pagePath === route.path && page.value?.restApiVersion && page.value?.restApiVersion !== restApiVersion.value) {
+      /** @memo this path */
+      if (route.path.endsWith(`/${page.value?.restApiVersion}/`)) {
+        navigateTo(`${route.path.split('/').slice(0, -2).join('/')}/${restApiVersion.value}/`)
+      } else {
+        navigateTo(`/docs/getting-started/`)
+      }
+    }
+  })
+}
+
 const title = page.value?.seo?.title ? page.value.seo.title : page.value?.navigation?.title ? page.value.navigation.title : page.value?.title
 const prefix = page.value?.path.includes('components/') || page.value?.path.includes('composables/') ? 'Vue ' : ''
 const suffix = page.value?.path.includes('components/') ? 'Component ' : page.value?.path.includes('composables/') ? 'Composable ' : ''
 const description = page.value?.seo?.description ? page.value.seo.description : page.value?.description
 
 useSeoMeta({
-  titleTemplate: `${prefix}%s ${suffix}- Bitrix24 JS SDK`,
+  titleTemplate: `${prefix}%s ${suffix}- Bitrix24 JS SDK${page.value?.restApiVersion === 'rest-api-ver3' ? ' restApi:v3' : ''}`,
   title,
-  ogTitle: `${prefix}${title} ${suffix}- Bitrix24 JS SDK`,
+  ogTitle: `${prefix}${title} ${suffix}- Bitrix24 JS SDK${page.value?.restApiVersion === 'rest-api-ver3' ? ' restApi:v3' : ''}`,
   description,
   ogDescription: description
 })

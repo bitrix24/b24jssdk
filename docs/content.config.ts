@@ -61,6 +61,7 @@ export const collections = {
     }],
     schema: z.object({
       category: z.enum(['actions', 'tools']).optional(),
+      restApiVersion: z.enum(['rest-api-ver2', 'rest-api-ver3']).optional(),
       badge: z.string().optional(),
       navigation: z.object({
         title: z.string().optional()

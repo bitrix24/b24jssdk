@@ -4,21 +4,22 @@
 
 * chore(cli): add
 * docs: use Bitrix24 UI (mcp, llms and more demo)
-* fix(TypeB24/TypeHttp): improve generics
-* feat(TypeB24): remove `getSystemLogger`
-* feat(TypeB24.callBatchByChunk): now accumulates errors in Result
+* feat(core\TypeB24): remove `getSystemLogger`
+* feat(core\TypeB24.callBatchByChunk): now accumulates errors in Result
+* feat(core\TypeHttp): now return ajaxClient
+* feat(core\SdkError): add SdkError
+* feat(core): add tools and actions
 * feat(RestrictionManager): new restrictions
 * feat(PlacementManager): use the property name `placement` instead of `title`
 * feat(apiVersion): support api 3
 * feat(logger\Logger): add new logger system
-* fix(logger\LoggerBrowser): marked as deprecated
 * feat(logger\handler\TelegramHandler): add Telegram handler
-* fix(tools\Type|Text|Browser): improve export
 * feat(tools\environment): added tool for environment detection
-* feat(core\SdkError): add SdkError
+* fix(core\TypeB24/core\TypeHttp): improve generics
+* fix(logger\LoggerBrowser): marked as deprecated
+* fix(tools\Type|Text|Browser): improve export
 * fix(initializeB24Frame): now throw SdkError
 * fix(RefreshTokenError): extends SdkError
-* feat(core): add tools and actions
 * fix(frame\SliderManager): remove showAppForm
 * fix(frame\DialogManager): remove deprecated marker
 

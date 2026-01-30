@@ -1,9 +1,9 @@
 packages:
-  - cli
+  - docs
   - packages/jssdk
   - packages/jssdk-nuxt
-  - docs
   - playgrounds/nuxt
+  - playgrounds/cli
 
 ignoredBuiltDependencies:
   - '@parcel/watcher'

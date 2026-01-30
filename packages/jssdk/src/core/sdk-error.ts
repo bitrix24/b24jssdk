@@ -44,7 +44,7 @@ export class SdkError extends Error {
     return new SdkError({
       code: context?.code || 'JSSDK_INTERNAL_ERROR',
       status: context?.status || 500,
-      description: error instanceof Error ? error.message : String(error),
+      description: error instanceof Error ? error.message : `${error}`,
       originalError: error
     })
   }

@@ -2,7 +2,6 @@
 
 ## [1.0.1](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.0.1) (2026-01-xx)
 
-* chore(cli): add
 * docs: use Bitrix24 UI (mcp, llms and more demo)
 * feat(core\TypeB24): remove `getSystemLogger`
 * feat(core\TypeB24.callBatchByChunk): now accumulates errors in Result
@@ -22,6 +21,7 @@
 * fix(RefreshTokenError): extends SdkError
 * fix(frame\SliderManager): remove showAppForm
 * fix(frame\DialogManager): remove deprecated marker
+* feat(playgrounds\cli): add
 
 ## [0.5.1](https://github.com/bitrix24/b24jssdk/compare/v0.4.10...v0.5.1) (2025-10-29)
 

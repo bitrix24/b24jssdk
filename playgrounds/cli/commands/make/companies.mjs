@@ -1,6 +1,17 @@
-import { consola } from 'consola'
-import { B24Hook, EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+import { B24Hook, EnumCrmEntityTypeId, Logger, LogLevel, ConsoleV2Handler, ParamsFactory, SdkError, Result } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
+import dotenv from 'dotenv'
+
+/**
+ * Command for generating random companies in Bitrix24
+ *
+ * Usage:
+ * clear; node ./index.mjs make companies --total=10
+ *
+ * @todo fix problem args
+ */
+
+dotenv.config({ path: '../../.env', quiet: true })
 
 // Arrays for generating realistic company names
 const companyPrefixes = [
@@ -23,10 +34,6 @@ const companySuffixes = [
 
 const languages = ['english', 'russian', 'spanish', 'chinese']
 
-/**
- * Command for generating random companies in Bitrix24
- * Usage: node -r dotenv/config ./cli/index.mjs make companies --total=10
- */
 export default defineCommand({
   meta: {
     name: 'companies',
@@ -35,26 +42,42 @@ export default defineCommand({
   args: {
     total: {
       description: 'Number of companies to create',
-      required: true
+      default: 10
     },
     assignedById: {
       description: 'Assigned user ID',
       default: 1
     }
   },
-  async setup({ args }) {
+  async setup({ args }){
+
+    args.total = 10
+    args.assignedById = 1
+
     let createdCount = 0
     let errors = []
+
+    // region Logger ////
+    const logger = Logger.create('loadTesting')
+    const handler = new ConsoleV2Handler(LogLevel.DEBUG, { useStyles: false })
+    logger.pushHandler(handler)
+    // endregion ////
 
     // Initialize Bitrix24 connection
     const hookPath = process.env?.B24_HOOK || ''
     if (!hookPath) {
-      consola.error('🚨 B24_HOOK environment variable is not set! Please configure it in your .env file')
+      logger.emergency('🚨 B24_HOOK environment variable is not set! Please configure it in your .env file')
       process.exit(1)
     }
 
-    const b24 = B24Hook.fromWebhookUrl(hookPath)
-    consola.info(`Connected to Bitrix24: ${b24.getTargetOrigin()}`)
+    const b24 = B24Hook.fromWebhookUrl(hookPath, { restrictionParams: ParamsFactory.getBatchProcessing() })
+    logger.info(`Connected to Bitrix24`, { target: b24.getTargetOrigin() })
+
+    const loggerForDebugB24 = Logger.create('b24')
+    const handlerForDebugB24 = new ConsoleV2Handler(LogLevel.ERROR, { useStyles: false })
+    loggerForDebugB24.pushHandler(handlerForDebugB24)
+
+    b24.setLogger(loggerForDebugB24)
 
     /**
      * Generates email from name and last name
@@ -136,35 +159,47 @@ export default defineCommand({
      * Creates a single company in Bitrix24
      */
     async function createCompany(companyNumber) {
+      const result = new Result()
+
       try {
         const companyData = generateRandomCompany()
 
-        const response = await b24.callMethod(
-          'crm.item.add',
-          {
+        const response = await b24.actions.v2.call.make({
+          method: 'crm.item.add',
+          params: {
             entityTypeId: EnumCrmEntityTypeId.company,
             fields: companyData
           }
-        )
+        })
 
         if (!response.isSuccess) {
-          throw new Error(response.getErrorMessages().join(';\n'))
+          return result.addError(new SdkError({
+            code: 'PLAYGROUND_CLI_ERROR',
+            description: response.getErrorMessages().join(';'),
+            status: 404
+          }))
         }
 
-        const result = response.getData()
-        const companyId = result?.result || 0
+        const resultData = response.getData()
+        const companyId = resultData?.result.item.id || 0
 
         if (!companyId) {
-          throw new Error('No company ID returned from API')
+          return result.addError(new SdkError({
+            code: 'PLAYGROUND_CLI_ERROR',
+            description: 'No company ID returned from API',
+            status: 404
+          }))
         }
 
         createdCount++
-        return { success: true, companyId }
+        return result.setData({ companyId })
       } catch (error) {
         const errorMessage = `Error creating company ${companyNumber}: ${error.message}`
         errors.push(errorMessage)
-        consola.error(`❌ ${errorMessage}`)
-        return { success: false, error: errorMessage }
+        return result.addError(SdkError.fromException(errorMessage, {
+          code: 'PLAYGROUND_CLI_ERROR',
+          status: 404
+        }))
       }
     }
 
@@ -187,10 +222,16 @@ export default defineCommand({
      * Main function for creating random companies
      */
     async function createRandomContacts() {
-      consola.log('🚀 Starting creation of random companies in Bitrix24')
-      consola.log(`📊 Planned to create: ${args.total} companies`)
-      consola.log(`👤 Responsible: user ID ${args.assignedById}`)
-      consola.log('─'.repeat(50))
+      logger.notice('🚀 Starting creation of random companies in Bitrix24')
+      logger.notice(`📊 Planned to create: ${args.total} companies`)
+      logger.notice(`👤 Responsible: user ID ${args.assignedById}`)
+      logger.notice('─'.repeat(50))
+
+      const healthCheckData = await b24.tools.healthCheck.make({ requestId: 'healthCheck' })
+      logger.notice(`Health check: ${healthCheckData ? 'success' : 'fail'}`)
+      if (!healthCheckData) {
+        return
+      }
 
       const startTime = Date.now()
 
@@ -202,28 +243,20 @@ export default defineCommand({
       const endTime = Date.now()
       const duration = ((endTime - startTime) / 1000).toFixed(2)
 
-      consola.log('\n\n' + '─'.repeat(50))
-      consola.log('✅ Completed!')
-      consola.log(`📈 Successfully created: ${createdCount} companies`)
-      consola.log(`⏱️ Total execution time: ${duration} seconds`)
-      consola.log(`📊 Average time per company: ${(duration / args.total).toFixed(2)} seconds`)
+      logger.notice('─'.repeat(50))
+      logger.notice('✅ Completed!')
+      logger.notice(`📈 Successfully created: ${createdCount} companies`)
+      logger.notice(`⏱️ Total execution time: ${duration} seconds`)
+      logger.notice(`📊 Average time per company: ${(duration / args.total).toFixed(2)} seconds`)
 
       if (errors.length > 0) {
-        consola.log(`❌ Errors encountered: ${errors.length}`)
-        consola.log('\nList of errors:')
-        if (errors.length <= 10) {
-          consola.log('\nError details:')
-          errors.forEach((error, index) => {
-            consola.log(`${index + 1}. ${error}`)
-          })
-        } else {
-          consola.log(`\nFirst 10 errors (out of ${errors.length}):`)
-          errors.slice(0, 10).forEach((error, index) => {
-            consola.log(`${index + 1}. ${error}`)
-          })
-        }
+        logger.notice(`❌ Errors encountered: ${errors.length}`)
+        logger.notice('❌ Errors', {
+          encountered: errors.length,
+          first10: errors.slice(0, 10).map((error, index) => `${index + 1}. ${error}`)
+        })
       } else {
-        consola.log('🎉 No errors encountered during creation process!')
+        logger.notice('🎉 No errors encountered during creation process!')
       }
     }
 

@@ -232,6 +232,7 @@ export default defineCommand({
       if (!healthCheckData) {
         return
       }
+      logger.notice('\n')
 
       const startTime = Date.now()
 
@@ -243,6 +244,7 @@ export default defineCommand({
       const endTime = Date.now()
       const duration = ((endTime - startTime) / 1000).toFixed(2)
 
+      logger.notice('\n')
       logger.notice('─'.repeat(50))
       logger.notice('✅ Completed!')
       logger.notice(`📈 Successfully created: ${createdCount} companies`)

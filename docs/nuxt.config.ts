@@ -136,7 +136,7 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/x-icon', href: `${baseUrl}/favicon.ico` }
       ],
-      htmlAttrs: { class: 'edge-dark' }
+      htmlAttrs: { class: 'dark' }
     },
     rootAttrs: { 'data-vaul-drawer-wrapper': '' }
   },

@@ -50,7 +50,7 @@ export class CallListV3 extends AbstractAction {
    *   method: 'main.eventlog.list',
    *   params: {
    *     filter: [
-   *      ['timestampX', '>=', Text.toB24Format(sixMonthAgo)] // created at least 6 months ago
+   *       ['timestampX', '>=', Text.toB24Format(sixMonthAgo)] // created at least 6 months ago
    *     ],
    *     select: ['id', 'userId']
    *   },

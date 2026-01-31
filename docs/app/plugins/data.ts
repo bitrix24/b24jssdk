@@ -23,8 +23,8 @@ export default defineNuxtPlugin({
             }
           }
 
-          var f = getCookie('bitrix24-jssdk-rest-api-version');
-          document.documentElement.setAttribute('data-restapiver', f || ''rest-api-ver2');
+          var r = getCookie('bitrix24-jssdk-rest-api-version');
+          document.documentElement.setAttribute('data-restapiver', r || 'rest-api-ver2');
           `.replace(/\s+/g, ' '),
           type: 'text/javascript',
           tagPriority: -1

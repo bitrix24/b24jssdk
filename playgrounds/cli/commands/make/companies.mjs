@@ -49,8 +49,7 @@ export default defineCommand({
       default: 1
     }
   },
-  async setup({ args }){
-
+  async setup({ args }) {
     args.total = 10
     args.assignedById = 1
 

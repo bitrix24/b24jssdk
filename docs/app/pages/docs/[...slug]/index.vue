@@ -9,6 +9,7 @@ import MoreMIcon from '@bitrix24/b24icons-vue/outline/MoreMIcon'
 import NuxtIcon from '@bitrix24/b24icons-vue/file-type/NuxtIcon'
 import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
 import Bitrix24Icon from '@bitrix24/b24icons-vue/common-service/Bitrix24Icon'
+import MdnwebdocsIcon from '@bitrix24/b24icons-vue/social/MdnwebdocsIcon'
 
 const route = useRoute()
 const { restApiVersion } = useRestApiVersions()
@@ -91,6 +92,7 @@ const iconFromIconName = (iconName?: string) => {
     case 'GitHubIcon': return GitHubIcon
     case 'NuxtIcon': return NuxtIcon
     case 'DemonstrationOnIcon': return DemonstrationOnIcon
+    case 'MdnwebdocsIcon': return MdnwebdocsIcon
   }
 
   return undefined

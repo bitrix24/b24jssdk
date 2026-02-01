@@ -63,10 +63,10 @@ export class BatchV2 extends AbstractBatch {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
    *
-   * const results = response.getData() as AjaxResult<{ item: Contact }>[]
-   * results.forEach((result, index) => {
-   *   if (result.isSuccess) {
-   *    console.log(`Item ${index + 1}:`, result.getData().result.item)
+   * const resultData = (response as Result<AjaxResult<{ item: Contact }>[]>).getData()
+   * resultData.forEach((resultRow, index) => {
+   *   if (resultRow.isSuccess) {
+   *    console.log(`Item ${index + 1}:`, resultRow.getData().result.item)
    *   }
    * })
    *

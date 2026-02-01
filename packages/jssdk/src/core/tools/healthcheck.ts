@@ -5,7 +5,6 @@ import { AbstractTool } from './abstract-tool'
  * HealthCheck `restApi:v2`
  *
  * @todo use apiVer3
- * @todo add docs
  */
 export class HealthCheck extends AbstractTool {
   /**

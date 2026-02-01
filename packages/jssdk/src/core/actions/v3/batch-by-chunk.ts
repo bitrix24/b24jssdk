@@ -58,9 +58,9 @@ export class BatchByChunkV3 extends AbstractBatch {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
    *
-   * const data = response.getData()
+   * const resultData = response.getData()
    * const items: TaskItem[] = []
-   * data.forEach((chunkRow) => {
+   * resultData.forEach((chunkRow) => {
    *   items.push(chunkRow.item)
    * })
    * console.log(`Successfully retrieved ${items.length} items`)

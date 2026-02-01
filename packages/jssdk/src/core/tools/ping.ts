@@ -5,7 +5,6 @@ import { AbstractTool } from './abstract-tool'
  * Ping `restApi:v2`
  *
  * @todo use apiVer3
- * @todo add docs
  */
 export class Ping extends AbstractTool {
   /**

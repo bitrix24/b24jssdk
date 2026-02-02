@@ -21,12 +21,12 @@ export function useHeader() {
       label: 'Working',
       to: '/docs/working-with-the-rest-api/',
       active: route.path.startsWith('/docs/working-with-the-rest-api')
-    },
-    {
-      label: 'Examples',
-      to: '/docs/examples/',
-      active: route.path.startsWith('/docs/examples')
     }
+    // {
+    //   label: 'Examples',
+    //   to: '/docs/examples/',
+    //   active: route.path.startsWith('/docs/examples')
+    // }
   ])
 
   const mobileLinks = computed<NavigationMenuItem[]>(() => [

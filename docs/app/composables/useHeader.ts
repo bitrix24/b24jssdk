@@ -3,7 +3,7 @@ import PlayLIcon from '@bitrix24/b24icons-vue/outline/PlayLIcon'
 // import DeveloperResourcesIcon from '@bitrix24/b24icons-vue/outline/DeveloperResourcesIcon'
 // import ViewmodeCodeIcon from '@bitrix24/b24icons-vue/editor/ViewmodeCodeIcon'
 // import FormattingIcon from '@bitrix24/b24icons-vue/editor/FormattingIcon'
-import FormIcon from '@bitrix24/b24icons-vue/outline/FormIcon'
+// import FormIcon from '@bitrix24/b24icons-vue/outline/FormIcon'
 import TerminalIcon from '@bitrix24/b24icons-vue/file-type/TerminalIcon'
 // import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
 import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
@@ -42,12 +42,12 @@ export function useHeader() {
       icon: TerminalIcon,
       active: route.path.startsWith('/docs/working-with-the-rest-api')
     },
-    {
-      label: 'Examples',
-      to: '/docs/examples/',
-      icon: FormIcon,
-      active: route.path.startsWith('/docs/examples')
-    },
+    // {
+    //   label: 'Examples',
+    //   to: '/docs/examples/',
+    //   icon: FormIcon,
+    //   active: route.path.startsWith('/docs/examples')
+    // },
     {
       label: 'GitHub',
       to: 'https://github.com/bitrix24/b24jssdk',

@@ -51,37 +51,18 @@ export function useSearch() {
     },
     {
       label: 'Working',
-      // @todo ! insert description
-      description: '',
+      description: 'Introduction to working with Bitrix24 REST API',
       icon: DeveloperResourcesIcon,
       to: '/docs/working-with-the-rest-api/',
       active: route.path.startsWith('/docs/working-with-the-rest-api')
     },
-    {
-      label: 'Logger',
-      // @todo ! insert description
-      description: '',
-      // @todo ! insert icon
-      icon: DeveloperResourcesIcon,
-      to: '/docs/logger/',
-      active: route.path.startsWith('/docs/logger')
-    },
-    {
-      label: 'Limiters',
-      // @todo ! insert description
-      description: '',
-      // @todo ! insert icon
-      icon: DeveloperResourcesIcon,
-      to: '/docs/limiters/',
-      active: route.path.startsWith('/docs/limiters')
-    },
-    {
-      label: 'Examples',
-      icon: FormIcon,
-      description: 'Explore examples of working with the Bitrix24 JS SDK..',
-      to: '/docs/examples/',
-      active: route.path.startsWith('/docs/examples')
-    },
+    // {
+    //   label: 'Examples',
+    //   icon: FormIcon,
+    //   description: 'Explore examples of working with the Bitrix24 JS SDK..',
+    //   to: '/docs/examples/',
+    //   active: route.path.startsWith('/docs/examples')
+    // },
     {
       label: 'GitHub',
       description: 'Check out the Bitrix24 JS SDK repository and follow development on GitHub.',

@@ -14,7 +14,7 @@ const pages = [
   '/docs/getting-started/installation/nuxt/',
   '/docs/getting-started/installation/react/',
   '/docs/getting-started/installation/nodejs/',
-  '/docs/getting-started/installation/und/',
+  '/docs/getting-started/installation/umd/',
   '/docs/getting-started/migration/v1/',
   '/docs/getting-started/ai/llms-txt/',
   // endregion ////

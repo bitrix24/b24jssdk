@@ -34,9 +34,6 @@ jobs:
       - name: Prepare
         run: pnpm run dev:prepare
 
-      - name: TMP Generate Docs
-        run: pnpm run docs:generate
-
       - name: Lint
         run: pnpm run lint
 

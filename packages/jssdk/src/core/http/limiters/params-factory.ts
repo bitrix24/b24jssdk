@@ -2,8 +2,6 @@ import type { RestrictionParams } from '../../../types/limiters'
 
 /**
  * Factory for creating constraint parameters
- *
- * @todo docs
  */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class ParamsFactory {

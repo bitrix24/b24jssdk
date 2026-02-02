@@ -1,10 +1,79 @@
 {
   "name": "@bitrix24/b24jssdk-main",
-  "version": "0.5.1",
-  "author": "Bitrix",
-  "license": "MIT",
-  "private": true,
   "description": "Bitrix24 REST API JS SDK",
+  "version": "1.0.1",
+  "author": "Bitrix",
+  "packageManager": "pnpm@10.28.2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bitrix24/b24jssdk.git"
+  },
+  "homepage": "https://bitrix24.github.io/b24jssdk/",
+  "type": "module",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bitrix24/b24jssdk/issues"
+  },
+  "staring": {
+    "url": "https://github.com/bitrix24/b24jssdk"
+  },
+  "private": true,
+  "sideEffects": false,
+  "scripts": {
+    "dev:prepare": "pnpm run package-jssdk:prepare && pnpm run package-jssdk-nuxt:prepare && pnpm run docs:prepare && pnpm run playground-nuxt:prepare",
+    "package-jssdk:prepare": "pnpm --filter ./packages/jssdk dev:prepare",
+    "package-jssdk:build": "pnpm --filter ./packages/jssdk build",
+    "package-jssdk:lint": "pnpm --filter ./packages/jssdk lint",
+    "package-jssdk:typecheck": "pnpm --filter ./packages/jssdk typecheck",
+    "package-jssdk-nuxt:prepare": "pnpm --filter ./packages/jssdk-nuxt dev:prepare",
+    "package-jssdk-nuxt:build": "pnpm --filter ./packages/jssdk-nuxt build",
+    "package-jssdk-nuxt:lint": "pnpm --filter ./packages/jssdk-nuxt lint",
+    "package-jssdk-nuxt:typecheck": "pnpm --filter ./packages/jssdk typecheck",
+    "playground-nuxt:dev": "nuxt dev playgrounds/nuxt --uiDev",
+    "playground-nuxt:prepare": "nuxt prepare playgrounds/nuxt",
+    "playground-nuxt:build": "nuxt build playgrounds/nuxt",
+    "playground-nuxt:generate": "nuxt generate playgrounds/nuxt",
+    "playground-nuxt:preview": "nuxt preview playgrounds/nuxt",
+    "playground-nuxt:typecheck": "nuxt typecheck playgrounds/nuxt",
+    "docs:dev": "nuxt dev docs",
+    "docs:prepare": "nuxt prepare docs",
+    "docs:build": "nuxt build docs",
+    "docs:generate": "nuxt generate docs",
+    "docs:preview": "nuxt preview docs",
+    "docs:lint": "pnpm --filter ./docs lint",
+    "docs:typecheck": "pnpm --filter ./docs typecheck",
+    "package-jssdk:test": "vitest --project jsSdk:integration",
+    "package-jssdk:test:run": "vitest run --project jsSdk:integration",
+    "package-jssdk:test-integration-js-docs": "vitest -t \"js-docs\" --project jsSdk:integration",
+    "package-jssdk:test-integration-core": "vitest -t \"core\" --project jsSdk:integration",
+    "package-jssdk:test:run-underLoad-v3-call": "vitest run -t \"tasksTaskGet @apiV3\" --project jsSdk:underLoad",
+    "package-jssdk:test:run-underLoad-v3-batch": "vitest run -t \"TasksTaskGet batch @apiV3\" --project jsSdk:underLoad",
+    "package-jssdk:test:run-underLoad-v3-batchByChunk": "vitest run -t \"TasksTaskGet batchByChunk @apiV3\" --project jsSdk:underLoad",
+    "package-jssdk:test:run-underLoad-v2-call": "vitest run -t \"crmDealList @apiV2\" --project jsSdk:underLoad",
+    "package-jssdk:test:run-underLoad-v2-call-with-operating": "vitest run -t \"crmItemListAsCompany @apiV2\" --project jsSdk:underLoad",
+    "package-jssdk:test:run-underLoad-v2-batch": "vitest run -t \"crmItemListAsCompany batch @apiV2\" --project jsSdk:underLoad",
+    "package-jssdk:test:run-underLoad-v2-batchByChunk": "vitest run -t \"crmItemListAsCompany batchByChunk @apiV2\" --project jsSdk:underLoad",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck"
+  },
+  "devDependencies": {
+    "@nuxt/eslint-config": "^1.13.0",
+    "@types/node": "^25.0.10",
+    "dotenv": "^17.2.3",
+    "eslint": "^9.39.2",
+    "vue-tsc": "^3.2.4",
+    "vitest": "^4.0.18",
+    "@vitest/ui": "^4.0.18"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "resolutions": {
+    "@bitrix24/b24jssdk": "workspace:*",
+    "@bitrix24/b24jssdk-nuxt": "workspace:*",
+    "typescript": "5.8.3"
+  },
   "keywords": [
     "bitrix24",
     "js",
@@ -12,29 +81,5 @@
     "restapi",
     "REST",
     "API"
-  ],
-  "homepage": "https://bitrix24.github.io/b24jssdk/",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/bitrix24/b24jssdk.git"
-  },
-  "sideEffects": false,
-  "type": "module",
-  "workspaces": [
-    "packages/*",
-    "docs"
-  ],
-  "scripts": {
-    "build": "npm run --workspace=@bitrix24/b24jssdk build",
-    "test": "npm run --workspace=@bitrix24/b24jssdk test",
-    "lint": "npm run --workspace=@bitrix24/b24jssdk lint",
-    "typecheck": "npm run --workspace=@bitrix24/b24jssdk typecheck",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
-  },
-  "dependencies": {
-    "esbuild": "^0.25.10",
-    "vite": "^7.1.9"
-  }
+  ]
 }

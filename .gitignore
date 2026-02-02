@@ -1,6 +1,8 @@
 # dependencies
 /node_modules
+/cli/**/node_modules
 /docs/**/node_modules
+/docs_2/**/node_modules
 /packages/**/node_modules
 /playgrounds/**/node_modules
 
@@ -57,8 +59,8 @@ Thumbs.db
 /playgrounds/**/.nuxt
 /playgrounds/**/.data
 /playgrounds/**/.output
-docs/.vitepress/dist
-docs/.vitepress/cache
+docs_2/.vitepress/dist
+docs_2/.vitepress/cache
 docs/auto-imports.d.ts
 docs/components.d.ts
 
@@ -67,6 +69,7 @@ docs/components.d.ts
 
 # local env files
 .env
+.env.test
 .env.local
 .env.development.local
 .env.test.local
@@ -97,3 +100,5 @@ coverage
 
 .todo.md
 /@tmp
+/test/some-code-from-docs/installation-umd-example/umd/
+/test/some-code-from-docs/installation-umd-example/index.zip

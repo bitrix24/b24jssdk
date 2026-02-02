@@ -1,4 +1,4 @@
-import Text from '../tools/text'
+import { Text } from '../tools/text'
 
 /**
  * Interface defining the structure and methods of a Result object.
@@ -25,7 +25,7 @@ export interface IResult<T = any> {
    *
    * @returns The data stored in the result, if any.
    */
-  getData: () => T | null
+  getData: () => T | null | undefined
 
   /**
    * Adds an error message or Error object to the result.
@@ -74,7 +74,7 @@ export interface IResult<T = any> {
  */
 export class Result<T = any> implements IResult<T> {
   protected _errors: Map<string, Error>
-  protected _data: T | null
+  protected _data: T | null | undefined
 
   constructor(data?: T) {
     this._errors = new Map()
@@ -89,13 +89,13 @@ export class Result<T = any> implements IResult<T> {
     return this._errors
   }
 
-  setData(data: T | null): Result<T> {
+  setData(data: T | null | undefined): Result<T> {
     this._data = data
 
     return this
   }
 
-  getData(): T | null {
+  getData(): T | null | undefined {
     return this._data
   }
 

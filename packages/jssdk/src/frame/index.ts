@@ -1,5 +1,5 @@
 export * from './message'
-export * from './controller'
+export * from './b24'
 export * from './auth'
 export * from './frame'
 export * from './options'

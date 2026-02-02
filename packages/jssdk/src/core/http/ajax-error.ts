@@ -1,3 +1,7 @@
+import type { AjaxQuery } from './ajax-result'
+import type { SdkErrorDetails } from '../sdk-error'
+import { SdkError } from '../sdk-error'
+
 export type AnswerError = {
   error: string
   errorDescription: string
@@ -9,115 +13,61 @@ export type AjaxErrorParams = {
   cause?: Error
 }
 
-type ErrorDetails = {
-  code: string
-  description?: string
-  status: number
-  requestInfo?: {
-    method?: string
-    url?: string
-    params?: Record<string, unknown> | unknown
-  }
-  originalError?: unknown
+type AjaxErrorDetails = SdkErrorDetails & {
+  requestInfo?: Partial<AjaxQuery> & { url?: string }
 }
-
 
 /**
  * Error requesting RestApi
  */
-export class AjaxError extends Error {
-  public readonly code: string
-  private _status: number
-  public readonly requestInfo?: ErrorDetails['requestInfo']
-  public readonly timestamp: Date
-  public readonly originalError?: unknown
+export class AjaxError extends SdkError {
+  public readonly requestInfo?: AjaxErrorDetails['requestInfo']
 
-  // override cause: null | Error
-  // private _status: number
-  // private _answerError: AnswerError
+  constructor(params: AjaxErrorDetails) {
+    // @todo test this
+    // @memo get from PullClient.loadConfig
+    if (params.code === 'AUTHORIZE_ERROR' || params.code === 'WRONG_AUTH_TYPE') {
+      params.status = 403
+    }
 
-  constructor(details: ErrorDetails) {
-    const message = AjaxError.formatErrorMessage(details)
-    super(message)
+    params.description = AjaxError.formatErrorMessage(params)
+    super(params)
 
     this.name = 'AjaxError' as const
-    this.code = details.code
-    this._status = details.status
-    this.requestInfo = details.requestInfo
-    this.originalError = details.originalError
-    this.timestamp = new Date()
+    this.requestInfo = params.requestInfo
 
     this.cleanErrorStack()
   }
 
-  // constructor(params: AjaxErrorParams) {
-  //   const message = `${ params.answerError.error }${
-  //     params.answerError.errorDescription
-  //       ? ': ' + params.answerError.errorDescription
-  //       : ''
-  //   }`
-  //
-  //   super(message)
-  //   this.cause = params.cause || null
-  //   this.name = this.constructor.name
-  //
-  //   this._status = params.status
-  //   this._answerError = params.answerError
-  // }
-
-  /**
-   * @deprecated
-   */
-  get answerError(): AnswerError {
-    return {
-      error: this.message,
-      errorDescription: ''
-    }
-  }
-
-  get status(): number {
-    return this._status
-  }
-
-  /**
-   * @deprecated
-   */
-  set status(status: number) {
-    this._status = status
-  }
-
   /**
    * Creates AjaxError from HTTP response
+   * @todo add support v3
    */
   static fromResponse(response: {
     status: number
-    data?: { error?: string; error_description?: string }
-    config?: { method?: string; url?: string; params?: unknown }
+    data?: { error?: string, error_description?: string }
+    config?: AjaxErrorDetails['requestInfo']
   }): AjaxError {
     return new AjaxError({
-      code: response.data?.error || 'unknown_error',
+      code: response.data?.error || 'JSSDK_INTERNAL_AJAX_ERROR',
       description: response.data?.error_description,
       status: response.status,
-      requestInfo: {
-        method: response.config?.method?.toUpperCase(),
-        url: response.config?.url,
-        params: response.config?.params
-      }
+      requestInfo: response.config
     })
   }
 
   /**
-   * Creates AjaxError from exception
+   * @inheritDoc
    */
-  static fromException(error: unknown, context?: {
+  static override fromException(error: unknown, context?: {
     code?: string
     status?: number
-    requestInfo?: ErrorDetails['requestInfo']
+    requestInfo?: AjaxErrorDetails['requestInfo']
   }): AjaxError {
     if (error instanceof AjaxError) return error
 
     return new AjaxError({
-      code: context?.code || 'internal_error',
+      code: context?.code || 'JSSDK_INTERNAL_AJAX_ERROR',
       status: context?.status || 500,
       description: error instanceof Error ? error.message : String(error),
       requestInfo: context?.requestInfo,
@@ -126,9 +76,9 @@ export class AjaxError extends Error {
   }
 
   /**
-   * Serializes error for logging and debugging
+   * @inheritDoc
    */
-  toJSON() {
+  override toJSON() {
     return {
       name: this.name,
       code: this.code,
@@ -140,22 +90,14 @@ export class AjaxError extends Error {
     }
   }
 
-  // override toString(): string {
-  //   return `${ this.answerError.error }${
-  //     this.answerError.errorDescription
-  //       ? ': ' + this.answerError.errorDescription
-  //       : ''
-  //   } (${ this.status })`
-  // }
-
   /**
-   * Formats error information for human-readable output
+   * @inheritDoc
    */
   override toString(): string {
     let output = `[${this.name}] ${this.code} (${this._status}): ${this.message}`
 
     if (this.requestInfo) {
-      output += `\nRequest: ${this.requestInfo.method} ${this.requestInfo.url}`
+      output += `\nRequest: ${this.requestInfo?.requestId ? `[${this.requestInfo.requestId}] ` : ''}${this.requestInfo.method} ${this.requestInfo.url}`
     }
 
     if (this.stack) {
@@ -165,21 +107,28 @@ export class AjaxError extends Error {
     return output
   }
 
-  private static formatErrorMessage(details: ErrorDetails): string {
-    const parts = [details.code]
-
-    if (details.description) {
-      parts.push(`- ${details.description}`)
+  /**
+   * @inheritDoc
+   */
+  protected static override formatErrorMessage(params: AjaxErrorDetails): string {
+    if (!params?.description) {
+      if (
+        params.requestInfo?.method
+        && params.requestInfo.url
+      ) {
+        return `${params.code} (on ${params.requestInfo.method}${params.requestInfo?.url ? ' ' + params.requestInfo.url : ''})`
+      } else {
+        return `Internal ajax error`
+      }
     }
 
-    if (details.requestInfo?.method && details.requestInfo.url) {
-      parts.push(`(on ${details.requestInfo.method} ${details.requestInfo.url})`)
-    }
-
-    return parts.join(' ')
+    return `${params.description}`
   }
 
-  private cleanErrorStack() {
+  /**
+   * @inheritDoc
+   */
+  protected override cleanErrorStack() {
     if (typeof this.stack === 'string') {
       this.stack = this.stack
         .split('\n')

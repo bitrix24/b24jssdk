@@ -1,263 +1,436 @@
-import { LoggerBrowser, LoggerType } from '../logger/browser'
-import { Result } from './result'
-import { AjaxResult } from './http/ajax-result'
-import Type from './../tools/type'
+import type { LoggerInterface } from '../logger'
+import type { AjaxResult } from './http/ajax-result'
 import type { TypeB24 } from '../types/b24'
-import type { TypeHttp } from '../types/http'
+import type { BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, TypeCallParams, TypeHttp } from '../types/http'
 import type { ListPayload } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
+import type { RestrictionParams } from '../types/limiters'
+import { Type } from '../tools/type'
+import { Result } from './result'
+import { SdkError } from './sdk-error'
+import { ApiVersion } from '../types/b24'
+import { versionManager } from './version-manager'
+import { LoggerFactory } from '../logger'
+import { ActionsManager } from './actions/manager'
+import { ToolsManager } from './tools/manager'
 
+/**
+ * @todo docs
+ */
 export abstract class AbstractB24 implements TypeB24 {
-	static readonly batchSize = 50
+  /**
+   * Maximum length for batch response.
+   *
+   * @deprecated This const is deprecated and will be removed in version `2.0.0`
+   * @removed 2.0.0
+   */
+  static readonly batchSize = 50
 
-	protected _isInit: boolean = false
-	protected _http: null | TypeHttp = null
-	protected _logger: null | LoggerBrowser = null
+  protected _isInit: boolean = false
+  protected _httpV2: null | TypeHttp = null
+  protected _httpV3: null | TypeHttp = null
+  protected _logger: LoggerInterface
 
-	// region Init ////
-	protected constructor() {
-		this._isInit = false
-	}
+  protected _actionsManager: ActionsManager
+  protected _toolsManager: ToolsManager
 
-	/**
-	 * @inheritDoc
-	 */
-	get isInit(): boolean {
-		return this._isInit
-	}
+  // region Init ////
+  protected constructor() {
+    this._isInit = false
+    this._logger = LoggerFactory.createNullLogger()
 
-	async init(): Promise<void> {
-		this._isInit = true
-		return
-	}
+    this._actionsManager = new ActionsManager(this)
+    this._toolsManager = new ToolsManager(this)
+  }
 
-	destroy(): void {}
+  /**
+   * @inheritDoc
+   */
+  get isInit(): boolean {
+    return this._isInit
+  }
 
-	public setLogger(logger: LoggerBrowser): void {
-		this._logger = logger
-		this.getHttpClient().setLogger(this.getLogger())
-	}
+  public async init(): Promise<void> {
+    this._isInit = true
+    return
+  }
 
-	public getLogger(): LoggerBrowser {
-		if (null === this._logger) {
-			this._logger = LoggerBrowser.build(`NullLogger`)
+  public destroy(): void {}
+  // endregion ////
 
-			this._logger.setConfig({
-				[LoggerType.desktop]: false,
-				[LoggerType.log]: false,
-				[LoggerType.info]: false,
-				[LoggerType.warn]: false,
-				[LoggerType.error]: true,
-				[LoggerType.trace]: false,
-			})
-		}
+  // region Core ////
+  abstract get auth(): AuthActions
 
-		return this._logger
-	}
-	// endregion ////
+  get actions(): ActionsManager {
+    this._ensureInitialized()
+    return this._actionsManager
+  }
 
-	// region Core ////
-	abstract get auth(): AuthActions
+  get tools(): ToolsManager {
+    this._ensureInitialized()
+    return this._toolsManager
+  }
 
-	/**
-	 * @inheritDoc
-	 */
-	abstract getTargetOrigin(): string
+  /**
+   * @inheritDoc
+   */
+  public abstract getTargetOrigin(): string
 
-	/**
-	 * @inheritDoc
-	 */
-	abstract getTargetOriginWithPath(): string
+  /**
+   * @inheritDoc
+   */
+  public abstract getTargetOriginWithPath(): Map<ApiVersion, string>
 
-	/**
-	 * @inheritDoc
-	 */
-	callMethod(
-		method: string,
-		params?: object,
-		start?: number
-	): Promise<AjaxResult> {
-		return this.getHttpClient().call(method, params || {}, start || 0)
-	}
+  /**
+   * Calls the Bitrix24 REST API method.
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link CallV3.make `b24.actions.v3.call.make(options)`}
+   *   - for `restApi:v2` use {@link CallV2.make `b24.actions.v2.call.make(options)`}
+   *
+   * @removed 2.0.0
+   * @memo Only for `restApi:v2`
+   */
+  public async callMethod(method: string, params?: object, start?: number): Promise<AjaxResult> {
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.callMethod() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.call.make(options) or b24.actions.v2.call.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'callMethod',
+        replacement: 'b24.actions.v3.call.make(options) | b24.actions.v2.call.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
+      }
+    )
 
-	/**
-	 * @inheritDoc
-	 */
-	async callListMethod(
-		method: string,
-		params: object = {},
-		progress: null | ((progress: number) => void) = null,
-		customKeyForResult: null | string = null
-	): Promise<Result> {
-		const result = new Result()
+    params = { ...params }
 
-		if (Type.isFunction(progress) && null !== progress) {
-			progress(0)
-		}
+    if (
+      !(
+        'start' in params
+        && Number.isInteger(params.start)
+      )
+      && Number.isInteger(start)
+    ) {
+      (params as any).start = start
+    }
 
-		return this.callMethod(method, params, 0).then(async (response) => {
-			let list: any[] = []
+    // @todo remove this
+    // const apiVersion = versionManager.automaticallyObtainApiVersion(method)
+    // if (apiVersion === ApiVersion.v3) {
+    //   return this._actionsManager.v3.call.make({ method, params })
+    // }
 
-			let resultData
-			if (null === customKeyForResult) {
-				resultData = (response.getData() as ListPayload<any>).result as []
-			} else {
-				resultData = (response.getData() as ListPayload<any>).result[
-					customKeyForResult
-				] as []
-			}
+    return this._actionsManager.v2.call.make({ method, params })
+  }
 
-			list = [...list, ...resultData]
-			if (response.isMore()) {
-				let responseLoop: false | AjaxResult = response
-				while (true) {
-					responseLoop = await responseLoop.getNext(this.getHttpClient())
+  /**
+   * Calls a Bitrix24 REST API list method to retrieve all data.
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link CallListV3.make `b24.actions.v3.callList.make(options)`}
+   *   - for `restApi:v2` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
+   *
+   * @removed 2.0.0
+   * @memo Only for `restApi:v2`
+   */
+  public async callListMethod(method: string, params?: object, progress?: null | ((progress: number) => void), customKeyForResult?: string | null): Promise<Result> {
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.callListMethod() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.callList.make(options) or b24.actions.v2.callList.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'callListMethod',
+        replacement: 'b24.actions.v3.callList.make(options) | b24.actions.v2.callList.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
+      }
+    )
 
-					if (responseLoop === false) {
-						break
-					}
+    const result = new Result()
 
-					let resultData = undefined
-					if (null === customKeyForResult) {
-						resultData = (responseLoop.getData() as ListPayload<any>)
-							.result as []
-					} else {
-						resultData = (responseLoop.getData() as ListPayload<any>).result[
-							customKeyForResult
-						] as []
-					}
+    if (Type.isFunction(progress) && null !== progress) {
+      progress(0)
+    }
 
-					list = [...list, ...resultData]
+    const sendParams: TypeCallParams = {
+      ...params,
+      start: 0
+    }
+    return this.actions.v2.call.make({
+      method,
+      params: sendParams
+    }).then(async (response) => {
+      let list: any[] = []
 
-					if (progress) {
-						const total = responseLoop.getTotal()
-						progress(total > 0 ? Math.round((100 * list.length) / total) : 100)
-					}
-				}
-			}
+      let resultData
+      if (customKeyForResult) {
+        resultData = (response.getData() as ListPayload<any>).result[customKeyForResult] as []
+      } else {
+        resultData = (response.getData() as ListPayload<any>).result as []
+      }
 
-			result.setData(list)
-			if (progress) {
-				progress(100)
-			}
+      list = [...list, ...resultData]
+      if (response.isMore()) {
+        let responseLoop: false | AjaxResult = response
+        while (true) {
+          responseLoop = await responseLoop.getNext(this.getHttpClient(ApiVersion.v2))
 
-			return result
-		})
-	}
+          if (responseLoop === false) {
+            break
+          }
 
-	/**
-	 * @inheritDoc
-	 */
-	async *fetchListMethod(
-		method: string,
-		params: any = {},
-		idKey: string = 'ID',
-		customKeyForResult: null | string = null
-	): AsyncGenerator<any[]> {
-		params.order = params.order || {}
-		params.filter = params.filter || {}
-		params.start = -1
+          let resultData = undefined
+          if (customKeyForResult) {
+            resultData = (responseLoop.getData() as ListPayload<any>).result[customKeyForResult] as []
+          } else {
+            resultData = (responseLoop.getData() as ListPayload<any>).result as []
+          }
 
-		const moreIdKey = `>${idKey}`
+          list = [...list, ...resultData]
 
-		params.order[idKey] = 'ASC'
-		params.filter[moreIdKey] = 0
+          if (progress) {
+            const total = responseLoop.getTotal()
+            progress(total > 0 ? Math.round((100 * list.length) / total) : 100)
+          }
+        }
+      }
 
-		do {
-			const result = await this.callMethod(method, params, params.start)
-			let data = undefined
-			if (!Type.isNull(customKeyForResult) && null !== customKeyForResult) {
-				data = result.getData().result[customKeyForResult] as []
-			} else {
-				data = result.getData().result as []
-			}
+      result.setData(list)
+      if (progress) {
+        progress(100)
+      }
 
-			if (data.length === 0) {
-				break
-			}
+      return result
+    })
+  }
 
-			yield data
+  /**
+   * Calls a Bitrix24 REST API list method and returns an async generator.
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link FetchListV3.make `b24.actions.v3.fetchList.make(options)`}
+   *   - for `restApi:v2` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
+   *
+   * @removed 2.0.0
+   * @memo Only for `restApi:v2`
+   */
+  public async* fetchListMethod(method: string, params?: any, idKey?: string, customKeyForResult?: string | null): AsyncGenerator<any[]> {
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.fetchListMethod() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.fetchList.make(options) or b24.actions.v2.fetchList.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'fetchListMethod',
+        replacement: 'b24.actions.v3.fetchList.make(options) | b24.actions.v2.fetchList.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
+      }
+    )
+    const options = {
+      method,
+      params,
+      idKey,
+      customKeyForResult: customKeyForResult === null ? undefined : customKeyForResult
+    }
+    yield* this.actions.v2.fetchList.make(options)
+  }
 
-			if (data.length < AbstractB24.batchSize) {
-				break
-			}
+  /**
+   * Executes a batch request to the Bitrix24 REST API.
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}
+   *   - for `restApi:v2` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
+   *
+   * @removed 2.0.0
+   * @memo Only for `restApi:v2`
+   */
+  public async callBatch(calls: Array<any> | object, isHaltOnError?: boolean, returnAjaxResult?: boolean): Promise<Result> {
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.callBatch() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.batch.make(options) or b24.actions.v2.batch.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'callBatch',
+        replacement: 'b24.actions.v3.batch.make(options) | b24.actions.v2.batch.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
+      }
+    )
 
-			const value = data.at(-1)
-			if (value && idKey in value) {
-				params.filter[moreIdKey] = value[idKey]
-			}
-		} while (true)
-	}
+    const callsTyped = calls as BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
+    const options = {
+      isHaltOnError: isHaltOnError ?? true,
+      returnAjaxResult: returnAjaxResult ?? false
+    }
 
-	/**
-	 * @inheritDoc
-	 */
-	async callBatch(
-		calls: Array<any> | object,
-		isHaltOnError: boolean = true,
-    returnAjaxResult: boolean = false
-	): Promise<Result> {
-		return this.getHttpClient().batch(calls, isHaltOnError, returnAjaxResult)
-	}
+    // @todo remove this
+    // const apiVersion = versionManager.automaticallyObtainApiVersionForBatch(callsTyped)
+    //
+    // if (apiVersion === ApiVersion.v3) {
+    //   return this.actions.v3.batch.make({
+    //     calls: callsTyped,
+    //     options
+    //   })
+    // }
 
-	chunkArray<T>(array: T[], chunkSize: number = 50): T[][] {
-		const result: T[][] = []
-		for (let i = 0; i < array.length; i += chunkSize) {
-			const chunk = array.slice(i, i + chunkSize)
-			result.push(chunk)
-		}
-		return result
-	}
+    return this.actions.v2.batch.make({
+      calls: callsTyped,
+      options
+    })
+  }
 
-	/**
-	 * @inheritDoc
-	 */
-	async callBatchByChunk(
-		calls: Array<any>,
-		isHaltOnError: boolean = true
-	): Promise<Result> {
-		const result = new Result()
+  /**
+   * Executes a batch request to the Bitrix24 REST API with automatic chunking for any number of commands.
+   *
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link BatchByChunkV3.make `b24.actions.v3.batchByChunk.make(options)`}
+   *   - for `restApi:v2` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
+   *
+   * @removed 2.0.0
+   * @memo Only for `restApi:v2`
+   */
+  public async callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result> {
+    LoggerFactory.forcedLog(
+      this._logger,
+      'warning',
+      `The AbstractB24.callBatchByChunk() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.batchByChunk.make(options) or b24.actions.v2.batchByChunk.make(options)`,
+      {
+        class: 'AbstractB24',
+        method: 'callBatchByChunk',
+        replacement: 'b24.actions.v3.batchByChunk.make(options) | b24.actions.v2.batchByChunk.make(options)',
+        removalVersion: '2.0.0',
+        code: 'JSSDK_CORE_DEPRECATED_METHOD'
+      }
+    )
 
-		const data = []
-		const chunks = this.chunkArray(calls, AbstractB24.batchSize)
+    const callsTyped = calls as BatchCommandsArrayUniversal | BatchCommandsObjectUniversal
+    const options = {
+      isHaltOnError,
+      returnAjaxResult: false
+    }
 
-		for (const chunkRequest of chunks) {
-			const response = await this.callBatch(chunkRequest, isHaltOnError)
-			data.push(...response.getData())
-		}
+    // @todo remove this
+    // const apiVersion = versionManager.automaticallyObtainApiVersionForBatch(calls)
+    // if (apiVersion === ApiVersion.v3) {
+    //   return this.actions.v3.batchByChunk.make({
+    //     calls: callsTyped,
+    //     options
+    //   })
+    // }
 
-		return result.setData(data)
-	}
-	// endregion ////
+    return this.actions.v2.batchByChunk.make({
+      calls: callsTyped,
+      options
+    })
+  }
+  // endregion ////
 
-	// region Tools ////
-	/**
-	 * @inheritDoc
-	 */
-	getHttpClient(): TypeHttp {
-		if (!this.isInit || null === this._http) {
-			throw new Error(`Http not init`)
-		}
+  // region Tools ////
+  /**
+   * @inheritDoc
+   */
+  public getHttpClient(version: ApiVersion): TypeHttp {
+    this._ensureInitialized()
 
-		return this._http
-	}
+    switch (version) {
+      case ApiVersion.v3:
+        if (null === this._httpV3) {
+          throw new SdkError({
+            code: 'JSSDK_CORE_B24_HTTP_V3_NOT_INIT',
+            description: `HttpV3 not init`,
+            status: 500
+          })
+        }
+        return this._httpV3
+      case ApiVersion.v2:
+        if (null === this._httpV2) {
+          throw new SdkError({
+            code: 'JSSDK_CORE_B24_HTTP_V2_NOT_INIT',
+            description: `HttpV2 not init`,
+            status: 500
+          })
+        }
+        return this._httpV2
+    }
+    throw new SdkError({
+      code: 'JSSDK_CORE_B24_API_WRONG',
+      description: `Wrong Api Version ${version}`,
+      status: 500
+    })
+  }
 
-	/**
-	 * Returns settings for http connection
-	 * @protected
-	 */
-	protected _getHttpOptions(): null | object {
-		return null
-	}
+  /**
+   * @inheritDoc
+   */
+  public setHttpClient(version: ApiVersion, client: TypeHttp): void {
+    switch (version) {
+      case ApiVersion.v3:
+        this._httpV3 = client
+        return
+      case ApiVersion.v2:
+        this._httpV2 = client
+        return
+    }
+    throw new SdkError({
+      code: 'JSSDK_CORE_B24_API_WRONG',
+      description: `Wrong Api Version ${version}`,
+      status: 500
+    })
+  }
 
-	/**
-	 * Generates an object not initialized error
-	 * @protected
-	 */
-	protected _ensureInitialized(): void {
-		if (!this._isInit) {
-			throw new Error('B24 not initialized')
-		}
-	}
-	// endregion ////
+  public setLogger(logger: LoggerInterface): void {
+    this._logger = logger
+
+    this._actionsManager.setLogger(this._logger)
+    this._toolsManager.setLogger(this._logger)
+
+    versionManager.getAllApiVersions().forEach((version) => {
+      this.getHttpClient(version).setLogger(this._logger)
+    })
+  }
+
+  public getLogger(): LoggerInterface {
+    return this._logger
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {
+    const promises = versionManager.getAllApiVersions().map(version =>
+      this.getHttpClient(version).setRestrictionManagerParams(params)
+    )
+
+    await Promise.allSettled(promises)
+  }
+
+  /**
+   * Returns settings for http connection
+   * @protected
+   */
+  protected _getHttpOptions(): null | object {
+    return null
+  }
+
+  /**
+   * Generates an object not initialized error
+   * @protected
+   */
+  protected _ensureInitialized(): void {
+    if (!this._isInit) {
+      throw new SdkError({
+        code: 'JSSDK_CORE_B24_NOT_INIT',
+        description: `B24 not initialized`,
+        status: 500
+      })
+    }
+  }
+  // endregion ////
 }

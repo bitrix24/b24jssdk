@@ -73,17 +73,62 @@ export function getDocumentType(
   let entityIdFormatted = ''
   let base: EnumBizprocBaseType = EnumBizprocBaseType.undefined
   switch (documentType) {
-    case EnumBizprocDocumentType.lead:      base = EnumBizprocBaseType.crm;   entityIdFormatted = 'LEAD'; break;
-    case EnumBizprocDocumentType.company:   base = EnumBizprocBaseType.crm;   entityIdFormatted = 'COMPANY'; break;
-    case EnumBizprocDocumentType.contact:   base = EnumBizprocBaseType.crm;   entityIdFormatted = 'CONTACT'; break;
-    case EnumBizprocDocumentType.deal:      base = EnumBizprocBaseType.crm;   entityIdFormatted = 'DEAL'; break;
-    case EnumBizprocDocumentType.invoice:   base = EnumBizprocBaseType.crm;   entityIdFormatted = 'SMART_INVOICE'; break;
-    case EnumBizprocDocumentType.quote:     base = EnumBizprocBaseType.crm;   entityIdFormatted = 'QUOTE'; break;
-    case EnumBizprocDocumentType.order:     base = EnumBizprocBaseType.crm;   entityIdFormatted = 'ORDER'; break;
-    case EnumBizprocDocumentType.dynamic:   base = EnumBizprocBaseType.crm;   entityIdFormatted = `DYNAMIC_${entityId || 0}`; if ((entityId || 0) < 1) { throw new Error('Need set entityId'); } break;
-    case EnumBizprocDocumentType.disk:      base = EnumBizprocBaseType.disk;  entityIdFormatted = `STORAGE_${entityId || 0}`; if ((entityId || 0) < 1) { throw new Error('Need set entityId'); } break;
-    case EnumBizprocDocumentType.lists:     base = EnumBizprocBaseType.lists; entityIdFormatted = `iblock_${entityId || 0}`;  if ((entityId || 0) < 1) { throw new Error('Need set entityId'); } break;
-    case EnumBizprocDocumentType.listsList: base = EnumBizprocBaseType.lists; entityIdFormatted = `iblock_${entityId || 0}`;  if ((entityId || 0) < 1) { throw new Error('Need set entityId'); } break;
+    case EnumBizprocDocumentType.lead:
+      base = EnumBizprocBaseType.crm
+      entityIdFormatted = 'LEAD'
+      break
+    case EnumBizprocDocumentType.company:
+      base = EnumBizprocBaseType.crm
+      entityIdFormatted = 'COMPANY'
+      break
+    case EnumBizprocDocumentType.contact:
+      base = EnumBizprocBaseType.crm
+      entityIdFormatted = 'CONTACT'
+      break
+    case EnumBizprocDocumentType.deal:
+      base = EnumBizprocBaseType.crm
+      entityIdFormatted = 'DEAL'
+      break
+    case EnumBizprocDocumentType.invoice:
+      base = EnumBizprocBaseType.crm
+      entityIdFormatted = 'SMART_INVOICE'
+      break
+    case EnumBizprocDocumentType.quote:
+      base = EnumBizprocBaseType.crm
+      entityIdFormatted = 'QUOTE'
+      break
+    case EnumBizprocDocumentType.order:
+      base = EnumBizprocBaseType.crm
+      entityIdFormatted = 'ORDER'
+      break
+    case EnumBizprocDocumentType.dynamic:
+      base = EnumBizprocBaseType.crm
+      entityIdFormatted = `DYNAMIC_${entityId || 0}`
+      if ((entityId || 0) < 1) {
+        throw new Error('Need set entityId')
+      }
+      break
+    case EnumBizprocDocumentType.disk:
+      base = EnumBizprocBaseType.disk
+      entityIdFormatted = `STORAGE_${entityId || 0}`
+      if ((entityId || 0) < 1) {
+        throw new Error('Need set entityId')
+      }
+      break
+    case EnumBizprocDocumentType.lists:
+      base = EnumBizprocBaseType.lists
+      entityIdFormatted = `iblock_${entityId || 0}`
+      if ((entityId || 0) < 1) {
+        throw new Error('Need set entityId')
+      }
+      break
+    case EnumBizprocDocumentType.listsList:
+      base = EnumBizprocBaseType.lists
+      entityIdFormatted = `iblock_${entityId || 0}`
+      if ((entityId || 0) < 1) {
+        throw new Error('Need set entityId')
+      }
+      break
   }
 
   return [
@@ -104,22 +149,47 @@ export function getDocumentId(
   let entityIdFormatted = ''
   const tmp = getDocumentType(documentType, 1)
   switch (documentType) {
-    case EnumBizprocDocumentType.lead:      entityIdFormatted = `LEAD_${id}`; break;
-    case EnumBizprocDocumentType.company:   entityIdFormatted = `COMPANY_${id}`; break;
-    case EnumBizprocDocumentType.contact:   entityIdFormatted = `CONTACT_${id}`; break;
-    case EnumBizprocDocumentType.deal:      entityIdFormatted = `DEAL_${id}`; break;
-    case EnumBizprocDocumentType.invoice:   entityIdFormatted = `SMART_INVOICE_${id}`; break;
-    case EnumBizprocDocumentType.quote:     entityIdFormatted = `QUOTE_${id}`; break;
-    case EnumBizprocDocumentType.order:     entityIdFormatted = `ORDER_${id}`; break;
-    case EnumBizprocDocumentType.dynamic:   entityIdFormatted = `DYNAMIC_${dynamicId || 0}_${id}`; if ((dynamicId || 0) < 1) { throw new Error('Need set dynamicId'); } break;
-    case EnumBizprocDocumentType.disk:      entityIdFormatted = `${id}`; break;
-    case EnumBizprocDocumentType.lists:     entityIdFormatted = `${id}`; break;
-    case EnumBizprocDocumentType.listsList: entityIdFormatted = `${id}`; break;
+    case EnumBizprocDocumentType.lead:
+      entityIdFormatted = `LEAD_${id}`
+      break
+    case EnumBizprocDocumentType.company:
+      entityIdFormatted = `COMPANY_${id}`
+      break
+    case EnumBizprocDocumentType.contact:
+      entityIdFormatted = `CONTACT_${id}`
+      break
+    case EnumBizprocDocumentType.deal:
+      entityIdFormatted = `DEAL_${id}`
+      break
+    case EnumBizprocDocumentType.invoice:
+      entityIdFormatted = `SMART_INVOICE_${id}`
+      break
+    case EnumBizprocDocumentType.quote:
+      entityIdFormatted = `QUOTE_${id}`
+      break
+    case EnumBizprocDocumentType.order:
+      entityIdFormatted = `ORDER_${id}`
+      break
+    case EnumBizprocDocumentType.dynamic:
+      entityIdFormatted = `DYNAMIC_${dynamicId || 0}_${id}`
+      if ((dynamicId || 0) < 1) {
+        throw new Error('Need set dynamicId')
+      }
+      break
+    case EnumBizprocDocumentType.disk:
+      entityIdFormatted = `${id}`
+      break
+    case EnumBizprocDocumentType.lists:
+      entityIdFormatted = `${id}`
+      break
+    case EnumBizprocDocumentType.listsList:
+      entityIdFormatted = `${id}`
+      break
   }
 
   return [
-    tmp[0],
-    tmp[1],
+    tmp[0]!,
+    tmp[1]!,
     entityIdFormatted
   ]
 }
@@ -133,7 +203,7 @@ export function getDocumentTypeForFilter(
   const result = getDocumentType(documentType, 1)
 
   return [
-    result[0],
-    result[1]
+    result[0]!,
+    result[1]!
   ]
 }

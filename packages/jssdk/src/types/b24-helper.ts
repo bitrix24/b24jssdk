@@ -1,5 +1,4 @@
-import { DateTime } from 'luxon'
-
+import type { DateTime } from 'luxon'
 import type { BoolString, GenderString } from './common'
 
 export enum LoadDataType {
@@ -7,7 +6,7 @@ export enum LoadDataType {
   Profile = 'profile',
   Currency = 'currency',
   AppOptions = 'appOptions',
-  UserOptions = 'userOptions',
+  UserOptions = 'userOptions'
 }
 
 export type TypeUser = {
@@ -42,7 +41,7 @@ export const EnumAppStatus = {
   Local: 'L',
 
   // subscription application ////
-  Subscription: 'S',
+  Subscription: 'S'
 } as const
 
 export const StatusDescriptions: Record<(typeof EnumAppStatus)[keyof typeof EnumAppStatus], string> = {
@@ -51,7 +50,7 @@ export const StatusDescriptions: Record<(typeof EnumAppStatus)[keyof typeof Enum
   [EnumAppStatus.Trial]: 'Trial',
   [EnumAppStatus.Paid]: 'Paid',
   [EnumAppStatus.Local]: 'Local',
-  [EnumAppStatus.Subscription]: 'Subscription',
+  [EnumAppStatus.Subscription]: 'Subscription'
 }
 
 export type TypeEnumAppStatus = keyof typeof EnumAppStatus
@@ -138,7 +137,7 @@ export type TypeLicense = {
 export const TypeSpecificUrl = {
   MainSettings: 'MainSettings',
   UfList: 'UfList',
-  UfPage: 'UfPage',
+  UfPage: 'UfPage'
 } as const
 
 export type TypeB24Form = {
@@ -192,5 +191,5 @@ export enum TypeOption {
   FloatVal = 'float',
   IntegerVal = 'integer',
   BoolYN = 'boolYN',
-  StringVal = 'string',
+  StringVal = 'string'
 }

@@ -1,6 +1,7 @@
-import { DateTime, type DateTimeOptions } from 'luxon'
+import type { DateTimeOptions } from 'luxon'
+import { DateTime } from 'luxon'
 import uuidv7 from './uuidv7'
-import Type from './type'
+import { Type } from './type'
 
 const reEscape = /[&<>'"]/g
 const reUnescape = /&(?:amp|#38|lt|#60|gt|#62|apos|#39|quot|#34)/g
@@ -9,8 +10,8 @@ const escapeEntities: Record<string, string> = {
   '&': '&amp',
   '<': '&lt',
   '>': '&gt',
-  "'": '&#39',
-  '"': '&quot',
+  '\'': '&#39',
+  '"': '&quot'
 }
 
 const unescapeEntities: Record<string, string> = {
@@ -20,10 +21,10 @@ const unescapeEntities: Record<string, string> = {
   '&#60': '<',
   '&gt': '>',
   '&#62': '>',
-  '&apos': "'",
-  '&#39': "'",
+  '&apos': '\'',
+  '&#39': '\'',
   '&quot': '"',
-  '&#34': '"',
+  '&#34': '"'
 }
 
 /**
@@ -35,7 +36,6 @@ const unescapeEntities: Record<string, string> = {
  */
 class TextManager {
   getRandom(length = 8): string {
-    // eslint-disable-next-line
     return [...Array(length)]
       .map(() => Math.trunc(Math.random() * 36).toString(36))
       .join('')
@@ -67,7 +67,7 @@ class TextManager {
    */
   encode(value: string): string {
     if (Type.isString(value)) {
-      return value.replace(reEscape, (item) => escapeEntities[item])
+      return value.replace(reEscape, item => escapeEntities[item]!)
     }
 
     return value
@@ -80,7 +80,7 @@ class TextManager {
    */
   decode(value: string): string {
     if (Type.isString(value)) {
-      return value.replace(reUnescape, (item) => unescapeEntities[item])
+      return value.replace(reUnescape, item => unescapeEntities[item]!)
     }
 
     return value
@@ -112,10 +112,9 @@ class TextManager {
 
     const regex = /[-_\s]+(.)?/g
     if (!regex.test(str)) {
-      // eslint-disable-next-line
       return str.match(/^[A-Z]+$/)
         ? str.toLowerCase()
-        : str[0].toLowerCase() + str.slice(1)
+        : str[0]!.toLowerCase() + str.slice(1)
     }
 
     str = str.toLowerCase()
@@ -123,8 +122,7 @@ class TextManager {
       letter ? letter.toUpperCase() : ''
     )
 
-    // eslint-disable-next-line
-    return str[0].toLowerCase() + str.substring(1)
+    return str[0]!.toLowerCase() + str.substring(1)
   }
 
   toPascalCase(str: string): string {
@@ -141,13 +139,13 @@ class TextManager {
     }
 
     const matches = str.match(
-      /[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g
+      /[A-Z]{2,}(?=[A-Z][a-z]+\d*|\b)|[A-Z]?[a-z]+\d*|[A-Z]|\d+/g
     )
     if (!matches) {
       return str
     }
 
-    return matches.map((x) => x.toLowerCase()).join('-')
+    return matches.map(x => x.toLowerCase()).join('-')
   }
 
   capitalize(str: string): string {
@@ -155,8 +153,7 @@ class TextManager {
       return str
     }
 
-    // eslint-disable-next-line
-    return str[0].toUpperCase() + str.substring(1)
+    return str[0]!.toUpperCase() + str.substring(1)
   }
 
   numberFormat(
@@ -165,9 +162,8 @@ class TextManager {
     decPoint: string = '.',
     thousandsSep: string = ','
   ): string {
-    // eslint-disable-next-line
     const n = !Number.isFinite(number) ? 0 : number
-    // eslint-disable-next-line
+
     const fractionDigits = !Number.isFinite(decimals) ? 0 : Math.abs(decimals)
 
     const toFixedFix = (n: number, fractionDigits: number): number => {
@@ -179,7 +175,7 @@ class TextManager {
       .toString()
       .split('.')
 
-    if (s[0].length > 3) {
+    if (s[0] && s[0].length > 3) {
       s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, thousandsSep)
     }
 
@@ -198,7 +194,7 @@ class TextManager {
    * @param {string} dateString
    * @param {string} template
    * @param opts
-   * @returns {DateTime}
+   * @returns {DateTime} Convert string to DateTime from ISO 8601 or self template
    *
    * @link https://moment.github.io/luxon/#/parsing?id=parsing-technical-formats
    */
@@ -214,6 +210,21 @@ class TextManager {
     return DateTime.fromISO(dateString, opts)
   }
 
+  /**
+   * Convert Date to Bitrix24 REST API FORMAT Y-m-d\TH:i:sP
+   * @param date
+   */
+  toB24Format(
+    date: string | DateTime | Date
+  ): string {
+    if (typeof date === 'string') {
+      return date
+    } else if (date instanceof Date) {
+      return this.toB24Format(DateTime.fromJSDate(date))
+    }
+    return date.toFormat('yyyy-MM-dd\'T\'HH:mm:ssZZ')
+  }
+
   getDateForLog(): string {
     const now = DateTime.now()
     return now.toFormat('y-MM-dd HH:mm:ss')
@@ -222,28 +233,26 @@ class TextManager {
   buildQueryString(params: any): string {
     let result = ''
     for (const key in params) {
-      if (!params.hasOwnProperty(key)) {
+      if (!Object.prototype.hasOwnProperty.call(params, key)) {
         continue
       }
 
       const value = params[key]
       if (Type.isArray(value)) {
-        // eslint-disable-next-line
         value.forEach((valueElement: any, index: any) => {
-          result +=
-            encodeURIComponent(key + '[' + index + ']') +
-            '=' +
-            encodeURIComponent(valueElement) +
-            '&'
+          result
+            += encodeURIComponent(key + '[' + index + ']')
+              + '='
+              + encodeURIComponent(valueElement)
+              + '&'
         })
       } else {
-        result +=
-          encodeURIComponent(key) + '=' + encodeURIComponent(value) + '&'
+        result
+          += encodeURIComponent(key) + '=' + encodeURIComponent(value) + '&'
       }
     }
 
     if (result.length > 0) {
-      // eslint-disable-next-line
       result = result.substring(0, result.length - 1)
     }
 
@@ -251,6 +260,4 @@ class TextManager {
   }
 }
 
-const Text = new TextManager()
-
-export default Text
+export const Text = new TextManager()

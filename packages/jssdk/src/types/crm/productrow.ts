@@ -1,6 +1,6 @@
 import type { BoolString } from '../common'
-import { EnumCrmEntityTypeShort } from './entity-type'
-import { CatalogProductType } from '../catalog'
+import type { EnumCrmEntityTypeShort } from './entity-type'
+import type { CatalogProductType } from '../catalog'
 
 export enum ProductRowDiscountTypeId {
   undefined = 0,

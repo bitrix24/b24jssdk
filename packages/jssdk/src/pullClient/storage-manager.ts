@@ -1,42 +1,33 @@
-import { LoggerBrowser, LoggerType } from '../logger/browser'
-import Text from '../tools/text'
 import type { StorageManagerParams, TypeStorageManager } from '../types/pull'
+import type { LoggerInterface } from '../logger'
+import { LoggerFactory } from '../logger'
+import { Text } from '../tools/text'
 
 export class StorageManager implements TypeStorageManager {
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
 
   private readonly userId: number
   private readonly siteId: string
 
   constructor(params: StorageManagerParams = {}) {
+    this._logger = LoggerFactory.createNullLogger()
     this.userId = params.userId ? Text.toInteger(params.userId) : 0
     this.siteId = params.siteId ?? 'none'
   }
 
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: false,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false,
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
 
   set(name: string, value: any): void {
     if (typeof window.localStorage === 'undefined') {
-      this.getLogger().error(new Error('undefined window.localStorage'))
+      this.getLogger().error('localStorage undefined', {
+        error: new Error('undefined window.localStorage')
+      })
       return
     }
 
@@ -62,7 +53,9 @@ export class StorageManager implements TypeStorageManager {
 
   remove(name: string): void {
     if (typeof window.localStorage === 'undefined') {
-      this.getLogger().error(new Error('undefined window.localStorage'))
+      this.getLogger().error('localStorage undefined', {
+        error: new Error('undefined window.localStorage')
+      })
       return
     }
 
@@ -70,7 +63,7 @@ export class StorageManager implements TypeStorageManager {
   }
 
   private _getKey(name: string): string {
-    return `@bitrix24/b24jssdk-pull-${ this.userId }-${ this.siteId }-${ name }`
+    return `@bitrix24/b24jssdk-pull-${this.userId}-${this.siteId}-${name}`
   }
 
   compareKey(eventKey: string, userKey: string): boolean {

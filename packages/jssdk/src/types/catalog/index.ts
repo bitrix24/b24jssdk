@@ -5,7 +5,6 @@ import type { BoolString, ISODate, TextType } from '../common'
  * @link https://apidocs.bitrix24.com/api-reference/catalog/data-types.html
  */
 
-
 export enum CatalogProductType {
   undefined = 0,
   product = 1,

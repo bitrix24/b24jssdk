@@ -1,149 +1,151 @@
-import { defineBuildConfig, type BuildConfig, type BuildContext } from 'unbuild'
-import { type ModuleFormat } from 'rollup'
+import type { ModuleFormat } from 'rollup'
+import type { BuildConfig } from 'unbuild'
+import { defineBuildConfig } from 'unbuild'
 import packageInfo from './package.json'
 
 const SDK_VERSION = packageInfo.version
 const SDK_USER_AGENT = 'b24-js-sdk'
-const COPYRIGHT_DATE = (new Date()).getFullYear()
+const COPYRIGHT_DATE = new Date().getFullYear()
 
 export default defineBuildConfig(
-  [
-    'esm',
-    'umd',
-    'umd-min',
-  ].map((formatTypeParam) => initConfig(formatTypeParam))
+  ['esm', 'umd', 'umd-min'].map(formatTypeParam => initConfig(formatTypeParam))
 )
 
 function initConfig(formatTypeParam: string): BuildConfig {
   const formatType = formatTypeParam.replace('-min', '') as ModuleFormat
   const isMinify = formatTypeParam.includes('-min')
-  const outDir = `dist/${ formatType }`
-  let declaration = true
-  let sourcemap = true
+  const outDir = `dist/${formatType}`
 
-  let emitCJS = true
-  let cjsBridge = true
-  let inlineDependencies = true
-
-  let fileExtension: string
-  const rollupExt = {
-    output: {},
-    resolve: {}
-  }
-
-  // eslint-disable-next-line
-  let hooks: Record<string, Function> = {}
-  let entry = './src/index'
-
-  const replaceValues = {
-    values: {
-      '__SDK_VERSION__': SDK_VERSION,
-      '__SDK_USER_AGENT__': SDK_USER_AGENT,
-    }
-  }
-
-  switch (formatType) {
-    case 'esm':
-      entry = './src/index'
-      declaration = true
-      sourcemap = true
-      fileExtension = 'mjs'
-      emitCJS = false
-      cjsBridge = false
-      inlineDependencies = false
-      rollupExt.output = {
-        extend: true,
-        esModule: true,
-        preserveModules: false,
-        inlineDynamicImports: false,
-      }
-      break
-    case 'umd':
-      entry = './src/index'
-      declaration = false
-      sourcemap = true
-      fileExtension = 'js'
-
-      emitCJS = true
-      cjsBridge = true
-      inlineDependencies = true
-
-      rollupExt.output = {
-        extend: true,
-        compact: false,
-        esModule: false,
-        preserveModules: false,
-        inlineDynamicImports: true,
-      }
-
-      rollupExt.resolve = {
-        browser: true,
-        modulePaths: [
-          'node_modules/**'
-        ]
-      }
-
-      hooks = {
-        async 'build:prepare'(ctx: BuildContext) {
-          ctx.pkg.dependencies = {}
-          ctx.options.dependencies = []
-        }
-      }
-      break
-    default:
-      fileExtension = 'js'
-      break
-  }
-
-  const entryFileNames = `index${ isMinify ? '.min' : '' }.${ fileExtension }`
-
-  return {
+  const baseConfig = {
     failOnWarn: false,
-    name: `@bitrix24/b24jssdk-${ formatType }`,
-    entries: [
-      entry
-    ],
+    name: `@bitrix24/b24jssdk-${formatType}`,
     outDir,
-    declaration,
-    sourcemap,
     rollup: {
       esbuild: {
         minify: isMinify,
         target: 'esnext',
+        // Сохраняем имена функций для отладки
+        keepNames: true,
+        // Минимизация только для production сборок
+        minifyIdentifiers: isMinify,
+        minifySyntax: isMinify,
+        minifyWhitespace: isMinify
       },
-      emitCJS,
-      cjsBridge,
-      inlineDependencies,
-      replace: replaceValues,
+      replace: {
+        values: {
+          __SDK_VERSION__: SDK_VERSION,
+          __SDK_USER_AGENT__: SDK_USER_AGENT
+        },
+        preventAssignment: true // Важно для tree shaking
+      },
       output: {
         format: formatType,
         name: 'B24Js',
-        entryFileNames,
-        banner: getBanner.bind(this),
-        intro: getIntro.bind(this),
-        outro: getOutro.bind(this),
-        ...rollupExt.output
-      },
-      resolve: rollupExt.resolve
+        banner: getBanner(),
+        // Экспортируем все именованные экспорты для лучшего tree shaking
+        exports: 'named',
+        // Сохраняем модульную структуру
+        preserveModules: formatType === 'esm',
+        preserveModulesRoot: 'src',
+        // Генерируем sourcemap с исходным содержимым
+        sourcemap: true,
+        sourcemapExcludeSources: false
+      } as any
     },
-    hooks: hooks
-  } as BuildConfig
+    hooks: {} as Record<string, () => {}>
+  }
+
+  switch (formatType) {
+    case 'esm':
+      return {
+        ...baseConfig,
+        entries: ['./src/index'],
+        declaration: true,
+        sourcemap: true,
+        rollup: {
+          ...baseConfig.rollup,
+          esbuild: {
+            ...baseConfig.rollup.esbuild,
+            // Для ESM сохраняем комментарии (включая JSDoc)
+            legalComments: 'external'
+          },
+          emitCJS: false,
+          cjsBridge: false,
+          inlineDependencies: false,
+          output: {
+            ...baseConfig.rollup.output,
+            entryFileNames: '[name].mjs',
+            chunkFileNames: '[name]-[hash].mjs',
+            // Оптимизации для tree shaking
+            hoistTransitiveImports: false,
+            interop: 'auto'
+            // -- extend: true,
+            // -- esModule: true,
+            // ??? не нужно сохранять модули
+            // -- preserveModules: false,
+            // -- inlineDynamicImports: false
+          }
+        },
+        // Генерируем отдельные .d.ts файлы
+        declarationOptions: {
+          emitDeclarationOnly: false,
+          // Компилируем все файлы для сохранения путей
+          compilerOptions: {
+            declaration: true,
+            emitDeclarationOnly: false,
+            declarationMap: true,
+            // Сохраняем структуру каталогов
+            preserveSymlinks: true
+          }
+        }
+      } as BuildConfig
+
+    case 'umd':
+      return {
+        ...baseConfig,
+        entries: ['./src/index'],
+        declaration: false,
+        sourcemap: true,
+        rollup: {
+          ...baseConfig.rollup,
+          emitCJS: true,
+          cjsBridge: true,
+          inlineDependencies: true,
+          output: {
+            ...baseConfig.rollup.output,
+            entryFileNames: `index${isMinify ? '.min' : ''}.js`,
+            compact: false,
+            inlineDynamicImports: true,
+            // Для UMD не нужно сохранять модули
+            preserveModules: false
+            // -- extend: true,
+            // -- esModule: false,
+          },
+          resolve: {
+            browser: true,
+            modulePaths: ['node_modules/**']
+          }
+        },
+        hooks: {
+          async 'build:prepare'(ctx) {
+            ctx.pkg.dependencies = {}
+            ctx.options.dependencies = []
+          }
+        }
+      } as BuildConfig
+
+    default:
+      throw new Error(`Unknown format: ${formatType}`)
+  }
 }
 
 function getBanner(): string {
   return `/**
- * @version @bitrix24/b24jssdk v${ SDK_VERSION }
- * @copyright (c) ${ COPYRIGHT_DATE } Bitrix24
- * @licence MIT
- * @links https://github.com/bitrix24/b24jssdk - GitHub
- * @links https://bitrix24.github.io/b24jssdk/ - Documentation
+ * @package @bitrix24/b24jssdk
+ * @version ${SDK_VERSION}
+ * @copyright (c) ${COPYRIGHT_DATE} Bitrix24
+ * @license MIT
+ * @see https://github.com/bitrix24/b24jssdk
+ * @see https://bitrix24.github.io/b24jssdk/
  */`
-}
-
-function getIntro(): string {
-  return ``;
-}
-
-function getOutro(): string {
-  return ``;
 }

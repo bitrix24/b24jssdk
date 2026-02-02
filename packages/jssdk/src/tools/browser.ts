@@ -1,4 +1,4 @@
-import Type from './type'
+import { Type } from './type'
 
 let UA: string = ''
 try {
@@ -32,13 +32,11 @@ class BrowserManager {
   }
 
   isIE9(): boolean {
-    // @ts-ignore ////
-    return 'documentMode' in document && document.documentMode >= 9
+    return 'documentMode' in document && ((document?.documentMode as number) >= 9)
   }
 
   isIE10(): boolean {
-    // @ts-ignore ////
-    return 'documentMode' in document && document.documentMode >= 10
+    return 'documentMode' in document && ((document?.documentMode as number) >= 10)
   }
 
   isSafari(): boolean {
@@ -55,10 +53,10 @@ class BrowserManager {
 
   detectIEVersion() {
     if (
-      this.isOpera() ||
-      this.isSafari() ||
-      this.isFirefox() ||
-      this.isChrome()
+      this.isOpera()
+      || this.isSafari()
+      || this.isFirefox()
+      || this.isChrome()
     ) {
       return -1
     }
@@ -66,11 +64,11 @@ class BrowserManager {
     let rv = -1
 
     if (
-      // @ts-ignore ////
-      !!window.MSStream &&
-      // @ts-ignore ////
-      !window.ActiveXObject &&
-      'ActiveXObject' in window
+      // @ts-expect-error we detect IEVersion ////
+      !!window.MSStream
+      // @ts-expect-error we detect IEVersion ////
+      && !window.ActiveXObject
+      && 'ActiveXObject' in window
     ) {
       rv = 11
     } else if (this.isIE10()) {
@@ -82,31 +80,25 @@ class BrowserManager {
     }
 
     if (rv === -1 || rv === 8) {
-      // @ts-ignore ////
       if (navigator.appName === 'Microsoft Internet Explorer') {
-        const re = new RegExp('MSIE ([0-9]+[.0-9]*)')
+        const re = /MSIE (\d[.0-9]*)/
         const res = navigator.userAgent.match(re)
 
-        // @ts-ignore ////
         if (Type.isArrayLike(res) && res.length > 0) {
-          // @ts-ignore ////
-          rv = Number.parseFloat(res[1])
+          rv = Number.parseFloat(res[1]!)
         }
       }
 
-      // @ts-ignore ////
       if (navigator.appName === 'Netscape') {
         // Alternative check for IE 11
         rv = 11
-        const re = new RegExp('Trident/.*rv:([0-9]+[.0-9]*)')
+        const re = /Trident\/.*rv:(\d[.0-9]*)/
 
         if (re.exec(navigator.userAgent) != null) {
           const res = navigator.userAgent.match(re)
 
-          // @ts-ignore ////
           if (Type.isArrayLike(res) && res.length > 0) {
-            // @ts-ignore ////
-            rv = Number.parseFloat(res[1])
+            rv = Number.parseFloat(res[1]!)
           }
         }
       }
@@ -149,11 +141,11 @@ class BrowserManager {
 
   isMobile(): boolean {
     return (
-      this.isIPhone() ||
-      this.isIPad() ||
-      this.isAndroid() ||
-      UA.includes('mobile') ||
-      UA.includes('touch')
+      this.isIPhone()
+      || this.isIPad()
+      || this.isAndroid()
+      || UA.includes('mobile')
+      || UA.includes('touch')
     )
   }
 
@@ -163,10 +155,8 @@ class BrowserManager {
 
   isTouchDevice(): boolean {
     return (
-      'ontouchstart' in window ||
-      navigator.maxTouchPoints > 0 ||
-      // @ts-ignore ////
-      navigator.msMaxTouchPoints > 0
+      'ontouchstart' in window
+      || navigator.maxTouchPoints > 0
     )
   }
 
@@ -191,15 +181,12 @@ class BrowserManager {
   }
 
   detectAndroidVersion(): number {
-    const re = new RegExp('Android ([0-9]+[.0-9]*)')
+    const re = /Android (\d[.0-9]*)/
 
     if (re.exec(navigator.userAgent) != null) {
       const res = navigator.userAgent.match(re)
-
-      // @ts-ignore ////
       if (Type.isArrayLike(res) && res.length > 0) {
-        // @ts-ignore ////
-        return Number.parseFloat(res[1])
+        return Number.parseFloat(res[1]!)
       }
     }
 
@@ -207,6 +194,4 @@ class BrowserManager {
   }
 }
 
-const Browser = new BrowserManager()
-
-export default Browser
+export const Browser = new BrowserManager()

@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.0.1](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.0.1) (2026-01-xx)
+
+* docs: use Bitrix24 UI (mcp, llms and more demo)
+* feat(core\TypeB24): remove `getSystemLogger`
+* feat(core\TypeB24.callBatchByChunk): now accumulates errors in Result
+* feat(core\TypeHttp): now return ajaxClient
+* feat(core\SdkError): add SdkError
+* feat(core): add tools and actions
+* feat(RestrictionManager): new restrictions
+* feat(PlacementManager): use the property name `placement` instead of `title`
+* feat(apiVersion): support api 3
+* feat(logger\Logger): add new logger system
+* feat(logger\handler\TelegramHandler): add Telegram handler
+* feat(tools\environment): added tool for environment detection
+* fix(core\TypeB24/core\TypeHttp): improve generics
+* fix(logger\LoggerBrowser): marked as deprecated
+* fix(tools\Type|Text|Browser): improve export
+* fix(initializeB24Frame): now throw SdkError
+* fix(RefreshTokenError): extends SdkError
+* fix(frame\SliderManager): remove showAppForm
+* fix(frame\DialogManager): remove deprecated marker
+* feat(playgrounds\cli): add
+
 ## [0.5.1](https://github.com/bitrix24/b24jssdk/compare/v0.4.10...v0.5.1) (2025-10-29)
 
 ### Features
@@ -150,7 +173,7 @@
 ## 0.1.6 (2024-11-22)
 
 - fix FormatterNumbers -> check navigator
-- fix Http -> check error_.response & check window
+- fix Http -> check `error_.response` & check window
 - add dependencies @types/luxon
 - add docs/guide/example-hook-node-work
 

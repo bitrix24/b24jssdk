@@ -1,15 +1,18 @@
+import type { AxiosInstance } from 'axios'
+import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth, HandlerRefreshAuth, TypeDescriptionError, TypeDescriptionErrorV3 } from '../types/auth'
+import type { TypeHttp } from '../types/http'
+import axios, { AxiosError } from 'axios'
+import { RefreshTokenError } from './refresh-token-error'
+import { Type } from '../tools/type'
+import { EnumAppStatus } from '../types/b24-helper'
+import { ApiVersion } from '../types/b24'
+
 /**
  * OAuth Authorization Manager
  *
- * @link https://apidocs.bitrix24.com/api-reference/oauth/index.html
+ * @link https://apidocs.bitrix24.com/settings/oauth/index.html
+ * @link https://bitrix24.github.io/b24jssdk/docs/oauth/
  */
-import { RefreshTokenError } from './refresh-token-error'
-import Type from '../tools/type'
-import { EnumAppStatus } from '../types/b24-helper'
-import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, TypeDescriptionError, CallbackRefreshAuth, CustomRefreshAuth, HandlerRefreshAuth } from '../types/auth'
-import type { TypeHttp } from '../types/http'
-import axios, { type AxiosInstance, AxiosError } from 'axios'
-
 export class AuthOAuthManager implements AuthActions {
   #clientAxios: AxiosInstance
   #callbackRefreshAuth: null | CallbackRefreshAuth = null
@@ -21,8 +24,8 @@ export class AuthOAuthManager implements AuthActions {
   readonly #domain: string
   readonly #b24TargetRest: string
   readonly #b24Target: string
-  // 'https://oauth.bitrix.info' ////
-  readonly #oAuthTarget: string
+  readonly #b24TargetRestWithPath: Map<ApiVersion, string>
+  readonly #oAuthTarget: string // 'https://oauth.bitrix.info'
 
   #isAdmin: null | boolean = null
 
@@ -50,22 +53,26 @@ export class AuthOAuthManager implements AuthActions {
         'Content-Type': 'application/json'
       }
     })
+
+    this.#b24TargetRestWithPath = new Map()
+    this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api`)
   }
 
   /**
    * Returns authorization data
    * @see Http.#prepareParams
    */
-  getAuthData(): false | AuthData {
+  public getAuthData(): false | AuthData {
     return this.#authExpires > Date.now()
       ? ({
-        access_token: this.#authOptions.accessToken,
-        refresh_token: this.#authOptions.refreshToken,
-        expires: this.#authExpires / 1_000,
-        expires_in: this.#authExpiresIn,
-        domain: this.#domain,
-        member_id: this.#authOptions.memberId
-      } as AuthData)
+          access_token: this.#authOptions.accessToken,
+          refresh_token: this.#authOptions.refreshToken,
+          expires: this.#authExpires / 1_000,
+          expires_in: this.#authExpiresIn,
+          domain: this.#domain,
+          member_id: this.#authOptions.memberId
+        } as AuthData)
       : false
   }
 
@@ -73,9 +80,8 @@ export class AuthOAuthManager implements AuthActions {
   /**
    * Updates authorization data
    */
-  async refreshAuth(): Promise<AuthData> {
+  public async refreshAuth(): Promise<AuthData> {
     try {
-
       let payload: undefined | HandlerRefreshAuth = undefined
 
       if (this.#customRefreshAuth) {
@@ -117,7 +123,7 @@ export class AuthOAuthManager implements AuthActions {
       this.#authOptions.clientEndpoint = payload.client_endpoint
       this.#authOptions.serverEndpoint = payload.server_endpoint
       this.#authOptions.scope = payload.scope
-      this.#authOptions.status = Object.values(EnumAppStatus).find((value) => value === payload.status) || EnumAppStatus.Free
+      this.#authOptions.status = Object.values(EnumAppStatus).find(value => value === payload.status) || EnumAppStatus.Free
 
       this.#authExpires = this.#authOptions.expires * 1_000
 
@@ -130,79 +136,85 @@ export class AuthOAuthManager implements AuthActions {
       return authData
     } catch (error) {
       if (error instanceof AxiosError) {
-        let answerError = {
-          error: error?.code || 0,
-          errorDescription: error?.message || '',
+        const answerError = {
+          code: error?.code || 0,
+          description: error?.message || ''
         }
 
         if (
-          error.response &&
-          error.response.data &&
-          !Type.isUndefined((error.response.data as TypeDescriptionError).error)
+          error.response
+          && error.response.data
+          && !Type.isUndefined(error.response.data.error)
         ) {
-          const response = error.response.data as {
-            error: string
-            error_description: string
-          } as TypeDescriptionError
+          const responseData = error.response.data as TypeDescriptionError | TypeDescriptionErrorV3
 
-          answerError = {
-            error: response.error,
-            errorDescription: response.error_description,
+          if (
+            responseData.error
+            && typeof responseData.error === 'object'
+            && 'code' in responseData.error
+          ) {
+            answerError.code = responseData.error.code
+            answerError.description = responseData.error.message
+            if (responseData.error.validation) {
+              responseData.error.validation.forEach((row) => {
+                answerError.description += `${row?.message || JSON.stringify(row)}`
+              })
+            }
+          } else if (responseData.error && typeof responseData.error === 'string') {
+            answerError.code = responseData.error
+            answerError.description = (responseData as TypeDescriptionError)?.error_description ?? answerError.description
           }
         }
 
         throw new RefreshTokenError({
-          code: String(answerError.error),
-          description: answerError.errorDescription,
-          status: error.response?.status || 0,
-          requestInfo: {
-            method: '/oauth/token/'
-          }
+          code: String(answerError.code),
+          description: answerError.description,
+          status: error.response?.status || 0
         })
-      } else if(error instanceof Error) {
+      } else if (error instanceof Error) {
         throw error
       }
 
       throw new Error(
-        `Strange error: ${ error instanceof Error ? error.message : error }`,
+        `Strange error: ${error instanceof Error ? error.message : error}`,
         { cause: error }
       )
     }
   }
 
-  setCallbackRefreshAuth(cb: CallbackRefreshAuth): void {
+  public setCallbackRefreshAuth(cb: CallbackRefreshAuth): void {
     this.#callbackRefreshAuth = cb
   }
 
-  removeCallbackRefreshAuth(): void {
+  public removeCallbackRefreshAuth(): void {
     this.#callbackRefreshAuth = null
   }
 
-  setCustomRefreshAuth(cb: CustomRefreshAuth): void {
+  public setCustomRefreshAuth(cb: CustomRefreshAuth): void {
     this.#customRefreshAuth = cb
   }
 
-  removeCustomRefreshAuth(): void {
+  public removeCustomRefreshAuth(): void {
     this.#customRefreshAuth = null
   }
   // endregion ////
 
-  getUniq(prefix: string): string {
+  public getUniq(prefix: string): string {
     return [prefix, this.#authOptions.memberId || ''].join('_')
   }
 
   /**
-   * Get the account address BX24 ( https://name.bitrix24.com )
+   * @inheritDoc
    */
-  getTargetOrigin(): string {
-    return `${ this.#b24Target }`
+  public getTargetOrigin(): string {
+    return `${this.#b24Target}`
   }
 
   /**
-   * Get the account address BX24 with Path ( https://name.bitrix24.com/rest )
+   * @inheritDoc
    */
-  getTargetOriginWithPath(): string {
-    return `${ this.#b24TargetRest }`
+  public getTargetOriginWithPath(): Map<ApiVersion, string> {
+    return this.#b24TargetRestWithPath
   }
 
   /**
@@ -210,15 +222,39 @@ export class AuthOAuthManager implements AuthActions {
    */
   get isAdmin(): boolean {
     if (null === this.#isAdmin) {
-
       throw new Error('isAdmin not init. You need call B24OAuth::initIsAdmin().')
     }
 
     return this.#isAdmin
   }
 
-  async initIsAdmin(http: TypeHttp) {
-    const response = await http.call('profile', {}, 0)
+  public async initIsAdmin(http: TypeHttp, requestId?: string): Promise<void> {
+    // set def value
+    this.#isAdmin = false
+
+    // region ver3 ////
+    /**
+     * This is just a template. When API.v3 arrives, we'll replace it.
+     * @todo fix then the new API will be available
+     */
+    if (http.apiVersion === ApiVersion.v3) {
+      const response = await http.call('profile', {}, requestId)
+      if (!response.isSuccess) {
+        throw new Error(response.getErrorMessages().join(';'))
+      }
+
+      const data: { profile: { id: number, admin: boolean } } = response.getData()!.result
+
+      if (data.profile?.admin) {
+        this.#isAdmin = true
+      }
+
+      return
+    }
+    // endregion ////
+
+    // region ver2 ////
+    const response = await http.call('profile', {}, requestId)
     if (!response.isSuccess) {
       throw new Error(response.getErrorMessages().join(';'))
     }
@@ -226,10 +262,11 @@ export class AuthOAuthManager implements AuthActions {
     const data: {
       ID: number
       ADMIN: boolean
-    } = response.getData().result
+    } = response.getData()!.result
 
     if (data?.ADMIN) {
       this.#isAdmin = true
     }
+    // endregion ////
   }
 }

@@ -1,118 +1,149 @@
-import { LoggerBrowser } from '../logger/browser'
-import { AjaxResult } from '../core/http/ajax-result'
-import { Result } from '../core/result'
-import type { TypeHttp } from './http'
+import type { LoggerInterface } from './logger'
+import type { AjaxResult } from '../core/http/ajax-result'
+import type { Result } from '../core/result'
+import type { TypeHttp, ICallBatchOptions } from './http'
 import type { AuthActions } from './auth'
+import type { RestrictionParams } from './limiters'
+import type { ActionsManager } from '../core/actions/manager'
+import type { ToolsManager } from '../core/tools/manager'
+
+/**
+ * @todo docs
+ */
+
+export enum ApiVersion {
+  v3 = 'v3',
+  v2 = 'v2'
+}
+
+/**
+ * Options for batch calls
+ */
+export interface IB24BatchOptions extends ICallBatchOptions {
+  /**
+   * Api Version
+   * If the option is empty, then automatic detection is performed using the specified methods.
+   */
+  apiVersion?: ApiVersion
+
+  /**
+   * Whether to return an AjaxResult object instead of data
+   * @default false
+   */
+  returnAjaxResult?: boolean
+}
+
+export type CallBatchResult<T>
+  = Result<Record<string | number, AjaxResult<T>>>
+    | Result<AjaxResult<T>[]>
+    | Result<T>
 
 export type TypeB24 = {
   /**
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/system-functions/bx24-init.html
+   * @see {https://bitrix24.github.io/b24jssdk/docs/hook/ Js SDK documentation}
+   * @see {https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-functions/bx24-init.html Bitrix24 REST API documentation}
    */
   readonly isInit: boolean
   init(): Promise<void>
   destroy(): void
 
-  getLogger(): LoggerBrowser
-  setLogger(logger: LoggerBrowser): void
+  getLogger(): LoggerInterface
+  setLogger(logger: LoggerInterface): void
 
+  /**
+   * Returns the AuthActions interface for handling authorization.
+   */
   get auth(): AuthActions
 
   /**
-   * Get the account address BX24 ( https://name.bitrix24.com )
+   * Returns the ActionsManager interface for working with Bitrix24 methods. Dependent on the REST API version.
+   */
+  get actions(): ActionsManager
+
+  /**
+   * Returns the ToolsManager interface for access to Bitrix24 utilities independent of the REST API version.
+   */
+  get tools(): ToolsManager
+
+  /**
+   * Sets the restriction parameters
+   */
+  setRestrictionManagerParams(params: RestrictionParams): Promise<void>
+
+  /**
+   * Get the account address Bitrix24 ( `https://your_domain.bitrix24.com` )
    */
   getTargetOrigin(): string
 
   /**
-   * Get the account address BX24 ( https://name.bitrix24.com/rest )
+   * Get the account address Bitrix24 with path
+   *  - `restApi:v3` `https://your_domain.bitrix24.com/rest/api/`
+   *  - `restApi:v2` `https://your_domain.bitrix24.com/rest/`
    */
-  getTargetOriginWithPath(): string
+  getTargetOriginWithPath(): Map<ApiVersion, string>
 
   /**
-   * Calls a REST service method with the specified parameters
+   * Calls the Bitrix24 REST API method.
    *
-   * @param {string} method
-   * @param {object} params
-   * @param {number} start
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link CallV3.make `b24.actions.v3.call.make(options)`}
+   *   - for `restApi:v2` use {@link CallV2.make `b24.actions.v2.call.make(options)`}
    *
-   * @return {Promise}
-   *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-method.html
+   * @removed 2.0.0
    */
-  callMethod(
-    method: string,
-    params?: object,
-    start?: number
-  ): Promise<AjaxResult>
+  callMethod(method: string, params?: object, start?: number): Promise<AjaxResult>
 
   /**
-   * Calls a REST service list method with the specified parameters
+   * Calls a Bitrix24 REST API list method to retrieve all data.
    *
-   * @param  {string} method Query method
-   * @param  {object} params Request parameters
-   * @param {null|((progress: number) => void)} progress Processing steps
-   * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
-   * @return {Promise}
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link CallListV3.make `b24.actions.v3.callList.make(options)`}
+   *   - for `restApi:v2` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
+   *
+   * @removed 2.0.0
    */
-  callListMethod(
-    method: string,
-    params?: object,
-    progress?: null | ((progress: number) => void),
-    customKeyForResult?: string | null
-  ): Promise<Result>
+  callListMethod(method: string, params?: object, progress?: null | ((progress: number) => void), customKeyForResult?: string | null): Promise<Result>
 
   /**
-   * Calls a REST service list method with the specified parameters and returns a generator object.
-   * Implements the fast algorithm described in {@see https://apidocs.bitrix24.com/api-reference/performance/huge-data.html}
+   * Calls a Bitrix24 REST API list method and returns an async generator.
    *
-   * @param {string} method Query method
-   * @param {object} params Request parameters
-   * @param {string} idKey Entity ID field name ('ID' || 'id')
-   * @param {string} customKeyForResult Custom field indicating that the result will be a grouping key
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link FetchListV3.make `b24.actions.v3.fetchList.make(options)`}
+   *   - for `restApi:v2` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
    *
-   * @return {AsyncGenerator} Generator
+   * @removed 2.0.0
    */
-  fetchListMethod(
-    method: string,
-    params?: any,
-    idKey?: string,
-    customKeyForResult?: string | null
-  ): AsyncGenerator<any[]>
+  fetchListMethod(method: string, params?: any, idKey?: string, customKeyForResult?: string | null): AsyncGenerator<any[]>
 
   /**
-   * Calls a batch request with a maximum number of commands of no more than 50
+   * Executes a batch request to the Bitrix24 REST API
    *
-   * @param  {array|object} calls Request packet
-   * calls = [[method,params],[method,params]]
-   * calls = [{method:method,params:params},[method,params]]
-   * calls = {call_id:[method,params],...}
-   * @param  {boolean} isHaltOnError Abort package execution when an error occurs
-   * @param  {boolean} returnAjaxResult Return `Record<string | number, AjaxResult> | AjaxResult[]` in response
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}
+   *   - for `restApi:v2` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
    *
-   * @return {Promise} Promise
-   *
-   * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
+   * @removed 2.0.0
    */
-  callBatch(
-    calls: Array<any> | object,
-    isHaltOnError?: boolean,
-    returnAjaxResult?: boolean
-  ): Promise<Result>
+  callBatch(calls: Array<any> | object, isHaltOnError?: boolean, returnAjaxResult?: boolean): Promise<Result>
 
   /**
-   * Calls a batch request with any number of commands
+   * Executes a batch request to the Bitrix24 REST API with automatic chunking for any number of commands.
    *
-   * @param  {array} calls Request packet
-   * calls = [[method,params],[method,params]]
-   * @param  {boolean} isHaltOnError Abort package execution when an error occurs
+   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   *   - for `restApi:v3` use {@link BatchByChunkV3.make `b24.actions.v3.batchByChunk.make(options)`}
+   *   - for `restApi:v2` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
    *
-   * @return {Promise} Promise
-   *
-   * @see https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/how-to-call-rest-methods/bx24-call-batch.html
+   * @removed 2.0.0
    */
   callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result>
 
   /**
-   * Returns Http client for requests
+   * Returns the HTTP client to perform the request.
    */
-  getHttpClient(): TypeHttp
+  getHttpClient(version: ApiVersion): TypeHttp
+
+  /**
+   * Set HTTP client
+   */
+  setHttpClient(version: ApiVersion, client: TypeHttp): void
 }

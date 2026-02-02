@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>B24Js Test</title>
+  <script src="../../packages/jssdk/dist/umd/index.js"></script>
+</head>
+<body>
+  <h4>Open DevTools (F12)</h4>
+  <script>
+      const testCollection = [
+        {
+          name: 'Generated UUID',
+          action: async () => {
+            const result = new B24Js.Result();
+            const uuid = B24Js.Text.getUuidRfc4122();
+            result.setData({ message: `Generated UUID: ${uuid}` });
+
+            return result
+          }
+        },
+        {
+          name: 'Format check',
+          action: async () => {
+            const result = new B24Js.Result();
+
+            const uuid = B24Js.Text.getUuidRfc4122();
+            const isValid = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
+            if (!isValid) {
+              return result.addError(new Error('Invalid UUID format'))
+            }
+            return result
+          }
+        },
+        {
+          name: 'Uniqueness check',
+          action: async () => {
+            const result = new B24Js.Result();
+
+            const uuids = new Map();
+            for (let i = 0; i < 1000; i++) {
+              uuids.set(B24Js.Text.getUuidRfc4122(), true);
+            }
+            if (uuids.size !== 1000) {
+              return result.addError(new Error('Duplicates found\''))
+            }
+            return result
+          }
+        }
+      ];
+
+      async function runTests() {
+        const $logger = B24Js.LoggerFactory.createForBrowser('Test', true)
+
+        try {
+          let isAllSuccess = true
+          for (const test of testCollection) {
+            const response = await test.action()
+            if (!response.isSuccess) {
+              isAllSuccess = false
+              $logger.error(test.name, { messages: response.getErrorMessages() })
+            } else {
+              $logger.info(test.name, {
+                status: 'success'
+              });
+              const data = response.getData()
+              if (data?.message) {
+                $logger.debug(test.name, {
+                  message: data?.message
+                })
+              }
+            }
+          }
+
+          if (isAllSuccess) {
+            $logger.info('All tests passed!');
+          } else {
+            $logger.error('We get some problems');
+          }
+
+        } catch (error) {
+          $logger.error('Tests failed', { error });
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        await runTests();
+      })
+  </script>
+</body>
+</html>

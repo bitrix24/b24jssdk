@@ -1,16 +1,19 @@
 {
   "name": "@bitrix24/b24jssdk",
-  "version": "0.5.1",
+  "version": "1.0.1",
   "author": "Bitrix",
   "license": "MIT",
-  "description": "Bitrix24 REST API JS SDK",
+  "description": "Bitrix24 REST API JavaScript SDK",
   "keywords": [
     "bitrix24",
     "js",
+    "typescript",
+    "javascript",
     "nodejs",
-    "restapi",
-    "REST",
-    "API"
+    "sdk",
+    "rest-api",
+    "api",
+    "client"
   ],
   "homepage": "https://bitrix24.github.io/b24jssdk/",
   "repository": {
@@ -18,59 +21,58 @@
     "url": "git+https://github.com/bitrix24/b24jssdk.git",
     "directory": "packages/jssdk"
   },
+  "bugs": {
+    "url": "https://github.com/bitrix24/b24jssdk/issues"
+  },
   "sideEffects": false,
   "type": "module",
   "exports": {
-    "./package.json": "./package.json",
     ".": {
-      "types": "./dist/esm/index.d.mts",
+      "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.mjs"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "main": "./dist/esm/index.mjs",
   "module": "./dist/esm/index.mjs",
   "typesVersions": {
-    "*": {
-      ".": [
-        "./dist/esm/index.d.mts"
-      ]
-    }
+    "*": { ".": ["./dist/esm/index.d.ts"] }
   },
-  "unpkg": "dist/umd/index.min.js",
+  "unpkg": "./dist/umd/index.min.js",
+  "jsdelivr": "./dist/umd/index.min.js",
   "files": [
+    "dist/**",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*",
     "README.md",
     "README-AI.md",
     "LICENSE",
-    "dist",
     "package.json"
   ],
   "engines": {
     "node": "^18.0.0 || ^20.0.0 || >=22.0.0"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "prepack": "npm run build",
+    "dev": "unbuild --stub",
+    "dev:prepare": "pnpm run build",
     "build": "unbuild",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
-    "test": "tsx ./test/esm/uuid.test.ts && tsx ./test/esm/type.test.ts"
+    "prepack": "pnpm run build"
   },
   "dependencies": {
-    "axios": "^1.12.2",
-    "qs-esm": "^7.0.2",
-    "luxon": "^3.7.2",
-    "@types/luxon": "^3.7.1"
+    "axios": "^1.13.3",
+    "qs-esm": "^7.0.3",
+    "luxon": "^3.7.2"
   },
   "devDependencies": {
-    "@types/node": "^24.7.0",
+    "@types/luxon": "^3.7.1",
+    "@types/node": "^25.0.10",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
-    "unbuild": "^3.6.1",
-    "eslint-config-unjs": "^0.5.0",
-    "tsx": "^4.20.6"
-  },
-  "resolutions": {}
+    "typescript": "^5.8.3",
+    "unbuild": "^3.6.1"
+  }
 }

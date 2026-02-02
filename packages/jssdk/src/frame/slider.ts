@@ -1,5 +1,6 @@
-import { AppFrame } from './frame'
-import { MessageManager, MessageCommands } from './message'
+import type { AppFrame } from './frame'
+import type { MessageManager } from './message'
+import { MessageCommands } from './message'
 import type { StatusClose } from '../types/slider'
 
 /**
@@ -31,7 +32,7 @@ export class SliderManager {
   /**
    * When the method is called, a pop-up window with the application frame will be opened.
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-open-application.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-open-application.html
    */
   async openSliderAppPage(params: any = {}): Promise<any> {
     return this.#messageManager.send(MessageCommands.openApplication, params)
@@ -42,14 +43,14 @@ export class SliderManager {
    *
    * @return {Promise<void>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-close-application.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-close-application.html
    */
   async closeSliderAppPage(): Promise<void> {
     return this.#messageManager.send(MessageCommands.closeApplication, {
       /**
        * @memo There is no point - everything will be closed, and timeout will not be able to do anything
        */
-      isSafely: false,
+      isSafely: false
     })
   }
 
@@ -86,7 +87,7 @@ export class SliderManager {
    * @param {number} width - Number in the range from 1640 to 1200, from 1200 to 950, from 950 to 900, from 900 ...
    * @return {Promise<StatusClose>}
    *
-   * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-open-path.html
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-open-path.html
    * @memo /^\/(crm\/(deal|lead|contact|company|type)|marketplace|company\/personal\/user\/[0-9]+|workgroups\/group\/[0-9]+)\//
    */
   async openPath(url: URL, width: number = 1640): Promise<StatusClose> {
@@ -102,8 +103,8 @@ export class SliderManager {
         path: [
           this.#getBaseUrlByWidth(width),
           openSliderUrl.pathname,
-          openSliderUrl.search,
-        ].join(''),
+          openSliderUrl.search
+        ].join('')
       })
       .then((response) => {
         /**
@@ -132,13 +133,13 @@ export class SliderManager {
                   clearInterval(waitCloseWindow)
                   resolve({
                     isOpenAtNewWindow: true,
-                    isClose: true,
+                    isClose: true
                   })
                 } else if (iterator > iteratorMax) {
                   clearInterval(waitCloseWindow)
                   resolve({
                     isOpenAtNewWindow: true,
-                    isClose: false,
+                    isClose: false
                   })
                 }
               }, 1_000)
@@ -155,26 +156,25 @@ export class SliderManager {
            */
           return Promise.resolve({
             isOpenAtNewWindow: false,
-            isClose: true,
+            isClose: true
           })
         }
 
         return Promise.resolve({
           isOpenAtNewWindow: false,
-          isClose: false,
+          isClose: false
         })
       })
   }
 
   /**
-   * @deprecated
-   * @param params
+   * @todo test this and remove
    */
-  async showAppForm(params: any): Promise<void> {
-    console.warn(`@deprecated showAppForm`)
-    return this.#messageManager.send(MessageCommands.showAppForm, {
-      params: params,
-      isSafely: true,
-    })
-  }
+  // async showAppForm(params: any): Promise<void> {
+  //   console.warn(`deprecated showAppForm`)
+  //   return this.#messageManager.send(MessageCommands.showAppForm, {
+  //     params: params,
+  //     isSafely: true
+  //   })
+  // }
 }

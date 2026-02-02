@@ -1,4 +1,5 @@
-import Type from './../type'
+import { Type } from './../type'
+
 export class IbanSpecification {
   /**
    * the code of the country
@@ -37,15 +38,15 @@ export class IbanSpecification {
   /**
    * Check if the passed iban is valid, according to this specification.
    *
-   * @param {String} iban the iban to validate
+   * @param {string} iban the iban to validate
    * @returns {boolean} true if valid, false otherwise
    */
   isValid(iban: string): boolean {
     return (
-      this.length === iban.length &&
-      this.countryCode === iban.slice(0, 2) &&
-      this._regex().test(iban.slice(4)) &&
-      this._iso7064Mod9710(this._iso13616Prepare(iban)) == 1
+      this.length === iban.length
+      && this.countryCode === iban.slice(0, 2)
+      && this._regex().test(iban.slice(4))
+      && this._iso7064Mod9710(this._iso13616Prepare(iban)) == 1
     )
   }
 
@@ -166,20 +167,17 @@ export class IbanSpecification {
    * @returns {string} the prepared IBAN
    */
   private _iso13616Prepare(iban: string): string {
-    // eslint-disable-next-line
     const A = 'A'.charCodeAt(0)
-    // eslint-disable-next-line
+
     const Z = 'Z'.charCodeAt(0)
 
     iban = iban.toUpperCase()
-    // eslint-disable-next-line
+
     iban = iban.substring(4) + iban.substring(0, 4)
     return (
       iban
-        // eslint-disable-next-line
         .split('')
         .map((n: string): string => {
-          // eslint-disable-next-line
           const code = n.charCodeAt(0)
           if (code >= A && code <= Z) {
             // A = 10, B = 11, ... Z = 35
@@ -196,7 +194,7 @@ export class IbanSpecification {
    * Calculates MOD 97 10 of the passed IBAN as specified in ISO7064.
    *
    * @param iban
-   * @returns {number}
+   * @returns {number} MOD
    */
   private _iso7064Mod9710(iban: string): number {
     let remainder = iban
@@ -204,8 +202,8 @@ export class IbanSpecification {
 
     while (remainder.length > 2) {
       block = remainder.slice(0, 9)
-      remainder =
-        (Number.parseInt(block, 10) % 97) + remainder.slice(block.length)
+      remainder
+        = (Number.parseInt(block, 10) % 97) + remainder.slice(block.length)
     }
 
     return Number.parseInt(remainder, 10) % 97
@@ -250,7 +248,7 @@ export class FormatterIban {
   /**
    * Check if an IBAN is valid.
    *
-   * @param {String} iban the IBAN to validate.
+   * @param {string} iban the IBAN to validate.
    * @returns {boolean} true if the passed IBAN is valid, false otherwise
    */
   isValid(iban: string): boolean {
@@ -262,7 +260,7 @@ export class FormatterIban {
     const countryCode = iban.slice(0, 2)
 
     if (!this._countries.has(countryCode)) {
-      throw new Error(`No country with code ${ countryCode }`)
+      throw new Error(`No country with code ${countryCode}`)
     }
 
     const countryStructure = this._countries.get(countryCode)
@@ -284,7 +282,7 @@ export class FormatterIban {
   }
 
   electronicFormat(iban: string): string {
-    const NON_ALPHANUM = /[^a-zA-Z0-9]/g
+    const NON_ALPHANUM = /[^a-z0-9]/gi
 
     return iban.replace(NON_ALPHANUM, '').toUpperCase()
   }
@@ -296,8 +294,8 @@ export class FormatterIban {
    * Convert an IBAN to a BBAN.
    *
    * @param iban
-   * @param {String} [separator] the separator to use between the blocks of the BBAN, defaults to ' '
-   * @returns {string|*}
+   * @param {string} [separator] the separator to use between the blocks of the BBAN, defaults to ' '
+   * @returns {string|*} Convert an IBAN to a BBAN.
    */
   toBBAN(iban: string, separator?: string): string {
     if (typeof separator == 'undefined') {
@@ -308,13 +306,13 @@ export class FormatterIban {
 
     const countryCode = iban.slice(0, 2)
     if (!this._countries.has(countryCode)) {
-      throw new Error(`No country with code ${ countryCode }`)
+      throw new Error(`No country with code ${countryCode}`)
     }
 
     const countryStructure = this._countries.get(countryCode)
 
     if (!countryStructure) {
-      throw new Error(`No country with code ${ countryCode }`)
+      throw new Error(`No country with code ${countryCode}`)
     }
 
     return countryStructure.toBBAN(iban, separator)
@@ -331,13 +329,13 @@ export class FormatterIban {
    */
   fromBBAN(countryCode: string, bban: string): string {
     if (!this._countries.has(countryCode)) {
-      throw new Error(`No country with code ${ countryCode }`)
+      throw new Error(`No country with code ${countryCode}`)
     }
 
     const countryStructure = this._countries.get(countryCode)
 
     if (!countryStructure) {
-      throw new Error(`No country with code ${ countryCode }`)
+      throw new Error(`No country with code ${countryCode}`)
     }
 
     return countryStructure.fromBBAN(this.electronicFormat(bban))
@@ -355,14 +353,14 @@ export class FormatterIban {
     }
 
     if (!this._countries.has(countryCode)) {
-      throw new Error(`No country with code ${ countryCode }`)
+      throw new Error(`No country with code ${countryCode}`)
     }
 
     const countryStructure = this._countries.get(countryCode)
 
     return (
-      !!countryStructure &&
-      countryStructure.isValidBBAN(this.electronicFormat(bban))
+      !!countryStructure
+      && countryStructure.isValidBBAN(this.electronicFormat(bban))
     )
   }
 

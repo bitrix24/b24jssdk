@@ -1,57 +1,21 @@
-import { LoggerBrowser, LoggerType } from '../logger/browser'
-import Type from '../tools/type'
-import Text from '../tools/text'
-import Browser from '../tools/browser'
+import type { LoggerInterface } from '../logger'
+import { LoggerFactory } from '../logger'
+import { Type } from '../tools/type'
+import { Text } from '../tools/text'
+import { Browser } from '../tools/browser'
 import { StorageManager } from './storage-manager'
 import { JsonRpc } from './json-rpc'
 import { SharedConfig } from './shared-config'
 import { ChannelManager } from './channel-manager'
-import {
-  ResponseBatch,
-  RequestBatch,
-  IncomingMessage,
-  Receiver
-} from './protobuf'
-import type { TypeB24 } from '../types/b24'
-import {
-  CloseReasons,
-  ConnectionType,
-  PullStatus,
-  RpcMethod,
-  SenderType,
-  ServerMode,
-  SubscriptionType,
-  SystemCommands,
-  LsKeys,
-  type StorageManagerParams,
-  type TypePullClientParams,
-  type TypePullClientSession,
-  type TypeStorageManager,
-  type SharedConfigParams,
-  type TypeChannelManagerParams,
-  type TypeConnector,
-  type RpcError,
-  type TypePullClientConfig,
-  type TypePullMessage,
-  type TypeSubscriptionOptions,
-  type TypeSubscriptionCommandHandler,
-  type TypePullClientEmitConfig,
-  type CommandHandlerFunctionV1,
-  type CommandHandlerFunctionV2,
-  type ConnectorParent,
-  type UserStatusCallback,
-  type TypePublicIdDescriptor,
-  type TypePullClientMessageBatch,
-  type TypeChanel,
-  type TypeSessionEvent,
-  type TypePullClientMessageBody,
-} from '../types/pull'
-import type { AjaxResult } from '../core/http/ajax-result'
-import type { Payload } from '../types/payloads'
-import type { NumberString } from '../types/common'
+import { ResponseBatch, RequestBatch, IncomingMessage, Receiver } from './protobuf'
+import { CloseReasons, ConnectionType, PullStatus, RpcMethod, SenderType, ServerMode, SubscriptionType, SystemCommands, LsKeys } from '../types/pull'
 import { WebSocketConnector } from './web-socket-connector'
 import { LongPollingConnector } from './long-polling-connector'
-import type { AjaxError } from '../core/http/ajax-error'
+import type { StorageManagerParams, TypePullClientParams, TypePullClientSession, TypeStorageManager, SharedConfigParams, TypeChannelManagerParams, TypeConnector, RpcError, TypePullClientConfig, TypePullMessage, TypeSubscriptionOptions, TypeSubscriptionCommandHandler, TypePullClientEmitConfig, CommandHandlerFunctionV1, CommandHandlerFunctionV2, ConnectorParent, UserStatusCallback, TypePublicIdDescriptor, TypePullClientMessageBatch, TypeChanel, TypeSessionEvent, TypePullClientMessageBody } from '../types/pull'
+import type { TypeB24 } from '../types/b24'
+import type { AjaxResult } from '../core/http/ajax-result'
+import type { SuccessPayload } from '../types/payloads'
+import type { NumberString } from '../types/common'
 
 /**
  * @memo api revision - check module/pull/include.php
@@ -74,15 +38,12 @@ const EmptyConfig = {
   server: { timeShift: 0 },
   clientId: null,
   jwt: null,
-  exp: 0,
+  exp: 0
 } as TypePullClientConfig
 
-/**
- * @todo fix logic for _loggingEnabled
- */
 export class PullClient implements ConnectorParent {
   // region Params ////
-  private _logger: null | LoggerBrowser = null
+  private _logger: LoggerInterface
   private _restClient: TypeB24
   private _status: PullStatus
   private _context: string
@@ -115,13 +76,13 @@ export class PullClient implements ConnectorParent {
     time: null,
     history: {},
     lastMessageIds: [],
-    messageCount: 0,
+    messageCount: 0
   }
 
   private _connectors: Record<ConnectionType, null | TypeConnector> = {
     [ConnectionType.Undefined]: null,
     [ConnectionType.WebSocket]: null,
-    [ConnectionType.LongPolling]: null,
+    [ConnectionType.LongPolling]: null
   }
 
   private _isSecure: boolean
@@ -171,6 +132,7 @@ export class PullClient implements ConnectorParent {
    * @param params
    */
   constructor(params: TypePullClientParams) {
+    this._logger = LoggerFactory.createNullLogger()
     this._restClient = params.b24
     this._status = PullStatus.Offline
     this._context = 'master'
@@ -211,17 +173,14 @@ export class PullClient implements ConnectorParent {
 
     this._siteId = params.siteId ?? 'none'
 
-    // eslint-disable-next-line
     this._enabled = !Type.isUndefined(params.serverEnabled)
       ? params.serverEnabled === true
       : true
 
-    // eslint-disable-next-line
     this._configGetMethod = !Type.isStringFilled(params.configGetMethod)
       ? 'pull.config.get'
       : params.configGetMethod || ''
 
-    // eslint-disable-next-line
     this._getPublicListMethod = !Type.isStringFilled(params.getPublicListMethod)
       ? 'pull.channel.public.list'
       : params.getPublicListMethod || ''
@@ -239,18 +198,18 @@ export class PullClient implements ConnectorParent {
     if (this._userId && !this._skipStorageInit) {
       this._storage = new StorageManager({
         userId: this._userId,
-        siteId: this._siteId,
+        siteId: this._siteId
       } as StorageManagerParams)
     }
 
     this._sharedConfig = new SharedConfig({
       onWebSocketBlockChanged: this.onWebSocketBlockChanged.bind(this),
-      storage: this._storage,
+      storage: this._storage
     } as SharedConfigParams)
 
     this._channelManager = new ChannelManager({
       b24: this._restClient,
-      getPublicListMethod: this._getPublicListMethod,
+      getPublicListMethod: this._getPublicListMethod
     } as TypeChannelManagerParams)
 
     this._loggingEnabled = this._sharedConfig.isLoggingEnabled()
@@ -259,7 +218,7 @@ export class PullClient implements ConnectorParent {
     this._onPingTimeoutHandler = this.onPingTimeout.bind(this)
   }
 
-  setLogger(logger: LoggerBrowser): void {
+  setLogger(logger: LoggerInterface): void {
     this._logger = logger
     this._jsonRpcAdapter?.setLogger(this.getLogger())
     this._storage?.setLogger(this.getLogger())
@@ -270,20 +229,7 @@ export class PullClient implements ConnectorParent {
     this._connectors.longPolling?.setLogger(this.getLogger())
   }
 
-  getLogger(): LoggerBrowser {
-    if (null === this._logger) {
-      this._logger = LoggerBrowser.build(`NullLogger`)
-
-      this._logger.setConfig({
-        [LoggerType.desktop]: false,
-        [LoggerType.log]: false,
-        [LoggerType.info]: false,
-        [LoggerType.warn]: false,
-        [LoggerType.error]: true,
-        [LoggerType.trace]: false,
-      })
-    }
-
+  getLogger(): LoggerInterface {
     return this._logger
   }
 
@@ -299,7 +245,7 @@ export class PullClient implements ConnectorParent {
       onOpen: this.onWebSocketOpen.bind(this),
       onMessage: this.onIncomingMessage.bind(this),
       onDisconnect: this.onWebSocketDisconnect.bind(this),
-      onError: this.onWebSocketError.bind(this),
+      onError: this.onWebSocketError.bind(this)
     })
 
     this._connectors.longPolling = new LongPollingConnector({
@@ -307,7 +253,7 @@ export class PullClient implements ConnectorParent {
       onOpen: this.onLongPollingOpen.bind(this),
       onMessage: this.onIncomingMessage.bind(this),
       onDisconnect: this.onLongPollingDisconnect.bind(this),
-      onError: this.onLongPollingError.bind(this),
+      onError: this.onLongPollingError.bind(this)
     })
 
     this._connectionType = this.isWebSocketAllowed()
@@ -321,7 +267,7 @@ export class PullClient implements ConnectorParent {
     /**
      * @memo Not use under Node.js
      */
-    /*/
+    /* /
     if (BX && BX.addCustomEvent)
     {
       BX.addCustomEvent('BXLinkOpened', this.connect.bind(this))
@@ -337,13 +283,13 @@ export class PullClient implements ConnectorParent {
 
       BX.desktop.addCustomEvent('BXLoginSuccess', () => this.restart(1_000, 'desktop login'))
     }
-    //*/
+    // */
 
     this._jsonRpcAdapter = new JsonRpc({
       connector: this._connectors.webSocket,
       handlers: {
-        'incoming.message': this.handleRpcIncomingMessage.bind(this),
-      },
+        'incoming.message': this.handleRpcIncomingMessage.bind(this)
+      }
     })
   }
 
@@ -405,12 +351,12 @@ export class PullClient implements ConnectorParent {
     params.command = params.command || null
 
     if (
-      params.type == SubscriptionType.Server ||
-      params.type == SubscriptionType.Client
+      params.type == SubscriptionType.Server
+      || params.type == SubscriptionType.Client
     ) {
       if (typeof params.moduleId === 'undefined') {
         throw new TypeError(
-          `${ Text.getDateForLog() }: Pull.subscribe: parameter moduleId is not specified`
+          `${Text.getDateForLog()}: Pull.subscribe: parameter moduleId is not specified`
         )
       }
 
@@ -423,7 +369,7 @@ export class PullClient implements ConnectorParent {
       ) {
         this._subscribers[params.type][params.moduleId] = {
           callbacks: [],
-          commands: {},
+          commands: {}
         }
       }
 
@@ -431,32 +377,32 @@ export class PullClient implements ConnectorParent {
         if (
           typeof this._subscribers[params.type][params.moduleId]['commands'][
             params.command
-            ] === 'undefined'
+          ] === 'undefined'
         ) {
           this._subscribers[params.type][params.moduleId]['commands'][
             params.command
-            ] = []
+          ] = []
         }
 
         this._subscribers[params.type][params.moduleId]['commands'][
           params.command
-          ].push(params.callback)
+        ].push(params.callback)
 
         return () => {
           if (
-            typeof params.type === 'undefined' ||
-            typeof params.moduleId === 'undefined' ||
-            typeof params.command === 'undefined' ||
-            null === params.command
+            typeof params.type === 'undefined'
+            || typeof params.moduleId === 'undefined'
+            || typeof params.command === 'undefined'
+            || null === params.command
           ) {
             return
           }
 
           this._subscribers[params.type][params.moduleId]['commands'][
             params.command
-            ] = this._subscribers[params.type][params.moduleId]['commands'][
+          ] = this._subscribers[params.type][params.moduleId]['commands'][
             params.command
-            ].filter((element: any) => {
+          ].filter((element: any) => {
             return element !== params.callback
           })
         }
@@ -467,14 +413,14 @@ export class PullClient implements ConnectorParent {
 
         return () => {
           if (
-            typeof params.type === 'undefined' ||
-            typeof params.moduleId === 'undefined'
+            typeof params.type === 'undefined'
+            || typeof params.moduleId === 'undefined'
           ) {
             return
           }
 
-          this._subscribers[params.type][params.moduleId]['callbacks'] =
-            this._subscribers[params.type][params.moduleId]['callbacks'].filter(
+          this._subscribers[params.type][params.moduleId]['callbacks']
+            = this._subscribers[params.type][params.moduleId]['callbacks'].filter(
               (element: any) => {
                 return element !== params.callback
               }
@@ -510,12 +456,10 @@ export class PullClient implements ConnectorParent {
     handler: TypeSubscriptionCommandHandler
   ): () => void {
     if (
-      typeof handler.getModuleId !== 'function' ||
-      typeof handler.getModuleId() !== 'string'
+      typeof handler.getModuleId !== 'function'
+      || typeof handler.getModuleId() !== 'string'
     ) {
-      this.getLogger().error(
-        `${ Text.getDateForLog() }: Pull.attachCommandHandler: result of handler.getModuleId() is not a string.`
-      )
+      this.getLogger().error(`${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string.`)
       return () => {}
     }
 
@@ -537,8 +481,8 @@ export class PullClient implements ConnectorParent {
             if (typeof rowMapping === 'function') {
               method = rowMapping.bind(handler)
             } else if (
-              typeof rowMapping === 'string' &&
-              typeof handler[rowMapping] === 'function'
+              typeof rowMapping === 'string'
+              && typeof handler[rowMapping] === 'function'
             ) {
               method = handler[rowMapping].bind(handler)
             }
@@ -549,7 +493,7 @@ export class PullClient implements ConnectorParent {
          * handler.handleSomeCommandName: CommandHandlerFunction
          */
         if (!method) {
-          const methodName = `handle${ Text.capitalize(data.command) }`
+          const methodName = `handle${Text.capitalize(data.command)}`
           if (typeof handler[methodName] === 'function') {
             method = handler[methodName].bind(handler)
           }
@@ -557,15 +501,15 @@ export class PullClient implements ConnectorParent {
 
         if (method) {
           if (this._debug && this._context !== 'master') {
-            this.getLogger().warn(
-              `${ Text.getDateForLog() }: Pull.attachCommandHandler: result of handler.getModuleId() is not a string`,
-              data
+            this.getLogger().warning(
+              `${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string`,
+              { data }
             )
           }
 
           method(data.params, data.extra, data.command)
         }
-      },
+      }
     })
   }
 
@@ -576,8 +520,8 @@ export class PullClient implements ConnectorParent {
     config:
       | null
       | (TypePullClientConfig & {
-      skipReconnectToLastSession?: boolean
-    }) = null
+        skipReconnectToLastSession?: boolean
+      }) = null
   ): Promise<boolean> {
     let allowConfigCaching = true
 
@@ -612,8 +556,8 @@ export class PullClient implements ConnectorParent {
       return Promise.reject({
         ex: {
           error: 'PULL_DISABLED',
-          error_description: 'Push & Pull server is disabled',
-        },
+          error_description: 'Push & Pull server is disabled'
+        }
       })
     }
 
@@ -624,9 +568,9 @@ export class PullClient implements ConnectorParent {
     }
 
     if (
-      Type.isPlainObject(oldSession) &&
-      oldSession.hasOwnProperty('ttl') &&
-      oldSession['ttl'] >= now
+      Type.isPlainObject(oldSession)
+      && Object.prototype.hasOwnProperty.call(oldSession, 'ttl')
+      && oldSession['ttl'] >= now
     ) {
       this._session.mid = oldSession['mid']
     }
@@ -635,14 +579,14 @@ export class PullClient implements ConnectorParent {
     return (this._startingPromise = new Promise((resolve, reject) => {
       this.loadConfig('client_start')
         .then((config) => {
-          this.setConfig(config, allowConfigCaching)
+          this.setConfig(config as TypePullClientConfig, allowConfigCaching)
           this.init()
           this.updateWatch(true)
           this.startCheckConfig()
 
           this.connect().then(
             () => resolve(true),
-            (error) => reject(error)
+            error => reject(error)
           )
         })
         .catch((error) => {
@@ -650,8 +594,8 @@ export class PullClient implements ConnectorParent {
           this.status = PullStatus.Offline
           this.stopCheckConfig()
           this.getLogger().error(
-            `${ Text.getDateForLog() }: Pull: could not read push-server config `,
-            error
+            `${Text.getDateForLog()}: Pull: could not read push-server config`,
+            { error }
           )
           reject(error)
         })
@@ -671,8 +615,8 @@ export class PullClient implements ConnectorParent {
       this._restartTimeout = null
     }
 
-    this.getLogger().log(
-      `${ Text.getDateForLog() }: Pull: restarting with code ${ disconnectCode }`
+    this.getLogger().debug(
+      `${Text.getDateForLog()}: Pull: restarting with code ${disconnectCode}`
     )
 
     this.disconnect(disconnectCode, disconnectReason)
@@ -683,20 +627,20 @@ export class PullClient implements ConnectorParent {
 
     this._config = null
 
-    const loadConfigReason = `${ disconnectCode }_${ disconnectReason.replaceAll(' ', '_') }`
+    const loadConfigReason = `${disconnectCode}_${disconnectReason.replaceAll(' ', '_')}`
     this.loadConfig(loadConfigReason).then(
       (config) => {
         this.setConfig(config, true)
         this.updateWatch()
         this.startCheckConfig()
         this.connect().catch((error) => {
-          this.getLogger().error(error)
+          this.getLogger().error('restart error', { error })
         })
       },
       (error) => {
         this.getLogger().error(
-          `${ Text.getDateForLog() }: Pull: could not read push-server config `,
-          error
+          `${Text.getDateForLog()}: Pull: could not read push-server config `,
+          { error }
         )
 
         this.status = PullStatus.Offline
@@ -761,10 +705,10 @@ export class PullClient implements ConnectorParent {
       body: {
         module_id: moduleId,
         command: command,
-        params: params,
+        params: params
       },
-      expiry: expiry,
-    }
+      expiry: expiry
+    } as TypePullClientMessageBatch
 
     if (this.isJsonRpc()) {
       return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
@@ -798,10 +742,10 @@ export class PullClient implements ConnectorParent {
       body: {
         module_id: moduleId,
         command: command,
-        params: params,
+        params: params
       },
-      expiry: expiry,
-    }
+      expiry: expiry
+    } as TypePullClientMessageBatch
 
     if (this.isJsonRpc()) {
       return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
@@ -856,8 +800,8 @@ export class PullClient implements ConnectorParent {
     userList: number[]
   ): Promise<Record<number, number>> {
     if (
-      !Type.isArray(userList) ||
-      !userList.every((item) => typeof item === 'number')
+      !Type.isArray(userList)
+      || !userList.every(item => typeof item === 'number')
     ) {
       throw new Error('userList must be an array of numbers')
     }
@@ -867,13 +811,13 @@ export class PullClient implements ConnectorParent {
     return new Promise((resolve, reject) => {
       this._jsonRpcAdapter
         ?.executeOutgoingRpcCommand(RpcMethod.GetUsersLastSeen, {
-          userList: userList,
+          userList: userList
         })
         .then((response: any) => {
           const unresolved = []
-          // eslint-disable-next-line unicorn/no-for-loop
+
           for (let i = 0; i < userList.length; i++) {
-            if (!response.hasOwnProperty(userList[i])) {
+            if (!Object.prototype.hasOwnProperty.call(response, userList[i]!)) {
               unresolved.push(userList[i])
             }
           }
@@ -884,16 +828,17 @@ export class PullClient implements ConnectorParent {
 
           const params = {
             userIds: unresolved,
-            sendToQueueSever: true,
+            sendToQueueSever: true
           }
 
           this._restClient
-            .callMethod('pull.api.user.getLastSeen', params)
+            .actions.v2.call.make({
+              method: 'pull.api.user.getLastSeen',
+              params
+            })
             .then((response: AjaxResult) => {
               const data = (
-                response.getData() as Payload<
-                  Record<NumberString, NumberString>
-                >
+                response.getData() as SuccessPayload<Record<NumberString, NumberString>>
               ).result
               for (const userId in data) {
                 result[Number(userId)] = Number(data[userId])
@@ -902,12 +847,12 @@ export class PullClient implements ConnectorParent {
               return resolve(result)
             })
             .catch((error) => {
-              this.getLogger().error(error)
+              this.getLogger().error('getUsersLastSeen', { error })
               reject(error)
             })
         })
         .catch((error) => {
-          this.getLogger().error(error)
+          this.getLogger().error('getUsersLastSeen', { error })
           reject(error)
         })
     })
@@ -940,7 +885,7 @@ export class PullClient implements ConnectorParent {
     return new Promise((resolve, reject) => {
       this._jsonRpcAdapter
         ?.executeOutgoingRpcCommand(RpcMethod.SubscribeStatusChange, {
-          userId,
+          userId
         })
         .then(() => {
           if (!this._userStatusCallbacks[userId]) {
@@ -953,7 +898,7 @@ export class PullClient implements ConnectorParent {
 
           return resolve()
         })
-        .catch((error) => reject(error))
+        .catch(error => reject(error))
     })
   }
 
@@ -969,13 +914,13 @@ export class PullClient implements ConnectorParent {
     if (this._userStatusCallbacks[userId]) {
       this._userStatusCallbacks[userId] = this._userStatusCallbacks[
         userId
-        ].filter((cb) => cb !== callback)
+      ].filter(cb => cb !== callback)
 
       if (this._userStatusCallbacks[userId].length === 0) {
         return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
           RpcMethod.UnsubscribeStatusChange,
           {
-            userId,
+            userId
           }
         )
       }
@@ -1015,25 +960,25 @@ export class PullClient implements ConnectorParent {
       configDump = {
         ChannelID: this._config.channels.private?.id || 'n/a',
         ChannelDie: this._config.channels.private?.end || 'n/a',
-        ChannelDieShared: this._config.channels.shared?.end || 'n/a',
+        ChannelDieShared: this._config.channels.shared?.end || 'n/a'
       }
     } else {
       configDump = {
-        ConfigError: 'config is not loaded',
+        ConfigError: 'config is not loaded'
       }
     }
 
     let websocketMode = '-'
     if (
-      this._connectors.webSocket &&
-      (this._connectors.webSocket as WebSocketConnector)?.socket
+      this._connectors.webSocket
+      && (this._connectors.webSocket as WebSocketConnector)?.socket
     ) {
       if (this.isJsonRpc()) {
         websocketMode = 'json-rpc'
       } else {
-        websocketMode =
-          // eslint-disable-next-line unicorn/no-negated-condition
-          (
+        websocketMode
+
+          = (
             this._connectors.webSocket as WebSocketConnector
           )?.socket?.url.search('binaryMode=true') != -1
             ? 'protobuf'
@@ -1042,11 +987,11 @@ export class PullClient implements ConnectorParent {
     }
 
     return {
-      UserId: this._userId + (this._userId > 0 ? '' : '(guest)'),
+      'UserId': this._userId + (this._userId > 0 ? '' : '(guest)'),
       'Guest userId':
         this._guestMode && this._guestUserId !== 0 ? this._guestUserId : '-',
       'Browser online': navigator.onLine ? 'Y' : 'N',
-      Connect: this.isConnected() ? 'Y' : 'N',
+      'Connect': this.isConnected() ? 'Y' : 'N',
       'Server type': this.isSharedMode() ? 'cloud' : 'local',
       'WebSocket supported': this.isWebSocketSupported() ? 'Y' : 'N',
       'WebSocket connected':
@@ -1058,12 +1003,12 @@ export class PullClient implements ConnectorParent {
       'Try connect': this._reconnectTimeout ? 'Y' : 'N',
       'Try number': this._connectionAttempt,
 
-      Path: this.connector?.connectionPath || '-',
+      'Path': this.connector?.connectionPath || '-',
       ...configDump,
 
       'Last message': this._session.mid || '-',
       'Session history': this._session.history,
-      'Watch tags': this._watchTagsQueue.entries(),
+      'Watch tags': this._watchTagsQueue.entries()
     }
   }
 
@@ -1087,7 +1032,7 @@ export class PullClient implements ConnectorParent {
           : this._config?.server.long_polling
         break
       default:
-        throw new Error(`Unknown connection type ${ connectionType }`)
+        throw new Error(`Unknown connection type ${connectionType}`)
     }
 
     if (!Type.isStringFilled(path)) {
@@ -1144,7 +1089,7 @@ export class PullClient implements ConnectorParent {
     }
     params.revision = REVISION
 
-    return `${ path }?${ Text.buildQueryString(params) }`
+    return `${path}?${Text.buildQueryString(params)}`
   }
 
   /**
@@ -1170,7 +1115,7 @@ export class PullClient implements ConnectorParent {
     }
 
     const params = {
-      CHANNEL_ID: channels.join('/'),
+      CHANNEL_ID: channels.join('/')
     }
 
     return path + '?' + Text.buildQueryString(params)
@@ -1244,8 +1189,8 @@ export class PullClient implements ConnectorParent {
    */
   private emit(params: TypePullClientEmitConfig): boolean {
     if (
-      params.type == SubscriptionType.Server ||
-      params.type == SubscriptionType.Client
+      params.type == SubscriptionType.Server
+      || params.type == SubscriptionType.Client
     ) {
       if (typeof this._subscribers[params.type] === 'undefined') {
         this._subscribers[params.type] = {}
@@ -1253,7 +1198,7 @@ export class PullClient implements ConnectorParent {
 
       if (typeof params.moduleId === 'undefined') {
         throw new TypeError(
-          `${ Text.getDateForLog() }: Pull.emit: parameter moduleId is not specified`
+          `${Text.getDateForLog()}: Pull.emit: parameter moduleId is not specified`
         )
       }
 
@@ -1262,38 +1207,37 @@ export class PullClient implements ConnectorParent {
       ) {
         this._subscribers[params.type][params.moduleId] = {
           callbacks: [],
-          commands: {},
+          commands: {}
         }
       }
 
       if (
         this._subscribers[params.type][params.moduleId]['callbacks'].length > 0
       ) {
-        // eslint-disable-next-line unicorn/no-array-for-each
         this._subscribers[params.type][params.moduleId]['callbacks'].forEach(
           (callback: CommandHandlerFunctionV1) => {
             callback(params.data as Record<string, any>, {
               type: params.type,
-              moduleId: params.moduleId,
+              moduleId: params.moduleId ?? '?'
             })
           }
         )
       }
 
       if (
-        !(typeof params.data === 'undefined') &&
-        !(typeof params.data['command'] === 'undefined') &&
-        this._subscribers[params.type][params.moduleId]['commands'][
+        !(typeof params.data === 'undefined')
+        && !(typeof params.data['command'] === 'undefined')
+        && this._subscribers[params.type][params.moduleId]['commands'][
           params.data['command']
-          ] &&
-        this._subscribers[params.type][params.moduleId]['commands'][
+        ]
+        && this._subscribers[params.type][params.moduleId]['commands'][
           params.data['command']
-          ].length > 0
+        ].length > 0
       ) {
         this._subscribers[params.type][params.moduleId]['commands'][
           params.data['command']
-          // eslint-disable-next-line unicorn/no-array-for-each
-          ].forEach((callback: CommandHandlerFunctionV2) => {
+
+        ].forEach((callback: CommandHandlerFunctionV2) => {
           if (typeof params.data === 'undefined') {
             return
           }
@@ -1304,7 +1248,7 @@ export class PullClient implements ConnectorParent {
             params.data['command'],
             {
               type: params.type,
-              moduleId: params.moduleId as string,
+              moduleId: params.moduleId as string
             }
           )
         })
@@ -1320,11 +1264,10 @@ export class PullClient implements ConnectorParent {
         return true
       }
 
-      // eslint-disable-next-line unicorn/no-array-for-each
       this._subscribers[params.type].forEach(
         (callback: CommandHandlerFunctionV1) => {
           callback(params.data as Record<string, any>, {
-            type: params.type,
+            type: params.type
           })
         }
       )
@@ -1347,17 +1290,17 @@ export class PullClient implements ConnectorParent {
     }
 
     if (message.extra.server_time_unix) {
-      message.extra.server_time_ago =
-        (Date.now() - message.extra.server_time_unix * 1000) / 1000 -
-        (this._config?.server.timeShift || 0)
+      message.extra.server_time_ago
+        = (Date.now() - message.extra.server_time_unix * 1000) / 1000
+          - (this._config?.server.timeShift || 0)
       message.extra.server_time_ago = Math.max(message.extra.server_time_ago, 0)
     }
 
     this.logMessage(message)
     try {
       if (
-        message.extra.sender &&
-        message.extra.sender.type === SenderType.Client
+        message.extra.sender
+        && message.extra.sender.type === SenderType.Client
       ) {
         this.onCustomEvent(
           'onPullClientEvent-' + moduleId,
@@ -1376,8 +1319,8 @@ export class PullClient implements ConnectorParent {
           data: {
             command: command,
             params: Type.clone(message.params),
-            extra: Type.clone(message.extra),
-          },
+            extra: Type.clone(message.extra)
+          }
         })
       } else if (moduleId === 'pull') {
         this.handleInternalPullEvent(command, message)
@@ -1394,8 +1337,8 @@ export class PullClient implements ConnectorParent {
             data: {
               command: command,
               params: Type.clone(message.params),
-              extra: Type.clone(message.extra),
-            },
+              extra: Type.clone(message.extra)
+            }
           })
         }
 
@@ -1423,20 +1366,16 @@ export class PullClient implements ConnectorParent {
           data: {
             command: command,
             params: Type.clone(message.params),
-            extra: Type.clone(message.extra),
-          },
+            extra: Type.clone(message.extra)
+          }
         })
       }
     } catch (error) {
-      this.getLogger().warn(
-        '\n========= PULL ERROR ===========\n' +
-        'Error type: broadcastMessages execute error\n' +
-        'Error event: ',
-        error,
-        '\n' + 'Message: ',
-        message,
-        '\n' + '================================\n'
-      )
+      this.getLogger().warning('PULL ERROR', {
+        errorType: 'broadcastMessages execute error',
+        errorEvent: error,
+        message
+      })
     }
 
     if (message.extra && message.extra.revision_web) {
@@ -1468,17 +1407,15 @@ export class PullClient implements ConnectorParent {
     messageBatchList: TypePullClientMessageBatch[]
   ): Promise<any> {
     if (!this.isPublishingEnabled()) {
-      this.getLogger().error(
-        `Client publishing is not supported or is disabled`
-      )
+      this.getLogger().error(`Client publishing is not supported or is disabled`)
       return Promise.reject(
         new Error(`Client publishing is not supported or is disabled`)
       )
     }
 
     if (this.isJsonRpc()) {
-      const rpcRequest =
-        this._jsonRpcAdapter?.createPublishRequest(messageBatchList)
+      const rpcRequest
+        = this._jsonRpcAdapter?.createPublishRequest(messageBatchList)
       this.connector?.send(JSON.stringify(rpcRequest))
 
       return Promise.resolve(true)
@@ -1516,7 +1453,6 @@ export class PullClient implements ConnectorParent {
   ): ArrayBuffer | string {
     const messages: any[] = []
 
-    // eslint-disable-next-line unicorn/no-array-for-each
     messageBatchList.forEach((messageFields) => {
       const messageBody = messageFields.body
 
@@ -1533,34 +1469,33 @@ export class PullClient implements ConnectorParent {
           throw new TypeError('messageFields.publicChannels must be an array')
         }
 
-        // eslint-disable-next-line unicorn/no-array-for-each
         messageFields.channelList.forEach((publicChannel) => {
           let publicId
           let signature
           if (
-            typeof publicChannel === 'string' &&
-            publicChannel.includes('.')
+            typeof publicChannel === 'string'
+            && publicChannel.includes('.')
           ) {
             const fields = publicChannel.toString().split('.')
             publicId = fields[0]
             signature = fields[1]
           } else if (
-            typeof publicChannel === 'object' &&
-            'publicId' in publicChannel &&
-            'signature' in publicChannel
+            typeof publicChannel === 'object'
+            && 'publicId' in publicChannel
+            && 'signature' in publicChannel
           ) {
             publicId = publicChannel?.publicId
             signature = publicChannel?.signature
           } else {
             throw new Error(
-              "Public channel MUST be either a string, formatted like \"{publicId}.{signature}\" or an object with fields 'publicId' and 'signature'"
+              'Public channel MUST be either a string, formatted like "{publicId}.{signature}" or an object with fields \'publicId\' and \'signature\''
             )
           }
 
           receivers.push(
             Receiver.create({
-              id: this.encodeId(publicId),
-              signature: this.encodeId(signature),
+              id: this.encodeId(publicId!),
+              signature: this.encodeId(signature!)
             })
           )
         })
@@ -1569,7 +1504,7 @@ export class PullClient implements ConnectorParent {
       const message = IncomingMessage.create({
         receivers: receivers,
         body: JSON.stringify(messageBody),
-        expiry: messageFields.expiry || 0,
+        expiry: messageFields.expiry || 0
       })
       messages.push(message)
     })
@@ -1578,10 +1513,10 @@ export class PullClient implements ConnectorParent {
       requests: [
         {
           incomingMessages: {
-            messages: messages,
-          },
-        },
-      ],
+            messages: messages
+          }
+        }
+      ]
     })
 
     return RequestBatch.encode(requestBatch).finish()
@@ -1600,13 +1535,13 @@ export class PullClient implements ConnectorParent {
 
     for (const userId of users) {
       if (!publicIds[userId] || !publicIds[userId].publicId) {
-        throw new Error(`Could not determine public id for user ${ userId }`)
+        throw new Error(`Could not determine public id for user ${userId}`)
       }
 
       result.push(
         Receiver.create({
           id: this.encodeId(publicIds[userId].publicId),
-          signature: this.encodeId(publicIds[userId].signature),
+          signature: this.encodeId(publicIds[userId].signature)
         })
       )
     }
@@ -1626,7 +1561,7 @@ export class PullClient implements ConnectorParent {
       for (const callback of this._userStatusCallbacks[userId]) {
         callback({
           userId,
-          isOnline,
+          isOnline
         })
       }
     }
@@ -1635,13 +1570,13 @@ export class PullClient implements ConnectorParent {
   private restoreUserStatusSubscription(): void {
     for (const userId in this._userStatusCallbacks) {
       if (
-        this._userStatusCallbacks.hasOwnProperty(userId) &&
-        this._userStatusCallbacks[userId].length > 0
+        Object.prototype.hasOwnProperty.call(this._userStatusCallbacks, userId)
+        && this._userStatusCallbacks[userId]!.length > 0
       ) {
         this._jsonRpcAdapter?.executeOutgoingRpcCommand(
           RpcMethod.SubscribeStatusChange,
           {
-            userId: userId,
+            userId: userId
           }
         )
       }
@@ -1651,10 +1586,7 @@ export class PullClient implements ConnectorParent {
   // endregion ////
 
   // region Config ////
-  /**
-   * @param logTag
-   */
-  private async loadConfig(logTag?: string): Promise<TypePullClientConfig> {
+  private async loadConfig(_logTag?: string): Promise<TypePullClientConfig> {
     if (!this._config) {
       this._config = Object.assign({}, EmptyConfig)
 
@@ -1664,16 +1596,16 @@ export class PullClient implements ConnectorParent {
       }
 
       if (
-        this.isConfigActual(config) &&
-        this.checkRevision(config.api.revision_web)
+        this.isConfigActual(config)
+        && this.checkRevision(config.api.revision_web)
       ) {
         return Promise.resolve(config)
       } else if (this._storage) {
         this._storage.remove(LsKeys.PullConfig)
       }
     } else if (
-      this.isConfigActual(this._config) &&
-      this.checkRevision(this._config.api.revision_web)
+      this.isConfigActual(this._config)
+      && this.checkRevision(this._config.api.revision_web)
     ) {
       return Promise.resolve(this._config)
     } else {
@@ -1681,14 +1613,13 @@ export class PullClient implements ConnectorParent {
     }
 
     return new Promise((resolve, reject) => {
-      this._restClient.getHttpClient().setLogTag(logTag)
-
       this._restClient
-        .callMethod(this._configGetMethod, {
-          CACHE: 'N',
+        .actions.v2.call.make({
+          method: this._configGetMethod,
+          params: { CACHE: 'N' }
         })
         .then((response) => {
-          const data = response.getData().result
+          const data = response.getData()!.result
 
           const timeShift = Math.floor(
             (Date.now() - new Date(data.serverTime).getTime()) / 1000
@@ -1701,19 +1632,7 @@ export class PullClient implements ConnectorParent {
 
           resolve(config)
         })
-        .catch((error) => {
-          if (
-            error?.answerError?.error === 'AUTHORIZE_ERROR' ||
-            error?.answerError?.error === 'WRONG_AUTH_TYPE'
-          ) {
-            ;(error as AjaxError).status = 403
-          }
-
-          reject(error)
-        })
-        .finally(() => {
-          this._restClient.getHttpClient().clearLogTag()
-        })
+        .catch((error: unknown) => { reject(error) })
     })
   }
 
@@ -1732,9 +1651,9 @@ export class PullClient implements ConnectorParent {
     const now = new Date()
 
     if (
-      Type.isNumber(config['exp']) &&
-      config['exp'] > 0 &&
-      config['exp'] < now.getTime() / 1000
+      Type.isNumber(config['exp'])
+      && config['exp'] > 0
+      && config['exp'] < now.getTime() / 1000
     ) {
       return false
     }
@@ -1745,7 +1664,7 @@ export class PullClient implements ConnectorParent {
     }
 
     for (const channelType in config['channels']) {
-      if (!config['channels'].hasOwnProperty(channelType)) {
+      if (!Object.prototype.hasOwnProperty.call(config['channels'], channelType)) {
         continue
       }
 
@@ -1798,8 +1717,11 @@ export class PullClient implements ConnectorParent {
    */
   private setConfig(config: TypePullClientConfig, allowCaching: boolean): void {
     for (const key in config) {
-      if (config.hasOwnProperty(key) && this._config?.hasOwnProperty(key)) {
-        // @ts-ignore
+      if (
+        Object.prototype.hasOwnProperty.call(config, key)
+        && Object.prototype.hasOwnProperty.call(this._config, key)
+      ) {
+        // @ts-expect-error this normal work - see ory code
         this._config[key] = config[key]
       }
     }
@@ -1822,8 +1744,8 @@ export class PullClient implements ConnectorParent {
           localStorage.removeItem('history')
         }
         this.getLogger().error(
-          `${ Text.getDateForLog() }: Pull: Could not cache config in local storage. Error: `,
-          error
+          `${Text.getDateForLog()}: Pull: Could not cache config in local storage.`,
+          { error }
         )
       }
     }
@@ -1852,12 +1774,12 @@ export class PullClient implements ConnectorParent {
         type: SubscriptionType.Revision,
         data: {
           server: serverRevision,
-          client: REVISION,
-        },
+          client: REVISION
+        }
       })
 
       this.logToConsole(
-        `Pull revision changed from ${ REVISION } to ${ serverRevision }. Reload required`
+        `Pull revision changed from ${REVISION} to ${serverRevision}. Reload required`
       )
 
       return false
@@ -1897,7 +1819,7 @@ export class PullClient implements ConnectorParent {
        * never fallback to long polling
        * @memo remove long polling support later
        */
-      /*/
+      /* /
       if(
         this._connectionAttempt > 3
         && this._connectionType === ConnectionType.WebSocket
@@ -1911,7 +1833,7 @@ export class PullClient implements ConnectorParent {
         connectionDelay = 1
       }
       else
-      //*/
+      // */
       {
         connectionDelay = this.getConnectionAttemptDelay(
           this._connectionAttempt
@@ -1924,19 +1846,19 @@ export class PullClient implements ConnectorParent {
     }
 
     this.logToConsole(
-      `Pull: scheduling reconnection in ${ connectionDelay } seconds; attempt # ${ this._connectionAttempt }`
+      `Pull: scheduling reconnection in ${connectionDelay} seconds; attempt # ${this._connectionAttempt}`
     )
 
     this._reconnectTimeout = setTimeout(() => {
       this.connect().catch((error) => {
-        this.getLogger().error(error)
+        this.getLogger().error('scheduleReconnect', { error })
       })
     }, connectionDelay * 1_000)
   }
 
   private scheduleRestoreWebSocketConnection(): void {
     this.logToConsole(
-      `Pull: scheduling restoration of websocket connection in ${ RESTORE_WEBSOCKET_TIMEOUT } seconds`
+      `Pull: scheduling restoration of websocket connection in ${RESTORE_WEBSOCKET_TIMEOUT} seconds`
     )
 
     if (this._restoreWebSocketTimeout) {
@@ -1970,7 +1892,7 @@ export class PullClient implements ConnectorParent {
     return new Promise((resolve, reject) => {
       this._connectPromise = {
         resolve,
-        reject,
+        reject
       }
       this.connector?.connect()
     })
@@ -2017,15 +1939,15 @@ export class PullClient implements ConnectorParent {
     body.extra.sender = messageFields.sender
 
     if (
-      'user_params' in messageFields &&
-      Type.isPlainObject(messageFields.user_params)
+      'user_params' in messageFields
+      && Type.isPlainObject(messageFields.user_params)
     ) {
       Object.assign(body.params, messageFields.user_params)
     }
 
     if (
-      'dictionary' in messageFields &&
-      Type.isPlainObject(messageFields.dictionary)
+      'dictionary' in messageFields
+      && Type.isPlainObject(messageFields.dictionary)
     ) {
       Object.assign(body.params, messageFields.dictionary)
     }
@@ -2036,7 +1958,7 @@ export class PullClient implements ConnectorParent {
       this.broadcastMessage(body)
     }
 
-    this.connector?.send(`mack:${ messageFields.mid }`)
+    this.connector?.send(`mack:${messageFields.mid}`)
 
     return {}
   }
@@ -2059,7 +1981,7 @@ export class PullClient implements ConnectorParent {
       }
 
       this.addMessageToStat(
-        event.text as { module_id: string; command: string }
+        event.text as { module_id: string, command: string }
       )
       messages.push(event.text as TypePullClientMessageBody)
     }
@@ -2093,13 +2015,13 @@ export class PullClient implements ConnectorParent {
           if (typeChanel === 'private' && this._config?.channels?.private) {
             this._config.channels.private = message.params.new_channel
             this.logToConsole(
-              `Pull: new config for ${ message.params.channel.type } channel set: ${ this._config.channels.private }`
+              `Pull: new config for ${message.params.channel.type} channel set: ${this._config.channels.private}`
             )
           }
           if (typeChanel === 'shared' && this._config?.channels?.shared) {
             this._config.channels.shared = message.params.new_channel
             this.logToConsole(
-              `Pull: new config for ${ message.params.channel.type } channel set: ${ this._config.channels.shared }`
+              `Pull: new config for ${message.params.channel.type} channel set: ${this._config.channels.shared}`
             )
           }
 
@@ -2171,7 +2093,7 @@ export class PullClient implements ConnectorParent {
     }
 
     this.logToConsole(
-      `Pull: Long polling connection with push-server closed. Code: ${ response.code }, reason: ${ response.reason }`
+      `Pull: Long polling connection with push-server closed. Code: ${response.code}, reason: ${response.reason}`
     )
     if (!this._isManualDisconnect) {
       this.scheduleReconnect()
@@ -2190,8 +2112,8 @@ export class PullClient implements ConnectorParent {
     }
 
     this.getLogger().error(
-      `${ Text.getDateForLog() }: Pull: Long polling connection error `,
-      error
+      `${Text.getDateForLog()}: Pull: Long polling connection error`,
+      { error }
     )
 
     this.scheduleReconnect()
@@ -2214,9 +2136,9 @@ export class PullClient implements ConnectorParent {
     const isWebSocketBlocked = response.isWebSocketBlocked
 
     if (
-      isWebSocketBlocked &&
-      this._connectionType === ConnectionType.WebSocket &&
-      !this.isConnected()
+      isWebSocketBlocked
+      && this._connectionType === ConnectionType.WebSocket
+      && !this.isConnected()
     ) {
       if (this._reconnectTimeout) {
         clearTimeout(this._reconnectTimeout)
@@ -2227,8 +2149,8 @@ export class PullClient implements ConnectorParent {
       this._connectionType = ConnectionType.LongPolling
       this.scheduleReconnect(1)
     } else if (
-      !isWebSocketBlocked &&
-      this._connectionType === ConnectionType.LongPolling
+      !isWebSocketBlocked
+      && this._connectionType === ConnectionType.LongPolling
     ) {
       if (this._reconnectTimeout) {
         clearTimeout(this._reconnectTimeout)
@@ -2288,7 +2210,7 @@ export class PullClient implements ConnectorParent {
     }
 
     this.logToConsole(
-      `Pull: Websocket connection with push-server closed. Code: ${ response.code }, reason: ${ response.reason }`,
+      `Pull: Websocket connection with push-server closed. Code: ${response.code}, reason: ${response.reason}`,
       true
     )
     if (!this._isManualDisconnect) {
@@ -2319,8 +2241,8 @@ export class PullClient implements ConnectorParent {
     }
 
     this.getLogger().error(
-      `${ Text.getDateForLog() }: Pull: WebSocket connection error `,
-      error
+      `${Text.getDateForLog()}: Pull: WebSocket connection error`,
+      { error }
     )
     this.scheduleReconnect()
     if (this._connectPromise) {
@@ -2370,8 +2292,8 @@ export class PullClient implements ConnectorParent {
             messageFields = JSON.parse(message.body)
           } catch (error) {
             this.getLogger().error(
-              `${ Text.getDateForLog() }: Pull: Could not parse message body `,
-              error
+              `${Text.getDateForLog()}: Pull: Could not parse message body`,
+              { error }
             )
             continue
           }
@@ -2380,7 +2302,7 @@ export class PullClient implements ConnectorParent {
             messageFields.extra = {}
           }
           messageFields.extra.sender = {
-            type: message.sender.type,
+            type: message.sender.type
           }
 
           if (message.sender.id instanceof Uint8Array) {
@@ -2389,7 +2311,7 @@ export class PullClient implements ConnectorParent {
 
           const compatibleMessage = {
             mid: this.decodeId(message.id),
-            text: messageFields,
+            text: messageFields
           }
 
           result.push(compatibleMessage)
@@ -2397,8 +2319,8 @@ export class PullClient implements ConnectorParent {
       }
     } catch (error) {
       this.getLogger().error(
-        `${ Text.getDateForLog() }: Pull: Could not parse message `,
-        error
+        `${Text.getDateForLog()}: Pull: Could not parse message`,
+        { error }
       )
     }
 
@@ -2411,29 +2333,24 @@ export class PullClient implements ConnectorParent {
   private extractPlainTextMessages(pullEvent: string): TypeSessionEvent[] {
     const result = []
 
-    const dataArray = pullEvent.match(/#!NGINXNMS!#(.*?)#!NGINXNME!#/gm)
+    const dataArray = pullEvent.match(/#!NGINXNMS!#(.*?)#!NGINXNME!#/g)
     if (dataArray === null) {
-      const text =
-        '\n========= PULL ERROR ===========\n' +
-        'Error type: parseResponse error parsing message\n' +
-        '\n' +
-        `Data string: ${ pullEvent }` +
-        '\n' +
-        '================================\n\n'
-      this.getLogger().warn(text)
+      this.getLogger().warning('PULL ERROR', {
+        errorType: 'parseResponse error parsing message',
+        dataString: pullEvent
+      })
 
       return []
     }
     for (let i = 0; i < dataArray.length; i++) {
-      // eslint-disable-next-line unicorn/prefer-string-slice
-      dataArray[i] = dataArray[i].substring(12, dataArray[i].length - 12)
-      if (dataArray[i].length <= 0) {
+      dataArray[i] = dataArray[i]!.substring(12, dataArray[i]!.length - 12)
+      if (dataArray[i]!.length <= 0) {
         continue
       }
 
       let data
       try {
-        data = JSON.parse(dataArray[i])
+        data = JSON.parse(dataArray[i]!)
       } catch {
         continue
       }
@@ -2489,7 +2406,7 @@ export class PullClient implements ConnectorParent {
 
   private onOnline(): void {
     this.connect().catch((error) => {
-      this.getLogger().error(error)
+      this.getLogger().error('onOnline', { error })
     })
   }
 
@@ -2503,12 +2420,12 @@ export class PullClient implements ConnectorParent {
         this._storage.set(
           LS_SESSION,
           JSON.stringify(session)
-          //LS_SESSION_CACHE_TIME
+          // LS_SESSION_CACHE_TIME
         )
       } catch (error) {
         this.getLogger().error(
-          `${ Text.getDateForLog() }: Pull: Could not save session info in local storage. Error: `,
-          error
+          `${Text.getDateForLog()}: Pull: Could not save session info in local storage. Error: `,
+          { error }
         )
       }
     }
@@ -2548,8 +2465,8 @@ export class PullClient implements ConnectorParent {
     this.emit({
       type: SubscriptionType.Status,
       data: {
-        status: status,
-      },
+        status: status
+      }
     })
   }
 
@@ -2561,6 +2478,7 @@ export class PullClient implements ConnectorParent {
    * @param tagId
    * @param force
    */
+  // @ts-expect-error When we rewrite it to something more modern, then we'll remove this
   private extendWatch(tagId: string, force: boolean = false): void {
     if (this._watchTagsQueue.get(tagId)) {
       return
@@ -2590,16 +2508,15 @@ export class PullClient implements ConnectorParent {
 
         if (watchTags.length > 0) {
           this._restClient
-            .callMethod('pull.watch.extend', {
-              tags: watchTags,
+            .actions.v2.call.make({
+              method: 'pull.watch.extend',
+              params: { tags: watchTags }
             })
             .then((response: AjaxResult) => {
               /**
                * @memo test this
                */
-              const updatedTags: NumberString[] = (
-                response.getData() as Payload<NumberString[]>
-              ).result
+              const updatedTags: NumberString[] = (response.getData() as SuccessPayload<NumberString[]>).result
 
               for (const tagId of updatedTags) {
                 this.clearWatch(tagId)
@@ -2659,9 +2576,7 @@ export class PullClient implements ConnectorParent {
       return
     }
 
-    this.getLogger().warn(
-      `No pings are received in ${ PING_TIMEOUT * 2 } seconds. Reconnecting`
-    )
+    this.getLogger().warning(`No pings are received in ${PING_TIMEOUT * 2} seconds. Reconnecting`)
     this.disconnect(CloseReasons.STUCK, 'connection stuck')
 
     this.scheduleReconnect()
@@ -2701,7 +2616,7 @@ export class PullClient implements ConnectorParent {
    */
   private checkDuplicate(mid: string): boolean {
     if (this._session.lastMessageIds.includes(mid)) {
-      this.getLogger().warn(`Duplicate message ${ mid } skipped`)
+      this.getLogger().warning(`Duplicate message ${mid} skipped`)
       return false
     } else {
       this._session.lastMessageIds.push(mid)
@@ -2711,8 +2626,8 @@ export class PullClient implements ConnectorParent {
 
   private trimDuplicates(): void {
     if (this._session.lastMessageIds.length > MAX_IDS_TO_STORE) {
-      this._session.lastMessageIds =
-        this._session.lastMessageIds.slice(-MAX_IDS_TO_STORE)
+      this._session.lastMessageIds
+        = this._session.lastMessageIds.slice(-MAX_IDS_TO_STORE)
     }
   }
 
@@ -2728,29 +2643,33 @@ export class PullClient implements ConnectorParent {
     }
 
     if (
-      message.extra?.sender &&
-      message.extra.sender.type === SenderType.Client
+      message.extra?.sender
+      && message.extra.sender.type === SenderType.Client
     ) {
       this.getLogger().info(
-        `onPullClientEvent-${ message.module_id }`,
-        message.command,
-        message.params,
-        message.extra
+        `onPullClientEvent-${message.module_id}`, {
+          command: message.command,
+          params: message.params,
+          extra: message.extra
+        }
       )
     } else if (message.module_id == 'online') {
       this.getLogger().info(
-        `onPullOnlineEvent`,
-        message.command,
-        message.params,
-        message.extra
+        `onPullOnlineEvent`, {
+          command: message.command,
+          params: message.params,
+          extra: message.extra
+        }
       )
     } else {
       this.getLogger().info(
         `onPullEvent`,
-        message.module_id,
-        message.command,
-        message.params,
-        message.extra
+        {
+          moduleId: message.module_id,
+          command: message.command,
+          params: message.params,
+          extra: message.extra
+        }
       )
     }
   }
@@ -2761,7 +2680,7 @@ export class PullClient implements ConnectorParent {
    */
   private logToConsole(message: string, force: boolean = false): void {
     if (this._loggingEnabled || force) {
-      this.getLogger().log(`${ Text.getDateForLog() }: ${ message }`)
+      this.getLogger().debug(`${Text.getDateForLog()}: ${message}`)
     }
   }
 
@@ -2788,9 +2707,9 @@ export class PullClient implements ConnectorParent {
    * @param text
    */
   private showNotification(text: string): void {
-    this.getLogger().warn(text)
+    this.getLogger().notice(text)
 
-    /*/
+    /* /
     if(this._notificationPopup || typeof BX.PopupWindow === 'undefined')
     {
       return;
@@ -2820,7 +2739,7 @@ export class PullClient implements ConnectorParent {
       }
     });
     this._notificationPopup.show();
-    //*/
+    // */
   }
 
   // endregion ////
@@ -2839,33 +2758,12 @@ export class PullClient implements ConnectorParent {
       /* empty */
     }
 
-    /*/
+    /* /
     if (BX && BX.onCustomEvent)
     {
       BX.onCustomEvent(window, eventName, data, force)
     }
-    //*/
+    // */
   }
-
-  // endregion ////
-
-  // region deprecated /////
-  /**
-   * @deprecated
-   */
-  /*/
-  getRestClientOptions()
-  {
-    let result = {};
-
-    if (this.guestMode && this.guestUserId !== 0)
-    {
-      result.queryParams = {
-        pull_guest_id: this.guestUserId
-      }
-    }
-    return result;
-  }
-  //*/
   // endregion ////
 }

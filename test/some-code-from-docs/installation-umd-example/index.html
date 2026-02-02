@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bitrix24 JS SDK Demo</title>
+</head>
+<body>
+<h1>Company Loader Example</h1>
+<p>Check developer console for results</p>
+
+<script src="./umd/index.min.js"></script>
+<script>
+  // Create logger
+  const logger = B24Js.LoggerFactory.createForBrowser('B24/jsSdk::umd', true);
+
+  /**
+   * Load company list
+   */
+  async function loadCompanies(b24) {
+    try {
+      logger.debug('Loading companies...');
+
+      const response = await b24.actions.v2.call.make({
+        method: 'crm.item.list',
+        params: {
+          entityTypeId: B24Js.EnumCrmEntityTypeId.company,
+          order: { id: 'desc' },
+          select: ['id', 'title', 'createdTime']
+        }
+      });
+
+      const data = response.getData().result;
+
+      const companies = (data?.items || []).map((item) => {
+        return {
+          id: Number.parseInt(item.id),
+          title: item.title,
+          createdTime: B24Js.Text.toDateTime(item.createdTime) // @memo this is luxon/DateTime
+        };
+      });
+
+      logger.debug('Companies loaded successfully', { companies });
+      return companies;
+    } catch (error) {
+      logger.error('Request failed', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Main application function
+   */
+  async function main() {
+    try {
+      // Initialize B24Frame instance
+      let b24 = await B24Js.initializeB24Frame();
+
+      // Load companies
+      const companies = await loadCompanies(b24);
+
+      // Further data processing...
+      logger.info('Loaded ' + companies.length + ' companies');
+    } catch (error) {
+      logger.error('Some problems', { error })
+    }
+  }
+
+  /// Start application after DOM load
+  document.addEventListener('DOMContentLoaded', function() {
+    main();
+  });
+</script>
+</body>
+</html>

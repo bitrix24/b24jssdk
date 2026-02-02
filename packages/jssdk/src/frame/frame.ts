@@ -1,88 +1,110 @@
-import { B24LangList } from '../core/language/list'
 import type { B24FrameQueryParams, MessageInitData } from '../types/auth'
+import { B24LangList } from '../core/language/list'
+import { ApiVersion } from '../types/b24'
 
 /**
  * Application Frame Data Manager
  */
 export class AppFrame {
-	#domain: string = ''
-	#protocol: boolean = true
-	#appSid: null | string = null
-	#path: null | string = null
-	#lang: null | string = null
+  #domain: string = ''
+  #protocol: boolean = true
+  #appSid: null | string = null
+  #path: null | string = null
+  #lang: null | string = null
+  #b24TargetRest: string
+  #b24Target: string
+  readonly #b24TargetRestWithPath: Map<ApiVersion, string>
 
-	constructor(queryParams: B24FrameQueryParams) {
-		if (queryParams.DOMAIN) {
-			this.#domain = queryParams.DOMAIN
-			this.#domain = this.#domain.replace(/:(80|443)$/, '')
-		}
+  constructor(
+    queryParams: B24FrameQueryParams
+  ) {
+    if (queryParams.DOMAIN) {
+      this.#domain = queryParams.DOMAIN
+      this.#domain = this.#domain.replace(/:(80|443)$/, '')
+    }
 
-		this.#protocol = queryParams.PROTOCOL === true
+    this.#protocol = queryParams.PROTOCOL === true
 
-		if (queryParams.LANG) {
-			this.#lang = queryParams.LANG
-		}
+    if (queryParams.LANG) {
+      this.#lang = queryParams.LANG
+    }
 
-		if (queryParams.APP_SID) {
-			this.#appSid = queryParams.APP_SID
-		}
-	}
+    if (queryParams.APP_SID) {
+      this.#appSid = queryParams.APP_SID
+    }
 
-	/**
-	 * Initializes the data received from the parent window message.
-	 * @param data
-	 */
-	initData(data: MessageInitData): AppFrame {
-		if (!this.#domain) {
-			this.#domain = data.DOMAIN
-		}
+    this.#b24TargetRestWithPath = new Map()
 
-		if (!this.#path) {
-			this.#path = data.PATH
-		}
+    this.#b24Target = `${this.#protocol ? 'https' : 'http'}://${this.#domain}`
+    this.#b24TargetRest = `${this.#b24Target}/rest`
 
-		if (!this.#lang) {
-			this.#lang = data.LANG
-		}
+    this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api`)
+  }
 
-		this.#protocol = Number.parseInt(data.PROTOCOL) === 1
-		this.#domain = this.#domain.replace(/:(80|443)$/, '')
+  /**
+   * Initializes the data received from the parent window message.
+   * @param data
+   */
+  initData(data: MessageInitData): AppFrame {
+    if (!this.#domain) {
+      this.#domain = data.DOMAIN
+    }
 
-		return this
-	}
+    if (!this.#path) {
+      this.#path = data.PATH
+    }
 
-	/**
-	 * Returns the sid of the application relative to the parent window like this `9c33468728e1d2c8c97562475edfd96`
-	 */
-	getAppSid(): string {
-		if (null === this.#appSid) {
-			throw new Error(`Not init appSid`)
-		}
+    if (!this.#lang) {
+      this.#lang = data.LANG
+    }
 
-		return this.#appSid
-	}
+    this.#protocol = Number.parseInt(data.PROTOCOL) === 1
+    this.#domain = this.#domain.replace(/:(80|443)$/, '')
 
-	/**
-	 * Get the account address BX24 (https://name.bitrix24.com)
-	 */
-	getTargetOrigin(): string {
-		return `${this.#protocol ? 'https' : 'http'}://${this.#domain}`
-	}
+    this.#b24Target = `${this.#protocol ? 'https' : 'http'}://${this.#domain}`
+    this.#b24TargetRest = `${this.#b24Target}/rest`
 
-	/**
-	 * Get the account address BX24 with Path (https://name.bitrix24.com/rest)
-	 */
-	getTargetOriginWithPath(): string {
-		return this.getTargetOrigin() + (this.#path ?? '')
-	}
+    this.#b24TargetRestWithPath.set(ApiVersion.v2, `${this.#b24TargetRest}`)
+    this.#b24TargetRestWithPath.set(ApiVersion.v3, `${this.#b24TargetRest}/api`)
 
-	/**
-	 * Returns the localization of the B24 interface
-	 * @return {B24LangList} - default B24LangList.en
-	 *
-	 * @link https://apidocs.bitrix24.com/api-reference/bx24-js-sdk/additional-functions/bx24-get-lang.html
-	 */
-	getLang(): B24LangList {
-		return (this.#lang as B24LangList) || B24LangList.en
-	}
+    return this
+  }
+
+  /**
+   * Returns the sid of the application relative to the parent window like this `9c33468728e1d2c8c97562475edfd96`
+   */
+  getAppSid(): string {
+    if (null === this.#appSid) {
+      throw new Error(`Not init appSid`)
+    }
+
+    return this.#appSid
+  }
+
+  /**
+   * Get the account address BX24 (https://your_domain.bitrix24.com)
+   */
+  getTargetOrigin(): string {
+    return this.#b24Target
+  }
+
+  /**
+   * Get the account address BX24 with path
+   *   - ver2 `https://your_domain.bitrix24.com/rest/`
+   *   - ver3` https://your_domain.bitrix24.com/rest/api/`
+   */
+  getTargetOriginWithPath(): Map<ApiVersion, string> {
+    return this.#b24TargetRestWithPath
+  }
+
+  /**
+   * Returns the localization of the B24 interface
+   * @return {B24LangList} - default `B24LangList.en`
+   *
+   * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-get-lang.html
+   */
+  getLang(): B24LangList {
+    return (this.#lang as B24LangList) || B24LangList.en
+  }
 }

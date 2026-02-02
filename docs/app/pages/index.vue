@@ -1,0 +1,115 @@
+<script setup lang="ts">
+// import { joinURL } from 'ufo'
+import { useColorMode } from '#imports'
+import EncloseTextInCodeTagIcon from '@bitrix24/b24icons-vue/editor/EncloseTextInCodeTagIcon'
+import InfoCircleIcon from '@bitrix24/b24icons-vue/outline/InfoCircleIcon'
+import PlayLIcon from '@bitrix24/b24icons-vue/outline/PlayLIcon'
+import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
+
+const { data: page } = await useAsyncData('index', () => queryCollection('index').first())
+if (!page.value) {
+  throw createError({ status: 404, statusText: 'Page not found' })
+}
+
+// const config = useRuntimeConfig()
+
+useSeoMeta({
+  titleTemplate: '%s',
+  title: page.value.title,
+  description: page.value.description,
+  ogTitle: `${page.value.title}`,
+  ogDescription: page.value.description
+  // ogImage: joinURL(config.public.siteUrl, `${config.public.baseUrl}/og-image.png`)
+})
+
+const iconFromIconName = (iconName?: string) => {
+  if (!iconName) {
+    return undefined
+  }
+
+  switch (iconName) {
+    case 'EncloseTextInCodeTagIcon': return EncloseTextInCodeTagIcon
+    case 'InfoCircleIcon': return InfoCircleIcon
+    case 'PlayLIcon': return PlayLIcon
+    case 'DemonstrationOnIcon': return DemonstrationOnIcon
+  }
+
+  return undefined
+}
+
+const colorMode = useColorMode()
+const isDark = computed(() => {
+  return colorMode.value === 'dark'
+})
+const isMounted = ref(false)
+const cardColorContext = computed(() => {
+  if (import.meta.server || !isMounted.value) {
+    return 'light'
+  }
+  return isDark.value ? 'dark' : 'light'
+})
+
+onMounted(() => {
+  isMounted.value = true
+})
+
+const { mobileLinks } = useHeader()
+</script>
+
+<template>
+  <B24SidebarLayout
+    :use-light-content="false"
+  >
+    <template #sidebar>
+      <B24SidebarHeader>
+        <LogoWithVersion />
+      </B24SidebarHeader>
+      <B24SidebarBody>
+        <B24NavigationMenu
+          :items="mobileLinks"
+          orientation="vertical"
+        />
+      </B24SidebarBody>
+      <B24SidebarFooter>
+        <B24SidebarSection>
+          <ExtLinks />
+        </B24SidebarSection>
+      </B24SidebarFooter>
+    </template>
+    <template #navbar>
+      <Header />
+    </template>
+
+    <B24Card
+      v-if="page"
+      class="mt-[22px]"
+      :class="cardColorContext"
+    >
+      <div class="pt-[88px] h-auto lg:h-[calc(100vh-200px)] lg:pt-[12px] grid content-center lg:grid-cols-12 gap-y-[54px] lg:gap-[22px] items-end lg:items-center justify-between">
+        <div class="col-span-12 lg:col-start-2 lg:col-span-5 flex flex-col gap-[12px] text-center lg:text-right">
+          <ProseH1 class="mb-0 leading-(--ui-font-line-height-3xs)">
+            <span class="text-(--ui-color-accent-main-primary)">@bitrix24/b24jssdk</span> <br>Bitrix24 JS SDK
+          </ProseH1>
+          <ProseP>
+            {{ page.hero.description }}
+          </ProseP>
+        </div>
+        <div class="col-span-12 lg:col-end-12 lg:col-span-5 relative mb-6 lg:mb-0">
+          <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-[6px]">
+            <B24Button
+              v-for="link of page.hero.links"
+              :key="link.label"
+              v-bind="link"
+              size="md"
+              :icon="iconFromIconName(link?.iconName)"
+            />
+          </div>
+        </div>
+      </div>
+    </B24Card>
+
+    <template #content-bottom>
+      <Footer />
+    </template>
+  </B24SidebarLayout>
+</template>

@@ -1,10 +1,29 @@
 import type { NumberString } from './common'
 import type { HandlerAuthParams } from './handler'
-import { EnumAppStatus } from './b24-helper'
+import type { EnumAppStatus } from './b24-helper'
+import type { ApiVersion } from './b24'
 
+/**
+ * @link https://apidocs.bitrix24.com/api-reference/rest-v3/index.html#structure-of-an-unsuccessful-response
+ *
+ * @todo ! move to packages/jssdk/src/types/payloads.ts
+ */
+export type TypeDescriptionErrorV3 = {
+  readonly error: {
+    code: string
+    message: string
+    validation?: {
+      message?: string
+      field?: string
+      [key: string]: any
+    }[]
+  }
+}
+
+// @todo ! move to packages/jssdk/src/types/payloads.ts
 export type TypeDescriptionError = {
   readonly error: 'invalid_token' | 'expired_token' | string
-  readonly error_description: string
+  readonly error_description?: string
 }
 
 /**
@@ -93,8 +112,7 @@ export interface B24OAuthParams {
   issuer?: 'request' | 'store' | string
 }
 
-
-export type HandlerRefreshAuth = Pick<HandlerAuthParams, 'access_token' | 'refresh_token' | 'expires' | 'expires_in' | 'client_endpoint' | 'server_endpoint' | 'member_id' | 'scope' | 'status' | 'domain' >
+export type HandlerRefreshAuth = Pick<HandlerAuthParams, 'access_token' | 'refresh_token' | 'expires' | 'expires_in' | 'client_endpoint' | 'server_endpoint' | 'member_id' | 'scope' | 'status' | 'domain'>
 
 /**
  * Callback called when OAuth authorization is updated
@@ -139,10 +157,11 @@ export type MessageInitData = RefreshAuthData & {
 export type AuthData = {
   access_token: string
   refresh_token: string
-  expires: number
-  expires_in: number
+  expires: number // timestamp in seconds
+  expires_in: number // in seconds
   domain: string
   member_id: string
+  [key: string]: any
 }
 
 /**
@@ -153,4 +172,16 @@ export interface AuthActions {
   refreshAuth: () => Promise<AuthData>
   getUniq: (prefix: string) => string
   isAdmin: boolean
+
+  /**
+   * Get the account address BX24 ( `https://your_domain.bitrix24.com` )
+   */
+  getTargetOrigin(): string
+
+  /**
+   * Get the account address BX24 with path
+   *   - ver2 `https://your_domain.bitrix24.com/rest/`
+   *   - ver3` https://your_domain.bitrix24.com/rest/api/`
+   */
+  getTargetOriginWithPath(): Map<ApiVersion, string>
 }

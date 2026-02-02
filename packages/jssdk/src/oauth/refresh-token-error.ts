@@ -1,3 +1,3 @@
-import { AjaxError } from '../core/http/ajax-error'
+import { SdkError } from '../core/sdk-error'
 
-export class RefreshTokenError extends AjaxError {}
+export class RefreshTokenError extends SdkError {}

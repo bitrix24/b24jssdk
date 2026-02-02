@@ -8,6 +8,12 @@ on:
 jobs:
   process:
     runs-on: ubuntu-latest
+    env:
+      NUXT_PUBLIC_USE_AI: false
+      NUXT_PUBLIC_SITE_URL: https://bitrix24.github.io
+      NUXT_PUBLIC_BASE_URL: /b24jssdk
+      NUXT_PUBLIC_CANONICAL_URL: https://bitrix24.github.io
+      NUXT_PUBLIC_GIT_URL: https://github.com/bitrix24/b24jssdk
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -27,6 +33,9 @@ jobs:
 
       - name: Prepare
         run: pnpm run dev:prepare
+
+      - name: TMP Generate Docs
+        run: pnpm run docs:generate
 
       - name: Lint
         run: pnpm run lint

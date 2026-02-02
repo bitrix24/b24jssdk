@@ -19,6 +19,18 @@ const categories = {
       title: 'Tools',
       // @todo ! insert icon
       icon: ItemIcon
+    },
+    {
+      id: 'logger',
+      title: 'Logger',
+      // @todo ! insert icon
+      icon: ItemIcon
+    },
+    {
+      id: 'limiters',
+      title: 'Limiters',
+      // @todo ! insert icon
+      icon: ItemIcon
     }
   ],
   'getting-started': [

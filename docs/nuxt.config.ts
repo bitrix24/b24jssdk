@@ -136,7 +136,7 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/x-icon', href: `${baseUrl}/favicon.ico` }
       ],
-      htmlAttrs: { class: 'dark' }
+      htmlAttrs: { class: 'edge-dark' }
     },
     rootAttrs: { 'data-vaul-drawer-wrapper': '' }
   },
@@ -234,20 +234,6 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '/docs/working-with-the-rest-api%' }
-        ]
-      },
-      {
-        title: 'Logger',
-        contentCollection: 'docs',
-        contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '/docs/logger%' }
-        ]
-      },
-      {
-        title: 'Limiters',
-        contentCollection: 'docs',
-        contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '/docs/limiters%' }
         ]
       },
       {

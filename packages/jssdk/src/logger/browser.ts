@@ -1,7 +1,7 @@
 import type { LoggerInterface } from '../types/logger'
 import { LoggerFactory } from './logger-factory'
 
-const deprecateMessage = '@deprecate: use Logger. https://bitrix24.github.io/b24jssdk/docs/logger/'
+const deprecateMessage = '@deprecate: use Logger. https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/logger/'
 
 /**
  * @deprecate This enum is deprecated and will be removed in version `2.0.0`

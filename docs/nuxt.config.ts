@@ -12,80 +12,40 @@ const pages = [
   '/docs/getting-started/',
   '/docs/getting-started/installation/vue/',
   '/docs/getting-started/installation/nuxt/',
+  '/docs/getting-started/installation/react/',
   '/docs/getting-started/installation/nodejs/',
-  '/docs/getting-started/installation/umd/',
-  '/docs/getting-started/ai/mcp/',
+  '/docs/getting-started/installation/und/',
+  '/docs/getting-started/migration/v1/',
   '/docs/getting-started/ai/llms-txt/',
-  '/docs/templates/entity-list/', // @memo we remove this
-  '/docs/templates/app-page-installation-wizard/', // @memo we remove this
   // endregion ////
-  // region B24Frame ////
-  '/docs/frame/',
-  // '/docs/frame/getters/auth/',
-  // '/docs/frame/getters/is-init/',
-  // '/docs/frame/methods/call-method/',
-  // '/docs/frame/methods/call-batch/',
-  // '/docs/frame/methods/call-batch-by-chunk/',
-  // '/docs/frame/methods/call-list-method/',
-  // '/docs/frame/methods/fetch-list-method/',
-  // '/docs/frame/methods/get-target-origin/',
-  // '/docs/frame/methods/get-target-origin-with-path/',
-  // '/docs/frame/methods/set-logger/',
-  // '/docs/frame/methods/get-logger/',
-  // '/docs/frame/methods/off-client-side-warning/',
-  // '/docs/frame/methods/get-http-client/',
-  // '/docs/frame/methods/destroy/',
+  // region examples ////
+  '/docs/working-with-the-rest-api/',
+  '/docs/working-with-the-rest-api/call-rest-api-ver2/',
+  '/docs/working-with-the-rest-api/call-rest-api-ver3/',
+  '/docs/working-with-the-rest-api/call-list-rest-api-ver2/',
+  '/docs/working-with-the-rest-api/call-list-rest-api-ver3/',
+  '/docs/working-with-the-rest-api/fetch-list-rest-api-ver2/',
+  '/docs/working-with-the-rest-api/fetch-list-rest-api-ver3/',
+  '/docs/working-with-the-rest-api/batch-rest-api-ver2/',
+  '/docs/working-with-the-rest-api/batch-rest-api-ver3/',
+  '/docs/working-with-the-rest-api/batch-by-chunk-rest-api-ver2/',
+  '/docs/working-with-the-rest-api/batch-by-chunk-rest-api-ver3/',
+  '/docs/working-with-the-rest-api/tools-health-check/',
+  '/docs/working-with-the-rest-api/tools-ping/',
+  '/docs/working-with-the-rest-api/logger/',
+  '/docs/working-with-the-rest-api/logger-telegram/',
+  '/docs/working-with-the-rest-api/limiters/',
   // endregion ////
-  // region B24OAuth ////
-  '/docs/oauth/',
-  // '/docs/oauth/getters/auth/',
-  // '/docs/oauth/getters/is-init/',
-  // '/docs/oauth/methods/call-method/',
-  // '/docs/oauth/methods/call-batch/',
-  // '/docs/oauth/methods/call-batch-by-chunk/',
-  // '/docs/oauth/methods/call-list-method/',
-  // '/docs/oauth/methods/fetch-list-method/',
-  // '/docs/oauth/methods/get-target-origin/',
-  // '/docs/oauth/methods/get-target-origin-with-path/',
-  // '/docs/oauth/methods/set-logger/',
-  // '/docs/oauth/methods/get-logger/',
-  // '/docs/oauth/methods/off-client-side-warning/',
-  // '/docs/oauth/methods/get-http-client/',
-  // '/docs/oauth/methods/destroy/',
-  // endregion ////
-  // region B24Hook ////
-  '/docs/hook/',
-  '/docs/hook/getters/auth/',
-  '/docs/hook/getters/is-init/',
-  '/docs/hook/methods/call-method/',
-  '/docs/hook/methods/call-fast-list-method/',
-  '/docs/hook/methods/fetch-list-method/',
-  '/docs/hook/methods/call-batch/',
-  '/docs/hook/methods/call-batch-by-chunk/',
-  '/docs/hook/methods/get-target-origin/',
-  '/docs/hook/methods/get-target-origin-with-path/',
-  '/docs/hook/methods/set-logger/',
-  '/docs/hook/methods/get-logger/',
-  '/docs/hook/methods/off-client-side-warning/',
-  '/docs/hook/methods/get-http-client/',
-  '/docs/hook/methods/destroy/',
-  // endregion ////
-  // region Core ////
-  '/docs/core/logger-browser/',
-  '/docs/core/result/',
-  '/docs/core/ajax-result/'
+  // region examples ////
+  '/docs/examples/'
   // endregion ////
 ]
 
 /**
  * @memo need add for iframe examples
  */
-const pagesFrameExamples = [
-  '/examples/sidebar-layout-example/',
-  '/examples/sidebar-layout-inner-example/',
-  '/examples/banner-example/',
-  '/examples/banner-with-title-example/',
-  '/examples/content-search-example/'
+const pagesFrameExamples: string[] = [
+  // '/examples/sidebar-layout-example/',
 ]
 
 const pagesService = [
@@ -176,9 +136,11 @@ export default defineNuxtConfig({
 
   // @todo add more redirects
   routeRules: {
-    // v4 redirects - default root pages
+    // redirects - default root pages
     '/docs': { redirect: '/docs/getting-started/', prerender: false },
-    '/docs/getting-started/installation': { redirect: '/docs/getting-started/installation/nuxt/', prerender: false }
+    '/docs/getting-started/installation': { redirect: '/docs/getting-started/installation/vue/', prerender: false },
+    '/docs/getting-started/migration': { redirect: '/docs/getting-started/migration/v1/', prerender: false },
+    '/docs/getting-started/ai': { redirect: '/docs/getting-started/ai/llms-txt/', prerender: false }
   },
 
   compatibilityDate: '2024-07-09',

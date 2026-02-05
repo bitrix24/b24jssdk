@@ -221,7 +221,7 @@ const clearHook = async () => {
                       <B24Badge size="sm" color="air-secondary-accent-2" label="tasks" />
                     </div>
 
-                    <B24Tabs size="sm" :items="[{ label: 'B24Frame', slot: 'B24Frame' as const }, { label: 'B24Hook', slot: 'B24Hook' as const }]" class="w-full mb-4">
+                    <B24Tabs size="sm" :items="[{ label: 'B24Hook', slot: 'B24Hook' as const }]" class="w-full mb-4">
                       <template #B24Frame>
                         <ProseP small less>This is the <ProseStrong>recommended</ProseStrong> method for testing and working with the Bitrix24 REST API.</ProseP>
                         <ProseP>Add the documentation site as an application in Bitrix24.</ProseP>

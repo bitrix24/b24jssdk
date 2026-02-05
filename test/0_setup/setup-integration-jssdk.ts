@@ -1,5 +1,6 @@
 // import { ParamsFactory, B24Hook, LoggerFactory, LogLevel } from '../../packages/jssdk/src/index'
 import { ParamsFactory, B24Hook } from '../../packages/jssdk/src/index'
+import type { B24Frame } from '../../packages/jssdk/src/index'
 
 declare global {
   var b24Integration: B24Hook | undefined
@@ -45,6 +46,12 @@ export function getB24Client(): B24Hook {
     throw new Error('B24 client is not initialized. Call setupTestGlobals() first.')
   }
   return globalThis.b24Integration
+}
+
+export function getB24Frame(): B24Frame {
+  throw new Error('@todo init B24Frame')
+  // const b24 = new B24Frame()
+  // return b24
 }
 
 export default {

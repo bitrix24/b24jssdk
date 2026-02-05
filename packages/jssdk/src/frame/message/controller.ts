@@ -14,18 +14,21 @@ interface PromiseHandlers {
 
 /**
  * Parent Window Request Parameters
- * @prop isRawValue if true then JSON.stringify will not be executed
- * @prop isSafely auto completion mode Promise.resolve()
- * @prop safelyTime after what time (900 ms) should it be automatically resolved Promise
- * @prop callBack for placement event
+ * - `isRawValue?: boolean` if true then JSON.stringify will not be executed
+ * - `isSafely?: boolean` auto completion mode Promise.resolve()
+ * - `safelyTime?: number` after what time (900 ms) should it be automatically resolved Promise
+ * - `callBack?: () => void` for placement event
+ * - `requestId?: string` Unique request identifier for tracking. Used for query deduplication and debugging.
  */
 export interface SendParams {
-  [index: string]: any
-
   isRawValue?: boolean
   isSafely?: boolean
   safelyTime?: number
   callBack?: (...args: any[]) => void
+  requestId?: string
+  // @todo add this
+  // singleOption: any
+  [index: string]: any
 }
 
 /**
@@ -97,8 +100,8 @@ export class MessageManager {
       const keyPromise = this.#setCallbackPromise(promiseHandler)
       let paramsSend: null | string | Record<string, any> = null
 
-      const optionsSend = omit(params || {}, ['singleOption', 'callBack', 'isSafely', 'safelyTime'])
-      const { callBack, singleOption } = params || {}
+      const optionsSend = omit(params || {}, ['singleOption', 'callBack', 'isSafely', 'safelyTime', 'requestId'])
+      const { callBack, singleOption, requestId } = params || {}
       if (callBack) {
         this.#callbackSingletone.set(keyPromise, callBack)
       }
@@ -114,12 +117,10 @@ export class MessageManager {
           method: command.toString(),
           params: paramsSend || '',
           callback: keyPromise,
-          appSid: this.#appFrame.getAppSid()
+          appSid: this.#appFrame.getAppSid(),
+          requestId
         }
       } else {
-        /**
-         * @memo: delete it after rest 22.0.0
-         */
         cmd = command.toString()
 
         if (

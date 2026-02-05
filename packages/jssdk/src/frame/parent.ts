@@ -14,6 +14,10 @@ export class ParentManager {
     this.#messageManager = messageManager
   }
 
+  get message(): MessageManager {
+    return this.#messageManager
+  }
+
   /**
    * The method closes the open modal window with the application
    *

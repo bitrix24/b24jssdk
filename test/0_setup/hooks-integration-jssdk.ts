@@ -1,5 +1,6 @@
 import { beforeAll, afterAll } from 'vitest'
-import { setupTestGlobals, getB24Client } from './setup-integration-jssdk'
+import { B24Frame } from '../../packages/jssdk/src/index'
+import { setupTestGlobals, getB24Client, getB24Frame } from './setup-integration-jssdk'
 
 /**
  * Hooks for integration tests with Bitrix24
@@ -39,6 +40,7 @@ export const useB24TestHooks = () => {
 
   return {
     getB24Client,
+    getB24Frame,
     getMapId
   }
 }

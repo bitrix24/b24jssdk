@@ -107,7 +107,7 @@ export default defineNuxtConfig({
     build: {
       markdown: {
         highlight: {
-          langs: ['bash', 'ts', 'typescript', 'diff', 'vue', 'json', 'yml', 'css', 'mdc', 'blade', 'edge']
+          langs: ['bash', 'ts', 'typescript', 'diff', 'vue', 'tsx', 'jsx', 'json', 'yml', 'css', 'mdc', 'blade', 'edge']
         }
       }
     }

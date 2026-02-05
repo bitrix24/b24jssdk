@@ -3,6 +3,7 @@
 ## [1.0.2](https://github.com/bitrix24/b24jssdk/compare/v1.0.1...v1.0.2) (2026-03-xx)
 
 * docs(install): add React
+* docs(codeExample): added the ability to test examples
 
 ## [1.0.1](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.0.1) (2026-02-02)
 

@@ -142,8 +142,76 @@ export const useB24 = () => {
     set(undefined)
   }
 
+  function transformCodeForDocumentationSafe(code: string): string {
+    const lines = code.split('\n')
+    let inStartRegion = false
+    let inFunction = false
+    let braceDepth = 0
+    const resultLines: string[] = []
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (typeof line === 'undefined') {
+        continue
+      }
+
+      const trimmedLine = line.trim()
+
+      if (trimmedLine.startsWith('import')) {
+        resultLines.push(line)
+        continue
+      }
+
+      if (trimmedLine.includes('export async function toolsPingAction()')) {
+        inFunction = true
+        braceDepth++
+        continue
+      }
+
+      if (inFunction) {
+        if (line.includes('{')) braceDepth++
+        if (line.includes('}')) braceDepth--
+
+        if (trimmedLine.includes('region: start')) {
+          inStartRegion = true
+          continue
+        }
+
+        if (trimmedLine.includes('endregion: start')) {
+          inStartRegion = false
+          continue
+        }
+
+        // Если мы внутри региона start, обрабатываем строку
+        if (inStartRegion && !trimmedLine.includes('region: start')) {
+          let processedLine = line
+
+          // Заменяем определение devMode
+          if (trimmedLine.includes('const devMode')) {
+            processedLine = line.replace(
+              'const devMode = typeof import.meta !== \'undefined\' && (true || globalThis._importMeta_.env?.DEV)',
+              'const devMode = typeof import.meta !== \'undefined\' && (import.meta?.dev || import.meta.env?.DEV)'
+            )
+          }
+
+          if (trimmedLine.includes('const $b24')) {
+            processedLine = line.replace(HOOK_REPLACE_IN_EXAMPLE, '')
+          }
+
+          resultLines.push(processedLine)
+        }
+
+        if (braceDepth === 0 && inFunction) {
+          inFunction = false
+        }
+      }
+    }
+
+    return resultLines.join('\n').trim()
+  }
+
   function prepareCode(code: string): string {
-    return code.replace(HOOK_REPLACE_IN_EXAMPLE, '')
+    return transformCodeForDocumentationSafe(code)
   }
 
   return {

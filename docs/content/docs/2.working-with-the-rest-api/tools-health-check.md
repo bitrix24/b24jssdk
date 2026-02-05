@@ -56,7 +56,7 @@ make(
 ```ts [HealthCheck.ts]
 import { B24Hook, LoggerFactory } from '@bitrix24/b24jssdk'
 
-const devMode = typeof import.meta !== 'undefined' && (globalThis._importMeta_.env?.DEV || false)
+const devMode = typeof import.meta !== 'undefined' && (import.meta.dev || import.meta.env?.DEV)
 const $logger = LoggerFactory.createForBrowser('Example:healthCheck', devMode)
 const $b24 = B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
 

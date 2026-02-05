@@ -182,16 +182,26 @@ export const useB24 = () => {
           continue
         }
 
-        // Если мы внутри региона start, обрабатываем строку
         if (inStartRegion && !trimmedLine.includes('region: start')) {
           let processedLine = line
 
-          // Заменяем определение devMode
-          if (trimmedLine.includes('const devMode')) {
+          if (trimmedLine.includes('const _devMode')) {
             processedLine = line.replace(
+              'const _devMode =',
+              'const devMode ='
+            )
+            processedLine = processedLine.replace(
               'const devMode = typeof import.meta !== \'undefined\' && (true || globalThis._importMeta_.env?.DEV)',
               'const devMode = typeof import.meta !== \'undefined\' && (import.meta?.dev || import.meta.env?.DEV)'
             )
+            processedLine = processedLine.replace(
+              'const devMode = typeof import.meta !== \'undefined\' && (false || globalThis._importMeta_.env?.DEV)',
+              'const devMode = typeof import.meta !== \'undefined\' && (import.meta?.dev || import.meta.env?.DEV)'
+            )
+          }
+
+          if (trimmedLine.includes('const $logger')) {
+            processedLine = line.replace(', true)', ', devMode)')
           }
 
           if (trimmedLine.includes('const $b24')) {

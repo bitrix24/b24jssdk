@@ -3,7 +3,6 @@ import { SdkError } from '@bitrix24/b24jssdk'
 import { toolsPingAction } from '../examples'
 
 export function useCodeExample() {
-
   const mapActions = new Map([
     ['toolsPingAction', toolsPingAction]
   ])

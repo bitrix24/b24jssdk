@@ -216,6 +216,7 @@ export class RestrictionManager {
    */
   get exceptionCodeForSoft(): string[] {
     return [
+      'ERROR_ENTITY_NOT_FOUND',
       'BITRIX_REST_V3_EXCEPTION_ACCESSDENIEDEXCEPTION',
       'BITRIX_REST_V3_EXCEPTION_INVALIDJSONEXCEPTION',
       'BITRIX_REST_V3_EXCEPTION_INVALIDFILTEREXCEPTION',

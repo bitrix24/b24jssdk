@@ -50,7 +50,7 @@ export default defineCommand({
     }
   },
   async setup({ args }) {
-    args.total = 10
+    args.total = 1000
     args.assignedById = 1
 
     let createdCount = 0

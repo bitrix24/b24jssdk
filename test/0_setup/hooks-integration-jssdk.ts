@@ -17,17 +17,17 @@ export const useB24TestHooks = () => {
 
   function getMapId(): Record<string, number> {
     return {
-      taskSuccess: 1,
+      taskSuccess: 2,
       taskFail: -1,
-      taskWrong: 2,
+      taskWrong: 3,
       crmDealSuccessMin: 1,
       crmDealSuccessMax: 1,
-      crmContactSuccessMin: 1,
-      crmContactSuccessMax: 11,
-      crmCompanySuccessMin: 1,
-      crmCompanySuccessMax: 11,
+      crmContactSuccessMin: 2,
+      crmContactSuccessMax: 12,
+      crmCompanySuccessMin: 2,
+      crmCompanySuccessMax: 12,
       crmCompanyFail: -1,
-      crmCompanyWrong: 1,
+      crmCompanyWrong: 3,
       // @memo get from `main.eventlog.list`
       eventLogMessageSuccessV1: 361,
       eventLogMessageSuccessV2: 359,

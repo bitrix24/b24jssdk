@@ -1,5 +1,4 @@
 import { beforeAll, afterAll } from 'vitest'
-import { B24Frame } from '../../packages/jssdk/src/index'
 import { setupTestGlobals, getB24Client, getB24Frame } from './setup-integration-jssdk'
 
 /**

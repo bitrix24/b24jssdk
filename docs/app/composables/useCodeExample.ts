@@ -1,10 +1,20 @@
 import { camelCase } from 'scule'
 import { SdkError } from '@bitrix24/b24jssdk'
-import { toolsPingAction } from '../examples'
+import {
+  Action_toolsPing, Action_toolsHealthCheck,
+  Action_callRestApiVer2, Action_callRestApiVer3,
+  Action_batchRestApiVer2, Action_batchRestApiVer2DataStorage, Action_batchRestApiVer2DataStorageDelete
+} from '../examples'
 
 export function useCodeExample() {
   const mapActions = new Map([
-    ['toolsPingAction', toolsPingAction]
+    ['toolsPingAction', Action_toolsPing],
+    ['toolsHealthCheckAction', Action_toolsHealthCheck],
+    ['callRestApiVer2Action', Action_callRestApiVer2],
+    ['callRestApiVer3Action', Action_callRestApiVer3],
+    ['batchRestApiVer2Action', Action_batchRestApiVer2],
+    ['batchRestApiVer2DataStorageAction', Action_batchRestApiVer2DataStorage],
+    ['batchRestApiVer2DataStorageDeleteAction', Action_batchRestApiVer2DataStorageDelete]
   ])
 
   function prepareTitle(name: string): string {

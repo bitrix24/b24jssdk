@@ -219,26 +219,10 @@ const clearHook = async () => {
                       <B24Badge size="sm" color="air-secondary-accent-2" label="user_brief" />
                       <B24Badge size="sm" color="air-secondary-accent-2" label="crm" />
                       <B24Badge size="sm" color="air-secondary-accent-2" label="tasks" />
+                      <B24Badge size="sm" color="air-secondary-accent-2" label="entity" />
                     </div>
 
                     <B24Tabs size="sm" :items="[{ label: 'B24Hook', slot: 'B24Hook' as const }]" class="w-full mb-4">
-                      <template #B24Frame>
-                        <ProseP small less>This is the <ProseStrong>recommended</ProseStrong> method for testing and working with the Bitrix24 REST API.</ProseP>
-                        <ProseP>Add the documentation site as an application in Bitrix24.</ProseP>
-                        <ProseP>1. Create an application.</ProseP>
-                        <ProseUl>
-                          <ProseLi>Use the <B24Link is-action target="_blank" to="https://apidocs.bitrix24.com/local-integrations/serverside-local-app-with-ui.html">developer section.</B24Link> to create an embedded application.</ProseLi>
-                          <ProseLi>In the "Your handler path*" field, specify: <ProseCode>https://bitrix24.github.io/b24jssdk/</ProseCode></ProseLi>
-                          <ProseLi>Configure the permissions required for the examples to work.</ProseLi>
-                          <ProseLi>Save the application.</ProseLi>
-                        </ProseUl>
-                        <ProseP>2. Open the application.</ProseP>
-                        <ProseUl>
-                          <ProseLi>Run the added application directly from your Bitrix24 menu.</ProseLi>
-                          <ProseLi>The application will open in embedded mode.</ProseLi>
-                          <ProseLi>All code samples on the page will automatically gain secure access to your portal's API via the <ProseCode>B24Frame</ProseCode> object.</ProseLi>
-                        </ProseUl>
-                      </template>
                       <template #B24Hook>
                         <ProseP>Insert URL here <ProseCode>WebHook</ProseCode> to try out the code examples in action.</ProseP>
                         <B24FieldGroup class="mb-4 w-full lg:max-w-[500px]">

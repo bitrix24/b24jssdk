@@ -29,7 +29,6 @@ export async function fetchCodeExample(name: string): Promise<CodeExample> {
   }
 
   // Store promise to avoid multiple calls
-  console.warn(`/api/code-examples/${name}.json`)
   state.value[name] = $fetch<CodeExample>(`/api/code-examples/${name}.json`).then((data) => {
     state.value[name] = data
   }).catch((error) => {

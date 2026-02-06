@@ -162,25 +162,26 @@ export const useB24 = () => {
         continue
       }
 
-      if (trimmedLine.includes('export async function toolsPingAction()')) {
+      if (trimmedLine.includes('export async function Action_')) {
+        resultLines.push('')
         inFunction = true
         braceDepth++
         continue
       }
 
+      if (trimmedLine.includes('region: start')) {
+        inStartRegion = true
+        continue
+      }
+
+      if (trimmedLine.includes('endregion: start')) {
+        inStartRegion = false
+        break
+      }
+
       if (inFunction) {
         if (line.includes('{')) braceDepth++
         if (line.includes('}')) braceDepth--
-
-        if (trimmedLine.includes('region: start')) {
-          inStartRegion = true
-          continue
-        }
-
-        if (trimmedLine.includes('endregion: start')) {
-          inStartRegion = false
-          continue
-        }
 
         if (inStartRegion && !trimmedLine.includes('region: start')) {
           let processedLine = line
@@ -208,12 +209,15 @@ export const useB24 = () => {
             processedLine = line.replace(HOOK_REPLACE_IN_EXAMPLE, '')
           }
 
-          resultLines.push(processedLine)
+          resultLines.push(processedLine.slice(2))
         }
 
         if (braceDepth === 0 && inFunction) {
           inFunction = false
         }
+      } else if (inStartRegion) {
+        const processedLine = line
+        resultLines.push(processedLine.slice(2))
       }
     }
 

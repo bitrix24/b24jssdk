@@ -56,7 +56,6 @@ make(
 ::code-example
 ---
 name: 'tools-ping'
-show-exports: true
 ---
 ::
 

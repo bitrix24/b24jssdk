@@ -1,6 +1,6 @@
 import { B24Hook, LoggerFactory } from '@bitrix24/b24jssdk'
 
-export async function toolsPingAction() {
+export async function Action_toolsPing() {
   // region: start ////
   const _devMode = typeof import.meta !== 'undefined' && (import.meta.dev || import.meta.env?.DEV)
   const $logger = LoggerFactory.createForBrowser('Example:ping', true)

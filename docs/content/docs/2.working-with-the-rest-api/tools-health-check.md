@@ -53,39 +53,11 @@ make(
 
 ### Availability check
 
-```ts [HealthCheck.ts]
-import { B24Hook, LoggerFactory } from '@bitrix24/b24jssdk'
-
-const devMode = typeof import.meta !== 'undefined' && (import.meta.dev || import.meta.env?.DEV)
-const $logger = LoggerFactory.createForBrowser('Example:healthCheck', devMode)
-const $b24 = B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/webhook_code/')
-
-async function checkRestApiHealth(): Promise<boolean> {
-  try {
-    const isHealthy = await $b24.tools.healthCheck.make({
-      requestId: `unique-request-id`
-    })
-    
-    return isHealthy
-  } catch (error) {
-    $logger.error('Health check failed unexpectedly', { error })
-    return false
-  }
-}
-
-// Usage
-try {
-  const apiAvailable = await checkRestApiHealth()
-  
-  if (apiAvailable) {
-    $logger.info('Bitrix24 API is available and responding')
-  } else {
-    $logger.error('Bitrix24 API is unavailable. Check:\n1. Correctness of webhook URL\n2. Bitrix24 availability from your network')
-  }
-} catch (error) {
-  $logger.error('Failed to perform health check', { error })
-}
-```
+::code-example
+---
+name: 'tools-health-check'
+---
+::
 
 ## Alternatives and Recommendations
 

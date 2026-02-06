@@ -1,1 +1,7 @@
 export * from './tools-ping'
+export * from './tools-health-check'
+export * from './call-rest-api-ver2'
+export * from './call-rest-api-ver3'
+export * from './batch-rest-api-ver2'
+export * from './batch-rest-api-ver2-data-storage'
+export * from './batch-rest-api-ver2-data-storage-delete'

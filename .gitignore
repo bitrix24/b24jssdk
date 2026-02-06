@@ -1,8 +1,6 @@
 # dependencies
 /node_modules
-/cli/**/node_modules
 /docs/**/node_modules
-/docs_2/**/node_modules
 /packages/**/node_modules
 /playgrounds/**/node_modules
 
@@ -59,8 +57,7 @@ Thumbs.db
 /playgrounds/**/.nuxt
 /playgrounds/**/.data
 /playgrounds/**/.output
-docs_2/.vitepress/dist
-docs_2/.vitepress/cache
+docs/dist
 docs/auto-imports.d.ts
 docs/components.d.ts
 

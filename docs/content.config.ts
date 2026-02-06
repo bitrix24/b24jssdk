@@ -60,7 +60,7 @@ export const collections = {
       include: 'docs/**/*'
     }],
     schema: z.object({
-      category: z.enum(['actions', 'tools', 'logger', 'limiters']).optional(),
+      category: z.enum(['actions', 'tools', 'logger', 'limiters', 'B24Frame', 'B24Hook', 'B24OAuth']).optional(),
       restApiVersion: z.enum(['rest-api-ver2', 'rest-api-ver3']).optional(),
       badge: z.string().optional(),
       navigation: z.object({

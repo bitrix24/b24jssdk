@@ -35,6 +35,14 @@ const pages = [
   '/docs/working-with-the-rest-api/logger/',
   '/docs/working-with-the-rest-api/logger-telegram/',
   '/docs/working-with-the-rest-api/limiters/',
+  '/docs/working-with-the-rest-api/frame/',
+  '/docs/working-with-the-rest-api/frame-auth/',
+  '/docs/working-with-the-rest-api/frame-dialog/',
+  '/docs/working-with-the-rest-api/frame-initialize-b24-frame/',
+  '/docs/working-with-the-rest-api/frame-parent/',
+  '/docs/working-with-the-rest-api/frame-placement/',
+  '/docs/working-with-the-rest-api/frame-options/',
+  '/docs/working-with-the-rest-api/frame-slider/',
   // endregion ////
   // region examples ////
   '/docs/examples/'

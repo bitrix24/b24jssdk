@@ -31,6 +31,24 @@ const categories = {
       title: 'Limiters',
       // @todo ! insert icon
       icon: ItemIcon
+    },
+    {
+      id: 'B24Frame',
+      title: 'B24Frame',
+      // @todo ! insert icon
+      icon: ItemIcon
+    },
+    {
+      id: 'B24Hook',
+      title: 'B24Hook',
+      // @todo ! insert icon
+      icon: ItemIcon
+    },
+    {
+      id: 'B24OAuth',
+      title: 'B24OAuth',
+      // @todo ! insert icon
+      icon: ItemIcon
     }
   ],
   'getting-started': [

@@ -6,6 +6,7 @@
 * docs(codeExample): added the ability to test examples
 * fix(core\RestrictionManager): add the error code 'ERROR_ENTITY_NOT_FOUND' to the soft exception
 * playground(cli): increased the number of entities created
+* docs(B24Frame): add some pages
 
 ## [1.0.1](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.0.1) (2026-02-02)
 

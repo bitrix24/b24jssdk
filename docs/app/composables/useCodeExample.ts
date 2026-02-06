@@ -3,7 +3,8 @@ import { SdkError } from '@bitrix24/b24jssdk'
 import {
   Action_toolsPing, Action_toolsHealthCheck,
   Action_callRestApiVer2, Action_callRestApiVer3,
-  Action_batchRestApiVer2, Action_batchRestApiVer2DataStorage, Action_batchRestApiVer2DataStorageDelete
+  Action_batchRestApiVer2, Action_batchRestApiVer2DataStorage, Action_batchRestApiVer2DataStorageDelete,
+  Action_frameParentCall
 } from '../examples'
 
 export function useCodeExample() {
@@ -14,7 +15,8 @@ export function useCodeExample() {
     ['callRestApiVer3Action', Action_callRestApiVer3],
     ['batchRestApiVer2Action', Action_batchRestApiVer2],
     ['batchRestApiVer2DataStorageAction', Action_batchRestApiVer2DataStorage],
-    ['batchRestApiVer2DataStorageDeleteAction', Action_batchRestApiVer2DataStorageDelete]
+    ['batchRestApiVer2DataStorageDeleteAction', Action_batchRestApiVer2DataStorageDelete],
+    ['frameParentCallAction', Action_frameParentCall]
   ])
 
   function prepareTitle(name: string): string {

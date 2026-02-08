@@ -277,7 +277,7 @@ const clearHook = async () => {
                 </B24Alert>
               </div>
             </template>
-            <template v-else>
+            <template v-else-if="b24Instance.isInit() && ((props.b24FrameOnly && !b24Instance.isFrame()) || !props.b24FrameOnly)">
               <B24Badge
                 class="z-[2] absolute -top-[11px] right-[11px]"
                 size="sm"

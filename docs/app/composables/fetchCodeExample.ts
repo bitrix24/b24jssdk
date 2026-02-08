@@ -3,7 +3,6 @@ export interface CodeExample {
   filePath: string
   content: string
   type: 'ts' | 'js' | 'vue' | 'other'
-  exports?: string[]
 }
 
 const useCodeExampleState = () => useState<Record<string, CodeExample | any>>('code-example-state', () => ({}))

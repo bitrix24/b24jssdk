@@ -8,7 +8,6 @@ interface CodeExample {
   filePath: string
   content: string
   type: 'ts' | 'js' | 'vue' | 'other'
-  exports?: string[]
 }
 
 export default defineNuxtModule({
@@ -80,40 +79,15 @@ export default defineNuxtModule({
         const parsed = parse(relativePath)
         const name = parsed.name
 
-        // Извлекаем экспорты из TypeScript/JavaScript файлов
-        let exports: string[] = []
-        if (parsed.ext === '.ts' || parsed.ext === '.js' || parsed.ext === '.mjs') {
-          exports = extractExports(content)
-        }
-
         examples[name] = {
           name,
           filePath,
           content,
-          type: getFileType(filePath),
-          exports
+          type: getFileType(filePath)
         }
       } catch (error) {
         console.error(`Error reading example ${filePath}:`, error)
       }
-    }
-
-    function extractExports(content: string): string[] {
-      const exports: string[] = []
-
-      // Looking for named exports
-      const namedExportRegex = /export\s+(?:const|let|var|function|class|async\s+function|interface|type)\s+(\w+)/g
-      let match
-      while ((match = namedExportRegex.exec(content)) !== null && match[1]) {
-        exports.push(match[1])
-      }
-
-      // Search for export default
-      if (content.includes('export default')) {
-        exports.push('default')
-      }
-
-      return exports
     }
 
     const getStringifiedExamples = () => JSON.stringify(examples, null, 2)

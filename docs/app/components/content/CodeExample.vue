@@ -25,6 +25,13 @@ const props = withDefaults(defineProps<{
    */
   preview?: boolean
   /**
+   * Run examples only in the Bitrix24 frame
+   * When `true`, a button to run the code is displayed in the frame;
+   *     otherwise, we won't show anything, since it's not possible to run the code from Git Page.
+   * @defaultValue false
+   */
+  b24FrameOnly?: boolean
+  /**
    * Whether to show the source code
    * @defaultValue true
    */
@@ -53,6 +60,7 @@ const props = withDefaults(defineProps<{
   filename?: string
 }>(), {
   preview: true,
+  b24FrameOnly: false,
   source: true,
   border: true,
   lang: 'ts'
@@ -119,8 +127,22 @@ const { data: ast } = await useAsyncData(`code-example-${camelName}${hash({ coll
   return parseMarkdown(formatted)
 }, { watch: [code] })
 
-const isCanShowAction = computed(() => {
-  return isHasAction(camelName)
+const isCanShowAction = computed<boolean>(() => {
+  if (!props.preview) {
+    return false
+  }
+
+  if (!isHasAction(camelName)) {
+    return false
+  }
+
+  if (b24Instance.isInit()) {
+    if (props.b24FrameOnly && !b24Instance.isFrame()) {
+      return false
+    }
+  }
+
+  return true
 })
 
 const makeAction = async () => {
@@ -180,7 +202,7 @@ const clearHook = async () => {
 
 <template>
   <div ref="el" class="my-5">
-    <template v-if="preview && isCanShowAction">
+    <template v-if="isCanShowAction">
       <div
         ref="wrapperContainer"
         class="relative group/component"
@@ -196,7 +218,6 @@ const clearHook = async () => {
         >
           <div v-if="isLoading" class="p-8">
             <div class="space-y-4">
-              <B24Skeleton class="h-4 w-full" />
               <B24Skeleton class="h-4 w-full" />
               <B24Skeleton class="h-4 w-full" />
               <B24Skeleton class="h-4 w-3/4" />

@@ -238,7 +238,7 @@ const clearHook = async () => {
         <div
           class="relative z-[1]"
           :class="[{
-            'border-(--ui-color-design-tinted-na-stroke) border': props.border || !b24Instance.isInit,
+            'border-(--ui-color-design-tinted-na-stroke) border': props.border || !b24Instance.isInit(),
             'border-b-0 rounded-t-md': props.source,
             'rounded-md': !props.source,
             'overflow-hidden': props.overflowHidden
@@ -286,7 +286,7 @@ const clearHook = async () => {
             </div>
           </div>
           <template v-else>
-            <template v-if="!b24Instance.isInit">
+            <template v-if="!b24Instance.isInit()">
               <div
                 class="flex justify-center p-[16px] bg-grid-example [mask-image:linear-gradient(0deg,rgba(255,255,255,0.09),rgba(255,255,255,0.18))"
               >

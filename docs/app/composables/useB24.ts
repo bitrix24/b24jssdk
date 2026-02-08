@@ -1,5 +1,5 @@
 import type { B24FrameQueryParams, LoggerInterface } from '@bitrix24/b24jssdk'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { B24Hook, B24Frame, LoggerFactory, Result, SdkError } from '@bitrix24/b24jssdk'
 
 const sessionKey = 'b24Hook'
@@ -130,9 +130,9 @@ export const useB24 = () => {
     return get() instanceof B24Frame
   }
 
-  const isInit = computed<boolean>(() => {
+  function isInit() {
     return type.value !== 'undefined'
-  })
+  }
 
   function targetOrigin() {
     return get()?.getTargetOrigin() || '?'

@@ -144,7 +144,7 @@ export default defineNuxtConfig({
   nitro: {
     prerender: {
       routes: [
-        // ...pages.map((page: string) => `${withoutTrailingSlash(`/raw${page}`)}.md`),
+        ...pages.map((page: string) => `${withoutTrailingSlash(`/raw${page}`)}.md`),
         ...pagesFrameExamples,
         ...pagesService
       ],
@@ -175,6 +175,9 @@ export default defineNuxtConfig({
     domain: `${prodUrl}${baseUrl}`,
     title: 'Bitrix24 JS SDK',
     description: 'A comprehensive JavaScript library integrated with Bitrix24, providing a powerful and convenient toolkit for interacting with the Bitrix24 REST API, enabling secure and efficient management of data and processes in web application development.',
+    // Disable content module's built-in raw markdown route - we use our own custom handler
+    // in server/routes/raw/[...slug].md.get.ts that applies MDC transformations
+    contentRawMarkdown: false,
     full: {
       title: 'Bitrix24 JS SDK Full Documentation',
       description: 'This is the full documentation for Bitrix24 JS SDK. It includes all the Markdown files written with the MDC syntax.'

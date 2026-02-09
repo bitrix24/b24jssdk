@@ -289,32 +289,6 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
     ]
   })
 
-  const componentsListNodes: any[] = []
-  visit(doc.body, (node) => {
-    if (Array.isArray(node) && node[0] === 'components-list') {
-      componentsListNodes.push(node)
-    }
-    return true
-  }, node => node)
-
-  for (const node of componentsListNodes) {
-    const category = node[1]?.category
-    if (!category) continue
-
-    const components = await queryCollection(event, 'docs')
-      .where('path', 'LIKE', '/docs/components/%')
-      .where('extension', '=', 'md')
-      .where('category', '=', category)
-      .select('path', 'title')
-      .all()
-
-    const links = components.map((c: any) => `- [${c.title}](${config.public.canonicalUrl}${config.public.baseUrl}/raw${c.path}.md)`).join('\n')
-
-    node[0] = 'p'
-    node[1] = {}
-    node[2] = links
-  }
-
   processLinks(doc.body.value, baseUrl)
 
   return doc

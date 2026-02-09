@@ -1,7 +1,6 @@
 import type { H3Event } from 'h3'
 // import { camelCase } from 'scule'
 import { visit } from '@nuxt/content/runtime'
-import { queryCollection } from '@nuxt/content/server'
 // @ts-expect-error - no types available
 import examples from '#code-example/nitro'
 import { useB24 } from '../../app/composables/useB24'

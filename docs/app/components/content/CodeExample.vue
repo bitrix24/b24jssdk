@@ -86,6 +86,24 @@ const isLoading = ref(true)
 const camelName = prepareTitle(props.name)
 const data = await fetchCodeExample(props.name)
 
+const isCanShowAction = computed<boolean>(() => {
+  if (!props.preview) {
+    return false
+  }
+
+  if (!isHasAction(camelName)) {
+    return false
+  }
+
+  if (!b24Instance.isInit()) {
+    if (props.b24FrameOnly) {
+      return false
+    }
+  }
+
+  return true
+})
+
 const code = computed(() => {
   let code = ''
 
@@ -95,7 +113,7 @@ const code = computed(() => {
   }
 
   const preparedCode = b24Instance.prepareCode(data?.content ?? '')
-  code += `\`\`\`${props.lang} ${props.preview ? '' : ` [${props.filename ?? data.name}.${props.lang}]`}${props.highlights?.length ? `{${props.highlights.join('-')}}` : ''}
+  code += `\`\`\`${props.lang} ${isCanShowAction.value ? '' : ` [${props.filename ?? data.name}.${props.lang}]`}${props.highlights?.length ? `{${props.highlights.join('-')}}` : ''}
 ${preparedCode}
 \`\`\``
 
@@ -126,24 +144,6 @@ const { data: ast } = await useAsyncData(`code-example-${camelName}${hash({ coll
 
   return parseMarkdown(formatted)
 }, { watch: [code] })
-
-const isCanShowAction = computed<boolean>(() => {
-  if (!props.preview) {
-    return false
-  }
-
-  if (!isHasAction(camelName)) {
-    return false
-  }
-
-  if (!b24Instance.isInit()) {
-    if (props.b24FrameOnly) {
-      return false
-    }
-  }
-
-  return true
-})
 
 const makeAction = async () => {
   return runAction(camelName)

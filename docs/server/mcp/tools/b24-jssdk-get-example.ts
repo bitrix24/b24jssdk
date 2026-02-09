@@ -5,14 +5,14 @@ export default defineMcpTool({
   title: 'Get Example',
   description: 'Retrieves specific JS SDK example implementation code and details',
   inputSchema: {
-    exampleName: z.string().describe('The name of the example (PascalCase)')
+    exampleName: z.string().describe('The name of the example')
   },
   cache: '30m',
   async handler({ exampleName }) {
     const b24Instance = useB24()
 
     try {
-      const result = await $fetch<{ code: string }>(`/api/component-example/${exampleName}.json`)
+      const result = await $fetch<{ code: string }>(`/api/code-examples/${exampleName}.json`)
 
       const code = b24Instance.prepareCode(result.code)
 

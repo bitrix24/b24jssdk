@@ -1,15 +1,15 @@
 // @ts-expect-error - no types available
-import components from '#component-example/nitro'
+import examples from '#code-example/nitro'
 
 export default defineMcpTool({
   title: 'List Examples',
   description: 'Lists all available JS SDK examples and code demonstrations',
   cache: '1h',
   handler() {
-    const examples = Object.entries<{ pascalName: string }>(components).map(([_key, value]) => {
-      return value.pascalName
+    const list = Object.entries<{ name: string }>(examples).map(([_key, value]) => {
+      return value.name
     })
 
-    return jsonResult(examples)
+    return jsonResult(list)
   }
 })

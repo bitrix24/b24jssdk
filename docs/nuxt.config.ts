@@ -1,8 +1,8 @@
-import { createResolver } from '@nuxt/kit'
+// import { createResolver } from '@nuxt/kit'
 import pkg from '../package.json'
 import { withoutTrailingSlash } from 'ufo'
 
-const { resolve } = createResolver(import.meta.url)
+// const { resolve } = createResolver(import.meta.url)
 
 /**
  * @memo need add pages for raw/***.md
@@ -78,16 +78,6 @@ export default defineNuxtConfig({
     '@nuxtjs/mcp-toolkit',
     'nuxt-og-image',
     'motion-v/nuxt',
-    (_, nuxt) => {
-      nuxt.hook('components:dirs', (dirs) => {
-        dirs.unshift({
-          path: resolve('./app/components/content/examples'),
-          pathPrefix: false,
-          prefix: '',
-          global: true
-        })
-      })
-    },
     'nuxt-llms'
   ],
 
@@ -154,7 +144,7 @@ export default defineNuxtConfig({
   nitro: {
     prerender: {
       routes: [
-        ...pages.map((page: string) => `${withoutTrailingSlash(`/raw${page}`)}.md`),
+        // ...pages.map((page: string) => `${withoutTrailingSlash(`/raw${page}`)}.md`),
         ...pagesFrameExamples,
         ...pagesService
       ],

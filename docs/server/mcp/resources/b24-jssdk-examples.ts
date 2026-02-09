@@ -1,5 +1,5 @@
 // @ts-expect-error - no types available
-import components from '#component-example/nitro'
+import examples from '#code-example/nitro'
 
 export default defineMcpResource({
   title: 'Bitrix24 JS SDK Examples',
@@ -7,15 +7,15 @@ export default defineMcpResource({
   description: 'Complete list of available Bitrix24 JS SDK example code and demonstrations',
   cache: '1h',
   handler(uri: URL) {
-    const examples = Object.entries<{ pascalName: string }>(components).map(([_key, value]) => {
-      return value.pascalName
+    const list = Object.entries<{ name: string }>(examples).map(([_key, value]) => {
+      return value.name
     })
 
     return {
       contents: [{
         uri: uri.toString(),
         mimeType: 'application/json',
-        text: JSON.stringify(examples, null, 2)
+        text: JSON.stringify(list, null, 2)
       }]
     }
   }

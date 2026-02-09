@@ -1,9 +1,7 @@
 import type { H3Event } from 'h3'
-import { camelCase } from 'scule'
+// import { camelCase } from 'scule'
 import { visit } from '@nuxt/content/runtime'
 import { queryCollection } from '@nuxt/content/server'
-// @ts-expect-error - no types available
-import components from '#component-example/nitro'
 // @ts-expect-error - no types available
 import examples from '#code-example/nitro'
 import { useB24 } from '../../app/composables/useB24'
@@ -154,20 +152,6 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
   const config = useRuntimeConfig()
   const baseUrl = `${config.public.canonicalUrl}${config.public.baseUrl}/raw`
   const b24Instance = useB24()
-
-  visitAndReplace(doc, 'component-example', (node) => {
-    const camelName = camelCase(node[1]['name'])
-    const lang = node[1]['lang'] ?? 'vue'
-    const name = camelName.charAt(0).toUpperCase() + camelName.slice(1)
-    const propsName = node[1]['filename'] ?? name
-    try {
-      const code = b24Instance.prepareCode(components[name]?.code || '')
-      replaceNodeWithPre(node, lang, code, `${propsName}.${lang}`)
-    } catch (error) {
-      console.error(error, { name })
-      replaceNodeWithPre(node, 'vue', '? visitAndReplace ?', `${name}.${lang}`)
-    }
-  })
 
   visitAndReplace(doc, 'code-example', (node) => {
     // const camelName = camelCase(node[1]['name'])

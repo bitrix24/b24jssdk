@@ -13,8 +13,6 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  devServer: { port: 3001 },
-
   /**
    * @memo this will be overwritten from .env or Docker_*
    * @see https://nuxt.com/docs/guide/going-further/runtime-config#example
@@ -22,6 +20,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {}
   },
+
+  devServer: { port: 3001 },
 
   compatibilityDate: '2024-07-09',
 

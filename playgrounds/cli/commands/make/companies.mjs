@@ -7,8 +7,6 @@ import dotenv from 'dotenv'
  *
  * Usage:
  * clear; node ./index.mjs make companies --total=10
- *
- * @todo fix problem args
  */
 
 dotenv.config({ path: '../../.env', quiet: true })
@@ -42,16 +40,18 @@ export default defineCommand({
   args: {
     total: {
       description: 'Number of companies to create',
-      default: 10
+      required: true
     },
     assignedById: {
       description: 'Assigned user ID',
-      default: 1
+      default: '1'
     }
   },
   async setup({ args }) {
-    args.total = 1000
-    args.assignedById = 1
+    const params = {
+      total: Number.parseInt(args.total),
+      assignedById: Number.parseInt(args.assignedById)
+    }
 
     let createdCount = 0
     let errors = []
@@ -134,7 +134,7 @@ export default defineCommand({
 
       return {
         title: companyName,
-        assignedById: args.assignedById,
+        assignedById: params.assignedById,
         open: 'Y',
         typeId: 'CLIENT',
         sourceId: 'OTHER',
@@ -206,7 +206,7 @@ export default defineCommand({
      * Displays creation progress
      */
     function showProgress() {
-      const percentage = Math.round((createdCount / args.total) * 100)
+      const percentage = Math.round((createdCount / params.total) * 100)
 
       const progressBarLength = 20
       const filledLength = Math.floor(percentage / 100 * progressBarLength)
@@ -214,7 +214,7 @@ export default defineCommand({
 
       process.stdout.clearLine()
       process.stdout.cursorTo(0)
-      process.stdout.write(`\rProgress: [${progressBar}] ${percentage}% (${createdCount}/${args.total})`)
+      process.stdout.write(`\rProgress: [${progressBar}] ${percentage}% (${createdCount}/${params.total})`)
     }
 
     /**
@@ -222,8 +222,8 @@ export default defineCommand({
      */
     async function createRandomContacts() {
       logger.notice('🚀 Starting creation of random companies in Bitrix24')
-      logger.notice(`📊 Planned to create: ${args.total} companies`)
-      logger.notice(`👤 Responsible: user ID ${args.assignedById}`)
+      logger.notice(`📊 Planned to create: ${params.total} companies`)
+      logger.notice(`👤 Responsible: user ID ${params.assignedById}`)
       logger.notice('─'.repeat(50))
 
       const healthCheckData = await b24.tools.healthCheck.make({ requestId: 'healthCheck' })
@@ -235,7 +235,7 @@ export default defineCommand({
 
       const startTime = Date.now()
 
-      for (let i = 0; i < args.total; i++) {
+      for (let i = 0; i < params.total; i++) {
         await createCompany(i + 1)
         showProgress()
       }
@@ -248,7 +248,7 @@ export default defineCommand({
       logger.notice('✅ Completed!')
       logger.notice(`📈 Successfully created: ${createdCount} companies`)
       logger.notice(`⏱️ Total execution time: ${duration} seconds`)
-      logger.notice(`📊 Average time per company: ${(duration / args.total).toFixed(2)} seconds`)
+      logger.notice(`📊 Average time per company: ${(duration / params.total).toFixed(2)} seconds`)
 
       if (errors.length > 0) {
         logger.notice(`❌ Errors encountered: ${errors.length}`)

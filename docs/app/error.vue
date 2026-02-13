@@ -10,7 +10,7 @@ const props = defineProps<{
 const route = useRoute()
 const config = useRuntimeConfig()
 
-const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs', []))
+const { data: navigation } = await useAsyncData('navigationInError', () => queryCollectionNavigation('docs', []))
 const { data: files } = useLazyAsyncData(
   'search-error',
   async () => {

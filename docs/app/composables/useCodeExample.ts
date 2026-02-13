@@ -4,7 +4,9 @@ import {
   Action_toolsPing, Action_toolsHealthCheck,
   Action_callRestApiVer2, Action_callRestApiVer3,
   Action_batchRestApiVer2, Action_batchRestApiVer2DataStorage, Action_batchRestApiVer2DataStorageDelete,
-  Action_frameParentCall
+  Action_frameParentCall,
+  Action_frameSliderAppPageOpen, Action_frameSliderAppPageClose, Action_frameSliderOpenPath
+
 } from '../examples'
 
 export function useCodeExample() {
@@ -16,7 +18,10 @@ export function useCodeExample() {
     ['batchRestApiVer2Action', Action_batchRestApiVer2],
     ['batchRestApiVer2DataStorageAction', Action_batchRestApiVer2DataStorage],
     ['batchRestApiVer2DataStorageDeleteAction', Action_batchRestApiVer2DataStorageDelete],
-    ['frameParentCallAction', Action_frameParentCall]
+    ['frameParentCallAction', Action_frameParentCall],
+    ['frameSliderAppPageOpenAction', Action_frameSliderAppPageOpen],
+    ['frameSliderAppPageCloseAction', Action_frameSliderAppPageClose],
+    ['frameSliderOpenPathAction', Action_frameSliderOpenPath]
   ])
 
   function prepareTitle(name: string): string {

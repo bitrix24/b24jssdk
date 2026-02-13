@@ -21,6 +21,7 @@ definePageMeta({
 
 const { data: page } = await useAsyncData(kebabCase(route.path), () => queryCollection('docs').path(route.path).first())
 if (!page.value) {
+  console.error('Page not found', { route: route.path })
   throw createError({ status: 404, statusText: 'Page not found' })
 }
 

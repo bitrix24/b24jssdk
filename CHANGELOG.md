@@ -6,7 +6,7 @@
 * playground(cli): increased the number of entities created
 * docs(codeExample): added the ability to test examples
 * docs(install): add React
-* docs(B24Frame): add some pages
+* docs(B24Frame): add info
 * docs(LLMs): improve
 
 ## [1.0.1](https://github.com/bitrix24/b24jssdk/compare/v0.5.1...v1.0.1) (2026-02-02)

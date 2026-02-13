@@ -228,6 +228,15 @@ export const useB24 = () => {
     return transformCodeForDocumentationSafe(code)
   }
 
+  function getRequiredRights(): string[] {
+    return [
+      'user_brief',
+      'crm',
+      'tasks',
+      'entity'
+    ]
+  }
+
   return {
     HOOK_PLACEHOLDER,
     buildLogger,
@@ -239,6 +248,7 @@ export const useB24 = () => {
     isInit,
     targetOrigin,
     removeHookFromSessionStorage,
-    prepareCode
+    prepareCode,
+    getRequiredRights
   }
 }

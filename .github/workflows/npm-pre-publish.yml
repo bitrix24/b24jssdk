@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NUXT_PUBLIC_USE_AI: false
+      NUXT_PUBLIC_USE_TAB_B24FRAME: false
       NUXT_PUBLIC_SITE_URL: https://bitrix24.github.io
       NUXT_PUBLIC_BASE_URL: /b24jssdk
       NUXT_PUBLIC_CANONICAL_URL: https://bitrix24.github.io

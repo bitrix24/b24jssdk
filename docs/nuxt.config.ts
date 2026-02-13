@@ -122,6 +122,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       useAI: false,
+      useTabB24frame: false,
       version: pkg.version,
       siteUrl: prodUrl,
       baseUrl,

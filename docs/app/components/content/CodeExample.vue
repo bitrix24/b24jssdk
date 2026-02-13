@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { hash } from 'ohash'
+import type { TabsItem } from '@bitrix24/b24ui-nuxt'
 import type { Result } from '@bitrix24/b24jssdk'
+import { hash } from 'ohash'
+import ConnectByHook from './ConnectByHook.vue'
 import CloudSyncIcon from '@bitrix24/b24icons-vue/outline/CloudSyncIcon'
 import CloudErrorIcon from '@bitrix24/b24icons-vue/main/CloudErrorIcon'
 import TerminalIcon from '@bitrix24/b24icons-vue/file-type/TerminalIcon'
@@ -71,6 +73,8 @@ const slots = defineSlots<{
   code(props?: {}): any
 }>()
 
+const config = useRuntimeConfig()
+
 const el = ref<HTMLElement | null>(null)
 const wrapperContainer = ref<HTMLElement | null>(null)
 
@@ -80,7 +84,6 @@ const { $prettier } = useNuxtApp()
 const toast = useToast()
 
 const b24Instance = useB24()
-const userInput = ref('')
 const isLoading = ref(true)
 
 const camelName = prepareTitle(props.name)
@@ -162,13 +165,13 @@ onMounted(async () => {
   isLoading.value = false
 })
 
-const saveHook = () => {
+const saveHook = (data: { hook: string }) => {
   if (
     !b24Instance.isHookFromEnv()
-    && userInput.value.length > 0
+    && data.hook.length > 0
   ) {
     // now init b24Hook
-    const result: Result = b24Instance.set(userInput.value)
+    const result: Result = b24Instance.set(data.hook)
     if (!result.isSuccess) {
       toast.add({
         title: 'Error',
@@ -178,9 +181,11 @@ const saveHook = () => {
       })
     }
 
-    userInput.value = ''
+    connectByHookRef.value?.clearHook()
   }
 }
+
+const connectByHookRef = ref<InstanceType<typeof ConnectByHook> | null>(null)
 
 const clearHook = async () => {
   if (!b24Instance.isHookFromEnv()) {
@@ -195,9 +200,21 @@ const clearHook = async () => {
       })
     }
 
-    userInput.value = ''
+    connectByHookRef.value?.clearHook()
   }
 }
+
+const tabs = computed<TabsItem[]>(() => {
+  const items: TabsItem[] = [
+    { label: 'B24Hook', slot: 'B24Hook' }
+  ]
+
+  if (config.public.useTabB24frame) {
+    items.unshift({ label: 'B24Frame', slot: 'B24Frame' })
+  }
+
+  return items
+})
 </script>
 
 <template>
@@ -216,66 +233,36 @@ const clearHook = async () => {
             'overflow-hidden': props.overflowHidden
           }]"
         >
-          <div v-if="isLoading" class="p-8">
-            <div class="space-y-4">
-              <B24Skeleton class="h-4 w-full" />
-              <B24Skeleton class="h-4 w-full" />
-              <B24Skeleton class="h-4 w-3/4" />
-            </div>
-          </div>
+          <ConnectLoader v-if="isLoading" />
           <template v-else>
             <template v-if="!b24Instance.isInit()">
-              <div
-                class="flex justify-center p-[8px] bg-grid-example [mask-image:linear-gradient(0deg,rgba(255,255,255,0.09),rgba(255,255,255,0.18))"
+              <B24Alert
+                title="Want to test the example?"
+                color="air-secondary-accent-2"
+                :icon="CloudSyncIcon"
+                :class="[{
+                  'border-b-0 rounded-t-md rounded-b-none': props.source,
+                  'rounded-md': !props.source,
+                  'overflow-hidden': props.overflowHidden
+                }]"
               >
-                <B24Alert
-                  size="sm"
-                  title="Want to test the example?"
-                  color="air-secondary-accent-2"
-                  :icon="CloudSyncIcon"
-                >
-                  <template #description>
-                    <div class="my-4 flex flex-row flex-wrap gap-1 items-center justify-start">
-                      <ProseP small class="mb-0">Required rights:</ProseP>
-                      <B24Badge size="sm" color="air-secondary-accent-2" label="user_brief" />
-                      <B24Badge size="sm" color="air-secondary-accent-2" label="crm" />
-                      <B24Badge size="sm" color="air-secondary-accent-2" label="tasks" />
-                      <B24Badge size="sm" color="air-secondary-accent-2" label="entity" />
-                    </div>
-
-                    <B24Tabs size="sm" :items="[{ label: 'B24Hook', slot: 'B24Hook' as const }]" class="w-full mb-4">
-                      <template #B24Hook>
-                        <ProseP>Insert URL here <ProseCode>WebHook</ProseCode> to try out the code examples in action.</ProseP>
-                        <B24FieldGroup class="mb-4 w-full lg:max-w-[500px]">
-                          <B24Input
-                            v-model.trim="userInput"
-                            class="w-full"
-                            color="air-primary"
-                            highlight
-                            placeholder="https://some.bitrix24.com/rest/user_id/secret/"
-                            @keydown.enter="saveHook"
-                          />
-
-                          <B24Button
-                            label="Save"
-                            color="air-primary"
-                            :disabled="userInput.length < 10"
-                            @click="saveHook"
-                          />
-                        </B24FieldGroup>
-                        <ProseUl>
-                          <ProseLi>
-                            <ProseStrong>Secure storage:</ProseStrong> <ProseCode>WebHook</ProseCode> is saved only in your browser's Session Storage and is deleted after you close all documentation tabs.
-                          </ProseLi>
-                          <ProseLi>
-                            <ProseStrong>Access in examples:</ProseStrong> All examples will access your portal through the <ProseCode>B24Hook</ProseCode> object.
-                          </ProseLi>
-                        </ProseUl>
-                      </template>
-                    </B24Tabs>
-                  </template>
-                </B24Alert>
-              </div>
+                <template #description>
+                  <B24Tabs size="sm" :items="tabs" class="w-full mb-4">
+                    <template #B24Hook>
+                      <ConnectByHook
+                        ref="connectByHookRef"
+                        :required-rights="b24Instance.getRequiredRights()"
+                        @save-hook="saveHook"
+                      />
+                    </template>
+                    <template #B24Frame>
+                      <ConnectByFrame
+                        :required-rights="b24Instance.getRequiredRights()"
+                      />
+                    </template>
+                  </B24Tabs>
+                </template>
+              </B24Alert>
             </template>
             <template v-else>
               <B24Badge
@@ -283,17 +270,16 @@ const clearHook = async () => {
                 size="sm"
                 :use-close="!b24Instance.isHookFromEnv() && !b24Instance.isFrame()"
                 color="air-selection"
+                :label="b24Instance.targetOrigin()"
                 :on-close-click="clearHook"
-              >
-                {{ b24Instance.targetOrigin() }}
-              </B24Badge>
+              />
               <div v-if="props.lang === 'ts'">
                 <B24Alert
                   :icon="TerminalIcon"
                   color="air-secondary-accent"
                   :title="`${props.filename ?? data.name}.${props.lang}`"
                   description="The result of the script execution can be seen in the developer console."
-                  class="rounded-b-none"
+                  class="border-none rounded-b-none"
                   orientation="horizontal"
                   :actions="[
                     {

@@ -5,7 +5,7 @@ export type ModuleOptions = object
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: '@bitrix24/b24jssdk-nuxt',
-    version: '1.0.1',
+    version: '1.0.2',
     configKey: 'B24JsSdkNuxt',
     compatibility: {
       nuxt: '>=4.2.2'

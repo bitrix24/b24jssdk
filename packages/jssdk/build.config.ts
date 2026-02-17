@@ -24,9 +24,9 @@ function initConfig(formatTypeParam: string): BuildConfig {
       esbuild: {
         minify: isMinify,
         target: 'esnext',
-        // Сохраняем имена функций для отладки
+        // Saving function names for debugging
         keepNames: true,
-        // Минимизация только для production сборок
+        // Minification only for production builds
         minifyIdentifiers: isMinify,
         minifySyntax: isMinify,
         minifyWhitespace: isMinify
@@ -36,18 +36,18 @@ function initConfig(formatTypeParam: string): BuildConfig {
           __SDK_VERSION__: SDK_VERSION,
           __SDK_USER_AGENT__: SDK_USER_AGENT
         },
-        preventAssignment: true // Важно для tree shaking
+        preventAssignment: true // Important for tree shaking
       },
       output: {
         format: formatType,
         name: 'B24Js',
         banner: getBanner(),
-        // Экспортируем все именованные экспорты для лучшего tree shaking
+        // Export all named exports for better tree shaking
         exports: 'named',
-        // Сохраняем модульную структуру
+        // Maintaining a modular structure
         preserveModules: formatType === 'esm',
         preserveModulesRoot: 'src',
-        // Генерируем sourcemap с исходным содержимым
+        // Generate a sourcemap with the original content
         sourcemap: true,
         sourcemapExcludeSources: false
       } as any
@@ -66,7 +66,7 @@ function initConfig(formatTypeParam: string): BuildConfig {
           ...baseConfig.rollup,
           esbuild: {
             ...baseConfig.rollup.esbuild,
-            // Для ESM сохраняем комментарии (включая JSDoc)
+            // For ESM, we preserve comments (including JSDoc)
             legalComments: 'external'
           },
           emitCJS: false,
@@ -76,25 +76,25 @@ function initConfig(formatTypeParam: string): BuildConfig {
             ...baseConfig.rollup.output,
             entryFileNames: '[name].mjs',
             chunkFileNames: '[name]-[hash].mjs',
-            // Оптимизации для tree shaking
+            // Tree shaking optimizations
             hoistTransitiveImports: false,
             interop: 'auto'
             // -- extend: true,
             // -- esModule: true,
-            // ??? не нужно сохранять модули
+            // ??? no need to save modules
             // -- preserveModules: false,
             // -- inlineDynamicImports: false
           }
         },
-        // Генерируем отдельные .d.ts файлы
+        // Generating separate .d.ts files
         declarationOptions: {
           emitDeclarationOnly: false,
-          // Компилируем все файлы для сохранения путей
+          // Compile all files to save paths
           compilerOptions: {
             declaration: true,
             emitDeclarationOnly: false,
             declarationMap: true,
-            // Сохраняем структуру каталогов
+            // Preserving the directory structure
             preserveSymlinks: true
           }
         }
@@ -108,6 +108,10 @@ function initConfig(formatTypeParam: string): BuildConfig {
         sourcemap: true,
         rollup: {
           ...baseConfig.rollup,
+          esbuild: {
+            ...baseConfig.rollup.esbuild,
+            minifyIdentifiers: false
+          },
           emitCJS: true,
           cjsBridge: true,
           inlineDependencies: true,
@@ -116,7 +120,7 @@ function initConfig(formatTypeParam: string): BuildConfig {
             entryFileNames: `index${isMinify ? '.min' : ''}.js`,
             compact: false,
             inlineDynamicImports: true,
-            // Для UMD не нужно сохранять модули
+            // For UMD there is no need to save modules
             preserveModules: false
             // -- extend: true,
             // -- esModule: false,

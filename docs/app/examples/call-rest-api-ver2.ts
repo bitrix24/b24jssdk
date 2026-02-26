@@ -30,7 +30,7 @@ export async function Action_callRestApiVer2() {
       })
     }
 
-    return response.getData()!.result?.item
+    return (response.getData()!.result as { item: Company }).item
   }
 
   // Usage

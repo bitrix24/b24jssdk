@@ -115,7 +115,7 @@ export class FetchListV2 extends AbstractAction {
       if (null === customKeyForResult) {
         resultData = responseData.result as T[]
       } else {
-        resultData = responseData.result[customKeyForResult] as T[]
+        resultData = (responseData.result as any)[customKeyForResult] as T[]
       }
 
       if (resultData.length === 0) {

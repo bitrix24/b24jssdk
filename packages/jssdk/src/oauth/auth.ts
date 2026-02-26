@@ -243,7 +243,7 @@ export class AuthOAuthManager implements AuthActions {
         throw new Error(response.getErrorMessages().join(';'))
       }
 
-      const data: { profile: { id: number, admin: boolean } } = response.getData()!.result
+      const data: { profile: { id: number, admin: boolean } } = response.getData()!.result as any
 
       if (data.profile?.admin) {
         this.#isAdmin = true
@@ -259,10 +259,7 @@ export class AuthOAuthManager implements AuthActions {
       throw new Error(response.getErrorMessages().join(';'))
     }
 
-    const data: {
-      ID: number
-      ADMIN: boolean
-    } = response.getData()!.result
+    const data: { ID: number, ADMIN: boolean } = response.getData()!.result as any
 
     if (data?.ADMIN) {
       this.#isAdmin = true

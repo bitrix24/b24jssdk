@@ -837,9 +837,7 @@ export class PullClient implements ConnectorParent {
               params
             })
             .then((response: AjaxResult) => {
-              const data = (
-                response.getData() as SuccessPayload<Record<NumberString, NumberString>>
-              ).result
+              const data = (response.getData() as SuccessPayload<Record<NumberString, NumberString>>).result as any
               for (const userId in data) {
                 result[Number(userId)] = Number(data[userId])
               }
@@ -1619,7 +1617,7 @@ export class PullClient implements ConnectorParent {
           params: { CACHE: 'N' }
         })
         .then((response) => {
-          const data = response.getData()!.result
+          const data = response.getData()!.result as any
 
           const timeShift = Math.floor(
             (Date.now() - new Date(data.serverTime).getTime()) / 1000
@@ -2516,7 +2514,7 @@ export class PullClient implements ConnectorParent {
               /**
                * @memo test this
                */
-              const updatedTags: NumberString[] = (response.getData() as SuccessPayload<NumberString[]>).result
+              const updatedTags: NumberString[] = (response.getData() as SuccessPayload<NumberString[]>).result as any
 
               for (const tagId of updatedTags) {
                 this.clearWatch(tagId)

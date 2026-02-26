@@ -2,7 +2,6 @@ import type { LoggerInterface } from '../logger'
 import type { AjaxResult } from './http/ajax-result'
 import type { TypeB24 } from '../types/b24'
 import type { BatchCommandsArrayUniversal, BatchCommandsObjectUniversal, BatchNamedCommandsUniversal, TypeCallParams, TypeHttp } from '../types/http'
-import type { ListPayload } from '../types/payloads'
 import type { AuthActions } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
 import { Type } from '../tools/type'
@@ -168,9 +167,9 @@ export abstract class AbstractB24 implements TypeB24 {
 
       let resultData
       if (customKeyForResult) {
-        resultData = (response.getData() as ListPayload<any>).result[customKeyForResult] as []
+        resultData = (response.getData() as any).result[customKeyForResult] as []
       } else {
-        resultData = (response.getData() as ListPayload<any>).result as []
+        resultData = (response.getData() as any).result as []
       }
 
       list = [...list, ...resultData]
@@ -185,9 +184,9 @@ export abstract class AbstractB24 implements TypeB24 {
 
           let resultData = undefined
           if (customKeyForResult) {
-            resultData = (responseLoop.getData() as ListPayload<any>).result[customKeyForResult] as []
+            resultData = (responseLoop.getData() as any).result[customKeyForResult] as []
           } else {
-            resultData = (responseLoop.getData() as ListPayload<any>).result as []
+            resultData = (responseLoop.getData() as any).result as []
           }
 
           list = [...list, ...resultData]

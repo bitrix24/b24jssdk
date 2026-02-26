@@ -53,6 +53,7 @@ export class BatchByChunkV2 extends AbstractBatch {
    *     requestId: 'batch-by-chunk-123'
    *   }
    * })
+   *
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
@@ -91,7 +92,7 @@ export class BatchByChunkV2 extends AbstractBatch {
       for (const [_index, data] of response.getData()!.result!) {
         // @memo Add only success rows
         if (data.isSuccess) {
-          dataResult.push(data.getData()!.result)
+          dataResult.push(data.getData()!.result as T)
         }
       }
     }

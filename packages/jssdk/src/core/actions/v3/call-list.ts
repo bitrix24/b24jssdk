@@ -110,7 +110,7 @@ export class CallListV3 extends AbstractAction {
         break
       }
 
-      const resultData = responseData.result[customKeyForResult] as T[]
+      const resultData = (responseData.result as any)[customKeyForResult] as T[]
       if (resultData.length === 0) {
         isContinue = false
         break

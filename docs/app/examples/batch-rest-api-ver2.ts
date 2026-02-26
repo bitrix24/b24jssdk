@@ -51,7 +51,7 @@ export async function Action_batchRestApiVer2() {
     const results: Company[] = []
     resultData.forEach((resultRow, _index) => {
       if (resultRow.isSuccess) {
-        results.push(resultRow.getData()!.result.item)
+        results.push((resultRow.getData()!.result as { item: Company }).item)
       }
     })
 

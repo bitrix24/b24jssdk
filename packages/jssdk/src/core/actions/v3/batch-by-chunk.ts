@@ -17,8 +17,6 @@ export type ActionBatchByChunkV3 = ActionOptions & {
  * Executes a batch request with automatic chunking for any number of commands. `restApi:v3`
  *
  * @todo add docs
- * @todo test self
- * @todo test example
  */
 export class BatchByChunkV3 extends AbstractBatch {
   /**
@@ -92,7 +90,7 @@ export class BatchByChunkV3 extends AbstractBatch {
       for (const [_index, data] of response.getData()!.result!) {
         // @memo Add only success rows
         if (data.isSuccess) {
-          dataResult.push(data.getData()!.result)
+          dataResult.push(data.getData()!.result as T)
         }
       }
     }

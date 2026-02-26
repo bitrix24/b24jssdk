@@ -61,6 +61,7 @@ export class FetchListV3 extends AbstractAction {
    *   requestId: 'eventlog-123',
    *   limit: 60
    * })
+   *
    * for await (const chunk of generator) {
    *   // Process chunk (e.g., save to database, analyze, etc.)
    *   console.log(`Processing ${chunk.length} items`)
@@ -110,7 +111,7 @@ export class FetchListV3 extends AbstractAction {
         break
       }
 
-      const resultData: T[] = responseData.result[customKeyForResult] as T[]
+      const resultData: T[] = (responseData.result as any)[customKeyForResult] as T[]
       if (resultData.length === 0) {
         isContinue = false
         break

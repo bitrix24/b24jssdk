@@ -1,6 +1,6 @@
 {
   "name": "@bitrix24/b24jssdk",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "Bitrix",
   "license": "MIT",
   "description": "Bitrix24 REST API JavaScript SDK",

@@ -25,7 +25,7 @@ export type GetPayload<P> = {
 
 // @todo ! add api3
 export type ListPayload<P> = {
-  readonly result: any | P[]
+  readonly result: P[]
   // @todo remove this
   // readonly error?: string
   readonly total: number

@@ -206,10 +206,11 @@ export class OptionsManager extends AbstractHelper {
       moduleId: string
       command: string
       params: any
-    }
+    },
+    requestId?: string
   ): Promise<Result> {
-    const commands = []
-    commands.push({
+    const calls = []
+    calls.push({
       method: this.getMethodSave(),
       params: {
         options
@@ -217,7 +218,7 @@ export class OptionsManager extends AbstractHelper {
     })
 
     if (Type.isObject(optionsPull)) {
-      commands.push({
+      calls.push({
         method: 'pull.application.event.add',
         params: {
           COMMAND: optionsPull?.command,
@@ -227,7 +228,14 @@ export class OptionsManager extends AbstractHelper {
       })
     }
 
-    return this._b24.callBatch(commands, true)
+    return this._b24.actions.v2.batch.make({
+      calls,
+      options: {
+        isHaltOnError: true,
+        returnAjaxResult: false,
+        requestId
+      }
+    })
   }
 
   // endregion ////

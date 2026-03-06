@@ -1,5 +1,5 @@
 import type { B24FrameQueryParams, LoggerInterface } from '@bitrix24/b24jssdk'
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { B24Hook, B24Frame, LoggerFactory, Result, SdkError } from '@bitrix24/b24jssdk'
 
 const sessionKey = 'b24Hook'

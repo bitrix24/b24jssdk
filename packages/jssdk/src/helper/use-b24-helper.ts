@@ -11,20 +11,21 @@ export const useB24Helper = () => {
 
   const initB24Helper = async (
     $b24: TypeB24,
-    dataTypes: LoadDataType[] = [LoadDataType.App, LoadDataType.Profile]
+    dataTypes: LoadDataType[] = [LoadDataType.App, LoadDataType.Profile],
+    requestId: string = `helper-load-data`
   ): Promise<B24HelperManager> => {
     if (null === $b24Helper) {
       $b24Helper = new B24HelperManager($b24)
     }
 
     if ($isInitB24Helper) {
-      return $b24Helper as B24HelperManager
+      return $b24Helper
     }
 
-    return $b24Helper.loadData(dataTypes).then(() => {
-      $isInitB24Helper = true
-      return $b24Helper as B24HelperManager
-    })
+    await $b24Helper.loadData(dataTypes, requestId)
+
+    $isInitB24Helper = true
+    return $b24Helper
   }
 
   const destroyB24Helper = () => {

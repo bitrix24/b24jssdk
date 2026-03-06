@@ -14,7 +14,6 @@ import type { TypeApp, TypeB24Form, TypeEnumAppStatus, TypeLicense, TypePayment,
 import type { GenderString } from '../types/common'
 import type { TypePullMessage } from '../types/pull'
 import type { BatchNamedCommandsUniversal } from '../types/http'
-import type { Result } from '../core/result'
 
 /**
  * A universal class that is used to manage the initial application data
@@ -85,7 +84,8 @@ export class B24HelperManager {
 
   // region loadData ////
   async loadData(
-    dataTypes: LoadDataType[] = [LoadDataType.App, LoadDataType.Profile]
+    dataTypes: LoadDataType[] = [LoadDataType.App, LoadDataType.Profile],
+    requestId: string = `helper-load-data`
   ): Promise<void> {
     const batchMethods: Record<string, { method: string } | { method: string }[]> = {
       [LoadDataType.App]: { method: 'app.info' },
@@ -116,8 +116,15 @@ export class B24HelperManager {
     )
 
     try {
-      const response = await this._b24.callBatch(batchRequest) as Result<Record<string, any>>
-      const data = response.getData()!
+      const response = await this._b24.actions.v2.batch.make({
+        calls: batchRequest,
+        options: {
+          isHaltOnError: true,
+          returnAjaxResult: false,
+          requestId
+        }
+      })
+      const data = response.getData()! as Record<string, any>
 
       if (data[`get_${LoadDataType.App}`]) {
         this._app = await this.parseAppData(data[`get_${LoadDataType.App}`])

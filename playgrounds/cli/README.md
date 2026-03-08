@@ -6,7 +6,7 @@ CLI tool for generating test data and load testing in Bitrix24 via REST API.
 
 This CLI utility is designed for developers and QA engineers who need to:
 
-- Generate realistic test entities (tasks, contacts, companies) in Bitrix24
+- Generate realistic test entities (tasks, contacts, companies, products) in Bitrix24
 - Perform load testing of Bitrix24 REST API integrations
 - Quickly populate a Bitrix24 instance with demo data
 
@@ -164,6 +164,61 @@ pnpm run dev make companies --total=10
 pnpm run dev make companies --total=30 --assignedById=3
 ```
 
+### Make Products (with SKU)
+
+Creates random products with stock keeping units (SKUs) in Bitrix24 catalog.
+
+**Syntax:**
+
+```bash
+pnpm run dev make products-sku --total=<number> [--theme=<industrial|fashion>] [--vatIncluded=<Y|N>] [--currency=<code>]
+```
+
+**Arguments:**
+
+| Argument | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `--total` | Yes | — | Number of parent products to create |
+| `--theme` | No | `industrial` | Theme for product names (`industrial` or `fashion`) |
+| `--vatIncluded` | No | `N` | Whether VAT is included in price (`Y` or `N`) |
+| `--currency` | No | `USD` | Currency code for prices (e.g., `USD`, `EUR`, `RUB`) |
+
+**Generated data:**
+
+- **Parent product**: Created in the main product catalog with a unique name based on the selected theme (e.g., "Hydraulic Pump 8421" for industrial, "Leather Jacket 3572" for fashion).
+- **SKU (offer)**: A variation linked to the parent product. Includes:
+  - Random values for available SKU properties (e.g., color, size) discovered from the catalog.
+  - Random physical parameters: height, length, width, weight (1‑1000 units).
+  - Random quantity in stock (1‑1000).
+  - Random purchase price (200‑10200 in the specified currency).
+  - Random VAT rate (selected from existing VAT rates in Bitrix24).
+  - Random measure unit (from existing measures, e.g., pieces, kg).
+- **Prices**: For each active price type (e.g., retail, wholesale), a random selling price (500‑20500) is added, linked to the SKU.
+- **Images**: Currently placeholder (no actual image data is sent; this can be extended).
+
+**Discovery phase**:
+
+Before creation, the script automatically detects:
+
+- Product and SKU information block IDs
+- Available price types
+- Available measures and VAT rates
+- SKU properties of type "list" (e.g., Color, Size) and their possible values
+- Existing product names to avoid duplicates (names are generated uniquely)
+
+**Examples:**
+
+```bash
+# Create 10 industrial-themed products with default settings
+pnpm run dev make products-sku --total=10
+
+# Create 20 fashion products with VAT included in prices, in EUR
+pnpm run dev make products-sku --total=20 --theme=fashion --vatIncluded=Y --currency=EUR
+
+# Create 5 products with custom currency
+pnpm run dev make products-sku --total=5 --theme=industrial --currency=RUB
+```
+
 ## Running from Different Directories
 
 ### From the monorepo root:
@@ -172,6 +227,7 @@ pnpm run dev make companies --total=30 --assignedById=3
 pnpm --filter @bitrix24/b24jssdk-cli dev make tasks --total=10
 pnpm --filter @bitrix24/b24jssdk-cli dev make contacts --total=10
 pnpm --filter @bitrix24/b24jssdk-cli dev make companies --total=10
+pnpm --filter @bitrix24/b24jssdk-cli dev make products-sku --total=10
 ```
 
 ### From `playgrounds/cli/`:
@@ -180,6 +236,7 @@ pnpm --filter @bitrix24/b24jssdk-cli dev make companies --total=10
 pnpm run dev make tasks --total=10
 pnpm run dev make contacts --total=10
 pnpm run dev make companies --total=10
+pnpm run dev make products-sku --total=10
 ```
 
 > **Note:** Regardless of where you run the command, the `.env` file must be in `playgrounds/cli/`.
@@ -199,9 +256,10 @@ playgrounds/cli/
     │       ├── index.ts      # make command group
     │       ├── tasks.ts      # tasks subcommand
     │       ├── contacts.ts   # contacts subcommand
-    │       └── companies.ts  # companies subcommand
+    │       ├── companies.ts  # companies subcommand
+    │       └── products-sku.ts # products with SKU subcommand
     ├── constants/
-    │   └── index.ts      # Shared constants (languages, priorities, etc.)
+    │   └── index.ts      # Shared constants (languages, priorities, product themes, etc.)
     ├── types/
     │   ├── index.ts      # Type exports
     │   ├── language.ts   # Language types
@@ -228,7 +286,7 @@ playgrounds/cli/
 - Check if the webhook is active and not expired
 - Ensure the Bitrix24 portal is accessible
 
-### "No task/contact/company ID returned from API"
+### "No task/contact/company/product ID returned from API"
 
 - The entity was likely not created due to validation errors
 - Check Bitrix24 logs for more details

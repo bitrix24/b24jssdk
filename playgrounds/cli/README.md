@@ -17,7 +17,7 @@ The tool uses [@bitrix24/b24jssdk](https://bitrix24.github.io/b24jssdk/) for API
 - **Node.js** v22.0.0 or higher
 - **pnpm** package manager
 - **Bitrix24 webhook** with the following permissions:
-  - `tasks` — for creating tasks
+  - `tasks` and `task`  — for creating tasks
   - `crm` — for creating contacts, companies, invoices
   - `catalog` — for creating products
 

@@ -201,25 +201,36 @@ export default defineCommand({
      */
     async function addChecklistItems(taskId: number, language: Language): Promise<Result> {
       const result = new Result()
-      const count = randomInt(CHECKLIST_MIN_ITEMS, CHECKLIST_MAX_ITEMS)
+      const count = Math.min(randomInt(Math.max(CHECKLIST_MIN_ITEMS, 1), CHECKLIST_MAX_ITEMS), 50)
       const labelFn = checklistLabels[language]
 
+      const calls = []
       for (let i = 1; i <= count; i++) {
-        const response = await b24.actions.v2.call.make({
-          method: 'task.checklistitem.add',
-          params: {
-            TASKID: taskId,
-            FIELDS: { TITLE: labelFn(i) }
+        calls.push(
+          {
+            method: 'task.checklistitem.add',
+            params: {
+              TASKID: taskId,
+              FIELDS: { TITLE: labelFn(i) }
+            }
           }
-        })
+        )
+      }
 
-        if (!response.isSuccess) {
-          return result.addError(new SdkError({
-            code: 'PLAYGROUND_CLI_ERROR',
-            description: `Error adding checklist item to task ${taskId}: ${response.getErrorMessages().join('; ')}`,
-            status: 404
-          }))
+      const response = await b24.actions.v2.batch.make({
+        calls,
+        options: {
+          isHaltOnError: false,
+          returnAjaxResult: false
         }
+      })
+
+      if (!response.isSuccess) {
+        return result.addError(new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: `Error adding checklist item to task ${taskId}: ${response.getErrorMessages().join('; ')}`,
+          status: 404
+        }))
       }
 
       return result

@@ -16,3 +16,18 @@ export const STATUS_VALUES = ['pending', 'in_progress', 'supposedly_completed', 
 
 export const SOURCES = ['WEBFORM', 'CALL', 'OTHER', 'RC_GENERATOR'] as const
 export const POSTS = ['Manager', 'Developer', 'Director', 'Analyst', 'Specialist'] as const
+
+export const THEMES_PRODUCTS = {
+  industrial: {
+    ru: ['Конвейер', 'Датчик', 'Клапан', 'Турбина', 'Привод', 'Модуль', 'Станок'],
+    en: ['Conveyor', 'Sensor', 'Valve', 'Turbine', 'Actuator', 'Module', 'Lathe'],
+    zh: ['传送带', '传感器', '阀门', '涡轮机', '执行器', '模块', '车床'],
+    es: ['Transportador', 'Sensor', 'Válvula', 'Turbina', 'Actuador', 'Módulo', 'Torno']
+  },
+  fashion: {
+    ru: ['Худи', 'Футболка', 'Брюки', 'Жилет', 'Куртка', 'Ремень', 'Кроссовки'],
+    en: ['Hoodie', 'T-shirt', 'Pants', 'Vest', 'Jacket', 'Belt', 'Sneakers'],
+    zh: ['连帽衫', 'T恤', '裤子', '背心', '夹克', '腰带', '运动鞋'],
+    es: ['Sudadera', 'Camiseta', 'Pantalones', 'Chaleco', 'Chaqueta', 'Cinturón', 'Zapatillas']
+  }
+}

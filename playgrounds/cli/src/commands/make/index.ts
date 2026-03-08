@@ -2,6 +2,7 @@ import { defineCommand } from 'citty'
 import companies from './companies'
 import contacts from './contacts'
 import tasks from './tasks'
+import productsSku from './products-sku'
 
 export default defineCommand({
   meta: {
@@ -11,6 +12,7 @@ export default defineCommand({
   subCommands: {
     companies,
     contacts,
-    tasks
+    tasks,
+    'products-sku': productsSku
   }
 })

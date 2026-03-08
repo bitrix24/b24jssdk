@@ -2,7 +2,6 @@ import { B24Hook, EnumCrmEntityTypeId, Logger, LogLevel, ConsoleV2Handler, Param
 import type { GetPayload } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 import 'dotenv/config'
-
 import type { Language, NamesByLanguage, FmField, ContactFields, CrmItemAddResult } from '../../types'
 import { LANGUAGES, EMAIL_DOMAINS, SOURCES, POSTS } from '../../constants'
 import { pickRandom, generatePhoneNumber, showProgress } from '../../utils'

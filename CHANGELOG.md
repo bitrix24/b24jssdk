@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.5](https://github.com/bitrix24/b24jssdk/compare/v1.0.4...v1.0.5) (2026-03-xx)
+
+* playgrounds(cli): improve
+
 ## [1.0.4](https://github.com/bitrix24/b24jssdk/compare/v1.0.3...v1.0.4) (2026-03-06)
 
 ### Bug Fixes

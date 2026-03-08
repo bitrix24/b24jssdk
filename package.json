@@ -29,6 +29,7 @@
     "package-jssdk-nuxt:build": "pnpm --filter ./packages/jssdk-nuxt build",
     "package-jssdk-nuxt:lint": "pnpm --filter ./packages/jssdk-nuxt lint",
     "package-jssdk-nuxt:typecheck": "pnpm --filter ./packages/jssdk typecheck",
+    "playground-cli:typecheck": "pnpm --filter ./playgrounds/cli typecheck",
     "playground-nuxt:dev": "nuxt dev playgrounds/nuxt --uiDev",
     "playground-nuxt:prepare": "nuxt prepare playgrounds/nuxt",
     "playground-nuxt:build": "nuxt build playgrounds/nuxt",
@@ -55,7 +56,7 @@
     "package-jssdk:test:run-underLoad-v2-batchByChunk": "vitest run -t \"crmItemListAsCompany batchByChunk @apiV2\" --project jsSdk:underLoad",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck"
+    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "^1.14.0",

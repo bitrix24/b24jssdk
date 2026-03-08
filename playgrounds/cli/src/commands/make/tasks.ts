@@ -112,18 +112,9 @@ export default defineCommand({
     description: 'Generate random tasks in Bitrix24'
   },
   args: {
-    total: {
-      description: 'Number of tasks to create',
-      required: true
-    },
-    creatorId: {
-      description: 'Creator user ID',
-      default: '1'
-    },
-    responsibleId: {
-      description: 'Responsible user ID',
-      default: '1'
-    }
+    total: { description: 'Number of tasks to create', required: true },
+    creatorId: { description: 'Creator user ID', default: '1' },
+    responsibleId: { description: 'Responsible user ID', default: '1' }
   },
   async setup({ args }) {
     const params = {
@@ -135,7 +126,7 @@ export default defineCommand({
     let createdCount = 0
 
     // region Logger ////
-    const logger = Logger.create('loadTesting')
+    const logger = Logger.create('tasks')
     const handler = new ConsoleV2Handler(LogLevel.DEBUG, { useStyles: false })
     logger.pushHandler(handler)
     // endregion Logger ////

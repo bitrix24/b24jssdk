@@ -40,14 +40,8 @@ export default defineCommand({
     description: 'Generate random companies in Bitrix24'
   },
   args: {
-    total: {
-      description: 'Number of companies to create',
-      required: true
-    },
-    assignedById: {
-      description: 'Assigned user ID',
-      default: '1'
-    }
+    total: { description: 'Number of companies to create', required: true },
+    assignedById: { description: 'Assigned user ID', default: '1' }
   },
   async setup({ args }) {
     const params = {
@@ -58,7 +52,7 @@ export default defineCommand({
     let createdCount = 0
 
     // region Logger ////
-    const logger = Logger.create('loadTesting')
+    const logger = Logger.create('companies')
     const handler = new ConsoleV2Handler(LogLevel.DEBUG, { useStyles: false })
     logger.pushHandler(handler)
     // endregion Logger ////

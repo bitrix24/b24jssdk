@@ -93,6 +93,61 @@ pnpm run dev make tasks --total=50 --creatorId=1 --responsibleId=2
 pnpm run dev make tasks --total=100
 ```
 
+### Make Products (with SKU)
+
+Creates random products with stock keeping units (SKUs) in Bitrix24 catalog.
+
+**Syntax:**
+
+```bash
+pnpm run dev make products-sku --total=<number> [--theme=<industrial|fashion>] [--vatIncluded=<Y|N>] [--currency=<code>]
+```
+
+**Arguments:**
+
+| Argument | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `--total` | Yes | — | Number of parent products to create |
+| `--theme` | No | `industrial` | Theme for product names (`industrial` or `fashion`) |
+| `--vatIncluded` | No | `N` | Whether VAT is included in price (`Y` or `N`) |
+| `--currency` | No | `USD` | Currency code for prices (e.g., `USD`, `EUR`, `RUB`) |
+
+**Generated data:**
+
+- **Parent product**: Created in the main product catalog with a unique name based on the selected theme (e.g., "Hydraulic Pump 8421" for industrial, "Leather Jacket 3572" for fashion).
+- **SKU (offer)**: A variation linked to the parent product. Includes:
+  - Random values for available SKU properties (e.g., color, size) discovered from the catalog.
+  - Random physical parameters: height, length, width, weight (1‑1000 units).
+  - Random quantity in stock (1‑1000).
+  - Random purchase price (200‑10200 in the specified currency).
+  - Random VAT rate (selected from existing VAT rates in Bitrix24).
+  - Random measure unit (from existing measures, e.g., pieces, kg).
+- **Prices**: For each active price type (e.g., retail, wholesale), a random selling price (500‑20500) is added, linked to the SKU.
+- **Images**: Currently placeholder (no actual image data is sent; this can be extended).
+
+**Discovery phase**:
+
+Before creation, the script automatically detects:
+
+- Product and SKU information block IDs
+- Available price types
+- Available measures and VAT rates
+- SKU properties of type "list" (e.g., Color, Size) and their possible values
+- Existing product names to avoid duplicates (names are generated uniquely)
+
+**Examples:**
+
+```bash
+# Create 10 industrial-themed products with default settings
+pnpm run dev make products-sku --total=10
+
+# Create 20 fashion products with VAT included in prices, in EUR
+pnpm run dev make products-sku --total=20 --theme=fashion --vatIncluded=Y --currency=EUR
+
+# Create 5 products with custom currency
+pnpm run dev make products-sku --total=5 --theme=industrial --currency=RUB
+```
+
 ### Make Contacts
 
 Creates random contacts in Bitrix24 CRM.
@@ -164,59 +219,56 @@ pnpm run dev make companies --total=10
 pnpm run dev make companies --total=30 --assignedById=3
 ```
 
-### Make Products (with SKU)
+### Make Deals
 
-Creates random products with stock keeping units (SKUs) in Bitrix24 catalog.
+Creates random deals in Bitrix24 CRM with products, counterparties, and stages.
 
 **Syntax:**
 
 ```bash
-pnpm run dev make products-sku --total=<number> [--theme=<industrial|fashion>] [--vatIncluded=<Y|N>] [--currency=<code>]
+pnpm run dev make deals --total=<number> [--assignedById=<id>] [--categoryId=<id>] [--maxProducts=<number>]
 ```
 
 **Arguments:**
 
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `--total` | Yes | — | Number of parent products to create |
-| `--theme` | No | `industrial` | Theme for product names (`industrial` or `fashion`) |
-| `--vatIncluded` | No | `N` | Whether VAT is included in price (`Y` or `N`) |
-| `--currency` | No | `USD` | Currency code for prices (e.g., `USD`, `EUR`, `RUB`) |
+| `--total` | Yes | — | Number of deals to create |
+| `--assignedById` | No | `1` | User ID of the responsible person |
+| `--categoryId` | No | `0` | Sales funnel ID (`0` for default funnel) |
+| `--maxProducts` | No | `4` | Maximum number of SKU products per deal (1‑5) |
 
 **Generated data:**
 
-- **Parent product**: Created in the main product catalog with a unique name based on the selected theme (e.g., "Hydraulic Pump 8421" for industrial, "Leather Jacket 3572" for fashion).
-- **SKU (offer)**: A variation linked to the parent product. Includes:
-  - Random values for available SKU properties (e.g., color, size) discovered from the catalog.
-  - Random physical parameters: height, length, width, weight (1‑1000 units).
-  - Random quantity in stock (1‑1000).
-  - Random purchase price (200‑10200 in the specified currency).
-  - Random VAT rate (selected from existing VAT rates in Bitrix24).
-  - Random measure unit (from existing measures, e.g., pieces, kg).
-- **Prices**: For each active price type (e.g., retail, wholesale), a random selling price (500‑20500) is added, linked to the SKU.
-- **Images**: Currently placeholder (no actual image data is sent; this can be extended).
-
-**Discovery phase**:
-
-Before creation, the script automatically detects:
-
-- Product and SKU information block IDs
-- Available price types
-- Available measures and VAT rates
-- SKU properties of type "list" (e.g., Color, Size) and their possible values
-- Existing product names to avoid duplicates (names are generated uniquely)
+- **Counterparty**: Randomly selects either a **company** (legal entity) or a **contact** (individual) from existing CRM records (50/50 chance).
+- **Currency**: Random currency from available CRM currencies.
+- **Source**: Random source ID from CRM sources (if any).
+- **Stage**: Distributed according to a realistic pipeline:
+  - 30% — first stage (e.g., `NEW`)
+  - 40% — successful stage (`WON`)
+  - 30% — unsuccessful stage (`LOSE`)
+- **Dates**:
+  - **Start date**: Random within the last 2 years.
+  - **Close date**: Random 5‑120 days after start.
+- **Title**: English‑language deal names generated from product‑related themes (e.g., "Steel Fabrication Deal").
+- **Products**: 1 to `--maxProducts` random SKU products from the catalog. For each product:
+  - Quantity: random 1‑10.
+  - Price: random 500‑20,000 (in the selected currency).
+  - VAT handling: tax included if counterparty is a contact (individual), excluded if company.
+  - VAT rate: random from existing VAT rates.
+- **Batch processing**: Commands are grouped into batches of up to 50 for maximum performance.
 
 **Examples:**
 
 ```bash
-# Create 10 industrial-themed products with default settings
-pnpm run dev make products-sku --total=10
+# Create 10 deals in the default funnel
+pnpm run dev make deals --total=10
 
-# Create 20 fashion products with VAT included in prices, in EUR
-pnpm run dev make products-sku --total=20 --theme=fashion --vatIncluded=Y --currency=EUR
+# Create 50 deals in funnel ID 3 with up to 5 products each, assigned to user 5
+pnpm run dev make deals --total=50 --categoryId=3 --maxProducts=5 --assignedById=5
 
-# Create 5 products with custom currency
-pnpm run dev make products-sku --total=5 --theme=industrial --currency=RUB
+# Create 150 deals for load testing
+pnpm run dev make deals --total=150
 ```
 
 ## Running from Different Directories
@@ -225,18 +277,20 @@ pnpm run dev make products-sku --total=5 --theme=industrial --currency=RUB
 
 ```bash
 pnpm --filter @bitrix24/b24jssdk-cli dev make tasks --total=10
+pnpm --filter @bitrix24/b24jssdk-cli dev make products-sku --total=10
 pnpm --filter @bitrix24/b24jssdk-cli dev make contacts --total=10
 pnpm --filter @bitrix24/b24jssdk-cli dev make companies --total=10
-pnpm --filter @bitrix24/b24jssdk-cli dev make products-sku --total=10
+pnpm --filter @bitrix24/b24jssdk-cli dev make deals --total=10
 ```
 
 ### From `playgrounds/cli/`:
 
 ```bash
 pnpm run dev make tasks --total=10
+pnpm run dev make products-sku --total=10
 pnpm run dev make contacts --total=10
 pnpm run dev make companies --total=10
-pnpm run dev make products-sku --total=10
+pnpm run dev make deals --total=10
 ```
 
 > **Note:** Regardless of where you run the command, the `.env` file must be in `playgrounds/cli/`.
@@ -257,6 +311,7 @@ playgrounds/cli/
     │       ├── tasks.ts      # tasks subcommand
     │       ├── contacts.ts   # contacts subcommand
     │       ├── companies.ts  # companies subcommand
+    │       ├── deals.ts      # deals subcommand
     │       └── products-sku.ts # products with SKU subcommand
     ├── constants/
     │   └── index.ts      # Shared constants (languages, priorities, product themes, etc.)

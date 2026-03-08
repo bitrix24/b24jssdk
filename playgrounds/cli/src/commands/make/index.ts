@@ -3,6 +3,7 @@ import companies from './companies'
 import contacts from './contacts'
 import tasks from './tasks'
 import productsSku from './products-sku'
+import deals from './deals'
 
 export default defineCommand({
   meta: {
@@ -13,6 +14,7 @@ export default defineCommand({
     companies,
     contacts,
     tasks,
-    'products-sku': productsSku
+    'products-sku': productsSku,
+    deals
   }
 })

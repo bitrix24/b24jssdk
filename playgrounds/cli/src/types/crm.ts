@@ -1,5 +1,16 @@
 import type { BoolString } from '@bitrix24/b24jssdk'
 
+export interface CrmCompany {
+  id: number
+  title: string
+}
+
+export interface CrmContact {
+  id: number
+  name?: string
+  lastName?: string
+}
+
 export interface FmField {
   valueType: string
   value: string
@@ -30,4 +41,11 @@ export interface CrmItemAddResult {
   item: {
     id: number
   }
+}
+
+export interface CatalogProduct {
+  id: number
+  name: string
+  measure?: number
+  vatId?: number
 }

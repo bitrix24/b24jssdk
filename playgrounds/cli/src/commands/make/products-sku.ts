@@ -20,8 +20,6 @@ import { THEMES_PRODUCTS } from '../../constants'
  * pnpm --filter @bitrix24/b24jssdk-cli dev make products-sku --total=10 --theme=industrial --currency=USD
  * pnpm --filter @bitrix24/b24jssdk-cli dev make products-sku --total=10 --theme=fashion --currency=USD --vatIncluded=Y
  * ```
- *
- * @todo Add README info
  */
 export default defineCommand({
   meta: {
@@ -45,7 +43,7 @@ export default defineCommand({
     let createdCount = 0
 
     // region Logger ////
-    const logger = Logger.create('productsSku')
+    const logger = Logger.create('products-sku')
     const handler = new ConsoleV2Handler(LogLevel.DEBUG, { useStyles: false })
     logger.pushHandler(handler)
     // endregion Logger ////
@@ -251,9 +249,9 @@ export default defineCommand({
        * 3. Assign random values to discovered SKU properties.
        * 4. Set prices for all active price types.
        */
-      const maxBatchInB24 = 50
+      const MAX_BATCH_SIZE = 50
       const commandsPerProduct = 2 + priceTypeIds.length
-      const productsPerBatch = Math.floor(maxBatchInB24 / commandsPerProduct)
+      const productsPerBatch = Math.floor(MAX_BATCH_SIZE / commandsPerProduct)
 
       while (createdCount < params.total) {
         const currentBatchSize = Math.min(productsPerBatch, params.total - createdCount)
@@ -338,7 +336,9 @@ export default defineCommand({
             returnAjaxResult: false
           }
         })
-        errors.push(...response.getErrorMessages())
+        if (!response.isSuccess) {
+          errors.push(...response.getErrorMessages())
+        }
       }
 
       const endTime = Date.now()

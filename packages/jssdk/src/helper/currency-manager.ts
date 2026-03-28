@@ -83,8 +83,16 @@ export class CurrencyManager extends AbstractHelper {
     }
 
     try {
-      const response = await this._b24.callBatchByChunk(batchRequest, true)
+      const response = await this._b24.actions.v2.batchByChunk.make<CurrencyInit>({
+        calls: batchRequest,
+        options: { isHaltOnError: true }
+      })
+
       const data = response.getData()
+
+      if (!Array.isArray(data)) {
+        return Promise.resolve()
+      }
 
       data.forEach((row: CurrencyInit) => {
         if (typeof row.LANG === 'undefined') {

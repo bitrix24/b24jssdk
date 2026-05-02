@@ -101,7 +101,6 @@ coverage
 /test/some-code-from-docs/installation-umd-example/index.zip
 
 # AI
-CLAUDE.md
 .claude/settings.local.json
 .claude/channels/
 .claude/debug/

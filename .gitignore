@@ -99,3 +99,8 @@ coverage
 /@tmp
 /test/some-code-from-docs/installation-umd-example/umd/
 /test/some-code-from-docs/installation-umd-example/index.zip
+
+# claude
+.claude/settings.local.json
+.claude/channels/
+.claude/debug/

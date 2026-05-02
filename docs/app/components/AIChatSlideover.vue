@@ -271,14 +271,6 @@ onMounted(() => {
     description="Explain with AI"
     overlay-blur="auto"
     :use-light-content="false"
-    :b24ui="{
-      content: 'w-full sm:max-w-2/3',
-      // sidebarLayoutRoot: 'edge-dark',
-      sidebarLayoutPageWrapper: 'px-0 ps-0 pe-0 pb-0 lg:px-0 lg:ps-0 lg:pe-0',
-      sidebarLayoutContainer: 'gap-0 lg:gap-0 relative',
-      header: 'px-[20px] py-[15px] border-b border-(--ui-color-divider-vibrant-default)',
-      body: 'p-0! relative'
-    }"
   >
     <template #header>
       <div class="flex items-center justify-between w-full">

@@ -15,8 +15,8 @@ export default defineConfig({
         test: {
           name: 'jsSdk:integration',
           environment: 'node',
-          testTimeout: 3000,
-          hookTimeout: 3000,
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
           include: ['./test/integration/**/*.spec.ts'],
           setupFiles: ['./test/0_setup/setup-integration-jssdk.ts']
         }

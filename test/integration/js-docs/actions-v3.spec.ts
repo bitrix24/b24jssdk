@@ -180,7 +180,7 @@ describe('js-docs.actions @apiV3', () => {
     interface MainEventLogItem { id: number, userId: number }
     const response = await b24.actions.v3.batch.make<{ item: TaskItem } | { items: MainEventLogItem[] }>({
       calls: {
-        Task: { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title'] } },
+        Task: { method: 'tasks.task.get', params: { id: 2, select: ['id', 'title'] } },
         MainEventLog: ['main.eventlog.list', { select: ['id', 'userId'], pagination: { limit: 5 } }]
       },
       options: {

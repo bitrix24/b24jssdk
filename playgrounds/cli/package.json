@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "@bitrix24/b24jssdk": "workspace:*",
-    "citty": "^0.2.0",
-    "dotenv": "^17.2.3"
+    "citty": "^0.2.2",
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "tsx": "^4.19.0"
+    "typescript": "^6.0.3",
+    "tsx": "^4.21.0"
   }
 }

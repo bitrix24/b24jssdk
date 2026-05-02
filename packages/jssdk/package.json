@@ -64,15 +64,15 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
-    "axios": "^1.13.3",
-    "qs-esm": "^7.0.3",
+    "axios": "^1.15.2",
+    "qs-esm": "^8.0.1",
     "luxon": "^3.7.2",
     "@types/luxon": "^3.7.1"
   },
   "devDependencies": {
-    "@types/node": "^25.0.10",
+    "@types/node": "^25.3.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3",
+    "typescript": "^6.0.3",
     "unbuild": "^3.6.1"
   }
 }

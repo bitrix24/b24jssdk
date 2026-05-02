@@ -491,7 +491,7 @@ describe('core callBatch @apiV3', () => {
   })
 
   /**
-   * @todo api ver3 waite docs
+   * @todo api ver3 wait docs
    *   - test parallel
    *   - test fail
    */

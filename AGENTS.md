@@ -53,6 +53,13 @@ pnpm run docs:dev                   # Start docs dev server
 - No default exports; use named exports.
 - Keep packages tree-shakeable (`sideEffects: false`).
 
+### Commit conventions
+
+We use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages, which allows a changelog to be auto-generated based on the commits. Please read the [guide](https://www.conventionalcommits.org/en/v1.0.0/#summary) through if you aren't familiar with it already.
+
+- Use `fix` and `feat` for code changes that affect functionality or logic
+- Use `docs` for documentation changes and `chore` for maintenance tasks
+
 ## AI-specific notes
 
 - This is a client-facing SDK — API surface changes in `packages/jssdk` must be backward-compatible or follow a deprecation cycle.

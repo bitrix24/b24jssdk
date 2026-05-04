@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Install node
         uses: actions/setup-node@v6
@@ -41,6 +41,6 @@ jobs:
       - name: Build
         run: pnpm --filter ./packages/jssdk-nuxt build
 
-      - name: 'Publish JS SDK NUXT 🚀'
+      - name: 'Publish NUXT 🚀'
         shell: bash
         run: pnpm --filter ./packages/jssdk-nuxt publish --no-git-checks

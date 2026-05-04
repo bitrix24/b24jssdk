@@ -15,8 +15,15 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ ubuntu-latest ]
+        node: [ 22 ]
+
     env:
+      # FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       NUXT_PUBLIC_USE_AI: false
       NUXT_PUBLIC_USE_TAB_B24FRAME: false
       NUXT_PUBLIC_SITE_URL: https://bitrix24.github.io
@@ -30,12 +37,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Install node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
           cache: pnpm
 
       - name: Setup Pages
@@ -50,22 +57,26 @@ jobs:
       - name: Generate Docs
         run: pnpm run docs:generate
 
+      - name: Prepare SPA fallback
+        run: |
+          touch .nojekyll
+
       - name: Create combined artifact
         run: |
           mkdir -p combined-artifact
           cp -r docs/.output/public/* combined-artifact/
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: combined-artifact
   deploy:
     environment:
-      name: 'github-pages'
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     needs: build
     runs-on: ubuntu-latest
-    name: 'Deploy'
+    name: Deploy
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

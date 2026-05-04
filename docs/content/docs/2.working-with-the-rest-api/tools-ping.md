@@ -9,10 +9,6 @@ links:
     to: https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/src/core/tools/ping.ts
 ---
 
-::warning
-We are still updating this page. Some data may be missing here — we will complete it shortly.
-::
-
 ## Overview
 
 Use `Ping.make()`{lang="ts-type"} to measure the response time of Bitrix24 REST API. The method returns a `Promise` with a numeric value of the response time in milliseconds.

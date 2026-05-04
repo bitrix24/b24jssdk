@@ -67,7 +67,7 @@ class Bitrix24TaskAutomation:
             self.get_task()
 
             # Step 2: Create git branch
-            self.create_git_branch()
+            # self.create_git_branch()
 
             # Step 3: Create checklist
             self.create_checklist()
@@ -82,10 +82,10 @@ class Bitrix24TaskAutomation:
             self.save_result()
 
             # Step 7: Commit changes
-            self.commit_changes()
+            # self.commit_changes()
 
             # Step 8: Push to remote
-            self.push_changes()
+            # self.push_changes()
 
             # Step 9: Mark checklist item as completed
             self.mark_checklist_complete()

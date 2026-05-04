@@ -51,7 +51,9 @@ pnpm run docs:dev                   # Start docs dev server
 - ESLint with `@nuxt/eslint-config`, run `pnpm run lint:fix` before committing.
 - TypeScript strict mode — all new code must pass `pnpm run typecheck`.
 - No default exports; use named exports.
-- Keep packages tree-shakeable (`sideEffects: false`).
+- Keep packages tree-shakeable (`sideEffects: false`)
+- Stylistic rules: 2-space indentation, no trailing commas, 1tbs brace style
+- Editor: `.editorconfig` enforces 2-space indentation and LF line endings.
 
 ### Commit conventions
 

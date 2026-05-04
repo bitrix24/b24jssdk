@@ -6,7 +6,7 @@ import { SdkError } from '../../sdk-error'
 
 export type ActionFetchListV2 = ActionOptions & {
   method: string
-  params?: Omit<TypeCallParams, 'start'>
+  params?: Omit<TypeCallParams, 'start' | 'order'>
   idKey?: string
   customKeyForResult?: string
   requestId?: string
@@ -76,10 +76,16 @@ export class FetchListV2 extends AbstractAction {
     const customKeyForResult = options?.customKeyForResult ?? null
     const params = options?.params ?? {}
 
+    // Warn and strip user-provided `order` — cursor pagination requires ordering by idKey only
+    if ('order' in params && params['order']) {
+      this._logger.warning('fetchList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by idKey. Use `filter` to narrow results instead.')
+    }
+
     const moreIdKey = `>${idKey}`
+    const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
     const requestParams: TypeCallParams = {
-      ...params,
-      order: { ...(params['order'] || {}), [idKey]: 'ASC' },
+      ...restParams,
+      order: { [idKey]: 'ASC' },
       filter: { ...(params['filter'] || {}), [moreIdKey]: 0 },
       start: -1
     }

@@ -6,7 +6,7 @@ import { Result } from '../../result'
 
 export type ActionCallListV3 = ActionOptions & {
   method: string
-  params?: Omit<TypeCallParams, 'pagination'>
+  params?: Omit<TypeCallParams, 'pagination' | 'order'>
   idKey?: string
   customKeyForResult: string
   requestId?: string
@@ -73,9 +73,15 @@ export class CallListV3 extends AbstractAction {
     const customKeyForResult = options?.customKeyForResult ?? null
     const params = options?.params ?? {}
 
+    // Warn and strip user-provided `order` — cursor pagination requires ordering by idKey only
+    if ('order' in params && params['order']) {
+      this._logger.warning('callList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by idKey. Use `filter` to narrow results instead.')
+    }
+
+    const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
     const requestParams: TypeCallParams = {
-      ...params,
-      order: { ...(params['order'] || {}), [idKey]: 'ASC' },
+      ...restParams,
+      order: { [idKey]: 'ASC' },
       filter: [...(params['filter'] || [])],
       pagination: { page: 0, limit: batchSize }
     }
@@ -84,11 +90,11 @@ export class CallListV3 extends AbstractAction {
     let isContinue = true
     let nextId = 0
     do {
-      const sendParams = { ...requestParams }
+      const sendParams = { ...requestParams, filter: [...requestParams.filter] }
       sendParams.filter.push([idKey, '>', nextId])
       const response: AjaxResult<T> = await this._b24.actions.v3.call.make<T>({
         method: options.method,
-        params: requestParams,
+        params: sendParams,
         requestId: options.requestId
       })
 

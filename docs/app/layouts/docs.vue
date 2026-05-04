@@ -1,30 +1,44 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
-
-const slots = defineSlots()
-const route = useRoute()
+import { useFilter } from '@bitrix24/b24ui-nuxt/composables'
 
 const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
 
-const { navigationMenuByCategory, contains, searchTerm } = useDocs(navigation!)
-const input = useTemplateRef('input')
+const route = useRoute()
+const { scoreItem } = useFilter()
 
-const isActiveSearch = computed(() => route.path.startsWith('/docs/working-with-the-rest-api'))
-
+// region Navigation ////
+const { navigationMenuByCategory } = useNavigation(navigation!)
 const filteredNavigation = computed(() => {
-  if (!searchTerm.value) {
+  if (!cleanedSearchTerm.value) {
     return navigationMenuByCategory.value
   }
+  return navigationMenuByCategory.value?.filter(item => scoreItem(item, cleanedSearchTerm.value, ['title', 'description']))
+})
+// endregion ////
 
-  return navigationMenuByCategory.value.filter(child => contains(child.label as string, searchTerm.value) || contains((child?.description || '') as string, searchTerm.value))
+// region Search ////
+const searchTerm = ref('')
+const isSearchActive = computed(() => route.path.startsWith('/docs/components'))
+const isPanelCollapsed = ref(false)
+const navigationKey = computed(() => `${route.path}-${searchTerm.value ? 'filtered' : 'unfiltered'}`)
+const cleanedSearchTerm = computed(() => {
+  return searchTerm.value
+    .replace(/^B24(?=[A-Z])/, '')
+    .replace(/^b24-/, '')
 })
 
 watch(() => route.path, () => {
-  if (!isActiveSearch.value) {
+  if (!isSearchActive.value) {
     searchTerm.value = ''
+    isPanelCollapsed.value = false
   }
 })
 
+const input = useTemplateRef('input')
+// endregion ////
+
+// region Shortcuts ////
 defineShortcuts({
   '/': {
     usingInput: false,
@@ -33,77 +47,34 @@ defineShortcuts({
     }
   }
 })
-
-const colorMode = useColorMode()
-const isDark = computed(() => {
-  return colorMode.value === 'dark'
-})
-const isMounted = ref(false)
-const sidebarLayoutB24Ui = computed(() => {
-  if (import.meta.server || !isMounted.value) {
-    return { containerWrapper: '' }
-  }
-  return { containerWrapper: isDark.value ? 'dark' : 'light' }
-})
-
-onMounted(() => {
-  isMounted.value = true
-})
-
-const { mobileLinks } = useHeader()
+// endregion ////
 </script>
 
 <template>
-  <B24SidebarLayout
-    :use-light-content="true"
-    :b24ui="sidebarLayoutB24Ui"
-  >
-    <template #sidebar>
-      <B24SidebarHeader>
-        <LogoWithVersion />
-        <RestApiVersionTabs />
-        <div v-if="isActiveSearch" class="ps-[20px] pe-xs rtl:ps-xs rtl:pe-[20px] pb-[12px]">
-          <B24Input ref="input" v-model="searchTerm" placeholder="Filter..." class="group">
-            <template #trailing>
-              <B24Kbd value="/" dd-class="ring-(--ui-color-design-plain-na-content-secondary) bg-transparent text-muted" />
-            </template>
-          </B24Input>
-        </div>
-      </B24SidebarHeader>
-      <B24SidebarBody>
-        <B24NavigationMenu
-          class="block lg:hidden"
-          :items="mobileLinks"
-          orientation="vertical"
-        />
-        <B24NavigationMenu
-          :key="route.path"
-          :items="filteredNavigation"
-          orientation="vertical"
-          :b24ui="{ linkLeadingBadge: '-top-[4px] left-auto -right-[50px]  bg-blue-500' }"
-        />
-      </B24SidebarBody>
-      <B24SidebarFooter>
-        <B24SidebarSection>
-          <ExtLinks />
-        </B24SidebarSection>
-      </B24SidebarFooter>
-    </template>
-    <template #navbar>
-      <Header />
-    </template>
+  <B24Main>
+    <B24Container class="px-0 sm:px-0">
+      <B24Page class="lg:gap-4">
+        <template #left>
+          <B24PageAside class="scrollbar-thin scrollbar-transparent border-(--ui-color-divider-accent) border-e-1">
+            <div v-if="isSearchActive" class="py-3">
+              <B24Input ref="input" v-model="searchTerm" placeholder="Filter..." class="group">
+                <template #trailing>
+                  <B24Kbd value="/" />
+                </template>
+              </B24Input>
+            </div>
 
-    <template v-if="slots['header']" #content-top>
-      <slot name="header" />
-    </template>
-    <template v-if="slots['right']" #content-right>
-      <slot name="right" />
-    </template>
+            <B24NavigationMenu
+              :key="navigationKey"
+              :items="filteredNavigation"
+              orientation="vertical"
+              :b24ui="{ linkLeadingBadge: 'mt-auto -top-[4px] left-auto -right-[50px] bg-blue-500' }"
+            />
+          </B24PageAside>
+        </template>
 
-    <slot />
-
-    <template #content-bottom>
-      <Footer />
-    </template>
-  </B24SidebarLayout>
+        <slot />
+      </B24Page>
+    </B24Container>
+  </B24Main>
 </template>

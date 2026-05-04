@@ -1,12 +1,9 @@
-// import { createResolver } from '@nuxt/kit'
+import { createResolver } from '@nuxt/kit'
 import pkg from '../package.json'
 import { withoutTrailingSlash } from 'ufo'
 
-// const { resolve } = createResolver(import.meta.url)
+const { resolve } = createResolver(import.meta.url)
 
-/**
- * @memo need add pages for raw/***.md
- */
 const pages = [
   // region getting-started ////
   '/docs/getting-started/',
@@ -57,7 +54,9 @@ const pagesFrameExamples: string[] = [
 ]
 
 const pagesService = [
-  '/404.html'
+  '/404.html',
+  '/sitemap.xml',
+  '/sitemap.md'
 ]
 
 const extraAllowedHosts = (process?.env.NUXT_ALLOWED_HOSTS?.split(',').map((s: string) => s.trim()).filter(Boolean)) ?? []
@@ -72,25 +71,31 @@ export default defineNuxtConfig({
     // '@bitrix24/b24jssdk-nuxt',
     '../packages/jssdk-nuxt/src/module',
     '@bitrix24/b24ui-nuxt',
+    './modules/bx-assistant',
     '@nuxt/content',
     // '@nuxt/image',
-    '@nuxtjs/plausible',
+    '@nuxt/a11y',
     '@nuxtjs/mcp-toolkit',
+    // 'nuxt-component-meta',
+    'nuxt-llms',
+    // @memo off this
     'nuxt-og-image',
     'motion-v/nuxt',
-    'nuxt-llms'
+    'nuxt-schema-org'
   ],
 
   ssr: true,
 
-  devtools: { enabled: false },
+  devtools: {
+    enabled: false
+  },
 
   app: {
     baseURL: `${baseUrl}/`,
     buildAssetsDir: '/_nuxt/',
     head: {
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: `${baseUrl}/favicon.ico` }
+        { rel: 'icon', type: 'image/x-icon', href: `${baseUrl}/favicon.ico?v=2` }
       ],
       htmlAttrs: { class: 'edge-dark' }
     },
@@ -98,6 +103,10 @@ export default defineNuxtConfig({
   },
 
   css: ['~/assets/css/main.css'],
+
+  site: {
+    name: 'Bitrix24 JS SDK'
+  },
 
   content: {
     build: {
@@ -121,7 +130,8 @@ export default defineNuxtConfig({
    */
   runtimeConfig: {
     public: {
-      useAI: false,
+      // @depricate
+      // useAI: false,
       useTabB24frame: false,
       version: pkg.version,
       siteUrl: prodUrl,
@@ -133,16 +143,43 @@ export default defineNuxtConfig({
 
   // @todo add more redirects
   routeRules: {
+    // Agent discovery Link headers on the homepage (RFC 8288, RFC 9727)
+    '/': {
+      headers: {
+        Link: [
+          '</sitemap.xml>; rel="sitemap"; type="application/xml"',
+          '</sitemap.md>; rel="describedby"; type="text/markdown"',
+          '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+          '</docs>; rel="service-doc"; type="text/html"',
+          '</llms.txt>; rel="describedby"; type="text/plain"',
+          '</llms-full.txt>; rel="describedby"; type="text/plain"',
+          '</>; rel="alternate"; type="text/markdown"'
+        ].join(', '),
+        Vary: 'Accept, User-Agent'
+      }
+    },
+    // @memo But at GitHub Pages we use /raw
+    '/docs/**': { headers: { Vary: 'Accept, User-Agent' } },
+    // Our markdown rewrites (see `modules/md-rewrite.ts`) internally route
+    // `/` and `/docs/**` to `/raw/**`, so the `Vary` rules above no longer
+    // match the rewritten path. This rule re-applies it on the actual
+    // served response.
+    '/raw/**': { headers: { Vary: 'Accept, User-Agent' } },
     // redirects - default root pages
-    '/docs': { redirect: '/docs/getting-started/', prerender: false },
-    '/docs/getting-started/installation': { redirect: '/docs/getting-started/installation/vue/', prerender: false },
-    '/docs/getting-started/migration': { redirect: '/docs/getting-started/migration/v1/', prerender: false },
-    '/docs/getting-started/ai': { redirect: '/docs/getting-started/ai/llms-txt/', prerender: false }
+    '/docs/': { redirect: '/docs/getting-started/', prerender: false },
+    '/docs/getting-started/migration/': { redirect: '/docs/getting-started/migration/v1/', prerender: false },
+    '/docs/getting-started/installation/': { redirect: '/docs/getting-started/installation/vue/', prerender: false },
+    '/docs/getting-started/ai/': { redirect: '/docs/getting-started/ai/llms-txt/', prerender: false }
   },
 
-  compatibilityDate: '2024-07-09',
+  compatibilityDate: '2026-01-14',
 
   nitro: {
+    publicAssets: [{
+      dir: resolve('../skills'),
+      baseURL: '/.well-known/skills',
+      maxAge: 60 * 60 * 24
+    }],
     prerender: {
       routes: [
         ...pages.map((page: string) => `${withoutTrailingSlash(`/raw${page}`)}.md`),
@@ -155,13 +192,60 @@ export default defineNuxtConfig({
   },
 
   vite: {
-    optimizeDeps: {
-      // prevents reloading page when navigating between components
-      include: ['@ai-sdk/vue', '@internationalized/date', '@nuxt/content/utils', '@tanstack/vue-table', '@vue/devtools-core', '@vue/devtools-kit', '@vueuse/integrations/useFuse', '@vueuse/shared', 'ai', 'colortranslator', 'embla-carousel-auto-height', 'embla-carousel-auto-scroll', 'embla-carousel-autoplay', 'embla-carousel-class-names', 'embla-carousel-fade', 'embla-carousel-vue', 'embla-carousel-wheel-gestures', 'json5', 'motion-v', 'ohash', 'ohash/utils', 'prettier', 'reka-ui', 'reka-ui/namespaced', 'scule', 'shiki', 'shiki-stream/vue', 'shiki-transformer-color-highlight', 'shiki/engine-javascript.mjs', 'tailwind-variants', 'tailwindcss/colors', 'ufo', 'vaul-vue', 'zod']
-    },
     server: {
       // Fix: "Blocked request. This host is not allowed" when using tunnels like ngrok
       allowedHosts: [...extraAllowedHosts]
+    },
+    optimizeDeps: {
+      include: [
+        'prettier',
+        'ai',
+        '@ai-sdk/vue',
+        '@comark/vue',
+        '@comark/vue/plugins/highlight',
+        'tailwindcss/colors',
+        'luxon',
+        'axios',
+        'qs-esm',
+        '@unhead/schema-org/vue',
+        '@vueuse/core',
+        '@bitrix24/b24icons-vue/main/CloudErrorIcon',
+        '@bitrix24/b24icons-vue/solid/EnterpriseIcon',
+        '@bitrix24/b24icons-vue/social/GitHubIcon',
+        '@bitrix24/b24icons-vue/outline/AiStarsIcon',
+        '@bitrix24/b24icons-vue/outline/RocketIcon',
+        '@bitrix24/b24icons-vue/common-service/Bitrix24Icon',
+        '@bitrix24/b24icons-vue/outline/TelegramIcon',
+        '@bitrix24/b24icons-vue/outline/ALetterIcon',
+        '@bitrix24/b24icons-vue/outline/LayersIcon',
+        '@bitrix24/b24icons-vue/crm/ItemIcon',
+        '@bitrix24/b24icons-vue/crm/FormIcon',
+        '@bitrix24/b24icons-vue/outline/BulletedListIcon',
+        '@bitrix24/b24icons-vue/outline/LinkIcon',
+        '@bitrix24/b24icons-vue/outline/OpenChatIcon',
+        '@bitrix24/b24icons-vue/button/PageIcon',
+        '@bitrix24/b24icons-vue/outline/TaskListIcon',
+        '@bitrix24/b24icons-vue/common-service/CodeIcon',
+        '@bitrix24/b24icons-vue/actions/BrushIcon',
+        '@bitrix24/b24icons-vue/main/EarthLanguageIcon',
+        '@bitrix24/b24icons-vue/main/EditPencilIcon',
+        '@bitrix24/b24icons-vue/outline/ContrastIcon',
+        '@bitrix24/b24icons-vue/outline/SunIcon',
+        '@bitrix24/b24icons-vue/outline/MoonIcon',
+        '@bitrix24/b24icons-vue/outline/AlertIcon',
+        '@bitrix24/b24icons-vue/outline/UndoIcon',
+        '@bitrix24/b24icons-vue/outline/CloseChatIcon',
+        '@bitrix24/b24icons-vue/outline/SearchIcon',
+        '@bitrix24/b24icons-vue/outline/FileIcon',
+        '@bitrix24/b24icons-vue/outline/TrashcanIcon',
+        '@bitrix24/b24icons-vue/main/CopilotAi2Icon',
+        '@bitrix24/b24icons-vue/outline/PlayLIcon',
+        '@bitrix24/b24icons-vue/outline/DeveloperResourcesIcon',
+        '@bitrix24/b24icons-vue/outline/RobotIcon',
+        '@bitrix24/b24icons-vue/outline/BarcodeIcon',
+        '@bitrix24/b24icons-vue/outline/EarthIcon',
+        '@bitrix24/b24icons-vue/file-type/TerminalIcon'
+      ]
     }
   },
 
@@ -171,7 +255,6 @@ export default defineNuxtConfig({
   //   provider: 'ipx'
   // },
 
-  // @todo fix sections
   llms: {
     domain: `${prodUrl}${baseUrl}`,
     title: 'Bitrix24 JS SDK',
@@ -185,6 +268,13 @@ export default defineNuxtConfig({
     },
     sections: [
       {
+        title: 'Installation (Nuxt, Vue, React, Node.js, UMD)',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '/docs/getting-started/installation%' }
+        ]
+      },
+      {
         title: 'Getting Started',
         contentCollection: 'docs',
         contentFilters: [
@@ -195,30 +285,45 @@ export default defineNuxtConfig({
         title: 'Working',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '/docs/working-with-the-rest-api%' }
-        ]
-      },
-      {
-        title: 'Examples',
-        contentCollection: 'docs',
-        contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '/docs/examples%' }
+          { field: 'path', operator: 'LIKE', value: '/docs/working-with-the-rest-api/%' }
         ]
       }
+      // {
+      //   title: 'Examples',
+      //   contentCollection: 'docs',
+      //   contentFilters: [
+      //     { field: 'path', operator: 'LIKE', value: '/docs/examples/%' }
+      //   ]
+      // }
     ],
     notes: [
       'The content is automatically generated from the same source as the official documentation.'
     ]
   },
+
   mcp: {
-    /** @memo fix if you need */
-    enabled: import.meta.dev,
+    enabled: import.meta.dev, // fix if you need
     name: 'Bitrix24 JS SDK',
     version: '1.0.0',
     route: `/mcp/`, // ${baseUrl}
-    browserRedirect: '/docs/getting-started/ai/mcp/'
+    browserRedirect: '/docs/getting-started/' // '/docs/getting-started/ai/mcp'
   },
 
-  // @memo off for generate
-  ogImage: { enabled: false }
+  ogImage: {
+    zeroRuntime: true,
+    security: {
+      renderTimeout: 60000
+    }
+  },
+
+  schemaOrg: {
+    identity: {
+      type: 'Organization',
+      name: 'Bitrix24',
+      logo: '/b24-logo.svg',
+      sameAs: [
+        'https://github.com/bitrix24'
+      ]
+    }
+  }
 })

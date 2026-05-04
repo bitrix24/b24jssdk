@@ -5,9 +5,9 @@ export function useRestApiVersions() {
   )
   const { track } = useAnalytics()
 
-  function setRestapiVersion(value: 'rest-api-ver2' | 'rest-api-ver3') {
+  function setRestapiVersion(value: 'rest-api-ver2' | 'rest-api-ver3', source?: string) {
     restApiVersion.value = value
-    track('RestApiVersion Switched', { restapiVersion: value })
+    track('RestApiVersion Switched', { restapiVersion: value, source: source || 'search' })
   }
 
   const restApiVersions = computed(() => [{
@@ -22,6 +22,7 @@ export function useRestApiVersions() {
 
   return {
     restApiVersion,
+    setRestapiVersion,
     restApiVersions
   }
 }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
-import { withTrailingSlash } from 'ufo'
+import { withTrailingSlash, joinURL } from 'ufo' // withoutTrailingSlash
 import { kebabCase } from 'scule'
+import { useColorMode } from '#b24ui/composables/color-mode/useColorMode'
 import DesignIcon from '@bitrix24/b24icons-vue/outline/DesignIcon'
 import FavoriteIcon from '@bitrix24/b24icons-vue/outline/FavoriteIcon'
 import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
@@ -9,23 +10,34 @@ import MoreMIcon from '@bitrix24/b24icons-vue/outline/MoreMIcon'
 import NuxtIcon from '@bitrix24/b24icons-vue/file-type/NuxtIcon'
 import DemonstrationOnIcon from '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
 import Bitrix24Icon from '@bitrix24/b24icons-vue/common-service/Bitrix24Icon'
+import AiStarsIcon from '@bitrix24/b24icons-vue/outline/AiStarsIcon'
 import MdnwebdocsIcon from '@bitrix24/b24icons-vue/social/MdnwebdocsIcon'
+
+// const isDev = import.meta.dev
 
 const route = useRoute()
 const { restApiVersion } = useRestApiVersions()
+const pageUrl = route.path
 const config = useRuntimeConfig()
+const appConfig = useAppConfig()
 
 definePageMeta({
-  layout: false
+  layout: 'docs'
 })
 
-const { data: page } = await useAsyncData(kebabCase(route.path), () => queryCollection('docs').path(route.path).first())
+// @memo this for NUXT.UI.docs
+const { open, messages } = useChat()
+const isOpen = computed(() => open.value)
+// @memo this for docus
+const { isEnabled } = useAssistant()
+// const { isEnabled, open, isOpen } = useAssistant()
+
+const { data: page } = await useAsyncData(kebabCase(pageUrl), () => queryCollection('docs').path(pageUrl).first())
 if (!page.value) {
-  console.error('Page not found', { route: route.path })
-  throw createError({ status: 404, statusText: 'Page not found' })
+  throw createError({ status: 404, statusText: 'Page not found', fatal: true })
 }
 
-// Update the restApiVersion if the page has different one
+// Update the framework if the page has different one
 watch(page, () => {
   if (page.value?.restApiVersion && page.value?.restApiVersion !== restApiVersion.value) {
     restApiVersion.value = page.value?.restApiVersion as string
@@ -34,9 +46,9 @@ watch(page, () => {
 
 const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
 
-const { findSurround } = useNavigation(navigation!)
+const { findSurround, findBreadcrumb } = useNavigation(navigation!)
 
-//  breadcrumb = computed(() => findBreadcrumb(page.value?.path as string))
+const breadcrumb = computed(() => findBreadcrumb(page.value?.path as string))
 const surround = computed(() => findSurround(page.value?.path as string))
 
 if (!import.meta.prerender) {
@@ -68,6 +80,45 @@ useSeoMeta({
   ogDescription: description
 })
 
+// if (route.path.startsWith('/docs/components/')) {
+//   defineOgImage('Component.takumi', {
+//     title: page.value.title,
+//     description: page.value.description,
+//     slug: (route.params.slug as string[]).pop() as string
+//   })
+// } else {
+//   defineOgImage('Docs.takumi', {
+//     title: page.value.title,
+//     description: page.value.description,
+//     headline: breadcrumb.value?.[breadcrumb.value.length - 1]?.label || 'Bitrix24 UI',
+//     framework: page.value?.framework
+//   })
+// }
+
+const path = computed(() => pageUrl.replace(/\/$/, ''))
+
+if (import.meta.server) {
+  prerenderRoutes([joinURL(`${config.public.baseUrl}/raw`, `${path.value}.md`)])
+}
+
+// @memo we use redirect in `docs/modules/md-rewrite.ts`
+// @memo But at GitHub Pages we use /raw
+useCanonical(computed(() => `/raw${path.value}.md`))
+
+useSchemaOrg([
+  defineArticle({
+    '@type': 'TechArticle',
+    'headline': `${prefix}${title} ${suffix}`.trim(),
+    'description': description
+  }),
+  defineBreadcrumb({
+    itemListElement: breadcrumb.value?.map(item => ({
+      name: item.label,
+      item: item.to ? String(item.to) : undefined
+    })) || []
+  })
+])
+
 const communityLinks = computed(() => [
   {
     icon: DesignIcon,
@@ -98,76 +149,140 @@ const iconFromIconName = (iconName?: string) => {
 
   return undefined
 }
+
+const explainIcon = computed(() => appConfig.bxAssistant?.icons?.explain || AiStarsIcon)
+
+const showExplainWithAi = computed(() => {
+  return isEnabled.value && appConfig.bxAssistant?.explainWithAi !== false
+})
+
+const colorMode = useColorMode()
+const isDark = computed(() => {
+  return colorMode.value === 'dark'
+})
+const isMounted = ref(false)
+const cardColorContext = computed(() => {
+  if (import.meta.server || !isMounted.value) {
+    return 'light'
+  }
+  return isDark.value ? 'dark' : 'light'
+})
+
+onMounted(() => {
+  isMounted.value = true
+})
+
+// @todo fix this
+// @see docs/app/components/PageHeaderLinks.vue:16
+// const aiPrompt = computed(() => `I'm looking at this Bitrix24 UI documentation: ${page.value?.path}\nHelp me understand how to use it. Be ready to explain concepts, give examples, or help debug based on it.`)
+const aiPrompt = ref('Read this documentation page and summarize it. I want to ask questions about it.')
+
+function makeExplain() {
+  // @memo this for NUXT.UI.docs
+  messages.value = [
+    ...messages.value,
+    {
+      id: String(Date.now()),
+      role: 'user',
+      parts: [{ type: 'text', text: aiPrompt.value }]
+    }
+  ]
+  open.value = true
+
+  // @memo this for docus
+  // openAIChat(aiPrompt.value, true)
+}
 </script>
 
 <template>
-  <NuxtLayout name="docs">
-    <template #header>
-      <template v-if="page">
-        <PageHeader :title="page.title">
-          <template #description>
-            <MDC
-              v-if="page.description"
-              :value="page.description"
-              unwrap="p"
-              :cache-key="`${kebabCase(route.path)}-description`"
-            />
-          </template>
-          <template #head-links>
-            <DocsAside v-if="config.public.useAI" />
-            <PageHeaderLinks />
-            <B24DropdownMenu
-              class="hidden sm:flex"
-              :items="communityLinks"
-              :content="{ side: 'bottom', align: 'end', sideOffset: 4 }"
-            >
-              <B24Button size="sm" :icon="MoreMIcon" color="air-secondary-accent" />
-            </B24DropdownMenu>
-          </template>
-          <template #links>
-            <B24Button
-              v-for="link in page.links"
-              :key="link.label"
-              :target="link.to?.startsWith('http') ? '_blank' : undefined"
-              v-bind="link"
-              :icon="iconFromIconName(link?.iconName)"
-              size="md"
-              :b24ui="{ leadingIcon: 'mr-[5px]' }"
-            >
-              <template v-if="link.avatar" #leading>
-                <B24Avatar
-                  v-bind="link.avatar"
-                  size="2xs"
-                  :alt="`${link.label}`"
-                  :b24ui="{
-                    root: 'mr-[5px]',
-                    image: 'w-[18px] h-[12px]'
-                  }"
-                />
-              </template>
-            </B24Button>
-          </template>
-        </PageHeader>
-      </template>
-    </template>
-    <template v-if="page?.body?.toc?.links?.length" #right>
-      <B24Card
-        variant="outline-alt"
-        class="lg:mt-[22px] lg:sticky lg:top-[8px] rounded-none lg:rounded-(--ui-border-radius-md) backdrop-blur-md border-0"
-        :b24ui="{ body: 'px-[22px] py-0 sm:ps-[22px] lg:ps-[10px] lg:pe-[4px] sm:py-0 pt-[12px] sm:pt-[12px] lg:py-[15px]' }"
-      >
-        <B24ContentToc
-          :links="page.body.toc.links"
-          class="p-0 lg:overflow-y-auto scrollbar-thin scrollbar-transparent lg:h-[calc(100vh-var(--topbar-height)-22px-22px)]"
+  <B24Page
+    v-if="page"
+    :b24ui="{
+      root: 'lg:gap-2.5 lg:py-3',
+      center: `flex flex-col lg:gap-4 ${open ? 'lg:col-span-10' : ''}`,
+      right: `order-first lg:order-last lg:top-[0px] ${open ? 'lg:hidden' : 'lg:col-span-2'}`
+    }"
+  >
+    <PageHeader>
+      <template #title>
+        {{ page.title }}
+
+        <B24Badge
+          v-if="page.navigation?.badge"
+          :label="page.navigation?.badge"
+          size="lg"
+          class="align-middle"
         />
+      </template>
+
+      <template #description>
+        <MDC
+          v-if="page.description"
+          :value="page.description"
+          unwrap="p"
+          :cache-key="`${kebabCase(pageUrl)}-description`"
+        />
+      </template>
+      <template #head-links>
+        <B24Button
+          v-if="showExplainWithAi"
+          :icon="explainIcon"
+          label="Explain with AI"
+          color="air-selection"
+          size="sm"
+          @click="makeExplain"
+        />
+
+        <PageHeaderLinks />
+
+        <B24DropdownMenu
+          class="hidden sm:flex"
+          :items="communityLinks"
+          :content="{ side: 'bottom', align: 'end', sideOffset: 4 }"
+        >
+          <B24Button size="sm" :icon="MoreMIcon" color="air-secondary-accent" />
+        </B24DropdownMenu>
+      </template>
+      <template #links>
+        <B24Button
+          v-for="link in page.links"
+          :key="link.label"
+          :target="link.to?.startsWith('http') ? '_blank' : undefined"
+          v-bind="link"
+          :icon="iconFromIconName(link?.iconName)"
+          size="md"
+          :b24ui="{ baseLine: 'gap-1.5' }"
+        >
+          <template v-if="link.avatar" #leading>
+            <B24Avatar v-bind="link.avatar" loading="lazy" size="2xs" :alt="`${link.label} avatar`" :b24ui="{ image: 'w-4.5 h-3' }" />
+          </template>
+        </B24Button>
+      </template>
+    </PageHeader>
+
+    <B24PageBody class="mt-0">
+      <B24Card
+        v-if="page"
+        as="main"
+        :class="cardColorContext"
+        :b24ui="{
+          root: 'rounded-none lg:rounded-(--ui-border-radius-md)',
+          body: 'p-3'
+        }"
+      >
+        <ContentRenderer v-if="page.body" :value="page" />
+
+        <B24Separator v-if="surround?.filter(Boolean).length" class="my-4" />
+
+        <B24ContentSurround :surround="(surround as any)" />
       </B24Card>
-    </template>
+    </B24PageBody>
 
-    <template v-if="page">
-      <ContentRenderer v-if="page.body" :value="page" />
-      <B24Separator v-if="surround?.filter(Boolean).length" class="my-4" />
-
-      <B24ContentSurround :surround="(surround as any)" />
+    <template v-if="page?.body?.toc?.links?.length && !isOpen" #right>
+      <B24ContentToc
+        :links="page.body.toc.links"
+        class="sticky top-(--b24ui-header-height) px-3 py-3 pb-0 lg:p-4 lg:top-(--b24ui-header-height) scrollbar-thin scrollbar-transparent bg-(--ui-color-accent-soft-element-violet)/60 dark:bg-(--ui-color-copilot-bg-content-3)/40 lg:bg-transparent dark:lg:bg-transparent backdrop-blur-md lg:ms-0 overflow-y-auto max-h-[calc(100vh-var(--b24ui-header-height))] lg:col-span-2 order-first lg:order-last z-2"
+      />
     </template>
-  </NuxtLayout>
+  </B24Page>
 </template>

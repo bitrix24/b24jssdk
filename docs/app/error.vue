@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
-import { clearError, useColorMode } from '#imports'
 import CloudErrorIcon from '@bitrix24/b24icons-vue/main/CloudErrorIcon'
 
 const props = defineProps<{
@@ -8,65 +7,31 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
-const config = useRuntimeConfig()
+const { style, link } = useTheme()
 
-const { data: navigation } = await useAsyncData('navigationInError', () => queryCollectionNavigation('docs', []))
-const { data: files } = useLazyAsyncData(
-  'search-error',
-  async () => {
-    const data = await queryCollectionSearchSections('docs', {
-      ignoredTags: ['style']
-    })
-
-    return data.map((file) => {
-      return {
-        ...file,
-        id: file.id.replace(/([^/])(#.*)?$/, (_, char, hash = '') => `${char}/${hash}`)
-      }
-    })
-  },
-  {
-    server: false
-  }
-)
+const { data: navigation } = await useAsyncData('navigationInError', () => queryCollectionNavigation('docs', ['restApiVersion']))
 
 useHead({
-  meta: [
-    { name: 'viewport', content: 'width=device-width, initial-scale=1' }
-  ],
-  link: [],
+  meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
+  link,
+  style,
   htmlAttrs: { lang: 'en' }
 })
 
 useSeoMeta({
   titleTemplate: '%s - Bitrix24 JS SDK',
-  title: (props.error as any)?.status
+  title: props.error.status
 })
 
-useServerSeoMeta({
-  ogSiteName: 'Bitrix24 JS SDK',
-  twitterCard: 'summary_large_image'
-})
-
-const { rootNavigation, navigationByRestApiVersion } = useNavigation(navigation)
+if (import.meta.server) {
+  useSeoMeta({
+    ogSiteName: 'Bitrix24 JS SDK',
+    twitterCard: 'summary_large_image'
+  })
+}
+const { rootNavigation } = useNavigation(navigation)
 
 provide('navigation', rootNavigation)
-
-const colorMode = useColorMode()
-const isDark = computed(() => {
-  return colorMode.value === 'dark'
-})
-const isMounted = ref(false)
-const cardColorContext = computed(() => {
-  if (import.meta.server || !isMounted.value) {
-    return 'edge-dark'
-  }
-  return isDark.value ? 'dark' : 'edge-dark'
-})
-
-onMounted(() => {
-  isMounted.value = true
-})
 
 const b24Instance = useB24()
 
@@ -84,16 +49,15 @@ function resetHook() {
   <B24App>
     <NuxtLoadingIndicator color="var(--ui-color-accent-main-primary)" :height="2" />
 
-    <B24SidebarLayout :use-light-content="false" :class="[route.path.startsWith('/docs/') && 'root']">
-      <template #navbar>
-        <Header show-logo-all-time />
-      </template>
+    <div :class="[route.path.startsWith('/docs/') && 'root']">
+      <!-- <Banner /> -->
+
+      <Header />
 
       <B24Error
         :error="error"
-        :class="cardColorContext"
         :b24ui="{
-          root: 'mt-[22px] min-h-[calc(100vh-200px)] bg-(--ui-color-design-outline-na-bg) h-[calc(100vh-200px)] p-[12px] rounded-[24px]'
+          root: 'min-h-[calc(100vh-var(--topbar-height)-var(--topbar-height))]'
         }"
       >
         <template v-if="isFromB24Ajax" #links>
@@ -114,14 +78,7 @@ function resetHook() {
           </B24Alert>
         </template>
       </B24Error>
-      <template #content-bottom>
-        <Footer />
-      </template>
-    </B24SidebarLayout>
-
-    <ClientOnly>
-      <Search :files="files" :navigation="navigationByRestApiVersion" />
-      <AIChatSlideover v-if="config.public.useAI" />
-    </ClientOnly>
+      <Footer />
+    </div>
   </B24App>
 </template>

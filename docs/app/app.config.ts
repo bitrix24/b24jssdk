@@ -10,6 +10,10 @@ export default defineAppConfig({
   colorModeInitialValue: 'edge-dark' as const, // edge-dark | edge-light | light
   colorModeTypeLight: 'edge-dark' as const, // edge-dark | edge-light | light
   bxAssistant: {
+    icons: {
+      explain: undefined,
+      trigger: undefined
+    },
     floatingInput: true,
     explainWithAi: true,
     shortcuts: {

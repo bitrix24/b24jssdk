@@ -1,6 +1,5 @@
 <script setup lang="ts">
 // import { joinURL } from 'ufo'
-import { navigateTo } from '#imports'
 import EncloseTextInCodeTagIcon from '@bitrix24/b24icons-vue/editor/EncloseTextInCodeTagIcon'
 import InfoCircleIcon from '@bitrix24/b24icons-vue/outline/InfoCircleIcon'
 import PlayLIcon from '@bitrix24/b24icons-vue/outline/PlayLIcon'

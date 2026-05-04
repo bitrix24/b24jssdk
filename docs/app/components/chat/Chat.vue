@@ -14,7 +14,6 @@ import SearchIcon from '@bitrix24/b24icons-vue/outline/SearchIcon'
 import FileIcon from '@bitrix24/b24icons-vue/outline/FileIcon'
 import TrashcanIcon from '@bitrix24/b24icons-vue/outline/TrashcanIcon'
 import CopilotAi2Icon from '@bitrix24/b24icons-vue/main/CopilotAi2Icon'
-import {useRestApiVersions} from "~/composables/useRestApiVersions";
 
 const input = ref('')
 

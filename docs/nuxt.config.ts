@@ -244,7 +244,27 @@ export default defineNuxtConfig({
         '@bitrix24/b24icons-vue/outline/RobotIcon',
         '@bitrix24/b24icons-vue/outline/BarcodeIcon',
         '@bitrix24/b24icons-vue/outline/EarthIcon',
-        '@bitrix24/b24icons-vue/file-type/TerminalIcon'
+        '@bitrix24/b24icons-vue/file-type/TerminalIcon',
+        '@bitrix24/b24icons-vue/outline/BrowserIcon',
+        '@bitrix24/b24icons-vue/editor/EncloseTextInCodeTagIcon',
+        '@bitrix24/b24icons-vue/outline/InfoCircleIcon',
+        '@bitrix24/b24icons-vue/outline/DesignIcon',
+        '@bitrix24/b24icons-vue/outline/FavoriteIcon',
+        '@bitrix24/b24icons-vue/outline/MoreMIcon',
+        '@bitrix24/b24icons-vue/file-type/NuxtIcon',
+        '@bitrix24/b24icons-vue/social/MdnwebdocsIcon',
+        '@bitrix24/b24icons-vue/outline/CopyIcon',
+        '@bitrix24/b24icons-vue/outline/CircleCheckIcon',
+        '@bitrix24/b24icons-vue/file-type/MarkdownIcon',
+        '@bitrix24/b24icons-vue/outline/DesignIcon',
+        '@bitrix24/b24icons-vue/outline/FavoriteIcon',
+        '@bitrix24/b24icons-vue/outline/MoreMIcon',
+        '@bitrix24/b24icons-vue/file-type/NuxtIcon',
+        '@bitrix24/b24icons-vue/social/MdnwebdocsIcon',
+        '@bitrix24/b24icons-vue/outline/CopyIcon',
+        '@bitrix24/b24icons-vue/outline/CircleCheckIcon',
+        '@bitrix24/b24icons-vue/file-type/MarkdownIcon',
+        '@bitrix24/b24icons-vue/outline/DemonstrationOnIcon'
       ]
     }
   },

@@ -73,7 +73,8 @@
   "resolutions": {
     "@bitrix24/b24jssdk": "workspace:*",
     "@bitrix24/b24jssdk-nuxt": "workspace:*",
-    "@isaacs/brace-expansion": "^5.0.1"
+    "@isaacs/brace-expansion": "^5.0.1",
+    "nuxt": "4.4.2"
   },
   "keywords": [
     "bitrix24",

@@ -3,7 +3,7 @@
 ## [1.0.6](https://github.com/bitrix24/b24jssdk/compare/v1.0.5...v1.0.6) (2026-05-04)
 
 * docs: improve
-* chore(desp): improve
+* chore(deps): improve
 
 ## [1.0.5](https://github.com/bitrix24/b24jssdk/compare/v1.0.4...v1.0.5) (2026-03-28)
 

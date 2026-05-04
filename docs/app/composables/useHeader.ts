@@ -1,7 +1,7 @@
 import type { NavigationMenuItem } from '@bitrix24/b24ui-nuxt'
 import { createSharedComposable } from '@vueuse/core'
 import PlayLIcon from '@bitrix24/b24icons-vue/outline/PlayLIcon'
-import DeveloperResourcesIcon from '@bitrix24/b24icons-vue/outline/DeveloperResourcesIcon'
+import BrowserIcon from '@bitrix24/b24icons-vue/outline/BrowserIcon'
 import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
 import BarcodeIcon from '@bitrix24/b24icons-vue/outline/BarcodeIcon'
 import EarthIcon from '@bitrix24/b24icons-vue/outline/EarthIcon'
@@ -44,10 +44,10 @@ const _useHeader = () => {
       type: 'trigger',
       children: [
         {
-          label: 'B24 JsSdk',
-          description: 'for using Bitrix24 REST API in applications',
-          icon: DeveloperResourcesIcon,
-          to: 'https://bitrix24.github.io/b24jssdk/',
+          label: 'B24 UI',
+          description: 'for REST API web-application development',
+          icon: BrowserIcon,
+          to: 'https://bitrix24.github.io/b24ui/',
           target: '_blank'
         },
         {

@@ -99,6 +99,16 @@ The SDK is client-facing. Treat exports from `packages/jssdk/src/index.ts` as a 
 - No default exports; everything is named so packages stay tree-shakeable (`sideEffects: false`).
 - Conventional Commits — `feat`/`fix` for behaviour, `docs`/`chore` otherwise. The CHANGELOG is generated from these.
 
+## Documentation upkeep
+
+After any code change that alters a public API (signatures, accepted parameters, return shapes, runtime behaviour, error codes, or warnings emitted), update the matching Markdown page under `docs/content/docs/`. The docs site is the public source of truth — out-of-date docs are treated as a bug equal to a broken test.
+
+- Find the page that documents the changed surface (e.g. `2.call-list-rest-api-ver2.md` for `CallListV2`, `2.fetch-list-rest-api-ver3.md` for `FetchListV3`). Each page links to its source file in the front-matter `links:` section — use that to confirm the mapping.
+- All documentation prose, parameter tables, code samples, and notes must be written in **English**.
+- Sync these sections in particular: the parameter table (types and descriptions), the **Method Signature** block, the **Limitations** / **Key Concepts** notes, and any runnable example that uses the changed surface.
+- If the change introduces a new `warning`/`error` log message or a new `SdkError` code, mention it in the relevant section (Limitations, Error Handling, or Key Concepts) so users can recognise it.
+- Documentation updates belong in the same commit/PR as the code change. Use a `docs:` commit only when the change is documentation-only.
+
 ## Git workflow
 
 - Branch from `main` before code changes. Naming: `ai/<description>` (lowercase, hyphens) — e.g. `ai/add-auth-helper`, `ai/fix-validation`.

@@ -65,4 +65,17 @@ export type Payload<P>
     | ListPayload<P>
     | BatchPayload<P>
 
-export type SuccessPayload<P> = Exclude<Payload<P>, TypeDescriptionErrorV3 | TypeDescriptionError>
+/**
+ * Flat shape returned by `AjaxResult.getData()` for a successful REST response.
+ *
+ * `result` is always typed as `P` so callers of `b24.actions.v2.call.make<T>()`
+ * (and similar single-call helpers) receive `getData().result: T` rather than a
+ * union of `T | T[] | BatchPayloadResult<T>`. `next` / `total` remain optional
+ * because list responses populate them, single-method responses do not.
+ */
+export type SuccessPayload<P> = {
+  readonly result: P
+  readonly next?: number
+  readonly total?: number
+  readonly time: PayloadTime
+}

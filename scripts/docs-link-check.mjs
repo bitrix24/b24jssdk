@@ -43,17 +43,57 @@ function fileToUrl(file) {
   return `${URL_PREFIX}${segments.join('/')}${segments.length ? '/' : ''}`
 }
 
-function buildValidUrls(files) {
-  const set = new Set()
-  for (const file of files) set.add(fileToUrl(file))
-  return set
+// Slug a heading the way `github-slugger` (used by Nuxt Content) does:
+// lowercase, strip everything that isn't a word char, whitespace or hyphen,
+// then collapse runs of whitespace into single hyphens.
+function slugifyHeading(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
 }
 
-function normalizeUrl(url) {
-  // Drop fragment, ensure trailing slash for path-only URLs.
-  const noFragment = url.split('#')[0]
-  if (!noFragment) return ''
-  return noFragment.endsWith('/') ? noFragment : `${noFragment}/`
+function extractHeadings(body) {
+  const slugs = new Set()
+  for (const line of body.split('\n')) {
+    const prefix = line.match(/^#{1,6}\s/)
+    if (!prefix) continue
+    const text = line.slice(prefix[0].length).trim()
+    if (!text) continue
+    slugs.add(slugifyHeading(text))
+  }
+  return slugs
+}
+
+function buildPageIndex(files) {
+  // url -> { headings: Set<slug> }
+  const index = new Map()
+  for (const file of files) {
+    const raw = readFileSync(file, 'utf8')
+    const body = stripFrontmatter(raw)
+    index.set(fileToUrl(file), { headings: extractHeadings(body) })
+  }
+  return index
+}
+
+function stripFrontmatter(text) {
+  if (!text.startsWith('---')) return text
+  const end = text.indexOf('\n---', 3)
+  if (end === -1) return text
+  return text.slice(end + 4).replace(/^\n/, '')
+}
+
+function splitUrlAndFragment(url) {
+  const hashIdx = url.indexOf('#')
+  if (hashIdx === -1) return { path: url, fragment: '' }
+  return { path: url.slice(0, hashIdx), fragment: url.slice(hashIdx + 1) }
+}
+
+function normalizePath(path) {
+  if (!path) return ''
+  return path.endsWith('/') ? path : `${path}/`
 }
 
 function extractInternalLinksFromBody(body) {
@@ -85,14 +125,24 @@ function extractInternalLinksFromFrontmatter(fm) {
   return out
 }
 
+// Resolve a link's path component to a page URL in the page index.
+// The link itself may target the *current* page via `#fragment` (no path),
+// in which case we treat the link as same-page.
+function resolveLinkTarget(link, sourceUrl) {
+  const { path, fragment } = splitUrlAndFragment(link)
+  const targetUrl = path ? normalizePath(path) : sourceUrl
+  return { targetUrl, fragment }
+}
+
 function main() {
   const files = walk(DOCS_ROOT)
-  const validUrls = buildValidUrls(files)
+  const pageIndex = buildPageIndex(files)
 
   for (const file of files) {
+    const sourceUrl = fileToUrl(file)
     const raw = readFileSync(file, 'utf8')
     const fm = extractFrontmatter(raw)
-    const body = raw.slice(fm.length ? fm.length + 8 : 0) // skip `---\n…\n---\n`
+    const body = stripFrontmatter(raw)
 
     const links = [
       ...extractInternalLinksFromFrontmatter(fm),
@@ -100,9 +150,17 @@ function main() {
     ]
 
     for (const link of links) {
-      const target = normalizeUrl(link)
-      if (!validUrls.has(target)) {
-        logError(file, `broken internal link "${link}" -> "${target}" (no matching page)`)
+      const { targetUrl, fragment } = resolveLinkTarget(link, sourceUrl)
+      const page = pageIndex.get(targetUrl)
+      if (!page) {
+        logError(file, `broken internal link "${link}" -> "${targetUrl}" (no matching page)`)
+        continue
+      }
+      if (fragment && !page.headings.has(fragment)) {
+        logError(
+          file,
+          `broken fragment in link "${link}" — "#${fragment}" is not a heading on ${targetUrl}`
+        )
       }
     }
   }

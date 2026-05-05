@@ -192,11 +192,15 @@ export class RestrictionManager {
 
   /**
    * These exceptions will be thrown
+   *
+   * When `retryOnNetworkError` is `false`, transport-level errors
+   * (`NETWORK_ERROR`, `REQUEST_TIMEOUT`) are added so non-idempotent calls
+   * are not retried after a client-side timeout / connection failure.
    */
   get exceptionCodeForHard(): string[] {
-    return [
+    const codes = [
       'ERR_BAD_REQUEST',
-      'JSSDK_UNKNOWN_ERROR', // 'REQUEST_TIMEOUT', 'NETWORK_ERROR',
+      'JSSDK_UNKNOWN_ERROR',
       '100',
       'INTERNAL_SERVER_ERROR', 'ERROR_UNEXPECTED_ANSWER', 'PORTAL_DELETED',
       'ERROR_BATCH_METHOD_NOT_ALLOWED', 'ERROR_BATCH_LENGTH_EXCEEDED',
@@ -209,6 +213,12 @@ export class RestrictionManager {
       'NOT_FOUND',
       'INVALID_ARG_VALUE'
     ]
+
+    if (this.#config.retryOnNetworkError === false) {
+      codes.push('NETWORK_ERROR', 'REQUEST_TIMEOUT')
+    }
+
+    return codes
   }
 
   /**

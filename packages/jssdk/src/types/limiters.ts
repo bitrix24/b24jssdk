@@ -99,6 +99,24 @@ export interface RestrictionParams {
    * Default: 1_000
    */
   retryDelay?: number
+  /**
+   * Whether to retry on transport-level errors (`NETWORK_ERROR`, `REQUEST_TIMEOUT`).
+   *
+   * Default: `true` — preserves the historical retry behaviour.
+   *
+   * Set to `false` for **non-idempotent** calls (e.g. `crm.documentgenerator.document.add`,
+   * any `*.add` that creates an entity, file uploads). When the request times out
+   * client-side, the server may still have processed it successfully — retrying then
+   * creates duplicates. With `retryOnNetworkError: false` the SDK immediately throws
+   * `NETWORK_ERROR` / `REQUEST_TIMEOUT` instead of retrying.
+   *
+   * For long-running heavy operations also raise the axios timeout:
+   * ```ts
+   * const clientAxios = $b24.getHttpClient(ApiVersion.v2).ajaxClient
+   * clientAxios.defaults.timeout = 120_000
+   * ```
+   */
+  retryOnNetworkError?: boolean
 }
 
 /**

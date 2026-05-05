@@ -79,7 +79,7 @@ export abstract class AbstractProcessingV3 extends AbstractProcessing implements
 
     const result = new AjaxResult<T>({
       answer: {
-        result: (resultData ?? {}) as T,
+        result: resultData as T,
         error: resultError,
         time: resultTime
       },

@@ -109,6 +109,21 @@ After any code change that alters a public API (signatures, accepted parameters,
 - If the change introduces a new `warning`/`error` log message or a new `SdkError` code, mention it in the relevant section (Limitations, Error Handling, or Key Concepts) so users can recognise it.
 - Documentation updates belong in the same commit/PR as the code change. Use a `docs:` commit only when the change is documentation-only.
 
+### REST page skeleton (action / tools categories)
+
+Pages with `category: actions` or `category: tools` follow a fixed section order. The lint script `pnpm run docs:lint-pages` enforces this. **Required, in order:**
+
+1. `## Overview`
+2. `## Method Signature`
+3. `## Examples`
+4. `## Alternatives and Recommendations`
+
+`## Error Handling` is recommended (warned if missing) and conventionally placed between `## Method Signature` and `## Examples`. `## Key Concepts`, `## Limitations`, and `## Performance Optimization` are optional but, when present, conventionally appear before `## Examples`.
+
+### `audited:` frontmatter
+
+Every action / tools page should carry an `audited: YYYY-MM-DD` field stating the date its content was verified against the linked source. `pnpm run docs:lint-pages` extracts every `https://github.com/bitrix24/b24jssdk/blob/main/<path>` from the page's `links:` array, runs `git log -1 --format=%cI -- <path>`, and warns if any source's last commit is newer than `audited`. When you sync a page after a code change, bump `audited` to today's date in the same commit. Use `pnpm run docs:lint-pages:strict` in CI gates that should fail on stale pages.
+
 ## Git workflow
 
 - Branch from `main` before code changes. Naming: `ai/<description>` (lowercase, hyphens) — e.g. `ai/add-auth-helper`, `ai/fix-validation`.

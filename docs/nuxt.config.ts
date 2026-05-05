@@ -42,7 +42,12 @@ const pages = [
   '/docs/working-with-the-rest-api/frame-slider/',
   // endregion ////
   // region examples ////
-  '/docs/examples/'
+  '/docs/examples/',
+  '/docs/examples/dashboard-deals-csv/',
+  '/docs/examples/frame-app-skeleton/',
+  '/docs/examples/webhook-cli-node/',
+  '/docs/examples/bulk-update-deals/',
+  '/docs/examples/pull-subscribe-frame/'
   // endregion ////
 ]
 

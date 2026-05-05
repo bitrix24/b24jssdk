@@ -122,7 +122,7 @@ function gitLastCommitDate(localPath) {
   }
 }
 
-function checkActionPage(file, frontmatter, body) {
+function checkActionSkeleton(file, body) {
   const headings = body.split('\n').filter(l => l.startsWith('## '))
   // Required sections: must all be present; order must match.
   const presentRequired = []
@@ -150,11 +150,12 @@ function checkActionPage(file, frontmatter, body) {
       log('warn', file, `recommended section "${recommended}" is missing`)
     }
   }
-  // Audited.
-  if (!frontmatter.audited) {
-    log('warn', file, `missing frontmatter "audited: YYYY-MM-DD"`)
-    return
-  }
+}
+
+// Audit-freshness check applies to any page that opted in via
+// `audited:` in its frontmatter, regardless of category.
+function checkAuditFreshness(file, frontmatter) {
+  if (!frontmatter.audited) return
   const auditedDate = new Date(frontmatter.audited + 'T23:59:59Z')
   const ghPaths = extractGithubLinkPaths(frontmatter.links || [])
   for (const localPath of ghPaths) {
@@ -176,10 +177,13 @@ function main() {
     const raw = readFileSync(file, 'utf8')
     const { frontmatter, body } = parseFrontmatter(raw)
     const category = frontmatter.category
-    if (!category) continue
     if (ACTION_LIKE_CATEGORIES.has(category)) {
-      checkActionPage(file, frontmatter, body)
+      checkActionSkeleton(file, body)
+      if (!frontmatter.audited) {
+        log('warn', file, `missing frontmatter "audited: YYYY-MM-DD"`)
+      }
     }
+    checkAuditFreshness(file, frontmatter)
   }
   console.log(`\ndocs-lint: ${errors} error(s), ${warnings} warning(s)`)
   if (errors > 0) process.exit(1)

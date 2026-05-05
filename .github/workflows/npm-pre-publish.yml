@@ -41,6 +41,9 @@ jobs:
       - name: Lint docs pages
         run: pnpm run docs:lint-pages:strict
 
+      - name: Check docs internal links
+        run: pnpm run docs:lint-links
+
       - name: Typecheck
         run: pnpm run typecheck
 

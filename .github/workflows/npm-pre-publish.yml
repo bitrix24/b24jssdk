@@ -38,6 +38,9 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      - name: Lint docs pages
+        run: pnpm run docs:lint-pages:strict
+
       - name: Typecheck
         run: pnpm run typecheck
 

@@ -27,6 +27,8 @@ const pages = [
   '/docs/working-with-the-rest-api/batch-rest-api-ver3/',
   '/docs/working-with-the-rest-api/batch-by-chunk-rest-api-ver2/',
   '/docs/working-with-the-rest-api/batch-by-chunk-rest-api-ver3/',
+  '/docs/working-with-the-rest-api/choosing-the-right-method/',
+  '/docs/working-with-the-rest-api/errors/',
   '/docs/working-with-the-rest-api/tools-health-check/',
   '/docs/working-with-the-rest-api/tools-ping/',
   '/docs/working-with-the-rest-api/logger/',

@@ -60,7 +60,7 @@ export class ChannelManager {
           users: unknownUsers
         })
         .then((response: AjaxResult) => {
-          const data = (response.getData() as SuccessPayload<TypePublicIdDescriptor>).result
+          const data = (response.getData() as SuccessPayload<Record<string, TypePublicIdDescriptor>>).result
 
           /**
            * @memo test this

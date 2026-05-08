@@ -66,16 +66,17 @@ export type Payload<P>
     | BatchPayload<P>
 
 /**
- * Flat shape returned by `AjaxResult.getData()` for a successful REST response.
+ * Public shape of a successful REST response, as exposed by `AjaxResult.getData()`.
  *
- * `result` is always typed as `P` so callers of `b24.actions.v2.call.make<T>()`
- * (and similar single-call helpers) receive `getData().result: T` rather than a
- * union of `T | T[] | BatchPayloadResult<T>`. `next` / `total` remain optional
- * because list responses populate them, single-method responses do not.
+ * The Bitrix24 REST API always wraps a success response in `{ result, time }` —
+ * this is true for both `restApi:v2` and `restApi:v3`. Any v2-only envelope
+ * fields (`next`, `total`) are intentionally NOT part of this type: they have
+ * no `restApi:v3` counterpart, and the SDK's `actions.v{2,3}.{callList,fetchList}`
+ * helpers handle pagination internally so consumers never need to read them.
+ *
+ * @see GetPayload
  */
 export type SuccessPayload<P> = {
   readonly result: P
-  readonly next?: number
-  readonly total?: number
   readonly time: PayloadTime
 }

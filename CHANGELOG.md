@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.1.0](https://github.com/bitrix24/b24jssdk/compare/v1.0.6...v1.1.0) (2026-05-08)
+
+### ⚠ BREAKING CHANGES
+
+* **frame\selectCRM:** result buckets are now real arrays instead of `Record<string, SelectedCRMEntity>`, matching the documented `SelectedCRM` types. Code using array operations keeps working; code that relied on numeric-key record access must switch to array access (#21)
+* **types\AjaxResult.getData():** return shape narrowed to `{ result: P, time: PayloadTime }`. The v2-only envelope fields `next` and `total` are no longer exposed on the success type — restApi:v3 has no counterpart for them (#22)
+
+### Deprecations
+
+* **AjaxResult paging helpers:** `isMore`, `hasMore`, `getNext`, `fetchNext`, `getTotal` are deprecated and scheduled for removal in 2.0.0. Use `b24.actions.v{2,3}.{callList,fetchList}.make` instead — these hide pagination for both API versions (#22)
+* **AbstractB24 low-level helpers:** `callMethod`, `callBatch`, `callBatchByChunk`, `callListMethod`, `fetchListMethod` are deprecated in favour of `b24.actions.v{2,3}.*` (#22)
+
+### Bug Fixes
+
+* **frame\selectCRM:** normalise parent-window response buckets via `Object.values` so `.length` / `.map` and the documented array shape work as expected; pre-existing arrays pass through untouched (#21)
+* **placement\setValue:** add `placement.setValue(value: unknown)` helper that JSON-serialises for the caller, add a `call('setValue', { value: string })` overload to surface the requirement, and throw `TypeError` from `call()` when `value` is not a string instead of silently shipping `[object Object]` on the wire (#20)
+* **types\AjaxResult.getData():** narrow result to the generic type — single REST calls no longer leak `T[]` / `BatchPayloadResult<T>` from the previous `SuccessPayload<P>` union (#22)
+
+### Docs
+
+* **placement:** document the `setValue` JSON-string constraint and the new helper
+* **frame\dialog:** flesh out `selectAccess` / `selectCRM` coverage with parameter tables and data-type references
+* **rest-api\CallV2 / CallV3:** correct `.getData()` return type after #22; drop the deprecated `.isMore()` bullet from the v2 page
+* **api-v3:** add internal reference
+* **README-AI:** top-level deprecation notice mapping legacy helpers to their `actions.v{2,3}.*` replacements
+
 ## [1.0.6](https://github.com/bitrix24/b24jssdk/compare/v1.0.5...v1.0.6) (2026-05-04)
 
 ### Bug Fixes

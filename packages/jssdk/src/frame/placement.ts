@@ -92,20 +92,60 @@ export class PlacementManager {
 
   /**
    * Call the Registered Interface Command
-   * @param { string } command
-   * @param { Record<string, any> } parameters
-   * @return { Promise<any> }
    *
    * @link https://apidocs.bitrix24.com/api-reference/widgets/ui-interaction/bx24-placement-call.html
-   * @memo For the `setValue` command, use the following parameters { value: string }
+   *
+   * @memo The `setValue` command is special: the parent window calls `JSON.parse(value)`
+   *       on the received payload, so `value` MUST be a JSON-serialized string
+   *       (e.g. `JSON.stringify('test')` or `JSON.stringify({ a: 1 })`).
+   *       Prefer {@link PlacementManager.setValue} which serializes for you.
+   *
+   * @throws {TypeError} when `command === 'setValue'` and `parameters.value` is not a string.
    */
+  async call(command: 'setValue', parameters: { value: string }): Promise<any>
+  async call(command: string, parameters?: Record<string, any>): Promise<any>
   async call(command: string, parameters: Record<string, any> = {}): Promise<any> {
+    if (command === 'setValue' && !Type.isString(parameters?.['value'])) {
+      throw new TypeError(
+        'placement.call(\'setValue\', { value }) expects `value` to be a JSON-serialized string. '
+        + 'Use placement.setValue(value) to serialize automatically, or call JSON.stringify yourself.'
+      )
+    }
+
     return this.#messageManager.send(
       command,
       {
         ...parameters,
         isSafely: true,
         isRawValue: ['setValue'].includes(command)
+      }
+    )
+  }
+
+  /**
+   * Set Value for the Current Embedding Location
+   *
+   * Convenience wrapper around `placement.call('setValue', ...)` that handles
+   * JSON serialization. Pass any value (string, number, boolean, object, array)
+   * — it will be serialized via `JSON.stringify` before being sent to the
+   * parent window, which performs `JSON.parse` on receipt.
+   *
+   * @param { unknown } value Any JSON-serializable value
+   * @return { Promise<any> }
+   *
+   * @link https://apidocs.bitrix24.com/api-reference/widgets/ui-interaction/bx24-placement-call.html
+   *
+   * @example
+   * await b24.placement.setValue('test')
+   * await b24.placement.setValue({ id: 1, title: 'demo' })
+   */
+  async setValue(value: unknown): Promise<any> {
+    return this.#messageManager.send(
+      'setValue',
+      {
+        value: JSON.stringify(value),
+        isSafely: true,
+        isRawValue: true
       }
     )
   }

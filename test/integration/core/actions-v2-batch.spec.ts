@@ -589,4 +589,42 @@ describe('core callBatch @apiV2', () => {
     const mainError = errors.find(error => error?.code === 'INVALID_ARG_VALUE')
     expect(mainError).toBeDefined()
   })
+
+  /**
+   * Regression for issue #23: a REST method that legitimately returns `null`
+   * inside a batch (e.g. `im.chat.get` with non-matching params) must surface
+   * as `null` from `AjaxResult.getData().result` — previously it was coerced
+   * to `{}` and broke nullable type guards downstream.
+   */
+  it('preserves null result for im.chat.get @apiV2 @issue-23', async () => {
+    const b24 = getB24Client()
+
+    const batchCalls: BatchNamedCommandsUniversal = {
+      chatGet: {
+        method: 'im.chat.get',
+        params: {
+          ENTITY_TYPE: 'NONEXISTENT_ENTITY_TYPE_FOR_TEST',
+          ENTITY_ID: 'NONEXISTENT_ENTITY_ID_FOR_TEST'
+        }
+      }
+    }
+
+    const method = 'callBatchNullResult'
+    const requestId = `test@apiV2/${method}`
+    const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
+
+    const response = await b24.actions.v2.batch.make<{ ID: number } | null>({
+      calls: batchCalls,
+      options
+    })
+
+    expect(response.isSuccess).toBe(true)
+
+    const resultData = (response as Result<Record<string, AjaxResult<{ ID: number } | null>>>).getData()
+    const chatGetRow = resultData.chatGet
+
+    expect(chatGetRow).toBeInstanceOf(AjaxResult)
+    expect(chatGetRow.isSuccess).toBe(true)
+    expect(chatGetRow.getData()?.result).toBeNull()
+  })
 })

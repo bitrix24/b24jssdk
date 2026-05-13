@@ -114,6 +114,8 @@ Patterns
 - Destroy on page/component unmount with $b24.destroy().
 - For large result sets prefer callListMethod or fetchListMethod.
 - For big batches use callBatchByChunk to respect limits.
+- A per-command `result` inside a batch can be `null` when the underlying REST method legitimately returns `null` (e.g. `im.chat.get` with non-matching params). Declare the generic as `T | null` and handle the `null` branch — the SDK no longer coerces it to `{}` (see issue #23).
+- `restApi:v3` batch is all-or-nothing: per-command errors are not returned. If any call fails, the whole batch fails and `response.getErrorMessages()` carries the error.
 
 
 ## Frontend via UMD (CDN)

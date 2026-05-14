@@ -19,11 +19,11 @@ describe('js-docs.actions @apiV3', () => {
       throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
     }
     b24.getLogger().debug('response', {
-      data: response.getData().result.item.title
+      data: response.getData()!.result.item.title
     })
 
     expect(response.isSuccess).toBe(true)
-    const result = response.getData().result
+    const result = response.getData()!.result
     expect(result.item).toBeDefined()
     expect(result.item.title).toBeDefined()
   })
@@ -55,7 +55,7 @@ describe('js-docs.actions @apiV3', () => {
       if (!response.isSuccess) {
         throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
       }
-      const list = response.getData()
+      const list = response.getData()!
       expect(list.length).toBeGreaterThan(0)
       b24.getLogger().debug('response', {
         data: list?.length // Number of items received
@@ -129,11 +129,11 @@ describe('js-docs.actions @apiV3', () => {
       throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
     }
 
-    const results = response.getData() as AjaxResult<{ item: TaskItem }>[]
+    const results = response.getData()! as AjaxResult<{ item: TaskItem }>[]
     results.forEach((result, index) => {
       if (result.isSuccess) {
         b24.getLogger().debug(`Item ${index + 1}`, {
-          item: result.getData().result.item
+          item: result.getData()!.result.item
         })
       }
     })
@@ -161,11 +161,11 @@ describe('js-docs.actions @apiV3', () => {
       throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
     }
 
-    const results = response.getData() as AjaxResult<{ item: TaskItem }>[]
+    const results = response.getData()! as AjaxResult<{ item: TaskItem }>[]
     results.forEach((result, index) => {
       if (result.isSuccess) {
         b24.getLogger().debug(`Item ${index + 1}`, {
-          item: result.getData().result.item
+          item: result.getData()!.result.item
         })
       }
     })
@@ -194,12 +194,12 @@ describe('js-docs.actions @apiV3', () => {
       throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
     }
 
-    const results = response.getData() as Record<string, AjaxResult<{ item: TaskItem } | { items: MainEventLogItem[] }>>
+    const results = response.getData()! as Record<string, AjaxResult<{ item: TaskItem } | { items: MainEventLogItem[] }>>
     b24.getLogger().debug(`Task`, {
-      item: results.Task.getData().result.item as TaskItem
+      item: results.Task.getData()!.result.item as TaskItem
     })
     b24.getLogger().debug(`MainEventLog`, {
-      item: results.MainEventLog.getData().result.items as MainEventLogItem[]
+      item: results.MainEventLog.getData()!.result.items as MainEventLogItem[]
     })
 
     expect(response.isSuccess).toBe(true)
@@ -225,7 +225,7 @@ describe('js-docs.actions @apiV3', () => {
       throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
     }
 
-    const data = response.getData()
+    const data = response.getData()!
     const items: TaskItem[] = []
     data.forEach((chunkRow) => {
       items.push(chunkRow.item)

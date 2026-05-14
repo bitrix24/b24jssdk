@@ -71,7 +71,7 @@ describe('batch processing preserves null result (issue #23)', () => {
 
     expect(row).toBeInstanceOf(AjaxResult)
     expect(row?.isSuccess).toBe(true)
-    expect(row?.getData()?.result).toBeNull()
+    expect(row?.getData()!.result).toBeNull()
   })
 
   it('@apiV2 skips entries that are entirely absent (no data, no error)', async () => {
@@ -114,7 +114,7 @@ describe('batch processing preserves null result (issue #23)', () => {
 
     expect(row).toBeInstanceOf(AjaxResult)
     expect(row?.isSuccess).toBe(true)
-    expect(row?.getData()?.result).toBeNull()
+    expect(row?.getData()!.result).toBeNull()
   })
 
   it('@apiV3 throws _V3_EMPTY_COMMAND_RESPONSE when an entry is missing entirely', async () => {

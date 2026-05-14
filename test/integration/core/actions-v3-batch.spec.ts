@@ -22,14 +22,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()!
+    const resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
     expect(resultData.length).toBeGreaterThan(0)
 
     expect(resultData).toBeDefined()
@@ -65,13 +65,13 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()!
+    const resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     expect(resultData).toBeDefined()
     for (const resultRow of resultData) {
@@ -119,13 +119,13 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()!
+    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>>>).getData()!
     expect(resultData).toBeDefined()
     for (const [index, resultRow] of Object.entries(resultData)) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
@@ -162,7 +162,7 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: false, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
@@ -201,14 +201,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as unknown as Result<AjaxResult<{ id: number | { result: boolean } }>[]>).getData()!
+    const _resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     /**
      * In `restApi:v3`, batch processing does not return data for each row in case of parallel processing errors.
@@ -233,14 +233,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()!
+    const _resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -287,14 +287,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()!
+    const _resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>>>).getData()!
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
      *
@@ -319,7 +319,7 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: false, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
@@ -352,14 +352,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()!
+    const _resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -384,14 +384,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()!
+    const _resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -438,14 +438,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()!
+    const _resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>>>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -471,7 +471,7 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: false, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
@@ -619,7 +619,7 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
@@ -712,7 +712,7 @@ describe('core callBatch @apiV3', () => {
     // console.debug(
     //   { operating: b24.getHttpClient(ApiVersion.v3).getStats().operatingStats },
     //   JSON.stringify(resultData, null, 2)
-    //   // JSON.stringify(resultData.map(row => row.getData().result), null, 2)
+    //   // JSON.stringify(resultData.map(row => row.getData()!.result), null, 2)
     // )
   })
   // console.debug(JSON.stringify(resultData, null, 2))

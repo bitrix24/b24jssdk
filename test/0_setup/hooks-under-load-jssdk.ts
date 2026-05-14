@@ -220,7 +220,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
           requestId,
           apiVersion: this._apiVersion,
           method: this._method,
-          result: this._prepareResponse(response.getData()),
+          result: this._prepareResponse(response.getData()!),
           operating: this._b24.getHttpClient(this._apiVersion).getStats().operatingStats,
           duration: `${(duration / 1000).toFixed(2)} sec`
         })
@@ -229,7 +229,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
       return (new Result<TestResult>()).setData({
         requestId,
         duration,
-        operating: response.getData().time.operating
+        operating: response.getData()!.time.operating
       })
     } catch (error) {
       return (new Result<TestResult>())
@@ -265,7 +265,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
           requestId,
           apiVersion: this._apiVersion,
           method: this._method,
-          result: resultData.slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? JSON.stringify(responseAjax.getData().result) : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', ')),
+          result: resultData.slice(0, 2).map(responseAjax => typeof responseAjax.getData()!.result?.items === 'undefined' ? JSON.stringify(responseAjax.getData()!.result) : responseAjax.getData()!.result.items.map(item => item.id).slice(0, 5).join(', ')),
           operating: this._b24.getHttpClient(this._apiVersion).getStats().operatingStats,
           duration: `${(duration / 1000).toFixed(2)} sec`
         })
@@ -369,7 +369,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
           requestId,
           apiVersion: this._apiVersion,
           method: this._method,
-          result: this._prepareResponse(response.getData()),
+          result: this._prepareResponse(response.getData()!),
           operating: this._b24.getHttpClient(this._apiVersion).getStats().operatingStats,
           duration: `${(duration / 1000).toFixed(2)} sec`
         })
@@ -378,7 +378,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
       return (new Result<TestResult>()).setData({
         requestId,
         duration,
-        operating: response.getData().time.operating
+        operating: response.getData()!.time.operating
       })
     } catch (error) {
       return (new Result<TestResult>())
@@ -414,7 +414,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
           requestId,
           apiVersion: this._apiVersion,
           method: this._method,
-          result: resultData.slice(0, 2).map(responseAjax => typeof responseAjax.getData().result?.items === 'undefined' ? JSON.stringify(responseAjax.getData().result) : responseAjax.getData().result.items.map(item => item.id).slice(0, 5).join(', ')),
+          result: resultData.slice(0, 2).map(responseAjax => typeof responseAjax.getData()!.result?.items === 'undefined' ? JSON.stringify(responseAjax.getData()!.result) : responseAjax.getData()!.result.items.map(item => item.id).slice(0, 5).join(', ')),
           operating: this._b24.getHttpClient(this._apiVersion).getStats().operatingStats,
           duration: `${(duration / 1000).toFixed(2)} sec`
         })
@@ -509,13 +509,13 @@ export const processTests = (
 
       // Check the average response time
       const avgDuration = results.reduce(
-        (sum, result) => sum + result.getData().duration, 0
+        (sum, result) => sum + result.getData()!.duration, 0
       ) / results.length
 
       expect(avgDuration).toBeLessThan(5_000) // Must be less than 5 seconds
 
       const avgOperating = successResults.reduce(
-        (sum, result) => sum + result.getData().operating, 0
+        (sum, result) => sum + result.getData()!.operating, 0
       ) / successResults.length
 
       console.info({

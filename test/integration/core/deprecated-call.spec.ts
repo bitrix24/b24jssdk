@@ -14,8 +14,8 @@ describe('core.deprecated @apiV2', () => {
     const response = await b24.callMethod(method, params)
 
     expect(response.isSuccess).toBe(true)
-    const result = response.getData().result
-    const time = response.getData().time
+    const result = response.getData()!.result
+    const time = response.getData()!.time
     expect(result).toBeDefined()
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
@@ -34,12 +34,12 @@ describe('core.deprecated @apiV2', () => {
 
     expect(response.isSuccess).toBe(true)
 
-    const result = response.getData().result
+    const result = response.getData()!.result
     expect(result.task).toBeDefined()
     expect(result.task).toHaveProperty('id')
     expect(result.task).toHaveProperty('title')
 
-    const time = response.getData().time
+    const time = response.getData()!.time
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
     expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -60,7 +60,7 @@ describe('core.deprecated @apiV2', () => {
     const responsePage11 = await b24.callMethod(method, params, 0)
     expect(responsePage11.isSuccess).toBe(true)
 
-    const result11 = responsePage11.getData().result
+    const result11 = responsePage11.getData()!.result
     expect(result11.items).toBeDefined()
     expect(result11.items.length).toBeGreaterThan(2)
     for (const row of result11.items) {
@@ -70,7 +70,7 @@ describe('core.deprecated @apiV2', () => {
     const responsePage12 = await b24.callMethod(method, params, 50)
     expect(responsePage12.isSuccess).toBe(true)
 
-    const result12 = responsePage12.getData().result
+    const result12 = responsePage12.getData()!.result
     expect(result12.items).toBeDefined()
     expect(result12.items.length).toBeGreaterThan(2)
     for (const row of result12.items.slice(0, 2)) {
@@ -81,7 +81,7 @@ describe('core.deprecated @apiV2', () => {
     const responsePage21 = await b24.callMethod(method, params, 100)
     expect(responsePage21.isSuccess).toBe(true)
 
-    const result21 = responsePage21.getData().result
+    const result21 = responsePage21.getData()!.result
     expect(result21.items).toBeDefined()
     expect(result21.items.length).toBeGreaterThan(2)
     for (const row of result21.items.slice(0, 2)) {
@@ -92,7 +92,7 @@ describe('core.deprecated @apiV2', () => {
     const responsePage22 = await b24.callMethod(method, params, 150)
     expect(responsePage22.isSuccess).toBe(true)
 
-    const result22 = responsePage22.getData().result
+    const result22 = responsePage22.getData()!.result
     expect(result22.items).toBeDefined()
     expect(result22.items.length).toBeGreaterThan(2)
     for (const row of result22.items.slice(0, 2)) {

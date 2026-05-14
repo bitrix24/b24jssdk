@@ -10,7 +10,11 @@ permissions:
   id-token: write
 
 jobs:
-  process:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: ci
     runs-on: ubuntu-latest
     if: >
       github.event_name == 'release' ||
@@ -65,16 +69,10 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Prepare
         run: pnpm run dev:prepare
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Typecheck
-        run: pnpm run typecheck
 
       - name: Build
         run: pnpm --filter ./packages/jssdk build

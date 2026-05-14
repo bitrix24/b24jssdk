@@ -30,7 +30,7 @@ describe('core.deprecated @apiV2', () => {
       id: getMapId().taskSuccess,
       select: ['ID', 'TITLE']
     }
-    const response = await b24.callMethod(method, params)
+    const response = await b24.callMethod(method, params) as AjaxResult<{ task: { id: number, title: string } }>
 
     expect(response.isSuccess).toBe(true)
 
@@ -53,11 +53,12 @@ describe('core.deprecated @apiV2', () => {
       entityTypeId: EnumCrmEntityTypeId.company,
       filter: { '>id': getMapId().crmCompanySuccessMin },
       select: ['id'],
-      start: undefined
+      start: undefined as number | undefined
     }
+    type ListResp = AjaxResult<{ items: { id: string }[] }>
 
     const listPagination: number[] = []
-    const responsePage11 = await b24.callMethod(method, params, 0)
+    const responsePage11 = await b24.callMethod(method, params, 0) as ListResp
     expect(responsePage11.isSuccess).toBe(true)
 
     const result11 = responsePage11.getData()!.result
@@ -67,7 +68,7 @@ describe('core.deprecated @apiV2', () => {
       listPagination.push(Number.parseInt(row.id))
     }
 
-    const responsePage12 = await b24.callMethod(method, params, 50)
+    const responsePage12 = await b24.callMethod(method, params, 50) as ListResp
     expect(responsePage12.isSuccess).toBe(true)
 
     const result12 = responsePage12.getData()!.result
@@ -78,7 +79,7 @@ describe('core.deprecated @apiV2', () => {
     }
 
     params.start = 0
-    const responsePage21 = await b24.callMethod(method, params, 100)
+    const responsePage21 = await b24.callMethod(method, params, 100) as ListResp
     expect(responsePage21.isSuccess).toBe(true)
 
     const result21 = responsePage21.getData()!.result
@@ -89,7 +90,7 @@ describe('core.deprecated @apiV2', () => {
     }
 
     params.start = 50
-    const responsePage22 = await b24.callMethod(method, params, 150)
+    const responsePage22 = await b24.callMethod(method, params, 150) as ListResp
     expect(responsePage22.isSuccess).toBe(true)
 
     const result22 = responsePage22.getData()!.result
@@ -117,7 +118,7 @@ describe('core.deprecated @apiV2', () => {
       params,
       null,
       'items'
-    )
+    ) as Result<{ id: string, title: string }[]>
     expect(response.isSuccess).toBe(true)
 
     const result = response.getData()!
@@ -220,7 +221,7 @@ describe('core.deprecated @apiV2', () => {
     const response = await b24.callBatchByChunk(
       batchCalls,
       isHaltOnError
-    )
+    ) as Result<{ item: { id: string } }[]>
 
     expect(response.isSuccess).toBe(true)
     const list: number[] = []

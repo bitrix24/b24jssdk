@@ -42,7 +42,7 @@ describe('core.actions.call @apiV3', () => {
       select: ['id', 'title']
     }
     const requestId = `test@apiV3/${method}`
-    const response = await b24.actions.v3.call.make({ method, params, requestId })
+    const response = await b24.actions.v3.call.make<{ item: { id: number, title: string } }>({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
 
@@ -113,7 +113,7 @@ describe('core.actions.call @apiV3', () => {
     }
     const requestId = `test@apiV3/${method}`
 
-    const response = await b24.actions.v3.call.make({ method, params, requestId })
+    const response = await b24.actions.v3.call.make<{ result: boolean }>({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
 

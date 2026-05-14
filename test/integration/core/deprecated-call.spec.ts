@@ -120,7 +120,7 @@ describe('core.deprecated @apiV2', () => {
     )
     expect(response.isSuccess).toBe(true)
 
-    const result = response.getData()
+    const result = response.getData()!
     expect(result.length).toBeGreaterThan(50)
   })
 
@@ -181,12 +181,12 @@ describe('core.deprecated @apiV2', () => {
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as unknown as Result<Record<string, AjaxResult<any>>>).getData()
+    const resultData = (response as unknown as Result<Record<string, AjaxResult<any>>>).getData()!
     // Company
     {
       expect(resultData.Company).toBeInstanceOf(AjaxResult)
       expect(resultData.Company.isSuccess).toBe(true)
-      const rowData = resultData.Company.getData()
+      const rowData = resultData.Company.getData()!
       expect(rowData.result).toHaveProperty('item')
       expect(rowData.result.item.id).toBe(getMapId().crmCompanySuccessMin)
       const time = rowData.time
@@ -198,7 +198,7 @@ describe('core.deprecated @apiV2', () => {
     {
       expect(resultData.Contact).toBeInstanceOf(AjaxResult)
       expect(resultData.Contact.isSuccess).toBe(true)
-      const rowData = resultData.Contact.getData()
+      const rowData = resultData.Contact.getData()!
       expect(rowData.result).toHaveProperty('item')
       expect(rowData.result.item.id).toBe(getMapId().crmContactSuccessMin)
       const time = rowData.time
@@ -224,7 +224,7 @@ describe('core.deprecated @apiV2', () => {
 
     expect(response.isSuccess).toBe(true)
     const list: number[] = []
-    const resultData = response.getData()
+    const resultData = response.getData()!
     for (const row of resultData) {
       list.push(Number.parseInt(row.item.id))
     }

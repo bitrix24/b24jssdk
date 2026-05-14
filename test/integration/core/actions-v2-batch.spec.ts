@@ -31,12 +31,12 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()!
     expect(resultData.length).toBeGreaterThan(0)
     for (const resultRow of resultData) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)
-      const rowData = resultRow.getData()
+      const rowData = resultRow.getData()!
       const result = rowData.result
       expect(result).toHaveProperty('items')
       expect(result.items.length).toBeGreaterThan(0)
@@ -64,14 +64,14 @@ describe('core callBatch @apiV2', () => {
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()!
 
     expect(resultData).toBeDefined()
     for (const resultRow of resultData) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)
 
-      const rowData = resultRow.getData()
+      const rowData = resultRow.getData()!
       const result = rowData.result
       expect(result).toHaveProperty('items')
       expect(result.items.length).toBeGreaterThan(0)
@@ -114,14 +114,14 @@ describe('core callBatch @apiV2', () => {
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()
+    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()!
     expect(resultData).toBeDefined()
     for (const [index, resultRow] of Object.entries(resultData)) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)
       expect(keys).toContain(index)
 
-      const rowData = resultRow.getData()
+      const rowData = resultRow.getData()!
       const result = rowData.result
       expect(result).toHaveProperty('items')
       expect(result.items.length).toBeGreaterThan(0)
@@ -151,7 +151,7 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()
+    const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()!
 
     expect(resultData.length).toBeGreaterThan(0)
 
@@ -185,7 +185,7 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(2)
     for (const resultRow of resultData) {
@@ -193,7 +193,7 @@ describe('core callBatch @apiV2', () => {
       if (resultRow.isSuccess) {
         expect(resultRow.isSuccess).toBe(true)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -233,7 +233,7 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(2)
     expect(resultData).toBeDefined()
@@ -242,7 +242,7 @@ describe('core callBatch @apiV2', () => {
       if (resultRow.isSuccess) {
         expect(resultRow.isSuccess).toBe(true)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -310,7 +310,7 @@ describe('core callBatch @apiV2', () => {
     })
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()
+    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()!
 
     expect(response.getErrorMessages().length).toBe(2)
     expect(resultData).toBeDefined()
@@ -320,7 +320,7 @@ describe('core callBatch @apiV2', () => {
         expect(resultRow.isSuccess).toBe(true)
         expect(keys).toContain(index)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -362,7 +362,7 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()
+    const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(2)
 
@@ -396,7 +396,7 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(1)
     expect(resultData).toBeDefined()
@@ -405,7 +405,7 @@ describe('core callBatch @apiV2', () => {
       if (resultRow.isSuccess) {
         expect(resultRow.isSuccess).toBe(true)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -444,7 +444,7 @@ describe('core callBatch @apiV2', () => {
     })
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(1)
     expect(resultData).toBeDefined()
@@ -453,7 +453,7 @@ describe('core callBatch @apiV2', () => {
       if (resultRow.isSuccess) {
         expect(resultRow.isSuccess).toBe(true)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -521,7 +521,7 @@ describe('core callBatch @apiV2', () => {
     })
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()
+    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()!
     expect(response.getErrorMessages().length).toBe(1)
     expect(resultData).toBeDefined()
     for (const [index, resultRow] of Object.entries(resultData)) {
@@ -530,7 +530,7 @@ describe('core callBatch @apiV2', () => {
         expect(resultRow.isSuccess).toBe(true)
         expect(keys).toContain(index)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -572,7 +572,7 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()
+    const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(1)
 
@@ -622,7 +622,7 @@ describe('core callBatch @apiV2', () => {
       options
     })
 
-    const resultData = (response as unknown as Result<Record<string, AjaxResult<{ ID: number } | null>>>).getData()
+    const resultData = (response as unknown as Result<Record<string, AjaxResult<{ ID: number } | null>>>).getData()!
     const chatGetRow = resultData.chatGet
 
     expect(chatGetRow).toBeInstanceOf(AjaxResult)

@@ -16,9 +16,47 @@ jobs:
   publish:
     needs: ci
     runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Verify version lockstep across workspaces
+        shell: bash
+        run: |
+          ROOT=$(jq -r .version package.json)
+          SDK=$(jq -r .version packages/jssdk/package.json)
+          NUXT=$(jq -r .version packages/jssdk-nuxt/package.json)
+          if [ "$ROOT" != "$SDK" ] || [ "$ROOT" != "$NUXT" ]; then
+            echo "::error::Version mismatch: root=$ROOT jssdk=$SDK nuxt=$NUXT"
+            exit 1
+          fi
+          echo "All packages at version $ROOT"
+
+      - name: Verify package version matches release tag
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          EXPECTED="${TAG#v}"
+          ACTUAL=$(jq -r .version packages/jssdk/package.json)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Release tag $TAG (expected version $EXPECTED) does not match package.json version $ACTUAL"
+            exit 1
+          fi
+
+      - name: Verify version is not already published
+        shell: bash
+        run: |
+          PKG=$(jq -r .name packages/jssdk/package.json)
+          VER=$(jq -r .version packages/jssdk/package.json)
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "::error::$PKG@$VER is already published on npm"
+            exit 1
+          fi
+          echo "$PKG@$VER is not yet published — OK to proceed"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v5

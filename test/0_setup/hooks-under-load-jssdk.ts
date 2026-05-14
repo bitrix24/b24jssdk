@@ -259,7 +259,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
       }
 
       const duration = Date.now() - start
-      const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
+      const resultData = (response as unknown as Result<AjaxResult<{ id: number }>[]>).getData()
       if (iterator % 1 === 0) {
         this._b24.getLogger().warning('response', {
           requestId,
@@ -308,7 +308,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
       }
 
       const duration = Date.now() - start
-      const resultData = (response as Result<{ items: { id: number }[] }[]>).getData()
+      const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()
       if (iterator % 1 === 0) {
         this._b24.getLogger().warning('response', {
           requestId,
@@ -408,7 +408,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
       }
 
       const duration = Date.now() - start
-      const resultData = (response as Result<AjaxResult<any>[]>).getData()
+      const resultData = (response as unknown as Result<AjaxResult<any>[]>).getData()
       if (iterator % 1 === 0) {
         this._b24.getLogger().warning('response', {
           requestId,
@@ -459,7 +459,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
       }
 
       const duration = Date.now() - start
-      const resultData = (response as Result<{ item: { id: number, title: string } }[]>).getData()
+      const resultData = (response as unknown as Result<{ item: { id: number, title: string } }[]>).getData()
       if (iterator % 1 === 0) {
         this._b24.getLogger().warning('response', {
           requestId,

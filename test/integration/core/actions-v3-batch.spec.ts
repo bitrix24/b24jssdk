@@ -29,7 +29,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
     expect(resultData.length).toBeGreaterThan(0)
 
     expect(resultData).toBeDefined()
@@ -71,7 +71,7 @@ describe('core callBatch @apiV3', () => {
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
 
     expect(resultData).toBeDefined()
     for (const resultRow of resultData) {
@@ -125,7 +125,7 @@ describe('core callBatch @apiV3', () => {
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()
+    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()
     expect(resultData).toBeDefined()
     for (const [index, resultRow] of Object.entries(resultData)) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
@@ -169,7 +169,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<({ item: { id: number } } | { result: boolean })[]>).getData()
+    const resultData = (response as unknown as Result<({ item: { id: number } } | { result: boolean })[]>).getData()
 
     expect(resultData.length).toBeGreaterThan(0)
     for (const resultRow of resultData) {
@@ -208,7 +208,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<AjaxResult<{ id: number | { result: boolean } }>[]>).getData()
+    const _resultData = (response as unknown as Result<AjaxResult<{ id: number | { result: boolean } }>[]>).getData()
 
     /**
      * In `restApi:v3`, batch processing does not return data for each row in case of parallel processing errors.
@@ -240,7 +240,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const _resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -294,7 +294,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()
+    const _resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
      *
@@ -326,7 +326,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<({ item: { id: number } } | { result: boolean })[]>).getData()
+    const _resultData = (response as unknown as Result<({ item: { id: number } } | { result: boolean })[]>).getData()
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -359,7 +359,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const _resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -391,7 +391,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const _resultData = (response as unknown as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -445,7 +445,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()
+    const _resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -478,7 +478,7 @@ describe('core callBatch @apiV3', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<({ item: { id: number } } | { result: boolean })[]>).getData()
+    const _resultData = (response as unknown as Result<({ item: { id: number } } | { result: boolean })[]>).getData()
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -628,7 +628,7 @@ describe('core callBatch @apiV3', () => {
     }
 
     expect(response.isSuccess).toBe(true)
-    const resultData = (response as Result<Record<string, AjaxResult<any>>>).getData()
+    const resultData = (response as unknown as Result<Record<string, AjaxResult<any>>>).getData()
     // // FirstEventLogMessage
     // {
     //   expect(resultData.FirstEventLogMessage).toBeInstanceOf(AjaxResult)

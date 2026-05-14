@@ -181,7 +181,7 @@ describe('core.deprecated @apiV2', () => {
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<Record<string, AjaxResult<any>>>).getData()
+    const resultData = (response as unknown as Result<Record<string, AjaxResult<any>>>).getData()
     // Company
     {
       expect(resultData.Company).toBeInstanceOf(AjaxResult)

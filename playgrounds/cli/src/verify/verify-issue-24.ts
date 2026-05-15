@@ -15,6 +15,7 @@
  *     --templateId=<ID> --entityTypeId=2 --entityId=<DEAL_ID>
  *
  * REQUIRES a real test portal with documentgenerator configured.
+ * The webhook must have the `crm` scope (for `crm.documentgenerator.document.add`).
  * The script will attempt to create duplicate documents — use a sandbox portal!
  */
 import 'dotenv/config'

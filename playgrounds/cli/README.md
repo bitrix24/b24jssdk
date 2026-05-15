@@ -293,8 +293,9 @@ Exit code 0 = all three behaviours match expectations.
 
 ### `verify-issue-24.ts` — `retryOnNetworkError`
 
-**Requires a real test portal** with `documentgenerator` configured. The script
-forces a client-side timeout against `crm.documentgenerator.document.add`,
+**Requires a real test portal** with `documentgenerator` configured and a
+webhook that has the `crm` scope (for `crm.documentgenerator.document.add`).
+The script forces a client-side timeout against `crm.documentgenerator.document.add`,
 first with default retries and then with `retryOnNetworkError: false`, so you
 can confirm in the UI that the second run does not leave duplicate documents.
 

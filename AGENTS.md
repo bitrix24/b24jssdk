@@ -69,3 +69,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/) for commit m
 - When adding a new feature to the core SDK, check if the Nuxt module also needs updates.
 - Tests are integration-style and hit real Bitrix24 APIs. Never mock REST responses — tests validate real API contracts.
 - The `.claude/` directory is gitignored except for tracked config files.
+
+## Documentation conventions for REST pages
+
+Pages under `docs/content/docs/2.working-with-the-rest-api/` with `category: actions` or `category: tools` use a fixed skeleton: `## Overview` → `## Method Signature` → `## Examples` → `## Alternatives and Recommendations`. `## Error Handling` is recommended. Each page also carries `audited: YYYY-MM-DD` in its frontmatter declaring the date its content was last verified against the linked source files (taken from the `links:` array). Run `pnpm run docs:lint-pages` to validate the skeleton and audit freshness — it walks the linked GitHub source paths via `git log` and warns if any source is newer than `audited`. Cookbook recipes live under `docs/content/docs/99.examples/` and follow a separate, lighter skeleton (Goal → Stack → Full Example → Run It → How It Works → Limitations → See also).

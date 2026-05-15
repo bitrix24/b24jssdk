@@ -19,7 +19,7 @@
  * The script will attempt to create duplicate documents — use a sandbox portal!
  */
 import 'dotenv/config'
-import { ApiVersion, B24Hook, ParamsFactory } from '@bitrix24/b24jssdk'
+import { ApiVersion, B24Hook, ParamsFactory, LoggerFactory, LogLevel } from '@bitrix24/b24jssdk'
 
 function arg(name: string, def?: string): string {
   const hit = process.argv.find(a => a.startsWith(`--${name}=`))
@@ -40,17 +40,24 @@ async function run() {
   const entityTypeId = Number(arg('entityTypeId', '2')) // 2 = DEAL
   const entityId = Number(arg('entityId'))
 
-  const params = { templateId, entityTypeId, entityId, values: {} }
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const title = `Demo: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`
+
+  const params = { templateId, entityTypeId, entityId, values: { DocumentNumber: title } }
+
+  const $logger = LoggerFactory.createForBrowserDevelopment('b24', LogLevel.INFO)
 
   // ---- Phase A: old behaviour (default retryOnNetworkError = true) ----
-  console.log('\n=== Phase A: default behaviour (retryOnNetworkError: true) ===')
-  console.log('Forcing a 100ms axios timeout so the request reliably times out client-side.')
-  console.log('Expectation: SDK retries, server may create duplicates, final throw = JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED.')
+  $logger.info('=== Phase A: default behaviour (retryOnNetworkError: true) ===')
+  $logger.info('Forcing a 1000ms axios timeout so the request reliably times out client-side.')
+  $logger.info('Expectation: SDK retries, server may create duplicates, final throw = JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED.')
 
   {
     const $b24 = B24Hook.fromWebhookUrl(hook)
+    // $b24.setLogger($logger)
     const client = $b24.getHttpClient(ApiVersion.v2).ajaxClient
-    client.defaults.timeout = 100
+    client.defaults.timeout = 1000
 
     try {
       await $b24.actions.v2.call.make({
@@ -60,21 +67,24 @@ async function run() {
       console.log('  unexpected success')
     } catch (e: any) {
       const stats = $b24.getHttpClient(ApiVersion.v2).getStats()
-      console.log(`  error code   : ${e?.code}`)
-      console.log(`  error message: ${e?.message}`)
-      console.log(`  retries      : ${stats.retries}`)
-      console.log(`  failedReqs   : ${stats.failedRequests}`)
+      $logger.error(`error`, {
+        code: e?.code,
+        message: e?.code,
+        retries: stats.retries,
+        failedRequests: stats.failedRequests
+      })
     }
   }
 
   // ---- Phase B: new behaviour ----
-  console.log('\n=== Phase B: with retryOnNetworkError: false ===')
-  console.log('Expectation: SDK throws REQUEST_TIMEOUT immediately, retries=0, no duplicates server-side.')
+  $logger.info('=== Phase B: with retryOnNetworkError: false ===')
+  $logger.info('Expectation: SDK throws REQUEST_TIMEOUT immediately, retries=0, no duplicates server-side.')
 
   {
     const $b24 = B24Hook.fromWebhookUrl(hook)
     const client = $b24.getHttpClient(ApiVersion.v2).ajaxClient
-    client.defaults.timeout = 100
+    // $b24.setLogger(LoggerFactory.createForBrowserDevelopment('b24', LogLevel.INFO))
+    client.defaults.timeout = 1000
     await $b24.setRestrictionManagerParams({
       ...ParamsFactory.getDefault(),
       retryOnNetworkError: false
@@ -88,15 +98,17 @@ async function run() {
       console.log('  unexpected success')
     } catch (e: any) {
       const stats = $b24.getHttpClient(ApiVersion.v2).getStats()
-      console.log(`  error code   : ${e?.code}`)
-      console.log(`  error message: ${e?.message}`)
-      console.log(`  retries      : ${stats.retries}`)
-      console.log(`  failedReqs   : ${stats.failedRequests}`)
+      $logger.error(`error`, {
+        code: e?.code,
+        message: e?.code,
+        retries: stats.retries,
+        failedRequests: stats.failedRequests
+      })
     }
   }
 
-  console.log('\nNext step: open the deal in Bitrix24 and count generated documents.')
-  console.log('Phase A is expected to leave 2-3 duplicates, Phase B at most 1.')
+  $logger.info('Next step: open the deal in Bitrix24 and count generated documents.')
+  $logger.info('Phase A is expected to leave 2-3 duplicates, Phase B at most 1.')
 }
 
 run().catch((e) => {

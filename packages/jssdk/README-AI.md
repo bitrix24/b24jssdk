@@ -691,7 +691,7 @@ Available presets: `getDefault()`, `getEnterprise()`, `getBatchProcessing()`, `g
 **Types and enums:**
 
 - Prefer exported enums (e.g. `EnumCrmEntityTypeId`) and types (`ISODate`, payload types).
-- For new code prefer v3 methods; fall back to v2 only when v3 doesn't support the method (you'll get `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`).
+- Pick API version by method. v3 currently supports only `tasks.task.*`, `main.eventlog.*`, and meta endpoints (`batch`, `scopes`, `documentation`); everything else (CRM, IM, user, profile, placement, options, settings) is v2-only. See the v3 list in `core/version-manager.ts`. Calling a v2-only method via `actions.v3.*.make` throws `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — default to v2 unless the method is explicitly on the v3 list.
 
 
 ## UMD vs ESM cheat sheet

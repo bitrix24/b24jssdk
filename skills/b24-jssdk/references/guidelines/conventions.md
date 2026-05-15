@@ -55,7 +55,7 @@ Every concrete entry point (`B24Frame`, `B24Hook`, `B24OAuth`) exposes two manag
 - **`b24.actions.v3.*`** — REST API v3 (growing surface). Currently supports only `tasks.task.*`, `main.eventlog.*`, and meta endpoints (`batch`, `scopes`, `documentation`). Will expand over time.
 - **`b24.tools.*`** — utility checks (`healthCheck`, `ping`).
 
-**Pick by method, not by preference.** v2 and v3 are mirror trees, not old-vs-new. Default to v2; switch a specific call to v3 only when its method is on the v3 list. Calling a v2-only method via `v3.call.make` throws `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`, and a `v3.batch.make` containing any v2-only method throws the same error. See [rest-api-v3 → When to use](../recipes/rest-api-v3.md#when-to-use-v3--and-when-not-to) for the current v3 method list.
+**Pick by method, not by preference.** v2 and v3 are mirror trees, not old-vs-new. Default to v2; switch a specific call to v3 only when its method is on the v3 list. Calling a v2-only method via `v3.call.make` throws `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`, and a `v3.batch.make` containing any v2-only method throws the same error. See [rest-api-v3](../recipes/rest-api-v3.md) for the current v3 method list.
 
 Each action is a class with a single `make(options)` method that returns the appropriate result type:
 

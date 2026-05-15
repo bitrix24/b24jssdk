@@ -2,8 +2,8 @@
 
 Choosing between `callList`, `fetchList`, and manual paging. Code examples live in the version-specific recipes:
 
-- **v2 examples:** [rest-api-v2 → callList](rest-api-v2.md#auto-paged-list--calllistmake), [fetchList](rest-api-v2.md#streamed-list--fetchlistmake-preferred-for-large-datasets)
-- **v3 examples:** [rest-api-v3 → callList](rest-api-v3.md#auto-paged-list--calllistmake), [fetchList](rest-api-v3.md#streamed-list--fetchlistmake-preferred-for-large-datasets)
+- **v2 examples:** [rest-api-v2](rest-api-v2.md) — see the "Auto-paged list" and "Streamed list" sections.
+- **v3 examples:** [rest-api-v3](rest-api-v3.md) — same sections, mirror structure.
 
 ## Decision matrix
 
@@ -25,7 +25,7 @@ The action names are identical (`callList`, `fetchList`) but the underlying APIs
 | Configurable `limit` | no | yes (default 50, max 1000) |
 | Counting without listing | use `AjaxResult.getTotal()` on `call.make` (deprecated, removed in 2.0.0) | use the `aggregate` action with `count` / `countDistinct` |
 
-Pick the version that matches the REST method. Most list methods today are v2 (`crm.item.list`, `crm.deal.list`, etc.); v3 currently has only `main.eventlog.list` and a handful of others. See [rest-api-v3 → When to use](rest-api-v3.md#when-to-use-v3--and-when-not-to) for the v3 method list.
+Pick the version that matches the REST method. Most list methods today are v2 (`crm.item.list`, `crm.deal.list`, etc.); v3 currently has only `main.eventlog.list` and a handful of others. See [rest-api-v3](rest-api-v3.md) for the v3 method list.
 
 ## `callList.make` vs `fetchList.make`
 
@@ -38,7 +38,7 @@ Cost-wise they're equivalent — both make the same number of REST calls with th
 
 **v2-only and deprecated.** `AjaxResult.isMore()` / `getNext()` / `getTotal()` rely on the v2 `next` / `total` envelope fields and are slated for removal in v2.0.0. v3 returns no `next` cursor at all — there's no v3 equivalent. Use `fetchList.make` for both versions.
 
-Reach for manual paging only when you genuinely need pauses, dynamic stop conditions, or custom backoff between pages on a v2 method that can't be expressed through `fetchList.make`. See [rest-api-v2 → Manual paging](rest-api-v2.md#manual-paging-via-ajaxresultgetnext-v2-only-deprecated) for the recipe.
+Reach for manual paging only when you genuinely need pauses, dynamic stop conditions, or custom backoff between pages on a v2 method that can't be expressed through `fetchList.make`. See [rest-api-v2](rest-api-v2.md) for the "Manual paging" recipe.
 
 ## Common pitfalls
 

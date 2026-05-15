@@ -25,7 +25,7 @@ Every entry point exposes `actions.v2` and `actions.v3` managers — independent
 | `BatchV2` / `BatchV3` | `b24.actions.v2.batch` / `v3.batch` | `Promise<CallBatchResult<T>>` |
 | `BatchByChunkV2` / `BatchByChunkV3` | `b24.actions.v2.batchByChunk` / `v3.batchByChunk` | `Promise<Result<T[]>>` |
 
-Default to v2; v3 currently supports only `tasks.task.*`, `main.eventlog.*`, and meta endpoints — see [rest-api-v3 → When to use](recipes/rest-api-v3.md#when-to-use-v3--and-when-not-to).
+Default to v2; v3 currently supports only `tasks.task.*`, `main.eventlog.*`, and meta endpoints — see [rest-api-v3](recipes/rest-api-v3.md).
 
 Options types (re-exported from the package root): `ActionCallV2`, `ActionCallV3`, `ActionCallListV2`, `ActionCallListV3`, `ActionFetchListV2`, `ActionFetchListV3`, `ActionBatchV2`, `ActionBatchV3`, `ActionBatchByChunkV2`, `ActionBatchByChunkV3`, `IB24BatchOptions`, `BatchCommandsArrayUniversal`, `BatchCommandsObjectUniversal`, `BatchNamedCommandsUniversal`.
 

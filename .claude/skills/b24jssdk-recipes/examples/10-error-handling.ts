@@ -121,7 +121,13 @@ async function loadDealSafely($b24: TypeB24, id: number): Promise<DealItem | nul
 async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): Promise<number | null> {
   // For *.add / *.update / file uploads, network retry can create duplicates:
   // a client-side timeout doesn't mean the server didn't process the request.
-  // Temporarily flip retryOnNetworkError off for this call.
+  //
+  // GOTCHA: setRestrictionManagerParams updates the policy on this $b24
+  // INSTANCE — it affects ALL concurrent calls on the same client, not just
+  // this one. Safe to use in serial code paths (as in this recipe's main()).
+  // In code with overlapping async work on the same $b24, prefer:
+  //   - a dedicated $b24 instance for non-idempotent flows, or
+  //   - a per-method idempotency token + manual conflict-detection on conflict.
   await $b24.setRestrictionManagerParams({
     ...ParamsFactory.getDefault(),
     retryOnNetworkError: false,
@@ -150,7 +156,7 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
     }
     throw e
   } finally {
-    // Restore the default policy
+    // Restore the default policy (instance-global; see GOTCHA above).
     await $b24.setRestrictionManagerParams(ParamsFactory.getDefault())
   }
 }

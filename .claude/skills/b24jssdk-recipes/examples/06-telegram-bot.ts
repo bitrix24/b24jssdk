@@ -104,13 +104,28 @@ function escape(s: string): string {
 async function tick($b24: TypeB24, bot: Bot, chatId: string) {
   logger.info(`[${new Date().toISOString()}] checking new deals…`)
   const deals = await fetchNewDeals($b24)
+  if (deals.length === 0) { logger.info('  no new deals'); return }
+
+  // Deals arrive in id-asc order (filter sets `order: { id: 'asc' }` and
+  // `call.make` honours it). We advance lastSeenDealId only across the
+  // contiguous prefix of successful sends — the moment one deal fails, we
+  // stop advancing so the failed deal AND the rest get retried next tick.
+  let sawFailure = false
   for (const d of deals) {
-    const contact = await fetchContactName($b24, d.contactId)
-    await bot.api.sendMessage(chatId, format(d, contact), { parse_mode: 'HTML' })
-    logger.info(`Notified about deal #${d.id}`)
-    lastSeenDealId = Math.max(lastSeenDealId, d.id)
+    try {
+      const contact = await fetchContactName($b24, d.contactId)
+      await bot.api.sendMessage(chatId, format(d, contact), { parse_mode: 'HTML' })
+      logger.info(`Notified about deal #${d.id}`)
+      if (!sawFailure) {
+        lastSeenDealId = Math.max(lastSeenDealId, d.id)
+      }
+    } catch (e) {
+      // Don't abort the whole tick — but also don't advance the cursor past
+      // this deal (so it's retried next tick).
+      sawFailure = true
+      logger.warn(`Failed to notify about deal #${d.id}: ${(e as Error).message}`)
+    }
   }
-  if (deals.length === 0) logger.info('  no new deals')
 }
 
 async function main() {

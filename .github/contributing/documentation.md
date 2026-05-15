@@ -191,6 +191,7 @@ When the implementation changes:
 | `frame` | `B24Frame` and iframe-only managers (slider, dialog, placement, …) |
 | `helper` | `B24HelperManager` and its sub-managers |
 | `tools` | Public utilities under `src/tools/` |
+| `limiters` | Limiter stack and `RestrictionParams` reference (page `77.limiters.md`) |
 
 Use existing categories. New categories belong in a separate doc-only PR so the navigation can be reviewed independently.
 

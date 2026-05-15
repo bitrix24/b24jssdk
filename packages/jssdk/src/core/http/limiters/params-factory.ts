@@ -29,7 +29,8 @@ export class ParamsFactory {
         maxDelay: 7_000
       },
       maxRetries: 3,
-      retryDelay: 1_000
+      retryDelay: 1_000,
+      retryOnNetworkError: true
     }
   }
 

@@ -99,6 +99,51 @@ export interface RestrictionParams {
    * Default: 1_000
    */
   retryDelay?: number
+  /**
+   * Whether to retry on transport-level errors (`NETWORK_ERROR`, `REQUEST_TIMEOUT`).
+   *
+   * Default: `true` — preserves the historical retry behaviour.
+   *
+   * Set to `false` for **non-idempotent** calls (e.g. `crm.documentgenerator.document.add`,
+   * any `*.add` that creates an entity, file uploads). When the request times out
+   * client-side, the server may still have processed it successfully — retrying then
+   * creates duplicates. With `retryOnNetworkError: false` the SDK immediately throws
+   * `NETWORK_ERROR` / `REQUEST_TIMEOUT` instead of retrying.
+   *
+   * For long-running heavy operations also raise the axios timeout:
+   * ```ts
+   * const clientAxios = $b24.getHttpClient(ApiVersion.v2).ajaxClient
+   * clientAxios.defaults.timeout = 120_000
+   * ```
+   */
+  retryOnNetworkError?: boolean
+  /**
+   * Additional error codes that must be thrown as exceptions immediately,
+   * without any retry. Merged with the SDK's built-in hard list — you can
+   * only **add** codes, not remove built-ins (auth / fatal codes are always hard).
+   *
+   * Use this for business-specific or custom REST methods whose error codes
+   * the SDK doesn't know about (otherwise the SDK treats unknown codes as
+   * transient and retries them with backoff).
+   *
+   * @example
+   * ```ts
+   * await $b24.setRestrictionManagerParams({
+   *   ...ParamsFactory.getDefault(),
+   *   hardErrorCodes: ['DOCUMENT_GENERATOR_ALREADY_IN_QUEUE', 'MY_APP_BAD_PAYLOAD']
+   * })
+   * ```
+   */
+  hardErrorCodes?: string[]
+  /**
+   * Additional error codes that should be returned inside `AjaxResult` as a
+   * soft error instead of thrown. Merged with the SDK's built-in soft list.
+   *
+   * Use this when your application expects to inspect a specific REST error
+   * code as part of normal control flow (e.g. validation errors from a
+   * custom v3 endpoint).
+   */
+  softErrorCodes?: string[]
 }
 
 /**

@@ -49,7 +49,7 @@ Vitest workspace projects are defined in `vitest.config.ts`:
 - `jsSdk:integration` — `test/integration/**/*.spec.ts`, 30s timeouts, hits a real portal.
 - `jsSdk:underLoad` — `test/under-load/**.spec.ts`, sequential, 40-min timeouts.
 
-Both projects load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — `setupB24Client()` in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it. The webhook needs at least `crm`, `tasks`, `user`, and `im` scopes; the `im` scope is required by the issue-23 regression spec (`im.chat.get` inside a batch).
+Both projects load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — `setupB24Client()` in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it. The webhook needs at least `crm`, `tasks`, `user`, `im`, and `main` scopes. The `im` scope is required by the issue-23 regression spec (`im.chat.get` inside a batch); `main` is a non-obvious scope (not exposed in the standard webhook scope picker) required by the v3 batch:ref spec that calls `main.eventlog.list`.
 
 ```bash
 pnpm run package-jssdk:test                           # watch, integration project

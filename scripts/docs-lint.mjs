@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { join, resolve, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
+import { walkMarkdownFiles, parseFrontmatter } from './_docs-utils.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -36,60 +37,11 @@ function log(level, file, message) {
   else warnings++
 }
 
-function walk(dir) {
-  const out = []
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name)
-    const stat = statSync(full)
-    if (stat.isDirectory()) out.push(...walk(full))
-    else if (full.endsWith('.md')) out.push(full)
-  }
-  return out
-}
-
-function parseFrontmatter(text) {
-  if (!text.startsWith('---')) return { frontmatter: {}, body: text }
-  const end = text.indexOf('\n---', 3)
-  if (end === -1) return { frontmatter: {}, body: text }
-  const fm = text.slice(3, end).trim()
-  const body = text.slice(end + 4).replace(/^\n/, '')
-  // Minimal YAML parser sufficient for our frontmatter shape.
-  const frontmatter = {}
-  let currentKey = null
-  let currentArray = null
-  for (const rawLine of fm.split('\n')) {
-    const line = rawLine.replace(/\s+$/, '')
-    if (!line.trim()) continue
-    if (/^\s+- /.test(line) && currentArray) {
-      currentArray.push(line.replace(/^\s+- /, '').trim())
-      continue
-    }
-    if (/^\s{2,}/.test(line) && currentKey && currentArray) {
-      // continuation of array item — append to last entry as a sub-line
-      const last = currentArray[currentArray.length - 1]
-      currentArray[currentArray.length - 1] = last + '\n' + line.trim()
-      continue
-    }
-    const colonIdx = line.indexOf(':')
-    if (colonIdx === -1) continue
-    const key = line.slice(0, colonIdx)
-    if (!/^[\w.-]+$/.test(key)) continue
-    const val = line.slice(colonIdx + 1).trim()
-    if (val === '') {
-      frontmatter[key] = []
-      currentKey = key
-      currentArray = frontmatter[key]
-      continue
-    }
-    frontmatter[key] = val.replace(/^['"]|['"]$/g, '')
-    currentKey = key
-    currentArray = null
-  }
-  return { frontmatter, body }
-}
-
 function extractGithubLinkPaths(arrayItems) {
   // arrayItems are raw lines like "label: Foo\niconName: GitHubIcon\nto: https://github.com/..."
+  // We deliberately match only `blob/main/<file>` URLs: `tree/main/...` points
+  // at a directory (can't be diffed against `git log -1` on a single path) and
+  // `blob/<sha>/...` is pinned to a commit, so freshness has no meaning for it.
   const paths = []
   for (const entry of arrayItems) {
     const lines = entry.split('\n')
@@ -112,10 +64,14 @@ function gitLastCommitDate(localPath) {
     return null // file doesn't exist locally — skip silently
   }
   try {
-    const out = execSync(`git log -1 --format=%cI -- "${localPath}"`, {
-      cwd: REPO_ROOT,
-      encoding: 'utf8'
-    }).trim()
+    // execFileSync (not execSync) — `localPath` comes from frontmatter and is
+    // whitelisted by GITHUB_SOURCE_PREFIX, but a misbehaving link should never
+    // be able to inject shell metacharacters.
+    const out = execFileSync(
+      'git',
+      ['log', '-1', '--format=%cI', '--', localPath],
+      { cwd: REPO_ROOT, encoding: 'utf8' }
+    ).trim()
     return out || null
   } catch {
     return null
@@ -123,8 +79,12 @@ function gitLastCommitDate(localPath) {
 }
 
 function checkActionSkeleton(file, body) {
-  const headings = body.split('\n').filter(l => l.startsWith('## '))
-  // Required sections: must all be present; order must match.
+  // Use the heading text (trimmed) as the comparison key so a trailing space
+  // on the markdown side doesn't make the contract fail surprisingly.
+  const headings = body
+    .split('\n')
+    .filter(l => l.startsWith('## '))
+    .map(l => l.trimEnd())
   const presentRequired = []
   for (const required of REQUIRED_SECTIONS_FOR_ACTION_PAGES) {
     const idx = headings.indexOf(required)
@@ -134,17 +94,15 @@ function checkActionSkeleton(file, body) {
       presentRequired.push({ section: required, idx })
     }
   }
-  // Order check: indices of present required sections must be ascending.
   for (let i = 1; i < presentRequired.length; i++) {
     if (presentRequired[i].idx <= presentRequired[i - 1].idx) {
       log(
         'error',
         file,
-        `section "${presentRequired[i].section}" must come after "${presentRequired[i - 1].section}"`
+        `section "${presentRequired[i].section}" appears before "${presentRequired[i - 1].section}" — reorder so the page reads ${REQUIRED_SECTIONS_FOR_ACTION_PAGES.join(' → ')}`
       )
     }
   }
-  // Recommended.
   for (const recommended of RECOMMENDED_SECTIONS_FOR_ACTION_PAGES) {
     if (!headings.includes(recommended)) {
       log('warn', file, `recommended section "${recommended}" is missing`)
@@ -172,7 +130,7 @@ function checkAuditFreshness(file, frontmatter) {
 }
 
 function main() {
-  const files = walk(DOCS_ROOT)
+  const files = walkMarkdownFiles(DOCS_ROOT)
   for (const file of files) {
     const raw = readFileSync(file, 'utf8')
     const { frontmatter, body } = parseFrontmatter(raw)

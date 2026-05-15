@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.1.1](https://github.com/bitrix24/b24jssdk/compare/v1.1.0...v1.1.1) (2026-05-15)
+
+### Features
+
+* **limiters\RestrictionParams:** add `retryOnNetworkError` flag — set to `false` to throw immediately on `NETWORK_ERROR` / `REQUEST_TIMEOUT` instead of retrying. Important for non-idempotent calls (e.g. `crm.documentgenerator.document.add`) where retries can create duplicates
+* **limiters\RestrictionParams:** add `hardErrorCodes` and `softErrorCodes` — merge custom REST error codes into the built-in hard/soft lists so business-specific codes can opt out of automatic retry or be returned as soft errors via `AjaxResult` (#24)
+* **limiters\RestrictionManager:** expose `BUILT_IN_HARD_ERROR_CODES` / `BUILT_IN_SOFT_ERROR_CODES` as readonly static fields so callers can introspect the defaults
+* **limiters\ParamsFactory:** `realtime` preset now ships with `retryOnNetworkError: false` so realtime callers don't accidentally retry non-idempotent writes
+
+### Bug Fixes
+
+* **batch:** preserve `null` results in batch responses — previously coerced to `{}` via `resultData ?? {}`, which broke nullable interfaces (e.g. `im.chat.get` with non-matching params) and hid the difference between "no data" and "empty object"
+* **batch-v3:** tighten response parsing — drop the misleading `result_error`/`result_time` split (a v2-only envelope shape), guard against missing entries in the all-or-nothing v3 model, and stop polluting per-method stats with cross-method failures (#23)
+
+### Chore
+
+* **release:** add `pnpm run release:bump <version>` ([scripts/bump-version.mjs](scripts/bump-version.mjs)) — updates root + both package workspaces in lockstep, refreshes the pnpm lockfile, refuses on out-of-sync versions / invalid semver / no-op bumps
+* **ci:** unify CI into `.github/workflows/ci.yml`; both npm publish workflows now gate on green CI, matching versions across all three `package.json` files, the GitHub release tag matching the version, and the `package@version` not already being on npm. `workflow_dispatch` is restricted to `main`
+
+### Docs
+
+* **limiters:** expand long-running request guidance and cross-link the new retry / error-code knobs
+* **batch:** document `null` result passthrough and the v3 all-or-nothing model
+* **test:** document required webhook scopes for the integration suite (`main` scope for webhook tests)
+
 ## [1.1.0](https://github.com/bitrix24/b24jssdk/compare/v1.0.6...v1.1.0) (2026-05-08)
 
 ### ⚠ BREAKING CHANGES

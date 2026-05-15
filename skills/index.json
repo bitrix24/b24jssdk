@@ -11,15 +11,17 @@
         "references/guidelines/error-handling.md",
         "references/guidelines/rate-limiting.md",
         "references/guidelines/logger.md",
+        "references/recipes/rest-api-v2.md",
+        "references/recipes/rest-api-v3.md",
+        "references/recipes/batch-calls.md",
+        "references/recipes/list-pagination.md",
         "references/recipes/frame-apps.md",
         "references/recipes/webhook-server.md",
         "references/recipes/oauth-apps.md",
-        "references/recipes/batch-calls.md",
-        "references/recipes/list-pagination.md",
+        "references/recipes/nuxt-module.md",
         "references/recipes/ui-integrations.md",
         "references/recipes/helper-manager.md",
-        "references/recipes/pull-client.md",
-        "references/recipes/nuxt-module.md"
+        "references/recipes/pull-client.md"
       ]
     }
   ]

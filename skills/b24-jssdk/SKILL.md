@@ -36,7 +36,7 @@ This skill teaches **when to use which entry point and method** and **how to wir
 2. **Always `await` the initializer** — `initializeB24Frame()`, `B24Hook.fromWebhookUrl()`, or `B24OAuth` setup must complete before any REST call.
 3. **Cleanup on unmount** — call `$b24.destroy()` when a frame component/page unmounts. The Pull client and message listeners hold references otherwise.
 4. **Use named imports only** — the SDK has no default export and is `sideEffects: false`. Never destructure or rebind types under different names without need; tree-shaking depends on direct imports.
-5. **Use the action managers, not the deprecated `call*` methods** — write `$b24.actions.v3.call.make({ method, params })` (or `v2.call.make` for legacy CRM-style methods), not `$b24.callMethod(...)`. See [conventions](references/guidelines/conventions.md).
+5. **Use the action managers, not the deprecated `call*` methods** — write `$b24.actions.v{2,3}.call.make({ method, params })`, not `$b24.callMethod(...)`. **Default to v2** — most methods (CRM, IM, user, profile, …) are v2-only today. Reach for v3 only when calling `tasks.task.*` / `main.eventlog.*` / meta endpoints. See [conventions](references/guidelines/conventions.md), [rest-api-v2](references/recipes/rest-api-v2.md), [rest-api-v3](references/recipes/rest-api-v3.md).
 6. **Treat `Result` / `AjaxResult` as the uniform return shape** — `getData()`, `isSuccess`, `getErrorMessages()`. `AjaxResult` adds `isMore()` / `getNext()` / `getTotal()` for **v2-only** manual paging — these are `@deprecated` and v3 has no equivalent (use `callList.make` / `fetchList.make` everywhere, and `aggregate` for counts in v3).
 7. **Pick the right list strategy** — `callList.make` only for small known sets (< 1000), `fetchList.make` for streaming, `call.make` + `AjaxResult.getNext()` for custom paging. See [list-pagination](references/recipes/list-pagination.md).
 8. **Respect rate limits** — the built-in `RestrictionManager` throttles automatically; for enterprise portals the `LicenseManager` swaps in higher-limit params. See [rate-limiting](references/guidelines/rate-limiting.md).
@@ -55,15 +55,25 @@ Based on the task, load the relevant reference files **before writing any code**
 - [logger](references/guidelines/logger.md) — `LoggerBrowser.build`, dev mode, `LoggerFactory`, default null logger.
 
 **Recipes** — complete patterns for common tasks:
+
+REST surface (mirror pair):
+- [rest-api-v2](references/recipes/rest-api-v2.md) — `b24.actions.v2.{call, callList, fetchList, batch, batchByChunk}` — full code reference. Covers most methods today (CRM, IM, user, profile, …).
+- [rest-api-v3](references/recipes/rest-api-v3.md) — `b24.actions.v3.*` mirror. v3 currently supports a small set (`tasks.task.*`, `main.eventlog.*`, meta endpoints); prefer v2 elsewhere.
+
+Decision pages (point at the right v2/v3 example):
+- [batch-calls](references/recipes/batch-calls.md) — when to batch vs single, input shapes, halt-on-error.
+- [list-pagination](references/recipes/list-pagination.md) — `callList` vs `fetchList` vs manual paging.
+
+Entry points & integrations:
 - [frame-apps](references/recipes/frame-apps.md) — `initializeB24Frame()` boot, lifecycle, basic REST calls.
 - [webhook-server](references/recipes/webhook-server.md) — Node server with `B24Hook.fromWebhookUrl()`.
 - [oauth-apps](references/recipes/oauth-apps.md) — `B24OAuth` setup, refresh-token errors.
-- [batch-calls](references/recipes/batch-calls.md) — `callBatch` (object + array forms), `callBatchByChunk`, halt-on-error.
-- [list-pagination](references/recipes/list-pagination.md) — `callListMethod`, `fetchListMethod`, manual `callMethod` + `getNext()`.
+- [nuxt-module](references/recipes/nuxt-module.md) — `@bitrix24/b24jssdk-nuxt` module setup.
+
+Frame & helpers:
 - [ui-integrations](references/recipes/ui-integrations.md) — sliders, dialogs, parent window, placement, options (frame-only).
 - [helper-manager](references/recipes/helper-manager.md) — `useB24Helper()`, profile/app/currency/license/options managers.
 - [pull-client](references/recipes/pull-client.md) — Pull (push) subscription, channel manager.
-- [nuxt-module](references/recipes/nuxt-module.md) — `@bitrix24/b24jssdk-nuxt` module setup.
 
 **Quick reference:**
 - [api-surface](references/api-surface.md) — categorized index of public exports — entry points, REST helpers, types/enums, tools.
@@ -72,13 +82,14 @@ Based on the task, load the relevant reference files **before writing any code**
 
 | Task | Load these references |
 |---|---|
-| Build a Bitrix24 frame placement (iframe app) | entry-points, conventions, frame-apps |
+| Build a Bitrix24 frame placement (iframe app) | entry-points, conventions, frame-apps, rest-api-v2 |
 | Open sliders / dialogs / interact with portal UI | conventions, ui-integrations |
-| Server-side script / cron / Node service against Bitrix24 | entry-points, conventions, webhook-server |
-| OAuth-based local app (refresh tokens) | entry-points, conventions, oauth-apps |
+| Server-side script / cron / Node service against Bitrix24 | entry-points, conventions, webhook-server, rest-api-v2 |
+| OAuth-based local app (refresh tokens) | entry-points, conventions, oauth-apps, rest-api-v2 |
 | Use the SDK from a Nuxt app | conventions, frame-apps, nuxt-module |
-| Fetch large data sets from REST | conventions, list-pagination |
-| Call multiple related methods efficiently | conventions, batch-calls |
+| Fetch large data sets from REST | conventions, list-pagination, rest-api-v2 (or rest-api-v3) |
+| Call multiple related methods efficiently | conventions, batch-calls, rest-api-v2 (or rest-api-v3) |
+| Call a `tasks.task.*` / `main.eventlog.*` method | conventions, rest-api-v3 |
 | Show portal data (current user, currency, options) | conventions, helper-manager |
 | React to real-time events from the portal | conventions, helper-manager, pull-client |
 | Handle errors / write retry logic | conventions, error-handling, rate-limiting |

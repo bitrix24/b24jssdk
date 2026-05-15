@@ -1,137 +1,56 @@
-# Batch calls
+# Batch calls — decision page
 
-`b24.actions.v3.batch.make` (or `v2.batch.make`) packs multiple REST calls into one round-trip. Reach for it whenever you need 2+ related calls and latency matters. For batches larger than 50 commands use `batchByChunk.make` — the SDK splits and merges for you.
+When and which batch shape to use. Code examples live in the version-specific recipes:
 
-The legacy `$b24.callBatch(...)` still works but is deprecated; new code uses the action managers.
+- **v2 examples:** [rest-api-v2 → Batch](rest-api-v2.md#batch--batchmake), [BatchByChunk](rest-api-v2.md#auto-chunked-batch--batchbychunkmake)
+- **v3 examples:** [rest-api-v3 → Batch](rest-api-v3.md#batch--batchmake), [BatchByChunk](rest-api-v3.md#auto-chunked-batch--batchbychunkmake)
 
-## Three input shapes
+## When to batch at all
 
-`b24.actions.v{2,3}.batch.make` accepts any of:
+| Need | Action |
+|---|---|
+| Single REST call | `call.make` (not `batch.make` with one item) |
+| 2 – 50 related calls in one round-trip | `batch.make` |
+| > 50 calls, or unknown / dynamic length | `batchByChunk.make` |
+| All rows of one list method | `callList.make` / `fetchList.make`, not batch — see [list-pagination](list-pagination.md) |
 
-1. **Array of tuples** — homogeneous batch of similar calls:
+## v2 vs v3 batching — both directions exist
 
-```ts
-import { Result } from '@bitrix24/b24jssdk'
+`b24.actions.v2.batch.make` and `b24.actions.v3.batch.make` are independent endpoints, not a v3-replacement-for-v2. Pick the version that matches the methods you're calling:
 
-const response = await $b24.actions.v3.batch.make({
-  calls: [
-    ['tasks.task.get', { id: 1, select: ['id', 'title'] }],
-    ['tasks.task.get', { id: 2, select: ['id', 'title'] }],
-    ['tasks.task.get', { id: 3, select: ['id', 'title'] }]
-  ],
-  options: {
-    isHaltOnError: true,
-    requestId: 'tasks-batch'
-  }
-})
-```
+- All commands are v2 methods → `v2.batch.make`. This is most batches today (CRM, IM, user, options, …).
+- All commands are v3-supported (`tasks.task.*`, `main.eventlog.*`, meta endpoints) → `v3.batch.make`.
+- Mix of v2-only and v3 in the same group → **not allowed in one batch.** Split into two `batch.make` calls (one per version), or downgrade everything to v2 if the v3 methods also exist there.
 
-2. **Array of objects** — same as tuples but with named keys for readability:
+`b24.actions.v3.batch.make` throws `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` at call time if any one command isn't v3-supported. See [rest-api-v3 → When to use](rest-api-v3.md#when-to-use-v3--and-when-not-to) for the current v3 method list.
 
-```ts
-await $b24.actions.v3.batch.make({
-  calls: [
-    { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title'] } },
-    { method: 'tasks.task.get', params: { id: 2, select: ['id', 'title'] } }
-  ]
-})
-```
+## Input shapes
 
-3. **Named object** — when you want results keyed for the consumer:
+All three shapes work in both v2 and v3 `batch.make` (only the named-object shape is unsupported by `batchByChunk.make`):
 
-```ts
-interface TaskItem { id: number, title: string }
-interface LogItem { id: number, userId: number }
+- **Array of tuples** — `[[method, params], ...]`. Compact; best for homogeneous lists.
+- **Array of objects** — `[{ method, params }, ...]`. Same as tuples, more readable.
+- **Named object** — `{ Name: { method, params }, ... }`. Results keyed by the names you choose; best when the consumer code wants to address results by name.
 
-const response = await $b24.actions.v3.batch.make<{ item: TaskItem } | { items: LogItem[] }>({
-  calls: {
-    Task: { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title'] } },
-    Log: ['main.eventlog.list', { select: ['id', 'userId'], pagination: { limit: 5 } }]
-  },
-  options: {
-    isHaltOnError: true,
-    returnAjaxResult: true
-  }
-})
+Pick whichever makes the consumer code clearest. See [rest-api-v2 → Batch](rest-api-v2.md#batch--batchmake) for a code sample of each.
 
-const data = response.getData() as Record<string, AjaxResult<any>>
-console.log(data.Task.getData().result.item)
-console.log(data.Log.getData().result.items)
-```
+## `isHaltOnError`
 
-Pick the shape that makes the consuming code clearest. The action class handles all three uniformly.
+| Value | Behaviour |
+|---|---|
+| `true` (default) | Reject on first failing command. Use for transactional groups |
+| `false` | Resolve; per-command errors accumulate on the returned `Result` (`response.errors`, `response.getErrorMessages()`). v2 only — v3 batches are all-or-nothing regardless |
 
-## `options` block
+## `returnAjaxResult`
 
-| Field | Default | Meaning |
-|---|---|---|
-| `isHaltOnError` | `true` | Stop on first failing command; the whole promise rejects. Set `false` to accumulate per-command errors |
-| `returnAjaxResult` | `false` | Wrap each result in `AjaxResult` so you can call `isMore()`, `getData()` etc. per command |
-| `requestId` | `undefined` | Stable id for tracking / dedup / debug logs |
-
-```ts
-const response = await $b24.actions.v3.batch.make({
-  calls,
-  options: {
-    isHaltOnError: false,
-    requestId: 'crm-sync-2026-05'
-  }
-})
-
-if (!response.isSuccess) {
-  for (const [index, err] of response.errors) {
-    console.warn('partial failure', index, err)
-  }
-}
-```
-
-## Auto-chunked batch — `batchByChunk.make`
-
-A single batch is capped at 50 commands. For larger groups (e.g. updating 500 deals), `batchByChunk` splits internally and runs the chunks sequentially, respecting the limiter:
-
-```ts
-import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
-
-const commands: BatchCommandsArrayUniversal = ids.map((id) => [
-  'tasks.task.get',
-  { id, select: ['id', 'title'] }
-])
-
-const response = await $b24.actions.v3.batchByChunk.make<{ item: TaskItem }>({
-  calls: commands,
-  options: {
-    isHaltOnError: false,
-    requestId: 'tasks-bulk-fetch'
-  }
-})
-
-const items = response.getData() // flat T[] of successful rows
-```
-
-Notes:
-
-- **Named-object input is not supported** for `batchByChunk` — chunks couldn't preserve named keys reliably. Use array shapes.
-- **`returnAjaxResult` is forced to `false`** — the action flattens results to `T[]`.
-- For very large operations (10 000+ commands) consider server-side task queues instead.
-
-## v2 vs v3
-
-Both versions expose identical action names and option shapes. Differences live in the REST methods themselves:
-
-- v3 — newer methods (`tasks.task.*`, `main.eventlog.*`, …). Some methods only exist in v3.
-- v2 — older surface, mandatory for legacy CRM-style methods (`crm.item.list`, `crm.deal.list`, etc.).
-
-If a method exists in v3 but you call it through `v2.call.make`, the SDK logs a warning suggesting the migration. Pick the version that matches the REST method — when in doubt, try v3 first; if you get `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`, fall back to v2.
-
-## Choosing batch vs list
-
-- Different methods, known set → `batch.make` (named object form).
-- All rows of one list method → `callList.make` / `fetchList.make` (see [list-pagination](list-pagination.md)).
-- Update/mutate a known array of rows → `batchByChunk.make`.
+- `false` (default) — `response.getData()` returns flat data per command.
+- `true` — each value is an `AjaxResult` so you can call `isSuccess`, `getData`, etc. per command. Useful when individual commands return paginated results.
+- **Not supported by `batchByChunk.make`** — it forces `false` and flattens output to `T[]`.
 
 ## Anti-patterns
 
-- Wrapping a single call in `batch.make` — adds overhead for no benefit. Use `call.make`.
-- Hand-rolling chunking around `batch.make` — `batchByChunk.make` already does it correctly.
-- Mixing shapes in one call — pick array OR named object, don't combine.
-- Both `isHaltOnError: true` AND `try/catch` for partial recovery — pick one strategy.
+- Wrapping one call in `batch.make` — overhead with no benefit. Use `call.make`.
+- Hand-rolling 50-command chunking around `batch.make` — `batchByChunk.make` already does this.
+- Mixing v2-only and v3 methods inside one `v3.batch.make` — throws. Split or downgrade.
+- Both `isHaltOnError: true` *and* a `try/catch` for partial recovery — pick one strategy.
+- Using a named-object shape with `batchByChunk.make` — not supported (chunks can't preserve named keys reliably).

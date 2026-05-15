@@ -17,13 +17,24 @@ Core building blocks:
 - **UI managers (frame-only):** `parent`, `slider`, `dialog`, `placement`, `options`, `auth`
 - **Helpers:** `B24HelperManager` and `useB24Helper()` composable; Pull client
 
-> Companion documentation: [`skills/b24-jssdk/SKILL.md`](../../skills/b24-jssdk/SKILL.md) is an agent-oriented routing guide (decision matrices, recipes, anti-patterns). This README-AI is the code-pattern reference; the skill tells you **when** to reach for which pattern.
+> Companion documentation: [`skills/b24-jssdk/SKILL.md`](https://github.com/bitrix24/b24jssdk/blob/main/skills/b24-jssdk/SKILL.md) is an agent-oriented routing guide (decision matrices, recipes, anti-patterns). This README-AI is the code-pattern reference; the skill tells you **when** to reach for which pattern.
 
 Note: since v0.4.0 the package ships ESM and UMD only (no CommonJS).
 
 ## Deprecation notice — read before generating code
 
 The following surface is `@deprecated` and **scheduled for removal in `2.0.0`**. **Generate new code against `b24.actions.v{2,3}.*` only.** The legacy surface remains documented below the line where it's strictly necessary to recognise older codebases.
+
+### v2 vs v3 — which version to call
+
+`b24.actions.v2.*` and `b24.actions.v3.*` are independent endpoints, not a replacement-of-one-by-the-other. Pick by method:
+
+- **v3 currently supports a small set:** `/tasks.task.*`, `/main.eventlog.*`, `/batch`, `/scopes`, `/rest.scope.list`, `/rest.documentation.openapi`, `/documentation`. Source of truth: [`packages/jssdk/src/core/version-manager.ts`](https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/src/core/version-manager.ts).
+- **Everything else is v2-only** — CRM (`crm.item.*`, `crm.deal.*`, …), IM, `user.current`, `profile`, placement, options, settings.
+
+`b24.actions.v3.call.make` throws `SdkError(JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3)` immediately for a v2-only method. `b24.actions.v3.batch.make` throws the same error if any one method in the batch isn't v3-supported — you cannot mix v2-only and v3 methods inside a single v3 batch.
+
+Practical rule: **default to v2; switch the specific call to v3 only when its method is on the v3 list.** Examples below follow this rule.
 
 | Deprecated | Replacement |
 |---|---|
@@ -91,8 +102,8 @@ async function boot() {
   }))
   logger.info('items', items)
 
-  // Named batch (v3 form — works for v2 too; pick v2 when calls use v2-only methods)
-  const batch = await $b24.actions.v3.batch.make({
+  // Named batch — v2 because crm.item.* is a v2-only method
+  const batch = await $b24.actions.v2.batch.make({
     calls: {
       CompanyList: {
         method: 'crm.item.list',
@@ -219,8 +230,8 @@ const response = await $b24.actions.v2.call.make({
 })
 logger.info('companies:', response.getData().result.items)
 
-// Batch (array form)
-const batch = await $b24.actions.v3.batch.make({
+// Batch (array form) — v2 because crm.item.* is v2-only
+const batch = await $b24.actions.v2.batch.make({
   calls: [
     ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] }],
     ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] }]
@@ -279,13 +290,25 @@ import {
   type B24OAuthSecret
 } from '@bitrix24/b24jssdk'
 
+// Persisted per-portal/user state — typically captured after the OAuth code exchange.
+// Authoritative shapes: packages/jssdk/src/types/auth.ts.
 const authOptions: B24OAuthParams = {
-  domain: 'your_domain.bitrix24.com'
-  // … remaining auth fields — see packages/jssdk/src/types/auth.ts
+  applicationToken: '1xxxxx1694',
+  userId: 1,
+  memberId: '3xx2030386cyy1b',
+  accessToken: '1xxxxx1694',
+  refreshToken: '0xxxx4e000011e700000001000000260dc83b47c40e9b5fd501093674c4f5',
+  expires: 1745997853,
+  expiresIn: 3600,
+  scope: 'crm,catalog,bizproc,placement,user_brief',
+  domain: 'your_domain.bitrix24.com',
+  clientEndpoint: 'https://your_domain.bitrix24.com/rest/',
+  serverEndpoint: 'https://oauth.bitrix.info/rest/',
+  status: 'L'
 }
 const oAuthSecret: B24OAuthSecret = {
-  // client_id / client_secret + token-refresh endpoint
-  // … see packages/jssdk/src/types/auth.ts
+  clientId: process.env.B24_CLIENT_ID!,
+  clientSecret: process.env.B24_CLIENT_SECRET!
 }
 
 const $b24 = new B24OAuth(authOptions, oAuthSecret, {
@@ -296,15 +319,16 @@ $b24.setLogger(LoggerBrowser.build('OAuthApp', true))
 $b24.offClientSideWarning() // server-side
 
 // Persist rotated tokens on every successful refresh
-$b24.setCallbackRefreshAuth((newAuth) => {
-  saveTokens(newAuth)
+$b24.setCallbackRefreshAuth(async ({ authData, b24OAuthParams }) => {
+  await saveTokens(b24OAuthParams)
 })
 
-// Optional: override how refresh is performed (e.g. centralised service)
-$b24.setCustomRefreshAuth(async (currentAuth) => fetchNewTokensFromYourBackend(currentAuth))
+// Optional: produce a new token pair yourself (called instead of the built-in refresh)
+$b24.setCustomRefreshAuth(async () => fetchNewTokensFromYourBackend())
 
 try {
-  const response = await $b24.actions.v3.call.make({ method: 'user.current' })
+  // user.current is v2-only
+  const response = await $b24.actions.v2.call.make({ method: 'user.current' })
   console.log(response.getData().result)
 } catch (e) {
   if (e instanceof RefreshTokenError) {
@@ -589,7 +613,8 @@ Notes:
 import { AjaxError } from '@bitrix24/b24jssdk'
 
 try {
-  const res = await $b24.actions.v3.call.make({
+  // crm.item.* is v2-only
+  const res = await $b24.actions.v2.call.make({
     method: 'crm.item.get',
     params: { entityTypeId: 1, id: 10 }
   })

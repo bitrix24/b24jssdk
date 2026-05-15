@@ -1,6 +1,9 @@
-# List pagination
+# List pagination — decision page
 
-Two action types — pick by dataset size. The legacy `$b24.callListMethod` / `$b24.fetchListMethod` are deprecated; new code uses the action managers.
+Choosing between `callList`, `fetchList`, and manual paging. Code examples live in the version-specific recipes:
+
+- **v2 examples:** [rest-api-v2 → callList](rest-api-v2.md#auto-paged-list--calllistmake), [fetchList](rest-api-v2.md#streamed-list--fetchlistmake-preferred-for-large-datasets)
+- **v3 examples:** [rest-api-v3 → callList](rest-api-v3.md#auto-paged-list--calllistmake), [fetchList](rest-api-v3.md#streamed-list--fetchlistmake-preferred-for-large-datasets)
 
 ## Decision matrix
 
@@ -8,141 +11,42 @@ Two action types — pick by dataset size. The legacy `$b24.callListMethod` / `$
 |---|---|---|
 | Small (< 1000 known) | `b24.actions.v{2,3}.callList.make` | `Promise<Result<T[]>>` — full array in memory |
 | Large / unknown | `b24.actions.v{2,3}.fetchList.make` | `AsyncGenerator<T[]>` — iterate with `for await` |
-| Custom paging, dynamic stop, manual throttling (v2 only) | `b24.actions.v2.call.make` + `AjaxResult.isMore()` / `getNext()` | manual `AjaxResult` chain |
+| Custom paging on a v2 method (pauses, dynamic stop) | `b24.actions.v2.call.make` + `AjaxResult.isMore()` / `getNext()` | manual `AjaxResult` chain |
 
-> **Manual paging is v2-only.** `AjaxResult.isMore()` / `getNext()` / `getTotal()` rely on the v2 `next` / `total` envelope fields and are `@deprecated`. v3 returns no `next` cursor — in v3 you must use `callList.make` / `fetchList.make`. For element counts in v3 use the `aggregate` action.
+## v2 vs v3 lists
 
-## Required options
+The action names are identical (`callList`, `fetchList`) but the underlying APIs differ:
 
-Both `callList.make` and `fetchList.make` use **cursor-based pagination** by ordering on a unique id field. That has consequences:
+| Aspect | v2 | v3 |
+|---|---|---|
+| Default `idKey` | `'ID'` | `'id'` |
+| `customKeyForResult` | optional (default `null` — array is at response root) | **required** |
+| Filter shape | object with operator-prefixed keys: `{ '>=createdTime': '...', '=%title': 'A%' }` | array of triples: `[['timestampX', '>=', '...']]` |
+| Configurable `limit` | no | yes (default 50, max 1000) |
+| Counting without listing | use `AjaxResult.getTotal()` on `call.make` (deprecated, removed in 2.0.0) | use the `aggregate` action with `count` / `countDistinct` |
 
-- **`customKeyForResult` is required in v3** (no default). For `crm.item.list` it's `'items'`. For most v3 list methods it's `'items'`. The action uses this to extract the array from the REST response payload.
-- **`customKeyForResult` is optional in v2** (defaults to `null` — the result array is the response root). Pass it explicitly when v2 wraps results under a key.
-- **`idKey` defaults to `'id'` in v3 and `'ID'` in v2.** Match the casing your method actually returns.
-- **`order` is ignored** if you pass it — the cursor must order by `idKey`. The action logs a warning. Use `filter` to narrow.
+Pick the version that matches the REST method. Most list methods today are v2 (`crm.item.list`, `crm.deal.list`, etc.); v3 currently has only `main.eventlog.list` and a handful of others. See [rest-api-v3 → When to use](rest-api-v3.md#when-to-use-v3--and-when-not-to) for the v3 method list.
 
-## A) Small datasets — `callList.make`
+## `callList.make` vs `fetchList.make`
 
-```ts
-import { EnumCrmEntityTypeId, Text } from '@bitrix24/b24jssdk'
+- **`callList.make`** — accumulates everything in memory before returning. Easier code, but a 100 000-row list will exhaust the heap.
+- **`fetchList.make`** — async generator, yields chunks as they arrive. Constant memory. Use this for anything you don't already know is small.
 
-interface Company { id: number, title: string }
+Cost-wise they're equivalent — both make the same number of REST calls with the same throttling. Pick by memory budget, not by REST budget.
 
-const sixMonthAgo = new Date()
-sixMonthAgo.setMonth(sixMonthAgo.getMonth() - 6)
+## Manual paging (`AjaxResult.isMore` / `getNext`)
 
-const response = await $b24.actions.v2.callList.make<Company>({
-  method: 'crm.item.list',
-  params: {
-    entityTypeId: EnumCrmEntityTypeId.company,
-    filter: {
-      '=%title': 'A%',
-      '>=createdTime': Text.toB24Format(sixMonthAgo)
-    },
-    select: ['id', 'title']
-  },
-  idKey: 'id',                // crm.item.list uses lowercase 'id'
-  customKeyForResult: 'items',
-  requestId: 'companies-list'
-})
+**v2-only and deprecated.** `AjaxResult.isMore()` / `getNext()` / `getTotal()` rely on the v2 `next` / `total` envelope fields and are slated for removal in v2.0.0. v3 returns no `next` cursor at all — there's no v3 equivalent. Use `fetchList.make` for both versions.
 
-if (!response.isSuccess) {
-  throw new Error(response.getErrorMessages().join('; '))
-}
+Reach for manual paging only when you genuinely need pauses, dynamic stop conditions, or custom backoff between pages on a v2 method that can't be expressed through `fetchList.make`. See [rest-api-v2 → Manual paging](rest-api-v2.md#manual-paging-via-ajaxresultgetnext-v2-only-deprecated) for the recipe.
 
-const items: Company[] = response.getData() ?? []
-```
+## Common pitfalls
 
-For a v3 method (e.g. `main.eventlog.list`):
+- **Wrong `idKey` casing** — v2 default `'ID'`, v3 default `'id'`. For v2 `crm.item.*` (lowercase fields) explicitly pass `idKey: 'id'`.
+- **Missing `customKeyForResult`** in v3 — required (no default). Forgetting it is caught by TypeScript at compile time.
+- **Passing `order`** to `callList.make` / `fetchList.make` — silently ignored with a warning. Cursor pagination orders by `idKey`. Use `filter` to narrow.
+- **`for ... of`** instead of `for await ... of` with `fetchList.make` — it's async.
+- **Mixing filter shapes between versions** — v2 wants the operator-prefixed object form; v3 wants array-of-triples. Cross-pasting examples breaks silently (filter ignored = full list).
+- **Using `callList.make` for 100 000+ rows** — heap explosion. Switch to `fetchList.make`.
 
-```ts
-interface LogItem { id: number, userId: number }
-
-const response = await $b24.actions.v3.callList.make<LogItem>({
-  method: 'main.eventlog.list',
-  params: {
-    filter: [
-      ['timestampX', '>=', Text.toB24Format(sixMonthAgo)]
-    ],
-    select: ['id', 'userId']
-  },
-  idKey: 'id',
-  customKeyForResult: 'items',
-  requestId: 'eventlog-list',
-  limit: 60                   // v3 lets you tune page size; default 50, max 1000
-})
-```
-
-## B) Large datasets — `fetchList.make` (preferred)
-
-Streams chunks via async iterator — constant memory regardless of total size.
-
-```ts
-import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
-
-interface Deal { id: number, title: string }
-
-const generator = $b24.actions.v2.fetchList.make<Deal>({
-  method: 'crm.item.list',
-  params: {
-    entityTypeId: EnumCrmEntityTypeId.deal,
-    select: ['id', 'title']
-  },
-  idKey: 'id',
-  customKeyForResult: 'items',
-  requestId: 'deals-stream'
-})
-
-for await (const chunk of generator) {
-  for (const row of chunk) {
-    // process row
-  }
-}
-```
-
-`fetchList.make` is **not async itself** — it returns the generator synchronously. Iteration drives the calls. Errors throw an `SdkError` with code `JSSDK_CORE_B24_FETCH_LIST_METHOD_API_V{2,3}` inside the `for await` loop.
-
-## C) Manual paging — `call.make` + `getNext()` (v2 only, deprecated)
-
-Use **only on v2 methods** when you need pauses, dynamic stop conditions, or custom backoff between pages. `AjaxResult.isMore()` / `getNext()` / `getTotal()` are `@deprecated` and slated for removal in v2.0.0 — there's no v3 equivalent (v3 has no `next` envelope; use `fetchList.make` instead).
-
-```ts
-import { EnumCrmEntityTypeId, AjaxResult } from '@bitrix24/b24jssdk'
-
-interface Contact { id: number, name: string }
-
-const all: Contact[] = []
-
-let page: AjaxResult<{ items: Contact[] }> = await $b24.actions.v2.call.make({
-  method: 'crm.item.list',
-  params: {
-    entityTypeId: EnumCrmEntityTypeId.contact,
-    order: { id: 'asc' },
-    select: ['id', 'name'],
-    start: 0
-  }
-})
-
-all.push(...page.getData().result.items)
-
-while (page.isMore()) {
-  const next = await page.getNext($b24.getHttpClient())
-  if (next === false) break
-
-  // your throttling / dynamic stop checks here
-  all.push(...next.getData().result.items)
-  page = next as typeof page
-}
-```
-
-Reach for this only when you genuinely need page-by-page control over a v2 method — otherwise B is simpler, works for both versions, and respects the limiter automatically.
-
-## Pitfalls
-
-- **Missing `customKeyForResult` in v3** — TypeScript catches it (it's required), but runtime users sometimes shape-cast around the type. Always pass it.
-- **Wrong `idKey` casing** — v2 default is `'ID'`, v3 default is `'id'`. For `crm.item.list` (a v2 method that uses lowercase fields) explicitly pass `idKey: 'id'`.
-- **Passing `order`** — silently ignored with a warning. Cursor pagination requires ordering by `idKey`.
-- **Iterating `fetchList.make` with `for ... of`** — it's async; use `for await ... of`.
-- **Using `callList.make` for 100 000+ rows** — that's a heap explosion. Switch to `fetchList.make`.
-
-See [batch-calls](batch-calls.md) for `batchByChunk.make` (mutating bulk arrays) and [rate-limiting](../guidelines/rate-limiting.md) for throttle tuning on long fetches.
+See [rate-limiting](../guidelines/rate-limiting.md) for throttle tuning on long fetches.

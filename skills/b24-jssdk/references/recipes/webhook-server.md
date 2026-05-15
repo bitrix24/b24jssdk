@@ -49,7 +49,7 @@ logger.info('companies', response.getData().result.items)
 ## Batch
 
 ```ts
-const response = await $b24.actions.v3.batch.make({
+const response = await $b24.actions.v2.batch.make({
   calls: [
     ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] }],
     ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] }]
@@ -63,7 +63,7 @@ const response = await $b24.actions.v3.batch.make({
 logger.info('batch', response.getData())
 ```
 
-See [batch-calls](batch-calls.md) for halt-on-error semantics, named-object form, and chunking.
+See [batch-calls](batch-calls.md) for halt-on-error semantics and the choice between `batch.make` / `batchByChunk.make` / `call.make`, and [rest-api-v2](rest-api-v2.md) for full v2 batch reference.
 
 ## Bulk listing — preferred for large datasets
 

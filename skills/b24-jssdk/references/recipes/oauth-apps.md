@@ -15,15 +15,26 @@ import {
   type B24OAuthSecret
 } from '@bitrix24/b24jssdk'
 
+// Persisted per-portal/user state — typically stored after the OAuth code exchange
 const authOptions: B24OAuthParams = {
+  applicationToken: '1xxxxx1694',
+  userId: 1,
+  memberId: '3xx2030386cyy1b',
+  accessToken: '1xxxxx1694',
+  refreshToken: '0xxxx4e000011e700000001000000260dc83b47c40e9b5fd501093674c4f5',
+  expires: 1745997853,           // epoch seconds
+  expiresIn: 3600,
+  scope: 'crm,catalog,bizproc,placement,user_brief',
   domain: 'your_domain.bitrix24.com',
-  // … remaining auth params (memberId, accessToken, refreshToken, expiresIn, …)
-  // see types/auth.ts for the full shape
+  clientEndpoint: 'https://your_domain.bitrix24.com/rest/',
+  serverEndpoint: 'https://oauth.bitrix.info/rest/',
+  status: 'L'
 }
 
+// App credentials from the Bitrix24 marketplace listing — never embed in client code
 const oAuthSecret: B24OAuthSecret = {
-  // client_id / client_secret + token-refresh endpoint config
-  // see types/auth.ts for the full shape
+  clientId: process.env.B24_CLIENT_ID!,
+  clientSecret: process.env.B24_CLIENT_SECRET!
 }
 
 const $b24 = new B24OAuth(authOptions, oAuthSecret, {
@@ -34,40 +45,49 @@ $b24.setLogger(LoggerBrowser.build('OAuthApp', true))
 $b24.offClientSideWarning() // server-side only — silence the browser warning
 ```
 
-The third argument is optional and accepts `restrictionParams` (partial) for the limiter stack. See [rate-limiting](../guidelines/rate-limiting.md). For the exact `B24OAuthParams` / `B24OAuthSecret` field lists, read [`packages/jssdk/src/types/auth.ts`](https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/src/types/auth.ts) — those types are the contract.
+The third argument is optional and accepts a partial `restrictionParams` for the limiter stack — see [rate-limiting](../guidelines/rate-limiting.md). The authoritative shapes are in [`packages/jssdk/src/types/auth.ts`](https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/src/types/auth.ts).
 
 ## REST calls — same as everywhere
 
 ```ts
-const response = await $b24.actions.v3.call.make({
+const response = await $b24.actions.v2.call.make({
   method: 'user.current'
 })
 
 console.log(response.getData().result)
 ```
 
-`$b24.actions.v{2,3}.{call,callList,fetchList,batch,batchByChunk}.make(options)` work identically to `B24Frame` and `B24Hook`. See [batch-calls](batch-calls.md) and [list-pagination](list-pagination.md).
+`$b24.actions.v{2,3}.{call,callList,fetchList,batch,batchByChunk}.make(options)` work identically to `B24Frame` and `B24Hook`. See [rest-api-v2](rest-api-v2.md) and [rest-api-v3](rest-api-v3.md). Most methods are v2-only today — `user.current` and `profile` included; only `tasks.task.*` / `main.eventlog.*` and meta endpoints are on v3 so far.
 
 ## Refresh-token lifecycle
 
 `B24OAuth` will use the refresh token automatically when the access token expires. Two callbacks let you plug into the cycle:
 
 ```ts
-$b24.setCallbackRefreshAuth((newAuth) => {
-  // Called after a successful refresh — persist the new tokens
-  // so a restart doesn't lose them.
-  saveTokens(newAuth)
+// Notification: a refresh just succeeded and the SDK now holds fresh tokens.
+// Persist them so a restart picks up where this process left off.
+$b24.setCallbackRefreshAuth(async ({ authData, b24OAuthParams }) => {
+  await saveTokens(b24OAuthParams) // { applicationToken, accessToken, refreshToken, expires, ... }
 })
 
-$b24.setCustomRefreshAuth(async (currentAuth) => {
-  // Optional: override how a new token is obtained.
-  // Useful when refresh lives in a separate service / database.
-  return fetchNewTokensFromYourBackend(currentAuth)
+// Override: produce a new token pair yourself, e.g. by calling a central
+// token-refresh service. Called instead of the SDK's built-in refresh.
+$b24.setCustomRefreshAuth(async () => {
+  return fetchNewTokensFromYourBackend()
+  // -> { access_token, refresh_token, expires, expires_in, client_endpoint,
+  //      server_endpoint, member_id, scope, status, domain }
 })
 
 // Tear down later if needed
 $b24.removeCallbackRefreshAuth()
 $b24.removeCustomRefreshAuth()
+```
+
+Signatures (from `types/auth.ts`):
+
+```ts
+type CallbackRefreshAuth = (params: { authData: AuthData, b24OAuthParams: B24OAuthParams }) => Promise<void>
+type CustomRefreshAuth = () => Promise<HandlerRefreshAuth>
 ```
 
 When the refresh itself fails (token revoked, app uninstalled), `B24OAuth` throws a typed `RefreshTokenError`. Catch it specifically and trigger your re-auth flow — don't catch it generically:
@@ -76,7 +96,7 @@ When the refresh itself fails (token revoked, app uninstalled), `B24OAuth` throw
 import { RefreshTokenError } from '@bitrix24/b24jssdk'
 
 try {
-  await $b24.actions.v3.call.make({ method: 'user.current' })
+  await $b24.actions.v2.call.make({ method: 'user.current' })
 } catch (e) {
   if (e instanceof RefreshTokenError) {
     // Token revoked or app uninstalled — redirect user to OAuth consent

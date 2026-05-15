@@ -51,21 +51,23 @@ function teardown() {
 
 Every concrete entry point (`B24Frame`, `B24Hook`, `B24OAuth`) exposes two manager namespaces from `AbstractB24`:
 
-- **`b24.actions.v3.*`** — REST API v3 (the current, growing surface). Use for new code.
-- **`b24.actions.v2.*`** — REST API v2 (mature, covers legacy CRM-style methods like `crm.item.list`, `crm.deal.list`). Use when v3 doesn't yet support a method.
+- **`b24.actions.v2.*`** — REST API v2 (mature). Covers most current methods: `crm.*`, `im.*`, `user.*`, `profile`, placement, options, settings, etc.
+- **`b24.actions.v3.*`** — REST API v3 (growing surface). Currently supports only `tasks.task.*`, `main.eventlog.*`, and meta endpoints (`batch`, `scopes`, `documentation`). Will expand over time.
 - **`b24.tools.*`** — utility checks (`healthCheck`, `ping`).
 
-Each action is a class with a single `make(options)` method that returns the appropriate result type. Action classes by version:
+**Pick by method, not by preference.** v2 and v3 are mirror trees, not old-vs-new. Default to v2; switch a specific call to v3 only when its method is on the v3 list. Calling a v2-only method via `v3.call.make` throws `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`, and a `v3.batch.make` containing any v2-only method throws the same error. See [rest-api-v3 → When to use](../recipes/rest-api-v3.md#when-to-use-v3--and-when-not-to) for the current v3 method list.
 
-| Action | v3 path | v2 path | Returns |
+Each action is a class with a single `make(options)` method that returns the appropriate result type:
+
+| Action | v2 path | v3 path | Returns |
 |---|---|---|---|
-| Single call | `b24.actions.v3.call.make` | `b24.actions.v2.call.make` | `Promise<AjaxResult<T>>` |
-| Auto-paged list (in memory) | `b24.actions.v3.callList.make` | `b24.actions.v2.callList.make` | `Promise<Result<T[]>>` |
-| Streamed list (async generator) | `b24.actions.v3.fetchList.make` | `b24.actions.v2.fetchList.make` | `AsyncGenerator<T[]>` |
-| Batch (≤ 50 commands) | `b24.actions.v3.batch.make` | `b24.actions.v2.batch.make` | `Promise<CallBatchResult<T>>` |
-| Auto-chunked batch (any size) | `b24.actions.v3.batchByChunk.make` | `b24.actions.v2.batchByChunk.make` | `Promise<Result<T[]>>` |
+| Single call | `b24.actions.v2.call.make` | `b24.actions.v3.call.make` | `Promise<AjaxResult<T>>` |
+| Auto-paged list (in memory) | `b24.actions.v2.callList.make` | `b24.actions.v3.callList.make` | `Promise<Result<T[]>>` |
+| Streamed list (async generator) | `b24.actions.v2.fetchList.make` | `b24.actions.v3.fetchList.make` | `AsyncGenerator<T[]>` |
+| Batch (≤ 50 commands) | `b24.actions.v2.batch.make` | `b24.actions.v3.batch.make` | `Promise<CallBatchResult<T>>` |
+| Auto-chunked batch (any size) | `b24.actions.v2.batchByChunk.make` | `b24.actions.v3.batchByChunk.make` | `Promise<Result<T[]>>` |
 
-See [batch-calls](../recipes/batch-calls.md) and [list-pagination](../recipes/list-pagination.md) for full patterns.
+Full per-version reference: [rest-api-v2](../recipes/rest-api-v2.md), [rest-api-v3](../recipes/rest-api-v3.md). Decision pages: [batch-calls](../recipes/batch-calls.md), [list-pagination](../recipes/list-pagination.md).
 
 ### Minimal example
 

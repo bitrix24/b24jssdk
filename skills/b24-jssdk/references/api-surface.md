@@ -15,19 +15,21 @@ Categorized index of public exports from `@bitrix24/b24jssdk` — useful for fin
 
 ## REST surface — `b24.actions.*`
 
-Every entry point exposes `actions.v2` and `actions.v3` managers. Each action is a class with a `make(options)` method.
+Every entry point exposes `actions.v2` and `actions.v3` managers — independent mirror trees, not old-vs-new. Each action is a class with a `make(options)` method.
 
 | Action class | Path | Returns |
 |---|---|---|
-| `CallV3` / `CallV2` | `b24.actions.v3.call` / `v2.call` | `Promise<AjaxResult<T>>` |
-| `CallListV3` / `CallListV2` | `b24.actions.v3.callList` / `v2.callList` | `Promise<Result<T[]>>` |
-| `FetchListV3` / `FetchListV2` | `b24.actions.v3.fetchList` / `v2.fetchList` | `AsyncGenerator<T[]>` |
-| `BatchV3` / `BatchV2` | `b24.actions.v3.batch` / `v2.batch` | `Promise<CallBatchResult<T>>` |
-| `BatchByChunkV3` / `BatchByChunkV2` | `b24.actions.v3.batchByChunk` / `v2.batchByChunk` | `Promise<Result<T[]>>` |
+| `CallV2` / `CallV3` | `b24.actions.v2.call` / `v3.call` | `Promise<AjaxResult<T>>` |
+| `CallListV2` / `CallListV3` | `b24.actions.v2.callList` / `v3.callList` | `Promise<Result<T[]>>` |
+| `FetchListV2` / `FetchListV3` | `b24.actions.v2.fetchList` / `v3.fetchList` | `AsyncGenerator<T[]>` |
+| `BatchV2` / `BatchV3` | `b24.actions.v2.batch` / `v3.batch` | `Promise<CallBatchResult<T>>` |
+| `BatchByChunkV2` / `BatchByChunkV3` | `b24.actions.v2.batchByChunk` / `v3.batchByChunk` | `Promise<Result<T[]>>` |
 
-Options types (re-exported from the package root): `ActionCallV3`, `ActionCallV2`, `ActionCallListV3`, `ActionCallListV2`, `ActionFetchListV3`, `ActionFetchListV2`, `ActionBatchV3`, `ActionBatchV2`, `ActionBatchByChunkV3`, `ActionBatchByChunkV2`, `IB24BatchOptions`, `BatchCommandsArrayUniversal`, `BatchCommandsObjectUniversal`, `BatchNamedCommandsUniversal`.
+Default to v2; v3 currently supports only `tasks.task.*`, `main.eventlog.*`, and meta endpoints — see [rest-api-v3 → When to use](recipes/rest-api-v3.md#when-to-use-v3--and-when-not-to).
 
-See [batch-calls](recipes/batch-calls.md) and [list-pagination](recipes/list-pagination.md).
+Options types (re-exported from the package root): `ActionCallV2`, `ActionCallV3`, `ActionCallListV2`, `ActionCallListV3`, `ActionFetchListV2`, `ActionFetchListV3`, `ActionBatchV2`, `ActionBatchV3`, `ActionBatchByChunkV2`, `ActionBatchByChunkV3`, `IB24BatchOptions`, `BatchCommandsArrayUniversal`, `BatchCommandsObjectUniversal`, `BatchNamedCommandsUniversal`.
+
+Full per-version reference: [rest-api-v2](recipes/rest-api-v2.md), [rest-api-v3](recipes/rest-api-v3.md). Decision pages: [batch-calls](recipes/batch-calls.md), [list-pagination](recipes/list-pagination.md).
 
 ### Deprecated REST helpers on `AbstractB24`
 

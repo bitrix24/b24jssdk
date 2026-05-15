@@ -10,7 +10,7 @@ Thrown by `call.make` (and by underlying calls inside `callList.make` / `fetchLi
 import { AjaxError } from '@bitrix24/b24jssdk'
 
 try {
-  const response = await $b24.actions.v3.call.make({
+  const response = await $b24.actions.v2.call.make({
     method: 'crm.item.get',
     params: { entityTypeId: 1, id: 10 }
   })
@@ -62,7 +62,7 @@ try {
 | `false` | Promise resolves; per-command errors accumulate on the returned `Result`. Inspect `response.isSuccess`, `response.getErrorMessages()`, or iterate `response.errors` |
 
 ```ts
-const response = await $b24.actions.v3.batch.make({
+const response = await $b24.actions.v2.batch.make({
   calls: [
     ['crm.item.list', { entityTypeId: 1, select: ['id'] }],
     ['crm.item.list', { entityTypeId: 2, select: ['id'] }]
@@ -93,7 +93,7 @@ Set `returnAjaxResult: true` to inspect each command's `AjaxResult` individually
 import { RefreshTokenError } from '@bitrix24/b24jssdk'
 
 try {
-  await $b24.actions.v3.call.make({ method: 'user.current' })
+  await $b24.actions.v2.call.make({ method: 'user.current' })
 } catch (e) {
   if (e instanceof RefreshTokenError) {
     redirectToReauth()

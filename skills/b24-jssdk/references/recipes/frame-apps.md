@@ -109,16 +109,7 @@ export function useB24() {
 
 ## REST surface (shared with `B24Hook` / `B24OAuth`)
 
-All REST calls go through the action managers:
-
-- `$b24.actions.v3.call.make({ method, params, requestId })` — single v3 call.
-- `$b24.actions.v2.call.make(...)` — single v2 call (legacy CRM-style methods).
-- `$b24.actions.v{2,3}.callList.make(...)` — auto-paged list, in memory.
-- `$b24.actions.v{2,3}.fetchList.make(...)` — async generator for large lists.
-- `$b24.actions.v{2,3}.batch.make({ calls, options })` — ≤ 50 commands per batch.
-- `$b24.actions.v{2,3}.batchByChunk.make({ calls, options })` — auto-chunked.
-
-See [conventions](../guidelines/conventions.md) for the full overview, [batch-calls](batch-calls.md), [list-pagination](list-pagination.md) for patterns.
+All REST calls go through the action managers. The full pattern reference lives in [rest-api-v2](rest-api-v2.md) and [rest-api-v3](rest-api-v3.md); the decision pages are [batch-calls](batch-calls.md) and [list-pagination](list-pagination.md). Most methods today are v2-only (CRM, IM, user, profile, placement); v3 currently covers only `tasks.task.*` / `main.eventlog.*` + a few meta endpoints.
 
 ## Frame-only services on `$b24`
 

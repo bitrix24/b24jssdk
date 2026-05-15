@@ -20,6 +20,9 @@ All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The le
 | 7 | `examples/07-webhook-handler.ts` | Node, `express` | `crm` | Express server that receives Bitrix24 outbound events; loads details with `actions.v2.call.make` |
 | 8 | `examples/08-ai-assistant.ts` | Node, `openai` | `crm`, `task` | Deal + activity timeline → GPT prompt → `actions.v3.call.make('tasks.task.add')` follow-up |
 | 9 | `examples/09-web-search-llm.ts` | Node, BYOC | `crm` | Two-step RAG; SDK posts the answer to a deal's timeline via `actions.v2.call.make('crm.timeline.comment.add')` |
+| 10 | `examples/10-error-handling.ts` | Node | any | Error-handling cookbook: AjaxError vs SdkError taxonomy; `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` knobs via `setRestrictionManagerParams`; non-idempotent-call safety |
+| 11 | `examples/11-event-registration.ts` | Node | `crm` | CLI tool — list / bind / unbind outbound webhook events (`event.get`, `event.bind`, `event.unbind`). Pairs with recipe 7. |
+| 12 | `examples/12-oauth-install.ts` | Node, `express` | OAuth app | OAuth install handshake: handle `ONAPPINSTALL` / `ONAPPUPDATE` / `ONAPPUNINSTALL` events, persist tokens per portal, build `B24OAuth` on demand, refresh callback writes new tokens back to storage |
 
 ## Boot snippet (shared by all recipes)
 
@@ -69,6 +72,7 @@ pnpm add @bitrix24/b24jssdk
 #   recipe 7: pnpm add express
 #   recipe 8: pnpm add openai
 #   recipe 9: pnpm add openai
+#   recipe 12: pnpm add express
 
 # 2. Set env
 export B24_HOOK='https://YOUR_PORTAL.bitrix24.com/rest/1/k32t88gf3azpmwv3'

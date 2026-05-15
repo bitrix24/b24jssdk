@@ -2,19 +2,16 @@
 
 Gaps in the current skill set, re-prioritised after the 2026-05 migration to `actions.v{2,3}.*`. Each entry: who benefits, why it matters, and an estimate (S = small, half-day; M = medium; L = large) of effort to write a polished version.
 
+## Done (in `b24jssdk-recipes/examples/`)
+
+- ~~#1 OAuth install handshake~~ → recipe 12 (`12-oauth-install.ts`)
+- ~~#6 Error-handling cookbook~~ → recipe 10 (`10-error-handling.ts`)
+- ~~#8 Outbound event registration~~ → recipe 11 (`11-event-registration.ts`)
+
 ## High-impact, missing entirely
 
-### 1. OAuth install handshake (B24OAuth, end-to-end) — **L**
-The README-AI mentions `new B24OAuth(authParams, secret)` but assumes someone already produced `authParams`. A real OAuth app needs:
-- Express endpoint that handles `ONAPPINSTALL` / `ONAPPUPDATE` events
-- Persisting `accessToken`/`refreshToken`/`expires`/`memberId` per portal
-- Loading them into `B24OAuth` on every cold start
-- Wiring `setCallbackRefreshAuth` to write the refreshed pair back
-
-Biggest blocker for anyone shipping a Marketplace-listed app.
-
 ### 2. Per-portal multi-tenant backend pattern — **M**
-A backend that serves many Bitrix24 portals (one OAuth app, N installations) needs a `B24OAuth` factory keyed by `member_id`. Cache strategy, lifecycle, handling revoked installs.
+Recipe 12 (OAuth install) is the foundation. The next step is a production-grade variant: LRU-cached `B24OAuth` factory keyed by `member_id`, transactional storage for token refresh (Postgres `ON CONFLICT UPDATE` so concurrent workers don't lose tokens), structured handling of revoked installs.
 
 ### 3. Frame app boot template (Vue 3 + Nuxt) — **M**
 We have the docs site Nuxt module, and `useB24Helper`, but no end-to-end "scaffold a working in-frame Vue page" recipe. Showing:
@@ -32,23 +29,10 @@ The current `playgrounds/nuxt` is a manual smoke harness, not a teaching example
 ### 5. `batchByChunk.make` bulk import — **S**
 Right now no recipe uses `batchByChunk.make`. The most natural example: import 5000 contacts from a CSV. Also covers `Type` runtime guards and `Text.numberFormat` for progress.
 
-### 6. Error-handling cookbook with `hardErrorCodes` / `softErrorCodes` — **S**
-A short recipe showing common AjaxError codes and the right reaction, including the new restriction-manager knobs:
-- `QUERY_LIMIT_EXCEEDED` → automatic backoff
-- `EXPIRED_TOKEN` (B24OAuth) → refresh
-- `ERROR_NOT_FOUND` → swallow vs surface
-- Per-app custom codes via `hardErrorCodes`
-- Non-idempotent calls via `retryOnNetworkError: false`
-
-Short but missing — AI agents get this wrong constantly.
-
-### 7. CRM duplicate detection / dedup — **S**
+### 6. CRM duplicate detection / dedup — **S**
 `crm.duplicate.findbycomm` is a one-call solution for "is this email/phone already a contact?". Comes up in every lead-import workflow.
 
-### 8. Outbound event registration recipe — **S**
-Recipe 7 receives webhooks but assumes `crm.event.bind` was already done. A 30-line recipe showing how to register/list/unregister events from the SDK closes that loop.
-
-### 9. `actions.v3.aggregate.make` for analytics — **M** (once available in SDK)
+### 7. `actions.v3.aggregate.make` for analytics — **M** (once available in SDK)
 The v3 protocol supports aggregate functions (`sum`, `count`, `countDistinct`, etc., per `.claude/bitrix24-rest-v3-reference.md:304-368`), but the SDK doesn't expose a typed `aggregate.make` action yet. When it lands, Recipe 1 (CRM analytics) becomes a one-call query instead of loading all deals into memory.
 
 ## Lower-impact but useful
@@ -85,11 +69,9 @@ We have prose in `b24jssdk-rest`. A small ASCII flow chart inline (`select.lengt
 ### 19. Per-method version mapping table — **M**
 A table showing, for each common Bitrix24 method, whether to use `actions.v2.*` or `actions.v3.*` today and which will move to v3 in the future. The current table is split across two skills (`b24jssdk-core`, `b24jssdk-rest`) and the version-manager source.
 
-## Recommended order (if I were choosing)
+## Recommended next picks
 
-1. **#1** — OAuth install handshake. Biggest blocker by a wide margin.
-2. **#6** — Error-handling cookbook (incl. `hardErrorCodes`/`softErrorCodes`/`retryOnNetworkError`). Highest ROI per page.
-3. **#8** — Outbound event registration. Closes recipe 7's loop.
-4. **#5** — `batchByChunk.make` bulk import.
-5. **#3** — Vue/Nuxt frame boot template.
-6. **#9** — `aggregate.make` (when SDK exposes it).
+1. **#3** — Vue/Nuxt frame boot template. Biggest remaining gap for in-frame app authors.
+2. **#5** — `batchByChunk.make` bulk import. Demonstrates a feature no recipe currently exercises.
+3. **#2** — Per-portal multi-tenant backend (builds on recipe 12).
+4. **#7** — `aggregate.make` (when SDK exposes the action).

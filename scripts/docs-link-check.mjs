@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { join, resolve, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { walkMarkdownFiles, parseFrontmatter, stripFrontmatter } from './_docs-utils.mjs'
+import { walkMarkdownFiles, parseFrontmatter } from './_docs-utils.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -52,10 +52,12 @@ function slugifyHeading(text) {
     .replace(/\s/g, '-')
 }
 
-// Build the slug set and warn on collisions: github-slugger would suffix the
-// second one with `-1`, so a cross-link pointing at the un-suffixed slug would
-// hit the first heading silently. Surfacing the collision lets the author pick
-// distinct titles or accept the explicit `-1` suffix.
+// Build the slug set, mirroring github-slugger's collision behaviour: the
+// first occurrence keeps the bare slug, subsequent ones get `-1`, `-2`, …
+// suffixes. We still warn on collisions because the bare slug is the natural
+// link target — readers usually want a distinct heading rather than the
+// disambiguated suffix — but the suffixed slugs are still indexed so explicit
+// `#foo-1` links validate correctly.
 function extractHeadings(file, body) {
   const slugs = new Set()
   for (const line of body.split('\n')) {
@@ -63,15 +65,19 @@ function extractHeadings(file, body) {
     if (!prefix) continue
     const text = line.slice(prefix[0].length).trim()
     if (!text) continue
-    const slug = slugifyHeading(text)
-    if (slugs.has(slug)) {
-      logWarn(
-        file,
-        `heading "${text}" collides with an earlier heading on the same page (both slug to "${slug}"). Internal links to "#${slug}" will hit only the first one.`
-      )
+    const base = slugifyHeading(text)
+    if (!slugs.has(base)) {
+      slugs.add(base)
       continue
     }
-    slugs.add(slug)
+    let counter = 1
+    let suffixed = `${base}-${counter}`
+    while (slugs.has(suffixed)) suffixed = `${base}-${++counter}`
+    slugs.add(suffixed)
+    logWarn(
+      file,
+      `heading "${text}" collides with an earlier heading on the same page; github-slugger will emit "${suffixed}" for it. Plain links to "#${base}" will hit the earlier one.`
+    )
   }
   return slugs
 }
@@ -81,7 +87,7 @@ function buildPageIndex(files) {
   const index = new Map()
   for (const file of files) {
     const raw = readFileSync(file, 'utf8')
-    const body = stripFrontmatter(raw)
+    const { body } = parseFrontmatter(raw)
     index.set(fileToUrl(file), { headings: extractHeadings(file, body) })
   }
   return index

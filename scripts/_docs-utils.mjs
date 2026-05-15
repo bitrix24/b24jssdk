@@ -60,10 +60,3 @@ export function parseFrontmatter(text) {
   }
   return { frontmatter, body }
 }
-
-export function stripFrontmatter(text) {
-  if (!text.startsWith('---')) return text
-  const end = text.indexOf('\n---', 3)
-  if (end === -1) return text
-  return text.slice(end + 4).replace(/^\n/, '')
-}

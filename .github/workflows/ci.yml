@@ -13,7 +13,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  # Docs lint runs in its own job with full history because docs:lint-pages
+  # reads `git log -1 -- <source>` and needs each linked source file's real
+  # last-modification date. The scripts use only Node built-ins, so the job
+  # skips pnpm install / dev:prepare and finishes in seconds. Kept separate
+  # from `build` so the rest of CI can stay on a shallow checkout.
+  docs-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Lint docs pages
+        run: node scripts/docs-lint.mjs --strict
+
+      - name: Check docs internal links
+        run: node scripts/docs-link-check.mjs
+
+  build:
     runs-on: ubuntu-latest
     env:
       NUXT_PUBLIC_USE_AI: false
@@ -25,10 +49,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          # docs:lint-pages needs `git log -1 -- <source>` to return the actual
-          # last-modification date of each linked source file, not HEAD's date.
-          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v5
@@ -47,12 +67,6 @@ jobs:
 
       - name: Lint
         run: pnpm run lint
-
-      - name: Lint docs pages
-        run: pnpm run docs:lint-pages:strict
-
-      - name: Check docs internal links
-        run: pnpm run docs:lint-links
 
       - name: Typecheck
         run: pnpm run typecheck

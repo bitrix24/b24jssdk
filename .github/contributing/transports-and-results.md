@@ -131,7 +131,7 @@ Choosing a transport when adding actions:
 - v3-only goes under `src/core/actions/v3/`.
 - Files mirror the action name (`call.ts`, `batch.ts`, `call-list.ts`, `fetch-list.ts`).
 
-The base `Http` class owns retries, batching, and limiter integration — extend it rather than duplicating those concerns inside actions.
+The base `AbstractHttp` class (`packages/jssdk/src/core/http/abstract-http.ts`, implements `TypeHttp`) owns retries, batching, and limiter integration — extend it rather than duplicating those concerns inside actions.
 
 ### Batch Semantics
 

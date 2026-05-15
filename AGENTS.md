@@ -21,7 +21,7 @@ packages/
 ├── jssdk/                          # core SDK (published)
 │   ├── src/
 │   │   ├── core/                   # AbstractB24, Result, SdkError
-│   │   │   ├── actions/            # b24.actions.vX.<call|batch|callList|fetchList>.make()
+│   │   │   ├── actions/            # b24.actions.vX.<call|batch|batchByChunk|callList|fetchList>.make()
 │   │   │   ├── http/               # transports + limiters
 │   │   │   │   ├── limiters/       # rate / operating / adaptive delay
 │   │   │   │   ├── ajax-result.ts

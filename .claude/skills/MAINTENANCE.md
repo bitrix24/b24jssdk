@@ -87,6 +87,8 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 1. Branch: `git switch -c claude/llms-update-<YYYY-MM-DD>`.
 2. One commit per logical change (skill update, new recipe, REPORT update). Conventional Commits (`docs:` for skill prose, `feat(skills):` when adding a recipe).
 3. `pnpm run lint:fix && pnpm run typecheck` — both must pass before pushing.
+   - `typecheck` includes `skills:typecheck`, which validates `.claude/skills/b24jssdk-recipes/examples/*.ts` against the **built** SDK types (`packages/jssdk/dist/esm/index.d.ts`). Make sure `pnpm run dev:prepare` (or at minimum `pnpm run package-jssdk:build`) has run after any SDK API change, otherwise the skills typecheck against stale types.
+   - External-package symbols imported by recipes (`grammy`, `openai`, `express`, `node-cron`) are stubbed as loose `any` in `.claude/skills/b24jssdk-recipes/types/external.d.ts` so the workspace doesn't have to ship those deps. Only the SDK surface is strictly typechecked. If you add a recipe that imports a new external package, add a corresponding `declare module '<name>'` block to that file.
 4. Push to the branch and STOP. Do **not** open a PR unless the user asks for it.
 
 ## 6. End-of-task summary template

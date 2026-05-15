@@ -43,6 +43,7 @@
     "docs:preview": "nuxt preview docs",
     "docs:lint": "pnpm --filter ./docs lint",
     "docs:typecheck": "pnpm --filter ./docs typecheck",
+    "skills:typecheck": "tsc -p .claude/skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration",
     "package-jssdk:test-integration-js-docs": "vitest -t \"js-docs\" --project jsSdk:integration",
@@ -56,7 +57,7 @@
     "package-jssdk:test:run-underLoad-v2-batchByChunk": "vitest run -t \"crmItemListAsCompany batchByChunk @apiV2\" --project jsSdk:underLoad",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck",
+    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run skills:typecheck",
     "release:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {

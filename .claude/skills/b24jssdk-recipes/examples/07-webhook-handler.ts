@@ -102,8 +102,27 @@ async function main() {
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))
 
+  // The application_token Bitrix24 sends in every event. Set this from the
+  // Bitrix24 dev console (Local Application → application_token). Without it
+  // we accept any payload from anyone who knows our URL — fine for a local
+  // smoke test, NOT fine in production.
+  const expectedApplicationToken = process.env.B24_APPLICATION_TOKEN
+
   app.post('/webhook', async (req: Request, res: Response) => {
     const payload = req.body as BitrixEventPayload
+
+    // Always 200 — Bitrix24 retries non-2xx for up to 24h. We reply first
+    // and verify after, so even a bad payload doesn't keep the queue alive.
+    res.status(200).json({ status: 'ok' })
+
+    if (expectedApplicationToken) {
+      const incomingToken = payload.auth?.application_token
+      if (incomingToken !== expectedApplicationToken) {
+        logger.warn('Rejected webhook: application_token mismatch (possible spoof)')
+        return
+      }
+    }
+
     const eventName = payload.event ?? 'UNKNOWN'
     logger.info(`[${new Date().toISOString()}] event=${eventName} fields=${JSON.stringify(payload.data?.FIELDS ?? {})}`)
 
@@ -114,9 +133,6 @@ async function main() {
     } else {
       logger.info(`  no handler for ${eventName}`)
     }
-
-    // Always 200 — Bitrix24 retries non-2xx for up to 24h.
-    res.status(200).json({ status: 'ok' })
   })
 
   app.get('/health', (_req: Request, res: Response) => {

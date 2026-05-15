@@ -157,14 +157,31 @@ async function handleInstall(req: Request, res: Response) {
 
 async function handleUninstall(req: Request, res: Response) {
   const payload = req.body as UninstallEventPayload
-  if (payload?.auth?.member_id) {
-    // Bitrix24 sends the application_token in the uninstall event. We could
-    // verify it against the one we stored at install time before deleting —
-    // skipping that check here, but it's worth doing in production.
-    await deleteCredentials(payload.auth.member_id)
-    logger.info(`[ONAPPUNINSTALL] removed credentials for member=${payload.auth.member_id}`)
-  }
+  // Always 200 — even on bad payloads — so Bitrix24 doesn't retry for 24h.
   res.status(200).send('ok')
+
+  const memberId = payload?.auth?.member_id
+  const receivedToken = payload?.auth?.application_token
+  if (!memberId || !receivedToken) {
+    logger.warn('uninstall event missing member_id or application_token')
+    return
+  }
+
+  // Verify the application_token against the one we recorded at install time.
+  // Without this check, anyone who can reach /uninstall could delete the
+  // credentials of any portal whose member_id they guess.
+  const stored = await getCredentials(memberId)
+  if (!stored) {
+    logger.info(`[ONAPPUNINSTALL] no stored credentials for member=${memberId} (idempotent)`)
+    return
+  }
+  if (stored.applicationToken !== receivedToken) {
+    logger.warn(`[ONAPPUNINSTALL] application_token mismatch for member=${memberId} — refusing to delete`)
+    return
+  }
+
+  await deleteCredentials(memberId)
+  logger.info(`[ONAPPUNINSTALL] removed credentials for member=${memberId}`)
 }
 
 // ────────────────────────────────────────────────────────────────────────

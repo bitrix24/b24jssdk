@@ -121,8 +121,10 @@ async function main() {
 
   const bot = new Bot(token)
 
-  bot.command('start', (ctx) => ctx.reply('Bot ready. You will receive notifications about new CRM deals.'))
-  bot.command('status', (ctx) => ctx.reply(`Last seen deal ID: ${lastSeenDealId}`))
+  // ctx is typed as `any` here because grammy ships its own Context type only
+  // when the user actually installs the package. The recipe is opt-in.
+  bot.command('start', (ctx: any) => ctx.reply('Bot ready. You will receive notifications about new CRM deals.'))
+  bot.command('status', (ctx: any) => ctx.reply(`Last seen deal ID: ${lastSeenDealId}`))
 
   cron.schedule('*/2 * * * *', () => { tick($b24, bot, chatId).catch((e) => logger.error(e)) })
 

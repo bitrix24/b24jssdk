@@ -169,18 +169,69 @@ export class DialogManager {
   }
 
   /**
-   * Method invokes the system dialog for selecting a CRM entity
+   * Invokes the system dialog for selecting CRM entities
+   * (leads, contacts, companies, deals, quotes).
    *
-   * @param {SelectCRMParams} params
-   * @return {Promise<SelectedCRM>}
+   * The resolved `SelectedCRM` object contains a separate bucket per
+   * entity type. Each present bucket is a real `Array`, so consumers can
+   * use `.length`, `.map()`, `for..of`, etc. directly. Buckets for entity
+   * types that were not selected (or not requested via `entityType`) are
+   * left `undefined` rather than being set to an empty array.
+   *
+   * Note: the parent window historically returned each bucket as a
+   * `Record<string, SelectedCRMEntity>` (e.g. `{ 0: {...}, 1: {...} }`).
+   * The SDK normalizes that response to a real array before returning it.
+   *
+   * @param {SelectCRMParams} [params] - Filter and behavior options.
+   *   - `entityType`: which entity types are shown in the dialog.
+   *   - `multiple`: allow multiple selection (default `false`).
+   *   - `value`: pre-selected entities (only applied when `multiple` is `true`).
+   * @return {Promise<SelectedCRM>} Resolves to an object whose properties
+   *   (`lead`, `contact`, `company`, `deal`, `quote`) are arrays of
+   *   {@link SelectedCRMEntity} objects.
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-dialogues/bx24-select-crm.html
    */
   async selectCRM(params?: SelectCRMParams): Promise<SelectedCRM> {
-    return this.#messageManager.send(MessageCommands.selectCRM, {
+    const response = await this.#messageManager.send(MessageCommands.selectCRM, {
       entityType: params?.entityType,
       multiple: params?.multiple,
       value: params?.value
-    })
+    }) as Partial<Record<SelectCRMParamsEntityType, unknown>> | null | undefined
+
+    // The parent window returns each entity bucket as a Record<string, SelectedCRMEntity>
+    // (e.g. { 0: {...}, 1: {...} }) rather than a real array. Normalize to arrays so
+    // the runtime shape matches the documented `SelectedCRM` types.
+    const result: SelectedCRM = {}
+    if (!response) {
+      return result
+    }
+
+    const toArray = <T>(bucket: unknown): T[] | undefined => {
+      if (bucket === undefined || bucket === null) {
+        return undefined
+      }
+      if (Array.isArray(bucket)) {
+        return bucket as T[]
+      }
+      return Object.values(bucket as Record<string, T>)
+    }
+
+    const lead = toArray<SelectedCRMEntity & { id: `L_${number}` }>(response.lead)
+    if (lead) result.lead = lead
+
+    const contact = toArray<SelectedCRMEntity & { id: `C_${number}`, image: string }>(response.contact)
+    if (contact) result.contact = contact
+
+    const company = toArray<SelectedCRMEntity & { id: `CO_${number}`, image: string }>(response.company)
+    if (company) result.company = company
+
+    const deal = toArray<SelectedCRMEntity & { id: `D_${number}` }>(response.deal)
+    if (deal) result.deal = deal
+
+    const quote = toArray<SelectedCRMEntity & { id: `Q_${number}` }>(response.quote)
+    if (quote) result.quote = quote
+
+    return result
   }
 }

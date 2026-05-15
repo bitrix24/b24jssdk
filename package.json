@@ -1,7 +1,7 @@
 {
   "name": "@bitrix24/b24jssdk-main",
   "description": "Bitrix24 REST API JS SDK",
-  "version": "1.0.6",
+  "version": "1.1.1",
   "author": "Bitrix",
   "packageManager": "pnpm@10.33.2",
   "repository": {
@@ -59,7 +59,8 @@
     "docs:lint-pages": "node scripts/docs-lint.mjs",
     "docs:lint-pages:strict": "node scripts/docs-lint.mjs --strict",
     "docs:lint-links": "node scripts/docs-link-check.mjs",
-    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck"
+    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck",
+    "release:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "^1.15.2",

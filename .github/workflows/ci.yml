@@ -1,12 +1,19 @@
-name: NPM build 👷‍♂️
+name: ci
 
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_call:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
     env:
       NUXT_PUBLIC_USE_AI: false
@@ -25,12 +32,11 @@ jobs:
       - name: Install node
         uses: actions/setup-node@v6
         with:
-          node-version: 'lts/*'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Prepare
         run: pnpm run dev:prepare
@@ -47,11 +53,8 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: Build
+      - name: Build (jssdk)
         run: pnpm --filter ./packages/jssdk build
 
-      - name: Build NUXT
+      - name: Build (jssdk-nuxt)
         run: pnpm --filter ./packages/jssdk-nuxt build
-
-      - name: Generate Docs
-        run: pnpm run docs:generate

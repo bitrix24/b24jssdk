@@ -17,6 +17,24 @@ Core building blocks:
 
 Note: since v0.4.0 the package ships ESM and UMD only (no CommonJS).
 
+## Deprecation notice — read before generating code
+
+The following surface is `@deprecated` and **scheduled for removal in `2.0.0`**.
+Many examples in this document still reference it because it remains the most
+widely-used path today, but new code should target the `actions.v{2,3}.*` API.
+
+| Deprecated | Replacement |
+|---|---|
+| `b24.callMethod(method, params, start?)` | `b24.actions.v2.call.make({ method, params })` / `b24.actions.v3.call.make({ method, params })` |
+| `b24.callBatch(calls, isHaltOnError?, returnAjaxResult?)` | `b24.actions.v2.batch.make({ calls, options })` / `b24.actions.v3.batch.make(...)` |
+| `b24.callBatchByChunk(calls, isHaltOnError)` | `b24.actions.v2.batchByChunk.make({ calls, options })` / `b24.actions.v3.batchByChunk.make(...)` |
+| `b24.callListMethod(method, params, progress?, customKey?)` | `b24.actions.v2.callList.make({ method, params, customKeyForResult })` / `b24.actions.v3.callList.make(...)` |
+| `b24.fetchListMethod(method, params, idKey?, customKey?)` | `b24.actions.v2.fetchList.make({ method, params, idKey, customKeyForResult })` / `b24.actions.v3.fetchList.make(...)` |
+| `AjaxResult#isMore()`, `#hasMore()`, `#getNext()`, `#fetchNext()`, `#getTotal()` | The `next`/`total` envelope fields are `restApi:v2`-only (no `restApi:v3` counterpart). Do not iterate manually — let `actions.v{2,3}.{callList,fetchList}` handle pagination. For element counts in `restApi:v3` use the `aggregate` action with `count` / `countDistinct`. |
+
+`AjaxResult.getData()` returns exactly `{ result: T, time: PayloadTime }` — the
+v2-only `next` and `total` fields are no longer surfaced through the public type.
+
 
 ## Frontend in Bitrix24 (TypeScript, ESM)
 
@@ -96,6 +114,8 @@ Patterns
 - Destroy on page/component unmount with $b24.destroy().
 - For large result sets prefer callListMethod or fetchListMethod.
 - For big batches use callBatchByChunk to respect limits.
+- A per-command `result` inside a batch can be `null` when the underlying REST method legitimately returns `null` (e.g. `im.chat.get` with non-matching params). Declare the generic as `T | null` and handle the `null` branch — the SDK no longer coerces it to `{}` (see issue #23).
+- `restApi:v3` batch is all-or-nothing: per-command errors are not returned. If any call fails, the whole batch fails and `response.getErrorMessages()` carries the error.
 
 
 ## Frontend via UMD (CDN)
@@ -405,6 +425,11 @@ async function loadAllDealsStreaming($b24: any) {
 
 #### C) Manual pagination: callMethod + next pages
 
+> **`@deprecated` — slated for removal in `2.0.0`.** `callMethod`, `isMore()`,
+> and `getNext()` rely on the `restApi:v2` envelope field `next`, which
+> `restApi:v3` does not return. Prefer `b24.actions.v{2,3}.fetchList.make` for
+> custom-throttled iteration; that helper hides pagination for both API versions.
+
 Use when you need to control page sizes, pauses, or add custom throttling. Iterate until `isMore()` returns false, using `getNext($b24.getHttpClient())`.
 
 ```ts
@@ -446,9 +471,9 @@ import { AjaxError } from '@bitrix24/b24jssdk'
 
 try {
   const res = await $b24.callMethod('crm.item.get', { entityTypeId: 1, id: 10 })
-  const payload = res.getData()                  // raw REST payload
+  const payload = res.getData()                  // { result, time } — see Deprecation notice
   const ok = res.isSuccess                       // boolean
-  const total = res.getTotal()                   // for list calls
+  // const total = res.getTotal()                // @deprecated, removed in 2.0.0; v3 has no `total`
 } catch (e) {
   if (e instanceof AjaxError) {
     console.error(e.code, e.description, e.status, e.requestInfo)
@@ -557,7 +582,7 @@ This document is based on the SDK source in packages/jssdk/src and the docs unde
   ```
  
 - Unique ID Generator: request IDs are appended automatically via Http
-- Result / AjaxResult: uniform result objects, error aggregation, paging helpers (isMore, getNext, getTotal)
+- Result / AjaxResult: uniform result objects, error aggregation. (Legacy paging helpers `isMore`/`getNext`/`getTotal` are `@deprecated` for `2.0.0` — see Deprecation notice.)
 - Language List and LoggerBrowser
 
 ### Tools

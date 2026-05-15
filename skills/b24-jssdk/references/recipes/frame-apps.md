@@ -19,22 +19,32 @@ import {
 const logger = LoggerBrowser.build('MyApp', import.meta.env?.DEV === true)
 let $b24: B24Frame
 
+interface Company { id: number, title: string, createdTime: ISODate }
+
 async function boot() {
   $b24 = await initializeB24Frame()
   $b24.setLogger(logger)
 
-  const res = await $b24.callMethod('crm.item.list', {
-    entityTypeId: EnumCrmEntityTypeId.company,
-    order: { id: 'desc' },
-    select: ['id', 'title', 'createdTime']
+  const response = await $b24.actions.v2.call.make<{ items: Company[] }>({
+    method: 'crm.item.list',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.company,
+      order: { id: 'desc' },
+      select: ['id', 'title', 'createdTime']
+    },
+    requestId: 'companies-recent'
   })
 
-  const items = res.getData().result.map((it: any) => ({
-    id: Number(it.id),
-    title: it.title as string,
-    createdTime: Text.toDateTime(it.createdTime as ISODate)
-  }))
+  if (!response.isSuccess) {
+    logger.error('failed', response.getErrorMessages())
+    return
+  }
 
+  const items = response.getData().result.items.map((it) => ({
+    id: it.id,
+    title: it.title,
+    createdTime: Text.toDateTime(it.createdTime)
+  }))
   logger.info('items', items)
 }
 
@@ -97,6 +107,19 @@ export function useB24() {
 }
 ```
 
+## REST surface (shared with `B24Hook` / `B24OAuth`)
+
+All REST calls go through the action managers:
+
+- `$b24.actions.v3.call.make({ method, params, requestId })` — single v3 call.
+- `$b24.actions.v2.call.make(...)` — single v2 call (legacy CRM-style methods).
+- `$b24.actions.v{2,3}.callList.make(...)` — auto-paged list, in memory.
+- `$b24.actions.v{2,3}.fetchList.make(...)` — async generator for large lists.
+- `$b24.actions.v{2,3}.batch.make({ calls, options })` — ≤ 50 commands per batch.
+- `$b24.actions.v{2,3}.batchByChunk.make({ calls, options })` — auto-chunked.
+
+See [conventions](../guidelines/conventions.md) for the full overview, [batch-calls](batch-calls.md), [list-pagination](list-pagination.md) for patterns.
+
 ## Frame-only services on `$b24`
 
 Available only on `B24Frame` (not `B24Hook` / `B24OAuth`):
@@ -117,3 +140,4 @@ For complete UI patterns see [ui-integrations](ui-integrations.md). For helper d
 - Skipping `destroy()` on unmount — leaks `postMessage` listeners across navigations.
 - Calling `slider`/`dialog`/`parent` outside an iframe placement — those managers don't exist on `B24Hook` or `B24OAuth`.
 - Initializing on every render — keep one `$b24` per page/component scope.
+- Using the deprecated `$b24.callMethod(...)` — switch to `$b24.actions.v{2,3}.call.make(...)`.

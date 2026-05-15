@@ -4,48 +4,107 @@ For local apps that authenticate via OAuth — the SDK manages access/refresh to
 
 For the full OAuth dance (redirect, code exchange) follow Bitrix24's [OAuth documentation](https://apidocs.bitrix24.com/api-reference/oauth/index.html). The SDK takes over once you have the token pair.
 
-## Construction
-
-`B24OAuth` is exported from `@bitrix24/b24jssdk` and is constructed with the access/refresh tokens and the portal endpoint. Inspect the type via [`api-surface`](../api-surface.md) or the source under `packages/jssdk/src/oauth/`.
+## Construct
 
 ```ts
-import { B24OAuth, LoggerBrowser } from '@bitrix24/b24jssdk'
+import {
+  B24OAuth,
+  ParamsFactory,
+  LoggerBrowser,
+  type B24OAuthParams,
+  type B24OAuthSecret
+} from '@bitrix24/b24jssdk'
 
-const $b24 = new B24OAuth(/* access token, refresh token, endpoint */)
+const authOptions: B24OAuthParams = {
+  domain: 'your_domain.bitrix24.com',
+  // … remaining auth params (memberId, accessToken, refreshToken, expiresIn, …)
+  // see types/auth.ts for the full shape
+}
+
+const oAuthSecret: B24OAuthSecret = {
+  // client_id / client_secret + token-refresh endpoint config
+  // see types/auth.ts for the full shape
+}
+
+const $b24 = new B24OAuth(authOptions, oAuthSecret, {
+  restrictionParams: ParamsFactory.getDefault()
+})
+
 $b24.setLogger(LoggerBrowser.build('OAuthApp', true))
+$b24.offClientSideWarning() // server-side only — silence the browser warning
 ```
+
+The third argument is optional and accepts `restrictionParams` (partial) for the limiter stack. See [rate-limiting](../guidelines/rate-limiting.md). For the exact `B24OAuthParams` / `B24OAuthSecret` field lists, read [`packages/jssdk/src/types/auth.ts`](https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/src/types/auth.ts) — those types are the contract.
 
 ## REST calls — same as everywhere
 
 ```ts
-const res = await $b24.callMethod('user.current')
-console.log(res.getData().result)
+const response = await $b24.actions.v3.call.make({
+  method: 'user.current'
+})
+
+console.log(response.getData().result)
 ```
 
-`callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk` work identically to `B24Frame` and `B24Hook`. See [batch-calls](batch-calls.md) and [list-pagination](list-pagination.md).
+`$b24.actions.v{2,3}.{call,callList,fetchList,batch,batchByChunk}.make(options)` work identically to `B24Frame` and `B24Hook`. See [batch-calls](batch-calls.md) and [list-pagination](list-pagination.md).
 
-## Refresh-token failures
+## Refresh-token lifecycle
 
-When the refresh token is invalid or expired, `B24OAuth` raises a typed error. Catch it specifically and trigger your re-auth flow — don't catch generically:
+`B24OAuth` will use the refresh token automatically when the access token expires. Two callbacks let you plug into the cycle:
 
 ```ts
+$b24.setCallbackRefreshAuth((newAuth) => {
+  // Called after a successful refresh — persist the new tokens
+  // so a restart doesn't lose them.
+  saveTokens(newAuth)
+})
+
+$b24.setCustomRefreshAuth(async (currentAuth) => {
+  // Optional: override how a new token is obtained.
+  // Useful when refresh lives in a separate service / database.
+  return fetchNewTokensFromYourBackend(currentAuth)
+})
+
+// Tear down later if needed
+$b24.removeCallbackRefreshAuth()
+$b24.removeCustomRefreshAuth()
+```
+
+When the refresh itself fails (token revoked, app uninstalled), `B24OAuth` throws a typed `RefreshTokenError`. Catch it specifically and trigger your re-auth flow — don't catch it generically:
+
+```ts
+import { RefreshTokenError } from '@bitrix24/b24jssdk'
+
 try {
-  const res = await $b24.callMethod('user.current')
+  await $b24.actions.v3.call.make({ method: 'user.current' })
 } catch (e) {
-  // Inspect e — if it's the refresh-token error, redirect to OAuth consent
-  // For other errors (AjaxError), follow normal error handling
+  if (e instanceof RefreshTokenError) {
+    // Token revoked or app uninstalled — redirect user to OAuth consent
+    redirectToReauth()
+    return
+  }
   throw e
 }
 ```
 
-For details on error shapes and recommended branching, see [error-handling](../guidelines/error-handling.md).
+## `initIsAdmin`
+
+Optional — call once after construction if you need `$b24.auth.isAdmin`:
+
+```ts
+await $b24.initIsAdmin('init-1')
+console.log($b24.auth.isAdmin)
+```
+
+It calls the `profile` REST method internally and caches the admin flag on the auth manager.
 
 ## Storing tokens
 
-The SDK does not persist tokens for you. Persist them in your app's database / session store and reconstruct `B24OAuth` from the stored values on each request (or keep an instance alive in a long-running process).
+The SDK does not persist tokens for you. Store them in your app's database / session store. On each request (or worker startup) construct a `B24OAuth` from the stored values; on every successful refresh, your `setCallbackRefreshAuth` handler should write the new tokens back.
 
 ## Anti-patterns
 
 - Re-using a single `B24OAuth` across users in a multi-tenant server — tokens are user-scoped.
-- Logging access tokens (even at `debug`). Treat them like passwords.
-- Catching the refresh-token error generically and retrying — the user must re-auth; retrying just spins.
+- Logging access/refresh tokens (even at `debug`). Treat them like passwords.
+- Catching `RefreshTokenError` generically and retrying — the user must re-auth; retrying just spins.
+- Skipping `setCallbackRefreshAuth` — tokens silently rotate and your stored copy goes stale.

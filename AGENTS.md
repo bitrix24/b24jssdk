@@ -15,9 +15,18 @@ b24jssdk/
 │   ├── cli/            # CLI playground for testing
 │   └── nuxt/           # Nuxt playground
 ├── docs/               # Documentation site (Nuxt)
+├── skills/             # Agent skills: when-to-use guidance for the SDK
 ├── test/               # Integration tests
 └── vitest.config.ts    # Vitest workspace configuration
 ```
+
+## Agent skills
+
+The `skills/` directory follows the layout used by [`bitrix24/b24ui/skills`](https://github.com/bitrix24/b24ui/tree/main/skills): a top-level `index.json` manifest + per-skill folders with `SKILL.md` and `references/` (guidelines, recipes, api-surface). Skills teach **when** to use which entry point/method; detailed API references live in `packages/jssdk/README-AI.md` and the docs site.
+
+Available skills:
+
+- `skills/b24-jssdk/` — building Bitrix24 REST integrations: frame placements, server-side webhooks, OAuth apps, Pull events, Nuxt module. Read `skills/b24-jssdk/SKILL.md` first; its routing table tells you which references to load for a given task.
 
 ## Tech stack
 

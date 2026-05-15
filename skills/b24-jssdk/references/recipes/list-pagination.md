@@ -1,91 +1,146 @@
 # List pagination
 
-Three strategies — pick by dataset size and control needs.
+Two action types — pick by dataset size. The legacy `$b24.callListMethod` / `$b24.fetchListMethod` are deprecated; new code uses the action managers.
 
 ## Decision matrix
 
-| Dataset | Control needed | Use | Returns |
-|---|---|---|---|
-| Small (< 1000 known) | None | `callListMethod` | `Promise<Result>` (full array via `getData()`) |
-| Large / unknown | None | `fetchListMethod` | `AsyncGenerator<any[]>` (iterate with `for await`) |
-| Any | Custom paging, pauses, dynamic stop conditions | `callMethod` + `getNext()` | manual `AjaxResult` chain |
+| Dataset | Use | Returns |
+|---|---|---|
+| Small (< 1000 known) | `b24.actions.v{2,3}.callList.make` | `Promise<Result<T[]>>` — full array in memory |
+| Large / unknown | `b24.actions.v{2,3}.fetchList.make` | `AsyncGenerator<T[]>` — iterate with `for await` |
+| Custom paging, dynamic stop, manual throttling | `b24.actions.v{2,3}.call.make` + `AjaxResult.isMore()` / `getNext()` | manual `AjaxResult` chain |
 
-## A) Small datasets — `callListMethod`
+## Required options
 
-Loads everything into memory. Simple, but watch heap usage above ~1000 items.
+Both `callList.make` and `fetchList.make` use **cursor-based pagination** by ordering on a unique id field. That has consequences:
+
+- **`customKeyForResult` is required in v3** (no default). For `crm.item.list` it's `'items'`. For most v3 list methods it's `'items'`. The action uses this to extract the array from the REST response payload.
+- **`customKeyForResult` is optional in v2** (defaults to `null` — the result array is the response root). Pass it explicitly when v2 wraps results under a key.
+- **`idKey` defaults to `'id'` in v3 and `'ID'` in v2.** Match the casing your method actually returns.
+- **`order` is ignored** if you pass it — the cursor must order by `idKey`. The action logs a warning. Use `filter` to narrow.
+
+## A) Small datasets — `callList.make`
 
 ```ts
-import { EnumCrmEntityTypeId, Result } from '@bitrix24/b24jssdk'
+import { EnumCrmEntityTypeId, Text } from '@bitrix24/b24jssdk'
 
-const response: Result = await $b24.callListMethod(
-  'crm.item.list',
-  {
+interface Company { id: number, title: string }
+
+const sixMonthAgo = new Date()
+sixMonthAgo.setMonth(sixMonthAgo.getMonth() - 6)
+
+const response = await $b24.actions.v2.callList.make<Company>({
+  method: 'crm.item.list',
+  params: {
     entityTypeId: EnumCrmEntityTypeId.company,
-    order: { id: 'asc' },
+    filter: {
+      '=%title': 'A%',
+      '>=createdTime': Text.toB24Format(sixMonthAgo)
+    },
     select: ['id', 'title']
   },
-  (progress: number) => {
-    // optional 0..100 callback
-  }
-)
+  idKey: 'id',                // crm.item.list uses lowercase 'id'
+  customKeyForResult: 'items',
+  requestId: 'companies-list'
+})
 
-const items = response.getData() as any[]
+if (!response.isSuccess) {
+  throw new Error(response.getErrorMessages().join('; '))
+}
+
+const items: Company[] = response.getData() ?? []
 ```
 
-A fourth `customKey` argument lets you target a non-default response key — needed for some non-CRM list methods.
+For a v3 method (e.g. `main.eventlog.list`):
 
-## B) Large datasets — `fetchListMethod` (preferred)
+```ts
+interface LogItem { id: number, userId: number }
 
-Streams chunks via async iterator; constant memory regardless of total size.
+const response = await $b24.actions.v3.callList.make<LogItem>({
+  method: 'main.eventlog.list',
+  params: {
+    filter: [
+      ['timestampX', '>=', Text.toB24Format(sixMonthAgo)]
+    ],
+    select: ['id', 'userId']
+  },
+  idKey: 'id',
+  customKeyForResult: 'items',
+  requestId: 'eventlog-list',
+  limit: 60                   // v3 lets you tune page size; default 50, max 1000
+})
+```
+
+## B) Large datasets — `fetchList.make` (preferred)
+
+Streams chunks via async iterator — constant memory regardless of total size.
 
 ```ts
 import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
-for await (const chunk of $b24.fetchListMethod(
-  'crm.item.list',
-  { entityTypeId: EnumCrmEntityTypeId.deal, select: ['id', 'title'] },
-  'id' // idKey
-)) {
+interface Deal { id: number, title: string }
+
+const generator = $b24.actions.v2.fetchList.make<Deal>({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.deal,
+    select: ['id', 'title']
+  },
+  idKey: 'id',
+  customKeyForResult: 'items',
+  requestId: 'deals-stream'
+})
+
+for await (const chunk of generator) {
   for (const row of chunk) {
     // process row
   }
 }
 ```
 
-**`idKey` matters.** For `crm.item.list` payloads (v3 entities) the field is lowercase `id`. For older v2-style methods (`crm.deal.list`, `crm.lead.list`, …) it's uppercase `'ID'` (also the default). When in doubt, log one chunk and check the key casing.
+`fetchList.make` is **not async itself** — it returns the generator synchronously. Iteration drives the calls. Errors throw an `SdkError` with code `JSSDK_CORE_B24_FETCH_LIST_METHOD_API_V{2,3}` inside the `for await` loop.
 
-## C) Manual paging — `callMethod` + `getNext()`
+## C) Manual paging — `call.make` + `getNext()`
 
 Use when you need pauses, dynamic stop conditions, or custom backoff between pages.
 
 ```ts
 import { EnumCrmEntityTypeId, AjaxResult } from '@bitrix24/b24jssdk'
 
-const all: any[] = []
+interface Contact { id: number, name: string }
 
-let page: AjaxResult = await $b24.callMethod('crm.item.list', {
-  entityTypeId: EnumCrmEntityTypeId.contact,
-  order: { id: 'asc' },
-  select: ['id', 'name']
-}, 0) // start cursor
+const all: Contact[] = []
 
-all.push(...(page.getData().result as any[]))
+let page: AjaxResult<{ items: Contact[] }> = await $b24.actions.v2.call.make({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.contact,
+    order: { id: 'asc' },
+    select: ['id', 'name'],
+    start: 0
+  }
+})
+
+all.push(...page.getData().result.items)
 
 while (page.isMore()) {
   const next = await page.getNext($b24.getHttpClient())
   if (next === false) break
 
   // your throttling / dynamic stop checks here
-  all.push(...(next.getData().result as any[]))
-  page = next
+  all.push(...next.getData().result.items)
+  page = next as typeof page
 }
 ```
 
+Reach for this only when you genuinely need page-by-page control — otherwise B is simpler and respects the limiter automatically.
+
 ## Pitfalls
 
-- **Wrong `idKey` in `fetchListMethod`** — the iterator silently never advances. If a fetch loop hangs at the first chunk, double-check the key casing.
-- **Calling `getData()` on a list `Result` and expecting an object** — `callListMethod` returns an array. The single-call `getData()` shape is different.
-- **Building a `for ... of` over `fetchListMethod`** — it's async; use `for await ... of`.
-- **Manually re-implementing C** for what fits B — only reach for manual paging when you genuinely need control.
+- **Missing `customKeyForResult` in v3** — TypeScript catches it (it's required), but runtime users sometimes shape-cast around the type. Always pass it.
+- **Wrong `idKey` casing** — v2 default is `'ID'`, v3 default is `'id'`. For `crm.item.list` (a v2 method that uses lowercase fields) explicitly pass `idKey: 'id'`.
+- **Passing `order`** — silently ignored with a warning. Cursor pagination requires ordering by `idKey`.
+- **Iterating `fetchList.make` with `for ... of`** — it's async; use `for await ... of`.
+- **Using `callList.make` for 100 000+ rows** — that's a heap explosion. Switch to `fetchList.make`.
 
-See [batch-calls](batch-calls.md) for `callBatchByChunk` (mutating bulk arrays) and [rate-limiting](../guidelines/rate-limiting.md) for throttle tuning on long fetches.
+See [batch-calls](batch-calls.md) for `batchByChunk.make` (mutating bulk arrays) and [rate-limiting](../guidelines/rate-limiting.md) for throttle tuning on long fetches.

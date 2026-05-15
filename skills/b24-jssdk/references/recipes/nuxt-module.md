@@ -54,14 +54,20 @@ import { B24Hook, EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
 export default defineEventHandler(async () => {
   const $b24 = B24Hook.fromWebhookUrl(useRuntimeConfig().b24Hook)
-  $b24.offClientSideWarning?.()
+  $b24.offClientSideWarning()
 
-  const res = await $b24.callListMethod('crm.item.list', {
-    entityTypeId: EnumCrmEntityTypeId.company,
-    select: ['id', 'title']
+  const response = await $b24.actions.v2.callList.make({
+    method: 'crm.item.list',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.company,
+      select: ['id', 'title']
+    },
+    idKey: 'id',
+    customKeyForResult: 'items',
+    requestId: 'nuxt-companies'
   })
 
-  return res.getData()
+  return response.getData()
 })
 ```
 

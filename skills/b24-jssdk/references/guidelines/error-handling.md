@@ -1,17 +1,24 @@
 # Error handling
 
-Two error shapes cover everything the SDK throws.
+Three error shapes cover everything the SDK throws.
 
 ## `AjaxError` — REST/transport errors
 
-Thrown by `callMethod`, returned inside `Result.getErrors()` for batches with `isHaltOnError=false`.
+Thrown by `call.make` (and by underlying calls inside `callList.make` / `fetchList.make` / `batch.make` when `isHaltOnError: true`).
 
 ```ts
 import { AjaxError } from '@bitrix24/b24jssdk'
 
 try {
-  const res = await $b24.callMethod('crm.item.get', { entityTypeId: 1, id: 10 })
-  // ...
+  const response = await $b24.actions.v3.call.make({
+    method: 'crm.item.get',
+    params: { entityTypeId: 1, id: 10 }
+  })
+
+  if (!response.isSuccess) {
+    console.error(response.getErrorMessages())
+    return
+  }
 } catch (e) {
   if (e instanceof AjaxError) {
     console.error(e.code, e.description, e.status, e.requestInfo)
@@ -47,27 +54,32 @@ try {
 
 ## Batch error aggregation
 
-`callBatch(calls, isHaltOnError, returnAjaxResult)`:
+`b24.actions.v{2,3}.batch.make({ calls, options: { isHaltOnError, returnAjaxResult, requestId } })`:
 
 | `isHaltOnError` | Behaviour |
 |---|---|
 | `true` (default) | Promise rejects on the first failing command — typical for transactional flows |
-| `false` | Promise resolves; per-command errors are accumulated in the returned `Result`. Inspect with `result.isSuccess` and `result.getErrors()` |
+| `false` | Promise resolves; per-command errors accumulate on the returned `Result`. Inspect `response.isSuccess`, `response.getErrorMessages()`, or iterate `response.errors` |
 
 ```ts
-const batch = await $b24.callBatch([
-  ['crm.item.list', { entityTypeId: 1, select: ['id'] }],
-  ['crm.item.list', { entityTypeId: 2, select: ['id'] }]
-], false) // do not halt — collect all errors
+const response = await $b24.actions.v3.batch.make({
+  calls: [
+    ['crm.item.list', { entityTypeId: 1, select: ['id'] }],
+    ['crm.item.list', { entityTypeId: 2, select: ['id'] }]
+  ],
+  options: { isHaltOnError: false }
+})
 
-if (!batch.isSuccess) {
-  for (const err of batch.getErrors()) {
-    console.warn('partial failure:', err)
+if (!response.isSuccess) {
+  for (const [index, err] of response.errors) {
+    console.warn('partial failure', index, err)
   }
 }
 
-const data = batch.getData()
+const data = response.getData()
 ```
+
+Set `returnAjaxResult: true` to inspect each command's `AjaxResult` individually (useful for paginated commands inside a batch).
 
 ## Auth refresh in `B24Frame`
 
@@ -75,7 +87,23 @@ const data = batch.getData()
 
 ## Refresh token failures in `B24OAuth`
 
-`B24OAuth` raises a typed error when the refresh token is invalid/expired. Catch it specifically and trigger your re-auth flow (e.g. redirect the user to the OAuth consent URL).
+`B24OAuth` throws `RefreshTokenError` when the refresh token itself is invalid/expired (token revoked, app uninstalled). Catch it specifically and trigger your re-auth flow (e.g. redirect the user to the OAuth consent URL):
+
+```ts
+import { RefreshTokenError } from '@bitrix24/b24jssdk'
+
+try {
+  await $b24.actions.v3.call.make({ method: 'user.current' })
+} catch (e) {
+  if (e instanceof RefreshTokenError) {
+    redirectToReauth()
+    return
+  }
+  throw e
+}
+```
+
+Successful refreshes are also observable — register a callback via `$b24.setCallbackRefreshAuth(cb)` and persist the rotated tokens. See [oauth-apps](../recipes/oauth-apps.md).
 
 ## Retry strategy
 
@@ -86,5 +114,6 @@ const data = batch.getData()
 ## Anti-patterns
 
 - Catching every error and swallowing it (`catch (e) { /* ignore */ }`). Always at least log via `LoggerBrowser`.
-- Wrapping `callBatch` in a `try/catch` *and* using `isHaltOnError=false` — pick one strategy.
-- Parsing `e.message` strings — use `e.code` (`AjaxError`) or instance checks.
+- Wrapping `batch.make` in `try/catch` *and* using `isHaltOnError: false` — pick one strategy.
+- Parsing `e.message` strings — use `e.code` (`AjaxError`/`SdkError`) or `instanceof` checks.
+- Treating `response.isSuccess === false` as a thrown error — it's a structured outcome, branch on it instead.

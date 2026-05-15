@@ -1,108 +1,137 @@
 # Batch calls
 
-`callBatch` lets you send multiple REST calls in one request. Use it whenever:
+`b24.actions.v3.batch.make` (or `v2.batch.make`) packs multiple REST calls into one round-trip. Reach for it whenever you need 2+ related calls and latency matters. For batches larger than 50 commands use `batchByChunk.make` — the SDK splits and merges for you.
 
-- You need 2+ related calls and round-trip latency matters.
-- You want a transactional "all-or-nothing" group (`isHaltOnError=true`).
-- You're collecting independent data sets (list of companies + list of contacts) — `isHaltOnError=false` accumulates per-command errors.
+The legacy `$b24.callBatch(...)` still works but is deprecated; new code uses the action managers.
 
-For batches larger than ~50 commands, use `callBatchByChunk` — the SDK chunks them for you.
+## Three input shapes
 
-## Two call shapes
+`b24.actions.v{2,3}.batch.make` accepts any of:
 
-### Object-keyed (frontend-friendly)
+1. **Array of tuples** — homogeneous batch of similar calls:
 
 ```ts
 import { Result } from '@bitrix24/b24jssdk'
 
-const batch: Result = await $b24.callBatch({
-  CompanyList: {
-    method: 'crm.item.list',
-    params: {
-      entityTypeId: EnumCrmEntityTypeId.company,
-      order: { id: 'desc' },
-      select: ['id', 'title']
-    }
-  },
-  ContactList: {
-    method: 'crm.item.list',
-    params: {
-      entityTypeId: EnumCrmEntityTypeId.contact,
-      select: ['id', 'name']
-    }
+const response = await $b24.actions.v3.batch.make({
+  calls: [
+    ['tasks.task.get', { id: 1, select: ['id', 'title'] }],
+    ['tasks.task.get', { id: 2, select: ['id', 'title'] }],
+    ['tasks.task.get', { id: 3, select: ['id', 'title'] }]
+  ],
+  options: {
+    isHaltOnError: true,
+    requestId: 'tasks-batch'
   }
-}, true) // isHaltOnError = true (default)
-
-const data = batch.getData()
-const companies = data.CompanyList.items ?? []
-const contacts = data.ContactList.items ?? []
+})
 ```
 
-Use the object form when keys make the receiving code clearer (named results map cleanly to UI sections, etc.).
-
-### Array (server-friendly)
+2. **Array of objects** — same as tuples but with named keys for readability:
 
 ```ts
-const batch: Result = await $b24.callBatch([
-  ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] }],
-  ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] }]
-], true)
+await $b24.actions.v3.batch.make({
+  calls: [
+    { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title'] } },
+    { method: 'tasks.task.get', params: { id: 2, select: ['id', 'title'] } }
+  ]
+})
 ```
 
-Use the array form when the calls are homogeneous (e.g. paging through the same method) — `getData()` returns an indexed result.
-
-## Halt-on-error semantics
-
-| `isHaltOnError` | Behaviour |
-|---|---|
-| `true` (default) | Promise rejects on the first failing command. Use for transactional groups |
-| `false` | Promise resolves; per-command errors live in `result.getErrors()`. Use when partial results are still useful |
+3. **Named object** — when you want results keyed for the consumer:
 
 ```ts
-const batch = await $b24.callBatch(calls, false)
-if (!batch.isSuccess) {
-  for (const err of batch.getErrors()) {
-    console.warn('partial failure', err)
+interface TaskItem { id: number, title: string }
+interface LogItem { id: number, userId: number }
+
+const response = await $b24.actions.v3.batch.make<{ item: TaskItem } | { items: LogItem[] }>({
+  calls: {
+    Task: { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title'] } },
+    Log: ['main.eventlog.list', { select: ['id', 'userId'], pagination: { limit: 5 } }]
+  },
+  options: {
+    isHaltOnError: true,
+    returnAjaxResult: true
+  }
+})
+
+const data = response.getData() as Record<string, AjaxResult<any>>
+console.log(data.Task.getData().result.item)
+console.log(data.Log.getData().result.items)
+```
+
+Pick the shape that makes the consuming code clearest. The action class handles all three uniformly.
+
+## `options` block
+
+| Field | Default | Meaning |
+|---|---|---|
+| `isHaltOnError` | `true` | Stop on first failing command; the whole promise rejects. Set `false` to accumulate per-command errors |
+| `returnAjaxResult` | `false` | Wrap each result in `AjaxResult` so you can call `isMore()`, `getData()` etc. per command |
+| `requestId` | `undefined` | Stable id for tracking / dedup / debug logs |
+
+```ts
+const response = await $b24.actions.v3.batch.make({
+  calls,
+  options: {
+    isHaltOnError: false,
+    requestId: 'crm-sync-2026-05'
+  }
+})
+
+if (!response.isSuccess) {
+  for (const [index, err] of response.errors) {
+    console.warn('partial failure', index, err)
   }
 }
 ```
 
-## `returnAjaxResult` — per-command `AjaxResult`
+## Auto-chunked batch — `batchByChunk.make`
+
+A single batch is capped at 50 commands. For larger groups (e.g. updating 500 deals), `batchByChunk` splits internally and runs the chunks sequentially, respecting the limiter:
 
 ```ts
-const batch = await $b24.callBatch(calls, true, true)
-// batch.getData() now contains AjaxResult objects per command
-// — useful when individual commands return paginated results
+import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
+
+const commands: BatchCommandsArrayUniversal = ids.map((id) => [
+  'tasks.task.get',
+  { id, select: ['id', 'title'] }
+])
+
+const response = await $b24.actions.v3.batchByChunk.make<{ item: TaskItem }>({
+  calls: commands,
+  options: {
+    isHaltOnError: false,
+    requestId: 'tasks-bulk-fetch'
+  }
+})
+
+const items = response.getData() // flat T[] of successful rows
 ```
 
-Reach for this only when you actually need `isMore()` / `getNext()` per command. Otherwise the default flat shape is simpler.
+Notes:
 
-## `callBatchByChunk` — large batches
+- **Named-object input is not supported** for `batchByChunk` — chunks couldn't preserve named keys reliably. Use array shapes.
+- **`returnAjaxResult` is forced to `false`** — the action flattens results to `T[]`.
+- For very large operations (10 000+ commands) consider server-side task queues instead.
 
-Bitrix24 caps batch size at 50 commands. For larger groups:
+## v2 vs v3
 
-```ts
-import { type AjaxResultParams } from '@bitrix24/b24jssdk'
+Both versions expose identical action names and option shapes. Differences live in the REST methods themselves:
 
-const calls = ids.map(id => ([
-  'crm.item.update',
-  { entityTypeId: EnumCrmEntityTypeId.deal, id, fields: { stageId: 'WON' } }
-]) as [string, AjaxResultParams])
+- v3 — newer methods (`tasks.task.*`, `main.eventlog.*`, …). Some methods only exist in v3.
+- v2 — older surface, mandatory for legacy CRM-style methods (`crm.item.list`, `crm.deal.list`, etc.).
 
-const result = await $b24.callBatchByChunk(calls, true)
-```
-
-The SDK splits into 50-command chunks, executes them sequentially, and merges results into a single `Result`. Limiter throttling applies between chunks.
+If a method exists in v3 but you call it through `v2.call.make`, the SDK logs a warning suggesting the migration. Pick the version that matches the REST method — when in doubt, try v3 first; if you get `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`, fall back to v2.
 
 ## Choosing batch vs list
 
-- Need a known set of *different* methods → `callBatch` (object form).
-- Need *all* rows of one method → `callListMethod` or `fetchListMethod` (see [list-pagination](list-pagination.md)).
-- Need to mutate a known array of rows → `callBatchByChunk` with one update per row.
+- Different methods, known set → `batch.make` (named object form).
+- All rows of one list method → `callList.make` / `fetchList.make` (see [list-pagination](list-pagination.md)).
+- Update/mutate a known array of rows → `batchByChunk.make`.
 
 ## Anti-patterns
 
-- Wrapping every call in a one-element batch — adds overhead for no benefit.
-- Writing your own `chunkArray` loop around `callBatch` — `callBatchByChunk` already exists.
-- Mixing object and array shapes inside a single `callBatch` call.
-- Using `isHaltOnError=true` then a `try/catch` *and* expecting partial results — pick one strategy.
+- Wrapping a single call in `batch.make` — adds overhead for no benefit. Use `call.make`.
+- Hand-rolling chunking around `batch.make` — `batchByChunk.make` already does it correctly.
+- Mixing shapes in one call — pick array OR named object, don't combine.
+- Both `isHaltOnError: true` AND `try/catch` for partial recovery — pick one strategy.

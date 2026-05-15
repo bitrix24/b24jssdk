@@ -11,7 +11,14 @@ JS/TS SDK for the Bitrix24 REST API. Three concrete entry points share one REST 
 - **`B24Hook`** — server-side incoming webhook; auth is embedded in the URL.
 - **`B24OAuth`** — OAuth-based local apps; manages access/refresh tokens.
 
-All three expose the same calling primitives: `callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`. Results are uniform `Result` / `AjaxResult` objects.
+All three expose the same REST surface via two manager namespaces:
+
+- `b24.actions.v{2,3}.{call, callList, fetchList, batch, batchByChunk}.make(options)` — REST calls.
+- `b24.tools.{healthCheck, ping}.make(options?)` — utility checks.
+
+Results are uniform `Result` / `AjaxResult` / `CallBatchResult` objects.
+
+> The legacy `$b24.callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk` still exist for backwards compatibility but are deprecated and **will be removed in v2.0.0**. New code uses the action managers.
 
 Ships ESM + UMD only since v0.4.0. Nuxt users should prefer the [`@bitrix24/b24jssdk-nuxt`](references/recipes/nuxt-module.md) module.
 
@@ -19,19 +26,20 @@ Ships ESM + UMD only since v0.4.0. Nuxt users should prefer the [`@bitrix24/b24j
 
 This skill teaches **when to use which entry point and method** and **how to wire things up correctly**. For exact signatures, props, and payload shapes, prefer these primary sources:
 
-- [`packages/jssdk/README-AI.md`](https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/README-AI.md) — code-oriented API guide (load this when generating SDK usage code).
+- [`packages/jssdk/README-AI.md`](https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/README-AI.md) — code-oriented API guide. **Note:** its examples currently use the deprecated `$b24.callMethod(...)` family. Translate to `$b24.actions.v{2,3}.*.make({ ... })` when generating new code; see [conventions](references/guidelines/conventions.md).
 - [Documentation site](https://bitrix24.github.io/b24jssdk/) — public docs; pages under `/reference/` mirror types and managers.
 - [Bitrix24 REST documentation](https://apidocs.bitrix24.com/) — for REST method names, params, and payload shapes.
 
 ## Core rules (always apply)
 
 1. **Pick the right entry point** — see [entry-points](references/guidelines/entry-points.md). `B24Frame` for iframe placements, `B24Hook` for server scripts, `B24OAuth` for OAuth local apps. Never use `B24Hook` from the browser (it warns and leaks the secret).
-2. **Always `await` the initializer** — `initializeB24Frame()`, `B24Hook.fromWebhookUrl()`, or `B24OAuth` setup must complete before any `call*` method.
+2. **Always `await` the initializer** — `initializeB24Frame()`, `B24Hook.fromWebhookUrl()`, or `B24OAuth` setup must complete before any REST call.
 3. **Cleanup on unmount** — call `$b24.destroy()` when a frame component/page unmounts. The Pull client and message listeners hold references otherwise.
 4. **Use named imports only** — the SDK has no default export and is `sideEffects: false`. Never destructure or rebind types under different names without need; tree-shaking depends on direct imports.
-5. **Treat `Result` / `AjaxResult` as the uniform return shape** — `getData()`, `isSuccess`, `isMore()`, `getNext()`, `getTotal()`, `getErrors()`. See [conventions](references/guidelines/conventions.md).
-6. **Pick the right list strategy** — `callListMethod` only for small known sets (< 1000), `fetchListMethod` for streaming, manual `callMethod` + `getNext()` for custom paging. See [list-pagination](references/recipes/list-pagination.md).
-7. **Respect rate limits** — the built-in `RestrictionManager` throttles automatically; for enterprise portals the `LicenseManager` swaps in higher-limit params. See [rate-limiting](references/guidelines/rate-limiting.md).
+5. **Use the action managers, not the deprecated `call*` methods** — write `$b24.actions.v3.call.make({ method, params })` (or `v2.call.make` for legacy CRM-style methods), not `$b24.callMethod(...)`. See [conventions](references/guidelines/conventions.md).
+6. **Treat `Result` / `AjaxResult` as the uniform return shape** — `getData()`, `isSuccess`, `getErrorMessages()`, `getTotal()`. `AjaxResult` adds `isMore()` / `getNext()` for manual paging when needed.
+7. **Pick the right list strategy** — `callList.make` only for small known sets (< 1000), `fetchList.make` for streaming, `call.make` + `AjaxResult.getNext()` for custom paging. See [list-pagination](references/recipes/list-pagination.md).
+8. **Respect rate limits** — the built-in `RestrictionManager` throttles automatically; for enterprise portals the `LicenseManager` swaps in higher-limit params. See [rate-limiting](references/guidelines/rate-limiting.md).
 
 ## How to use this skill
 
@@ -105,7 +113,14 @@ The module registers a runtime plugin only — it does **not** wrap or rename SD
 ```html
 <script src="https://unpkg.com/@bitrix24/b24jssdk@latest/dist/umd/index.min.js"></script>
 <script>
-  const $b24 = await B24Js.initializeB24Frame()
+  document.addEventListener('DOMContentLoaded', async () => {
+    const $b24 = await B24Js.initializeB24Frame()
+    const response = await $b24.actions.v2.call.make({
+      method: 'crm.item.list',
+      params: { entityTypeId: B24Js.EnumCrmEntityTypeId.company, select: ['id', 'title'] }
+    })
+    console.log(response.getData().result.items)
+  })
 </script>
 ```
 

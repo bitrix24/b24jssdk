@@ -65,4 +65,18 @@ export type Payload<P>
     | ListPayload<P>
     | BatchPayload<P>
 
-export type SuccessPayload<P> = Exclude<Payload<P>, TypeDescriptionErrorV3 | TypeDescriptionError>
+/**
+ * Public shape of a successful REST response, as exposed by `AjaxResult.getData()`.
+ *
+ * The Bitrix24 REST API always wraps a success response in `{ result, time }` —
+ * this is true for both `restApi:v2` and `restApi:v3`. Any v2-only envelope
+ * fields (`next`, `total`) are intentionally NOT part of this type: they have
+ * no `restApi:v3` counterpart, and the SDK's `actions.v{2,3}.{callList,fetchList}`
+ * helpers handle pagination internally so consumers never need to read them.
+ *
+ * @see GetPayload
+ */
+export type SuccessPayload<P> = {
+  readonly result: P
+  readonly time: PayloadTime
+}

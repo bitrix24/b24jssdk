@@ -14,8 +14,8 @@ describe('core.actions.call @apiV2', () => {
     const response = await b24.actions.v2.call.make({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
-    expect(response.getData().result).toBeDefined()
-    expect(response.getData().time).toHaveProperty('operating')
+    expect(response.getData()!.result).toBeDefined()
+    expect(response.getData()!.time).toHaveProperty('operating')
   })
 
   it('tasks.task.get @apiV2 isSuccess', async () => {
@@ -27,16 +27,16 @@ describe('core.actions.call @apiV2', () => {
       select: ['ID', 'TITLE']
     }
     const requestId = `test@apiV2/${method}`
-    const response = await b24.actions.v2.call.make({ method, params, requestId })
+    const response = await b24.actions.v2.call.make<{ task: { id: number, title: string } }>({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
 
-    const result = response.getData().result
+    const result = response.getData()!.result
     expect(result.task).toBeDefined()
     expect(result.task).toHaveProperty('id')
     expect(result.task).toHaveProperty('title')
 
-    const time = response.getData().time
+    const time = response.getData()!.time
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
     expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -73,15 +73,15 @@ describe('core.actions.call @apiV2', () => {
       select: ['ID', 'TITLE']
     }
     const requestId = `test@apiV2/${method}`
-    const response = await b24.actions.v2.call.make({ method, params, requestId })
+    const response = await b24.actions.v2.call.make<{ task?: { id: number, title: string } }>({ method, params, requestId })
 
     expect(response.isSuccess).toBe(true)
 
-    const result = response.getData().result
+    const result = response.getData()!.result
 
     expect(result).not.toHaveProperty('task')
 
-    const time = response.getData().time
+    const time = response.getData()!.time
     expect(time).toHaveProperty('operating')
   })
 })

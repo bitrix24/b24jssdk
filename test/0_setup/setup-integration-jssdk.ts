@@ -1,3 +1,4 @@
+/// <reference types="node" />
 // import { ParamsFactory, B24Hook, LoggerFactory, LogLevel } from '../../packages/jssdk/src/index'
 import { ParamsFactory, B24Hook } from '../../packages/jssdk/src/index'
 import type { B24Frame } from '../../packages/jssdk/src/index'

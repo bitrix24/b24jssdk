@@ -22,21 +22,21 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
     expect(resultData.length).toBeGreaterThan(0)
 
     expect(resultData).toBeDefined()
     for (const resultRow of resultData) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)
-      const rowData = resultRow.getData()
+      const rowData = resultRow.getData()!
       const result = rowData.result
       if ('result' in result) {
         expect(result).toHaveProperty('result')
@@ -58,27 +58,29 @@ describe('core callBatch @apiV3', () => {
 
     const batchCalls: BatchCommandsObjectUniversal = [
       { method: 'tasks.task.get', params: { id: getMapId().taskSuccess, select: ['id', 'title'] } },
-      { method: 'tasks.task.update', params: { id: getMapId().taskSuccess, fields: { title: `TEST: [${Text.getDateForLog()}]` } } }
+      { method: 'tasks.task.get', params: { id: getMapId().taskSuccess, select: ['id'] } }
+      // @todo fix this 2026-05-15 INTERNAL_SERVER_ERROR
+      // { method: 'tasks.task.update', params: { id: getMapId().taskSuccess, fields: { title: `TEST: [${Text.getDateForLog()}]` } } }
     ]
 
     const method = 'callBatchAsArrayObject'
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     expect(resultData).toBeDefined()
     for (const resultRow of resultData) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)
 
-      const rowData = resultRow.getData()
+      const rowData = resultRow.getData()!
       const result = rowData.result
       if ('result' in result) {
         expect(result).toHaveProperty('result')
@@ -119,20 +121,20 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()
+    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>>>).getData()!
     expect(resultData).toBeDefined()
     for (const [index, resultRow] of Object.entries(resultData)) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)
       expect(keys).toContain(index)
 
-      const rowData = resultRow.getData()
+      const rowData = resultRow.getData()!
       const result = rowData.result
       if ('result' in result) {
         expect(result).toHaveProperty('result')
@@ -162,14 +164,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: false, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<({ item: { id: number } } | { result: boolean })[]>).getData()
+    const resultData = (response as unknown as Result<({ item: { id: number } } | { result: boolean })[]>).getData()!
 
     expect(resultData.length).toBeGreaterThan(0)
     for (const resultRow of resultData) {
@@ -201,14 +203,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<AjaxResult<{ id: number | { result: boolean } }>[]>).getData()
+    const _resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     /**
      * In `restApi:v3`, batch processing does not return data for each row in case of parallel processing errors.
@@ -233,14 +235,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const _resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -287,14 +289,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()
+    const _resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>>>).getData()!
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
      *
@@ -319,14 +321,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: false, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<({ item: { id: number } } | { result: boolean })[]>).getData()
+    const _resultData = (response as unknown as Result<({ item: { id: number } } | { result: boolean })[]>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -352,14 +354,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const _resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -384,14 +386,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<AjaxResult<{ id: number } | { result: boolean }>[]>).getData()
+    const _resultData = (response as unknown as Result<AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>[]>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -438,14 +440,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<Record<string | number, AjaxResult<{ id: number } | { result: boolean }>>>).getData()
+    const _resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ item: { id: number, title: string } } | { result: boolean }>>>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -471,14 +473,14 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: false, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const _resultData = (response as Result<({ item: { id: number } } | { result: boolean })[]>).getData()
+    const _resultData = (response as unknown as Result<({ item: { id: number } } | { result: boolean })[]>).getData()!
 
     /**
      * In API V3, batch processing does not return data for each row in case of parallel processing errors.
@@ -619,7 +621,7 @@ describe('core callBatch @apiV3', () => {
     const requestId = `test@apiV3/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
 
-    const response = await b24.actions.v3.batch.make<({ id: number } | { result: boolean })[]>({
+    const response = await b24.actions.v3.batch.make<{ item: { id: number, title: string } } | { result: boolean }>({
       calls: batchCalls,
       options
     })
@@ -628,12 +630,12 @@ describe('core callBatch @apiV3', () => {
     }
 
     expect(response.isSuccess).toBe(true)
-    const resultData = (response as Result<Record<string, AjaxResult<any>>>).getData()
+    const resultData = (response as unknown as Result<Record<string, AjaxResult<any>>>).getData()!
     // // FirstEventLogMessage
     // {
     //   expect(resultData.FirstEventLogMessage).toBeInstanceOf(AjaxResult)
     //   expect(resultData.FirstEventLogMessage.isSuccess).toBe(true)
-    //   const rowData = resultData.FirstEventLogMessage.getData()
+    //   const rowData = resultData.FirstEventLogMessage.getData()!
     //   expect(rowData.result).toHaveProperty('item')
     //   expect(rowData.result.item.id).toBe(getMapId().eventLogMessageSuccessV1)
     //   const time = rowData.time
@@ -646,7 +648,7 @@ describe('core callBatch @apiV3', () => {
     // {
     //   expect(resultData[1]).toBeInstanceOf(AjaxResult)
     //   expect(resultData[1].isSuccess).toBe(true)
-    //   const rowData = resultData[1].getData()
+    //   const rowData = resultData[1].getData()!
     //   expect(rowData.result).toHaveProperty('item')
     //   expect(rowData.result.item.id).toBe(getMapId().eventLogMessageSuccessV2)
     // }
@@ -654,7 +656,7 @@ describe('core callBatch @apiV3', () => {
     {
       expect(resultData.EventLogMessagesList1).toBeInstanceOf(AjaxResult)
       expect(resultData.EventLogMessagesList1.isSuccess).toBe(true)
-      const rowData = resultData.EventLogMessagesList1.getData()
+      const rowData = resultData.EventLogMessagesList1.getData()!
       expect(rowData.result).toHaveProperty('items')
       // expect(rowData.result.items.length).toBe(2)
       const time = rowData.time
@@ -667,7 +669,7 @@ describe('core callBatch @apiV3', () => {
     {
       expect(resultData.EventLogMessagesList2).toBeInstanceOf(AjaxResult)
       expect(resultData.EventLogMessagesList2.isSuccess).toBe(true)
-      const rowData = resultData.EventLogMessagesList2.getData()
+      const rowData = resultData.EventLogMessagesList2.getData()!
       expect(rowData.result).toHaveProperty('items')
       expect(rowData.result.items.length).not.toBeGreaterThan(4)
     }
@@ -677,7 +679,7 @@ describe('core callBatch @apiV3', () => {
     {
       expect(resultData.MessagesListPageAll).toBeInstanceOf(AjaxResult)
       expect(resultData.MessagesListPageAll.isSuccess).toBe(true)
-      const rowData = resultData.MessagesListPageAll.getData()
+      const rowData = resultData.MessagesListPageAll.getData()!
       expect(rowData.result).toHaveProperty('items')
       expect(rowData.result.items.length).not.toBeGreaterThan(4)
 
@@ -690,7 +692,7 @@ describe('core callBatch @apiV3', () => {
       const page1 = listPagination.slice(0, 2)
       expect(resultData.MessagesListPage1).toBeInstanceOf(AjaxResult)
       expect(resultData.MessagesListPage1.isSuccess).toBe(true)
-      const rowData = resultData.MessagesListPage1.getData()
+      const rowData = resultData.MessagesListPage1.getData()!
       expect(rowData.result).toHaveProperty('items')
       expect(rowData.result.items.length).not.toBeGreaterThan(2)
       for (const row of rowData.result.items) {
@@ -702,7 +704,7 @@ describe('core callBatch @apiV3', () => {
       const page2 = listPagination.slice(2, 4)
       expect(resultData.MessagesListPage2).toBeInstanceOf(AjaxResult)
       expect(resultData.MessagesListPage2.isSuccess).toBe(true)
-      const rowData = resultData.MessagesListPage2.getData()
+      const rowData = resultData.MessagesListPage2.getData()!
       expect(rowData.result).toHaveProperty('items')
       expect(rowData.result.items.length).not.toBeGreaterThan(2)
       for (const row of rowData.result.items) {
@@ -712,7 +714,7 @@ describe('core callBatch @apiV3', () => {
     // console.debug(
     //   { operating: b24.getHttpClient(ApiVersion.v3).getStats().operatingStats },
     //   JSON.stringify(resultData, null, 2)
-    //   // JSON.stringify(resultData.map(row => row.getData().result), null, 2)
+    //   // JSON.stringify(resultData.map(row => row.getData()!.result), null, 2)
     // )
   })
   // console.debug(JSON.stringify(resultData, null, 2))

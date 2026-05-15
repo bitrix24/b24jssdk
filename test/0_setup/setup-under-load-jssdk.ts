@@ -1,3 +1,4 @@
+/// <reference types="node" />
 // LogLevel
 import { ParamsFactory, B24Hook, LoggerFactory, LogLevel } from '../../packages/jssdk/src/index'
 

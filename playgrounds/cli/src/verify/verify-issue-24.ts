@@ -52,7 +52,10 @@ async function run() {
     client.defaults.timeout = 100
 
     try {
-      await $b24.callMethod('crm.documentgenerator.document.add', params)
+      await $b24.actions.v2.call.make({
+        method: 'crm.documentgenerator.document.add',
+        params
+      })
       console.log('  unexpected success')
     } catch (e: any) {
       const stats = $b24.getHttpClient(ApiVersion.v2).getStats()
@@ -77,7 +80,10 @@ async function run() {
     })
 
     try {
-      await $b24.callMethod('crm.documentgenerator.document.add', params)
+      await $b24.actions.v2.call.make({
+        method: 'crm.documentgenerator.document.add',
+        params
+      })
       console.log('  unexpected success')
     } catch (e: any) {
       const stats = $b24.getHttpClient(ApiVersion.v2).getStats()

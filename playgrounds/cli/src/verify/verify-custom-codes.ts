@@ -56,7 +56,7 @@ async function probe(label: string, $b24: B24Hook) {
   let outcome: { kind: 'throw' | 'result' | 'unexpected', code: string, retries: number }
 
   try {
-    const r = await $b24.callMethod('crm.deal.get', { id: 1 })
+    const r = await $b24.actions.v2.call.make({ method: 'crm.deal.get', params: { id: 1 } })
     const stats = $b24.getHttpClient(ApiVersion.v2).getStats()
     const firstError = r.getErrors().next().value
     outcome = {

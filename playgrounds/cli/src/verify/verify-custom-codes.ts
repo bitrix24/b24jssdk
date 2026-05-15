@@ -12,12 +12,16 @@
 import {
   ApiVersion,
   B24Hook,
+  LoggerFactory,
+  LogLevel,
   ParamsFactory,
   RestrictionManager
 } from '@bitrix24/b24jssdk'
 import { AxiosError } from 'axios'
 
 const CUSTOM_CODE = 'MY_BUSINESS_FAIL'
+
+const $logger = LoggerFactory.createForBrowserDevelopment('b24', LogLevel.INFO)
 
 function makeClient(restrictionParams?: Parameters<B24Hook['setRestrictionManagerParams']>[0]) {
   const $b24 = B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/abc/')
@@ -70,40 +74,46 @@ async function probe(label: string, $b24: B24Hook) {
   }
 
   const ms = Date.now() - start
-  console.log(`[${label}] ${outcome.kind.padEnd(10)} code=${outcome.code} retries=${outcome.retries} time=${ms}ms`)
+  $logger.info(`probe`, {
+    label: label.trim(),
+    kind: outcome.kind,
+    code: outcome.code,
+    retries: outcome.retries,
+    timeMs: ms
+  })
   return outcome
 }
 
 async function run() {
-  console.log('Built-in lists:')
-  console.log(`  hard codes: ${RestrictionManager.BUILT_IN_HARD_ERROR_CODES.length}`)
-  console.log(`  soft codes: ${RestrictionManager.BUILT_IN_SOFT_ERROR_CODES.length}`)
-  console.log(`  '${CUSTOM_CODE}' is custom (not in either built-in list).`)
-  console.log()
+  $logger.info('Built-in error code lists', {
+    hardCodes: RestrictionManager.BUILT_IN_HARD_ERROR_CODES.length,
+    softCodes: RestrictionManager.BUILT_IN_SOFT_ERROR_CODES.length,
+    customCode: CUSTOM_CODE,
+    note: `'${CUSTOM_CODE}' is not part of either built-in list`
+  })
 
   // Baseline — custom code is unknown to the SDK → SDK retries.
-  const a = await probe('baseline       ', await makeClient())
+  const a = await probe('baseline', await makeClient())
 
   // With hardErrorCodes — SDK throws immediately, retries === 0.
-  const b = await probe('hardErrorCodes ', await makeClient({
+  const b = await probe('hardErrorCodes', await makeClient({
     hardErrorCodes: [CUSTOM_CODE]
   }))
 
   // With softErrorCodes — SDK returns an AjaxResult with the error, no throw.
-  const c = await probe('softErrorCodes ', await makeClient({
+  const c = await probe('softErrorCodes', await makeClient({
     softErrorCodes: [CUSTOM_CODE]
   }))
 
-  console.log()
   const ok
     = a.retries > 0 && a.kind === 'throw'
       && b.retries === 0 && b.kind === 'throw'
       && c.retries === 0 && c.kind === 'result'
 
   if (ok) {
-    console.log('OK — all three behaviours match expectations.')
+    $logger.info('OK — all three behaviours match expectations.')
   } else {
-    console.log('FAIL — unexpected outcome, see lines above.')
+    $logger.error('FAIL — unexpected outcome, see probe lines above.')
     process.exit(1)
   }
 }

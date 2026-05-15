@@ -262,7 +262,9 @@ async function main() {
   })
 
   // Demo: hit /portal/<memberId>/profile to call REST on behalf of that portal.
-  app.get('/portal/:memberId/profile', async (req: Request, res: Response) => {
+  // The explicit `Request<{ memberId: string }>` generic narrows req.params
+  // from `string | string[]` (Express 5 default) to `string`.
+  app.get('/portal/:memberId/profile', async (req: Request<{ memberId: string }>, res: Response) => {
     try {
       const $b24 = await clientForMember(req.params.memberId)
       const profile = await demoCall($b24)

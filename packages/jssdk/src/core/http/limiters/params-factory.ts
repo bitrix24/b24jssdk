@@ -86,7 +86,8 @@ export class ParamsFactory {
         coefficient: 0.001,
         maxDelay: 480_000
       },
-      maxRetries: 1
+      maxRetries: 1,
+      retryOnNetworkError: false
     }
   }
 

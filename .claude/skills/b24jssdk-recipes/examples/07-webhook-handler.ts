@@ -119,7 +119,7 @@ async function main() {
     res.status(200).json({ status: 'ok' })
   })
 
-  app.get('/health', (_req, res) => {
+  app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'running', uptime: process.uptime(), events: Object.keys(HANDLERS) })
   })
 

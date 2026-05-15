@@ -236,30 +236,30 @@ async function main() {
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))
 
-  app.post('/install', (req, res) => {
+  app.post('/install', (req: Request, res: Response) => {
     handleInstall(req, res).catch((e) => { logger.error('install failed', e); res.status(200).send('ok') })
   })
 
-  app.post('/uninstall', (req, res) => {
+  app.post('/uninstall', (req: Request, res: Response) => {
     handleUninstall(req, res).catch((e) => { logger.error('uninstall failed', e); res.status(200).send('ok') })
   })
 
   // Demo: hit /portal/<memberId>/profile to call REST on behalf of that portal.
-  app.get('/portal/:memberId/profile', async (req, res) => {
+  app.get('/portal/:memberId/profile', async (req: Request, res: Response) => {
     try {
       const $b24 = await clientForMember(req.params.memberId)
       const profile = await demoCall($b24)
       res.json(profile)
     } catch (e) {
       if (e instanceof AjaxError) {
-        res.status(500).json({ error: e.code, description: e.description })
+        res.status(500).json({ error: e.code, message: e.message })
       } else {
         res.status(500).json({ error: (e as Error).message })
       }
     }
   })
 
-  app.get('/health', (_req, res) => {
+  app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'running', uptime: process.uptime() })
   })
 

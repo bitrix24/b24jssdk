@@ -115,7 +115,7 @@ async function main() {
       logger.info(`[${sent}/${contacts.length}] ${fullName} — sent`)
     } catch (e) {
       failed++
-      const reason = e instanceof AjaxError ? `${e.code}: ${e.description}` : (e as Error).message
+      const reason = e instanceof AjaxError ? `${e.code}: ${e.message}` : (e as Error).message
       errors.push({ contact: fullName, reason })
       logger.warn(`[${sent + failed}/${contacts.length}] ${fullName} — failed: ${reason}`)
     }

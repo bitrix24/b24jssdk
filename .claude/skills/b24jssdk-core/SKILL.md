@@ -130,9 +130,9 @@ try {
   return res.getData()!.result.item
 } catch (e) {
   if (e instanceof AjaxError) {
-    logger.error('REST error', { code: e.code, status: e.status, requestInfo: e.requestInfo })
+    logger.error('REST error', { code: e.code, status: e.status, message: e.message, requestInfo: e.requestInfo })
   } else if (e instanceof SdkError) {
-    logger.error('SDK error', { code: e.code, description: e.description })
+    logger.error('SDK error', { code: e.code, message: e.message })
   } else {
     throw e
   }

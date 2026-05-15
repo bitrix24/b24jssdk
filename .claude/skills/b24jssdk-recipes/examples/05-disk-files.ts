@@ -126,7 +126,7 @@ async function main() {
     options: { isHaltOnError: true, returnAjaxResult: false, requestId: 'disk-batch' }
   })
 
-  const data = batch.getData()! as { Storages: Storage[]; Children: DiskItem[] }
+  const data = batch.getData()! as unknown as { Storages: Storage[]; Children: DiskItem[] }
   logger.info(`\nBatch: ${data.Storages.length} storages, ${data.Children.length} root items`)
 }
 

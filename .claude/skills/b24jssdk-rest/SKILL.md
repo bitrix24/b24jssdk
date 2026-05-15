@@ -299,10 +299,10 @@ try {
 } catch (e) {
   if (e instanceof AjaxError) {
     // Bitrix24 REST error
-    logger.error('REST error', { code: e.code, status: e.status, requestInfo: e.requestInfo })
+    logger.error('REST error', { code: e.code, status: e.status, message: e.message, requestInfo: e.requestInfo })
   } else if (e instanceof SdkError) {
     // SDK-level error (wrong API version, etc.)
-    logger.error('SDK error', { code: e.code, description: e.description })
+    logger.error('SDK error', { code: e.code, message: e.message })
   } else {
     throw e
   }

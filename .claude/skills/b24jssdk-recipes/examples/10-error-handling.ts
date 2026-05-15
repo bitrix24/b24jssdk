@@ -102,14 +102,14 @@ async function loadDealSafely($b24: TypeB24, id: number): Promise<DealItem | nul
           logger.error('Unhandled AjaxError', {
             code: e.code,
             status: e.status,
-            description: e.description,
-            method: e.requestInfo.method
+            message: e.message,
+            method: e.requestInfo?.method
           })
           throw e
       }
     } else if (e instanceof SdkError) {
       // SDK-level — we did something wrong, not the server.
-      logger.error('SDK error (programming bug)', { code: e.code, description: e.description })
+      logger.error('SDK error (programming bug)', { code: e.code, message: e.message })
       throw e
     }
     throw e // anything else propagates
@@ -207,14 +207,18 @@ async function main() {
   // 2. Read a deal that almost certainly does not exist — observe ERROR_NOT_FOUND
   await loadDealSafely($b24, 999_999_999)
 
-  // 3. Non-idempotent create — demonstrate the retry-off policy (no actual create here)
-  // await safeCreateDeal($b24, { title: 'Test', opportunity: 100 })
+  // 3. Non-idempotent create — uncomment to demonstrate the retry-off policy
+  // (actually creates a deal):
+  //   await safeCreateDeal($b24, { title: 'Test', opportunity: 100 })
+  void safeCreateDeal // keep referenced so the helper isn't tree-shaken from this demo
 
   // 4. SdkError demonstration
   await intentionallyWrongCall($b24)
 
-  // 5. Soft-error demonstration
-  // await checkSoftError($b24)
+  // 5. Soft-error demonstration — uncomment to exercise softErrorCodes
+  // (actually attempts a deal create with empty fields):
+  //   await checkSoftError($b24)
+  void checkSoftError
 
   logger.info('Done.')
 }

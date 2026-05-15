@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
-import { AjaxError, SdkError, Text } from '../../../packages/jssdk/src/'
+import { AjaxError, SdkError } from '../../../packages/jssdk/src/'
 
 /**
  * @todo add test new type functions `Aggregate`, `Tail`

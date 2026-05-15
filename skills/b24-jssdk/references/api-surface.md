@@ -1,6 +1,6 @@
 # API surface
 
-Categorized index of public exports from `@bitrix24/b24jssdk` — useful for finding the right import name. For full signatures, parameters, and return shapes consult the source under `packages/jssdk/src/`, the [docs site](https://bitrix24.github.io/b24jssdk/), or `packages/jssdk/README-AI.md` (note: README-AI.md examples still use the deprecated `call*` API — translate to `b24.actions.v{2,3}.*.make({ ... })` when generating new code).
+Categorized index of public exports from `@bitrix24/b24jssdk` — useful for finding the right import name. For full signatures, parameters, and return shapes consult the source under `packages/jssdk/src/`, the [docs site](https://bitrix24.github.io/b24jssdk/), or `packages/jssdk/README-AI.md` (aligned with the current `b24.actions.*` API).
 
 ## Entry points & loaders
 

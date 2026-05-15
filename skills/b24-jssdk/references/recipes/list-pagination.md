@@ -8,7 +8,9 @@ Two action types — pick by dataset size. The legacy `$b24.callListMethod` / `$
 |---|---|---|
 | Small (< 1000 known) | `b24.actions.v{2,3}.callList.make` | `Promise<Result<T[]>>` — full array in memory |
 | Large / unknown | `b24.actions.v{2,3}.fetchList.make` | `AsyncGenerator<T[]>` — iterate with `for await` |
-| Custom paging, dynamic stop, manual throttling | `b24.actions.v{2,3}.call.make` + `AjaxResult.isMore()` / `getNext()` | manual `AjaxResult` chain |
+| Custom paging, dynamic stop, manual throttling (v2 only) | `b24.actions.v2.call.make` + `AjaxResult.isMore()` / `getNext()` | manual `AjaxResult` chain |
+
+> **Manual paging is v2-only.** `AjaxResult.isMore()` / `getNext()` / `getTotal()` rely on the v2 `next` / `total` envelope fields and are `@deprecated`. v3 returns no `next` cursor — in v3 you must use `callList.make` / `fetchList.make`. For element counts in v3 use the `aggregate` action.
 
 ## Required options
 
@@ -100,9 +102,9 @@ for await (const chunk of generator) {
 
 `fetchList.make` is **not async itself** — it returns the generator synchronously. Iteration drives the calls. Errors throw an `SdkError` with code `JSSDK_CORE_B24_FETCH_LIST_METHOD_API_V{2,3}` inside the `for await` loop.
 
-## C) Manual paging — `call.make` + `getNext()`
+## C) Manual paging — `call.make` + `getNext()` (v2 only, deprecated)
 
-Use when you need pauses, dynamic stop conditions, or custom backoff between pages.
+Use **only on v2 methods** when you need pauses, dynamic stop conditions, or custom backoff between pages. `AjaxResult.isMore()` / `getNext()` / `getTotal()` are `@deprecated` and slated for removal in v2.0.0 — there's no v3 equivalent (v3 has no `next` envelope; use `fetchList.make` instead).
 
 ```ts
 import { EnumCrmEntityTypeId, AjaxResult } from '@bitrix24/b24jssdk'
@@ -133,7 +135,7 @@ while (page.isMore()) {
 }
 ```
 
-Reach for this only when you genuinely need page-by-page control — otherwise B is simpler and respects the limiter automatically.
+Reach for this only when you genuinely need page-by-page control over a v2 method — otherwise B is simpler, works for both versions, and respects the limiter automatically.
 
 ## Pitfalls
 

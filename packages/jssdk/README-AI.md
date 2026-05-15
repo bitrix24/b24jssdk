@@ -2,51 +2,52 @@
 
 Purpose: give AI agents a precise, code-oriented overview of the SDK to generate working Bitrix24 apps. This SDK lets you:
 
-- Call Bitrix24 REST API from apps embedded in Bitrix24 (iframe) and from backend services
+- Call Bitrix24 REST API from apps embedded in Bitrix24 (iframe), from backend services via webhook, and from OAuth local apps
 - Interact with Bitrix24 UI: open sliders, dialogs, resize frame, set page title, IM integrations, etc.
 - Manage app/user options via the parent portal
-- Use helpers (profile/app/options/currencies/licenses/payments) and Pull client
+- Use helpers (profile / app / options / currencies / licenses / payments) and the Pull (push) client
 
 Core building blocks:
 
-- Frontend in frame: B24Frame + initializeB24Frame()
-- Backend/service: B24Hook (webhook-based)
-- REST utilities: callMethod, callBatch, callListMethod, fetchListMethod
-- UI managers: parent, slider, dialog, placement, options, auth
-- Helpers: B24HelperManager and useB24Helper hook; Pull client
+- **Frontend in frame:** `B24Frame` + `initializeB24Frame()`
+- **Backend / service:** `B24Hook` (webhook-based)
+- **OAuth apps:** `B24OAuth` (token refresh + recoverable failures)
+- **REST surface (shared by all three):** `b24.actions.v{2,3}.{call, callList, fetchList, batch, batchByChunk}.make(options)`
+- **Utility checks:** `b24.tools.{healthCheck, ping}.make(options?)`
+- **UI managers (frame-only):** `parent`, `slider`, `dialog`, `placement`, `options`, `auth`
+- **Helpers:** `B24HelperManager` and `useB24Helper()` composable; Pull client
+
+> Companion documentation: [`skills/b24-jssdk/SKILL.md`](../../skills/b24-jssdk/SKILL.md) is an agent-oriented routing guide (decision matrices, recipes, anti-patterns). This README-AI is the code-pattern reference; the skill tells you **when** to reach for which pattern.
 
 Note: since v0.4.0 the package ships ESM and UMD only (no CommonJS).
 
 ## Deprecation notice — read before generating code
 
-The following surface is `@deprecated` and **scheduled for removal in `2.0.0`**.
-Many examples in this document still reference it because it remains the most
-widely-used path today, but new code should target the `actions.v{2,3}.*` API.
+The following surface is `@deprecated` and **scheduled for removal in `2.0.0`**. **Generate new code against `b24.actions.v{2,3}.*` only.** The legacy surface remains documented below the line where it's strictly necessary to recognise older codebases.
 
 | Deprecated | Replacement |
 |---|---|
-| `b24.callMethod(method, params, start?)` | `b24.actions.v2.call.make({ method, params })` / `b24.actions.v3.call.make({ method, params })` |
-| `b24.callBatch(calls, isHaltOnError?, returnAjaxResult?)` | `b24.actions.v2.batch.make({ calls, options })` / `b24.actions.v3.batch.make(...)` |
-| `b24.callBatchByChunk(calls, isHaltOnError)` | `b24.actions.v2.batchByChunk.make({ calls, options })` / `b24.actions.v3.batchByChunk.make(...)` |
-| `b24.callListMethod(method, params, progress?, customKey?)` | `b24.actions.v2.callList.make({ method, params, customKeyForResult })` / `b24.actions.v3.callList.make(...)` |
-| `b24.fetchListMethod(method, params, idKey?, customKey?)` | `b24.actions.v2.fetchList.make({ method, params, idKey, customKeyForResult })` / `b24.actions.v3.fetchList.make(...)` |
-| `AjaxResult#isMore()`, `#hasMore()`, `#getNext()`, `#fetchNext()`, `#getTotal()` | The `next`/`total` envelope fields are `restApi:v2`-only (no `restApi:v3` counterpart). Do not iterate manually — let `actions.v{2,3}.{callList,fetchList}` handle pagination. For element counts in `restApi:v3` use the `aggregate` action with `count` / `countDistinct`. |
+| `b24.callMethod(method, params, start?)` | `b24.actions.v3.call.make({ method, params, requestId })` / `b24.actions.v2.call.make(...)` |
+| `b24.callBatch(calls, isHaltOnError?, returnAjaxResult?)` | `b24.actions.v3.batch.make({ calls, options })` / `b24.actions.v2.batch.make(...)` |
+| `b24.callBatchByChunk(calls, isHaltOnError)` | `b24.actions.v3.batchByChunk.make({ calls, options })` / `b24.actions.v2.batchByChunk.make(...)` |
+| `b24.callListMethod(method, params, progress?, customKey?)` | `b24.actions.v3.callList.make({ method, params, idKey, customKeyForResult })` / `b24.actions.v2.callList.make(...)` |
+| `b24.fetchListMethod(method, params, idKey?, customKey?)` | `b24.actions.v3.fetchList.make({ method, params, idKey, customKeyForResult })` / `b24.actions.v2.fetchList.make(...)` |
+| `AjaxResult#isMore()`, `#hasMore()`, `#getNext()`, `#fetchNext()`, `#getTotal()` | These rely on the `restApi:v2`-only `next`/`total` envelope fields and have no `restApi:v3` counterpart. Don't paginate manually — use `callList.make` / `fetchList.make`. For element counts in v3 use the `aggregate` action with `count` / `countDistinct`. |
 
-`AjaxResult.getData()` returns exactly `{ result: T, time: PayloadTime }` — the
-v2-only `next` and `total` fields are no longer surfaced through the public type.
+`AjaxResult.getData()` returns exactly `{ result: T, time: PayloadTime }` — the v2-only `next` and `total` fields are no longer surfaced through the public type.
 
 
 ## Frontend in Bitrix24 (TypeScript, ESM)
 
-Use when your app runs inside Bitrix24 as an iframe placement. The SDK initializes by messaging with the parent window and supplies auth tokens automatically.
+Use when your app runs inside Bitrix24 as an iframe placement. The SDK initialises by messaging the parent window and handles auth automatically.
 
-Minimal contract
+Minimal contract:
 
 - `initializeB24Frame(): Promise<B24Frame>`
 - `B24Frame.isInit`: boolean (after init)
-- Auth auto-refresh on 401 (expired/invalid token)
+- Auth auto-refresh on `401`
 
-Example: initialize, call REST, cleanup
+Example: initialise, call REST, cleanup.
 
 ```ts
 import {
@@ -55,42 +56,61 @@ import {
   EnumCrmEntityTypeId,
   Text,
   LoggerBrowser,
-  Result,
   type ISODate
 } from '@bitrix24/b24jssdk'
 
 const logger = LoggerBrowser.build('MyApp', import.meta.env?.DEV === true)
 let $b24: B24Frame
 
+interface Company { id: number, title: string, createdTime: ISODate }
+
 async function boot() {
   $b24 = await initializeB24Frame()
+  $b24.setLogger(logger)
 
-  // Single method
-  const companies = await $b24.callMethod('crm.item.list', {
-    entityTypeId: EnumCrmEntityTypeId.company,
-    order: { id: 'desc' },
-    select: ['id', 'title', 'createdTime']
+  // Single method (v2 — crm.item.* is a v2 method)
+  const response = await $b24.actions.v2.call.make<{ items: Company[] }>({
+    method: 'crm.item.list',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.company,
+      order: { id: 'desc' },
+      select: ['id', 'title', 'createdTime']
+    },
+    requestId: 'companies-recent'
   })
-  logger.info('items:', companies.getData().result)
 
-  // Batch (object syntax, with keys)
-  const batch: Result = await $b24.callBatch({
-    CompanyList: {
-      method: 'crm.item.list',
-      params: {
-        entityTypeId: EnumCrmEntityTypeId.company,
-        order: { id: 'desc' },
-        select: ['id', 'title', 'createdTime']
-      }
-    }
-  }, true)
-  const data = batch.getData()
-  const list = (data.CompanyList.items || []).map((it: any) => ({
-    id: Number(it.id),
+  if (!response.isSuccess) {
+    logger.error('failed', response.getErrorMessages())
+    return
+  }
+
+  const items = response.getData().result.items.map((it) => ({
+    id: it.id,
     title: it.title,
-    createdTime: Text.toDateTime(it.createdTime as ISODate)
+    createdTime: Text.toDateTime(it.createdTime)
   }))
-  logger.info('batch list:', list)
+  logger.info('items', items)
+
+  // Named batch (v3 form — works for v2 too; pick v2 when calls use v2-only methods)
+  const batch = await $b24.actions.v3.batch.make({
+    calls: {
+      CompanyList: {
+        method: 'crm.item.list',
+        params: {
+          entityTypeId: EnumCrmEntityTypeId.company,
+          order: { id: 'desc' },
+          select: ['id', 'title', 'createdTime']
+        }
+      }
+    },
+    options: { isHaltOnError: true, requestId: 'companies-batch' }
+  })
+
+  if (!batch.isSuccess) {
+    logger.error('batch failed', batch.getErrorMessages())
+    return
+  }
+  logger.info('batch list:', batch.getData())
 }
 
 function teardown() {
@@ -98,29 +118,29 @@ function teardown() {
 }
 ```
 
-Useful getters and services on B24Frame
+Useful getters and services on `B24Frame`:
 
-- auth: getAuthData(), refreshAuth(), isAdmin; getAppSid()
-- parent: fitWindow(), resizeWindow(w,h), resizeWindowAuto(node?, minH?, minW?), setTitle(title), closeApplication(), reloadWindow(), scrollParentWindow(scroll)
-- slider: getUrl(path), openPath(url[, width]), openSliderAppPage(params), closeSliderAppPage()
-- dialog: selectUser(), selectUsers()  [selectAccess(), selectCRM() are deprecated]
-- placement: title, options, isSliderMode, getInterface(), bindEvent(event, cb), call(command, params), callCustomBind(command, params?, cb)
-- options: appGet/set, userGet/set
-- getLang(): portal UI language
+- `auth`: `getAuthData()`, `refreshAuth()`, `isAdmin`, `getAppSid()`, `getUniq(prefix)`
+- `parent`: `fitWindow()`, `resizeWindow(w,h)`, `resizeWindowAuto(node?, minH?, minW?)`, `setTitle(title)`, `closeApplication()`, `reloadWindow()`, `scrollParentWindow(scroll)`
+- `slider`: `getUrl(path)`, `openPath(url[, width])`, `openSliderAppPage(params)`, `closeSliderAppPage()`
+- `dialog`: `selectUser()`, `selectUsers()` (`selectAccess()` / `selectCRM()` are deprecated)
+- `placement`: `title`, `options`, `isSliderMode`, `getInterface()`, `bindEvent(event, cb)`, `call(command, params)`, `callCustomBind(command, params?, cb)`
+- `options`: `appGet/appSet`, `userGet/userSet`
+- `getLang()`: portal UI language
 
-Patterns
+Patterns:
 
-- Always await initializeB24Frame() before any call.
-- Destroy on page/component unmount with $b24.destroy().
-- For large result sets prefer callListMethod or fetchListMethod.
-- For big batches use callBatchByChunk to respect limits.
+- Always `await initializeB24Frame()` before any REST call.
+- Destroy on page/component unmount with `$b24.destroy()`.
+- For large result sets use `b24.actions.v{2,3}.fetchList.make` (async generator, constant memory).
+- For batches over 50 commands use `b24.actions.v{2,3}.batchByChunk.make` — the SDK chunks for you.
 - A per-command `result` inside a batch can be `null` when the underlying REST method legitimately returns `null` (e.g. `im.chat.get` with non-matching params). Declare the generic as `T | null` and handle the `null` branch — the SDK no longer coerces it to `{}` (see issue #23).
 - `restApi:v3` batch is all-or-nothing: per-command errors are not returned. If any call fails, the whole batch fails and `response.getErrorMessages()` carries the error.
 
 
 ## Frontend via UMD (CDN)
 
-When you can’t bundle ESM, load the global B24Js from a CDN inside your iframe app.
+When you can't bundle ESM, load the global `B24Js` from a CDN inside your iframe app.
 
 ```html
 <script src="https://unpkg.com/@bitrix24/b24jssdk@latest/dist/umd/index.min.js"></script>
@@ -129,19 +149,22 @@ When you can’t bundle ESM, load the global B24Js from a CDN inside your iframe
     try {
       const logger = B24Js.LoggerBrowser.build('MyApp', true)
       const $b24 = await B24Js.initializeB24Frame()
+      $b24.setLogger(logger)
 
-      const res = await $b24.callBatch({
-        CompanyList: {
-          method: 'crm.item.list',
-          params: {
-            entityTypeId: B24Js.EnumCrmEntityTypeId.company,
-            order: { id: 'desc' },
-            select: ['id', 'title', 'createdTime']
-          }
-        }
-      }, true)
+      const response = await $b24.actions.v2.call.make({
+        method: 'crm.item.list',
+        params: {
+          entityTypeId: B24Js.EnumCrmEntityTypeId.company,
+          select: ['id', 'title', 'createdTime']
+        },
+        requestId: 'umd-companies'
+      })
 
-      logger.info('data:', res.getData())
+      if (!response.isSuccess) {
+        console.error(response.getErrorMessages())
+        return
+      }
+      logger.info('data:', response.getData().result.items)
     } catch (e) {
       console.error(e)
     }
@@ -149,98 +172,173 @@ When you can’t bundle ESM, load the global B24Js from a CDN inside your iframe
 </script>
 ```
 
-Globals exposed by UMD
+Globals exposed by UMD:
 
-- B24Js.initializeB24Frame
-- B24Js.B24Frame and managers via properties (auth, parent, slider, dialog, placement, options)
-- Utilities: LoggerBrowser, Text, Type, enums (e.g., EnumCrmEntityTypeId), Result, AjaxError/AjaxResult, etc.
+- `B24Js.initializeB24Frame`
+- `B24Js.B24Frame` and managers via properties (`auth`, `parent`, `slider`, `dialog`, `placement`, `options`)
+- Action types (`B24Js.ApiVersion`, etc.), utilities (`LoggerBrowser`, `Text`, `Type`), enums (e.g. `EnumCrmEntityTypeId`), result classes (`Result`, `AjaxError`, `AjaxResult`)
 
 
-## Backend/Services (Node.js, ESM) with B24Hook
+## Backend / Services (Node.js, ESM) with `B24Hook`
 
-Use B24Hook when calling Bitrix24 REST from servers or scripts via incoming webhook. Auth is embedded in the webhook path and no frame is required.
+Use `B24Hook` when calling Bitrix24 REST from servers or scripts via incoming webhook. Auth is embedded in the webhook path — **never use this on the client**.
 
-Minimal contract
+Minimal contract:
 
-- new B24Hook({ b24Url, userId, secret }) or B24Hook.fromWebhookUrl(url)
-- callMethod, callBatch, callListMethod, fetchListMethod
+- `new B24Hook(b24HookParams, options?)` or `B24Hook.fromWebhookUrl(url, options?)`
+- `b24.actions.v{2,3}.{call, callList, fetchList, batch, batchByChunk}.make(options)`
 
-Example: construct from webhook URL and call API
+Construct from URL:
 
 ```ts
 import {
   B24Hook,
   EnumCrmEntityTypeId,
   LoggerBrowser,
-  Result
+  ParamsFactory
 } from '@bitrix24/b24jssdk'
 
 const logger = LoggerBrowser.build('Srv', true)
 
 const $b24 = B24Hook.fromWebhookUrl(
-  'https://your_domain.bitrix24.com/rest/1/k32t88gf3azpmwv3'
+  'https://your_domain.bitrix24.com/rest/1/k32t88gf3azpmwv3',
+  // Optional: pre-tune limiter for the workload
+  // { restrictionParams: ParamsFactory.getBatchProcessing() }
 )
+$b24.setLogger(logger)
+$b24.offClientSideWarning() // server-only — silence the client-warning
 
-// Optional: silence client-side warning (Node is server-side)
-$b24.offClientSideWarning?.()
-
-// Single method
-const res = await $b24.callMethod('crm.item.list', {
-  entityTypeId: EnumCrmEntityTypeId.company,
-  order: { id: 'desc' },
+// Single call (v2)
+const response = await $b24.actions.v2.call.make({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.company,
+    order: { id: 'desc' }
+  },
+  requestId: 'companies'
 })
-logger.info('companies:', res.getData().result)
+logger.info('companies:', response.getData().result.items)
 
-// Batch (array syntax)
-const batch: Result = await $b24.callBatch([
-  ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] }],
-  ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] }]
-], true)
+// Batch (array form)
+const batch = await $b24.actions.v3.batch.make({
+  calls: [
+    ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] }],
+    ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] }]
+  ],
+  options: { isHaltOnError: true, requestId: 'cross-list' }
+})
 logger.info('batch:', batch.getData())
 ```
 
-Listing helpers
+Listing helpers:
 
 ```ts
-// Pull a full list with automatic paging
-const list = await $b24.callListMethod('crm.item.list', {
-  entityTypeId: EnumCrmEntityTypeId.deal,
-  select: ['id', 'title']
+// Auto-paged list, in memory — use for known small sets (< 1000)
+const list = await $b24.actions.v2.callList.make({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.deal,
+    select: ['id', 'title']
+  },
+  idKey: 'id',                   // crm.item.list returns lowercase 'id'
+  customKeyForResult: 'items',
+  requestId: 'deals-list'
 })
-console.log(list.getData()) // array of items
+console.log(list.getData())      // T[]
 
-// Or stream chunks
-for await (const chunk of $b24.fetchListMethod('crm.item.list', { entityTypeId: EnumCrmEntityTypeId.deal }, 'id')) {
+// Streaming for large datasets — constant memory
+for await (const chunk of $b24.actions.v2.fetchList.make({
+  method: 'crm.item.list',
+  params: { entityTypeId: EnumCrmEntityTypeId.deal },
+  idKey: 'id',
+  customKeyForResult: 'items',
+  requestId: 'deals-stream'
+})) {
   console.log('chunk size', chunk.length)
 }
 ```
 
-Notes
+Notes:
 
-- Supported Node versions: ^18, ^20, or >=22.
-- B24Hook warns if used on the client; keep it server-side.
+- Supported Node versions: `^18`, `^20`, or `>=22`.
+- `B24Hook` warns if used on the client; keep it server-side.
+- One `B24Hook` per portal — limiter state is per-instance.
 
 
-## UI Integrations in Frame (sliders, dialogs, parent window)
+## OAuth local apps with `B24OAuth`
 
-These require a B24Frame (i.e., running inside Bitrix24 placement iframe).
-
-Sliders
+For local apps that authenticate via OAuth. The SDK exposes the same REST surface as `B24Frame` / `B24Hook`; what's different is auth lifecycle (access/refresh tokens, recoverable failures).
 
 ```ts
-// Open a portal path in a slider
-const url = $b24.slider.getUrl('/crm/deal/details/1')
-const result = await $b24.slider.openPath(url, 1640)
-if (result.isOpenAtNewWindow) {
-  // On mobile, falls back to window.open and returns close status after polling
+import {
+  B24OAuth,
+  ParamsFactory,
+  RefreshTokenError,
+  LoggerBrowser,
+  type B24OAuthParams,
+  type B24OAuthSecret
+} from '@bitrix24/b24jssdk'
+
+const authOptions: B24OAuthParams = {
+  domain: 'your_domain.bitrix24.com'
+  // … remaining auth fields — see packages/jssdk/src/types/auth.ts
+}
+const oAuthSecret: B24OAuthSecret = {
+  // client_id / client_secret + token-refresh endpoint
+  // … see packages/jssdk/src/types/auth.ts
 }
 
-// Open your application page as a slider and then close it
+const $b24 = new B24OAuth(authOptions, oAuthSecret, {
+  restrictionParams: ParamsFactory.getDefault()
+})
+
+$b24.setLogger(LoggerBrowser.build('OAuthApp', true))
+$b24.offClientSideWarning() // server-side
+
+// Persist rotated tokens on every successful refresh
+$b24.setCallbackRefreshAuth((newAuth) => {
+  saveTokens(newAuth)
+})
+
+// Optional: override how refresh is performed (e.g. centralised service)
+$b24.setCustomRefreshAuth(async (currentAuth) => fetchNewTokensFromYourBackend(currentAuth))
+
+try {
+  const response = await $b24.actions.v3.call.make({ method: 'user.current' })
+  console.log(response.getData().result)
+} catch (e) {
+  if (e instanceof RefreshTokenError) {
+    // Refresh token revoked or app uninstalled — redirect user to OAuth consent
+    redirectToReauth()
+    return
+  }
+  throw e
+}
+
+// Optional — initialise the admin flag once after construction
+await $b24.initIsAdmin('init-1')
+console.log($b24.auth.isAdmin)
+```
+
+
+## UI integrations in frame (sliders, dialogs, parent window)
+
+These require a `B24Frame` (running inside a Bitrix24 placement iframe).
+
+Sliders:
+
+```ts
+const url = $b24.slider.getUrl('/crm/deal/details/1/')
+const status = await $b24.slider.openPath(url, 1640)
+if (status.isOpenAtNewWindow) {
+  // Mobile: opened in a new tab; SDK polled until the tab closed
+}
+
 await $b24.slider.openSliderAppPage({ some: 'params' })
 await $b24.slider.closeSliderAppPage()
 ```
 
-Dialogs
+Dialogs:
 
 ```ts
 const user = await $b24.dialog.selectUser()         // null | { id, name, ... }
@@ -248,7 +346,7 @@ const users = await $b24.dialog.selectUsers()       // SelectedUser[]
 // selectAccess() and selectCRM() exist but are deprecated
 ```
 
-Parent window and IM integrations
+Parent window and IM integrations:
 
 ```ts
 await $b24.parent.fitWindow()
@@ -258,50 +356,44 @@ await $b24.parent.imCallTo(5, true)          // video call to user 5
 await $b24.parent.imOpenMessenger('chat12')  // open messenger
 ```
 
-Placement API
+Placement API:
 
 ```ts
-// Placement meta
 console.log($b24.placement.title, $b24.placement.options, $b24.placement.isSliderMode)
 
-// Query interface capabilities
 const iface = await $b24.placement.getInterface()
-
-// Bind placement events or custom commands
 await $b24.placement.bindEvent('onMessage', (...args) => console.log(args))
 await $b24.placement.call('someCommand', { foo: 'bar' })
 await $b24.placement.callCustomBind('someCommand', { opt: 1 }, (...args) => {})
 ```
 
-Options
+Options:
 
 ```ts
-// App-level
 await $b24.options.appSet('installComplete', true)
 const appFlag = $b24.options.appGet('installComplete')
 
-// User-level
 await $b24.options.userSet('theme', 'dark')
 const theme = $b24.options.userGet('theme')
 ```
 
-Auth and environment
+Auth and environment:
 
 ```ts
-const auth = $b24.auth.getAuthData() // { access_token, refresh_token, expires_in, domain, member_id } | false
+const auth = $b24.auth.getAuthData()  // { access_token, refresh_token, expires_in, domain, member_id } | false
 if (!auth) {
   await $b24.auth.refreshAuth()
 }
-const lang = $b24.getLang()          // portal UI language
-const sid = $b24.getAppSid()         // app SID in current session
+const lang = $b24.getLang()           // portal UI language
+const sid = $b24.getAppSid()          // app SID in current session
 ```
 
 
-## Helpers and Pull Client
+## Helpers and Pull client
 
-The SDK ships a high-level helper to preload portal and app data and to work with Pull client.
+The SDK ships a high-level helper to preload portal/app data and wire the Pull client.
 
-Initialization pattern (after B24Frame is initialized)
+Initialisation (after `B24Frame` is initialised):
 
 ```ts
 import { useB24Helper, LoadDataType, type TypePullMessage } from '@bitrix24/b24jssdk'
@@ -321,247 +413,331 @@ await initB24Helper($b24, [
   LoadDataType.App,
   LoadDataType.Currency,
   LoadDataType.AppOptions,
-  LoadDataType.UserOptions,
+  LoadDataType.UserOptions
 ])
 
 // Enable Pull
-usePullClient('prefix')      // optionally pass userId
+usePullClient('prefix')                       // optionally pass userId
 useSubscribePullClient((m: TypePullMessage) => {
   // handle Pull messages
 }, 'application')
 startPullClient()
 
-// Access helper data and extra managers
+// Access helper data and managers
 const helper = getB24Helper()
 const userId = helper.profileInfo.data.id
-const uniq = $b24.auth.getUniq('prefix') // unique per member
+const uniq = $b24.auth.getUniq('prefix')      // unique per member
 ```
 
-Notes
+Cleanup order: `destroyB24Helper()` *before* `$b24.destroy()`.
 
-- Helper managers: profile, app, payment, license, currency, options
-- Currency and options managers internally use callBatch/callBatchByChunk
+Notes:
+
+- Helper managers: `profile`, `app`, `payment`, `license`, `currency`, `options`.
+- `LicenseManager` swaps `RestrictionManager` to enterprise params automatically on enterprise portals (no code change required).
+- `CurrencyManager` and the helper-level `OptionsManager` internally use `b24.actions.v{2,3}.batch.make` / `batchByChunk.make`.
 
 
-## REST calling model and error handling
+## REST calling model
 
-Core REST utilities live in AbstractB24 and Http:
+The REST surface lives on `b24.actions` (alongside `b24.tools`):
 
-- callMethod(method, params[, start]) => `Promise<AjaxResult>`
-- callBatch(calls, isHaltOnError = true, returnAjaxResult = false) => `Promise<Result>`
-  - calls can be object { key: { method, params } } or array [ [method, params], ... ]
-  - If isHaltOnError=false, Result accumulates errors; otherwise rejects on first error
-  - If returnAjaxResult=true, you receive AjaxResult objects per command
-- callListMethod(method, params, progress?, customKey?) => `Promise<Result>` (auto-paging)
-- fetchListMethod(method, params, idKey='ID', customKey?) => `AsyncGenerator<any[]>`
+```text
+b24.actions
+├── v3 / v2
+│   ├── call          .make({ method, params?, requestId? })        → Promise<AjaxResult<T>>
+│   ├── callList      .make({ method, params?, idKey?, customKeyForResult, requestId?, limit? })
+│   │                                                                → Promise<Result<T[]>>
+│   ├── fetchList     .make({ method, params?, idKey?, customKeyForResult, requestId?, limit? })
+│   │                                                                → AsyncGenerator<T[]>
+│   ├── batch         .make({ calls, options? })                    → Promise<CallBatchResult<T>>
+│   └── batchByChunk  .make({ calls, options? })                    → Promise<Result<T[]>>
+b24.tools
+├── healthCheck       .make({ requestId? })                          → Promise<boolean>
+└── ping              .make({ requestId? })                          → Promise<number>  // ms
+```
 
-### Choosing list retrieval strategy (recommendations)
+Key option fields:
 
-- callListMethod: fetches the entire dataset into memory. Use only for small selections (< 1000 items) due to higher memory pressure.
-- fetchListMethod: streams data in chunks via async iterator. Use for large datasets to keep memory usage low.
-- callMethod (manual pagination): control paging via the `start` cursor. Use when you need precise batching and custom flow. For big data it’s typically less efficient/convenient than fetchListMethod.
+- `requestId?` — stable id for tracking / dedup / debug logs.
+- `idKey?` — id field used for cursor pagination. Default: `'id'` in v3, `'ID'` in v2. For `crm.item.list` always pass `idKey: 'id'`.
+- `customKeyForResult` — payload-array key. **Required in v3**, optional in v2 (defaults to `null`, meaning the result array is the response root). For `crm.item.list` it's `'items'`.
+- `limit?` (v3 list actions only) — page size. Default `50`, max `1000`.
+- `options.isHaltOnError` (batch) — `true` rejects on first failing command; `false` accumulates per-command errors.
+- `options.returnAjaxResult` (batch) — wrap each result in `AjaxResult` for granular inspection (incompatible with `batchByChunk`).
 
-Below are complete examples that iterate until all data are fetched.
-
-#### A) Small datasets: callListMethod (all-in-memory)
-
-Assumes `$b24` is already initialized (either B24Frame or B24Hook).
+Batch input accepts three shapes — pick whichever makes consumer code clearest:
 
 ```ts
-import { EnumCrmEntityTypeId, Result } from '@bitrix24/b24jssdk'
+// 1. Array of tuples
+await b24.actions.v3.batch.make({
+  calls: [
+    ['tasks.task.get', { id: 1, select: ['id', 'title'] }],
+    ['tasks.task.get', { id: 2, select: ['id', 'title'] }]
+  ]
+})
 
-async function loadAllCompaniesSmall($b24: any) {
-  const response: Result = await $b24.callListMethod(
-    'crm.item.list',
-    {
-      entityTypeId: EnumCrmEntityTypeId.company,
-      order: { id: 'asc' },
-      select: ['id', 'title']
-    },
-    (progress: number) => {
-      // Optional progress callback (0..100)
-      // console.log('progress', progress)
-    }
-  )
+// 2. Array of objects
+await b24.actions.v3.batch.make({
+  calls: [
+    { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title'] } },
+    { method: 'tasks.task.get', params: { id: 2, select: ['id', 'title'] } }
+  ]
+})
 
-  const items = response.getData() as any[]
-  // Process all items (already fully loaded in memory)
-  for (const row of items) {
-    // ...process row
-  }
-
-  return items
-}
+// 3. Named object — results keyed by name
+await b24.actions.v3.batch.make({
+  calls: {
+    Task: { method: 'tasks.task.get', params: { id: 1, select: ['id', 'title'] } },
+    Log: ['main.eventlog.list', { select: ['id', 'userId'], pagination: { limit: 5 } }]
+  },
+  options: { returnAjaxResult: true }
+})
 ```
 
-#### B) Large datasets: fetchListMethod (streaming by chunks)
+### Choosing list retrieval strategy
 
-For `crm.item.list`, use `idKey: 'id'` so the fast-iterator strategy works reliably with v3 entities.
+- **`callList.make`** — fetches the entire dataset into memory. Only for small selections (< 1000 items).
+- **`fetchList.make`** — streams chunks via async generator. Use for any large/unknown dataset.
+- **`call.make` + manual cursor (legacy)** — only when you must control page boundaries yourself, and only in **v2** (v3 has no `next` envelope). See the "Manual pagination" subsection in the deprecation appendix below.
+
+#### A) Small datasets — `callList.make`
+
+```ts
+import { EnumCrmEntityTypeId, Text } from '@bitrix24/b24jssdk'
+
+interface Company { id: number, title: string }
+
+const sixMonthAgo = new Date()
+sixMonthAgo.setMonth(sixMonthAgo.getMonth() - 6)
+
+const response = await $b24.actions.v2.callList.make<Company>({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.company,
+    filter: {
+      '=%title': 'A%',
+      '>=createdTime': Text.toB24Format(sixMonthAgo)
+    },
+    select: ['id', 'title']
+  },
+  idKey: 'id',
+  customKeyForResult: 'items',
+  requestId: 'companies-recent'
+})
+
+if (!response.isSuccess) {
+  throw new Error(response.getErrorMessages().join('; '))
+}
+
+const items: Company[] = response.getData() ?? []
+```
+
+#### B) Large datasets — `fetchList.make`
 
 ```ts
 import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
-async function loadAllDealsStreaming($b24: any) {
-  const all: any[] = []
+interface Deal { id: number, title: string }
 
-  for await (const chunk of $b24.fetchListMethod(
-    'crm.item.list',
-    {
-      entityTypeId: EnumCrmEntityTypeId.deal,
-      select: ['id', 'title']
-    },
-    'id' // idKey for crm.item.list payloads
-  )) {
-    // Process current chunk
-    for (const row of chunk) {
-      // ...process row
-    }
-    all.push(...chunk)
+for await (const chunk of $b24.actions.v2.fetchList.make<Deal>({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.deal,
+    select: ['id', 'title']
+  },
+  idKey: 'id',
+  customKeyForResult: 'items',
+  requestId: 'deals-stream'
+})) {
+  for (const row of chunk) {
+    // process row
   }
-
-  return all
 }
 ```
 
-#### C) Manual pagination: callMethod + next pages
-
-> **`@deprecated` — slated for removal in `2.0.0`.** `callMethod`, `isMore()`,
-> and `getNext()` rely on the `restApi:v2` envelope field `next`, which
-> `restApi:v3` does not return. Prefer `b24.actions.v{2,3}.fetchList.make` for
-> custom-throttled iteration; that helper hides pagination for both API versions.
-
-Use when you need to control page sizes, pauses, or add custom throttling. Iterate until `isMore()` returns false, using `getNext($b24.getHttpClient())`.
+For a v3 method (e.g. `main.eventlog.list`):
 
 ```ts
-import { EnumCrmEntityTypeId, AjaxResult } from '@bitrix24/b24jssdk'
+interface LogItem { id: number, userId: number }
 
-async function loadAllContactsManual($b24: any) {
-  const all: any[] = []
+const generator = $b24.actions.v3.fetchList.make<LogItem>({
+  method: 'main.eventlog.list',
+  params: {
+    filter: [['timestampX', '>=', Text.toB24Format(sixMonthAgo)]],
+    select: ['id', 'userId']
+  },
+  idKey: 'id',
+  customKeyForResult: 'items',
+  requestId: 'log-stream',
+  limit: 200
+})
 
-  // First page (start defaults to 0)
-  let page: AjaxResult = await $b24.callMethod('crm.item.list', {
-    entityTypeId: EnumCrmEntityTypeId.contact,
-    order: { id: 'asc' },
-    select: ['id', 'name']
-  }, 0)
-
-  // Process first page
-  all.push(...(page.getData().result as any[]))
-
-  // Follow next cursors until done
-  while (page.isMore()) {
-    const next = await page.getNext($b24.getHttpClient())
-    if (next === false) break
-
-    // Optional: your throttling/backoff here
-    // await new Promise(r => setTimeout(r, 50))
-
-    all.push(...(next.getData().result as any[]))
-    page = next
-  }
-
-  return all
+for await (const chunk of generator) {
+  // …
 }
 ```
 
-Result and AjaxResult basics
+Notes:
+
+- `callList.make` / `fetchList.make` **ignore** a user-supplied `order` (cursor pagination orders by `idKey`). The action logs a warning. Use `filter` to narrow.
+- Errors inside `fetchList.make` throw `SdkError` (code `JSSDK_CORE_B24_FETCH_LIST_METHOD_API_V{2,3}`) on the `for await` iteration.
+
+### Result / AjaxResult basics
 
 ```ts
 import { AjaxError } from '@bitrix24/b24jssdk'
 
 try {
-  const res = await $b24.callMethod('crm.item.get', { entityTypeId: 1, id: 10 })
-  const payload = res.getData()                  // { result, time } — see Deprecation notice
-  const ok = res.isSuccess                       // boolean
-  // const total = res.getTotal()                // @deprecated, removed in 2.0.0; v3 has no `total`
+  const res = await $b24.actions.v3.call.make({
+    method: 'crm.item.get',
+    params: { entityTypeId: 1, id: 10 }
+  })
+  if (!res.isSuccess) {
+    console.error(res.getErrorMessages())
+    return
+  }
+  const payload = res.getData()           // { result: T, time: PayloadTime }
+  // res.getTotal() / res.isMore() — @deprecated, v2-only; removed in 2.0.0
 } catch (e) {
   if (e instanceof AjaxError) {
     console.error(e.code, e.description, e.status, e.requestInfo)
   } else {
-    console.error(e)
+    throw e
   }
 }
 ```
 
 
+## Rate limiting
+
+The SDK throttles automatically via `RestrictionManager`. Tune only when you have a specific workload need.
+
+```ts
+import { ParamsFactory } from '@bitrix24/b24jssdk'
+
+// At construction (B24Hook / B24OAuth)
+const $b24 = B24Hook.fromWebhookUrl(url, {
+  restrictionParams: ParamsFactory.getBatchProcessing()
+})
+
+// Or anytime after init (any entry point)
+await $b24.setRestrictionManagerParams(ParamsFactory.getEnterprise())
+
+// Partial override
+await $b24.setRestrictionManagerParams({
+  ...ParamsFactory.getDefault(),
+  rateLimit: { burstLimit: 100, drainRate: 3, adaptiveEnabled: true },
+  maxRetries: 5
+})
+```
+
+Available presets: `getDefault()`, `getEnterprise()`, `getBatchProcessing()`, `getRealtime()`, `fromTariffPlan(plan)`. `LicenseManager` (loaded via `useB24Helper()` + `LoadDataType.App`) auto-applies the enterprise preset on enterprise portals.
+
+
 ## Recommended generation patterns (for AI)
 
-- Frontend
-  - Always guard for frame context; initialize via await initializeB24Frame()
-  - On component unmount call $b24.destroy()
-  - For UI actions: prefer $b24.slider.openPath and handle mobile fallback via isOpenAtNewWindow in the returned StatusClose
-  - Use $b24.parent.fitWindow() after content changes
-  - Use $b24.options.appSet/userSet for settings persistence
-- Backend
-  - Construct B24Hook with B24Hook.fromWebhookUrl() when possible
-  - Use callListMethod/fetchListMethod for large lists
-  - Batch related calls with callBatch; chunk big arrays with callBatchByChunk
-- Logging
-  - Build once via LoggerBrowser.build(appName, isDev) and set to instances if needed
-- Types and enums
-  - Prefer exported enums (e.g., EnumCrmEntityTypeId) and types (ISODate, payload types)
+**Frontend:**
+
+- Always guard for frame context; initialise via `await initializeB24Frame()`.
+- On component unmount call `$b24.destroy()`.
+- For UI actions: prefer `$b24.slider.openPath` and handle mobile fallback via `isOpenAtNewWindow` in the returned `StatusClose`.
+- Call `$b24.parent.fitWindow()` after content changes.
+- Use `$b24.options.appSet/userSet` for settings persistence.
+- All REST calls go through `b24.actions.v{2,3}.*.make`.
+
+**Backend:**
+
+- Construct `B24Hook` with `B24Hook.fromWebhookUrl()` when possible.
+- For lists: `callList.make` (small known sets) or `fetchList.make` (large/unknown — preferred).
+- For groups of calls: `batch.make` (≤ 50 commands) or `batchByChunk.make` (any size).
+- For bulk migrations, pass `ParamsFactory.getBatchProcessing()` as `restrictionParams`.
+
+**OAuth:**
+
+- Always register `setCallbackRefreshAuth` to persist rotated tokens.
+- Catch `RefreshTokenError` specifically and redirect to re-auth.
+- Don't share a `B24OAuth` instance across users — tokens are user-scoped.
+
+**Logging:**
+
+- Build once via `LoggerBrowser.build(appName, isDev)` and attach via `$b24.setLogger(logger)`.
+
+**Types and enums:**
+
+- Prefer exported enums (e.g. `EnumCrmEntityTypeId`) and types (`ISODate`, payload types).
+- For new code prefer v3 methods; fall back to v2 only when v3 doesn't support the method (you'll get `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`).
 
 
-## UMD vs ESM quick cheat sheet
+## UMD vs ESM cheat sheet
 
-- UMD: window.B24Js global; load via unpkg CDN; use inside Bitrix24 iframe
-- ESM: import from '@bitrix24/b24jssdk'; works in browsers with bundlers and in Node (server-side) for B24Hook
+- **UMD:** `window.B24Js` global; load via unpkg CDN; use inside Bitrix24 iframe placements.
+- **ESM:** `import from '@bitrix24/b24jssdk'`; works in browsers with bundlers and in Node (server-side) for `B24Hook` / `B24OAuth`.
 
 
 ## Caveats and constraints
 
-- Frame-only APIs (dialogs, sliders, placement, parent, options, auth refresh) require running in Bitrix24 placement context
-- openPath automatically handles mobile devices by opening a new tab and polling for close status; check the returned StatusClose
-- Webhook (B24Hook) is not safe on the client; keep it on the server
-- Batch limits apply (SDK default chunk size is 50)
+- Frame-only APIs (`slider`, `dialog`, `placement`, `parent`, `options`, `auth.refreshAuth`) require Bitrix24 placement context — they don't exist on `B24Hook` / `B24OAuth`.
+- `slider.openPath` opens a new tab on mobile and polls for close — check `StatusClose.isOpenAtNewWindow`.
+- `B24Hook` is not safe on the client; keep it server-side.
+- Batch single-request limit is 50 commands — `batchByChunk.make` splits transparently.
 
 
 ## Export map (selected)
 
-- initializeB24Frame, B24Frame and its managers: auth, parent, slider, dialog, placement, options
-- B24Hook (+ B24Hook.fromWebhookUrl)
-- AbstractB24 helpers: callMethod, callBatch, callListMethod, fetchListMethod, callBatchByChunk, chunkArray
-- HTTP types and classes: AjaxResult, AjaxError, Result
-- LoggerBrowser, Text, Type, Browser, tools/use-formatters
-- Types/enums: http, b24, auth, payloads, user, slider, handler, placement, crm, catalog, bizproc, event, pull, b24-helper
+- `initializeB24Frame`, `B24Frame` and its managers: `auth`, `parent`, `slider`, `dialog`, `placement`, `options`
+- `B24Hook` (+ `B24Hook.fromWebhookUrl`)
+- `B24OAuth` (+ `RefreshTokenError`)
+- REST surface on `AbstractB24`: `actions.v{2,3}.{call,callList,fetchList,batch,batchByChunk}`, `tools.{healthCheck,ping}`, `setRestrictionManagerParams`, `getHttpClient`, `destroy`
+- Action option types: `ActionCallV{2,3}`, `ActionCallListV{2,3}`, `ActionFetchListV{2,3}`, `ActionBatchV{2,3}`, `ActionBatchByChunkV{2,3}`, `IB24BatchOptions`, `BatchCommandsArrayUniversal`, `BatchCommandsObjectUniversal`, `BatchNamedCommandsUniversal`
+- Result/error: `AjaxResult`, `AjaxError`, `Result`, `SdkError`, `RefreshTokenError`
+- Limiters: `RestrictionManager`, `RateLimiter`, `OperatingLimiter`, `AdaptiveDelayer`, `ParamsFactory`, `RestrictionParams`
+- `LoggerBrowser`, `LoggerFactory`, `Text`, `Type`, `Browser`, `useFormatters`, `pick`, `omit`, `getEnumValue`
+- Types/enums: `EnumCrmEntityTypeId`, `ApiVersion`, `ISODate`, `TypeCallParams`, plus modules `types/{http, b24, auth, payloads, user, slider, handler, placement, crm, catalog, bizproc, event, pull, b24-helper}`
+
+Deprecated re-exports (removed in 2.0.0): `AbstractB24.callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`, `chunkArray`; `AjaxResult.isMore`, `hasMore`, `getNext`, `fetchNext`, `getTotal`.
 
 
 ---
-This document is based on the SDK source in packages/jssdk/src and the docs under docs/reference and docs/guide. Use it as the authoritative prompt for generating code with this SDK.
+
+This document is based on the SDK source in `packages/jssdk/src` and the docs under `docs/content/docs/`. Use it as the authoritative prompt for generating code with this SDK. For agent-oriented routing (when to load which detailed reference), pair it with [`skills/b24-jssdk/SKILL.md`](../../skills/b24-jssdk/SKILL.md).
 
 
 ## Extras for AI agents (helpers, pull, core, tools)
 
-### Helper Methods (high-level data access)
+### Helper methods (high-level data access)
 
-- useB24Helper: lifecycle for helpers and Pull client in frame apps (see section above)
-- B24HelperManager: container for helper managers (profile/app/payment/license/currency/options) exposed via useB24Helper
-- ProfileManager: `helper.profileInfo.data` provides current user info
-- AppManager: `helper.appInfo.data` and `helper.appInfo.statusCode`
-- LicenseManager: adjusts Http Restriction Manager for enterprise automatically
-- CurrencyManager: formats amounts for a currency and language
-  
+- **`useB24Helper`** — lifecycle for helpers and Pull client in frame apps (see above).
+- **`B24HelperManager`** — container for `profile`, `app`, `payment`, `license`, `currency`, `options` managers; exposed via `useB24Helper`.
+- **`ProfileManager`** — `helper.profileInfo.data` provides current user info.
+- **`AppManager`** — `helper.appInfo.data` and `helper.appInfo.statusCode`.
+- **`LicenseManager`** — adjusts `RestrictionManager` for enterprise portals automatically.
+- **`CurrencyManager`** — formats amounts for a currency and language:
+
   ```ts
   const name = helper.currency.getCurrencyFullName('USD', 'en')
-  const literal = helper.currency.getCurrencyLiteral('USD', 'en') // currency symbol/wording
+  const literal = helper.currency.getCurrencyLiteral('USD', 'en')
   const price = helper.currency.format(1234.56, 'USD', 'en')
   ```
-- OptionsManager (helper level): bulk save options to REST + optional pull notification
- 
-  
+
+- **`OptionsManager`** (helper level) — bulk save options + optional Pull notification:
+
   ```ts
-  await helper.appOptions.save({ featureFlags: helper.appOptions.encode({ a: 1 }) }, {
-    moduleId: 'application',
-    command: 'FEATURES_UPDATED',
-    params: { source: 'app' }
-  })
+  await helper.appOptions.save(
+    { featureFlags: helper.appOptions.encode({ a: 1 }) },
+    {
+      moduleId: 'application',
+      command: 'FEATURES_UPDATED',
+      params: { source: 'app' }
+    }
+  )
   const cfg = helper.appOptions.getJsonObject('featureFlags', {})
   ```
 
 ### Push and Pull
 
-- Pull client helpers are provided via useB24Helper
-  
+- Pull client helpers are provided via `useB24Helper`:
+
   ```ts
   const { usePullClient, useSubscribePullClient, startPullClient } = useB24Helper()
   usePullClient('prefix')
@@ -571,32 +747,32 @@ This document is based on the SDK source in packages/jssdk/src and the docs unde
 
 ### Core utilities
 
-- AbstractB24: shared REST helpers (callMethod/batch/list/fetch/chunk)
-- Http: low-level transport; supports restriction throttling and auth refresh
-- RestrictionManager: automatic throttling to respect Bitrix24 limits
+- **`AbstractB24`** — shared base: exposes `actions`, `tools`, `setRestrictionManagerParams`, `getHttpClient`, `destroy`.
+- **`Http` (v2 + v3)** — low-level transport; supports restriction throttling and auth refresh. Not normally used directly.
+- **`RestrictionManager`** — automatic throttling to respect Bitrix24 limits:
 
-// fix
   ```ts
-  // Example: increase limits for enterprise (done automatically by LicenseManager)
-  // $b24.getHttpClient().setRestrictionManagerParams(RestrictionManagerParamsForEnterprise)
+  import { ParamsFactory } from '@bitrix24/b24jssdk'
+  // Done automatically by LicenseManager when useB24Helper is in scope:
+  await $b24.setRestrictionManagerParams(ParamsFactory.getEnterprise())
   ```
- 
-- Unique ID Generator: request IDs are appended automatically via Http
-- Result / AjaxResult: uniform result objects, error aggregation. (Legacy paging helpers `isMore`/`getNext`/`getTotal` are `@deprecated` for `2.0.0` — see Deprecation notice.)
-- Language List and LoggerBrowser
 
-### Tools
+- **Unique ID generator** — request IDs are appended automatically via `Http`. Pass an explicit `requestId` in `make(options)` for stable correlation in logs.
+- **`Result` / `AjaxResult`** — uniform result objects, error aggregation. Legacy paging helpers `isMore` / `getNext` / `getTotal` are `@deprecated` for `2.0.0` — see Deprecation notice.
+- **Language list** and **`LoggerBrowser`** — i18n + logging.
 
-- Type: runtime type helpers (isStringFilled, etc.)
-- Text: dates (Luxon), numbers (numberFormat), UUID v7, encode/decode, case transforms
-  
+### Tools (utilities)
+
+- **`Type`** — runtime type helpers (`isStringFilled`, `isPlainObject`, …).
+- **`Text`** — dates (Luxon), numbers (`numberFormat`), UUID v7, encode/decode, case transforms:
+
   ```ts
-  import Text from '@bitrix24/b24jssdk'
+  import { Text } from '@bitrix24/b24jssdk'
   const dt = Text.toDateTime('2024-01-01T10:00:00Z')
   const s = Text.numberFormat(12345.678, 2, '.', ' ')
   const id = Text.getUuidRfc4122()
   ```
- 
-- Browser: lightweight browser utilities
-- useFormatters: number/date formatting hooks
-- pick/omit/getEnumValue: object and enum helpers
+
+- **`Browser`** — lightweight browser utilities.
+- **`useFormatters`** — number/date formatting hooks.
+- **`pick` / `omit` / `getEnumValue`** — object and enum helpers.

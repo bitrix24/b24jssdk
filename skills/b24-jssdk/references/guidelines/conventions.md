@@ -93,7 +93,7 @@ console.log(response.getData().result.items)
 
 ### Legacy `call*` methods are deprecated
 
-`$b24.callMethod()`, `$b24.callBatch()`, `$b24.callListMethod()`, `$b24.fetchListMethod()`, `$b24.callBatchByChunk()` still exist on `AbstractB24` for backwards compatibility but log a deprecation warning and **will be removed in v2.0.0**. The `README-AI.md` and older examples still use them — when you see those forms, mentally translate to `b24.actions.v{2,3}.*.make({ ... })`. New code should always use the action managers.
+`$b24.callMethod()`, `$b24.callBatch()`, `$b24.callListMethod()`, `$b24.fetchListMethod()`, `$b24.callBatchByChunk()` still exist on `AbstractB24` for backwards compatibility but log a deprecation warning and **will be removed in v2.0.0**. You'll still encounter them in older codebases — when you see those forms, mentally translate to `b24.actions.v{2,3}.*.make({ ... })`. New code should always use the action managers.
 
 ## `Result` and `AjaxResult` (uniform return shape)
 
@@ -111,7 +111,7 @@ Common methods on `Result` / `AjaxResult`:
 - `errors` — iterable of `[index, error]` tuples for granular handling.
 - `getTotal()` — total count, when the REST method returns one (`AjaxResult` only).
 
-`AjaxResult` also still carries the cursor primitives `isMore()` / `getNext(httpClient)` for manual paging through `call.make` — useful only when you can't use `callList`/`fetchList`.
+`AjaxResult` also carries the cursor primitives `isMore()` / `getNext(httpClient)` / `getTotal()` for manual paging — but they're **`@deprecated` and v2-only**. They rely on the v2 `next` / `total` envelope fields, which v3 doesn't return. Use `callList.make` / `fetchList.make` for both versions; for element counts in v3 use the `aggregate` action with `count` / `countDistinct`.
 
 ## Tools
 

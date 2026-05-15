@@ -26,7 +26,7 @@ Ships ESM + UMD only since v0.4.0. Nuxt users should prefer the [`@bitrix24/b24j
 
 This skill teaches **when to use which entry point and method** and **how to wire things up correctly**. For exact signatures, props, and payload shapes, prefer these primary sources:
 
-- [`packages/jssdk/README-AI.md`](https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/README-AI.md) — code-oriented API guide. **Note:** its examples currently use the deprecated `$b24.callMethod(...)` family. Translate to `$b24.actions.v{2,3}.*.make({ ... })` when generating new code; see [conventions](references/guidelines/conventions.md).
+- [`packages/jssdk/README-AI.md`](https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/README-AI.md) — code-oriented API guide. Aligned with the current `b24.actions.*` API and the deprecation notice at the top. Use this when generating SDK code.
 - [Documentation site](https://bitrix24.github.io/b24jssdk/) — public docs; pages under `/reference/` mirror types and managers.
 - [Bitrix24 REST documentation](https://apidocs.bitrix24.com/) — for REST method names, params, and payload shapes.
 
@@ -37,7 +37,7 @@ This skill teaches **when to use which entry point and method** and **how to wir
 3. **Cleanup on unmount** — call `$b24.destroy()` when a frame component/page unmounts. The Pull client and message listeners hold references otherwise.
 4. **Use named imports only** — the SDK has no default export and is `sideEffects: false`. Never destructure or rebind types under different names without need; tree-shaking depends on direct imports.
 5. **Use the action managers, not the deprecated `call*` methods** — write `$b24.actions.v3.call.make({ method, params })` (or `v2.call.make` for legacy CRM-style methods), not `$b24.callMethod(...)`. See [conventions](references/guidelines/conventions.md).
-6. **Treat `Result` / `AjaxResult` as the uniform return shape** — `getData()`, `isSuccess`, `getErrorMessages()`, `getTotal()`. `AjaxResult` adds `isMore()` / `getNext()` for manual paging when needed.
+6. **Treat `Result` / `AjaxResult` as the uniform return shape** — `getData()`, `isSuccess`, `getErrorMessages()`. `AjaxResult` adds `isMore()` / `getNext()` / `getTotal()` for **v2-only** manual paging — these are `@deprecated` and v3 has no equivalent (use `callList.make` / `fetchList.make` everywhere, and `aggregate` for counts in v3).
 7. **Pick the right list strategy** — `callList.make` only for small known sets (< 1000), `fetchList.make` for streaming, `call.make` + `AjaxResult.getNext()` for custom paging. See [list-pagination](references/recipes/list-pagination.md).
 8. **Respect rate limits** — the built-in `RestrictionManager` throttles automatically; for enterprise portals the `LicenseManager` swaps in higher-limit params. See [rate-limiting](references/guidelines/rate-limiting.md).
 

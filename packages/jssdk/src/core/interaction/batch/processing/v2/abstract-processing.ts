@@ -87,7 +87,7 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
         answer: {
           error: resultError ? (typeof resultError === 'string' ? resultError : resultError.error) : undefined,
           error_description: resultError ? (typeof resultError === 'string' ? undefined : resultError.error_description) : undefined,
-          result: (resultData ?? {}) as T,
+          result: resultData as T,
           total: Number.parseInt(this._getBatchResultByIndex(responseResult.result_total, index) || '0'),
           next: Number.parseInt(this._getBatchResultByIndex(responseResult.result_next, index) || '0'),
           time: resultTime!

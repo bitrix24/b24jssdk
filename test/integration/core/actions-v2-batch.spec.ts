@@ -24,19 +24,19 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArray'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ items: { id: number }[] }>[]>).getData()!
     expect(resultData.length).toBeGreaterThan(0)
     for (const resultRow of resultData) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)
-      const rowData = resultRow.getData()
+      const rowData = resultRow.getData()!
       const result = rowData.result
       expect(result).toHaveProperty('items')
       expect(result.items.length).toBeGreaterThan(0)
@@ -58,20 +58,20 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArrayObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }>({
       calls: batchCalls,
       options
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ items: { id: number }[] }>[]>).getData()!
 
     expect(resultData).toBeDefined()
     for (const resultRow of resultData) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)
 
-      const rowData = resultRow.getData()
+      const rowData = resultRow.getData()!
       const result = rowData.result
       expect(result).toHaveProperty('items')
       expect(result.items.length).toBeGreaterThan(0)
@@ -108,20 +108,20 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }>({
       calls: batchCalls,
       options
     })
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()
+    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ items: { id: number }[] }>>>).getData()!
     expect(resultData).toBeDefined()
     for (const [index, resultRow] of Object.entries(resultData)) {
       expect(resultRow).toBeInstanceOf(AjaxResult)
       expect(resultRow.isSuccess).toBe(true)
       expect(keys).toContain(index)
 
-      const rowData = resultRow.getData()
+      const rowData = resultRow.getData()!
       const result = rowData.result
       expect(result).toHaveProperty('items')
       expect(result.items.length).toBeGreaterThan(0)
@@ -151,7 +151,7 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<{ items: { id: number }[] }[]>).getData()
+    const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()!
 
     expect(resultData.length).toBeGreaterThan(0)
 
@@ -178,14 +178,14 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArray'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
-    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ items: { id: number }[] }>[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(2)
     for (const resultRow of resultData) {
@@ -193,7 +193,7 @@ describe('core callBatch @apiV2', () => {
       if (resultRow.isSuccess) {
         expect(resultRow.isSuccess).toBe(true)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -226,14 +226,14 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArrayObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
-    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ items: { id: number }[] }>[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(2)
     expect(resultData).toBeDefined()
@@ -242,7 +242,7 @@ describe('core callBatch @apiV2', () => {
       if (resultRow.isSuccess) {
         expect(resultRow.isSuccess).toBe(true)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -304,13 +304,13 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
-    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }>({
       calls: batchCalls,
       options
     })
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()
+    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ items: { id: number }[] }>>>).getData()!
 
     expect(response.getErrorMessages().length).toBe(2)
     expect(resultData).toBeDefined()
@@ -320,7 +320,7 @@ describe('core callBatch @apiV2', () => {
         expect(resultRow.isSuccess).toBe(true)
         expect(keys).toContain(index)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -362,7 +362,7 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as Result<{ items: { id: number }[] }[]>).getData()
+    const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(2)
 
@@ -389,14 +389,14 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArray'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }>({
       calls: batchCalls,
       options
     })
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ items: { id: number }[] }>[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(1)
     expect(resultData).toBeDefined()
@@ -405,7 +405,7 @@ describe('core callBatch @apiV2', () => {
       if (resultRow.isSuccess) {
         expect(resultRow.isSuccess).toBe(true)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -438,13 +438,13 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsArrayObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }>({
       calls: batchCalls,
       options
     })
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as Result<AjaxResult<{ id: number }>[]>).getData()
+    const resultData = (response as unknown as Result<AjaxResult<{ items: { id: number }[] }>[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(1)
     expect(resultData).toBeDefined()
@@ -453,7 +453,7 @@ describe('core callBatch @apiV2', () => {
       if (resultRow.isSuccess) {
         expect(resultRow.isSuccess).toBe(true)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -515,13 +515,13 @@ describe('core callBatch @apiV2', () => {
     const method = 'callBatchAsObject'
     const requestId = `test@apiV2/${method}`
     const options = { isHaltOnError: true, returnAjaxResult: true, requestId }
-    const response = await b24.actions.v2.batch.make<{ id: number }[]>({
+    const response = await b24.actions.v2.batch.make<{ items: { id: number }[] }>({
       calls: batchCalls,
       options
     })
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as Result<Record<string | number, AjaxResult<{ id: number }>>>).getData()
+    const resultData = (response as unknown as Result<Record<string | number, AjaxResult<{ items: { id: number }[] }>>>).getData()!
     expect(response.getErrorMessages().length).toBe(1)
     expect(resultData).toBeDefined()
     for (const [index, resultRow] of Object.entries(resultData)) {
@@ -530,7 +530,7 @@ describe('core callBatch @apiV2', () => {
         expect(resultRow.isSuccess).toBe(true)
         expect(keys).toContain(index)
 
-        const rowData = resultRow.getData()
+        const rowData = resultRow.getData()!
         const result = rowData.result
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
@@ -572,7 +572,7 @@ describe('core callBatch @apiV2', () => {
 
     expect(response.isSuccess).toBe(false)
 
-    const resultData = (response as Result<{ items: { id: number }[] }[]>).getData()
+    const resultData = (response as unknown as Result<{ items: { id: number }[] }[]>).getData()!
 
     expect(response.getErrorMessages().length).toBe(1)
 
@@ -588,5 +588,55 @@ describe('core callBatch @apiV2', () => {
     const errors = Array.from(response.getErrors()) as SdkError[]
     const mainError = errors.find(error => error?.code === 'INVALID_ARG_VALUE')
     expect(mainError).toBeDefined()
+  })
+
+  /**
+   * Regression for issue #23: a REST method that returns `null` inside a
+   * batch must surface as `null` from `AjaxResult.getData().result` —
+   * previously it was coerced to `{}` and broke nullable type guards.
+   *
+   * Whether `im.chat.get` returns `null` vs an error depends on the portal
+   * (validation rules differ between versions/permissions). This test
+   * tolerates either outcome and only enforces the invariant we own:
+   * the SDK MUST NOT fabricate `{}` for absent data.
+   */
+  it('preserves null result for im.chat.get @apiV2 @issue-23', async () => {
+    const b24 = getB24Client()
+
+    const batchCalls: BatchNamedCommandsUniversal = {
+      chatGet: {
+        method: 'im.chat.get',
+        params: {
+          ENTITY_TYPE: 'NONEXISTENT_ENTITY_TYPE_FOR_TEST',
+          ENTITY_ID: 'NONEXISTENT_ENTITY_ID_FOR_TEST'
+        }
+      }
+    }
+
+    const method = 'callBatchNullResult'
+    const requestId = `test@apiV2/${method}`
+    const options = { isHaltOnError: false, returnAjaxResult: true, requestId }
+
+    const response = await b24.actions.v2.batch.make<{ ID: number } | null>({
+      calls: batchCalls,
+      options
+    })
+
+    const resultData = (response as unknown as Result<Record<string, AjaxResult<{ ID: number } | null>>>).getData()!
+    const chatGetRow = resultData.chatGet
+
+    expect(chatGetRow).toBeInstanceOf(AjaxResult)
+
+    if (chatGetRow.isSuccess) {
+      // Portal accepted the call and the method returned null — exactly the
+      // issue #23 path. The SDK MUST forward null, never {}.
+      expect(chatGetRow.getData()!.result).toBeNull()
+    } else {
+      // Portal rejected the bogus params with an error. The null-passthrough
+      // path can't be exercised on this portal; the unit spec
+      // (test/integration/core/batch-null-result.unit.spec.ts) covers it
+      // deterministically.
+      expect(chatGetRow.getErrorMessages().length).toBeGreaterThan(0)
+    }
   })
 })

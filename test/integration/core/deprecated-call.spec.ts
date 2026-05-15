@@ -14,8 +14,8 @@ describe('core.deprecated @apiV2', () => {
     const response = await b24.callMethod(method, params)
 
     expect(response.isSuccess).toBe(true)
-    const result = response.getData().result
-    const time = response.getData().time
+    const result = response.getData()!.result
+    const time = response.getData()!.time
     expect(result).toBeDefined()
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
@@ -30,16 +30,16 @@ describe('core.deprecated @apiV2', () => {
       id: getMapId().taskSuccess,
       select: ['ID', 'TITLE']
     }
-    const response = await b24.callMethod(method, params)
+    const response = await b24.callMethod(method, params) as AjaxResult<{ task: { id: number, title: string } }>
 
     expect(response.isSuccess).toBe(true)
 
-    const result = response.getData().result
+    const result = response.getData()!.result
     expect(result.task).toBeDefined()
     expect(result.task).toHaveProperty('id')
     expect(result.task).toHaveProperty('title')
 
-    const time = response.getData().time
+    const time = response.getData()!.time
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
     expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -53,24 +53,25 @@ describe('core.deprecated @apiV2', () => {
       entityTypeId: EnumCrmEntityTypeId.company,
       filter: { '>id': getMapId().crmCompanySuccessMin },
       select: ['id'],
-      start: undefined
+      start: undefined as number | undefined
     }
+    type ListResp = AjaxResult<{ items: { id: string }[] }>
 
     const listPagination: number[] = []
-    const responsePage11 = await b24.callMethod(method, params, 0)
+    const responsePage11 = await b24.callMethod(method, params, 0) as ListResp
     expect(responsePage11.isSuccess).toBe(true)
 
-    const result11 = responsePage11.getData().result
+    const result11 = responsePage11.getData()!.result
     expect(result11.items).toBeDefined()
     expect(result11.items.length).toBeGreaterThan(2)
     for (const row of result11.items) {
       listPagination.push(Number.parseInt(row.id))
     }
 
-    const responsePage12 = await b24.callMethod(method, params, 50)
+    const responsePage12 = await b24.callMethod(method, params, 50) as ListResp
     expect(responsePage12.isSuccess).toBe(true)
 
-    const result12 = responsePage12.getData().result
+    const result12 = responsePage12.getData()!.result
     expect(result12.items).toBeDefined()
     expect(result12.items.length).toBeGreaterThan(2)
     for (const row of result12.items.slice(0, 2)) {
@@ -78,10 +79,10 @@ describe('core.deprecated @apiV2', () => {
     }
 
     params.start = 0
-    const responsePage21 = await b24.callMethod(method, params, 100)
+    const responsePage21 = await b24.callMethod(method, params, 100) as ListResp
     expect(responsePage21.isSuccess).toBe(true)
 
-    const result21 = responsePage21.getData().result
+    const result21 = responsePage21.getData()!.result
     expect(result21.items).toBeDefined()
     expect(result21.items.length).toBeGreaterThan(2)
     for (const row of result21.items.slice(0, 2)) {
@@ -89,10 +90,10 @@ describe('core.deprecated @apiV2', () => {
     }
 
     params.start = 50
-    const responsePage22 = await b24.callMethod(method, params, 150)
+    const responsePage22 = await b24.callMethod(method, params, 150) as ListResp
     expect(responsePage22.isSuccess).toBe(true)
 
-    const result22 = responsePage22.getData().result
+    const result22 = responsePage22.getData()!.result
     expect(result22.items).toBeDefined()
     expect(result22.items.length).toBeGreaterThan(2)
     for (const row of result22.items.slice(0, 2)) {
@@ -117,10 +118,10 @@ describe('core.deprecated @apiV2', () => {
       params,
       null,
       'items'
-    )
+    ) as Result<{ id: string, title: string }[]>
     expect(response.isSuccess).toBe(true)
 
-    const result = response.getData()
+    const result = response.getData()!
     expect(result.length).toBeGreaterThan(50)
   })
 
@@ -181,12 +182,12 @@ describe('core.deprecated @apiV2', () => {
 
     expect(response.isSuccess).toBe(true)
 
-    const resultData = (response as Result<Record<string, AjaxResult<any>>>).getData()
+    const resultData = (response as unknown as Result<Record<string, AjaxResult<any>>>).getData()!
     // Company
     {
       expect(resultData.Company).toBeInstanceOf(AjaxResult)
       expect(resultData.Company.isSuccess).toBe(true)
-      const rowData = resultData.Company.getData()
+      const rowData = resultData.Company.getData()!
       expect(rowData.result).toHaveProperty('item')
       expect(rowData.result.item.id).toBe(getMapId().crmCompanySuccessMin)
       const time = rowData.time
@@ -198,7 +199,7 @@ describe('core.deprecated @apiV2', () => {
     {
       expect(resultData.Contact).toBeInstanceOf(AjaxResult)
       expect(resultData.Contact.isSuccess).toBe(true)
-      const rowData = resultData.Contact.getData()
+      const rowData = resultData.Contact.getData()!
       expect(rowData.result).toHaveProperty('item')
       expect(rowData.result.item.id).toBe(getMapId().crmContactSuccessMin)
       const time = rowData.time
@@ -220,11 +221,11 @@ describe('core.deprecated @apiV2', () => {
     const response = await b24.callBatchByChunk(
       batchCalls,
       isHaltOnError
-    )
+    ) as Result<{ item: { id: string } }[]>
 
     expect(response.isSuccess).toBe(true)
     const list: number[] = []
-    const resultData = response.getData()
+    const resultData = response.getData()!
     for (const row of resultData) {
       list.push(Number.parseInt(row.item.id))
     }

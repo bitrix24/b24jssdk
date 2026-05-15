@@ -1,6 +1,5 @@
 import type { BatchCommandV3, ICallBatchResult } from '../../../../../types/http'
 import type { IProcessingStrategy, ResponseHelper, ResultItems } from '../interface-strategy'
-import type { BatchResponseData } from '../../abstract-interaction-batch'
 import { AbstractProcessing } from '../interface-strategy'
 import { SdkError } from '../../../../sdk-error'
 import { AjaxResult } from '../../../../http/ajax-result'
@@ -27,11 +26,10 @@ export abstract class AbstractProcessingV3 extends AbstractProcessing implements
     const results: ResultItems<T> = new Map()
 
     /**
-     * In API V3, batch processing does not return data for each row in case of parallel processing errors.
-     *
-     * @see AbstractProcessingV3.handleResults()
-     *
-     * @todo ! api ver3 waite docs - this fake
+     * In `restApi:v3`, batch is all-or-nothing: per-command errors are not
+     * returned, and if any command fails the whole batch fails. In that case
+     * we skip per-item parsing — the top-level error is surfaced by
+     * {@link AbstractProcessingV3.handleResults}.
      */
     if (!responseHelper.response.isSuccess) {
       return results
@@ -51,7 +49,12 @@ export abstract class AbstractProcessingV3 extends AbstractProcessing implements
   }
 
   /**
-   * @todo ! api ver3 waite docs
+   * In `restApi:v3`, `response.getData().result` is the array/record of per-command
+   * results directly (no `result_error`/`result_time`/`result_total`/`result_next`
+   * split as in v2). Per-command errors do not exist in this format.
+   *
+   * The per-command `result` value is forwarded as-is, including `null` when the
+   * underlying REST method returns `null` (see issue #23).
    */
   protected override async _processResponseItem<T>(
     command: BatchCommandV3,
@@ -59,28 +62,31 @@ export abstract class AbstractProcessingV3 extends AbstractProcessing implements
     responseHelper: ResponseHelper<T>,
     results: Map<string | number, AjaxResult<T>>
   ): Promise<void> {
-    const responseResult = responseHelper.response.getData()!.result as unknown as BatchResponseData<T>
-    const resultData = this._getBatchResultByIndex((responseResult as T[] | Record<string | number, T> | undefined), index)
-    const methodName = command.method
+    const responseResult = responseHelper.response.getData()!.result as unknown as
+      T[] | Record<string | number, T> | undefined
+    const resultData = this._getBatchResultByIndex(responseResult, index)
+
+    if (typeof resultData === 'undefined') {
+      throw new SdkError({
+        code: 'JSSDK_INTERACTION_BATCH_STRATEGY_V3_EMPTY_COMMAND_RESPONSE',
+        description: `There were difficulties parsing the response for batch { index: ${index}, method: ${command.method} }`,
+        status: 500
+      })
+    }
 
     /**
-     * @todo ! api ver3 waite docs - this fake
-     */
-    const resultError = undefined
-
-    /**
-     * @todo ! api ver3 waite docs - this fake
+     * `time` on the v3 response is the batch-level time, not per-command.
+     * We forward it to AjaxResult so callers can still inspect it, but we do
+     * not feed it into `restrictionManager.updateStats(batch::<method>, …)`
+     * — attributing the whole-batch duration to every method would distort
+     * the rate-limiter stats.
      */
     const resultTime = responseHelper.response.getData()!.time
-    // Update operating statistics for each method in the batch
-    if (typeof resultTime !== 'undefined') {
-      await responseHelper.restrictionManager.updateStats(responseHelper.requestId, `batch::${methodName}`, resultTime)
-    }
 
     const result = new AjaxResult<T>({
       answer: {
-        result: (resultData ?? {}) as T,
-        error: resultError,
+        result: resultData as T,
+        error: undefined,
         time: resultTime
       },
       query: {
@@ -101,11 +107,10 @@ export abstract class AbstractProcessingV3 extends AbstractProcessing implements
     const result = new Result<ICallBatchResult<T>>()
     const dataResult: ResultItems<T> = new Map()
     /**
-     * In API V3, batch processing does not return data for each row in case of parallel processing errors.
+     * v3 batch is all-or-nothing — on failure the response carries one or more
+     * top-level errors and no per-row data.
      *
      * @see AbstractProcessingV3.prepareItems()
-     *
-     * @todo ! api ver3 waite docs - this fake
      */
     if (!responseHelper.response.isSuccess) {
       for (const [index, error] of responseHelper.response.errors) {

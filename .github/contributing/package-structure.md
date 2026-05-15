@@ -9,7 +9,7 @@ Source files live in `packages/jssdk/src/` and are grouped by responsibility, no
 | Directory | Owns |
 |-----------|------|
 | `src/core/` | `AbstractB24`, `Result`, `SdkError`, request-id generation, version manager |
-| `src/core/actions/` | Public action surface reached via `b24.actions.vX.<name>.make({ ... })` — `call`, `batch`, `batch-by-chunk`, `call-list`, `fetch-list` (split into `v2/` and `v3/`) |
+| `src/core/actions/` | Public action surface, split into `v2/` and `v3/`. File names are kebab-case (`call.ts`, `batch.ts`, `batch-by-chunk.ts`, `call-list.ts`, `fetch-list.ts`); API names are camelCase (`b24.actions.vX.call.make`, `…batch.make`, `…batchByChunk.make`, `…callList.make`, `…fetchList.make`) |
 | `src/core/http/` | `Http` transports (`v2.ts`, `v3.ts`), `AjaxResult`, `AjaxError`, `abstract-http.ts` |
 | `src/core/http/limiters/` | `RateLimiter`, `OperatingLimiter`, `AdaptiveDelayer`, `ParamsFactory` |
 | `src/frame/` | `B24Frame` and iframe-only managers (`auth`, `parent`, `slider`, `dialog`, `placement`, `options`) |

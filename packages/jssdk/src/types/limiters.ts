@@ -117,6 +117,33 @@ export interface RestrictionParams {
    * ```
    */
   retryOnNetworkError?: boolean
+  /**
+   * Additional error codes that must be thrown as exceptions immediately,
+   * without any retry. Merged with the SDK's built-in hard list — you can
+   * only **add** codes, not remove built-ins (auth / fatal codes are always hard).
+   *
+   * Use this for business-specific or custom REST methods whose error codes
+   * the SDK doesn't know about (otherwise the SDK treats unknown codes as
+   * transient and retries them with backoff).
+   *
+   * @example
+   * ```ts
+   * await $b24.setRestrictionManagerParams({
+   *   ...ParamsFactory.getDefault(),
+   *   hardErrorCodes: ['DOCUMENT_GENERATOR_ALREADY_IN_QUEUE', 'MY_APP_BAD_PAYLOAD']
+   * })
+   * ```
+   */
+  hardErrorCodes?: string[]
+  /**
+   * Additional error codes that should be returned inside `AjaxResult` as a
+   * soft error instead of thrown. Merged with the SDK's built-in soft list.
+   *
+   * Use this when your application expects to inspect a specific REST error
+   * code as part of normal control flow (e.g. validation errors from a
+   * custom v3 endpoint).
+   */
+  softErrorCodes?: string[]
 }
 
 /**

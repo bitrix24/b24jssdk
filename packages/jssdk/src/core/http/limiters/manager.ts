@@ -191,52 +191,82 @@ export class RestrictionManager {
   }
 
   /**
-   * These exceptions will be thrown
+   * Built-in hard error codes (always throw, never retry).
    *
-   * When `retryOnNetworkError` is `false`, transport-level errors
-   * (`NETWORK_ERROR`, `REQUEST_TIMEOUT`) are added so non-idempotent calls
-   * are not retried after a client-side timeout / connection failure.
+   * Includes authorization and fatal codes that must never be silently retried.
+   * Use `RestrictionParams.hardErrorCodes` to extend this list with custom codes.
+   */
+  static readonly BUILT_IN_HARD_ERROR_CODES: readonly string[] = [
+    'ERR_BAD_REQUEST',
+    'JSSDK_UNKNOWN_ERROR',
+    '100',
+    'INTERNAL_SERVER_ERROR', 'ERROR_UNEXPECTED_ANSWER', 'PORTAL_DELETED',
+    'ERROR_BATCH_METHOD_NOT_ALLOWED', 'ERROR_BATCH_LENGTH_EXCEEDED',
+    'NO_AUTH_FOUND',
+    'INVALID_REQUEST',
+    'OVERLOAD_LIMIT', 'expired_token',
+    'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
+    'ERROR_MANIFEST_IS_NOT_AVAILABLE',
+    'allowed_only_intranet_user',
+    'NOT_FOUND',
+    'INVALID_ARG_VALUE'
+  ]
+
+  /**
+   * Built-in soft error codes (returned as `AjaxResult` with error, never thrown).
+   *
+   * Use `RestrictionParams.softErrorCodes` to extend this list with custom codes.
+   */
+  static readonly BUILT_IN_SOFT_ERROR_CODES: readonly string[] = [
+    'ERROR_ENTITY_NOT_FOUND',
+    'BITRIX_REST_V3_EXCEPTION_ACCESSDENIEDEXCEPTION',
+    'BITRIX_REST_V3_EXCEPTION_INVALIDJSONEXCEPTION',
+    'BITRIX_REST_V3_EXCEPTION_INVALIDFILTEREXCEPTION',
+    'BITRIX_REST_V3_EXCEPTION_INVALIDSELECTEXCEPTION',
+    'BITRIX_REST_V3_EXCEPTION_ENTITYNOTFOUNDEXCEPTION',
+    'BITRIX_REST_V3_EXCEPTION_METHODNOTFOUNDEXCEPTION',
+    'BITRIX_REST_V3_EXCEPTION_UNKNOWNDTOPROPERTYEXCEPTION',
+    'BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION',
+    'BITRIX_REST_V3_EXCEPTION_VALIDATION_DTOVALIDATIONEXCEPTION'
+  ]
+
+  /**
+   * Codes that cause the SDK to throw immediately.
+   *
+   * Composed of:
+   * - `BUILT_IN_HARD_ERROR_CODES` (always included)
+   * - `NETWORK_ERROR` and `REQUEST_TIMEOUT` when `retryOnNetworkError === false`
+   * - `RestrictionParams.hardErrorCodes` (user-provided extensions)
    */
   get exceptionCodeForHard(): string[] {
-    const codes = [
-      'ERR_BAD_REQUEST',
-      'JSSDK_UNKNOWN_ERROR',
-      '100',
-      'INTERNAL_SERVER_ERROR', 'ERROR_UNEXPECTED_ANSWER', 'PORTAL_DELETED',
-      'ERROR_BATCH_METHOD_NOT_ALLOWED', 'ERROR_BATCH_LENGTH_EXCEEDED',
-      'NO_AUTH_FOUND',
-      'INVALID_REQUEST',
-      'OVERLOAD_LIMIT', 'expired_token',
-      'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
-      'ERROR_MANIFEST_IS_NOT_AVAILABLE',
-      'allowed_only_intranet_user',
-      'NOT_FOUND',
-      'INVALID_ARG_VALUE'
-    ]
+    const codes = [...RestrictionManager.BUILT_IN_HARD_ERROR_CODES]
 
     if (this.#config.retryOnNetworkError === false) {
       codes.push('NETWORK_ERROR', 'REQUEST_TIMEOUT')
+    }
+
+    if (this.#config.hardErrorCodes && this.#config.hardErrorCodes.length > 0) {
+      codes.push(...this.#config.hardErrorCodes)
     }
 
     return codes
   }
 
   /**
-   * These exceptions will be thrown into `AjaxResult` as `AjaxError`
+   * Codes returned as `AjaxResult` with an `AjaxError` payload instead of thrown.
+   *
+   * Composed of:
+   * - `BUILT_IN_SOFT_ERROR_CODES` (always included)
+   * - `RestrictionParams.softErrorCodes` (user-provided extensions)
    */
   get exceptionCodeForSoft(): string[] {
-    return [
-      'ERROR_ENTITY_NOT_FOUND',
-      'BITRIX_REST_V3_EXCEPTION_ACCESSDENIEDEXCEPTION',
-      'BITRIX_REST_V3_EXCEPTION_INVALIDJSONEXCEPTION',
-      'BITRIX_REST_V3_EXCEPTION_INVALIDFILTEREXCEPTION',
-      'BITRIX_REST_V3_EXCEPTION_INVALIDSELECTEXCEPTION',
-      'BITRIX_REST_V3_EXCEPTION_ENTITYNOTFOUNDEXCEPTION',
-      'BITRIX_REST_V3_EXCEPTION_METHODNOTFOUNDEXCEPTION',
-      'BITRIX_REST_V3_EXCEPTION_UNKNOWNDTOPROPERTYEXCEPTION',
-      'BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION',
-      'BITRIX_REST_V3_EXCEPTION_VALIDATION_DTOVALIDATIONEXCEPTION'
-    ]
+    const codes = [...RestrictionManager.BUILT_IN_SOFT_ERROR_CODES]
+
+    if (this.#config.softErrorCodes && this.#config.softErrorCodes.length > 0) {
+      codes.push(...this.#config.softErrorCodes)
+    }
+
+    return codes
   }
 
   /**

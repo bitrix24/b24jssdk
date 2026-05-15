@@ -49,7 +49,8 @@ const SECRET: B24OAuthSecret = {
 
 const STORE_FILE = path.join(process.cwd(), '.oauth-store.json')
 
-type StoredCredentials = B24OAuthParams & { applicationToken: string }
+// B24OAuthParams already carries applicationToken; aliasing for clarity at storage boundary.
+type StoredCredentials = B24OAuthParams
 
 async function loadStore(): Promise<Record<string, StoredCredentials>> {
   try {
@@ -139,9 +140,11 @@ function toOAuthParams(auth: InstallEventPayload['auth']): B24OAuthParams {
 
 async function handleInstall(req: Request, res: Response) {
   const payload = req.body as InstallEventPayload
+  // Always 200 — even on bad payloads — so Bitrix24 doesn't retry for 24h.
+  res.status(200).send('ok')
+
   if (!payload?.auth?.member_id) {
     logger.warn('install event missing auth.member_id')
-    res.status(200).send('ok') // always 200 — Bitrix24 retries 24h on non-2xx
     return
   }
 
@@ -152,7 +155,6 @@ async function handleInstall(req: Request, res: Response) {
   })
 
   logger.info(`[${payload.event}] member=${params.memberId}, domain=${params.domain}, user=${params.userId}`)
-  res.status(200).send('ok')
 }
 
 async function handleUninstall(req: Request, res: Response) {

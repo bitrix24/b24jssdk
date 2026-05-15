@@ -117,6 +117,10 @@ async function main() {
     else throw e
   }
 
+  // `getFile($b24, '<id>')` is exported for reference (single-file inspection).
+  // Uncomment to demonstrate against a real file id you have access to.
+  void getFile
+
   // One round-trip: storages + root children
   const batch = await $b24.actions.v2.batch.make<Storage[] | DiskItem[]>({
     calls: {

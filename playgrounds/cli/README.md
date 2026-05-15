@@ -271,42 +271,6 @@ pnpm run dev make deals --total=50 --categoryId=3 --maxProducts=5 --assignedById
 pnpm run dev make deals --total=150
 ```
 
-## Verification Scripts
-
-Scripts under `src/verify/` are one-shot checks for SDK behaviour. They are not
-wired into the citty command tree — run them directly with `tsx`.
-
-### `verify-custom-codes.ts` — `hardErrorCodes` / `softErrorCodes`
-
-Does **not** need a real Bitrix24 portal. It installs an axios interceptor that
-fakes a custom REST error and asserts the SDK reaction in three configurations:
-
-- default — SDK retries an unknown error code (the bug pattern from issue #24)
-- `hardErrorCodes` — SDK throws immediately, no retries
-- `softErrorCodes` — SDK returns an `AjaxResult` with the error, no throw
-
-```bash
-pnpm --filter @bitrix24/b24jssdk-cli exec tsx src/verify/verify-custom-codes.ts
-```
-
-Exit code 0 = all three behaviours match expectations.
-
-### `verify-issue-24.ts` — `retryOnNetworkError`
-
-**Requires a real test portal** with `documentgenerator` configured and a
-webhook that has the `crm` scope (for `crm.documentgenerator.document.add`).
-The script forces a client-side timeout against `crm.documentgenerator.document.add`,
-first with default retries and then with `retryOnNetworkError: false`, so you
-can confirm in the UI that the second run does not leave duplicate documents.
-
-```bash
-# .env must contain B24_HOOK
-pnpm --filter @bitrix24/b24jssdk-cli exec tsx src/verify/verify-issue-24.ts \
-  --templateId=<ID> --entityTypeId=2 --entityId=<DEAL_ID>
-```
-
-Use a sandbox portal — by design the first phase produces duplicate documents.
-
 ## Running from Different Directories
 
 ### From the monorepo root:

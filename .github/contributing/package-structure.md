@@ -9,7 +9,7 @@ Source files live in `packages/jssdk/src/` and are grouped by responsibility, no
 | Directory | Owns |
 |-----------|------|
 | `src/core/` | `AbstractB24`, `Result`, `SdkError`, request-id generation, version manager |
-| `src/core/actions/` | `callMethod` / `callBatch` / `callList*` / `fetchList*` (split into `v2/` and `v3/`) |
+| `src/core/actions/` | Public action surface reached via `b24.actions.vX.<name>.make({ ... })` — `call`, `batch`, `batch-by-chunk`, `call-list`, `fetch-list` (split into `v2/` and `v3/`) |
 | `src/core/http/` | `Http` transports (`v2.ts`, `v3.ts`), `AjaxResult`, `AjaxError`, `abstract-http.ts` |
 | `src/core/http/limiters/` | `RateLimiter`, `OperatingLimiter`, `AdaptiveDelayer`, `ParamsFactory` |
 | `src/frame/` | `B24Frame` and iframe-only managers (`auth`, `parent`, `slider`, `dialog`, `placement`, `options`) |
@@ -26,38 +26,59 @@ File naming is `kebab-case.ts`. Class names inside are `PascalCase`. One primary
 
 ## Standard Module Template
 
-A typical SDK module — a manager, a helper, or a transport — looks like this:
+A typical helper-style manager (the dominant shape in `src/helper/` and `src/frame/`) takes the b24 instance and configures its logger through a setter. The shape is enforced by [packages/jssdk/src/helper/helper-manager.ts](../../packages/jssdk/src/helper/helper-manager.ts) — use it as the reference.
 
 ```ts
 // 1. Type imports first (always separate)
-import type { LoggerBrowser } from '../logger/logger-browser'
-import type { Http } from '../core/http/abstract-http'
-import type { TypeMyPayload } from '../types/payloads'
+import type { LoggerInterface } from '../logger'
+import type { TypeB24 } from '../types/b24'
 
 // 2. Value imports
-import { Result } from '../core/result'
+import { LoggerFactory } from '../logger'
 import { SdkError } from '../core/sdk-error'
-import { LoggerFactory } from '../logger/logger-factory'
 
 // 3. Class — one primary export per file, named export
 export class MyManager {
-  // 4. Dependencies passed in via constructor; logger is always optional
-  constructor(
-    private readonly http: Http,
-    private readonly logger: LoggerBrowser = LoggerFactory.null()
-  ) {}
+  private readonly _b24: TypeB24
+  private _logger: LoggerInterface
 
-  // 5. Public methods return Result / AjaxResult — never raw transport responses
-  async fetch(id: number): Promise<Result> {
+  // 4. Manager takes the b24 instance, not a raw transport.
+  //    Logger starts as a null logger and is replaced via setLogger().
+  constructor(b24: TypeB24) {
+    this._b24 = b24
+    this._logger = LoggerFactory.createNullLogger()
+  }
+
+  setLogger(logger: LoggerInterface): void {
+    this._logger = logger
+  }
+
+  getLogger(): LoggerInterface {
+    return this._logger
+  }
+
+  // 5. Public methods go through the action surface and return Result / AjaxResult.
+  async fetch(id: number) {
     if (id <= 0) {
-      // 6. Use SdkError for invariant violations, AjaxError surfaces via Result
-      throw new SdkError('MyManager.fetch: id must be positive')
+      // 6. Use SdkError for invariant violations, AjaxError surfaces via Result.
+      //    SdkError takes an object — see packages/jssdk/src/core/sdk-error.ts.
+      throw new SdkError({
+        code: 'MY_MANAGER_BAD_ID',
+        description: 'MyManager.fetch: id must be positive',
+        status: 400
+      })
     }
 
-    return this.http.callMethod('my.entity.get', { id })
+    return this._b24.actions.v3.call.make<{ item: { id: number } }>({
+      method: 'my.entity.get',
+      params: { id },
+      requestId: 'my-manager/fetch'
+    })
   }
 }
 ```
+
+For transport-layer actions (under `src/core/actions/v2/` and `v3/`) extend `AbstractAction` (`packages/jssdk/src/core/actions/abstract-action.ts`) instead — see [packages/jssdk/src/core/actions/v3/call.ts](../../packages/jssdk/src/core/actions/v3/call.ts) for the canonical example.
 
 ## Adding to the Public Surface
 
@@ -79,40 +100,28 @@ The four canonical classes inherit from a single abstract base. When extending, 
 
 ```
 AbstractB24                       packages/jssdk/src/core/abstract-b24.ts
-├── B24Frame                      packages/jssdk/src/frame/b24-frame.ts
-├── B24Hook                       packages/jssdk/src/hook/b24-hook.ts
-└── B24OAuth                      packages/jssdk/src/oauth/b24-oauth.ts
+├── B24Frame                      packages/jssdk/src/frame/b24.ts
+├── B24Hook                       packages/jssdk/src/hook/b24.ts
+└── B24OAuth                      packages/jssdk/src/oauth/b24.ts
 ```
 
 `AbstractB24` already owns:
 
-- `callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`,
-- the v2 + v3 HTTP clients,
+- the public `actions.vX.<name>` surface (`call`, `batch`, `batchByChunk`, `callList`, `fetchList` for both v2 and v3),
+- the v2 + v3 HTTP clients, reachable via `getHttpClient(version)`,
 - the limiter stack,
-- the logger,
-- helper sub-managers (`actions`, `tools`).
+- the logger (replaced via `setLogger(logger)`),
+- the legacy shortcuts `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` / `callBatchByChunk`, all marked `@deprecated` and slated for removal in v2.0.0 — do not call them from new code.
 
 If a new feature is auth-agnostic, put it on `AbstractB24`. Only specialise on a subclass when it requires iframe `postMessage`, webhook URL parsing, or OAuth refresh-token handling.
 
 ## Manager Modules
 
-Helper-style managers (under `src/helper/`, iframe managers under `src/frame/`) follow a consistent shape:
+Helper-style managers (under `src/helper/`, iframe managers under `src/frame/`) follow the [Standard Module Template](#standard-module-template) shape:
 
-```ts
-export class FooManager {
-  constructor(
-    private readonly http: Http,
-    private readonly logger: LoggerBrowser = LoggerFactory.null()
-  ) {}
-
-  async load(): Promise<this> { /* eager init, returns this for chaining */ }
-
-  // Domain methods return Result/AjaxResult or domain DTOs derived from them
-}
-```
-
-- Construction takes a transport + optional logger. No global state.
-- `load()` is the convention for one-shot eager initialisation; subsequent calls are no-ops or throw `SdkError`.
+- Constructor takes `b24: TypeB24`. No raw http injection, no module-level singletons.
+- Logger starts as `LoggerFactory.createNullLogger()` and is swapped via `setLogger(logger: LoggerInterface)`. Sub-managers held inside a manager get the logger forwarded in `setLogger()` — see [packages/jssdk/src/helper/helper-manager.ts](../../packages/jssdk/src/helper/helper-manager.ts) for the canonical fan-out.
+- `loadData()` / `load()` is the convention for one-shot eager initialisation; subsequent calls are no-ops or throw `SdkError`.
 - Lifecycle managers expose `destroy()` if they hold subscriptions (e.g. Pull).
 
 The composable [`useB24Helper()`](../../packages/jssdk/src/helper/use-b24-helper.ts) is a closure-based composable — it wires init/destroy and Pull subscription. New cross-cutting helpers should plug into it rather than introducing parallel lifecycle code.
@@ -146,9 +155,9 @@ Internal-only helpers go to `src/core/tools/`. Do not export those from `index.t
 
 ## Logger
 
-- Every module that emits diagnostic output accepts an optional `LoggerBrowser` and defaults to `LoggerFactory.null()`.
-- `AbstractB24` defaults to a null logger — passing a real logger is the caller's choice.
-- Build new loggers via `LoggerBrowser.build(name, isDev)`. The `name` becomes the prefix in console output.
+- Every module that emits diagnostic output holds a `LoggerInterface` (imported from `../logger`) and starts with `LoggerFactory.createNullLogger()`.
+- The active logger is swapped in through a `setLogger(logger)` method, not via the constructor. `AbstractB24` and `B24HelperManager` follow this shape — copy it.
+- A real logger is created with `LoggerBrowser.build(name, isDev)` (from `packages/jssdk/src/logger/browser.ts`); the `name` becomes the prefix in console output. Callers pass it to `b24.setLogger(...)`.
 
 ## Build Tokens
 
@@ -164,9 +173,10 @@ Use the placeholders directly — never read `package.json` at runtime, never ha
 | Pattern | Usage |
 |---------|-------|
 | Named exports only | `export class Foo`, `export function bar` — no `export default` |
-| Constructor injection | Pass `Http` + `LoggerBrowser` — no module-level singletons |
+| Constructor takes `TypeB24` | Helper-style managers accept `b24: TypeB24` — no module-level singletons |
+| Logger via setter | `LoggerFactory.createNullLogger()` by default; replace via `setLogger(logger)` |
 | `Result` / `AjaxResult` | All transport / domain methods return these — never raw axios responses |
-| `SdkError` | Invariant violations and SDK-level errors |
+| `SdkError` | Invariant violations and SDK-level errors, constructed with `{ code, description, status }` |
 | `AjaxError` | HTTP-level errors, surfaced via `Result.getErrors()` |
 | `@deprecated` JSDoc | Mandatory for any public symbol being phased out |
 | Star re-exports | Allowed only in internal aggregators (e.g. `src/types/index.ts`) |

@@ -135,7 +135,10 @@ Source for the AuthActions surface used by `B24Frame`.
 import { B24Hook } from '@bitrix24/b24jssdk'
 
 const b24 = B24Hook.fromWebhookUrl('https://your-portal.bitrix24.com/rest/1/abc/')
-const result = await b24.callMethod('user.current')
+const result = await b24.actions.v3.call.make({
+  method: 'user.current',
+  requestId: 'docs/user.current'
+})
 console.log(result.getData().result)
 ```
 ::
@@ -163,7 +166,7 @@ The `links:` block in frontmatter is the canonical pointer from documentation to
 
 1. Find the matching docs page (or create one) under `docs/content/docs/`.
 2. Add an entry to `links:` for the new symbol pointing to `https://github.com/bitrix24/b24jssdk/blob/main/<path>`.
-3. If the page documents an action (`callMethod`, `callList*`, `fetchList*`, `callBatch*`), include `Result`, `AjaxResult`, `AjaxError`, and `SdkError` links so readers can navigate to the result/error types from any action page.
+3. If the page documents an action (`b24.actions.vX.call.make`, `callList.make`, `fetchList.make`, `batch.make`, `batchByChunk.make`), include `Result`, `AjaxResult`, `AjaxError`, and `SdkError` links so readers can navigate to the result/error types from any action page.
 
 ## Pairing Code, Tests, and Docs
 

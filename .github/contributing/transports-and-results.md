@@ -8,8 +8,11 @@ These are the SDK's "design tokens" — the cross-cutting types and policies tha
 packages/jssdk/src/core/
 ├── result.ts                            # Result<T> — uniform return type
 ├── sdk-error.ts                         # SdkError — invariant violations
+├── actions/                             # public action surface: b24.actions.vX.<name>.make()
+│   ├── v2/                              # call / batch / call-list / fetch-list (REST v2)
+│   └── v3/                              # same shape for REST v3
 └── http/
-    ├── abstract-http.ts                 # Http base — callMethod / callBatch / …
+    ├── abstract-http.ts                 # AbstractHttp implements TypeHttp
     ├── ajax-result.ts                   # AjaxResult — Result + paging
     ├── ajax-error.ts                    # AjaxError — HTTP-level errors
     ├── v2.ts                            # REST v2 transport
@@ -34,30 +37,42 @@ async function load(): Promise<Result> {
 }
 ```
 
-Callers consume it through a small, fixed surface:
+Callers consume it through the action surface (`b24.actions.vX.<action>.make({ ... })`):
 
 ```ts
-const result = await b24.callMethod('user.get', { ID: 1 })
+const result = await b24.actions.v3.call.make({
+  method: 'user.get',
+  params: { ID: 1 },
+  requestId: 'app/user.get'
+})
 
-if (result.getErrors().length > 0) {
-  // handle errors — see below
+if (!result.isSuccess) {
+  // result.getErrorMessages() / result.getErrors() — see below
 }
 
-const user = result.getData()
+const user = result.getData().result
 ```
 
-`AjaxResult` extends `Result` for transport calls and adds paging:
+`AjaxResult` extends `Result` for transport calls and adds paging — v2 only:
 
 ```ts
-const result = await b24.callListMethod('crm.deal.list', filter)
+import { ApiVersion } from '@bitrix24/b24jssdk'
+
+const result = await b24.actions.v2.callList.make({
+  method: 'crm.deal.list',
+  params: { filter, select: ['ID', 'TITLE'] },
+  requestId: 'app/crm.deal.list'
+})
 
 if (result.isMore()) {
-  const next = await result.getNext(b24.http) // continues the cursor
+  const next = await result.getNext(b24.getHttpClient(ApiVersion.v2)) // continues the cursor
 }
 ```
 
-- Pass the http client to `getNext()` — it preserves the same limiter stack.
+- Pass the http client (from `b24.getHttpClient(version)`) to `getNext()` — it preserves the same limiter stack.
 - Do **not** loop with raw `start` parameters; use `isMore()` + `getNext()`.
+- **v3 does not support `getNext()`** — it throws `restApi:v3 not support method getNext`. For v3 pagination use `b24.actions.v3.callList.make()` or `b24.actions.v3.fetchList.make()` instead.
+- The legacy shortcuts on `AbstractB24` (`b24.callMethod`, `callListMethod`, `fetchListMethod`, `callBatch`, `callBatchByChunk`) are `@deprecated` and emit a runtime warning. Do not use them in new code; they will be removed in v2.0.0.
 
 ## Error Types
 
@@ -69,13 +84,22 @@ Two error classes, two purposes:
 | `AjaxError` | HTTP / REST API errors (4xx, 5xx, malformed payloads) | Returned via `Result.getErrors()` |
 
 ```ts
-// SdkError — throw on guard failures inside the SDK
+// SdkError — throw on guard failures inside the SDK.
+// The constructor takes a SdkErrorDetails object, not a string.
 if (!url) {
-  throw new SdkError('B24Hook.fromWebhookUrl: url is required')
+  throw new SdkError({
+    code: 'B24_HOOK_URL_REQUIRED',
+    description: 'B24Hook.fromWebhookUrl: url is required',
+    status: 400
+  })
 }
 
-// AjaxError — never throw it manually; the transport layer constructs it
-const result = await http.callMethod('crm.lead.add', payload)
+// AjaxError — never throw it manually; the transport layer constructs it.
+const result = await b24.actions.v3.call.make({
+  method: 'crm.lead.add',
+  params: payload,
+  requestId: 'app/crm.lead.add'
+})
 const [err] = result.getErrors()
 if (err instanceof AjaxError) {
   // err.getCode(), err.getStatus(), err.getDescription()
@@ -91,7 +115,7 @@ Rules:
 
 ## HTTP Transports
 
-Two transports, one shared base. Both are owned by `AbstractB24` and exposed via `b24.http`.
+Two transports, one shared base. Both are owned by `AbstractB24` and accessed via `b24.getHttpClient(ApiVersion.v2)` / `b24.getHttpClient(ApiVersion.v3)`. There is **no `b24.http` field** — always go through `getHttpClient(version)` so the right transport / limiter stack is picked.
 
 | Transport | File | Endpoint shape |
 |-----------|------|----------------|
@@ -181,7 +205,7 @@ When adding a new field to `RestrictionParams`:
 
 ## Logger Discipline
 
-Every transport / limiter accepts a `LoggerBrowser` and defaults to `LoggerFactory.null()`.
+Every transport / limiter holds a `LoggerInterface` (the public abstraction from `packages/jssdk/src/logger/`). It is initialised to a null logger via `LoggerFactory.createNullLogger()` and replaced through a `setLogger(logger)` call — never injected via the constructor.
 
 - Use `logger.warn(...)` for things callers should know but that don't break flow (deprecated method, unexpected payload shape).
 - Use `logger.error(...)` only for unrecoverable transport-side failures.
@@ -191,13 +215,14 @@ Every transport / limiter accepts a `LoggerBrowser` and defaults to `LoggerFacto
 ## Adding a New Transport Action
 
 1. Pick the version directory (`src/core/actions/v2/` or `v3/`) that matches the REST method.
-2. Create a `kebab-case.ts` file. One primary export.
-3. Accept the `Http` instance (do not instantiate axios). Reuse the existing limiter stack.
+2. Create a `kebab-case.ts` file. Extend `AbstractAction` (`packages/jssdk/src/core/actions/abstract-action.ts`) and override `make(options)`.
+3. Use the action's existing `http` reference (don't instantiate axios). The limiter stack is wired in by the base class.
 4. Return a `Result` or `AjaxResult` — never a raw response.
-5. Surface HTTP errors via `Result.getErrors()`. Throw `SdkError` only for argument validation.
-6. Re-export from `packages/jssdk/src/index.ts` if it is part of the public API.
-7. Add an integration test under `test/integration/` that hits a real portal (no response mocks).
-8. Add or update the docs page that describes the action.
+5. Surface HTTP errors via `Result.getErrors()`. Throw `SdkError` (with `{ code, description, status }`) only for argument validation and method-support checks (see `packages/jssdk/src/core/actions/v3/call.ts` for the canonical example).
+6. Wire the action into `actions.vX.<name>` on `AbstractB24` so callers reach it via `b24.actions.vX.<name>.make({ ... })`.
+7. Re-export from `packages/jssdk/src/index.ts` if its types are public.
+8. Add an integration test under `test/integration/` that hits a real portal (no response mocks).
+9. Add or update the docs page that describes the action.
 
 ## Quick Reference
 
@@ -205,9 +230,11 @@ Every transport / limiter accepts a `LoggerBrowser` and defaults to `LoggerFacto
 |------|-----|
 | Return data from a domain method | `Result` |
 | Return data from a transport call | `AjaxResult` |
-| Iterate over a paged list | `result.isMore()` + `result.getNext(http)` |
-| Reject bad arguments | `throw new SdkError(...)` |
+| Iterate over a paged list (v2) | `result.isMore()` + `result.getNext(b24.getHttpClient(ApiVersion.v2))` |
+| Iterate over a paged list (v3) | `b24.actions.v3.callList.make(...)` / `b24.actions.v3.fetchList.make(...)` (no `getNext()` on v3) |
+| Reject bad arguments | `throw new SdkError({ code, description, status })` |
 | Inspect HTTP failures | `result.getErrors()` → `AjaxError` instances |
-| Issue an HTTP call | `b24.callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` / `callBatchByChunk` |
-| Tune limiter behaviour | `ParamsFactory.getX()` preset |
+| Issue an HTTP call | `b24.actions.v3.call.make({ method, params, requestId })` (or `actions.v2.…`) |
+| Get the http client | `b24.getHttpClient(ApiVersion.vX)` (no `b24.http` field) |
+| Tune limiter behaviour | `ParamsFactory.getX()` preset, layered with `RestrictionParams` overrides |
 | Get the SDK version at runtime | `__SDK_VERSION__` build token |

@@ -110,7 +110,7 @@ pnpm vitest run --project jsSdk:integration -t "<test name>"
 - **No default exports**: every export is named so consumers stay tree-shakeable (`sideEffects: false`).
 - **TypeScript strict**: `tsc` for the core SDK; `vue-tsc` for the Nuxt/docs/playground projects.
 - **Public contract**: exports from [packages/jssdk/src/index.ts](packages/jssdk/src/index.ts) are a public API. Any breaking change needs a deprecation cycle, not a silent rename.
-- **Cross-package awareness**: when you change the core SDK API, check whether [packages/jssdk-nuxt/src/runtime/plugin](packages/jssdk-nuxt/src/) needs an update.
+- **Cross-package awareness**: when you change the core SDK API, check whether [packages/jssdk-nuxt/src/runtime/plugin.ts](packages/jssdk-nuxt/src/runtime/plugin.ts) needs an update.
 - **Code formatting**: `@nuxt/eslint-config` (flat) with stylistic overrides — 2-space indent, no trailing commas, 1tbs braces. `.editorconfig` enforces LF + 2 spaces. The protobuf JS files in `packages/jssdk/src/pullClient` are eslint-ignored intentionally.
 - **Build tokens**: `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced at build time by [packages/jssdk/build.config.ts](packages/jssdk/build.config.ts). Do not hard-code versions.
 - **English only** in code, comments, and documentation pages.

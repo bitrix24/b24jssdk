@@ -2,10 +2,10 @@
  * Recipe 8 — AI assistant: GPT-driven follow-up tasks for CRM deals
  *
  * Given a deal id, the script:
- *   1. Loads the deal (crm.item.get)
- *   2. Loads the deal's activities/timeline (crm.activity.list)
+ *   1. Loads the deal (crm.item.get, v2)
+ *   2. Loads the deal's activities (crm.activity.list, v2)
  *   3. Sends a structured prompt to GPT-4o
- *   4. Creates a follow-up task (tasks.task.add) bound to the deal
+ *   4. Creates a follow-up task (tasks.task.add, v3) bound to the deal
  *
  * Install: pnpm add openai
  * Env:
@@ -17,7 +17,6 @@
 
 import {
   B24Hook,
-  EnumCrmEntityType,
   EnumCrmEntityTypeId,
   LoggerBrowser,
   type TypeB24
@@ -34,6 +33,25 @@ function bootB24(): TypeB24 {
   return $b24
 }
 
+interface DealItem {
+  id: number
+  title: string
+  stageId: string
+  opportunity: number
+  currencyId: string
+  createdTime: string
+  assignedById: number
+}
+
+interface ActivityItem {
+  ID: number
+  SUBJECT: string
+  DESCRIPTION: string
+  TYPE_ID: string
+  CREATED: string
+  COMPLETED: 'Y' | 'N'
+}
+
 interface Recommendation {
   analysis: string
   nextAction: string
@@ -43,32 +61,36 @@ interface Recommendation {
   deadlineDays: number
 }
 
-async function getDeal($b24: TypeB24, id: number) {
-  const res = await $b24.callMethod('crm.item.get', {
-    entityTypeId: EnumCrmEntityTypeId.deal,
-    id
-  })
-  return res.getData().result.item
-}
-
-async function getDealActivities($b24: TypeB24, dealId: number): Promise<any[]> {
-  // crm.activity.list — classic API, uppercase fields. OWNER_TYPE_ID=2 = deal.
-  const out: any[] = []
-  for await (const chunk of $b24.fetchListMethod(
-    'crm.activity.list',
-    {
-      filter: { OWNER_TYPE_ID: 2, OWNER_ID: dealId },
-      select: ['ID', 'SUBJECT', 'DESCRIPTION', 'TYPE_ID', 'CREATED', 'COMPLETED'],
-      order: { CREATED: 'DESC' }
+async function getDeal($b24: TypeB24, id: number): Promise<DealItem> {
+  const res = await $b24.actions.v2.call.make<{ item: DealItem }>({
+    method: 'crm.item.get',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.deal,
+      id
     },
-    'ID'
-  )) {
-    out.push(...chunk)
-  }
-  return out
+    requestId: `deal-${id}`
+  })
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return res.getData()!.result.item
 }
 
-async function analyse(openai: OpenAI, deal: any, activities: any[]): Promise<Recommendation> {
+async function getDealActivities($b24: TypeB24, dealId: number): Promise<ActivityItem[]> {
+  // crm.activity.list — classic API, uppercase fields. OWNER_TYPE_ID=2 = deal.
+  const res = await $b24.actions.v2.callList.make<ActivityItem>({
+    method: 'crm.activity.list',
+    params: {
+      filter: { OWNER_TYPE_ID: 2, OWNER_ID: dealId },
+      select: ['ID', 'SUBJECT', 'DESCRIPTION', 'TYPE_ID', 'CREATED', 'COMPLETED']
+    },
+    idKey: 'ID',                  // classic uppercase id
+    requestId: `activities-${dealId}`
+  })
+
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return res.getData() ?? []
+}
+
+async function analyse(openai: OpenAI, deal: DealItem, activities: ActivityItem[]): Promise<Recommendation> {
   const activitiesText = activities
     .map((a) => `- [${a.CREATED}] ${a.SUBJECT} (${a.COMPLETED === 'Y' ? 'done' : 'open'})`)
     .join('\n') || 'No activities yet'
@@ -104,28 +126,34 @@ Reply as JSON:
   return JSON.parse(completion.choices[0].message.content!) as Recommendation
 }
 
-async function createTask($b24: TypeB24, r: Recommendation, deal: any): Promise<number> {
+async function createTask($b24: TypeB24, r: Recommendation, deal: DealItem): Promise<number> {
   const deadline = new Date()
   deadline.setDate(deadline.getDate() + Math.max(1, r.deadlineDays))
   const priorityMap = { high: 2, medium: 1, low: 0 } as const
 
-  const res = await $b24.callMethod('tasks.task.add', {
-    fields: {
-      TITLE: `[AI] ${r.taskTitle}`,
-      DESCRIPTION: [
-        r.taskDescription,
-        '',
-        '---',
-        `AI analysis: ${r.analysis}`,
-        `Deal: ${deal.title} (ID: ${deal.id})`
-      ].join('\n'),
-      RESPONSIBLE_ID: Number(deal.assignedById ?? 1),
-      PRIORITY: priorityMap[r.priority],
-      DEADLINE: deadline.toISOString(),
-      UF_CRM_TASK: [`D_${deal.id}`]
-    }
+  // tasks.task.add is on the v3 whitelist.
+  const res = await $b24.actions.v3.call.make<{ task: { id: number } }>({
+    method: 'tasks.task.add',
+    params: {
+      fields: {
+        TITLE: `[AI] ${r.taskTitle}`,
+        DESCRIPTION: [
+          r.taskDescription,
+          '',
+          '---',
+          `AI analysis: ${r.analysis}`,
+          `Deal: ${deal.title} (ID: ${deal.id})`
+        ].join('\n'),
+        RESPONSIBLE_ID: Number(deal.assignedById ?? 1),
+        PRIORITY: priorityMap[r.priority],
+        DEADLINE: deadline.toISOString(),
+        UF_CRM_TASK: [`D_${deal.id}`]
+      }
+    },
+    requestId: `task-add-${deal.id}`
   })
-  return Number(res.getData().result.task.id)
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return Number(res.getData()!.result.task.id)
 }
 
 async function main() {

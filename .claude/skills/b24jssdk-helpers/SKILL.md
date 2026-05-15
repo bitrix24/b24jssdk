@@ -19,6 +19,7 @@ import {
 
 const {
   initB24Helper,
+  isInitB24Helper,
   destroyB24Helper,
   getB24Helper,
   usePullClient,
@@ -28,24 +29,30 @@ const {
 
 const $b24 = await initializeB24Frame()
 
-await initB24Helper($b24, [
-  LoadDataType.Profile,
-  LoadDataType.App,
-  LoadDataType.Currency,
-  LoadDataType.AppOptions,
-  LoadDataType.UserOptions
-])
+await initB24Helper(
+  $b24,
+  [
+    LoadDataType.Profile,
+    LoadDataType.App,
+    LoadDataType.Currency,
+    LoadDataType.AppOptions,
+    LoadDataType.UserOptions
+  ],
+  /* requestId */ 'app-boot'
+)
 
 const helper = getB24Helper()
 ```
 
-Pass only the `LoadDataType` flags you actually need — each adds a REST call. `Profile` and `App` are usually the minimum.
+Pass only the `LoadDataType` flags you actually need — `initB24Helper` issues a single batched REST call (`$b24.actions.v2.batch.make` internally) and each flag adds work to it. `Profile` and `App` (the defaults) are usually the minimum.
+
+`isInitB24Helper()` returns `true` once `initB24Helper` resolved — useful for guards.
 
 ## Reading helper data
 
 ```ts
 const me = helper.profileInfo.data
-// { id, name, lastName, isAdmin, ... }
+// { id, name, lastName, isAdmin, … }
 
 const app = helper.appInfo.data
 const status = helper.appInfo.statusCode  // EnumAppStatus
@@ -56,12 +63,14 @@ const payment = helper.payment
 const baseCurrency = helper.currency.baseCurrency
 ```
 
+Accessing `helper.profileInfo` before `initB24Helper` resolves throws `B24HelperManager.profileInfo not initialized`. Use `isInitB24Helper()` as a guard if the load is asynchronous w.r.t. your UI.
+
 ## Currency formatting
 
 ```ts
-const symbol = helper.currency.getCurrencyLiteral('USD', 'en')   // '$'
-const fullName = helper.currency.getCurrencyFullName('USD', 'en')// 'US Dollar'
-const formatted = helper.currency.format(1234.56, 'USD', 'en')   // '$1,234.56'
+const symbol  = helper.currency.getCurrencyLiteral('USD', 'en')   // '$'
+const full    = helper.currency.getCurrencyFullName('USD', 'en')  // 'US Dollar'
+const pretty  = helper.currency.format(1234.56, 'USD', 'en')      // '$1,234.56'
 ```
 
 `format` honours per-currency rules (decimal places, separators) loaded from the portal.
@@ -94,7 +103,7 @@ const flags = helper.appOptions.getJsonObject<{ exportCsv: boolean; beta: boolea
 ## Pull client (push events)
 
 ```ts
-usePullClient('appPrefix' /*, optional userId */)
+usePullClient()
 
 useSubscribePullClient((m: TypePullMessage) => {
   if (m.command === 'FEATURES_UPDATED') {
@@ -105,19 +114,9 @@ useSubscribePullClient((m: TypePullMessage) => {
 startPullClient()
 ```
 
-Subscribe before `startPullClient()` — the client connects after start.
+> Subscribe **before** `startPullClient()` — the client connects after start. `useSubscribePullClient` and `startPullClient` throw if `usePullClient` was not called first.
 
-To unsubscribe / shut down:
-
-```ts
-destroyB24Helper()
-```
-
-…which also tears the Pull client down.
-
-## Multiple subscriptions
-
-Call `useSubscribePullClient` once per moduleId you care about. Each call adds a listener:
+Multiple subscriptions on different `moduleId`s are supported — call `useSubscribePullClient` once per channel:
 
 ```ts
 useSubscribePullClient(handleAppEvent, 'application')
@@ -125,9 +124,15 @@ useSubscribePullClient(handleImEvent, 'im')
 useSubscribePullClient(handleCrmEvent, 'crm')
 ```
 
+To shut down (also tears the Pull client down):
+
+```ts
+destroyB24Helper()
+```
+
 ## Using helpers with B24Hook / B24OAuth
 
-`B24HelperManager` itself works with any `TypeB24`. `useB24Helper()` is designed around the in-frame composable lifecycle, but for backend code you can construct the manager directly:
+`B24HelperManager` itself works with any `TypeB24`. The composable is designed around the in-frame lifecycle, but for backend code you can construct the manager directly:
 
 ```ts
 import { B24HelperManager, LoadDataType } from '@bitrix24/b24jssdk'
@@ -137,11 +142,11 @@ await helper.loadData([LoadDataType.Profile, LoadDataType.Currency])
 const baseCurrency = helper.currency.baseCurrency
 ```
 
-Pull is only meaningful in an interactive context (frame). Don't `startPullClient()` from a CLI script.
+Pull is only meaningful in an interactive context. Don't `startPullClient()` from a CLI script.
 
 ## Anti-patterns
 
-- ❌ Calling `initB24Helper` twice — call `destroyB24Helper()` between hot reloads.
+- ❌ Calling `initB24Helper` twice without `destroyB24Helper` in between — the second call is a no-op (early-return on `$isInitB24Helper`), the data does NOT refresh.
 - ❌ `usePullClient` without `useSubscribePullClient` — connection runs but nothing handles messages.
-- ❌ Loading every `LoadDataType` "just in case" — every flag costs REST calls.
-- ❌ Reading `helper.profileInfo` before `initB24Helper` resolves.
+- ❌ Loading every `LoadDataType` "just in case" — every extra flag costs REST work in the batch.
+- ❌ Reading `helper.profileInfo.data` before `initB24Helper` resolves.

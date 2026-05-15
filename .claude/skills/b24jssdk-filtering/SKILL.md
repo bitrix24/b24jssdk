@@ -1,48 +1,140 @@
 ---
 name: b24jssdk-filtering
-description: Build filters, sorts, and selects for Bitrix24 *.list / *.get / *.search methods called via b24jssdk. Covers prefix operators (>=, <=, !, %, =%), NOT, dates, multi-value (IN), case sensitivity, sort syntax, and field-naming differences between v3 (crm.item.*) and classic methods. Load when building filtered queries.
+description: Build filter, order, and select parameters for Bitrix24 REST methods called via b24jssdk's actions.v{2,3}.* API. Covers the v2 prefix dialect (>=, <=, !, %, =%), the v3 array-triple dialect ([['field', 'op', value]]), NOT, multi-value (IN), dates via Text.toB24Format, and the order-stripping rule of callList. Load when building filtered queries.
 ---
 
 # b24jssdk filtering
 
-Bitrix24 REST has **one** filter style — operator as a **prefix on the field name** in the `filter` object. Forget the MongoDB-style `$gt/$lt/$ne` you may see in VibeCode docs; that is a VibeCode-only convention and is not what reaches Bitrix24.
+Bitrix24 has **two filter dialects**. They are not interchangeable — each API version accepts only its own. Pick the dialect that matches the action surface you're using.
 
-## Operator prefixes
+## v2 — prefix-keyed object
+
+Used by `$b24.actions.v2.{call,callList,fetchList}.make({ params: { filter: ... }})`. The operator is a prefix on the field name.
+
+```ts
+filter: {
+  '>=opportunity': 50000,
+  '<=opportunity': 200000,
+  '!stageId': 'LOST',
+  '=%title': 'A%'
+}
+```
+
+### v2 operators
 
 | Prefix | Meaning | Example |
 |---|---|---|
-| (none) | exact match | `{ STAGE_ID: 'NEW' }` |
-| `>=` | greater or equal | `{ '>=OPPORTUNITY': 50000 }` |
+| (none) | exact match | `{ stageId: 'NEW' }` |
+| `>=` | greater or equal | `{ '>=opportunity': 50000 }` |
 | `>`  | greater | `{ '>id': 100 }` |
-| `<=` | less or equal | `{ '<=OPPORTUNITY': 200000 }` |
+| `<=` | less or equal | `{ '<=opportunity': 200000 }` |
 | `<`  | less | `{ '<closeDate': '2026-01-01' }` |
-| `!`  | not equal | `{ '!STAGE_ID': 'LOST' }` |
-| `!=` | not equal (alternate) | `{ '!=STAGE_ID': 'LOST' }` |
-| `%`  | LIKE (substring, case-insensitive) | `{ '%TITLE': 'поставка' }` |
+| `!`  | not equal | `{ '!stageId': 'LOST' }` |
+| `!=` | not equal (alternate) | `{ '!=stageId': 'LOST' }` |
+| `%`  | LIKE (substring, case-insensitive) | `{ '%title': 'поставка' }` |
 | `=%` | LIKE with explicit pattern (`%`/`_`) | `{ '=%title': 'A%' }` |
-| `!%` | NOT LIKE | `{ '!%TITLE': 'тест' }` |
+| `!%` | NOT LIKE | `{ '!%title': 'тест' }` |
 
-> Multiple keys in the same `filter` object are combined with AND. Two operators on the same field need two separate keys: `{ '>=OPPORTUNITY': 50000, '<=OPPORTUNITY': 200000 }`.
+Multiple keys are combined with AND. Two operators on the same field need two separate keys: `{ '>=opportunity': 50000, '<=opportunity': 200000 }`.
 
-## IN / multi-value
+### v2 IN / multi-value
 
-Pass an array — Bitrix24 turns it into a SQL `IN`:
+Plain array means `IN`:
 
 ```ts
-{ filter: { STAGE_ID: ['NEW', 'PREPARATION', 'EXECUTING'] } }
+filter: { stageId: ['NEW', 'PREPARATION', 'EXECUTING'] }
 ```
 
 For "not in":
 
 ```ts
-{ filter: { '!STAGE_ID': ['LOST', 'WON'] } }
+filter: { '!stageId': ['LOST', 'WON'] }
 ```
 
-## Field-name conventions
+## v3 — array of triples
 
-The same logical field has **different names** in classic vs v3 methods:
+Used by `$b24.actions.v3.{call,callList,fetchList,aggregate}.make({ params: { filter: ... }})`. The filter is a JSON **array**, each element is a condition.
 
-| Logical | Classic (`crm.deal.list`, `crm.contact.list`) | v3 (`crm.item.list`) |
+```ts
+filter: [
+  ['stageId', '=', 'NEW'],
+  ['createdTime', '>=', '2026-01-01T00:00:00+03:00'],
+  ['responsible', 'in', [1, 2, 3]]
+]
+```
+
+### v3 operators — exhaustive list (only these 8)
+
+```
+=   !=   >   >=   <   <=   in   between
+```
+
+> **No `%`, `like`, `~`, or substring operator** at the v3 protocol level — `Filtering/Operator.php` does not define one. Substring search is currently a v2-only feature.
+
+`between` value must be a 2-element array: `[min, max]`.
+`in` value must be an array.
+
+### v3 condition forms
+
+The two-arg form is sugar:
+
+```ts
+['id', 42]            // same as ['id', '=', 42]
+['stageId', ['A', 'B']] // same as ['stageId', 'in', ['A', 'B']]
+```
+
+The long struct form supports nested groups with `or` logic and negation (rarely needed in user code):
+
+```ts
+filter: [
+  ['status', '=', 'OPEN'],
+  {
+    type: 'filter',
+    logic: 'or',
+    negative: false,
+    conditions: [
+      ['priority', '=', 'HIGH'],
+      ['responsible', '=', 42]
+    ]
+  }
+]
+```
+
+The top-level array is implicitly `logic: 'and'`.
+
+## `order` rule for callList / fetchList
+
+Both `actions.v{2,3}.callList.make` and `fetchList.make` **strip user-supplied `order`** and force `{ [idKey]: 'ASC' }` because the action uses keyset cursor pagination. If you pass an `order`, the SDK logs a warning (`callList.make: user-provided 'order' parameter is ignored…`) and discards it (see `packages/jssdk/src/core/actions/v2/call-list.ts:77-79` and the v3 equivalent).
+
+If you need a specific sort order, drop down to `call.make` and page manually — but you almost certainly want to filter more narrowly instead.
+
+## `order` for single `call.make`
+
+- **v2**: object with values `'asc' | 'desc' | 'ASC' | 'DESC'` — `order: { id: 'asc', amount: 'desc' }`.
+- **v3**: object form **only** (`{ field: 'asc' | 'desc' }`). Arrays throw `InvalidOrderException`. The DTO field must carry the server-side `#[Sortable]` attribute or you'll get `DtoFieldRequiredAttributeException` (see `.claude/bitrix24-rest-v3-reference.md:185-196`).
+
+## Dates
+
+Use the SDK helper `Text.toB24Format(date)` — it produces the Bitrix24 format `yyyy-MM-dd'T'HH:mm:ssZZ` and handles `Date | DateTime | string` inputs (per `packages/jssdk/src/tools/text.ts:213-226`).
+
+```ts
+import { Text } from '@bitrix24/b24jssdk'
+
+const sixMonthsAgo = new Date()
+sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+// v2
+filter: { '>=createdTime': Text.toB24Format(sixMonthsAgo) }
+
+// v3
+filter: [['createdTime', '>=', Text.toB24Format(sixMonthsAgo)]]
+```
+
+## Field naming — v2 (classic vs v3-style)
+
+The same logical field has different names depending on the method:
+
+| Logical | Classic methods (`crm.deal.list`, …) | v3-style methods (`crm.item.list`) |
 |---|---|---|
 | ID | `ID` | `id` |
 | Title | `TITLE` | `title` |
@@ -52,39 +144,9 @@ The same logical field has **different names** in classic vs v3 methods:
 | Created | `DATE_CREATE` | `createdTime` |
 | Modified | `DATE_MODIFY` | `updatedTime` |
 | Assigned to | `ASSIGNED_BY_ID` | `assignedById` |
-| Phone | `PHONE` (multi-value) | `phone` (multi-value) |
 | Custom field | `UF_CRM_INN` | `ufCrmInn` |
 
-**Use the same casing in `filter`, `select`, and `order`**. Mixing styles silently breaks paging.
-
-## Dates
-
-Bitrix24 accepts ISO 8601 strings everywhere:
-
-```ts
-{ filter: { '>=DATE_CREATE': '2026-01-01T00:00:00+03:00' } }
-{ filter: { '>=createdTime': '2026-04-01T00:00:00Z' } }
-```
-
-For "today onwards" prefer the SDK's `Text.toISOString` to keep timezone consistent:
-
-```ts
-import { Text } from '@bitrix24/b24jssdk'
-
-const since = Text.toISOString(new Date(Date.now() - 7 * 24 * 3600_000))
-{ filter: { '>=createdTime': since } }
-```
-
-## Sort
-
-`order` (classic) / `order` (v3) maps fields to `'asc'` / `'desc'`:
-
-```ts
-order: { id: 'asc' }                    // single field
-order: { id: 'asc', amount: 'desc' }    // multi-field, in insertion order
-```
-
-For `fetchListMethod` to use the fast iterator on `crm.item.list`, sort must include the id field ascending.
+> Both shapes are v2-API. The casing is per-method, not per-API-version. Use the same casing across `filter`, `select`, and (where applicable) `order`. Mixing styles silently breaks paging.
 
 ## Select
 
@@ -94,96 +156,105 @@ Always pass `select` to limit response size:
 select: ['id', 'title', 'stageId', 'opportunity', 'currencyId']
 ```
 
-For custom fields you want back, list them explicitly: `'ufCrmInn'`.
+For custom fields, list them explicitly. For v3, dot syntax expands relations (`.claude/bitrix24-rest-v3-reference.md:200-225`):
 
-## Filter as a Map vs object
-
-A plain object preserves insertion order in modern JS, which Bitrix24 uses for `order`. Don't JSON-roundtrip a filter through code that re-orders keys.
+```ts
+// v3 only
+select: ['id', 'title', 'responsible.name', 'responsible.email']
+```
 
 ## Examples
 
-### Deals: open with amount range
+### v2 — open deals with amount range
 
 ```ts
-const res = await $b24.callListMethod(
-  'crm.item.list',
-  {
+const response = await $b24.actions.v2.callList.make<CrmItem>({
+  method: 'crm.item.list',
+  params: {
     entityTypeId: EnumCrmEntityTypeId.deal,
     filter: {
-      '!stageId': ['WON', 'LOST'],
+      '!stageId': ['WON', 'LOSE'],
       '>=opportunity': 50000,
       '<=opportunity': 200000
     },
-    order: { id: 'asc' },
     select: ['id', 'title', 'stageId', 'opportunity']
   },
-  null,
-  'items'
-)
+  idKey: 'id',
+  customKeyForResult: 'items'
+})
 ```
 
-### Contacts: phone substring
+### v2 — contacts by phone substring
 
 ```ts
-const res = await $b24.callListMethod(
-  'crm.item.list',
-  {
+const response = await $b24.actions.v2.callList.make<CrmItem>({
+  method: 'crm.item.list',
+  params: {
     entityTypeId: EnumCrmEntityTypeId.contact,
     filter: { '%phone': '+7916' },
     select: ['id', 'name', 'lastName', 'phone']
   },
-  null,
-  'items'
-)
-```
-
-### Tasks: not closed
-
-```ts
-const res = await $b24.callListMethod('tasks.task.list', {
-  filter: { '!REAL_STATUS': 5 }, // 5 = COMPLETED
-  select: ['ID', 'TITLE', 'STATUS', 'RESPONSIBLE_ID']
+  idKey: 'id',
+  customKeyForResult: 'items'
 })
-// fetchListMethod for tasks: idKey='ID', customKey='tasks'
 ```
 
-### Lead: created in Q1 2026
+### v2 — tasks not closed
 
 ```ts
-const res = await $b24.callListMethod('crm.lead.list', {
-  filter: {
-    '>=DATE_CREATE': '2026-01-01T00:00:00+03:00',
-    '<=DATE_CREATE': '2026-03-31T23:59:59+03:00'
+const response = await $b24.actions.v2.callList.make<TaskItem>({
+  method: 'tasks.task.list',
+  params: {
+    filter: { '!REAL_STATUS': 5 }, // 5 = COMPLETED
+    select: ['ID', 'TITLE', 'STATUS', 'RESPONSIBLE_ID']
   },
-  select: ['ID', 'TITLE', 'STATUS_ID', 'DATE_CREATE']
+  idKey: 'ID',                   // classic uppercase id
+  customKeyForResult: 'tasks'
 })
 ```
 
-### Deal: ufCrm field
+### v3 — eventlog last 6 months
 
 ```ts
-const res = await $b24.callMethod('crm.item.list', {
-  entityTypeId: EnumCrmEntityTypeId.deal,
-  filter: { ufCrmInn: '7701234567' },
-  select: ['id', 'title', 'ufCrmInn']
+const sixMonthsAgo = new Date()
+sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+sixMonthsAgo.setHours(0, 0, 0, 0)
+
+const response = await $b24.actions.v3.callList.make<EventItem>({
+  method: 'main.eventlog.list',
+  params: {
+    filter: [['timestampX', '>=', Text.toB24Format(sixMonthsAgo)]],
+    select: ['id', 'userId']
+  },
+  idKey: 'id',
+  customKeyForResult: 'items',
+  limit: 200
 })
 ```
 
-## Multi-funnel pipelines
+### v3 — IN / between
 
-On portals with multiple funnels, stage IDs carry a category prefix (`C2:WON`, `C4:NEW`). Strategies:
+```ts
+filter: [
+  ['responsibleId', 'in', [1, 2, 3]],
+  ['createdTime', 'between', ['2026-01-01T00:00:00+03:00', '2026-03-31T23:59:59+03:00']]
+]
+```
 
-- Filter by category ID: `{ categoryId: 2, stageId: 'NEW' }`.
-- Filter by full stage list: `{ stageId: ['C2:WON', 'C4:WON'] }`.
-- Don't trust a bare `'NEW'` to match across funnels — read the active stage list from `crm.dealcategory.stage.list`.
+## Multi-funnel pipelines (CRM)
 
-## Search endpoints exist for some entities
+On portals with multiple funnels, stage IDs come prefixed: `C2:WON`, `C4:LOSE`. Strategies:
 
-Classic search methods (`crm.duplicate.findbycomm`, `crm.contact.list` with `'%'` filter) cover most cases. There is no universal `*/search` endpoint in Bitrix24 REST — that's a VibeCode wrapper. Use `*.list` with prefix filters.
+- Filter by category ID and base stage: `filter: { categoryId: 2, stageId: 'NEW' }`.
+- Enumerate full list explicitly: `filter: { stageId: ['C2:WON', 'C4:WON'] }`.
+- Don't trust a bare `'NEW'` to match across funnels — read the live stage list from `crm.dealcategory.stage.list`.
 
 ## Anti-patterns
 
-- ❌ Mixing `STAGE_ID` and `stageId` in the same filter (they are different fields per method version).
-- ❌ Using `$gt`, `$gte`, `$ne`, `$contains` — those are VibeCode-only.
-- ❌ Filter on `phone: '+7916...'` for `crm.contact.list` (classic) — phone is multi-value; use `'%PHONE'` instead.
-- ❌ Forgetting timezone in date strings — Bitrix24 portals are configured in a portal timezone; mix in UTC and you'll silently lose a day.
+- ❌ `filter: { stageId: { $gte: 100 } }` — MongoDB-style. Not understood by Bitrix24, will 400.
+- ❌ `filter: [['title', 'like', 'A%']]` — `like` is not in the v3 operator set. Use v2 + `=%` for substring search.
+- ❌ Passing `order` to `callList.make` / `fetchList.make` — silently discarded with a warning.
+- ❌ Mixing `STAGE_ID` and `stageId` across `filter` and `select` — they're different fields per method.
+- ❌ Forgetting timezone in date strings — Bitrix24 portals are configured in a portal timezone. Use `Text.toB24Format()` to stay consistent.
+- ❌ Using v3 array-of-triples filter for `actions.v2.*` — silently misparsed and returns wrong results.
+- ❌ Using v2 prefix-keyed filter for `actions.v3.*` — returns `UnknownFilterOperatorException`.

@@ -2,7 +2,7 @@
  * Recipe 6 — Telegram bot: notify a chat about new deals in CRM
  *
  * Polls crm.item.list every 2 minutes for deals with id > lastSeenDealId
- * and stage NEW; for each new deal sends an HTML-formatted Telegram message.
+ * and base stage NEW; for each new deal sends an HTML-formatted Telegram message.
  *
  * Install: pnpm add grammy node-cron
  * Env:
@@ -39,35 +39,50 @@ interface DealRow {
   currencyId: string
   contactId?: number
   createdTime: string
+  stageId: string
 }
 
 let lastSeenDealId = 0
 
+const baseStage = (s: string) => (s.includes(':') ? s.split(':')[1] : s)
+
 async function fetchNewDeals($b24: TypeB24): Promise<DealRow[]> {
-  // NB: stageId on multi-funnel portals is C<n>:NEW; baseStage() filters that out below.
-  const res = await $b24.callMethod('crm.item.list', {
-    entityTypeId: EnumCrmEntityTypeId.deal,
-    filter: { '>id': lastSeenDealId },
-    select: ['id', 'title', 'opportunity', 'currencyId', 'contactId', 'createdTime', 'stageId'],
-    order: { id: 'asc' }
+  const res = await $b24.actions.v2.call.make<{ items: DealRow[] }>({
+    method: 'crm.item.list',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.deal,
+      filter: { '>id': lastSeenDealId },
+      select: ['id', 'title', 'opportunity', 'currencyId', 'contactId', 'createdTime', 'stageId'],
+      order: { id: 'asc' }
+    },
+    requestId: 'new-deals'
   })
-  const items = (res.getData().result.items ?? []) as Array<DealRow & { stageId: string }>
-  const baseStage = (s: string) => (s.includes(':') ? s.split(':')[1] : s)
+
+  if (!res.isSuccess) {
+    logger.warn(`fetchNewDeals failed: ${res.getErrorMessages().join('; ')}`)
+    return []
+  }
+
+  const items = res.getData()!.result.items ?? []
+  // Multi-funnel: filter base stage client-side.
   return items.filter((d) => baseStage(d.stageId) === 'NEW')
 }
 
 async function fetchContactName($b24: TypeB24, contactId?: number): Promise<string> {
   if (!contactId) return 'Not set'
-  try {
-    const res = await $b24.callMethod('crm.item.get', {
+
+  const res = await $b24.actions.v2.call.make<{ item: { name?: string; lastName?: string } }>({
+    method: 'crm.item.get',
+    params: {
       entityTypeId: EnumCrmEntityTypeId.contact,
       id: contactId
-    })
-    const c = res.getData().result.item
-    return `${c.name ?? ''} ${c.lastName ?? ''}`.trim() || 'Anonymous'
-  } catch {
-    return 'Failed to load'
-  }
+    },
+    requestId: `contact-${contactId}`
+  })
+
+  if (!res.isSuccess) return 'Failed to load'
+  const c = res.getData()!.result.item
+  return `${c.name ?? ''} ${c.lastName ?? ''}`.trim() || 'Anonymous'
 }
 
 function format(deal: DealRow, contactName: string): string {

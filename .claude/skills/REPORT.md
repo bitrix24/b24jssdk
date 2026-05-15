@@ -1,82 +1,98 @@
-# Report — initial pass on `docs/llms-full.txt` (2026-05-05 generation)
+# Report — skill set after the 2026-05 migration
 
-This is the conspectus the user asked for: open questions, decisions made under uncertainty, and items that still need a human call before they can become canonical examples.
+This file captures the state of the skill set after migrating off the deprecated SDK surface, plus the open questions the user should be aware of.
 
-## Source headline numbers
+## Migration log (2026-05)
 
-- 42 622 lines, ~1.4 MB, 1 721 fenced code blocks (699 bash, 532 json, 433 javascript, 3 php, 3 js, 2 python, 1 powershell, 1 toml).
-- 416 top-level (`# `) sections; 9 self-contained recipes (`^# Recipe:`).
-- The whole file documents **VibeCode** (`vibecode.bitrix24.tech`), an HTTP wrapper / proxy on top of Bitrix24 REST. It is not the b24jssdk SDK. The user asked to adapt the examples into our library's idioms — that's what every recipe in `b24jssdk-recipes/examples/` does.
+Trigger: rebasing the `claude/extract-sdk-examples-7HE3n` branch onto `main@1.1.1` surfaced a `Deprecation notice` in `packages/jssdk/README-AI.md`. The entire `callMethod` / `callBatch` / `callBatchByChunk` / `callListMethod` / `fetchListMethod` surface, plus `AjaxResult.isMore() / getNext() / getTotal()`, is `@deprecated` and scheduled for removal in **`2.0.0`**.
 
-## Decisions taken under ambiguity (worth confirming)
+Files migrated to `$b24.actions.v{2,3}.*.make()`:
 
-### 1. v3 (`crm.item.*`) over classic methods for new code
-The original VibeCode docs use camelCase fields (`stageId`, `assignedById`, `opportunity`). Classic Bitrix24 REST methods (`crm.deal.list`) use uppercase (`STAGE_ID`, `ASSIGNED_BY_ID`, `OPPORTUNITY`). Translating field-by-field would invert all examples. I kept VibeCode's field naming by using `crm.item.list` + `entityTypeId` everywhere CRM appears.
+- `b24jssdk-rest/SKILL.md` — complete rewrite. Covers `call`, `batch`, `callList`, `fetchList`, `batchByChunk` for both API versions; AjaxResult new shape; v3 all-or-nothing batch; null-result passthrough.
+- `b24jssdk-filtering/SKILL.md` — added the v3 array-of-triples dialect alongside the existing v2 prefix dialect. Added the rule that `callList`/`fetchList` strip user-supplied `order`.
+- `b24jssdk-core/SKILL.md` — added `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` tuning. Updated examples to the new surface.
+- `b24jssdk-frame-ui/SKILL.md` — un-deprecated `selectCRM` (it's actively maintained now and normalizes response buckets); added `placement.setValue` helper.
+- `b24jssdk-helpers/SKILL.md` — corrected `usePullClient()` to be arg-less; mentioned new `isInitB24Helper()` getter.
+- `b24jssdk-recipes/SKILL.md` + 9 recipe `.ts` files — all rewritten on the new surface. CRM → `actions.v2.*`, tasks → `actions.v3.*` where on the whitelist (`tasks.task.add/get/update/delete`).
+- `b24jssdk-vibecode/SKILL.md` — AI-add-on example updated to new API.
+- `README.md` + `MAINTENANCE.md` — translation tables now use `actions.v{2,3}.*.make`.
 
-**Open**: do you also want a parallel set of "classic" examples? They're more familiar to long-time Bitrix24 developers and avoid the `entityTypeId` boilerplate. Right now classic only appears for tasks (`tasks.task.*`), disk (`disk.*`), IM (`im.notify`, `crm.timeline.comment.add`), where v3 isn't available.
+## Anchor facts (verified against current SDK source)
 
-### 2. Multi-funnel pipelines
-On portals with multiple funnels, stage IDs come prefixed: `C2:NEW`, `C4:WON`. The original VibeCode docs had a `get_stage_name()` helper for this in recipe 1. I propagated that pattern (a `baseStage()` helper) to every recipe that touches stages — recipes 1, 3, 6.
+These are the load-bearing facts that the skills rely on. If a future audit finds one of them changed, the related skill needs revision.
 
-**Open**: I'm assuming the user has at least one extra funnel. If their portal has only the default funnel, the helper is harmless but adds noise. If they want, drop it.
-
-### 3. Filter syntax — only Bitrix24 prefix style in skills
-VibeCode allows three filter syntaxes:
-- MongoDB-style (`$gt`, `$ne`, `$contains`)
-- Bitrix24 prefix (`>=`, `!`, `%`) ← THIS one is what real Bitrix24 REST uses
-- Bitrix24 operator-keys (`{">=": 50000}`)
-
-Only the second one is actually understood by Bitrix24 REST. The other two are VibeCode-server-side conveniences. **The b24jssdk-filtering skill documents prefix-only.** Anything else would silently 400 against a real portal.
-
-### 4. `B24OAuth` boot snippet
-The README-AI.md says `// b24OAuthParams come from the install/refresh events` but doesn't show how to wire that. I wrote the skill assuming the user already persists those tokens (the install handler is out of scope for the SDK). If the user wants a recipe for "registering an OAuth app and surviving the first install round-trip", that's a real gap — see `SUGGESTED-EXAMPLES.md`.
-
-### 5. Recipe 9 (web search + LLM)
-This recipe in the original docs uses VibeCode's AI Router (`/v1/ai/chat/completions`) and Bitrix-search (`/v1/search`). Neither is in Bitrix24 REST. I rewrote the recipe so the search/LLM step is BYOC (bring your own credentials — the comments point at Tavily/Brave/SerpAPI/OpenAI), and the b24jssdk part posts the LLM answer back to a deal's timeline. That keeps the example useful for SDK users, but it's no longer a 1:1 port.
-
-**Open**: do you want to add a `b24jssdk-vibecode-aux/` skill that wraps the actual VibeCode AI Router calls behind a tiny helper? The `b24jssdk-vibecode` skill currently says "use plain fetch" for those endpoints.
-
-### 6. Recipe 7 (webhook handler) — payload shape
-VibeCode's recipe assumed the webhook body shape `{ event, data: { FIELDS: {...} } }`. Bitrix24 outbound webhooks **actually** post `application/x-www-form-urlencoded` with keys like `event`, `data[FIELDS][ID]`, `auth[…]`. The Express body parser flattens form-encoded brackets into nested objects, so the shape should match — but the request `Content-Type` is `x-www-form-urlencoded`, not `application/json`. I kept both `express.json()` and `express.urlencoded({extended:true})` in the recipe.
-
-**Open**: untested against a real portal. If you have an outbound webhook to spare, run recipe 7 and report whether `payload.data?.FIELDS?.ID` arrives populated.
-
-### 7. `crm.timeline.comment.add` field shape (recipe 9)
-I used `ENTITY_TYPE: 'deal'` (string). Some Bitrix24 portals expect `ENTITY_TYPE: 'deal'`, others want the integer `ENTITY_TYPE_ID: 2`. The docs are inconsistent. **Untested** — if it 400s, swap to `{ ENTITY_TYPE_ID: EnumCrmEntityTypeId.deal }`.
-
-## Things I deliberately did NOT extract from llms-full.txt
-
-- The full per-endpoint reference pages (`# Bot: …`, `# Entity: …` between lines 10900–40800). They duplicate what the user can already get from the Bitrix24 apidocs. Bringing them into the skills bloats them with little value.
-- VibeCode's deploy / infra / Black Hole / preview-token sections (lines 3036–3548). Nothing in there maps to the SDK.
-- The MCP-for-AI section. Useful for VibeCode users, irrelevant for SDK callers.
-- The `Менеджмент-ключи` and `Partner Connect` sections. Same reason.
-
-## Translation table (also lives in MAINTENANCE.md)
-
-| VibeCode HTTP API | b24jssdk |
+| Fact | Source |
 |---|---|
-| `GET /v1/deals/:id` | `callMethod('crm.item.get', { entityTypeId: 2, id })` |
-| `POST /v1/deals/search` body `{ filter, sort, limit }` | `callMethod('crm.item.list', { entityTypeId: 2, filter, order })` (or `callListMethod` / `fetchListMethod`) |
-| `POST /v1/deals` body `{ ... }` | `callMethod('crm.item.add', { entityTypeId: 2, fields: { ... } })` |
-| `PATCH /v1/deals/:id` body `{ ... }` | `callMethod('crm.item.update', { entityTypeId: 2, id, fields: { ... } })` |
-| `DELETE /v1/deals/:id` | `callMethod('crm.item.delete', { entityTypeId: 2, id })` |
-| `POST /v1/contacts/search` | `callMethod('crm.item.list', { entityTypeId: 3, filter, order })` |
-| `POST /v1/tasks` | `callMethod('tasks.task.add', { fields: { TITLE, RESPONSIBLE_ID, … } })` |
-| `POST /v1/notifications` body `{ userId, message }` | `callMethod('im.notify', { to, message, type: 'SYSTEM' })` |
-| `GET /v1/storages` | `callMethod('disk.storage.getlist')` |
-| `GET /v1/folders?filter[parentId]=N` | `callMethod('disk.folder.getchildren', { id: N })` |
-| `POST /v1/folders` `{ parentId, name }` | `callMethod('disk.folder.addsubfolder', { id, data: { NAME } })` |
-| `GET /v1/files/:id` | `callMethod('disk.file.get', { id })` |
-| `POST /v1/batch` (entity-style calls) | `callBatch({ name1: { method, params }, … })` |
-| `POST /v1/ai/chat/completions` | NO SDK equivalent — call VibeCode endpoint via `fetch` directly |
-| `POST /v1/search` (web search) | NO SDK equivalent — same as above |
+| v3-supported method whitelist (only ~9 methods today) | `packages/jssdk/src/core/version-manager.ts:21-44` |
+| `actions.v{2,3}.call.make` returns `Promise<AjaxResult<T>>`; access with `res.getData()!.result.<key>` | `core/actions/v{2,3}/call.ts`, `test/integration/js-docs/actions-v{2,3}.spec.ts` |
+| `actions.v{2,3}.callList.make` strips user-supplied `order` and forces `{ [idKey]: 'ASC' }` | `core/actions/v2/call-list.ts:77-87`, v3 equivalent at `core/actions/v3/call-list.ts:77-87` |
+| Default `idKey` is `'ID'` for v2 (uppercase), `'id'` for v3 (lowercase) | `core/actions/v2/call-list.ts:72`, `core/actions/v3/call-list.ts:72` |
+| `crm.item.list` is v2, response is `{ items: [...] }` → needs `customKeyForResult: 'items'` + `idKey: 'id'` | `test/integration/js-docs/actions-v2.spec.ts:41-65` |
+| `tasks.task.add/get/update/delete` are v3 | `core/version-manager.ts:34-37` |
+| v3 filter dialect: array of `[field, op, value]` or `[field, value]` triples; 8 operators only (`=`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `between`); no `like`/`%` | `.claude/bitrix24-rest-v3-reference.md:111-160` |
+| v2 filter dialect: prefix-keyed object — `'>=createdTime'`, `'!stageId'`, `'%title'`, `'=%title'` | `test/integration/js-docs/actions-v2.spec.ts:46-49`, `core/actions/v2/call-list.ts:81-86` |
+| Date format: `Text.toB24Format(date)` → `yyyy-MM-dd'T'HH:mm:ssZZ` | `tools/text.ts:213-226` |
+| `AjaxResult.getData()` returns `SuccessPayload<T> \| undefined` = `{ result, time } \| undefined` | `types/payloads.ts:68-82`, `core/http/ajax-result.ts:61-72` |
+| v3 batch is all-or-nothing (no per-command errors) | `README-AI.md` "Limitations", `core/actions/v3/batch.ts` |
+| Per-command `result` in batch can legitimately be `null` (issue #23) | `README-AI.md` "Patterns" |
+| `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` available via `setRestrictionManagerParams` | `types/limiters.ts:90-147` |
+| `placement.setValue(value)` auto-serializes; `placement.call('setValue', { value })` requires `value` already stringified | `frame/placement.ts:104-151` |
+| `dialog.selectCRM()` is NOT deprecated — re-implemented to normalize buckets to real arrays | `frame/dialog.ts:175-235` |
 
-## Items in `SUGGESTED-EXAMPLES.md`
+## Open questions / unresolved
 
-See that file for the prioritised list of recipes I'd add next given a free hour each.
+### 1. v3 method whitelist will grow — when do we re-balance recipes?
+Today only `tasks.task.{add,get,update,delete,…}` and `main.eventlog.*` are on v3. The whitelist is owned by Bitrix24 and will expand. When `crm.item.list` arrives on v3, several recipes (1, 3, 4, 6, 7, 9) should be moved to `actions.v3.*` — but the **filter dialect changes from prefix-keyed to array-of-triples** at the same time. That's a meaningful rewrite, not a renaming.
 
-## What's likely to break first
+Action item for the next weekly review: grep `version-manager.ts:#supportMethods` for new entries.
 
-- **Anything matching `'STAGE_ID'` exactly when category prefixes are in play.** Search is strict. The `baseStage()` helper sidesteps this, but a careless `filter: { stageId: 'NEW' }` will silently match nothing on multi-funnel portals.
-- **Forgetting `customKey: 'items'`** when paging `crm.item.list`. You get the first page only and the loop "completes" without an error.
-- **Browser shipping `B24Hook`.** The webhook URL contains a long-lived secret. The SDK warns at runtime, but a build that imports the wrong entry point won't fail at compile time. The skill says this in two places; if it bites someone, make it three.
+### 2. Aggregate action (`actions.v3.aggregate`) not exposed in the SDK yet
+The v3 protocol supports `aggregate` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`, per `.claude/bitrix24-rest-v3-reference.md:304-368`). The SDK currently does not expose a typed `aggregate.make` action. Recipe 1 (CRM analytics) loads all deals into memory and aggregates client-side — when an `aggregate` action lands, the recipe becomes a one-call query.
+
+### 3. `B24OAuth` install handshake still uncovered
+The skills assume the user already has `authParams` populated from install events. The full OAuth install round-trip (Express endpoint that handles `ONAPPINSTALL`, persists tokens, swaps refresh on schedule) isn't a recipe yet — biggest blocker for anyone shipping a Marketplace app. Highest-ROI gap.
+
+### 4. Recipe 7 (webhook handler) payload shape still unverified
+Bitrix24 outbound webhooks POST `application/x-www-form-urlencoded`. The recipe relies on `express.urlencoded({ extended: true })` to parse `data[FIELDS][ID]` into a nested object. Confirmed by reading the Express docs, but **not yet run against a live portal**. If `payload.data?.FIELDS?.ID` arrives empty, that's where to look.
+
+### 5. Recipe 9 (timeline comment) ENTITY_TYPE shape
+`crm.timeline.comment.add` accepts both `ENTITY_TYPE: 'deal'` (string) and `ENTITY_TYPE_ID: 2` (int). Recipe uses the string form. **Untested on a live portal** — if it 400s, swap to `ENTITY_TYPE_ID: EnumCrmEntityTypeId.deal`.
+
+### 6. Multi-funnel filtering for v2 array-IN
+The recipes filter `'!stageId': ['WON', 'LOSE']` — v2 syntax. On multi-funnel portals there's also `C2:WON`, `C4:LOSE`, etc. Each recipe that touches stages also runs a client-side `baseStage(s)` re-filter as belt-and-suspenders. Not pretty but defensive.
+
+### 7. `placement.setValue` semantics
+The skill describes it correctly for the documented "select-value" placement case. Whether it works for other placement types isn't clear from the source comments — there's just the `setValue` command name and a JSON.parse-on-receipt rule. Treat as out-of-scope until needed.
+
+## Items deliberately NOT extracted from llms-full.txt
+
+- Per-endpoint reference pages (`# Bot: …`, `# Entity: …`) — auto-generated, duplicate apidocs.
+- VibeCode's deploy / infra / Black Hole / preview-token sections — irrelevant to SDK.
+- MCP-for-AI section — VibeCode-only.
+- `Менеджмент-ключи`, `Partner Connect` — VibeCode platform-internal.
+- The `aggregate` action protocol details — already covered in `.claude/bitrix24-rest-v3-reference.md`.
+
+## What's likely to break first (rank-ordered)
+
+1. **Skills referencing `b24.callMethod(...)` after the 2.0.0 release.** Mitigated: all skills now use the actions surface. Search for any leftover `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` in skill files — should return zero results.
+2. **`customKeyForResult: 'result'` typo for `crm.item.list`.** Silent empty arrays. Skill explicitly calls this out.
+3. **Passing `order` to `callList.make`.** Silently dropped with a warning. Skill explicitly calls this out.
+4. **v2 prefix filter inside `actions.v3.*`.** Throws `UnknownFilterOperatorException`. Skill explicitly calls this out, but a copy-paste from a v2 example into a v3 call is plausible.
+5. **`crm.item.list` filter using uppercase field names (`STAGE_ID`).** Silently returns wrong data — the v3-style methods need lowercase. The skill's field-naming table covers this but the failure mode is silent, so worth re-emphasising in code review.
+
+## How to verify the skills locally
+
+After any future edit:
+
+```bash
+# 1. Lint everything
+pnpm run lint
+
+# 2. Typecheck workspace
+pnpm run typecheck
+
+# 3. (Optional, requires .env.test) — run the canonical actions specs
+pnpm vitest run -t "js-docs.actions" --project jsSdk:integration
+```
+
+The lint config ignores `.claude/**` (see `eslint.config.mjs`), so changes to skill files won't trip the linter. That's intentional — these are agent-facing examples, not workspace source.

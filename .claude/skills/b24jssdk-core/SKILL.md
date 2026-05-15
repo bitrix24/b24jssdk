@@ -1,11 +1,11 @@
 ---
 name: b24jssdk-core
-description: Pick and initialize the right b24jssdk entry point (B24Hook for backends, B24Frame for in-iframe apps, B24OAuth for OAuth-installed apps), wire up logging, and handle errors uniformly. Load first when generating any b24jssdk code.
+description: Pick and initialize the right b24jssdk entry point (B24Hook for backends, B24Frame for in-iframe apps, B24OAuth for OAuth-installed apps), wire up logging, handle errors, and tune restriction-manager retry behaviour (hardErrorCodes, softErrorCodes, retryOnNetworkError). Load first when generating any b24jssdk code.
 ---
 
 # b24jssdk core
 
-Three entry points share the same REST surface (`callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`). Pick by **where the code runs**:
+Three entry points share the same REST surface, exposed via `$b24.actions.v{2,3}.*`. Pick by **where the code runs**:
 
 | Entry point | Where | Auth source |
 |---|---|---|
@@ -13,7 +13,7 @@ Three entry points share the same REST surface (`callMethod`, `callBatch`, `call
 | `B24Frame` | Browser, **inside** a Bitrix24 placement iframe | `postMessage` handshake with the parent window |
 | `B24OAuth` | Server side of an OAuth-installed Bitrix24 app | `accessToken` + `refreshToken` from Bitrix24 install events |
 
-> Once initialized, write the rest of your code against the abstract type `TypeB24` so the same logic runs on any of the three. All examples in this skill set the variable as `$b24`.
+> Once initialized, write the rest of your code against the abstract type `TypeB24` so the same logic runs on any of the three.
 
 ## B24Hook (backend / scripts)
 
@@ -27,15 +27,17 @@ const $b24 = B24Hook.fromWebhookUrl(
   process.env.B24_HOOK!
 )
 
-// B24Hook holds a secret — silence the "you're using a webhook in the browser" warning
-// only on the server. Never disable it in browser code.
+// Server-side only — silence the warning that B24Hook leaks the secret in browser bundles.
 $b24.offClientSideWarning?.()
 
-const me = await $b24.callMethod('profile')
-logger.info('Hello,', me.getData().result.NAME)
+const me = await $b24.actions.v2.call.make<{ NAME: string; ID: number }>({
+  method: 'profile',
+  requestId: 'profile-1'
+})
+logger.info('Hello,', me.getData()!.result.NAME)
 ```
 
-Alternative constructor (manual):
+Alternative constructor (manual parts):
 
 ```ts
 const $b24 = new B24Hook({
@@ -67,7 +69,7 @@ function teardown() {
 }
 ```
 
-Wire `boot` to your app entry point and `teardown` to component/page unmount. `initializeB24Frame()` deduplicates concurrent calls — safe to await it from multiple places.
+`initializeB24Frame()` deduplicates concurrent calls — safe to await it from multiple places.
 
 ## B24OAuth (server side of an OAuth app)
 
@@ -75,7 +77,7 @@ Wire `boot` to your app entry point and `teardown` to component/page unmount. `i
 import { B24OAuth } from '@bitrix24/b24jssdk'
 
 // `b24OAuthParams` come from the install/refresh events of your Bitrix24 app
-// (applicationToken, accessToken, refreshToken, expires, expiresIn, domain, ...)
+// (applicationToken, accessToken, refreshToken, expires, expiresIn, domain, …)
 // `oAuthSecret` is your registered app's clientId/clientSecret pair.
 const $b24 = new B24OAuth(b24OAuthParams, { clientId, clientSecret })
 
@@ -84,13 +86,12 @@ $b24.setCallbackRefreshAuth(async ({ authData, b24OAuthParams }) => {
   await db.appCredentials.upsert(b24OAuthParams)
 })
 
-// Optional: silence the client-side warning on the server
 $b24.offClientSideWarning()
 
 await $b24.initIsAdmin() // populates auth.isAdmin
 ```
 
-`B24OAuth` automatically refreshes the access token on 401. Always register `setCallbackRefreshAuth` on the server so refreshed tokens are persisted.
+`B24OAuth` automatically refreshes the access token on 401. **Always register `setCallbackRefreshAuth` on the server** so refreshed tokens are persisted.
 
 ## Logging
 
@@ -103,7 +104,7 @@ logger.warn('something looks off')
 logger.error('failure', new Error('boom'))
 ```
 
-`isDev` toggles verbose output. `AbstractB24` defaults to a null logger; pass yours via `setLogger` if you want SDK-internal traces:
+`isDev` toggles verbose output. To get SDK-internal traces:
 
 ```ts
 $b24.setLogger?.(logger)
@@ -111,47 +112,112 @@ $b24.setLogger?.(logger)
 
 ## Error handling
 
-`callMethod` returns an `AjaxResult`; failures throw `AjaxError`. `callBatch` returns a `Result` that aggregates errors when `isHaltOnError = false`.
+`actions.v{2,3}.call.make` returns an `AjaxResult`. REST-level failures throw `AjaxError`. SDK-level failures (wrong API version for a method, etc.) throw `SdkError`.
 
 ```ts
-import { AjaxError } from '@bitrix24/b24jssdk'
+import { AjaxError, SdkError } from '@bitrix24/b24jssdk'
 
 try {
-  const res = await $b24.callMethod('crm.deal.get', { id: 10 })
+  const res = await $b24.actions.v2.call.make<{ item: Deal }>({
+    method: 'crm.item.get',
+    params: { entityTypeId: 2, id: 999_999 }
+  })
   if (!res.isSuccess) {
-    // Non-throw failure path (rare; usually you'll see throws)
-    logger.warn('non-success result', res.getErrors().map((e) => e.message))
+    // Soft errors only (see softErrorCodes below). Most failures throw.
+    logger.warn('non-success result', res.getErrorMessages())
     return
   }
-  return res.getData().result
+  return res.getData()!.result.item
 } catch (e) {
   if (e instanceof AjaxError) {
-    logger.error('REST error', { code: e.code, status: e.status, info: e.requestInfo })
-    return
+    logger.error('REST error', { code: e.code, status: e.status, requestInfo: e.requestInfo })
+  } else if (e instanceof SdkError) {
+    logger.error('SDK error', { code: e.code, description: e.description })
+  } else {
+    throw e
   }
-  throw e
 }
 ```
 
 Common AjaxError codes worth handling:
 - `ERROR_NOT_FOUND` — id does not exist (404)
 - `INVALID_CREDENTIALS` / `EXPIRED_TOKEN` — let `B24Frame` / `B24OAuth` refresh; for `B24Hook`, the webhook is wrong
-- `QUERY_LIMIT_EXCEEDED` — you hit the rate limit; the SDK already throttles via `RateLimiter`, but you may need `callBatchByChunk` instead of a tight loop
-- `INTERNAL_SERVER_ERROR` (50x) — retry with exponential backoff
+- `QUERY_LIMIT_EXCEEDED` — rate limit. The SDK already throttles, but you may need `batchByChunk` instead of a tight loop.
+- `INTERNAL_SERVER_ERROR` (50x) — transient. The SDK retries automatically up to `maxRetries`.
+
+Common SdkError codes:
+- `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — you called `actions.v3.*.make` with a method that isn't in the v3 whitelist.
+- `JSSDK_VERSION_MANAGER_NOT_DETECT_FOR_METHOD` — auto-detection failed (typically means the method doesn't exist).
+
+## Tuning retry / throw behaviour
+
+The restriction manager classifies errors into **hard** (throw immediately, no retry) and **soft** (return inside `AjaxResult` for inspection). Defaults cover the well-known Bitrix24 codes; extend per-app via `RestrictionParams`.
+
+```ts
+import { B24Hook, ParamsFactory, ApiVersion } from '@bitrix24/b24jssdk'
+
+const $b24 = B24Hook.fromWebhookUrl(process.env.B24_HOOK!)
+
+await $b24.setRestrictionManagerParams({
+  ...ParamsFactory.getDefault(),
+
+  // Codes that must throw immediately (no retry). Use for business-specific
+  // error codes that the SDK doesn't know about — otherwise the SDK treats
+  // unknown codes as transient and retries with backoff.
+  hardErrorCodes: [
+    'DOCUMENT_GENERATOR_ALREADY_IN_QUEUE',
+    'MY_APP_BAD_PAYLOAD'
+  ],
+
+  // Codes that should be returned in AjaxResult as soft errors instead of
+  // thrown — useful when you want control-flow on a specific REST error.
+  softErrorCodes: [
+    'CUSTOM_VALIDATION_ERROR'
+  ],
+
+  // For NON-IDEMPOTENT methods (any *.add, file uploads) — set to false so the
+  // SDK does NOT retry on NETWORK_ERROR / REQUEST_TIMEOUT. A client-side
+  // timeout doesn't mean the server didn't process the call; retrying creates
+  // duplicates.
+  retryOnNetworkError: false,
+
+  maxRetries: 3,
+  retryDelay: 1_000
+})
+```
+
+`hardErrorCodes` and `softErrorCodes` are **additive** — the built-in lists (auth/fatal codes) are always hard, and you can't remove them, only extend (per `packages/jssdk/src/types/limiters.ts:120-146`).
+
+For heavy long-running calls, also raise the axios timeout on the underlying HTTP client:
+
+```ts
+const clientAxios = $b24.getHttpClient(ApiVersion.v2).ajaxClient
+clientAxios.defaults.timeout = 120_000
+```
+
+## Enterprise limits
+
+`LicenseManager` (from `useB24Helper`) automatically swaps in the enterprise restriction params if the portal is enterprise. To do it manually:
+
+```ts
+import { ParamsFactory } from '@bitrix24/b24jssdk'
+
+await $b24.setRestrictionManagerParams(ParamsFactory.getEnterprise())
+```
 
 ## Picking method names
 
-| Need | Method |
-|---|---|
-| CRM v3 (deals, contacts, companies, leads, smart processes) | `crm.item.list` / `crm.item.get` / `crm.item.add` / `crm.item.update` / `crm.item.delete` with `entityTypeId` from `EnumCrmEntityTypeId` |
-| CRM v1 / classic | `crm.deal.*`, `crm.contact.*`, `crm.company.*`, `crm.lead.*` (uppercase fields) |
-| Tasks | `tasks.task.add/get/list/update/delete` |
-| Disk | `disk.storage.getlist`, `disk.folder.getchildren`, `disk.folder.addsubfolder`, `disk.file.get` |
-| User | `user.get`, `user.current` |
-| Profile (current user) | `profile` |
-| IM | `im.message.add`, `im.notify` |
+| Need | Method | API version |
+|---|---|---|
+| CRM entities (deals, contacts, companies, leads, smart processes) | `crm.item.{list,get,add,update,delete}` with `entityTypeId` from `EnumCrmEntityTypeId` | v2 |
+| Tasks read/write | `tasks.task.{add,get,update,delete}` | **v3** |
+| Tasks listing / extras | `tasks.task.list`, `tasks.task.checklistitem.*`, … | v2 |
+| Disk | `disk.storage.getlist`, `disk.folder.{getchildren,addsubfolder}`, `disk.file.get` | v2 |
+| Profile / users | `profile`, `user.get`, `user.current` | v2 |
+| IM | `im.notify`, `im.message.add` | v2 |
+| Event log | `main.eventlog.{list,get,tail}` | **v3** |
 
-> Prefer `crm.item.*` (v3) for new code — the field names are camelCase (`stageId`, `assignedById`, `createdTime`) and pagination uses `customKey: 'items'`. The classic `crm.deal.list` returns uppercase fields (`STAGE_ID`, `ASSIGNED_BY_ID`).
+> Calling a v3-eligible method through `actions.v2.*` works but logs a warning (`JSSDK_CORE_METHOD_AVAILABLE_IN_API_V3`). Move it to v3 when convenient.
 
 ## When you don't know which entry point you're in
 
@@ -159,11 +225,18 @@ Write functions against `TypeB24`:
 
 ```ts
 import type { TypeB24 } from '@bitrix24/b24jssdk'
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
-export async function loadDeal($b24: TypeB24, id: number) {
-  const res = await $b24.callMethod('crm.deal.get', { id })
-  return res.getData().result
+interface Deal { id: number; title: string }
+
+export async function loadDeal($b24: TypeB24, id: number): Promise<Deal> {
+  const res = await $b24.actions.v2.call.make<{ item: Deal }>({
+    method: 'crm.item.get',
+    params: { entityTypeId: EnumCrmEntityTypeId.deal, id }
+  })
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return res.getData()!.result.item
 }
 ```
 
-Same `loadDeal` works with `B24Hook`, `B24Frame`, and `B24OAuth`.
+Same `loadDeal` works unchanged with `B24Hook`, `B24Frame`, and `B24OAuth`.

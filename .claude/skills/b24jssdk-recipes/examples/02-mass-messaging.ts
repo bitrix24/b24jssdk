@@ -1,9 +1,9 @@
 /**
  * Recipe 2 — Personalised IM notifications to CRM contacts
  *
- * 1. Loads contacts matching a CRM filter (one HTTP page, capped at 100).
- * 2. For each contact: builds a personal message from a template.
- * 3. Sends an IM notification (im.notify) to the contact's assigned manager.
+ * 1. Loads up to 100 contacts that match a filter (one HTTP call, no paging).
+ * 2. For each contact: personalises a template.
+ * 3. Sends an IM system notification (im.notify) to the contact's assigned manager.
  *
  * Run:
  *   B24_HOOK=https://your.bitrix24.com/rest/1/secret npx tsx 02-mass-messaging.ts
@@ -35,7 +35,6 @@ Reach out to your manager or visit our site for details.
 — Sales`
 
 const CONFIG = {
-  // typeId: 'CLIENT' for the standard CRM type list. Use crm.status.list type=CONTACT_TYPE for portal-specific values.
   filter: { typeId: 'CLIENT' as string | string[] },
   delayBetweenMessages: 1000,
   maxContacts: 100
@@ -49,16 +48,25 @@ interface ContactRow {
 }
 
 async function loadContacts($b24: TypeB24): Promise<ContactRow[]> {
-  const res = await $b24.callMethod('crm.item.list', {
-    entityTypeId: EnumCrmEntityTypeId.contact,
-    filter: CONFIG.filter,
-    select: ['id', 'name', 'lastName', 'assignedById'],
-    order: { id: 'asc' },
-    start: 0
+  // Single page (no paging). Filter narrows the result, max 50 in one v2 call
+  // by default. For >50 contacts, swap to actions.v2.callList.make.
+  const response = await $b24.actions.v2.call.make<{ items: ContactRow[] }>({
+    method: 'crm.item.list',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.contact,
+      filter: CONFIG.filter,
+      select: ['id', 'name', 'lastName', 'assignedById'],
+      order: { id: 'asc' }
+    },
+    requestId: 'load-contacts'
   })
-  // crm.item.list payload: { items: [...] }
-  const data = res.getData().result as { items: ContactRow[] }
-  return (data.items ?? []).slice(0, CONFIG.maxContacts).map((c) => ({
+
+  if (!response.isSuccess) {
+    throw new Error(`Failed to load contacts: ${response.getErrorMessages().join('; ')}`)
+  }
+
+  const items = response.getData()!.result.items ?? []
+  return items.slice(0, CONFIG.maxContacts).map((c) => ({
     id: Number(c.id),
     name: c.name ?? '',
     lastName: c.lastName ?? '',
@@ -72,14 +80,16 @@ function personalise(template: string, c: ContactRow): string {
 }
 
 async function notifyManager($b24: TypeB24, c: ContactRow, body: string) {
-  if (!c.assignedById) {
-    throw new Error('contact has no assigned manager')
-  }
-  // im.notify works on every portal with IM enabled. type=4 is system notification.
-  await $b24.callMethod('im.notify', {
-    to: c.assignedById,
-    message: `[Mailing] Contact: ${c.name} ${c.lastName}\n\n${body}`,
-    type: 'SYSTEM'
+  if (!c.assignedById) throw new Error('contact has no assigned manager')
+
+  await $b24.actions.v2.call.make({
+    method: 'im.notify',
+    params: {
+      to: c.assignedById,
+      message: `[Mailing] Contact: ${c.name} ${c.lastName}\n\n${body}`,
+      type: 'SYSTEM'
+    },
+    requestId: `notify-${c.id}`
   })
 }
 

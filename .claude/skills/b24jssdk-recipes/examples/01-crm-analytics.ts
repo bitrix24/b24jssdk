@@ -1,9 +1,9 @@
 /**
  * Recipe 1 — CRM analytics: sales funnel
  *
- * Streams all deals through fetchListMethod, groups by stage, prints a
- * funnel report (counts, conversion %, avg ticket, win rate). No external
- * libs — keep RAM low even on portals with 100k+ deals.
+ * Streams all deals through actions.v2.fetchList.make, groups by stage,
+ * prints a funnel report (counts, conversion %, avg ticket, win rate).
+ * No external libs — memory bounded even on 100k+ deal portals.
  *
  * Run:
  *   B24_HOOK=https://your.bitrix24.com/rest/1/secret npx tsx 01-crm-analytics.ts
@@ -38,9 +38,7 @@ const STAGE_NAMES: Record<string, string> = {
   LOSE: 'Lost'
 }
 
-function baseStage(stageId: string): string {
-  return stageId.includes(':') ? stageId.split(':')[1] : stageId
-}
+const baseStage = (s: string) => (s.includes(':') ? s.split(':')[1] : s)
 
 interface DealRow {
   id: number
@@ -52,17 +50,19 @@ interface DealRow {
 async function loadAllDeals($b24: TypeB24): Promise<DealRow[]> {
   const out: DealRow[] = []
 
-  for await (const chunk of $b24.fetchListMethod(
-    'crm.item.list',
-    {
+  const generator = $b24.actions.v2.fetchList.make<DealRow>({
+    method: 'crm.item.list',
+    params: {
       entityTypeId: EnumCrmEntityTypeId.deal,
-      order: { id: 'asc' },
       select: ['id', 'stageId', 'opportunity', 'currencyId']
     },
-    'id',
-    'items'
-  )) {
-    for (const it of chunk as DealRow[]) {
+    idKey: 'id',
+    customKeyForResult: 'items',
+    requestId: 'load-deals'
+  })
+
+  for await (const chunk of generator) {
+    for (const it of chunk) {
       out.push({
         id: Number(it.id),
         stageId: it.stageId,
@@ -98,28 +98,20 @@ function printFunnel(stages: Map<string, StageStat>, totalDeals: number) {
   console.log('  ' + '-'.repeat(58))
 
   for (const baseId of order) {
-    // Aggregate over all funnel categories that map to this base stage
     let count = 0
     let total = 0
     for (const [sid, s] of stages) {
-      if (baseStage(sid) === baseId) {
-        count += s.count
-        total += s.total
-      }
+      if (baseStage(sid) === baseId) { count += s.count; total += s.total }
     }
     if (count === 0) continue
 
     const conversion = totalDeals > 0 ? (count / totalDeals) * 100 : 0
     const avg = count > 0 ? total / count : 0
-    const bar = '█'.repeat(Math.floor(conversion / 3))
-
     console.log(
       `  ${STAGE_NAMES[baseId].padEnd(25)} ${String(count).padStart(8)} ${conversion.toFixed(1).padStart(9)}% ${avg.toLocaleString('en-US', { maximumFractionDigits: 0 }).padStart(13)}`
     )
-    if (bar) console.log(`  ${bar}`)
   }
 
-  // Outcome metrics
   let won: StageStat = { count: 0, total: 0 }
   let lost: StageStat = { count: 0, total: 0 }
   for (const [sid, s] of stages) {
@@ -130,12 +122,8 @@ function printFunnel(stages: Map<string, StageStat>, totalDeals: number) {
   const closed = won.count + lost.count
   console.log('\n' + '-'.repeat(65))
   console.log(`  Total revenue (WON): ${won.total.toLocaleString('en-US', { maximumFractionDigits: 0 })}`)
-  if (closed > 0) {
-    console.log(`  Win rate:            ${(won.count / closed * 100).toFixed(1)}%`)
-  }
-  if (won.count > 0) {
-    console.log(`  Avg ticket (WON):    ${(won.total / won.count).toLocaleString('en-US', { maximumFractionDigits: 0 })}`)
-  }
+  if (closed > 0) console.log(`  Win rate:            ${(won.count / closed * 100).toFixed(1)}%`)
+  if (won.count > 0) console.log(`  Avg ticket (WON):    ${(won.total / won.count).toLocaleString('en-US', { maximumFractionDigits: 0 })}`)
   console.log('='.repeat(65))
 }
 

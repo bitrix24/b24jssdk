@@ -2,7 +2,7 @@
  * Recipe 4 — Two-way contact sync between Bitrix24 and an external ERP
  *
  * Matches contacts on INN (primary) or email (fallback). Creates missing
- * records on each side and updates changed fields. Runs on cron every hour.
+ * records on each side and updates changed fields. Cron every hour.
  * The ERP side is mocked — replace fetchErpContacts/createErpContact with
  * your real client.
  *
@@ -52,11 +52,16 @@ function createErpContact(c: BitrixContact): { id: string } {
   logger.info(`  [ERP] created ${c.name} ${c.lastName}`)
   return { id: `erp-${Date.now()}` }
 }
-
-function updateErpContact(erpId: string, fields: Record<string, unknown>) {
-  logger.info(`  [ERP] updated ${erpId}: ${JSON.stringify(fields)}`)
-}
 // === /mock ===
+
+interface BitrixContactRaw {
+  id: number
+  name?: string
+  lastName?: string
+  email?: Array<{ VALUE: string; VALUE_TYPE: string }> | string
+  phone?: Array<{ VALUE: string; VALUE_TYPE: string }> | string
+  ufCrmInn?: string
+}
 
 interface BitrixContact {
   id: number
@@ -69,18 +74,20 @@ interface BitrixContact {
 
 async function fetchBitrixContacts($b24: TypeB24): Promise<BitrixContact[]> {
   const out: BitrixContact[] = []
-  for await (const chunk of $b24.fetchListMethod(
-    'crm.item.list',
-    {
+
+  const generator = $b24.actions.v2.fetchList.make<BitrixContactRaw>({
+    method: 'crm.item.list',
+    params: {
       entityTypeId: EnumCrmEntityTypeId.contact,
-      order: { id: 'asc' },
       select: ['id', 'name', 'lastName', 'email', 'phone', 'ufCrmInn']
     },
-    'id',
-    'items'
-  )) {
-    for (const c of chunk as Record<string, any>[]) {
-      // crm.item.list returns multi-fields as arrays of {VALUE, VALUE_TYPE}
+    idKey: 'id',
+    customKeyForResult: 'items',
+    requestId: 'load-contacts'
+  })
+
+  for await (const chunk of generator) {
+    for (const c of chunk) {
       const email = Array.isArray(c.email) ? c.email[0]?.VALUE ?? '' : (c.email ?? '')
       const phone = Array.isArray(c.phone) ? c.phone[0]?.VALUE ?? '' : (c.phone ?? '')
       out.push({
@@ -97,28 +104,39 @@ async function fetchBitrixContacts($b24: TypeB24): Promise<BitrixContact[]> {
 }
 
 async function createBitrixContact($b24: TypeB24, e: ErpContact): Promise<number> {
-  const res = await $b24.callMethod('crm.item.add', {
-    entityTypeId: EnumCrmEntityTypeId.contact,
-    fields: {
-      name: e.name,
-      lastName: e.lastName,
-      email: [{ VALUE: e.email, VALUE_TYPE: 'WORK' }],
-      phone: [{ VALUE: e.phone, VALUE_TYPE: 'WORK' }],
-      ufCrmInn: e.inn,
-      sourceId: 'OTHER',
-      sourceDescription: `Imported from ERP (${e.id})`
-    }
+  const res = await $b24.actions.v2.call.make<{ item: { id: number } }>({
+    method: 'crm.item.add',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.contact,
+      fields: {
+        name: e.name,
+        lastName: e.lastName,
+        email: [{ VALUE: e.email, VALUE_TYPE: 'WORK' }],
+        phone: [{ VALUE: e.phone, VALUE_TYPE: 'WORK' }],
+        ufCrmInn: e.inn,
+        sourceId: 'OTHER',
+        sourceDescription: `Imported from ERP (${e.id})`
+      }
+    },
+    requestId: `create-contact-${e.id}`
   })
-  const id = Number(res.getData().result.item.id)
+
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+
+  const id = Number(res.getData()!.result.item.id)
   logger.info(`  [B24] created ${e.name} ${e.lastName} → id=${id}`)
   return id
 }
 
 async function updateBitrixContact($b24: TypeB24, id: number, fields: Record<string, unknown>) {
-  await $b24.callMethod('crm.item.update', {
-    entityTypeId: EnumCrmEntityTypeId.contact,
-    id,
-    fields
+  await $b24.actions.v2.call.make({
+    method: 'crm.item.update',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.contact,
+      id,
+      fields
+    },
+    requestId: `update-contact-${id}`
   })
   logger.info(`  [B24] updated #${id}: ${JSON.stringify(fields)}`)
 }

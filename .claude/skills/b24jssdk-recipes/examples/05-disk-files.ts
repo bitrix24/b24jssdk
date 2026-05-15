@@ -48,27 +48,48 @@ interface DiskItem {
 }
 
 async function listStorages($b24: TypeB24): Promise<Storage[]> {
-  const res = await $b24.callMethod('disk.storage.getlist')
-  return (res.getData().result as Storage[]) ?? []
+  const res = await $b24.actions.v2.call.make<Storage[]>({
+    method: 'disk.storage.getlist',
+    requestId: 'storages-list'
+  })
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return res.getData()!.result ?? []
 }
 
 async function listFolderChildren($b24: TypeB24, folderId: string): Promise<DiskItem[]> {
-  // disk.folder.getchildren returns a paged list — auto-page with callListMethod
-  const res = await $b24.callListMethod('disk.folder.getchildren', { id: folderId })
-  return (res.getData() as DiskItem[]) ?? []
+  // Auto-page via callList.make. Classic API → idKey: 'ID' (uppercase),
+  // no customKeyForResult (the response is just `result: [...]`).
+  const res = await $b24.actions.v2.callList.make<DiskItem>({
+    method: 'disk.folder.getchildren',
+    params: { id: folderId },
+    idKey: 'ID',
+    requestId: `folder-children-${folderId}`
+  })
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return res.getData() ?? []
 }
 
 async function createSubfolder($b24: TypeB24, parentId: string, name: string): Promise<DiskItem> {
-  const res = await $b24.callMethod('disk.folder.addsubfolder', {
-    id: parentId,
-    data: { NAME: name }
+  const res = await $b24.actions.v2.call.make<DiskItem>({
+    method: 'disk.folder.addsubfolder',
+    params: {
+      id: parentId,
+      data: { NAME: name }
+    },
+    requestId: `folder-add-${parentId}`
   })
-  return res.getData().result as DiskItem
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return res.getData()!.result
 }
 
 async function getFile($b24: TypeB24, fileId: string): Promise<DiskItem> {
-  const res = await $b24.callMethod('disk.file.get', { id: fileId })
-  return res.getData().result as DiskItem
+  const res = await $b24.actions.v2.call.make<DiskItem>({
+    method: 'disk.file.get',
+    params: { id: fileId },
+    requestId: `file-get-${fileId}`
+  })
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return res.getData()!.result
 }
 
 async function main() {
@@ -81,7 +102,6 @@ async function main() {
   }
   if (storages.length === 0) return
 
-  // Pick the first storage and list its root folder
   const storage = storages[0]
   logger.info(`\nRoot of storage ${storage.ID}:`)
   const children = await listFolderChildren($b24, storage.ROOT_OBJECT_ID)
@@ -89,7 +109,6 @@ async function main() {
     logger.info(`  [${it.ID}] ${it.NAME} (${it.TYPE}${it.SIZE ? `, ${it.SIZE} bytes` : ''})`)
   }
 
-  // Create a folder + read it back
   try {
     const folder = await createSubfolder($b24, storage.ROOT_OBJECT_ID, `Project_${Date.now()}`)
     logger.info(`\nCreated folder #${folder.ID}: ${folder.NAME}`)
@@ -98,12 +117,16 @@ async function main() {
     else throw e
   }
 
-  // Combine storages + first 5 files of the first storage in one round-trip
-  const batch = await $b24.callBatch({
-    Storages: { method: 'disk.storage.getlist', params: {} },
-    Children: { method: 'disk.folder.getchildren', params: { id: storage.ROOT_OBJECT_ID } }
-  }, true)
-  const data = batch.getData() as { Storages: Storage[]; Children: DiskItem[] }
+  // One round-trip: storages + root children
+  const batch = await $b24.actions.v2.batch.make<Storage[] | DiskItem[]>({
+    calls: {
+      Storages: { method: 'disk.storage.getlist' },
+      Children: { method: 'disk.folder.getchildren', params: { id: storage.ROOT_OBJECT_ID } }
+    },
+    options: { isHaltOnError: true, returnAjaxResult: false, requestId: 'disk-batch' }
+  })
+
+  const data = batch.getData()! as { Storages: Storage[]; Children: DiskItem[] }
   logger.info(`\nBatch: ${data.Storages.length} storages, ${data.Children.length} root items`)
 }
 

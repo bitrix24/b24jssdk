@@ -5,7 +5,7 @@
  * application/x-www-form-urlencoded payloads to your URL. This server:
  *   - dispatches by event name
  *   - fetches full entity details via REST when needed
- *   - always returns 200 (Bitrix24 retries on non-2xx)
+ *   - always returns 200 (Bitrix24 retries on non-2xx for up to 24h)
  *
  * Install: pnpm add express
  * Env:
@@ -13,8 +13,6 @@
  *   PORT=3001 (default)
  * Run:
  *   npx tsx 07-webhook-handler.ts
- *
- * In production, expose via your reverse proxy (or `npx ngrok http 3001` for dev).
  */
 
 import {
@@ -43,12 +41,26 @@ interface BitrixEventPayload {
   auth?: Record<string, string>
 }
 
-async function loadDeal($b24: TypeB24, dealId: number) {
-  const res = await $b24.callMethod('crm.item.get', {
-    entityTypeId: EnumCrmEntityTypeId.deal,
-    id: dealId
+interface DealItem {
+  id: number
+  title: string
+  stageId: string
+  opportunity: number
+  currencyId: string
+  assignedById: number
+}
+
+async function loadDeal($b24: TypeB24, dealId: number): Promise<DealItem> {
+  const res = await $b24.actions.v2.call.make<{ item: DealItem }>({
+    method: 'crm.item.get',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.deal,
+      id: dealId
+    },
+    requestId: `deal-${dealId}`
   })
-  return res.getData().result.item
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return res.getData()!.result.item
 }
 
 async function handleDealAdd($b24: TypeB24, payload: BitrixEventPayload) {
@@ -91,7 +103,6 @@ async function main() {
   app.use(express.urlencoded({ extended: true }))
 
   app.post('/webhook', async (req: Request, res: Response) => {
-    // Bitrix24 sends form-encoded fields; cast to our shape.
     const payload = req.body as BitrixEventPayload
     const eventName = payload.event ?? 'UNKNOWN'
     logger.info(`[${new Date().toISOString()}] event=${eventName} fields=${JSON.stringify(payload.data?.FIELDS ?? {})}`)

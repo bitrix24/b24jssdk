@@ -1,10 +1,9 @@
 /**
  * Recipe 3 — Auto-create tasks on deal stage transitions
  *
- * Polls open deals every 60s. When a deal's stage changes to a watched
- * stage, creates a task with description, deadline and priority. Uses
- * an in-memory map to detect transitions — restart loses state by design;
- * persist `dealStages` to disk/Redis for production.
+ * Polls open deals every 60s. When a watched transition fires, creates a task
+ * (tasks.task.add, v3) with description, deadline and priority. Stage state is
+ * held in memory — restart loses it by design; persist for production.
  *
  * Run:
  *   B24_HOOK=https://your.bitrix24.com/rest/1/secret npx tsx 03-task-automation.ts
@@ -31,10 +30,9 @@ interface TaskTemplate {
   title: string
   description: string
   deadlineDays: number
-  priority: 0 | 1 | 2  // 0 low, 1 normal, 2 high
+  priority: 0 | 1 | 2
 }
 
-// Match the BASE stage (without the C<n>: prefix) to a task template.
 const STAGE_TASKS: Record<string, TaskTemplate> = {
   EXECUTING: {
     title: 'Prepare documents and start execution',
@@ -67,20 +65,23 @@ interface DealRow {
 
 async function fetchOpenDeals($b24: TypeB24): Promise<DealRow[]> {
   const out: DealRow[] = []
-  for await (const chunk of $b24.fetchListMethod(
-    'crm.item.list',
-    {
+
+  const generator = $b24.actions.v2.fetchList.make<DealRow>({
+    method: 'crm.item.list',
+    params: {
       entityTypeId: EnumCrmEntityTypeId.deal,
-      filter: { '!stageId': ['WON', 'LOSE'] }, // also matches C<n>:WON via Bitrix24 normalisation? No — see caveat below
-      select: ['id', 'title', 'stageId', 'assignedById'],
-      order: { id: 'asc' }
+      filter: { '!stageId': ['WON', 'LOSE'] },
+      select: ['id', 'title', 'stageId', 'assignedById']
     },
-    'id',
-    'items'
-  )) {
-    for (const it of chunk as DealRow[]) {
-      // Multi-funnel: filter above only excludes plain WON/LOSE; filter again on baseStage().
+    idKey: 'id',
+    customKeyForResult: 'items',
+    requestId: 'open-deals'
+  })
+
+  for await (const chunk of generator) {
+    for (const it of chunk) {
       const base = baseStage(it.stageId)
+      // Multi-funnel safety net: filter above only excludes plain WON/LOSE.
       if (base === 'WON' || base === 'LOSE') continue
       out.push({
         id: Number(it.id),
@@ -93,21 +94,33 @@ async function fetchOpenDeals($b24: TypeB24): Promise<DealRow[]> {
   return out
 }
 
+interface TasksTaskAddResponse {
+  task: { id: number }
+}
+
 async function createTask($b24: TypeB24, deal: DealRow, t: TaskTemplate): Promise<number> {
   const deadline = new Date()
   deadline.setDate(deadline.getDate() + t.deadlineDays)
 
-  const res = await $b24.callMethod('tasks.task.add', {
-    fields: {
-      TITLE: `${t.title} — ${deal.title}`,
-      DESCRIPTION: `${t.description}\n\nDeal: ${deal.title} (ID: ${deal.id})`,
-      RESPONSIBLE_ID: deal.assignedById || 1,
-      PRIORITY: t.priority,
-      DEADLINE: deadline.toISOString(),
-      UF_CRM_TASK: [`D_${deal.id}`] // bind task to the deal
-    }
+  // tasks.task.add is on the v3 whitelist.
+  const res = await $b24.actions.v3.call.make<TasksTaskAddResponse>({
+    method: 'tasks.task.add',
+    params: {
+      fields: {
+        TITLE: `${t.title} — ${deal.title}`,
+        DESCRIPTION: `${t.description}\n\nDeal: ${deal.title} (ID: ${deal.id})`,
+        RESPONSIBLE_ID: deal.assignedById || 1,
+        PRIORITY: t.priority,
+        DEADLINE: deadline.toISOString(),
+        UF_CRM_TASK: [`D_${deal.id}`]
+      }
+    },
+    requestId: `task-add-${deal.id}`
   })
-  const id = Number(res.getData().result.task.id)
+
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+
+  const id = Number(res.getData()!.result.task.id)
   logger.info(`  task #${id} created — ${t.title}`)
   return id
 }
@@ -130,7 +143,6 @@ async function tick($b24: TypeB24) {
     }
   }
 
-  // Drop closed deals from memory
   const live = new Set(deals.map((d) => d.id))
   for (const id of [...dealStages.keys()]) {
     if (!live.has(id)) dealStages.delete(id)

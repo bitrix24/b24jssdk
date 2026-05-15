@@ -15,9 +15,9 @@ grep -c '```' /home/user/b24jssdk/docs/llms-full.txt
 Expected:
 - Line 1 starts with `# VibeCode — Complete Documentation`.
 - Line 3 has the `# Generated:` timestamp — record it.
-- Code-fence count is even (so number of code blocks = `count / 2`).
+- Code-fence count is even (number of code blocks = `count / 2`).
 
-If the format changed (e.g. line 1 isn't a VibeCode header), stop and ask the user before doing anything destructive — the generator likely rewrote.
+If the format changed (e.g. line 1 isn't a VibeCode header), stop and ask the user — the generator likely rewrote.
 
 ## 1. Diff against the last pulled version
 
@@ -30,52 +30,56 @@ We only care about changes that affect the **public, end-user-visible surface**.
 
 - New top-level sections (`^# `) — count and names.
 - New `Recipe:` entries (`^# Recipe:`).
-- Renamed / removed Recipe entries (signal: SUGGESTED-EXAMPLES.md may need to drop a "missing" item).
-- Changes inside the **Filtering**, **Batch**, **Limits**, **Errors** sections — these are operator/syntax-level and most likely to need a skill update.
-- Changes to **Bot platform** signatures (those are reflected in `b24jssdk-recipes` recipes 6 and 7 only via concept).
-- Changes inside the existing 9 recipe sections.
+- Renamed / removed Recipe entries.
+- Changes inside the **Filtering**, **Batch**, **Limits**, **Errors** sections — operator/syntax-level, most likely to need a skill update.
+- Changes inside the existing 9 recipe sections (CRM analytics, mass messaging, task automation, ERP sync, Disk, Telegram, webhook, AI assistant, web search + LLM).
 
 Sections to ignore:
-- The `Bot:` / `Entity:` per-endpoint pages between roughly lines 10000–40000 — they are auto-generated reference pages, change every release for cosmetic reasons, and aren't worth tracking diff-by-diff.
+- `# Bot: …` per-endpoint pages (~lines 10900–16800) — auto-generated, cosmetic churn.
+- `# Entity: …` per-endpoint pages (~lines 16800–40800) — same reason.
+- `# AI Router`, `# MCP для AI`, `# Bot-platform Troubleshooting` — VibeCode-only, no SDK mapping.
+- `# Инфраструктура`, `# Менеджмент-ключи`, `# Partner Connect` — VibeCode platform-internal.
 
 ## 2. Triage the diff
 
 For each user-visible change, decide one of:
-1. **Update existing skill** — when an example or rule already in a skill must change. Touch only the relevant skill, keep edits surgical.
-2. **Add to SUGGESTED-EXAMPLES.md** — when there's a new useful pattern but no matching skill yet, and the user hasn't asked to land it.
-3. **Conspectus into REPORT.md** — when the change is ambiguous, requires a translation decision (e.g., new VibeCode-only operator or endpoint with no Bitrix24 REST equivalent), or the SDK doesn't expose the surface yet.
-4. **Skip** — purely cosmetic or VibeCode-side-only changes that have no Bitrix24/SDK relevance (AI Router pricing, infra docs, BYOK, …).
+1. **Update existing skill** — surgical edit when an example or rule already in a skill must change.
+2. **Add to SUGGESTED-EXAMPLES.md** — useful new pattern, no matching skill yet.
+3. **Conspectus into REPORT.md** — ambiguous, requires a translation decision, or the SDK doesn't expose the surface yet.
+4. **Skip** — purely cosmetic or VibeCode-only changes.
 
-## 3. Translation rules (apply when porting to skills)
+## 3. Translation rules — VibeCode → b24jssdk (current as of 2026-05)
 
-| VibeCode | Bitrix24 / b24jssdk |
+| VibeCode (HTTP, with `X-Api-Key`) | b24jssdk (`actions.v{2,3}.*.make`) |
 |---|---|
-| `GET /v1/{entity}/:id` | `crm.item.get` (v3) or `crm.{entity}.get` (classic) |
-| `GET /v1/{entity}` (list) | `callListMethod('crm.item.list', …, null, 'items')` for v3, `callListMethod('crm.{entity}.list', …)` for classic |
-| `POST /v1/{entity}/search` | same as list — Bitrix24 has no separate search endpoint |
-| `POST /v1/{entity}` | `crm.item.add` / `crm.{entity}.add` |
-| `PATCH /v1/{entity}/:id` | `crm.item.update` / `crm.{entity}.update` |
-| `DELETE /v1/{entity}/:id` | `crm.item.delete` / `crm.{entity}.delete` |
-| `POST /v1/batch` (entity form) | `callBatch` (object form) |
-| `POST /v1/batch` (>50 calls) | `callBatchByChunk` |
-| `X-Api-Key: vibe_api_…` | `B24Hook.fromWebhookUrl(…)` (server) / `initializeB24Frame()` (in-frame) / `new B24OAuth(…)` (OAuth app) |
-| Filter `{ "stageId": { "$gte": 100 } }` | `filter: { '>=stageId': 100 }` |
-| Filter `{ "stageId": { "$ne": "LOST" } }` | `filter: { '!stageId': 'LOST' }` |
-| Filter `{ "title": { "$contains": "x" } }` | `filter: { '%title': 'x' }` (or `'=%title': 'x%'` for explicit LIKE) |
-| Filter `{ "stageId": { "$in": [...] } }` | `filter: { stageId: [...] }` (array means IN) |
-| `sort: { id: "asc" }` | `order: { id: 'asc' }` (or `'ID': 'ASC'` for classic) |
-| `select: ["id", "name"]` | same — `select: ['id', 'name']` |
-| `limit` / `offset` | use `callListMethod` / `fetchListMethod` instead |
+| `GET /v1/{entity}/:id` | `actions.v2.call.make({ method: 'crm.item.get', params: { entityTypeId, id } })` for CRM, `actions.v3.call.make({ method: 'tasks.task.get', params: { id, select } })` for tasks |
+| `GET /v1/{entity}` (list) | `actions.v2.callList.make({ method: 'crm.item.list', params, idKey: 'id', customKeyForResult: 'items' })` |
+| `POST /v1/{entity}/search` | same as list — Bitrix24 REST has no separate search endpoint |
+| `POST /v1/{entity}` (create) | `actions.v2.call.make({ method: 'crm.item.add', params: { entityTypeId, fields } })` for CRM, v3 for `tasks.task.add` |
+| `PATCH /v1/{entity}/:id` | `actions.v2.call.make({ method: 'crm.item.update', params: { entityTypeId, id, fields } })` |
+| `DELETE /v1/{entity}/:id` | `actions.v2.call.make({ method: 'crm.item.delete', params: { entityTypeId, id } })` |
+| `POST /v1/batch` (entity form) | `actions.v2.batch.make({ calls, options })` (object form for named results) |
+| `POST /v1/batch` (>50 calls) | `actions.v2.batchByChunk.make({ calls, options })` |
+| `X-Api-Key: vibe_api_…` | `B24Hook.fromWebhookUrl(…)` server / `initializeB24Frame()` in-frame / `new B24OAuth(…)` OAuth |
+| Filter `{ "stageId": { "$gte": 100 } }` | v2: `{ '>=stageId': 100 }`. v3 array-triples: `[['stageId', '>=', 100]]` |
+| Filter `{ "stageId": { "$ne": "LOST" } }` | v2: `{ '!stageId': 'LOST' }`. v3: `[['stageId', '!=', 'LOST']]` |
+| Filter `{ "title": { "$contains": "x" } }` | v2 only: `{ '%title': 'x' }` (`=%` for explicit LIKE pattern). **v3 has no substring operator** — fall back to v2 or do client-side filtering. |
+| Filter `{ "stageId": { "$in": [...] } }` | v2: `{ stageId: [...] }`. v3: `[['stageId', 'in', [...]]]` |
+| `sort: { id: "asc" }` | `order: { id: 'asc' }` (object form only on v3, per `OrderStructure.php`) |
+| `select: ["id", "name"]` | unchanged — `select: ['id', 'name']` |
+| `limit` / `offset` | use `callList.make` / `fetchList.make` — paging is internal |
 
-If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, infra), do NOT port it to the SDK — note it in `b24jssdk-vibecode` skill or `REPORT.md` instead.
+If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, infra), do NOT port it to the SDK — note it in `b24jssdk-vibecode` or `REPORT.md` instead.
 
 ## 4. Skill update conventions
 
-- Keep TypeScript / ESM style throughout. No `fetch + X-Api-Key` examples in the SDK skills.
-- Do NOT add MongoDB-style filter operators (`$gt`, `$ne`, `$contains`) anywhere in the b24jssdk skill set — they are wrong for Bitrix24 REST.
-- Each example must be self-contained: `bootB24()` snippet at the top, `import` statements, an exit point. The user copies them as-is.
+- Keep TypeScript / ESM style throughout. No `fetch + X-Api-Key` examples in the SDK skills (except the documented AI-add-on pattern in `b24jssdk-vibecode`).
+- Use `$b24.actions.v{2,3}.*.make({ method, params, requestId? })` everywhere. **Do NOT** introduce `b24.callMethod(...)` or `b24.callBatch(...)` — they're `@deprecated` for 2.0.0.
+- Do NOT add MongoDB-style filter operators (`$gt`, `$ne`, `$contains`) anywhere in the b24jssdk skill set.
 - Use `EnumCrmEntityTypeId` from `@bitrix24/b24jssdk` over numeric literals.
 - Keep multi-funnel awareness wherever stage names appear (`baseStage()` helper).
+- Dates → `Text.toB24Format(date)`.
+- v3 entities (`crm.item.*`) need `idKey: 'id'` + `customKeyForResult: 'items'` for `callList`/`fetchList`. Classic methods (`crm.deal.list`, `tasks.task.list`) use uppercase `'ID'` and either omit `customKeyForResult` or use the right key (`'tasks'`, `'files'`, etc.).
 - For new recipes: file goes under `.claude/skills/b24jssdk-recipes/examples/NN-name.ts` and gets a row in the SKILL.md table.
 
 ## 5. Maintenance commit protocol
@@ -85,16 +89,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 3. `pnpm run lint:fix && pnpm run typecheck` — both must pass before pushing.
 4. Push to the branch and STOP. Do **not** open a PR unless the user asks for it.
 
-## 6. The "skip" list (don't bother diffing every week)
-
-- `# Bot: …` reference pages (~lines 10900–16800) — auto-generated, cosmetic churn.
-- `# Entity: …` reference pages (~lines 16800–40800) — same reason.
-- `# AI Router`, `# MCP для AI`, `# Bot-platform Troubleshooting` — VibeCode-only, no SDK mapping.
-- `# Инфраструктура`, `# Менеджмент-ключи`, `# Partner Connect` — VibeCode platform-internal.
-
-Track these only if a top-level section is added or removed.
-
-## 7. End-of-task summary template
+## 6. End-of-task summary template
 
 After updating skills, paste the user a short report:
 
@@ -112,3 +107,18 @@ Update from llms-full.txt (Generated: <date>)
 ```
 
 That's all — no PR, no lecture, just the summary.
+
+## 7. Cross-check against SDK source
+
+Before propagating a new operator / endpoint / pattern from VibeCode docs into a skill, verify it against the SDK:
+
+| Check | Source of truth |
+|---|---|
+| Does `actions.v3.*` support this method? | `packages/jssdk/src/core/version-manager.ts:21-44` (`#supportMethods` list) |
+| What's the v3 filter syntax? | `.claude/bitrix24-rest-v3-reference.md` §3 (filter grammar) |
+| What's the v2 filter syntax / prefix list? | `b24jssdk-filtering/SKILL.md` (the v2 table) |
+| What's the actions API call shape? | `test/integration/js-docs/actions-v{2,3}.spec.ts` |
+| What's `AjaxResult.getData()`'s shape? | `packages/jssdk/src/types/payloads.ts` (`SuccessPayload<P>`) |
+| Is X deprecated? | `packages/jssdk/README-AI.md` "Deprecation notice" + JSDoc `@deprecated` markers on classes |
+
+If the SDK source disagrees with the VibeCode docs, the SDK source wins.

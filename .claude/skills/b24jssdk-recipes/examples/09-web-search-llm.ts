@@ -1,10 +1,10 @@
 /**
  * Recipe 9 — Web search + LLM with citations, output written to a deal's timeline
  *
- * Bitrix24 has no native web-search REST. This recipe shows how to combine
- * any external web-search + LLM provider with b24jssdk: ask a question
- * about a deal, search the web, run RAG with `[N]` citations, and post
- * the answer as a CRM timeline comment on the deal.
+ * Bitrix24 REST has no native web search or LLM endpoint. This recipe shows
+ * how to combine any external web-search + LLM provider with b24jssdk: ask
+ * a question about a deal, search the web, run RAG with `[N]` citations,
+ * and post the answer as a CRM timeline comment on the deal.
  *
  * Replace the search/llm calls with your provider of choice (Tavily, Brave,
  * Bitrix-search, OpenAI, Anthropic, …). Keys via env.
@@ -72,14 +72,18 @@ async function askLlm(question: string, sources: SearchResult[]): Promise<string
 }
 
 async function postTimelineComment($b24: TypeB24, dealId: number, comment: string) {
-  // crm.timeline.comment.add — classic API, uppercase fields.
-  // ENTITY_TYPE for a deal in classic notation is 'deal'.
-  await $b24.callMethod('crm.timeline.comment.add', {
-    fields: {
-      ENTITY_ID: dealId,
-      ENTITY_TYPE: 'deal',
-      COMMENT: comment
-    }
+  // crm.timeline.comment.add — classic API, uppercase fields. ENTITY_TYPE='deal'
+  // is the string form; if your portal rejects it, use ENTITY_TYPE_ID=2.
+  await $b24.actions.v2.call.make({
+    method: 'crm.timeline.comment.add',
+    params: {
+      fields: {
+        ENTITY_ID: dealId,
+        ENTITY_TYPE: 'deal',
+        COMMENT: comment
+      }
+    },
+    requestId: `timeline-${dealId}`
   })
 }
 
@@ -93,12 +97,16 @@ async function main() {
 
   const $b24 = bootB24()
 
-  // Sanity: the deal exists
-  const dealRes = await $b24.callMethod('crm.item.get', {
-    entityTypeId: EnumCrmEntityTypeId.deal,
-    id: dealId
+  const dealRes = await $b24.actions.v2.call.make<{ item: { id: number; title: string } }>({
+    method: 'crm.item.get',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.deal,
+      id: dealId
+    },
+    requestId: `deal-${dealId}`
   })
-  const deal = dealRes.getData().result.item
+  if (!dealRes.isSuccess) throw new Error(dealRes.getErrorMessages().join('; '))
+  const deal = dealRes.getData()!.result.item
   logger.info(`Deal #${dealId}: ${deal.title}`)
 
   logger.info('Searching the web…')

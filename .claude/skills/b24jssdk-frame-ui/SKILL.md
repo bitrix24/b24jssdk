@@ -1,6 +1,6 @@
 ---
 name: b24jssdk-frame-ui
-description: Use B24Frame UI managers (slider, dialog, parent, placement, options, auth) from a Bitrix24 placement iframe app. Covers opening sliders with mobile fallback, picking users, resizing the parent window, persisting app/user options, and reading placement context. Load when generating in-frame UI code.
+description: Use B24Frame UI managers (slider, dialog, parent, placement, options, auth) from a Bitrix24 placement iframe app. Covers opening sliders with mobile fallback, picking users and CRM entities, resizing the parent window, placement setValue, persisting app/user options. Load when generating in-frame UI code.
 ---
 
 # b24jssdk frame UI
@@ -32,17 +32,57 @@ await $b24.slider.closeSliderAppPage()
 
 `openPath` returns when the slider closes (or the popup is closed on mobile). Always check `isOpenAtNewWindow` if you depend on close-detection.
 
-## Dialog — pick a user
+## Dialog — pick users
 
 ```ts
 const single = await $b24.dialog.selectUser()
-// single: { id, name, lastName, photo, ... } | null
+// single: { id, name, lastName, photo, … } | null
 
 const many = await $b24.dialog.selectUsers()
 // many: SelectedUser[]
 ```
 
-> `dialog.selectAccess()` and `dialog.selectCRM()` exist but are **deprecated**. Avoid in new code.
+## Dialog — pick CRM entities (`selectCRM`)
+
+Active method (re-implemented in `packages/jssdk/src/frame/dialog.ts:175-235`). Returns an object with per-entity-type buckets, each a real `Array` so you can use `.length`/`.map()`/`for..of`. Buckets for entity types you did not request are `undefined`.
+
+```ts
+import type { SelectCRMParams, SelectedCRM } from '@bitrix24/b24jssdk'
+
+// Pick one contact
+const single = await $b24.dialog.selectCRM({
+  entityType: ['contact'],
+  multiple: false
+})
+const contact = single.contact?.[0]
+// contact: { id: 'C_<n>', title, image, … } | undefined
+
+// Pick multiple deals and companies, with pre-selected values
+const picked: SelectedCRM = await $b24.dialog.selectCRM({
+  entityType: ['deal', 'company'],
+  multiple: true,
+  value: { deal: ['D_42'], company: ['CO_7'] }
+})
+
+for (const deal of picked.deal ?? []) {
+  console.log(deal.id, deal.title) // id type-narrows to `D_${number}`
+}
+```
+
+The id format is per entity:
+- lead → `L_<n>`
+- contact → `C_<n>`
+- company → `CO_<n>`
+- deal → `D_<n>`
+- quote → `Q_<n>`
+
+## Dialog — pick access targets (`selectAccess`)
+
+```ts
+const access = await $b24.dialog.selectAccess({ /* params */ })
+```
+
+Less commonly used. Returns the parent window's raw access-selection payload — refer to Bitrix24's selectAccess docs for the shape.
 
 ## Parent — control the iframe in the portal layout
 
@@ -51,9 +91,9 @@ await $b24.parent.fitWindow()                // shrink-wrap to content
 await $b24.parent.resizeWindow(800, 600)     // explicit size
 await $b24.parent.resizeWindowAuto(rootEl, /* minH */ 400, /* minW */ 300)
 await $b24.parent.setTitle('My App')         // header title in the portal
-await $b24.parent.scrollParentWindow(0)      // scroll the parent
+await $b24.parent.scrollParentWindow(0)
 await $b24.parent.reloadWindow()
-await $b24.parent.closeApplication()         // close the placement
+await $b24.parent.closeApplication()
 ```
 
 For IM:
@@ -84,6 +124,24 @@ await $b24.placement.callCustomBind('someCommand', { opt: 1 }, (...args) => {
 })
 ```
 
+### `placement.setValue` — send a value back to the host placement
+
+Use `setValue` when your iframe is mounted in a "select-value" placement (e.g. a custom CRM-field selector). The host expects a **JSON-serialized string** and calls `JSON.parse` on receipt.
+
+```ts
+// Convenience helper that serializes for you (preferred)
+await $b24.placement.setValue('plain string')
+await $b24.placement.setValue({ id: 1, title: 'demo' })
+await $b24.placement.setValue([1, 2, 3])
+```
+
+Manual form via `placement.call('setValue', …)` is also supported, but `value` MUST already be a JSON-serialized string — the SDK throws `TypeError` otherwise (see `packages/jssdk/src/frame/placement.ts:104-113`):
+
+```ts
+// Equivalent but requires you to stringify yourself
+await $b24.placement.call('setValue', { value: JSON.stringify({ id: 1 }) })
+```
+
 ## Options — persist app and per-user settings
 
 ```ts
@@ -110,13 +168,13 @@ if (!auth) {
   await $b24.auth.refreshAuth()
 }
 
-const lang = $b24.getLang()    // portal UI language: 'ru' | 'en' | ...
-const sid = $b24.getAppSid()   // app SID for the current session
+const lang = $b24.getLang()    // 'ru' | 'en' | …
+const sid = $b24.getAppSid()
 ```
 
 The SDK auto-refreshes auth on 401 — manual `refreshAuth()` is rarely needed.
 
-## Lifecycle template (Vue 3 style)
+## Lifecycle template (Vue 3)
 
 ```ts
 import { onMounted, onBeforeUnmount, ref } from 'vue'
@@ -139,4 +197,6 @@ onBeforeUnmount(() => {
 
 - ❌ Using `B24Frame` outside a Bitrix24 placement — `initializeB24Frame()` will hang waiting for the parent handshake. Use `B24Hook` for non-frame contexts.
 - ❌ Calling slider / dialog APIs before `await initializeB24Frame()` resolves.
-- ❌ Storing secrets in `options.appSet` — they are visible to everyone with placement access.
+- ❌ `$b24.placement.call('setValue', { value: { id: 1 } })` — throws because `value` is not a string. Use `$b24.placement.setValue({ id: 1 })` or stringify yourself.
+- ❌ Storing secrets in `options.appSet` — placement options are visible to everyone with access to the placement.
+- ❌ Treating an absent `selectCRM` bucket as an empty array — they are `undefined`. Use `picked.deal ?? []`.

@@ -25,6 +25,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # docs:lint-pages needs `git log -1 -- <source>` to return the actual
+          # last-modification date of each linked source file, not HEAD's date.
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v5

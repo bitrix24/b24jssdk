@@ -96,7 +96,7 @@ const filter = { '>id': getMapId().crmCompanySuccessMin }
 4. Always go through `setupB24Tests()` to get the shared client.
 5. Use a unique `requestId` per call so failures are searchable in server logs.
 6. Assert `Result` / `AjaxResult` shape — `isSuccess`, `getData()`, `getErrors()`. Don't poke at private internals.
-7. For paged endpoints, exercise `isMore()` + `getNext(b24.http)` at least once.
+7. For paged endpoints, exercise `isMore()` + `getNext(b24.getHttpClient(ApiVersion.v2))` (v2 only — v3 has no `getNext`; cover its paging via `actions.v3.callList.make()` / `fetchList.make()`).
 8. For error paths, expect `SdkError` (thrown) or an `AjaxError` instance in `getErrors()`.
 9. Keep individual tests under the 30s timeout — split if you need longer.
 

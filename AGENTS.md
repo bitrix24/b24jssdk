@@ -21,7 +21,7 @@ packages/
 ├── jssdk/                          # core SDK (published)
 │   ├── src/
 │   │   ├── core/                   # AbstractB24, Result, SdkError
-│   │   │   ├── actions/            # callMethod / callBatch / callList* (v2 + v3)
+│   │   │   ├── actions/            # b24.actions.vX.<call|batch|callList|fetchList>.make()
 │   │   │   ├── http/               # transports + limiters
 │   │   │   │   ├── limiters/       # rate / operating / adaptive delay
 │   │   │   │   ├── ajax-result.ts
@@ -137,10 +137,11 @@ Load these based on your task. **Do not load all files at once** — only load w
 | Named exports only | No `export default` in `src/`; keeps the package tree-shakeable |
 | Type imports | Always separate: `import type { X } from '…'` |
 | Public surface | Every type/symbol meant for callers must re-export from [packages/jssdk/src/index.ts](packages/jssdk/src/index.ts) |
+| Action surface | Reach REST through `b24.actions.vX.<name>.make({ method, params, requestId })`. The top-level shortcuts (`b24.callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`) are `@deprecated` — do not use them in new code |
 | Result types | All transport methods return `Result` or `AjaxResult` — never raw axios responses |
-| Paging | Use `result.isMore()` + `result.getNext(httpClient)` rather than re-issuing manual calls |
-| Errors | Throw `SdkError` for SDK-level invariants; HTTP errors are `AjaxError` and surface via `Result` |
-| Logger | New modules accept a `LoggerBrowser` instance; default to a null logger when none is supplied |
+| Paging | v2: `result.isMore()` + `result.getNext(b24.getHttpClient(ApiVersion.v2))`. v3: use `b24.actions.v3.callList.make(...)` / `fetchList.make(...)` (v3 has no `getNext`) |
+| Errors | Throw `SdkError({ code, description, status })` for SDK-level invariants; HTTP errors are `AjaxError` and surface via `Result.getErrors()` |
+| Logger | New modules hold a `LoggerInterface`, default to `LoggerFactory.createNullLogger()`, and accept a real logger through `setLogger(logger)` — not via the constructor |
 | Limiters | New transport code paths must respect the limiter stack (`RateLimiter`, `OperatingLimiter`, `AdaptiveDelayer`) — do not bypass it |
 | Enterprise | Treat the enterprise restriction params from `LicenseManager` as load-time switches; do not duplicate them |
 | Build tokens | Use `__SDK_VERSION__` / `__SDK_USER_AGENT__` placeholders, never literal version strings |

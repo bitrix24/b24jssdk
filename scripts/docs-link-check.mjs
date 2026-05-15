@@ -47,12 +47,13 @@ function fileToUrl(file) {
 // lowercase, strip everything that isn't a word char, whitespace or hyphen,
 // then collapse runs of whitespace into single hyphens.
 function slugifyHeading(text) {
+  // Match github-slugger semantics: each whitespace char becomes a single
+  // hyphen (so "A  B" -> "a--b", not "a-b"). Don't collapse adjacent hyphens.
   return text
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
     .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
+    .replace(/\s/g, '-')
 }
 
 function extractHeadings(body) {

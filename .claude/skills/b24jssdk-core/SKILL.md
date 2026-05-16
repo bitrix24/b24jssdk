@@ -188,6 +188,8 @@ await $b24.setRestrictionManagerParams({
 
 `hardErrorCodes` and `softErrorCodes` are **additive** — the built-in lists (auth/fatal codes) are always hard, and you can't remove them, only extend (per `packages/jssdk/src/types/limiters.ts:120-146`).
 
+> **Scope:** `setRestrictionManagerParams` updates the policy on the **`$b24` instance**, not on the call you're about to make. Every concurrent or subsequent call on the same `$b24` sees the new params until you set them again. In code paths that mix idempotent reads with non-idempotent writes on the same `$b24`, use a dedicated `$b24` instance for the non-idempotent flow (or a per-method idempotency token + manual reconciliation) instead of flipping the policy in-flight.
+
 For heavy long-running calls, also raise the axios timeout on the underlying HTTP client:
 
 ```ts

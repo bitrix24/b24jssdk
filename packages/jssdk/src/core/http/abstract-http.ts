@@ -20,6 +20,7 @@ import { ParamsFactory } from './limiters/params-factory'
 import { RestrictionManager } from './limiters/manager'
 import { AjaxError } from './ajax-error'
 import { AjaxResult } from './ajax-result'
+import { redactSensitiveParams } from './redact'
 import { Type } from '../../tools/type'
 import { Environment, getEnvironment } from '../../tools/environment'
 import { ApiVersion } from '../../types/b24'
@@ -478,7 +479,10 @@ export abstract class AbstractHttp implements TypeHttp {
     const methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
 
     const paramsFormatted = this._prepareParams(authData, params)
-    const paramsFormattedForLog = JSON.stringify(paramsFormatted, null, 0)
+    // `paramsFormatted` carries the OAuth `auth` (access_token) for non-hook flows;
+    // log a redacted copy so the secret never enters logger context, while axios
+    // still receives the original below. (#39)
+    const paramsFormattedForLog = JSON.stringify(redactSensitiveParams(paramsFormatted), null, 0)
 
     const maxLogLength = 300
     const sliceLogLength = 100
@@ -615,16 +619,7 @@ export abstract class AbstractHttp implements TypeHttp {
 
   // region Log ////
   protected _sanitizeParams(params: TypeCallParams): Record<string, unknown> {
-    const sanitized = { ...params }
-    const sensitiveKeys = ['auth', 'password', 'token', 'secret', 'access_token', 'refresh_token']
-
-    sensitiveKeys.forEach((key) => {
-      if (key in sanitized && sanitized[key]) {
-        sanitized[key] = '***REDACTED***'
-      }
-    })
-
-    return sanitized
+    return redactSensitiveParams(params)
   }
 
   protected _logRequest(requestId: string, method: string, params: TypeCallParams): void {

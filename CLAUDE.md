@@ -68,6 +68,8 @@ Single test by name from the root: `pnpm vitest run --project jsSdk:integration 
 
 **Tests hit real Bitrix24 REST endpoints — never mock responses.** They validate API contracts, so a passing mocked test would defeat the suite's purpose.
 
+**Exception — `*.unit.spec.ts` files inside `test/integration/`.** A small number of regression specs (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, …) exercise pure-logic invariants that have nothing to verify against a live portal — batch response parsing, logger-context redaction, etc. They live in the `jsSdk:integration` project but mock the axios client / construct SDK primitives in isolation, so they run without `.env.test` / `B24_HOOK`. Use this naming when the test is **about the SDK's internal behaviour**, not about the REST contract. For anything that touches a REST method's request/response shape — no mocks.
+
 ## Architecture
 
 The core SDK is organised around one abstract base + three concrete entry points:

@@ -85,12 +85,22 @@ function mockSuccessfulPost(b24: B24Hook, version: ApiVersion): void {
   })
 }
 
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    // Cycle / non-serialisable: fall back to a string coercion so the assertion
+    // can still scan for the sentinel without crashing the whole test run.
+    return String(value)
+  }
+}
+
 function assertNoSecretLeak(
   captured: CapturedLog[],
   pathFragment: string
 ): void {
   for (const entry of captured) {
-    const blob = `${entry.message} ${JSON.stringify(entry.context ?? {})}`
+    const blob = `${entry.message} ${safeStringify(entry.context ?? {})}`
     expect(blob, `secret leaked in log entry "${entry.message}"`).not.toContain(FAKE_SECRET)
     expect(blob, `webhook path leaked in log entry "${entry.message}"`).not.toContain(pathFragment)
   }
@@ -137,6 +147,10 @@ describe('core.http logger redaction @issue-39', () => {
     const postSend = captured.find(e => e.message === 'post/send')
     expect(postSend).toBeDefined()
     expect(postSend!.context!.method).toBe('tasks.task.get')
+
+    const postResponse = captured.find(e => e.message === 'post/response')
+    expect(postResponse, 'post/response must fire on a successful v3 call').toBeDefined()
+    expect(postResponse!.context).not.toHaveProperty('method')
   })
 
   it('v2 error: post/catchError logs requestId/status only, never the URL/secret', async () => {
@@ -174,7 +188,6 @@ describe('core.http logger redaction @issue-39', () => {
   })
 
   it('AjaxError.toString() never embeds the webhook URL', () => {
-    b24 = buildClient('v2')
     // Mirrors the shape `_convertAxiosErrorToAjaxError` produces internally.
     const err = new AjaxError({
       code: 'INTERNAL_SERVER_ERROR',
@@ -189,5 +202,114 @@ describe('core.http logger redaction @issue-39', () => {
     const rendered = err.toString() + ' ' + JSON.stringify(err.toJSON())
     expect(rendered).not.toContain(FAKE_SECRET)
     expect(rendered).not.toContain(V2_PATH_FRAGMENT)
+  })
+
+  it('post/send redacts credential-bearing keys from params (OAuth `auth` access_token, user-supplied `password`/`token`)', async () => {
+    b24 = buildClient('v2')
+    mockSuccessfulPost(b24, ApiVersion.v2)
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    // The values below stand in for credentials that would otherwise enter the
+    // info-level `post/send` log via `JSON.stringify(paramsFormatted)`:
+    //  - `auth` is the field `_prepareParams` injects for OAuth flows
+    //    (`result.auth = authData.access_token`) — webhook auth skips it, but
+    //    OAuth/Frame leak it on every call without this redaction.
+    //  - `password` / `token` model a caller passing sensitive business fields
+    //    directly inside params (e.g. a CRM custom field).
+    await b24.actions.v2.call.make({
+      method: 'crm.deal.add',
+      params: {
+        fields: { TITLE: 'safe' },
+        auth: 'OAUTH_ACCESS_TOKEN_LEAK_PROBE_aaa',
+        password: 'USER_PASSWORD_LEAK_PROBE_bbb',
+        token: 'USER_TOKEN_LEAK_PROBE_ccc'
+      } as Record<string, any>
+    })
+
+    const postSend = captured.find(e => e.message === 'post/send')
+    expect(postSend, 'post/send must fire').toBeDefined()
+    const serialized = JSON.stringify(postSend!.context)
+    expect(serialized).not.toContain('OAUTH_ACCESS_TOKEN_LEAK_PROBE_aaa')
+    expect(serialized).not.toContain('USER_PASSWORD_LEAK_PROBE_bbb')
+    expect(serialized).not.toContain('USER_TOKEN_LEAK_PROBE_ccc')
+    expect(serialized).toContain('***REDACTED***')
+  })
+
+  it('AjaxError.toJSON()/toString() redacts credential-bearing keys in requestInfo.params', () => {
+    const err = new AjaxError({
+      code: 'JSSDK_INTERNAL_AJAX_ERROR',
+      status: 500,
+      requestInfo: {
+        method: 'crm.deal.add',
+        params: {
+          fields: { TITLE: 'safe' },
+          auth: 'OAUTH_TOKEN_PROBE_xxx',
+          password: 'USER_PASSWORD_PROBE_yyy'
+        } as Record<string, any>,
+        requestId: 'test-request-id'
+      }
+    })
+
+    const jsonBlob = JSON.stringify(err.toJSON())
+    expect(jsonBlob).not.toContain('OAUTH_TOKEN_PROBE_xxx')
+    expect(jsonBlob).not.toContain('USER_PASSWORD_PROBE_yyy')
+    expect(jsonBlob).toContain('***REDACTED***')
+    // Non-sensitive payload survives so error stays diagnosable.
+    expect(jsonBlob).toContain('TITLE')
+
+    const stringBlob = err.toString()
+    expect(stringBlob).not.toContain('OAUTH_TOKEN_PROBE_xxx')
+    expect(stringBlob).not.toContain('USER_PASSWORD_PROBE_yyy')
+  })
+
+  it('retry path does not leak the secret across multiple attempts', async () => {
+    b24 = buildClient('v2')
+    const httpClient = b24.getHttpClient(ApiVersion.v2)
+    // First attempt rejects, second succeeds — exercises the `http request
+    // attempt` / `http wait` debug logs and `post/catchError` in one flow.
+    const successResponse = {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as never,
+      data: {
+        result: { ok: true },
+        time: {
+          start: 0, finish: 0, duration: 0, processing: 0,
+          date_start: '1970-01-01T00:00:00+00:00',
+          date_finish: '1970-01-01T00:00:00+00:00',
+          operating_reset_at: 1, operating: 0
+        }
+      }
+    }
+    vi.spyOn(httpClient.ajaxClient, 'post')
+      .mockRejectedValueOnce(new AxiosError(
+        'Request failed with status code 503',
+        'ERR_BAD_RESPONSE',
+        undefined,
+        undefined,
+        {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: {},
+          config: {} as never,
+          data: { error: 'QUERY_LIMIT_EXCEEDED', error_description: 'transient' }
+        }
+      ))
+      .mockResolvedValue(successResponse)
+    await b24.setRestrictionManagerParams({
+      ...ParamsFactory.getDefault(),
+      retryDelay: 1
+    })
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    await b24.actions.v2.call.make({ method: 'user.current', params: {} })
+
+    assertNoSecretLeak(captured, V2_PATH_FRAGMENT)
+    // Sanity: both attempts left a trace.
+    expect(captured.some(e => e.message === 'post/catchError')).toBe(true)
+    expect(captured.filter(e => e.message === 'post/send').length).toBeGreaterThanOrEqual(2)
   })
 })

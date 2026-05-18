@@ -2,14 +2,14 @@
 
 ## [1.1.2](https://github.com/bitrix24/b24jssdk/compare/v1.1.1...v1.1.2) (2026-05-18)
 
-### Bug Fixes
+### Security
 
-* **http\security:** stop logging the full webhook URL in the `post/send` info-level log — only the bare REST method name (e.g. `user.current`) enters the logger context, preventing webhook-secret disclosure to user-supplied loggers wired via `B24Hook.setLogger(...)`. The `post/response` and `post/catchError` callsites stay URL-free as well. (#39)
-* **http\AjaxError:** drop the unused `url` field from `requestInfo` typing, `toString()`, and `formatErrorMessage()` so a future change cannot accidentally re-introduce the same leak through error rendering (#39)
+* **http:** stop logging the full webhook URL in the `post/send` info-level log — only the bare REST method name (e.g. `user.current`) enters the logger context, preventing webhook-secret disclosure to user-supplied loggers wired via `B24Hook.setLogger(...)`. The `post/response` and `post/catchError` callsites stay URL-free as well. (#39)
+* **http:** redact credential-bearing keys (`auth`, `password`, `token`, `secret`, `access_token`, `refresh_token`) from the serialised `params` blob that enters the `post/send` info log. Closes a smear path for `B24OAuth`/`B24Frame` where `_prepareParams` injects `auth = access_token` into the request body on every call. (#39)
+* **http\AjaxError:** redact the same credential-bearing keys from `requestInfo.params` at error-construction time so they do not leak via `AjaxError.toJSON()` / `toString()` if the caller passed sensitive fields directly in their REST payload. (#39)
+* **http\AjaxError:** drop the unused `url` field from `requestInfo` typing, `toString()`, and `formatErrorMessage()` so a future change cannot accidentally re-introduce the original webhook-URL leak through error rendering. (#39)
 
-### Tests
-
-* **http:** add `http-logger-redaction.unit.spec.ts` — mocks the axios client with a synthetic webhook URL whose secret is a recognisable sentinel and asserts that no captured logger entry contains the sentinel on success, error, and `AjaxError.toString()` paths (v2 + v3)
+**Migration note:** update to 1.1.2 and, if you wired a custom logger via `setLogger(...)` on any 1.1.x release, audit historical log sinks (stdout, files, third-party aggregators) for entries matching `/rest/{userId}/{secret}/` (webhook) or `"auth":"<token>"` (OAuth) and rotate the corresponding credentials. Downstream redaction shims (e.g. `templates-mcp`'s `logger-redactor`) remain useful as defence in depth.
 
 ## [1.1.1](https://github.com/bitrix24/b24jssdk/compare/v1.1.0...v1.1.1) (2026-05-15)
 

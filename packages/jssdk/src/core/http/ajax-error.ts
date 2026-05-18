@@ -1,6 +1,7 @@
 import type { AjaxQuery } from './ajax-result'
 import type { SdkErrorDetails } from '../sdk-error'
 import { SdkError } from '../sdk-error'
+import { redactSensitiveParams } from './redact'
 
 export type AnswerError = {
   error: string
@@ -34,7 +35,16 @@ export class AjaxError extends SdkError {
     super(params)
 
     this.name = 'AjaxError' as const
+    // Redact credential-bearing keys from caller-supplied params so they never
+    // leak via `toJSON()` / `toString()` consumers (#39).
     this.requestInfo = params.requestInfo
+      ? {
+          ...params.requestInfo,
+          ...(params.requestInfo.params !== undefined
+            ? { params: redactSensitiveParams(params.requestInfo.params) }
+            : {})
+        }
+      : undefined
 
     this.cleanErrorStack()
   }

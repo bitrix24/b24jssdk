@@ -485,7 +485,7 @@ export abstract class AbstractHttp implements TypeHttp {
     this.getLogger().info(
       `post/send`, {
         requestId,
-        method: methodFormatted,
+        method,
         params: paramsFormattedForLog.length > maxLogLength ? paramsFormattedForLog.slice(0, sliceLogLength) + '...' : paramsFormattedForLog
       }
     )

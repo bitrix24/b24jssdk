@@ -14,7 +14,7 @@ export type AjaxErrorParams = {
 }
 
 type AjaxErrorDetails = SdkErrorDetails & {
-  requestInfo?: Partial<AjaxQuery> & { url?: string }
+  requestInfo?: Partial<AjaxQuery>
 }
 
 /**
@@ -97,7 +97,7 @@ export class AjaxError extends SdkError {
     let output = `[${this.name}] ${this.code} (${this._status}): ${this.message}`
 
     if (this.requestInfo) {
-      output += `\nRequest: ${this.requestInfo?.requestId ? `[${this.requestInfo.requestId}] ` : ''}${this.requestInfo.method} ${this.requestInfo.url}`
+      output += `\nRequest: ${this.requestInfo?.requestId ? `[${this.requestInfo.requestId}] ` : ''}${this.requestInfo.method}`
     }
 
     if (this.stack) {
@@ -112,11 +112,8 @@ export class AjaxError extends SdkError {
    */
   protected static override formatErrorMessage(params: AjaxErrorDetails): string {
     if (!params?.description) {
-      if (
-        params.requestInfo?.method
-        && params.requestInfo.url
-      ) {
-        return `${params.code} (on ${params.requestInfo.method}${params.requestInfo?.url ? ' ' + params.requestInfo.url : ''})`
+      if (params.requestInfo?.method) {
+        return `${params.code} (on ${params.requestInfo.method})`
       } else {
         return `Internal ajax error`
       }

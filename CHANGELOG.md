@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.2](https://github.com/bitrix24/b24jssdk/compare/v1.1.1...v1.1.2) (2026-05-18)
+
+### Bug Fixes
+
+* **http\security:** stop logging the full webhook URL in the `post/send` info-level log — only the bare REST method name (e.g. `user.current`) enters the logger context, preventing webhook-secret disclosure to user-supplied loggers wired via `B24Hook.setLogger(...)`. The `post/response` and `post/catchError` callsites stay URL-free as well. (#39)
+* **http\AjaxError:** drop the unused `url` field from `requestInfo` typing, `toString()`, and `formatErrorMessage()` so a future change cannot accidentally re-introduce the same leak through error rendering (#39)
+
+### Tests
+
+* **http:** add `http-logger-redaction.unit.spec.ts` — mocks the axios client with a synthetic webhook URL whose secret is a recognisable sentinel and asserts that no captured logger entry contains the sentinel on success, error, and `AjaxError.toString()` paths (v2 + v3)
+
 ## [1.1.1](https://github.com/bitrix24/b24jssdk/compare/v1.1.0...v1.1.1) (2026-05-15)
 
 ### Features

@@ -453,7 +453,9 @@ export abstract class AbstractHttp implements TypeHttp {
           `post/catchError`, {
             requestId,
             status: error.status,
-            responseData: JSON.stringify(error?.response?.data, null, 0)
+            // Redact in case a future portal response embeds credentials in
+            // the error body (today it doesn't, but the channel is open). (#39)
+            responseData: JSON.stringify(redactSensitiveParams(error?.response?.data), null, 0)
           }
         )
       }

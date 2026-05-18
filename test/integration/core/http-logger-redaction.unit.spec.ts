@@ -25,6 +25,7 @@ import {
   ParamsFactory
 } from '../../../packages/jssdk/src/'
 import { AjaxError } from '../../../packages/jssdk/src/core/http/ajax-error'
+import { redactSensitiveParams } from '../../../packages/jssdk/src/core/http/redact'
 import type { LoggerInterface } from '../../../packages/jssdk/src/types/logger'
 
 const FAKE_SECRET = 'SECRET_TOKEN_REDACTION_SENTINEL_xyz123'
@@ -311,5 +312,109 @@ describe('core.http logger redaction @issue-39', () => {
     // Sanity: both attempts left a trace.
     expect(captured.some(e => e.message === 'post/catchError')).toBe(true)
     expect(captured.filter(e => e.message === 'post/send').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('v3 error path: post/catchError does not leak the secret', async () => {
+    b24 = buildClient('v3')
+    const httpClient = b24.getHttpClient(ApiVersion.v3)
+    vi.spyOn(httpClient.ajaxClient, 'post').mockRejectedValue(
+      new AxiosError(
+        'Request failed with status code 500',
+        'ERR_BAD_RESPONSE',
+        undefined,
+        undefined,
+        {
+          status: 500,
+          statusText: 'Internal Server Error',
+          headers: {},
+          config: {} as never,
+          data: { error: 'INTERNAL_SERVER_ERROR', error_description: 'boom' }
+        }
+      )
+    )
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    await expect(
+      b24.actions.v3.call.make({ method: 'tasks.task.get', params: { taskId: 1 } })
+    ).rejects.toBeDefined()
+
+    assertNoSecretLeak(captured, V3_PATH_FRAGMENT)
+  })
+
+  it('redacts credential keys even when the value is an empty string (token = "")', async () => {
+    b24 = buildClient('v2')
+    mockSuccessfulPost(b24, ApiVersion.v2)
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    // An empty token is unusual but should still be redacted — leaving an
+    // empty `access_token: ""` visible would advertise that the field
+    // exists and how the SDK names it, which a falsy-guard would skip.
+    await b24.actions.v2.call.make({
+      method: 'user.current',
+      params: { access_token: '', auth: '', token: '' } as Record<string, any>
+    })
+
+    const postSend = captured.find(e => e.message === 'post/send')
+    expect(postSend).toBeDefined()
+    const serialized = JSON.stringify(postSend!.context)
+    expect(serialized).not.toMatch(/"access_token"\s*:\s*""/)
+    expect(serialized).not.toMatch(/"auth"\s*:\s*""/)
+    expect(serialized).not.toMatch(/"token"\s*:\s*""/)
+    expect(serialized).toContain('***REDACTED***')
+  })
+
+  it('redacts credentials nested one level deep in params (e.g. data.access_token)', async () => {
+    b24 = buildClient('v2')
+    mockSuccessfulPost(b24, ApiVersion.v2)
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    // A caller might tunnel a credential under a nested object (`data`,
+    // `fields`, or a batch entry); the helper walks one level so this is
+    // still masked. Goes via a regular call so the mock path stays valid.
+    await b24.actions.v2.call.make({
+      method: 'crm.deal.add',
+      params: {
+        fields: { TITLE: 'safe', access_token: 'NESTED_ACCESS_TOKEN_PROBE_qqq' },
+        data: { token: 'NESTED_TOKEN_PROBE_rrr' }
+      } as Record<string, any>
+    })
+
+    const postSend = captured.find(e => e.message === 'post/send')
+    expect(postSend).toBeDefined()
+    const serialized = JSON.stringify(postSend!.context)
+    expect(serialized).not.toContain('NESTED_ACCESS_TOKEN_PROBE_qqq')
+    expect(serialized).not.toContain('NESTED_TOKEN_PROBE_rrr')
+    expect(serialized).toContain('***REDACTED***')
+    expect(serialized).toContain('TITLE') // non-sensitive sibling survives
+  })
+
+  it('redactSensitiveParams: directly exercises depth-1 walk through arrays and objects', () => {
+    // Direct helper test so the contract is pinned independent of the
+    // SDK call chain — `cmd[i].params.<key>` (batch shape) is the
+    // motivating example.
+    const out = redactSensitiveParams({
+      halt: 0,
+      cmd: [
+        { method: 'user.current', params: { access_token: 'A' } },
+        { method: 'profile', params: { token: 'B' } }
+      ],
+      top_secret: { token: 'C' },
+      auth: 'D',
+      access_token: ''
+    } as Record<string, unknown>)
+
+    // Top-level credential key — masked.
+    expect(out.auth).toBe('***REDACTED***')
+    // Empty string is still masked (not skipped by a falsy guard).
+    expect(out.access_token).toBe('***REDACTED***')
+    // Array contents are walked one level.
+    const cmd = out.cmd as Array<{ params: Record<string, unknown> }>
+    expect(cmd[0].params.access_token).toBe('***REDACTED***')
+    expect(cmd[1].params.token).toBe('***REDACTED***')
+    // Nested object one level deep — credential key inside is masked.
+    expect((out.top_secret as Record<string, unknown>).token).toBe('***REDACTED***')
   })
 })

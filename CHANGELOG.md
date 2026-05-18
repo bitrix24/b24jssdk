@@ -9,7 +9,11 @@
 * **http\AjaxError:** redact the same credential-bearing keys from `requestInfo.params` at error-construction time so they do not leak via `AjaxError.toJSON()` / `toString()` if the caller passed sensitive fields directly in their REST payload. (#39)
 * **http\AjaxError:** drop the unused `url` field from `requestInfo` typing, `toString()`, and `formatErrorMessage()` so a future change cannot accidentally re-introduce the original webhook-URL leak through error rendering. (#39)
 
-**Migration note:** update to 1.1.2 and, if you wired a custom logger via `setLogger(...)` on any 1.1.x release, audit historical log sinks (stdout, files, third-party aggregators) for entries matching `/rest/{userId}/{secret}/` (webhook) or `"auth":"<token>"` (OAuth) and rotate the corresponding credentials. Downstream redaction shims (e.g. `templates-mcp`'s `logger-redactor`) remain useful as defence in depth.
+### Migration (affects `>= 1.1.0, < 1.1.2`)
+
+* Update to 1.1.2.
+* If you wired a custom logger via `setLogger(...)` on any 1.1.x release, audit historical log sinks (stdout, files, third-party aggregators) for entries matching `/rest/{userId}/{secret}/` (webhook auth) or `"auth":"<token>"` (OAuth / Frame) and rotate the corresponding credentials.
+* Downstream redaction shims (e.g. `templates-mcp`'s `logger-redactor`) remain useful as defence in depth — keep them in place.
 
 ## [1.1.1](https://github.com/bitrix24/b24jssdk/compare/v1.1.0...v1.1.1) (2026-05-15)
 

@@ -123,7 +123,8 @@ export class RestrictionManager {
     // outcome, so fail fast regardless of whether the error code is enumerated.
     // 429 (rate/operating limit) is handled above; 408 (timeout) stays retryable.
     if (this.#isNonRetryableClientError(error)) {
-      return 0 // We don't repeat
+      this.#logNonRetryableClientError(requestId, error?.code ? `${error.code}` : '?', error?.message ?? '', method, Number(error?.status ?? 0))
+      return 0
     }
 
     // Other exceptions
@@ -190,6 +191,9 @@ export class RestrictionManager {
    */
   #isNonRetryableClientError(error: any): boolean {
     const status = Number(error?.status ?? 0)
+    if (Number.isNaN(status)) {
+      return false
+    }
     return status >= 400 && status < 500 && status !== 408 && status !== 429
   }
 
@@ -405,6 +409,18 @@ export class RestrictionManager {
       requestId,
       method,
       wait,
+      error: {
+        code,
+        message
+      }
+    })
+  }
+
+  #logNonRetryableClientError(requestId: string, code: string, message: string, method: string, status: number) {
+    this.getLogger().error(`client error ${status} (${code}) for the ${method} method is not retryable`, {
+      requestId,
+      method,
+      status,
       error: {
         code,
         message

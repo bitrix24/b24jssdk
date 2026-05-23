@@ -42,6 +42,15 @@ describe('retry decision: client errors are not retried (issue #44)', () => {
     expect(wait).toBe(0)
   })
 
+  it('does not retry the tasks "action not available" code 1048582 (issue #46)', async () => {
+    // tasks.task.pause / .defer on an already-applied state returns HTTP 400
+    // with {"error":"1048582","error_description":"Действие не доступно"}.
+    // The code is not in any built-in list, but the 4xx status alone must
+    // stop the retry — no per-code allowlist patching required.
+    const wait = await callHandleError(buildManager(), { code: '1048582', status: 400 })
+    expect(wait).toBe(0)
+  })
+
   it.each([400, 401, 403, 404, 422, 451, 499])('does not retry HTTP %i', async (status) => {
     const wait = await callHandleError(buildManager(), { code: 'CLIENT_ERROR', status })
     expect(wait).toBe(0)

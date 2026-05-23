@@ -295,25 +295,26 @@ Required in `playgrounds/cli/.env`:
 B24_HOOK=https://<portal>/rest/<userId>/<secret>/
 ```
 
-Optional:
+### CLI arguments
 
-```
-SMOKE_TASK_ID=2016               # for B — a real task id you can (or cannot) pause
-SMOKE_E_TOTAL=500                # for E — number of parallel calls (default: 500)
-SMOKE_LOG_FILE=./my-trace.log    # full-trace log path (default: playgrounds/cli/smoke-retry.log)
-```
+| Argument | Default | Description |
+|---|---|---|
+| `--scenario` | `all` | Scenario key: `A`, `B`, `D`, `E`, or `all`. |
+| `--taskId` | `0` | Real task id used in scenario **B** (`tasks.task.pause`). Scenario B is skipped when `0`. |
+| `--total` | `500` | Number of parallel `user.current` calls in scenario **E**. |
+| `--logFile` | `playgrounds/cli/smoke-retry.log` | Path of the full-trace log file. |
 
 ### How to run
 
 ```bash
 # one scenario at a time (recommended — cleaner output):
-pnpm --filter @bitrix24/b24jssdk-cli exec tsx src/commands/smoke-retry.ts A
-pnpm --filter @bitrix24/b24jssdk-cli exec tsx src/commands/smoke-retry.ts B
-pnpm --filter @bitrix24/b24jssdk-cli exec tsx src/commands/smoke-retry.ts D
-pnpm --filter @bitrix24/b24jssdk-cli exec tsx src/commands/smoke-retry.ts E
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=A
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=B --taskId=2016
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=D
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=E --total=500
 
-# or back-to-back:
-pnpm --filter @bitrix24/b24jssdk-cli exec tsx src/commands/smoke-retry.ts all
+# or all of them back-to-back:
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=all --taskId=2016
 ```
 
 ### What you see in the console

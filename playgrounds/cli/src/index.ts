@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from 'citty'
 import make from './commands/make'
+import smokeRetry from './commands/smoke-retry'
 
 const main = defineCommand({
   meta: {
@@ -8,7 +9,8 @@ const main = defineCommand({
     description: 'Bitrix24 JS SDK CLI'
   },
   subCommands: {
-    make
+    make,
+    'smoke-retry': smokeRetry
   }
 })
 

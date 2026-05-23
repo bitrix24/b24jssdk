@@ -3,9 +3,10 @@
  *
  * Each scenario is annotated with: purpose, what it does, PASS markers,
  * FAIL (regression) markers. The script attaches a `Logger` with two
- * handlers:
- *   - `ConsoleV2Handler` at INFO  — surfaces just the useful lines in the
- *     terminal so you can eyeball each scenario.
+ * handlers (NO `ConsoleV2Handler` — the SDK emits deprecation/migration
+ * warnings on every call that would otherwise drown out the test verdict;
+ * the per-scenario summary printed via `console.log` is the PASS/FAIL line
+ * you actually want to read):
  *   - `StreamHandler` at DEBUG    — writes the full trace (every attempt,
  *     request/response, limiter state) to a file for post-hoc analysis.
  *   - `MemoryHandler` at DEBUG    — used by the script itself to print a
@@ -42,7 +43,6 @@ import { resolve } from 'node:path'
 import {
   ApiVersion,
   B24Hook,
-  ConsoleV2Handler,
   Logger,
   LogLevel,
   MemoryHandler,
@@ -65,7 +65,6 @@ const fileStream = createWriteStream(LOG_PATH, { flags: 'w' })
 const memHandler = new MemoryHandler(LogLevel.DEBUG, { limit: 50_000 })
 
 const logger = new Logger('smoke-retry')
-logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO))
 logger.pushHandler(new StreamHandler(LogLevel.DEBUG, { stream: fileStream }))
 logger.pushHandler(memHandler)
 

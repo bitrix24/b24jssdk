@@ -72,7 +72,7 @@ if (result.isMore()) {
 - Pass the http client (from `b24.getHttpClient(version)`) to `getNext()` — it preserves the same limiter stack.
 - Do **not** loop with raw `start` parameters; use `isMore()` + `getNext()`.
 - **v3 does not support `getNext()`** — it throws `restApi:v3 not support method getNext`. For v3 pagination use `b24.actions.v3.callList.make()` or `b24.actions.v3.fetchList.make()` instead.
-- The legacy shortcuts on `AbstractB24` (`b24.callMethod`, `callListMethod`, `fetchListMethod`, `callBatch`, `callBatchByChunk`) are `@deprecated` and emit a runtime warning. Do not use them in new code; they will be removed in v2.0.0.
+- The legacy shortcuts on `AbstractB24` (`b24.callMethod`, `callListMethod`, `fetchListMethod`, `callBatch`, `callBatchByChunk`) are `@deprecated` and emit a runtime warning. Do not use them in new code; see the `@removed` tag on each method in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) for the target removal version.
 
 ## Error Types
 
@@ -120,7 +120,7 @@ Two transports, one shared base. Both are owned by `AbstractB24` and accessed vi
 | Transport | File | Endpoint shape |
 |-----------|------|----------------|
 | v2 | `packages/jssdk/src/core/http/v2.ts` | `https://<portal>/rest/<method>.json` (legacy, deprecation in progress) |
-| v3 | `packages/jssdk/src/core/http/v3.ts` | newer routes (rollout in progress) |
+| v3 | `packages/jssdk/src/core/http/v3.ts` | `https://<portal>/rest/v3/<method>` (newer routes, rollout in progress — see [apidocs.bitrix24.com/api-reference/rest-v3](https://apidocs.bitrix24.com/api-reference/rest-v3/index.html)) |
 
 When a method is available on **both** v2 and v3, the SDK logs a warning encouraging migration to v3. Do not silence this warning.
 
@@ -176,15 +176,15 @@ Rules:
 
 `ParamsFactory` (in `src/core/http/limiters/params-factory.ts`) bundles limiter parameters into named presets. Pick a preset; don't construct ad-hoc params at call sites.
 
-| Preset | When to use | Notable settings |
-|--------|-------------|------------------|
-| `getDefault()` | `B24Frame`, `B24Hook`, `B24OAuth` unless overridden | `burstLimit: 50`, `drainRate: 2`, `maxRetries: 3`, `retryOnNetworkError: true` |
-| `getEnterprise()` | Enterprise plans (auto-selected via `LicenseManager`) | `burstLimit: 250`, `drainRate: 5` |
-| `getBatchProcessing()` | Bulk imports / migrations | Lower QPS, larger backoff, `maxRetries: 5`, `heavyPercent: 50` |
-| `getRealtime()` | UI flows where stale data is worse than a thrown error | `adaptiveConfig.enabled: false`, `maxRetries: 1` (still inherits `retryOnNetworkError: true` from default — opt out explicitly if you need fast-fail on transport errors, see below) |
+| Preset | When to use | Profile shape (actual numbers in [params-factory.ts](../../packages/jssdk/src/core/http/limiters/params-factory.ts)) |
+|--------|-------------|--------|
+| `getDefault()` | `B24Frame`, `B24Hook`, `B24OAuth` unless overridden | Standard QPS + adaptive backoff + `retryOnNetworkError: true` |
+| `getEnterprise()` | Enterprise plans (auto-selected via `LicenseManager`) | Higher burst + higher drain rate on top of `getDefault()` |
+| `getBatchProcessing()` | Bulk imports / migrations | Lower QPS, lower heavy-request threshold, longer backoff, more retries — used by the under-load test suite |
+| `getRealtime()` | UI flows where stale data is worse than a thrown error | Adaptive backoff disabled, retry budget cut to 1 (still inherits `retryOnNetworkError: true` from default — opt out explicitly if you need fast-fail on transport errors, see below) |
 | `fromTariffPlan(plan)` | When `LicenseManager` provides a portal plan string | Maps `enterprise` → `getEnterprise()`, others → `getDefault()` |
 
-When introducing a new tuning profile, add it as a `ParamsFactory.getX()` static.
+When introducing a new tuning profile, add it as a `ParamsFactory.getX()` static. Concrete numeric values live in source — do not duplicate them into this guide; they would silently rot on the next limiter adjustment.
 
 ### `RestrictionParams` Knobs
 
@@ -193,8 +193,8 @@ Beyond the preset, `RestrictionParams` exposes per-call switches that callers ca
 | Field | Purpose |
 |-------|---------|
 | `maxRetries`, `retryDelay` | Retry budget for soft errors |
-| `retryOnNetworkError` | Default `true`. Set `false` for **non-idempotent** calls (any `*.add`, file uploads, document generation) — a client-side timeout may have succeeded server-side, so retrying creates duplicates. With `false` the SDK throws `NETWORK_ERROR` / `REQUEST_TIMEOUT` immediately. For long-running heavy ops also raise the axios timeout via `$b24.getHttpClient(ApiVersion.vX).ajaxClient.defaults.timeout`. |
-| `hardErrorCodes` | **Add** custom REST error codes that must be thrown immediately, no retry. Merged with the SDK's built-in hard list — additive only, you cannot remove built-ins (auth / fatal codes are always hard). Use for app-specific or custom REST methods whose codes the SDK doesn't recognise (otherwise unknown codes are treated as transient and retried). |
+| `retryOnNetworkError` | Default `true`. Set `false` for **non-idempotent** calls (any `*.add`, file uploads, document generation) — a client-side timeout may have succeeded server-side, so retrying creates duplicates. With `false` the SDK throws `NETWORK_ERROR` / `REQUEST_TIMEOUT` immediately. For long-running heavy ops also raise the axios timeout via `b24.getHttpClient(ApiVersion.vX).ajaxClient.defaults.timeout`. |
+| `hardErrorCodes` | **Add** custom REST error codes that must be thrown immediately, no retry. Use for **HTTP 2xx responses with a domain-level REST error code** that the SDK doesn't recognise as terminal (otherwise the SDK treats unknown codes as transient and retries them). HTTP 4xx is already classified as non-retryable automatically by `RestrictionManager.isClientError` in [packages/jssdk/src/core/http/limiters/manager.ts](../../packages/jssdk/src/core/http/limiters/manager.ts) — you don't need to list 4xx codes here. The list is additive (auth / fatal codes are always hard; you cannot remove built-ins). |
 | `softErrorCodes` | **Add** custom codes that should surface inside `AjaxResult` as a soft error instead of being thrown. Use when your code branches on a specific REST error as part of normal flow (e.g. validation errors from a custom v3 endpoint). |
 
 When adding a new field to `RestrictionParams`:
@@ -210,19 +210,36 @@ Every transport / limiter holds a `LoggerInterface` (the public abstraction from
 - Use `logger.warn(...)` for things callers should know but that don't break flow (deprecated method, unexpected payload shape).
 - Use `logger.error(...)` only for unrecoverable transport-side failures.
 - Do not add `console.log` calls — they cannot be silenced by callers.
+- For runtime deprecation warnings on `@deprecated` public methods, use `LoggerFactory.forcedLog(this._logger, 'warning', { method: '…', replacement: '…', removeInVersion: '2.0.0' })`. See the canonical pattern in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (look for `@deprecated` + `@removed` + `forcedLog`).
 - New warnings or errors must be mentioned in the relevant docs page so users can recognise them.
+
+### Credential redaction
+
+The transport layer redacts credentials from log lines and error messages before they reach the logger. The redaction module is [packages/jssdk/src/core/http/redact.ts](../../packages/jssdk/src/core/http/redact.ts); the redacted keys (`auth`, `token`, `access_token`, `refresh_token`, `password`, `secret`, …) are defined in `SENSITIVE_PARAM_KEYS`.
+
+Rules for code under `packages/jssdk/src/`:
+
+- **Never log raw request payloads** from outside the transport layer. Go through the transport's logger so redaction applies automatically. When in doubt, wrap params with `redactSensitiveParams(params)` from `redact.ts`.
+- **Never log the raw request URL for a `B24Hook` transport.** The URL contains the webhook secret in the path segment (`/rest/<userId>/<secret>/`) — redaction only covers payload params, not URL paths. Log only the method name and `requestId`.
+- **Never put credentials into `SdkError` fields.** `code`, `description`, and any value you pass to a thrown error are serialised to logs and to caller-visible error messages.
 
 ## Adding a New Transport Action
 
-1. Pick the version directory (`src/core/actions/v2/` or `v3/`) that matches the REST method.
-2. Create a `kebab-case.ts` file. Extend `AbstractAction` (`packages/jssdk/src/core/actions/abstract-action.ts`) and override `make(options)`.
-3. Use the action's existing `http` reference (don't instantiate axios). The limiter stack is wired in by the base class.
-4. Return a `Result` or `AjaxResult` — never a raw response.
-5. Surface HTTP errors via `Result.getErrors()`. Throw `SdkError` (with `{ code, description, status }`) only for argument validation and method-support checks (see `packages/jssdk/src/core/actions/v3/call.ts` for the canonical example).
-6. Wire the action into `actions.vX.<name>` on `AbstractB24` so callers reach it via `b24.actions.vX.<name>.make({ ... })`.
-7. Re-export from `packages/jssdk/src/index.ts` if its types are public.
-8. Add an integration test under `test/integration/` that hits a real portal (no response mocks).
-9. Add or update the docs page that describes the action.
+A checklist mirroring the steps verified by code review. The canonical example is [packages/jssdk/src/core/actions/v3/call.ts](../../packages/jssdk/src/core/actions/v3/call.ts).
+
+```
+- [ ] Picked the version directory (src/core/actions/v2/ or v3/) matching the REST method
+- [ ] kebab-case.ts file, one primary export, extends AbstractAction (packages/jssdk/src/core/actions/abstract-action.ts) and overrides make(options)
+- [ ] Uses the action's existing http reference — does not instantiate axios; limiter stack is wired by the base class
+- [ ] Returns Result or AjaxResult — never a raw axios response
+- [ ] Surfaces HTTP errors via Result.getErrors(); throws SdkError({ code, description, status }) only for argument validation and method-support checks
+- [ ] Wired into actions.vX.<name> on AbstractB24 so callers reach it via b24.actions.vX.<name>.make({ ... })
+- [ ] Re-exported from packages/jssdk/src/index.ts if its types are public
+- [ ] Integration test added under test/integration/<area>/ (real portal, no response mocks)
+- [ ] Matching docs page under docs/content/docs/ added or updated
+```
+
+See also the [Adding a REST Method to an Existing Action](../../AGENTS.md#adding-a-rest-method-to-an-existing-action) lightweight checklist in `AGENTS.md` when you only need to call a new method from caller code, without adding a new action class.
 
 ## Quick Reference
 

@@ -1,6 +1,6 @@
 # Testing
 
-Tests use Vitest and run against a **real Bitrix24 portal**. The suite validates REST API contracts — a passing mocked test would defeat its purpose. **Never mock REST responses.**
+Tests use Vitest and run against a **real Bitrix24 portal**. The suite validates REST API contracts — a passing mocked test would defeat its purpose. **Never mock REST responses** (with one narrow exception, see [No-mock policy](#what-tests-do-not-do)).
 
 ## Vitest Projects
 
@@ -24,20 +24,30 @@ Both projects load `.env.test` (gitignored) via `dotenv`.
 2. Set `B24_HOOK` to a real webhook URL:
 
    ```
-   B24_HOOK=https://your-domain.bitrix24.com/rest/your-user-id/your-webhook-code/
+   B24_HOOK=https://your-domain.bitrix24.com/rest/YOUR_USER_ID/YOUR_WEBHOOK_SECRET/
    ```
+
+   **Never commit `.env.test` to version control.** It holds a real webhook secret. The file is listed in `.gitignore` — keep it that way and never modify the ignore rule.
 
 3. `setupB24Client()` in [test/0_setup/setup-integration-jssdk.ts](../../test/0_setup/setup-integration-jssdk.ts) throws if `B24_HOOK` is missing — that is the intended fast-fail.
 
-The test client is built with `B24Hook.fromWebhookUrl(...)` and uses the default limiter preset (`ParamsFactory.getDefault()`). To use a different preset (e.g. enterprise), pass `restrictionParams` explicitly in the local setup.
+### Webhook scopes
+
+The webhook must have at minimum the `crm`, `tasks`, `user`, `im`, and `main` scopes. The `im` scope is required by the issue-23 regression spec (`im.chat.get` inside a batch); `main` is **not exposed in the standard webhook scope picker** in the Bitrix24 UI and must be added manually — it is required by the v3 batch-ref spec that calls `main.eventlog.list`.
+
+### Limiter preset
+
+The integration test client uses `ParamsFactory.getDefault()`. The under-load setup ([test/0_setup/setup-under-load-jssdk.ts](../../test/0_setup/setup-under-load-jssdk.ts)) uses `ParamsFactory.getBatchProcessing()` — when authoring a new under-load test, do not switch back to `getDefault()` or the load profile will be wrong. To use any other preset locally, pass `restrictionParams` explicitly.
 
 ## File Location
 
 | Suite | Location |
 |-------|----------|
 | Integration | `test/integration/<area>/*.spec.ts` (e.g. `core/actions-v3-batch.spec.ts`) |
+| Integration — unit exception | `test/integration/<area>/*.unit.spec.ts` (e.g. `core/http-logger-redaction.unit.spec.ts`) |
 | Under-load | `test/under-load/load-testing-<scenario>.spec.ts` |
-| Snippets mirrored from docs | `test/some-code-from-docs/` |
+| Snippets mirrored from docs | `test/some-code-from-docs/` (manual reference, not auto-run by Vitest) |
+| UMD browser smoke | `test/umd/browser.html` (manual) |
 | Setup helpers | `test/0_setup/` |
 
 Integration test names follow `<area>-<flavor>.spec.ts`. The `core/` group exercises the transport layer (`actions-v2-call`, `actions-v3-batch`, `deprecated-call`, …); the `frame/`, `js-docs/`, `tools/` groups exercise their respective surfaces.
@@ -74,6 +84,7 @@ Conventions:
 - **Use the shared client** via `setupB24Tests()` rather than constructing your own `B24Hook` in each test. Reusing the global client keeps the limiter stack in a known state.
 - **Tag describes with `@apiV2` / `@apiV3`** so test filters (`-t "@apiV3"`) can target a transport version.
 - **Set a stable `requestId`** per call (`test@apiVx/<method>`) — it ends up in server logs and makes failures traceable.
+- **Never interpolate the `B24_HOOK` URL or any credential into `requestId`, `code`, `description`, or other fields you assert on.** These values appear in Bitrix24 server logs and in failure messages; a leaked webhook secret there is a real incident.
 - **Assert `isSuccess` first**, then drill into `getData()`. Use `getErrors()` to assert specific failure paths.
 - **Use `AjaxResult` instance checks** when batches are expected to return `Result<AjaxResult<T>[]>`.
 
@@ -107,6 +118,7 @@ Files in `test/under-load/` run sequentially with a 40-minute timeout. They are 
 - One scenario per file (`load-testing-v3-batch-tasks-task-get.spec.ts`).
 - Enable a single scenario with the matching root script (`pnpm run package-jssdk:test:run-underLoad-v3-batch`, etc. — see `package.json` for the full list).
 - Don't run the whole suite during normal development — these are explicit per-scenario runs.
+- Under-load tests use a different setup file: [test/0_setup/hooks-under-load-jssdk.ts](../../test/0_setup/hooks-under-load-jssdk.ts) (not `hooks-integration-jssdk.ts`). It exposes `useB24TestHooks`, `LoadTesterV2`, `LoadTesterV3`, `testConfig`, and `processTests` for scenario authoring.
 
 ## Filtering
 
@@ -133,7 +145,7 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 
 ## Snippets in Docs
 
-`test/some-code-from-docs/` mirrors runnable snippets from the docs site so they are guaranteed to compile and execute. When you change a snippet in `docs/content/docs/`, also update the mirror — they are paired.
+`test/some-code-from-docs/` is a **manual reference** that mirrors a subset of snippets from the docs site. Vitest does not currently pick it up automatically — there is no project covering this directory in [vitest.config.ts](../../vitest.config.ts), and no CI step runs the files. When you change a snippet in `docs/content/docs/`, mirror it here, but treat the mirror as a paired artefact that humans verify, not as a compile-checked guarantee. Tracked separately by issue #49.
 
 ## What Tests Validate
 
@@ -151,6 +163,12 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 - They do not assert on log lines unless the test is specifically about the warning surface (e.g. deprecation warnings).
 - They do not depend on portal-specific data outside what `getMapId()` exposes.
 
+### Narrow exception: `*.unit.spec.ts`
+
+A small number of regression specs live inside `test/integration/<area>/` but are named `*.unit.spec.ts` (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`). They exercise pure-logic invariants — batch response parsing, log-context redaction, retry decision — that have nothing to verify against a live portal. They use `vi.spyOn(...).mockResolvedValue(...)` / `mockRejectedValue(...)` on the axios client, run without `.env.test` / `B24_HOOK`, and live in the `jsSdk:integration` project for convenience.
+
+Use this naming when the test is about the **SDK's internal behaviour**, not about a REST request/response shape. Document the reason in a JSDoc header at the top of the file. For anything that touches a real REST method's request or response shape — no mocks.
+
 ## Before Pushing
 
 ```bash
@@ -160,3 +178,7 @@ pnpm run package-jssdk:test:run    # integration project, against a real portal
 ```
 
 If you touched the limiter stack or transport layer, also run the relevant under-load scenario.
+
+> **CI does not run Vitest.** The CI workflow (`.github/workflows/`) only runs `lint`, `typecheck`, and `build` — integration tests need `B24_HOOK` and are your **local-only** responsibility. A green CI on a PR does not mean the test suite passed; the reviewer expects you to confirm a local run in the PR description.
+
+See also the [Before Submitting](../../AGENTS.md#before-submitting) checklist in `AGENTS.md` for the full per-PR checklist (lint, typecheck, docs sync, contributing-guide sync, commit-message format).

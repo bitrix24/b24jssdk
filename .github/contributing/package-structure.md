@@ -26,7 +26,7 @@ File naming is `kebab-case.ts`. Class names inside are `PascalCase`. One primary
 
 ## Standard Module Template
 
-A typical helper-style manager (the dominant shape in `src/helper/` and `src/frame/`) takes the b24 instance and configures its logger through a setter. The shape is enforced by [packages/jssdk/src/helper/helper-manager.ts](../../packages/jssdk/src/helper/helper-manager.ts) — use it as the reference.
+A typical helper-style manager (the dominant shape in `src/helper/` and `src/frame/`) takes the b24 instance and configures its logger through a setter. The canonical base class is [packages/jssdk/src/helper/abstract-helper.ts](../../packages/jssdk/src/helper/abstract-helper.ts) — extend it for sub-managers. `B24HelperManager` ([packages/jssdk/src/helper/helper-manager.ts](../../packages/jssdk/src/helper/helper-manager.ts)) is an aggregator that owns several sub-managers and forwards `setLogger` to each; it is not a base class.
 
 ```ts
 // 1. Type imports first (always separate)
@@ -37,10 +37,12 @@ import type { TypeB24 } from '../types/b24'
 import { LoggerFactory } from '../logger'
 import { SdkError } from '../core/sdk-error'
 
-// 3. Class — one primary export per file, named export
+// 3. Class — one primary export per file, named export.
+//    Fields are `protected` so the class can serve as a base or be extended;
+//    use `private` only if the class is intentionally final.
 export class MyManager {
-  private readonly _b24: TypeB24
-  private _logger: LoggerInterface
+  protected _b24: TypeB24
+  protected _logger: LoggerInterface
 
   // 4. Manager takes the b24 instance, not a raw transport.
   //    Logger starts as a null logger and is replaced via setLogger().
@@ -61,7 +63,7 @@ export class MyManager {
   async fetch(id: number) {
     if (id <= 0) {
       // 6. Use SdkError for invariant violations, AjaxError surfaces via Result.
-      //    SdkError takes an object — see packages/jssdk/src/core/sdk-error.ts.
+      //    SdkError takes a SdkErrorDetails object — see packages/jssdk/src/core/sdk-error.ts.
       throw new SdkError({
         code: 'MY_MANAGER_BAD_ID',
         description: 'MyManager.fetch: id must be positive',
@@ -92,7 +94,11 @@ export type { TypeMyPayload } from './types/payloads'
 
 - Prefer `export { Foo } from './…'` over star re-exports for public types — it keeps the contract auditable.
 - Star re-exports are acceptable for `src/types/index.ts` because that file is an internal aggregator.
-- Removing or renaming a public export is a **breaking change** and must go through a deprecation cycle. Add the new symbol, mark the old one with `@deprecated` JSDoc that points to the replacement, and keep both for at least one minor release.
+- Removing or renaming a public export is a **breaking change** and must go through a deprecation cycle. Three things are required, not one:
+
+  1. **JSDoc**: mark the old symbol with `@deprecated` pointing to the replacement, plus `@removed X.Y.Z` for the target removal version. Add `@memo` if the deprecation has a non-obvious reason (e.g. "only for `restApi:v2`").
+  2. **Runtime warning** (for methods callers might still call): emit a warning via `LoggerFactory.forcedLog(this._logger, 'warning', { method: '…', replacement: '…', removeInVersion: 'X.Y.Z' })`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (search for `@deprecated` + `forcedLog`).
+  3. **Both symbols ship together** for at least one minor release.
 
 ## Class Hierarchies
 
@@ -111,7 +117,7 @@ AbstractB24                       packages/jssdk/src/core/abstract-b24.ts
 - the v2 + v3 HTTP clients, reachable via `getHttpClient(version)`,
 - the limiter stack,
 - the logger (replaced via `setLogger(logger)`),
-- the legacy shortcuts `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` / `callBatchByChunk`, all marked `@deprecated` and slated for removal in v2.0.0 — do not call them from new code.
+- the legacy shortcuts `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` / `callBatchByChunk`, all marked `@deprecated` — see the `@removed` tag on each method in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) for the target removal version. Do not call them from new code.
 
 If a new feature is auth-agnostic, put it on `AbstractB24`. Only specialise on a subclass when it requires iframe `postMessage`, webhook URL parsing, or OAuth refresh-token handling.
 
@@ -131,7 +137,7 @@ The composable [`useB24Helper()`](../../packages/jssdk/src/helper/use-b24-helper
 These are the three caller-facing entry points and have stricter rules:
 
 - **`B24Frame`** — bootstrap **only** through [`initializeB24Frame()`](../../packages/jssdk/src/loader-b24frame.ts). It deduplicates concurrent inits and parses `window.name` for the portal handshake. Do not export an alternative constructor path.
-- **`B24Hook`** — construct via the static factory `B24Hook.fromWebhookUrl(url)`. Direct `new B24Hook()` is internal. The class warns when used in the browser.
+- **`B24Hook`** — **must only be used in server-side (Node.js / edge runtime) code**. A webhook URL contains a secret access key; shipping it in a browser bundle exposes the key to every visitor. Construct via the static factory `B24Hook.fromWebhookUrl(url)`. Direct `new B24Hook()` is internal. The class emits a runtime warning when it detects a browser context — do not suppress the warning with `offClientSideWarning()` in production code (it is intended for tests / SSR shims only).
 - **`B24OAuth`** — owns refresh-token error handling. New OAuth flows must reuse its error reporting rather than re-implement token refresh.
 
 ## Types and Enums

@@ -39,7 +39,9 @@ import {
  *   --taskId=<id>             real task id for scenario B
  *   --total=<n>               number of parallel calls for scenario E
  *                             (default: 500)
- *   --logFile=<path>          log path (default: playgrounds/cli/smoke-retry.log)
+ *   --logFile=<path>          log path (default: smoke-retry.log,
+ *                             resolved against cwd — `playgrounds/cli/`
+ *                             when invoked via `pnpm --filter`)
  *
  * @usage pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=A
  */
@@ -53,7 +55,7 @@ export default defineCommand({
     scenario: { description: 'Scenario key: A | B | D | E | all', default: 'all' },
     taskId: { description: 'Real task id to use in scenario B', default: '0' },
     total: { description: 'Number of parallel calls in scenario E', default: '500' },
-    logFile: { description: 'Full-trace log file path', default: 'playgrounds/cli/smoke-retry.log' }
+    logFile: { description: 'Full-trace log file path (relative paths resolve against cwd)', default: 'smoke-retry.log' }
   },
   async setup({ args }) {
     const scenario = String(args.scenario).toUpperCase()

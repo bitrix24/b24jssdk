@@ -302,7 +302,7 @@ B24_HOOK=https://<portal>/rest/<userId>/<secret>/
 | `--scenario` | `all` | Scenario key: `A`, `B`, `D`, `E`, or `all`. |
 | `--taskId` | `0` | Real task id used in scenario **B** (`tasks.task.pause`). Scenario B is skipped when `0`. |
 | `--total` | `500` | Number of parallel `user.current` calls in scenario **E**. |
-| `--logFile` | `playgrounds/cli/smoke-retry.log` | Path of the full-trace log file. |
+| `--logFile` | `smoke-retry.log` | Path of the full-trace log file. Relative paths resolve against the process cwd, which is `playgrounds/cli/` when invoked via `pnpm --filter`. |
 
 ### How to run
 

@@ -1,5 +1,7 @@
 # AGENTS.md
 
+<sub>Last reviewed: 2026-05-24.</sub>
+
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
 ## Project Overview
@@ -268,6 +270,7 @@ After any code change that alters a public API (signatures, accepted parameters,
 - [ ] Relevant Vitest project run is green against a real portal (CI does not run tests)
 - [ ] Documentation updated in the same PR if the public surface changed
 - [ ] If a pattern documented in `.github/contributing/*.md` changed, the matching guide is updated in the same PR
+- [ ] If you touched `AGENTS.md` or any guide under `.github/contributing/` (or `.claude/bitrix24-rest-v3-reference.md`), refresh the `Last reviewed` stamp at the top to today's date
 - [ ] Commit messages follow Conventional Commits
 
 Multiple commits are fine — PRs are squash-merged, so no need to rebase or force-push.

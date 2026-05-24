@@ -1,5 +1,7 @@
 # Documentation
 
+<sub>Last reviewed: 2026-05-24.</sub>
+
 The docs site is the public source of truth. Out-of-date documentation is treated as a bug equal to a broken test. Documentation updates ship in the **same PR** as the code change — use a `docs:` commit only when the change is documentation-only.
 
 ## File Location

@@ -58,8 +58,17 @@ export default defineCommand({
     logFile: { description: 'Full-trace log file path (relative paths resolve against cwd)', default: 'smoke-retry.log' }
   },
   async setup({ args }) {
+    const SCENARIO_KEYS = ['A', 'B', 'D', 'E', 'ALL'] as const
+    type ScenarioKey = typeof SCENARIO_KEYS[number]
     const scenario = String(args.scenario).toUpperCase()
-    const want = (key: string): boolean => scenario === key || scenario === 'ALL'
+    if (!(SCENARIO_KEYS as readonly string[]).includes(scenario)) {
+      console.error(
+        `Unknown --scenario=${args.scenario}. Allowed: ${SCENARIO_KEYS.join(' | ')} (Latin letters, case-insensitive).`
+      )
+      process.exit(2)
+    }
+    const want = (key: Exclude<ScenarioKey, 'ALL'>): boolean =>
+      scenario === key || scenario === 'ALL'
     const taskIdArg = Number(args.taskId)
     const totalArg = Number(args.total)
     const logPath = resolve(process.cwd(), String(args.logFile))
@@ -283,13 +292,17 @@ export default defineCommand({
     }
     // endregion ////
 
-    await new Promise<void>(resolveFlush => fileStream.end(() => resolveFlush()))
+    // Trailing summary MUST run before fileStream.end(): logger.notice
+    // fans out to the StreamHandler too, and writing after end() crashes
+    // with ERR_STREAM_WRITE_AFTER_END. Each notice() is awaited so the
+    // StreamHandler.handle() write resolves before we close the stream.
+    await logger.notice(`full trace -> ${logPath}`)
+    await logger.notice('analyse with:')
+    await logger.notice(`  grep -c 'http request attempt'         ${logPath}   # total attempts across the run`)
+    await logger.notice(`  grep -c 'is not retryable'             ${logPath}   # 4xx fast-fail hits (PR #45)`)
+    await logger.notice(`  grep -c 'all retry attempts exhausted' ${logPath}   # exhausted retries — should be 0 for A/B`)
+    await logger.notice(`  grep -c 'blocked method'               ${logPath}   # limiter pre-throttle hits (E)`)
 
-    logger.notice(`full trace -> ${logPath}`)
-    logger.notice('analyse with:')
-    logger.notice(`  grep -c 'http request attempt'         ${logPath}   # total attempts across the run`)
-    logger.notice(`  grep -c 'is not retryable'             ${logPath}   # 4xx fast-fail hits (PR #45)`)
-    logger.notice(`  grep -c 'all retry attempts exhausted' ${logPath}   # exhausted retries — should be 0 for A/B`)
-    logger.notice(`  grep -c 'blocked method'               ${logPath}   # limiter pre-throttle hits (E)`)
+    await new Promise<void>(resolveFlush => fileStream.end(() => resolveFlush()))
   }
 })

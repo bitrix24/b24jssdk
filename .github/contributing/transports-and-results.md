@@ -1,6 +1,6 @@
 # Transports and Results
 
-<sub>Last reviewed: 2026-05-24 · landed in [PR #35](https://github.com/bitrix24/b24jssdk/pull/35).</sub>
+<sub>Last reviewed: 2026-05-24.</sub>
 
 These are the SDK's "design tokens" — the cross-cutting types and policies that every transport-touching change has to follow. Read this before adding HTTP code paths, error types, or limiter logic.
 

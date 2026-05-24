@@ -1,6 +1,6 @@
 # Testing
 
-<sub>Last reviewed: 2026-05-24 · landed in [PR #35](https://github.com/bitrix24/b24jssdk/pull/35).</sub>
+<sub>Last reviewed: 2026-05-24.</sub>
 
 Tests use Vitest and run against a **real Bitrix24 portal**. The suite validates REST API contracts — a passing mocked test would defeat its purpose. **Never mock REST responses** (with one narrow exception, see [No-mock policy](#what-tests-do-not-do)).
 

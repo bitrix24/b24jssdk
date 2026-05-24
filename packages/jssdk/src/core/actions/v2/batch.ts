@@ -66,7 +66,7 @@ export class BatchV2 extends AbstractBatch {
    * const resultData = (response as Result<AjaxResult<{ item: Contact }>[]>).getData()
    * resultData.forEach((resultRow, index) => {
    *   if (resultRow.isSuccess) {
-   *    console.log(`Item ${index + 1}:`, resultRow.getData().result.item)
+   *    console.log(`Item ${index + 1}:`, resultRow.getData()!.result.item)
    *   }
    * })
    *
@@ -109,8 +109,8 @@ export class BatchV2 extends AbstractBatch {
    * }
    *
    * const results = response.getData() as Record<string, AjaxResult<{ item: Contact } | { item: Deal }>>
-   * console.log('Contact:', results.Contact.getData().result.item as Contact)
-   * console.log('Deal:', results.Deal.getData().result.item as Deal)
+   * console.log('Contact:', results.Contact.getData()?.result.item as Contact)
+   * console.log('Deal:', results.Deal.getData()?.result.item as Deal)
    *
    * @warning The maximum number of commands in one batch request is 50.
    * @note A batch request executes faster than sequential single calls,

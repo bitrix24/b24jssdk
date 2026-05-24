@@ -1,5 +1,7 @@
 # Package Structure
 
+<sub>Last reviewed: 2026-05-24 · landed in [PR #35](https://github.com/bitrix24/b24jssdk/pull/35).</sub>
+
 How to author code inside `packages/jssdk/src/`. This is the published `@bitrix24/b24jssdk` surface — every change here ships to consumers.
 
 ## File Location

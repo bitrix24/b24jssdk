@@ -1,5 +1,7 @@
 # Bitrix24 REST API v3 — Internal Reference
 
+<sub>Last reviewed: 2026-05-24 · stamp added in the [PR #35](https://github.com/bitrix24/b24jssdk/pull/35) follow-up.</sub>
+
 > **Audience:** future Claude sessions writing or reviewing SDK code against REST v3.
 > **Not** linked from `docs/`, **not** a SKILL, **not** part of `AGENTS.md`. The user
 > will fold parts of this into the public docs gradually.

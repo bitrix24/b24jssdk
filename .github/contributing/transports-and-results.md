@@ -194,7 +194,7 @@ Beyond the preset, `RestrictionParams` exposes per-call switches that callers ca
 |-------|---------|
 | `maxRetries`, `retryDelay` | Retry budget for soft errors |
 | `retryOnNetworkError` | Default `true`. Set `false` for **non-idempotent** calls (any `*.add`, file uploads, document generation) — a client-side timeout may have succeeded server-side, so retrying creates duplicates. With `false` the SDK throws `NETWORK_ERROR` / `REQUEST_TIMEOUT` immediately. For long-running heavy ops also raise the axios timeout via `b24.getHttpClient(ApiVersion.vX).ajaxClient.defaults.timeout`. |
-| `hardErrorCodes` | **Add** custom REST error codes that must be thrown immediately, no retry. Use for **HTTP 2xx responses with a domain-level REST error code** that the SDK doesn't recognise as terminal (otherwise the SDK treats unknown codes as transient and retries them). HTTP 4xx is already classified as non-retryable automatically by `RestrictionManager.isClientError` in [packages/jssdk/src/core/http/limiters/manager.ts](../../packages/jssdk/src/core/http/limiters/manager.ts) — you don't need to list 4xx codes here. The list is additive (auth / fatal codes are always hard; you cannot remove built-ins). |
+| `hardErrorCodes` | **Add** custom REST error codes that must be thrown immediately, no retry. Use for **HTTP 2xx responses with a domain-level REST error code** that the SDK doesn't recognise as terminal (otherwise the SDK treats unknown codes as transient and retries them). HTTP 4xx is already classified as non-retryable automatically inside `RestrictionManager` in [packages/jssdk/src/core/http/limiters/manager.ts](../../packages/jssdk/src/core/http/limiters/manager.ts) (private method `#isNonRetryableClientError`) — you don't need to list 4xx codes here. The list is additive (auth / fatal codes are always hard; you cannot remove built-ins). |
 | `softErrorCodes` | **Add** custom codes that should surface inside `AjaxResult` as a soft error instead of being thrown. Use when your code branches on a specific REST error as part of normal flow (e.g. validation errors from a custom v3 endpoint). |
 
 When adding a new field to `RestrictionParams`:
@@ -210,12 +210,23 @@ Every transport / limiter holds a `LoggerInterface` (the public abstraction from
 - Use `logger.warn(...)` for things callers should know but that don't break flow (deprecated method, unexpected payload shape).
 - Use `logger.error(...)` only for unrecoverable transport-side failures.
 - Do not add `console.log` calls — they cannot be silenced by callers.
-- For runtime deprecation warnings on `@deprecated` public methods, use `LoggerFactory.forcedLog(this._logger, 'warning', { method: '…', replacement: '…', removeInVersion: '2.0.0' })`. See the canonical pattern in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (look for `@deprecated` + `@removed` + `forcedLog`).
+- For runtime deprecation warnings on `@deprecated` public methods, use `LoggerFactory.forcedLog(logger, action, message, context)` — **four arguments**:
+
+  ```ts
+  LoggerFactory.forcedLog(
+    this._logger,
+    'warning',
+    'Foo.bar() is deprecated and will be removed in version X.Y.Z. Use Foo.baz() instead.',
+    { class: 'Foo', method: 'bar', replacement: 'Foo.baz()', removalVersion: 'X.Y.Z' }
+  )
+  ```
+
+  Context key is `removalVersion`, not `removeInVersion`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (look for `@deprecated` + `@removed` + `forcedLog`).
 - New warnings or errors must be mentioned in the relevant docs page so users can recognise them.
 
 ### Credential redaction
 
-The transport layer redacts credentials from log lines and error messages before they reach the logger. The redaction module is [packages/jssdk/src/core/http/redact.ts](../../packages/jssdk/src/core/http/redact.ts); the redacted keys (`auth`, `token`, `access_token`, `refresh_token`, `password`, `secret`, …) are defined in `SENSITIVE_PARAM_KEYS`.
+The transport layer redacts credentials from log lines and error messages before they reach the logger. The redaction module is [packages/jssdk/src/core/http/redact.ts](../../packages/jssdk/src/core/http/redact.ts); the full list of redacted keys is the **static** `SENSITIVE_PARAM_KEYS` array — currently `auth`, `token`, `access_token`, `refresh_token`, `password`, `secret`. The list is not extended automatically: when you introduce a new credential-bearing parameter on any code path, add its key to `SENSITIVE_PARAM_KEYS` in `redact.ts` in the same PR, or it will appear unredacted in logs and in `AjaxError`.
 
 Rules for code under `packages/jssdk/src/`:
 

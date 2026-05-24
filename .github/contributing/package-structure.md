@@ -26,7 +26,14 @@ File naming is `kebab-case.ts`. Class names inside are `PascalCase`. One primary
 
 ## Standard Module Template
 
-A typical helper-style manager (the dominant shape in `src/helper/` and `src/frame/`) takes the b24 instance and configures its logger through a setter. The canonical base class is [packages/jssdk/src/helper/abstract-helper.ts](../../packages/jssdk/src/helper/abstract-helper.ts) — extend it for sub-managers. `B24HelperManager` ([packages/jssdk/src/helper/helper-manager.ts](../../packages/jssdk/src/helper/helper-manager.ts)) is an aggregator that owns several sub-managers and forwards `setLogger` to each; it is not a base class.
+A typical helper-style manager (the dominant shape in `src/helper/` and `src/frame/`) takes the b24 instance and configures its logger through a setter. There are two flavours:
+
+- **Standalone manager** — the shape shown in the template below. Construct it explicitly from caller code or from another manager. No abstract methods to implement.
+- **Sub-manager of `B24HelperManager`** — extends [packages/jssdk/src/helper/abstract-helper.ts](../../packages/jssdk/src/helper/abstract-helper.ts), which adds a required `abstract get data(): any` getter and lifecycle hooks. See [packages/jssdk/src/helper/profile-manager.ts](../../packages/jssdk/src/helper/profile-manager.ts) for the canonical sub-manager example. Do not copy the standalone template below for sub-managers — it will not compile.
+
+`B24HelperManager` ([packages/jssdk/src/helper/helper-manager.ts](../../packages/jssdk/src/helper/helper-manager.ts)) is the aggregator that owns those sub-managers and forwards `setLogger` to each; it is not a base class.
+
+The template below is the **standalone** flavour:
 
 ```ts
 // 1. Type imports first (always separate)
@@ -97,7 +104,23 @@ export type { TypeMyPayload } from './types/payloads'
 - Removing or renaming a public export is a **breaking change** and must go through a deprecation cycle. Three things are required, not one:
 
   1. **JSDoc**: mark the old symbol with `@deprecated` pointing to the replacement, plus `@removed X.Y.Z` for the target removal version. Add `@memo` if the deprecation has a non-obvious reason (e.g. "only for `restApi:v2`").
-  2. **Runtime warning** (for methods callers might still call): emit a warning via `LoggerFactory.forcedLog(this._logger, 'warning', { method: '…', replacement: '…', removeInVersion: 'X.Y.Z' })`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (search for `@deprecated` + `forcedLog`).
+  2. **Runtime warning** (for methods callers might still call): emit a warning via `LoggerFactory.forcedLog`. The signature is `(logger, action, message, context)` — **four arguments**, not three:
+
+      ```ts
+      LoggerFactory.forcedLog(
+        this._logger,
+        'warning',
+        'AbstractB24.callMethod() is deprecated and will be removed in version X.Y.Z. Use b24.actions.vX.call.make(options) instead.',
+        {
+          class: 'AbstractB24',
+          method: 'callMethod',
+          replacement: 'b24.actions.vX.call.make(options)',
+          removalVersion: 'X.Y.Z'
+        }
+      )
+      ```
+
+      The context key is `removalVersion`, not `removeInVersion`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (search for `@deprecated` + `forcedLog`).
   3. **Both symbols ship together** for at least one minor release.
 
 ## Class Hierarchies
@@ -205,4 +228,4 @@ When you change the core SDK API:
 
 1. Re-run `pnpm run package-jssdk-nuxt:typecheck`.
 2. If the new surface is Nuxt-relevant (composables, app-config integration, plugin-time setup), update `packages/jssdk-nuxt/src/runtime/plugin` in the same PR.
-3. If [packages/jssdk/README-AI.md](../../packages/jssdk/README-AI.md) shows usage of the changed surface, update it — that file is the authoritative API guide for callers and other agents read it before generating SDK code.
+3. If [packages/jssdk/README-AI.md](../../packages/jssdk/README-AI.md) shows usage of the changed surface, update it — but note this file is **transitional** (being absorbed into `AGENTS.md` and the contributing guides by future PRs). When the README-AI content disagrees with `AGENTS.md`, `AGENTS.md` wins. See the conflict-resolution note in [AGENTS.md Resources](../../AGENTS.md#resources).

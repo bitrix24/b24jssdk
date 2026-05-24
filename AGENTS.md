@@ -61,14 +61,14 @@ scripts/
 
 The core SDK is organised around one abstract base + three concrete entry points:
 
-- [packages/jssdk/src/core/abstract-b24.ts](packages/jssdk/src/core/abstract-b24.ts) — `AbstractB24` exposes the action surface (`b24.actions.vX.<name>.make()`) and owns the v2 + v3 HTTP clients, the restriction/rate-limiter stack, the logger, and helper sub-managers. The legacy shortcuts (`callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`) live on this class too but are `@deprecated` (each marked `@removed 2.0.0`) — do not call them from new code.
+- [packages/jssdk/src/core/abstract-b24.ts](packages/jssdk/src/core/abstract-b24.ts) — `AbstractB24` exposes the action surface (`b24.actions.vX.<name>.make()`) and owns the v2 + v3 HTTP clients, the restriction/rate-limiter stack, the logger, and helper sub-managers. The legacy shortcuts (`callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`) live on this class too but are `@deprecated` — see the `@removed` tag on each method for the target removal version. Do not call them from new code.
 - [packages/jssdk/src/frame](packages/jssdk/src/frame) — `B24Frame`, used inside the Bitrix24 iframe. Talks to the parent window via `postMessage`, auto-refreshes auth on 401, and exposes UI managers (`auth`, `parent`, `slider`, `dialog`, `placement`, `options`). **Bootstrap only via `initializeB24Frame()`** in [packages/jssdk/src/loader-b24frame.ts](packages/jssdk/src/loader-b24frame.ts) — it deduplicates concurrent inits and parses `window.name` for the portal handshake. Do not expose an alternative constructor path.
 - [packages/jssdk/src/hook](packages/jssdk/src/hook) — `B24Hook` for server-side webhook auth (`B24Hook.fromWebhookUrl(url)`). **Must only be used in server-side (Node.js / edge runtime) code.** A webhook URL contains a secret access key; shipping it in a browser bundle exposes the key to every visitor. The class emits a runtime warning when it detects a browser context — do not suppress it with `offClientSideWarning()`.
 - [packages/jssdk/src/oauth](packages/jssdk/src/oauth) — `B24OAuth` for OAuth-based local apps; manages refresh-token errors.
 
 Cross-cutting modules:
 
-- [packages/jssdk/src/core/http](packages/jssdk/src/core/http) — `AbstractHttp` transport (axios-based) implementing `TypeHttp`, `AjaxResult` / `AjaxError`, and the limiter stack: `RateLimiter`, `OperatingLimiter`, `AdaptiveDelayer`, `ParamsFactory`. `Result` and `AjaxResult` are the uniform return types — v2 paging uses `isMore()` + `getNext(b24.getHttpClient(ApiVersion.v2))`; v3 has no `getNext` and uses `actions.v3.callList.make` / `fetchList.make` instead. There is no `b24.http` field — always go through `b24.getHttpClient(version)`. Credentials in request payloads are redacted before reaching the logger via [packages/jssdk/src/core/http/redact.ts](packages/jssdk/src/core/http/redact.ts).
+- [packages/jssdk/src/core/http](packages/jssdk/src/core/http) — `AbstractHttp` transport (axios-based) implementing `TypeHttp`, `AjaxResult` / `AjaxError`, and the limiter stack: `RateLimiter`, `OperatingLimiter`, `AdaptiveDelayer`, `ParamsFactory`. URL patterns: v2 → `/rest/<method>.json`, v3 → `/rest/v3/<method>`. `Result` and `AjaxResult` are the uniform return types — v2 paging uses `isMore()` + `getNext(b24.getHttpClient(ApiVersion.v2))`; v3 has no `getNext` and uses `actions.v3.callList.make` / `fetchList.make` instead. There is no `b24.http` field — always go through `b24.getHttpClient(version)`. Credentials in request payloads are redacted before reaching the logger via [packages/jssdk/src/core/http/redact.ts](packages/jssdk/src/core/http/redact.ts).
 - [packages/jssdk/src/helper](packages/jssdk/src/helper) — `B24HelperManager` aggregates `profile`, `app`, `payment`, `license`, `currency`, and `options` sub-managers (each extending [packages/jssdk/src/helper/abstract-helper.ts](packages/jssdk/src/helper/abstract-helper.ts)). `useB24Helper()` is a closure-based composable that wires lifecycle (init/destroy) and Pull client subscription. `LicenseManager` automatically swaps in enterprise restriction params.
 - [packages/jssdk/src/pullClient](packages/jssdk/src/pullClient) — Pull (push) client with WebSocket + long-polling connectors, channel manager, JSON-RPC, and protobuf decoders (the protobuf JS files are eslint-ignored — see [eslint.config.mjs](eslint.config.mjs)).
 - [packages/jssdk/src/types](packages/jssdk/src/types) — public types and enums (CRM, catalog, bizproc, event, placement, pull, payloads, etc.). Prefer importing enums like `EnumCrmEntityTypeId` from the package root.
@@ -76,9 +76,9 @@ Cross-cutting modules:
 - [packages/jssdk/src/logger](packages/jssdk/src/logger) — `LoggerBrowser.build(name, isDev)` + `LoggerFactory`. `AbstractB24` defaults to `LoggerFactory.createNullLogger()`; a real logger is installed via `b24.setLogger(logger)`.
 - The build-time tokens `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced by unbuild ([packages/jssdk/build.config.ts](packages/jssdk/build.config.ts)).
 
-The Nuxt module ([packages/jssdk-nuxt/src/module.ts](packages/jssdk-nuxt/src/module.ts)) is intentionally tiny — it only registers [packages/jssdk-nuxt/src/runtime/plugin.ts](packages/jssdk-nuxt/src/runtime/plugin.ts). Any new SDK surface that needs Nuxt auto-import / SSR handling has to be wired through that runtime plugin. **When you change the core SDK API, check whether the Nuxt module needs an update.**
+The Nuxt module ([packages/jssdk-nuxt/src/module.ts](packages/jssdk-nuxt/src/module.ts)) is intentionally tiny — it only registers [packages/jssdk-nuxt/src/runtime/plugin.ts](packages/jssdk-nuxt/src/runtime/plugin.ts). Any new SDK surface that needs Nuxt auto-import / SSR handling has to be wired through that runtime plugin.
 
-The SDK is client-facing. Treat exports from [packages/jssdk/src/index.ts](packages/jssdk/src/index.ts) as a public contract: any breaking change needs a deprecation cycle, not a silent rename.
+> **Keep this section current.** When you add a new cross-cutting module or change the responsibility boundary of an existing one, update this Architecture section in the same PR — the contributing guides are detailed references, but Architecture is the only top-level map agents read by default.
 
 ## Commands
 
@@ -114,7 +114,7 @@ Two Vitest projects, defined in [vitest.config.ts](vitest.config.ts):
 - `jsSdk:integration` — `test/integration/**/*.spec.ts`, 30s timeouts, hits a real portal.
 - `jsSdk:underLoad` — `test/under-load/**.spec.ts`, sequential, 40-min timeouts.
 
-Both projects load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — `setupB24Client()` in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it.
+Both projects load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — the underlying client constructor in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it. In tests, reach this client through `setupB24Tests()` from [test/0_setup/hooks-integration-jssdk.ts](test/0_setup/hooks-integration-jssdk.ts) — see [`.github/contributing/testing.md`](.github/contributing/testing.md) for the canonical pattern.
 
 **Webhook scopes.** The webhook needs at minimum `crm`, `tasks`, `user`, `im`, and `main`. The `im` scope is required by the issue-23 regression spec (`im.chat.get` inside a batch); `main` is a non-obvious scope (not exposed in the standard webhook scope picker) required by the v3 batch-ref spec that calls `main.eventlog.list`. Add it manually.
 
@@ -220,6 +220,8 @@ Progress:
 - [ ] 6. Run the relevant test filter locally
 ```
 
+**Switch to the New Surface workflow** if step 2 grows beyond a single typed helper — i.e. the change introduces a new public type, a new manager class, or a new re-export from `packages/jssdk/src/index.ts`. At that point you owe the full lifecycle (types, Nuxt-module check, README-AI sync).
+
 ## PR Review Checklist
 
 When reviewing PRs that touch `packages/jssdk/src/` or `test/`, verify:
@@ -254,7 +256,7 @@ After any code change that alters a public API (signatures, accepted parameters,
 
 ## Git Workflow
 
-- Branch from `main` before code changes. Naming: `ai/<description>` (lowercase, hyphens) — e.g. `ai/add-auth-helper`, `ai/fix-validation`.
+- Branch from `main` before code changes. Naming: `ai/<description>` (lowercase, hyphens) — e.g. `ai/add-auth-helper`, `ai/fix-validation`. Branches created automatically by Claude Code on the web carry a `claude/<description>` prefix instead — both prefixes are acceptable.
 - No branch needed for search / read / exploration.
 - Before commit: `pnpm run lint:fix` and `pnpm run typecheck` must both pass.
 - Keep commit messages clear and Conventional-Commits compliant.

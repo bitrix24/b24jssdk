@@ -1,5 +1,17 @@
 # Bitrix24 JS SDK — AI Guide
 
+> ⚠️ **This file is transitional and will be removed.**
+>
+> Its content is being progressively absorbed into [`AGENTS.md`](../../AGENTS.md) (the root agent-facing guide) and the four focused guides under [`.github/contributing/`](../../.github/contributing/). Future PRs will continue migrating sections out of here until the file can be deleted.
+>
+> **Until then:**
+>
+> - When this guide disagrees with `AGENTS.md` or the `.github/contributing/` guides, **`AGENTS.md` wins**. Do not "fix" `AGENTS.md` to match this file.
+> - **Do not add new material here.** New conventions, examples, and patterns belong in `AGENTS.md` or the matching contributing guide.
+> - Bug-fix edits to existing sections are fine (e.g. correcting a stale API name) but should be mirrored into the canonical location as part of the same PR when possible.
+
+---
+
 Purpose: give AI agents a precise, code-oriented overview of the SDK to generate working Bitrix24 apps. This SDK lets you:
 
 - Call Bitrix24 REST API from apps embedded in Bitrix24 (iframe) and from backend services

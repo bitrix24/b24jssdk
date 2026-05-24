@@ -145,7 +145,7 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 
 ## Snippets in Docs
 
-`test/some-code-from-docs/` is a **manual reference** that mirrors a subset of snippets from the docs site. Vitest does not currently pick it up automatically — there is no project covering this directory in [vitest.config.ts](../../vitest.config.ts), and no CI step runs the files. When you change a snippet in `docs/content/docs/`, mirror it here, but treat the mirror as a paired artefact that humans verify, not as a compile-checked guarantee. Tracked separately by issue #49.
+`test/some-code-from-docs/` is a **manual reference** that mirrors a subset of snippets from the docs site. Vitest does not currently pick it up automatically — there is no project covering this directory in [vitest.config.ts](../../vitest.config.ts), and no CI step runs the files. When you change a snippet in `docs/content/docs/`, mirror it here, but treat the mirror as a paired artefact that humans verify, not as a compile-checked guarantee. Tracked separately by [bitrix24/b24jssdk#49](https://github.com/bitrix24/b24jssdk/issues/49).
 
 ## What Tests Validate
 
@@ -167,7 +167,7 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 
 A small number of regression specs live inside `test/integration/<area>/` but are named `*.unit.spec.ts` (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`). They exercise pure-logic invariants — batch response parsing, log-context redaction, retry decision — that have nothing to verify against a live portal. They use `vi.spyOn(...).mockResolvedValue(...)` / `mockRejectedValue(...)` on the axios client, run without `.env.test` / `B24_HOOK`, and live in the `jsSdk:integration` project for convenience.
 
-Use this naming when the test is about the **SDK's internal behaviour**, not about a REST request/response shape. Document the reason in a JSDoc header at the top of the file. For anything that touches a real REST method's request or response shape — no mocks.
+Use this naming when the test is about the **SDK's internal behaviour**, not about a REST request/response shape. Document the reason in a JSDoc header at the top of the file — see [`test/integration/core/http-logger-redaction.unit.spec.ts`](../../test/integration/core/http-logger-redaction.unit.spec.ts) (lines 1–19) for the reference shape. For anything that touches a real REST method's request or response shape — no mocks.
 
 ## Before Pushing
 

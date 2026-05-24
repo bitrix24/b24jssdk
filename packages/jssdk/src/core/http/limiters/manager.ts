@@ -119,6 +119,14 @@ export class RestrictionManager {
       return wait
     }
 
+    // Client errors (HTTP 4xx) are deterministic — retrying cannot change the
+    // outcome, so fail fast regardless of whether the error code is enumerated.
+    // 429 (rate/operating limit) is handled above; 408 (timeout) stays retryable.
+    if (this.#isNonRetryableClientError(error)) {
+      this.#logNonRetryableClientError(requestId, error?.code ? `${error.code}` : '?', error?.message ?? '', method, Number(error?.status ?? 0))
+      return 0
+    }
+
     // Other exceptions
     if (!this.#isNeedThrowError(error)) {
       // Since this is error handling, we take into account the number of attempts
@@ -172,6 +180,21 @@ export class RestrictionManager {
    */
   async #handleOperatingLimitError(requestId: string, method: string, params?: any, _error?: any): Promise<number> {
     return this.#operatingLimiter.getTimeToFree(requestId, method, params, _error)
+  }
+
+  /**
+   * Checks if the error is a non-retryable client error (HTTP 4xx).
+   *
+   * `429` is excluded — it is handled as a rate/operating limit and is retried
+   * with backoff. `408` (request timeout) is excluded — it is transient and is
+   * governed by `retryOnNetworkError`.
+   */
+  #isNonRetryableClientError(error: any): boolean {
+    const status = Number(error?.status ?? 0)
+    if (Number.isNaN(status)) {
+      return false
+    }
+    return status >= 400 && status < 500 && status !== 408 && status !== 429
   }
 
   /**
@@ -386,6 +409,18 @@ export class RestrictionManager {
       requestId,
       method,
       wait,
+      error: {
+        code,
+        message
+      }
+    })
+  }
+
+  #logNonRetryableClientError(requestId: string, code: string, message: string, method: string, status: number) {
+    this.getLogger().error(`client error ${status} (${code}) for the ${method} method is not retryable`, {
+      requestId,
+      method,
+      status,
       error: {
         code,
         message

@@ -271,6 +271,85 @@ pnpm run dev make deals --total=50 --categoryId=3 --maxProducts=5 --assignedById
 pnpm run dev make deals --total=150
 ```
 
+## Smoke tests: retry policy
+
+> Manual end-to-end checks for the retry-policy fix (PR #45, issues #44 / #46).
+> The unit suite (`pnpm run package-jssdk:test:run`) covers the same regressions
+> deterministically; this script exists to confirm the behaviour against a real
+> portal. Source: [`src/commands/smoke-retry.ts`](./src/commands/smoke-retry.ts).
+
+### What the file does
+
+| | Scenario | Tests | Main PASS condition |
+|---|---|---|---|
+| **A** | #44 — v3 validation 400 | Regression for issue #44: the fix fires on v3 | `attempts=1`, `not-retryable=1`, `[THROWN]` < 2s |
+| **B** | #46 — `tasks.task.pause` code `1048582` | Regression for issue #46: the fix fires on unlisted 4xx codes | `attempts=1`, `not-retryable=1` (or `[OK]`), < 1.5s |
+| **D** | Timeout (HTTP 408) still retries | Negative control: 408 is not caught by the fix | `attempts=3`, `not-retryable=0` |
+| **E** | 500 parallel requests | Negative control: the rate limiter still kicks in | `ok=TOTAL`, `attempts ≥ TOTAL`, `rateLimitHits > 0`, `not-retryable=0` |
+
+### `.env`
+
+Required in `playgrounds/cli/.env`:
+
+```
+B24_HOOK=https://<portal>/rest/<userId>/<secret>/
+```
+
+### CLI arguments
+
+| Argument | Default | Description |
+|---|---|---|
+| `--scenario` | `all` | Scenario key: `A`, `B`, `D`, `E`, or `all`. |
+| `--taskId` | `0` | Real task id used in scenario **B** (`tasks.task.pause`). Scenario B is skipped when `0`. |
+| `--total` | `500` | Number of parallel `user.current` calls in scenario **E**. |
+| `--logFile` | `smoke-retry.log` | Path of the full-trace log file. Relative paths resolve against the process cwd, which is `playgrounds/cli/` when invoked via `pnpm --filter`. |
+
+### How to run
+
+```bash
+# one scenario at a time (recommended — cleaner output):
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=A
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=B --taskId=2016
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=D
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=E --total=500
+
+# or all of them back-to-back:
+pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=all --taskId=2016
+```
+
+### What you see in the console
+
+Each scenario prints a compact summary from an in-process `MemoryHandler` — no
+manual `grep` needed:
+
+```
+===== A. issue #44 — v3 validation 400 (bad payload) =====
+[THROWN] 612ms | attempts=1 | not-retryable=1 | exhausted=0
+       code=BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION status=400 msg=...
+```
+
+That summary line is the PASS criterion. If you see `attempts=3 | exhausted=1`
+instead, it is a regression.
+
+### Analysing the log file
+
+The full trace (every `post/send`, `post/catchError`, limiter state event, …)
+is written to the path printed at the end of the run. The script also prints
+the most useful `grep` recipes itself:
+
+```bash
+grep -c 'http request attempt'         playgrounds/cli/smoke-retry.log   # total attempts across the run
+grep -c 'is not retryable'             playgrounds/cli/smoke-retry.log   # 4xx fast-fail hits (PR #45)
+grep -c 'all retry attempts exhausted' playgrounds/cli/smoke-retry.log   # must be 0 for scenarios A and B
+grep -c 'blocked method'               playgrounds/cli/smoke-retry.log   # limiter pre-throttle hits (E)
+```
+
+To extract the trace of a single request by its `requestId`:
+
+```bash
+grep '538a952b-1e87' playgrounds/cli/smoke-retry.log
+```
+
 ## Running from Different Directories
 
 ### From the monorepo root:

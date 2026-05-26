@@ -2,6 +2,7 @@
 title: Ping.make()
 description: 'Method for measuring Bitrix24 REST API response speed. Performs a test request and returns response time in milliseconds.'
 category: 'tools'
+audited: 2026-05-05
 navigation.title: Ping
 links:
   - label: Ping
@@ -48,6 +49,10 @@ make(
 
 - **Positive number** — response time in milliseconds from sending the request to receiving the response.
 - **`-1`** — in case of error or timeout.
+
+## Error Handling
+
+`Ping.make()`{lang="ts-type"} never throws. Network failures, HTTP errors, invalid credentials, and timeouts are all swallowed internally and surfaced as a return value of `-1`. There is no way to distinguish between failure modes from the call site — for that, use [`HealthCheck.make()`](/docs/working-with-the-rest-api/tools-health-check/) or call the underlying method directly with [`CallV2.make()`](/docs/working-with-the-rest-api/call-rest-api-ver2/) and inspect `AjaxResult`.
 
 ## Examples
 

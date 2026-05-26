@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-05-24.</sub>
+<sub>Last reviewed: 2026-05-26.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -255,6 +255,25 @@ After any code change that alters a public API (signatures, accepted parameters,
 - Sync these sections in particular: the parameter table (types and descriptions), the **Method Signature** block, the **Limitations** / **Key Concepts** notes, and any runnable example that uses the changed surface.
 - If the change introduces a new `warning`/`error` log message or a new `SdkError` code, mention it in the relevant section (Limitations, Error Handling, or Key Concepts) so users can recognise it.
 - Documentation updates belong in the same commit/PR as the code change. Use a `docs:` commit only when the change is documentation-only.
+
+### REST page skeleton (action / tools categories)
+
+Pages with `category: actions` or `category: tools` follow a fixed section order. The lint script `pnpm run docs:lint-pages` enforces this. **Required, in order:**
+
+1. `## Overview`
+2. `## Method Signature`
+3. `## Examples`
+4. `## Alternatives and Recommendations`
+
+`## Error Handling` is recommended (warned if missing) and conventionally placed between `## Method Signature` and `## Examples`. `## Key Concepts`, `## Limitations`, and `## Performance Optimization` are optional but, when present, conventionally appear before `## Examples`.
+
+Cookbook recipes under `docs/content/docs/99.examples/` follow a separate, lighter skeleton and are not skeleton-linted. **Required** sections, in order: `## Goal`, `## Stack & Prerequisites`, `## Full Example`, `## Run It`, `## How It Works`, `## See also`. **Optional**: `## Limitations` (drop it only if the recipe has no known sharp edges).
+
+### `audited:` frontmatter
+
+Every action / tools page should carry an `audited: YYYY-MM-DD` field stating the date its content was verified against the linked source. `pnpm run docs:lint-pages` extracts every `https://github.com/bitrix24/b24jssdk/blob/main/<path>` from the page's `links:` array, runs `git log -1 --format=%cI -- <path>`, and warns if any source's last commit is newer than `audited`. When you sync a page after a code change, bump `audited` to today's date in the same commit. Use `pnpm run docs:lint-pages:strict` in CI gates that should fail on stale pages.
+
+`pnpm run docs:lint-links` is the companion check — validates every internal `](/docs/...)` and frontmatter `to: /docs/...` against the actual file tree, and validates `#fragment` parts against actual page headings (slugified the way Nuxt Content does at runtime, including the `-1` / `-2` suffixes github-slugger emits on duplicate headings).
 
 ## Git Workflow
 

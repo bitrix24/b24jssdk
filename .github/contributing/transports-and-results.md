@@ -1,6 +1,6 @@
 # Transports and Results
 
-<sub>Last reviewed: 2026-05-24.</sub>
+<sub>Last reviewed: 2026-05-26.</sub>
 
 These are the SDK's "design tokens" — the cross-cutting types and policies that every transport-touching change has to follow. Read this before adding HTTP code paths, error types, or limiter logic.
 

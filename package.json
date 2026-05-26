@@ -41,7 +41,7 @@
     "docs:build": "nuxt build docs",
     "docs:generate": "nuxt generate docs",
     "docs:preview": "nuxt preview docs",
-    "docs:lint": "pnpm --filter ./docs lint",
+    "docs:lint": "pnpm run docs:lint-pages && pnpm run docs:lint-links",
     "docs:typecheck": "pnpm --filter ./docs typecheck",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration",

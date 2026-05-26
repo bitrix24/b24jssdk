@@ -42,16 +42,22 @@ function extractGithubLinkPaths(arrayItems) {
   // We deliberately match only `blob/main/<file>` URLs: `tree/main/...` points
   // at a directory (can't be diffed against `git log -1` on a single path) and
   // `blob/<sha>/...` is pinned to a commit, so freshness has no meaning for it.
+  // Defence: drop any extracted path that escapes the repo root via `..` or
+  // resolves to an absolute filesystem location — otherwise a frontmatter `to:`
+  // like `.../blob/main/../../etc/passwd` would let docs-lint stat arbitrary
+  // files. `execFileSync` already neutralises shell-metacharacter injection,
+  // so the worst remaining outcome is a path-traversal probe.
   const paths = []
   for (const entry of arrayItems) {
     const lines = entry.split('\n')
     const toLine = lines.find(l => l.startsWith('to:'))
     if (!toLine) continue
     const url = toLine.replace(/^to:\s*/, '').trim()
-    if (url.startsWith(GITHUB_SOURCE_PREFIX)) {
-      const local = url.slice(GITHUB_SOURCE_PREFIX.length).split('#')[0]
-      paths.push(local)
-    }
+    if (!url.startsWith(GITHUB_SOURCE_PREFIX)) continue
+    const local = url.slice(GITHUB_SOURCE_PREFIX.length).split('#')[0]
+    if (!local || local.startsWith('/') || local.startsWith('\\')) continue
+    if (local.split(/[/\\]/).includes('..')) continue
+    paths.push(local)
   }
   return paths
 }

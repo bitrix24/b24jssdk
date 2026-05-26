@@ -37,6 +37,9 @@ jobs:
       - name: Check docs internal links
         run: node scripts/docs-link-check.mjs
 
+      - name: Test docs-lint scripts
+        run: node --test "scripts/__tests__/**/*.test.mjs"
+
   build:
     runs-on: ubuntu-latest
     env:

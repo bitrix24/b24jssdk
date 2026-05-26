@@ -74,6 +74,14 @@ const categories = {
       title: 'AI Tools',
       icon: undefined
     }
+  ],
+  'examples': [
+    {
+      id: 'examples',
+      title: 'Recipes',
+      // @todo ! insert icon
+      icon: ItemIcon
+    }
   ]
 }
 

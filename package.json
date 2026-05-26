@@ -1,7 +1,7 @@
 {
   "name": "@bitrix24/b24jssdk-main",
   "description": "Bitrix24 REST API JS SDK",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": "Bitrix",
   "packageManager": "pnpm@10.33.2",
   "repository": {
@@ -41,7 +41,7 @@
     "docs:build": "nuxt build docs",
     "docs:generate": "nuxt generate docs",
     "docs:preview": "nuxt preview docs",
-    "docs:lint": "pnpm --filter ./docs lint",
+    "docs:lint": "pnpm run docs:lint-pages && pnpm run docs:lint-links",
     "docs:typecheck": "pnpm --filter ./docs typecheck",
     "skills:typecheck": "tsc -p .claude/skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test": "vitest --project jsSdk:integration",
@@ -57,6 +57,10 @@
     "package-jssdk:test:run-underLoad-v2-batchByChunk": "vitest run -t \"crmItemListAsCompany batchByChunk @apiV2\" --project jsSdk:underLoad",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "docs:lint-pages": "node scripts/docs-lint.mjs",
+    "docs:lint-pages:strict": "node scripts/docs-lint.mjs --strict",
+    "docs:lint-links": "node scripts/docs-link-check.mjs",
+    "docs:lint:test": "node --test \"scripts/__tests__/**/*.test.mjs\"",
     "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run skills:typecheck",
     "release:bump": "node scripts/bump-version.mjs"
   },

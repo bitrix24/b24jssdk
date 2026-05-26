@@ -60,9 +60,10 @@ export const collections = {
       include: 'docs/**/*'
     }],
     schema: z.object({
-      category: z.enum(['actions', 'tools', 'logger', 'limiters', 'B24Frame', 'B24Hook', 'B24OAuth']).optional(),
+      category: z.enum(['actions', 'tools', 'logger', 'limiters', 'B24Frame', 'B24Hook', 'B24OAuth', 'examples']).optional(),
       restApiVersion: z.enum(['rest-api-ver2', 'rest-api-ver3']).optional(),
       badge: z.string().optional(),
+      audited: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       navigation: z.object({
         title: z.string().optional(),
         badge: z.string().optional()

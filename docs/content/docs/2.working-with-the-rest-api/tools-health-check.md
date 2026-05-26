@@ -2,6 +2,7 @@
 title: HealthCheck.make()
 description: 'Method for checking the availability of Bitrix24 REST API. Performs a simple request to the REST API to verify service health.'
 category: 'tools'
+audited: 2026-05-05
 navigation.title: HealthCheck
 links:
   - label: HealthCheck
@@ -48,6 +49,10 @@ make(
 
 - **`true`** — REST API is available and responding, webhook is configured correctly.
 - **`false`** — REST API is unavailable, an error occurred, or necessary access rights are missing.
+
+## Error Handling
+
+`HealthCheck.make()`{lang="ts-type"} never throws. Network failures, HTTP errors, missing scopes, and timeouts are all collapsed into a return value of `false`. The method is intentionally a black-box probe — for actionable error information, call the underlying method directly with [`CallV2.make()`](/docs/working-with-the-rest-api/call-rest-api-ver2/) and inspect `AjaxResult` (`isSuccess`, `getErrorMessages()`).
 
 ## Examples
 

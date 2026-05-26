@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.2](https://github.com/bitrix24/b24jssdk/compare/v1.1.1...v1.1.2) (2026-05-18)
+
+### Security
+
+* **http:** stop logging the full webhook URL in the `post/send` info-level log — only the bare REST method name (e.g. `user.current`) enters the logger context, preventing webhook-secret disclosure to user-supplied loggers wired via `B24Hook.setLogger(...)`. The `post/response` and `post/catchError` callsites stay URL-free as well. (#39)
+* **http:** redact credential-bearing keys (`auth`, `password`, `token`, `secret`, `access_token`, `refresh_token`) from the serialised `params` blob that enters the `post/send` info log. Closes a smear path for `B24OAuth`/`B24Frame` where `_prepareParams` injects `auth = access_token` into the request body on every call. (#39)
+* **http\AjaxError:** redact the same credential-bearing keys from `requestInfo.params` at error-construction time so they do not leak via `AjaxError.toJSON()` / `toString()` if the caller passed sensitive fields directly in their REST payload. (#39)
+* **http\AjaxError:** drop the unused `url` field from `requestInfo` typing, `toString()`, and `formatErrorMessage()` so a future change cannot accidentally re-introduce the original webhook-URL leak through error rendering. (#39)
+
+### Migration (affects `>= 1.1.0, < 1.1.2`)
+
+* Update to 1.1.2.
+* If you wired a custom logger via `setLogger(...)` on any 1.1.x release, audit historical log sinks (stdout, files, third-party aggregators) for entries matching `/rest/{userId}/{secret}/` (webhook auth) or `"auth":"<token>"` (OAuth / Frame) and rotate the corresponding credentials.
+* Downstream redaction shims (e.g. `templates-mcp`'s `logger-redactor`) remain useful as defence in depth — keep them in place.
+
 ## [1.1.1](https://github.com/bitrix24/b24jssdk/compare/v1.1.0...v1.1.1) (2026-05-15)
 
 ### Features
@@ -7,7 +22,6 @@
 * **limiters\RestrictionParams:** add `retryOnNetworkError` flag — set to `false` to throw immediately on `NETWORK_ERROR` / `REQUEST_TIMEOUT` instead of retrying. Important for non-idempotent calls (e.g. `crm.documentgenerator.document.add`) where retries can create duplicates
 * **limiters\RestrictionParams:** add `hardErrorCodes` and `softErrorCodes` — merge custom REST error codes into the built-in hard/soft lists so business-specific codes can opt out of automatic retry or be returned as soft errors via `AjaxResult` (#24)
 * **limiters\RestrictionManager:** expose `BUILT_IN_HARD_ERROR_CODES` / `BUILT_IN_SOFT_ERROR_CODES` as readonly static fields so callers can introspect the defaults
-* **limiters\ParamsFactory:** `realtime` preset now ships with `retryOnNetworkError: false` so realtime callers don't accidentally retry non-idempotent writes
 
 ### Bug Fixes
 

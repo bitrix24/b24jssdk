@@ -265,7 +265,9 @@ Pages with `category: actions` or `category: tools` follow a fixed section order
 3. `## Examples`
 4. `## Alternatives and Recommendations`
 
-`## Error Handling` is recommended (warned if missing) and conventionally placed between `## Method Signature` and `## Examples`. `## Key Concepts`, `## Limitations`, and `## Performance Optimization` are optional but, when present, conventionally appear before `## Examples`. Cookbook recipes under `docs/content/docs/99.examples/` follow a separate, lighter skeleton (`Goal → Stack → Full Example → Run It → How It Works → Limitations → See also`) and are not skeleton-linted.
+`## Error Handling` is recommended (warned if missing) and conventionally placed between `## Method Signature` and `## Examples`. `## Key Concepts`, `## Limitations`, and `## Performance Optimization` are optional but, when present, conventionally appear before `## Examples`.
+
+Cookbook recipes under `docs/content/docs/99.examples/` follow a separate, lighter skeleton and are not skeleton-linted. **Required** sections, in order: `## Goal`, `## Stack & Prerequisites`, `## Full Example`, `## Run It`, `## How It Works`, `## See also`. **Optional**: `## Limitations` (drop it only if the recipe has no known sharp edges).
 
 ### `audited:` frontmatter
 

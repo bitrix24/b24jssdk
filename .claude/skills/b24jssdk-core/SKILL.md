@@ -28,7 +28,7 @@ const $b24 = B24Hook.fromWebhookUrl(
 )
 
 // Server-side only — silence the warning that B24Hook leaks the secret in browser bundles.
-$b24.offClientSideWarning?.()
+$b24.offClientSideWarning()
 
 const me = await $b24.actions.v2.call.make<{ NAME: string; ID: number }>({
   method: 'profile',
@@ -206,6 +206,17 @@ import { ParamsFactory } from '@bitrix24/b24jssdk'
 
 await $b24.setRestrictionManagerParams(ParamsFactory.getEnterprise())
 ```
+
+## Security checklist for event-receiver recipes
+
+When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth install / uninstall endpoints), apply this checklist — both anti-spoof and anti-retry-storm. Concrete worked examples live in recipes `07-webhook-handler.ts` and `12-oauth-install.ts`.
+
+- [ ] **Respond `200` first, verify after.** Bitrix24 retries any non-2xx response for up to 24 h. Send `res.status(200).send('ok')` immediately on payload receipt, then do the verification + business logic asynchronously. Failures in those async steps log + drop, not retry-cascade.
+- [ ] **Verify `application_token` for outbound webhooks.** Compare `payload.auth?.application_token` against the value from your Bitrix24 dev console (typically supplied via env var). On mismatch — log and ignore. Without this, any caller that knows the URL can replay arbitrary events.
+- [ ] **Verify `application_token` against persisted credentials on uninstall.** On `ONAPPUNINSTALL`, look up the stored creds for the incoming `member_id`, compare `application_token`, and only delete on match. Without this, anyone who reaches `/uninstall` can erase credentials for any portal whose `member_id` they guess.
+- [ ] **Persist refreshed OAuth tokens.** Always call `setCallbackRefreshAuth` on every `B24OAuth` instance to write fresh tokens back to your store. The next cold start expects them.
+- [ ] **Keep `B24Hook` server-side.** It bundles a long-lived secret. `offClientSideWarning()` silences the warning only on Node; the SDK refuses to silence it in the browser entry points.
+- [ ] **HTML-escape user input before posting to chat / IM.** When sending CRM text through `parse_mode: 'HTML'` (Telegram) or `im.message.add` HTML, escape `<` / `>` / `&` in the payload.
 
 ## Picking method names
 

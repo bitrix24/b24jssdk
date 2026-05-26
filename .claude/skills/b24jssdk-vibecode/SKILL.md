@@ -46,7 +46,7 @@ import {
 } from '@bitrix24/b24jssdk'
 
 const $b24: TypeB24 = B24Hook.fromWebhookUrl(process.env.B24_HOOK!)
-$b24.offClientSideWarning?.()
+$b24.offClientSideWarning()
 
 // 1. Read a deal via b24jssdk (Bitrix24 REST)
 const dealRes = await $b24.actions.v2.call.make<{ item: { id: number; title: string } }>({

@@ -2,6 +2,8 @@
 
 <sub>Last reviewed: 2026-05-26.</sub>
 
+> **Agent-facing mirror:** the same area, viewed from the angle of agents writing usage code, lives in [`.claude/skills/b24jssdk-rest/SKILL.md`](../../.claude/skills/b24jssdk-rest/SKILL.md), [`.claude/skills/b24jssdk-filtering/SKILL.md`](../../.claude/skills/b24jssdk-filtering/SKILL.md), and [`.claude/skills/b24jssdk-core/SKILL.md`](../../.claude/skills/b24jssdk-core/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
+
 These are the SDK's "design tokens" — the cross-cutting types and policies that every transport-touching change has to follow. Read this before adding HTTP code paths, error types, or limiter logic.
 
 ## Files

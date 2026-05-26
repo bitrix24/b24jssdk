@@ -31,7 +31,7 @@ function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning?.()
+  $b24.offClientSideWarning()
   return $b24
 }
 
@@ -72,14 +72,16 @@ async function askLlm(question: string, sources: SearchResult[]): Promise<string
 }
 
 async function postTimelineComment($b24: TypeB24, dealId: number, comment: string) {
-  // crm.timeline.comment.add — classic API, uppercase fields. ENTITY_TYPE='deal'
-  // is the string form; if your portal rejects it, use ENTITY_TYPE_ID=2.
+  // crm.timeline.comment.add — classic API, uppercase fields. Use the numeric
+  // ENTITY_TYPE_ID (2 = deal, per EnumCrmEntityTypeId.deal): it is accepted on
+  // every portal version we've seen. The string form (`ENTITY_TYPE: 'deal'`)
+  // also works on most modern portals but a few older ones reject it with 400.
   await $b24.actions.v2.call.make({
     method: 'crm.timeline.comment.add',
     params: {
       fields: {
         ENTITY_ID: dealId,
-        ENTITY_TYPE: 'deal',
+        ENTITY_TYPE_ID: 2,  // EnumCrmEntityTypeId.deal — numeric is the safe default
         COMMENT: comment
       }
     },

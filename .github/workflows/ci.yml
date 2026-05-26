@@ -40,7 +40,7 @@ jobs:
       - name: Test docs-lint scripts
         run: node --test "scripts/__tests__/**/*.test.mjs"
 
-  build:
+  ci:
     runs-on: ubuntu-latest
     env:
       NUXT_PUBLIC_USE_AI: false

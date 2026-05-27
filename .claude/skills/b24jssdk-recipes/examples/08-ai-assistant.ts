@@ -123,7 +123,17 @@ Reply as JSON:
     temperature: 0.3
   })
 
-  return JSON.parse(completion.choices[0].message.content!) as Recommendation
+  // Defensive parse: `response_format: 'json_object'` is a request, not a
+  // contract — content may be null (rate-limit trims, content filter), or
+  // a string that doesn't parse as JSON. Failing with a useful snippet is
+  // better than a bare SyntaxError.
+  const raw = completion.choices[0]?.message?.content ?? ''
+  if (!raw) throw new Error('GPT returned empty content (likely rate-limit or content filter)')
+  try {
+    return JSON.parse(raw) as Recommendation
+  } catch (e) {
+    throw new Error(`GPT returned invalid JSON (${(e as Error).message}): ${raw.slice(0, 200)}`)
+  }
 }
 
 async function createTask($b24: TypeB24, r: Recommendation, deal: DealItem): Promise<number> {

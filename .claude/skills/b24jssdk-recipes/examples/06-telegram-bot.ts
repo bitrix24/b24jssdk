@@ -42,6 +42,10 @@ interface DealRow {
   stageId: string
 }
 
+// NOTE: cold start sends Telegram notifications for EVERY existing NEW-stage
+// deal on the first tick (filter `>id: 0` matches all). For a production
+// deployment seed this from persistent storage (file / Redis) or initialise
+// it with the current max(id) on first run to skip historical deals.
 let lastSeenDealId = 0
 
 const baseStage = (s: string) => (s.includes(':') ? s.split(':')[1] : s)
@@ -107,23 +111,22 @@ async function tick($b24: TypeB24, bot: Bot, chatId: string) {
   if (deals.length === 0) { logger.info('  no new deals'); return }
 
   // Deals arrive in id-asc order (filter sets `order: { id: 'asc' }` and
-  // `call.make` honours it). We advance lastSeenDealId only across the
-  // contiguous prefix of successful sends — the moment one deal fails, we
-  // stop advancing so the failed deal AND the rest get retried next tick.
-  let sawFailure = false
+  // `call.make` honours it). On the first failure we STOP the loop entirely
+  // — `break`, not `continue`. Reason: if we continued, deals after the
+  // failed one would be sent successfully, but lastSeenDealId would still
+  // be the last-success-before-failure, so the next tick would re-send the
+  // already-delivered post-failure deals as duplicates. With `break`, the
+  // failed deal AND every later one wait for the next tick — at-least-once
+  // delivery, no duplicates.
   for (const d of deals) {
     try {
       const contact = await fetchContactName($b24, d.contactId)
       await bot.api.sendMessage(chatId, format(d, contact), { parse_mode: 'HTML' })
       logger.info(`Notified about deal #${d.id}`)
-      if (!sawFailure) {
-        lastSeenDealId = Math.max(lastSeenDealId, d.id)
-      }
+      lastSeenDealId = Math.max(lastSeenDealId, d.id)
     } catch (e) {
-      // Don't abort the whole tick — but also don't advance the cursor past
-      // this deal (so it's retried next tick).
-      sawFailure = true
-      logger.warn(`Failed to notify about deal #${d.id}: ${(e as Error).message}`)
+      logger.warn(`Failed to notify about deal #${d.id}: ${(e as Error).message} — stopping tick to avoid duplicates`)
+      break
     }
   }
 }

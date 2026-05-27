@@ -1,11 +1,11 @@
 ---
 name: b24jssdk-recipes
-description: End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler. Each recipe is a self-contained TypeScript program using B24Hook on the server side. Load when the user asks for a working example or a starting template.
+description: End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling cookbook, event registration, OAuth install handshake. Each recipe is a self-contained TypeScript program using B24Hook on the server side. Load when the user asks for a working example or a starting template.
 ---
 
 # b24jssdk recipes
 
-Nine end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each function body takes `$b24: TypeB24` so the same code works in-frame too — just swap the boot for `initializeB24Frame()`.
+Twelve end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each function body takes `$b24: TypeB24` so the same code works in-frame too — just swap the boot for `initializeB24Frame()`.
 
 All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The legacy `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` is `@deprecated` for 2.0.0 — do not generate code against it.
 
@@ -88,7 +88,7 @@ npx tsx examples/01-crm-analytics.ts
 - **`customKeyForResult`**: `'items'` for `crm.item.list`, omit or `'tasks'` for classic methods. Wrong value → silent empty array.
 - **`idKey`**: `'id'` for `crm.item.list`, `'ID'` (default) for classic methods.
 - **Error handling**: failed calls throw `AjaxError` for REST errors; recipes log and continue where it makes sense. Tune via `setRestrictionManagerParams` if you need different retry behaviour (see `b24jssdk-core`).
-- **Webhook events** (recipe 7): registration of `event.bind` is a one-time setup not covered by these scripts — do it once via portal admin or a manual `crm.event.bind` call.
+- **Webhook events** (recipe 7): registration of the outbound webhooks themselves (which events go where) is a one-off setup. Recipe 11 (`11-event-registration.ts`) is a small CLI for that: `list` / `bind` / `unbind` via `event.get` / `event.bind` / `event.unbind`.
 
 ## Cross-reference
 

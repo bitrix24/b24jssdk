@@ -10,9 +10,16 @@
  * Install: pnpm add express
  * Env:
  *   B24_HOOK=https://your.bitrix24.com/rest/1/secret
+ *   B24_APPLICATION_TOKEN=...   (REQUIRED — from Bitrix24 dev console)
  *   PORT=3001 (default)
  * Run:
  *   npx tsx 07-webhook-handler.ts
+ *
+ * UNVERIFIED_ON_LIVE_PORTAL: the `data[FIELDS][ID]` parsing path through
+ * `express.urlencoded({ extended: true })` was inferred from Bitrix24 docs
+ * but not yet smoke-tested against a real outbound webhook. If `payload.data
+ * .FIELDS.ID` arrives empty/undefined when you wire it up, check the raw
+ * request body and adjust the parser. Tracked in REPORT.md.
  */
 
 import {
@@ -23,8 +30,21 @@ import {
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import express, { type Request, type Response } from 'express'
+import { timingSafeEqual } from 'node:crypto'
 
 const logger = LoggerBrowser.build('Webhook', true)
+
+/**
+ * Constant-time string compare. Use for any secret / token comparison so
+ * an attacker can't recover the value by measuring response latency.
+ * Returns false when lengths differ (does not leak length either).
+ */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a, 'utf8')
+  const bb = Buffer.from(b, 'utf8')
+  if (ab.length !== bb.length) return false
+  return timingSafeEqual(ab, bb)
+}
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -102,11 +122,14 @@ async function main() {
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))
 
-  // The application_token Bitrix24 sends in every event. Set this from the
-  // Bitrix24 dev console (Local Application → application_token). Without it
-  // we accept any payload from anyone who knows our URL — fine for a local
-  // smoke test, NOT fine in production.
+  // The application_token Bitrix24 sends in every event. REQUIRED — without
+  // it the server would accept any POST from anyone who knows the URL.
+  // Set this from the Bitrix24 dev console (Local Application →
+  // application_token) and store it in B24_APPLICATION_TOKEN.
   const expectedApplicationToken = process.env.B24_APPLICATION_TOKEN
+  if (!expectedApplicationToken) {
+    throw new Error('B24_APPLICATION_TOKEN env var is required (anti-spoof for outbound webhooks). Get it from your Bitrix24 dev console → Local Application → application_token.')
+  }
 
   app.post('/webhook', async (req: Request, res: Response) => {
     const payload = req.body as BitrixEventPayload
@@ -115,16 +138,18 @@ async function main() {
     // and verify after, so even a bad payload doesn't keep the queue alive.
     res.status(200).json({ status: 'ok' })
 
-    if (expectedApplicationToken) {
-      const incomingToken = payload.auth?.application_token
-      if (incomingToken !== expectedApplicationToken) {
-        logger.warn('Rejected webhook: application_token mismatch (possible spoof)')
-        return
-      }
+    // Anti-spoof: constant-time compare against the registered application_token.
+    const incomingToken = payload.auth?.application_token ?? ''
+    if (!safeEqual(incomingToken, expectedApplicationToken)) {
+      logger.warn('Rejected webhook: application_token mismatch (possible spoof)')
+      return
     }
 
     const eventName = payload.event ?? 'UNKNOWN'
-    logger.info(`[${new Date().toISOString()}] event=${eventName} fields=${JSON.stringify(payload.data?.FIELDS ?? {})}`)
+    // Log only the keys of FIELDS, not the values — Bitrix24 may add sensitive
+    // fields in future releases and we don't want them leaking into log aggregators.
+    const fieldKeys = Object.keys(payload.data?.FIELDS ?? {})
+    logger.info(`[${new Date().toISOString()}] event=${eventName} fieldKeys=${JSON.stringify(fieldKeys)}`)
 
     const handler = HANDLERS[eventName]
     if (handler) {

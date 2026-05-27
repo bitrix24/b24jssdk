@@ -16,6 +16,7 @@
  */
 
 import {
+  type AjaxResult,
   AjaxError,
   B24Hook,
   LoggerBrowser,
@@ -121,17 +122,27 @@ async function main() {
   // Uncomment to demonstrate against a real file id you have access to.
   void getFile
 
-  // One round-trip: storages + root children
+  // One round-trip: storages + root children.
+  //
+  // For BatchNamedCommandsUniversal (object form), use returnAjaxResult: true
+  // and read per-key results as AjaxResult<...> — this is the canonical shape
+  // documented in test/integration/js-docs/actions-v2.spec.ts:181.
+  // Calling getData() on the outer batch with returnAjaxResult: false would
+  // give an unsafe union (T | T[] | BatchPayloadResult<T>) that does NOT
+  // expose the named keys at the type level.
   const batch = await $b24.actions.v2.batch.make<Storage[] | DiskItem[]>({
     calls: {
       Storages: { method: 'disk.storage.getlist' },
       Children: { method: 'disk.folder.getchildren', params: { id: storage.ROOT_OBJECT_ID } }
     },
-    options: { isHaltOnError: true, returnAjaxResult: false, requestId: 'disk-batch' }
+    options: { isHaltOnError: true, returnAjaxResult: true, requestId: 'disk-batch' }
   })
+  if (!batch.isSuccess) throw new Error(batch.getErrorMessages().join('; '))
 
-  const data = batch.getData()! as unknown as { Storages: Storage[]; Children: DiskItem[] }
-  logger.info(`\nBatch: ${data.Storages.length} storages, ${data.Children.length} root items`)
+  const results = batch.getData()! as Record<string, AjaxResult<Storage[] | DiskItem[]>>
+  const batchedStorages = (results.Storages.getData()!.result as Storage[]) ?? []
+  const batchedChildren = (results.Children.getData()!.result as DiskItem[]) ?? []
+  logger.info(`\nBatch: ${batchedStorages.length} storages, ${batchedChildren.length} root items`)
 }
 
 main().catch((e) => { logger.error(e); process.exit(1) })

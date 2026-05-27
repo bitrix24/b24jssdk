@@ -32,7 +32,7 @@ We only care about changes that affect the **public, end-user-visible surface**.
 - New `Recipe:` entries (`^# Recipe:`).
 - Renamed / removed Recipe entries.
 - Changes inside the **Filtering**, **Batch**, **Limits**, **Errors** sections — operator/syntax-level, most likely to need a skill update.
-- Changes inside the existing 9 recipe sections (CRM analytics, mass messaging, task automation, ERP sync, Disk, Telegram, webhook, AI assistant, web search + LLM).
+- Changes inside the existing 12 recipe sections (CRM analytics, mass messaging, task automation, ERP sync, Disk, Telegram, webhook, AI assistant, web search + LLM, error handling, event registration, OAuth install).
 
 Sections to ignore:
 - `# Bot: …` per-endpoint pages (~lines 10900–16800) — auto-generated, cosmetic churn.

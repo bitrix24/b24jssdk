@@ -34,8 +34,20 @@ import {
 import express, { type Request, type Response } from 'express'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { timingSafeEqual } from 'node:crypto'
 
 const logger = LoggerBrowser.build('OAuthInstall', true)
+
+/**
+ * Constant-time string compare. Use for any token comparison so an attacker
+ * can't recover the secret by measuring response latency.
+ */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a, 'utf8')
+  const bb = Buffer.from(b, 'utf8')
+  if (ab.length !== bb.length) return false
+  return timingSafeEqual(ab, bb)
+}
 
 const SECRET: B24OAuthSecret = {
   clientId: process.env.B24_CLIENT_ID ?? '',
@@ -61,10 +73,16 @@ async function loadStore(): Promise<Record<string, StoredCredentials>> {
   }
 }
 
+// File mode 0o600: only the file owner can read/write. Tokens MUST NOT be
+// readable by other local users (think shared CI runners, multi-tenant hosts).
+// Note: read-modify-write below is NOT atomic — two concurrent install events
+// for different memberIds may lose one write. In production, replace this file
+// store with a transactional datastore (Postgres `ON CONFLICT UPDATE`, Redis
+// MULTI, etc.). See REPORT.md "Open questions".
 async function saveCredentials(memberId: string, creds: StoredCredentials): Promise<void> {
   const store = await loadStore()
   store[memberId] = creds
-  await fs.writeFile(STORE_FILE, JSON.stringify(store, null, 2))
+  await fs.writeFile(STORE_FILE, JSON.stringify(store, null, 2), { mode: 0o600 })
   logger.info(`  persisted credentials for member ${memberId}`)
 }
 
@@ -76,7 +94,7 @@ async function getCredentials(memberId: string): Promise<StoredCredentials | nul
 async function deleteCredentials(memberId: string): Promise<void> {
   const store = await loadStore()
   delete store[memberId]
-  await fs.writeFile(STORE_FILE, JSON.stringify(store, null, 2))
+  await fs.writeFile(STORE_FILE, JSON.stringify(store, null, 2), { mode: 0o600 })
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -154,7 +172,10 @@ async function handleInstall(req: Request, res: Response) {
     applicationToken: payload.auth.application_token
   })
 
-  logger.info(`[${payload.event}] member=${params.memberId}, domain=${params.domain}, user=${params.userId}`)
+  // Keep INFO logs minimal: just the event name + member tag. domain / userId
+  // are useful for debugging — log them at DEBUG (or behind a feature flag)
+  // so they don't end up in production log aggregators by default.
+  logger.info(`[${payload.event}] member=${params.memberId}`)
 }
 
 async function handleUninstall(req: Request, res: Response) {
@@ -177,7 +198,9 @@ async function handleUninstall(req: Request, res: Response) {
     logger.info(`[ONAPPUNINSTALL] no stored credentials for member=${memberId} (idempotent)`)
     return
   }
-  if (stored.applicationToken !== receivedToken) {
+  // Constant-time compare so an attacker can't recover applicationToken by
+  // hammering /uninstall and measuring response latency.
+  if (!safeEqual(stored.applicationToken, receivedToken)) {
     logger.warn(`[ONAPPUNINSTALL] application_token mismatch for member=${memberId} — refusing to delete`)
     return
   }
@@ -266,6 +289,12 @@ async function main() {
   // Demo: hit /portal/<memberId>/profile to call REST on behalf of that portal.
   // The explicit `Request<{ memberId: string }>` generic narrows req.params
   // from `string | string[]` (Express 5 default) to `string`.
+  //
+  // SECURITY WARNING: this endpoint has NO authentication. Anyone who knows
+  // a member_id can read that portal's profile (and, with the same factory,
+  // execute any other REST call too). DO NOT expose this to the open internet
+  // as-is. In production, gate `/portal/*` behind your own auth — a Bearer
+  // token from your dashboard, an mTLS client cert, or a network-level ACL.
   app.get('/portal/:memberId/profile', async (req: Request<{ memberId: string }>, res: Response) => {
     try {
       const $b24 = await clientForMember(req.params.memberId)

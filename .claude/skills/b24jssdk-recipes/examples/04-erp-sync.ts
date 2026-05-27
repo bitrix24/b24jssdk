@@ -192,14 +192,17 @@ async function synchronise($b24: TypeB24) {
   const { matched, onlyInBitrix, onlyInErp } = match(bx, erp)
   logger.info(`  matched=${matched.length}, onlyB24=${onlyInBitrix.length}, onlyErp=${onlyInErp.length}`)
 
-  let created = 0
+  // Per-side counters: a single `created` would obscure where rows landed
+  // (was it B24 falling behind, or ERP?).
+  let createdInB24 = 0
+  let createdInErp = 0
   let updated = 0
 
-  for (const e of onlyInErp) { await createBitrixContact($b24, e); created++ }
-  for (const b of onlyInBitrix) { createErpContact(b); created++ }
+  for (const e of onlyInErp) { await createBitrixContact($b24, e); createdInB24++ }
+  for (const b of onlyInBitrix) { createErpContact(b); createdInErp++ }
   for (const m of matched) { if (await syncMatched($b24, m.bitrix, m.erp)) updated++ }
 
-  logger.info(`  done: created=${created}, updated=${updated}, ${(Date.now() - t0) / 1000}s`)
+  logger.info(`  done: created.b24=${createdInB24}, created.erp=${createdInErp}, updated=${updated}, ${(Date.now() - t0) / 1000}s`)
 }
 
 async function main() {

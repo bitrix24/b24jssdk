@@ -4,9 +4,9 @@ Gaps in the current skill set, re-prioritised after the 2026-05 migration to `ac
 
 ## Done (in `b24jssdk-recipes/examples/`)
 
-- ~~#1 OAuth install handshake~~ → recipe 12 (`12-oauth-install.ts`)
-- ~~#6 Error-handling cookbook~~ → recipe 10 (`10-error-handling.ts`)
-- ~~#8 Outbound event registration~~ → recipe 11 (`11-event-registration.ts`)
+- ~~OAuth install handshake~~ → recipe 12 (`12-oauth-install.ts`)
+- ~~Error-handling cookbook~~ → recipe 10 (`10-error-handling.ts`)
+- ~~Outbound event registration~~ → recipe 11 (`11-event-registration.ts`)
 
 ## High-impact, missing entirely
 

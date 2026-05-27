@@ -12,6 +12,9 @@
     "noEmit": true,
     "isolatedModules": true,
     "allowSyntheticDefaultImports": true,
+    // Silence TS 6.0 deprecation warnings for compiler options the workspace
+    // still uses (e.g. some lib types). Remove once the deprecated options
+    // here are gone.
     "ignoreDeprecations": "6.0",
     "types": ["node"],
     "lib": ["ES2022", "DOM"]

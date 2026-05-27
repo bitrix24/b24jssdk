@@ -158,7 +158,21 @@ async function main() {
   for (const d of seed) dealStages.set(d.id, d.stageId)
   logger.info(`Tracking ${seed.length} open deals`)
 
-  setInterval(() => { tick($b24).catch((e) => logger.error(e)) }, 60_000)
+  // Overlap guard: if a tick takes longer than the interval (large portal,
+  // slow API), a naked setInterval would launch a second tick in parallel —
+  // two concurrent loops would race on the same `dealStages` Map. The flag
+  // skips overlapping ticks and logs them.
+  let tickRunning = false
+  setInterval(() => {
+    if (tickRunning) {
+      logger.warn('previous tick still running, skipping this interval')
+      return
+    }
+    tickRunning = true
+    tick($b24)
+      .catch((e) => logger.error(e))
+      .finally(() => { tickRunning = false })
+  }, 60_000)
 }
 
 main().catch((e) => { logger.error(e); process.exit(1) })

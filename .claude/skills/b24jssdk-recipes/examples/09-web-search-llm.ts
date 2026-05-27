@@ -15,6 +15,12 @@
  *   OPENAI_API_KEY=...
  * Run:
  *   npx tsx 09-web-search-llm.ts <DEAL_ID> "<question>"
+ *
+ * UNVERIFIED_ON_LIVE_PORTAL: `crm.timeline.comment.add` is called with
+ * `ENTITY_TYPE_ID: 2` (numeric, ≡ EnumCrmEntityTypeId.deal) — that form
+ * was confirmed to work on the portals tested by PR #34's author. If your
+ * portal returns 400, swap to `ENTITY_TYPE: 'deal'` (string). Tracked in
+ * REPORT.md.
  */
 
 import {

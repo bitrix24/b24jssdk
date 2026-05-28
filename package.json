@@ -66,6 +66,7 @@
     "release:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {
+    "@bitrix24/b24jssdk": "workspace:*",
     "@nuxt/eslint-config": "^1.15.2",
     "@types/node": "^25.3.0",
     "axios": "^1.15.2",

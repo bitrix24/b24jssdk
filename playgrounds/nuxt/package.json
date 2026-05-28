@@ -10,6 +10,7 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@bitrix24/b24jssdk": "workspace:*",
     "@bitrix24/b24ui-nuxt": "^2.6.2",
     "nuxt": "^4.4.6"
   },

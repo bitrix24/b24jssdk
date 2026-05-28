@@ -7,7 +7,7 @@
 // unit tests exercise extractTsBlocks in isolation; integration tests spawn
 // the real script against the live docs tree (requires pnpm run dev:prepare).
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,6 +18,14 @@ import assert from 'node:assert/strict'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..', '..')
 const TYPECHECK_SCRIPT = resolve(__dirname, '..', 'docs-typecheck.mjs')
+
+// Integration tests spawn the real docs-typecheck.mjs which requires the SDK
+// dist/ types (built by `pnpm run dev:prepare`). The CI `docs-lint` job is a
+// no-deps fast job — it does not run dev:prepare — so we skip the integration
+// tests there. Locally, where `dev:prepare` has been run, they execute fully.
+const SDK_TYPES = resolve(REPO_ROOT, 'packages', 'jssdk', 'dist', 'esm', 'index.d.ts')
+const SKIP_INTEGRATION = !existsSync(SDK_TYPES)
+const SKIP_INTEGRATION_MSG = '@bitrix24/b24jssdk types not built — run `pnpm run dev:prepare`'
 
 // Import extractTsBlocks directly for unit testing.
 // The function is not exported, so we test it via a thin inline re-implementation
@@ -234,13 +242,13 @@ function runTypecheckScript(env = {}) {
   })
 }
 
-test('docs-typecheck: against the real docs tree exits 0', () => {
+test('docs-typecheck: against the real docs tree exits 0', { skip: SKIP_INTEGRATION && SKIP_INTEGRATION_MSG }, () => {
   const r = runTypecheckScript()
   assert.equal(r.status, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
   assert.match(r.stdout, /block\(s\) checked, 0 error\(s\)/)
 })
 
-test('docs-typecheck: a deliberately broken block causes exit 1 with correct file:line output', () => {
+test('docs-typecheck: a deliberately broken block causes exit 1 with correct file:line output', { skip: SKIP_INTEGRATION && SKIP_INTEGRATION_MSG }, () => {
   // Create a temporary markdown file with a broken TS block.
   const tmp = mkdtempSync(join(tmpdir(), 'docs-typecheck-test-'))
   const fakeDocsDir = join(tmp, 'docs', 'content', 'docs', '2.working-with-the-rest-api')
@@ -272,7 +280,7 @@ test('docs-typecheck: a deliberately broken block causes exit 1 with correct fil
   assert.match(r.stdout, /\d+ block\(s\) checked/)
 })
 
-test('docs-typecheck: GITHUB_ACTIONS=true emits ::error annotations', () => {
+test('docs-typecheck: GITHUB_ACTIONS=true emits ::error annotations', { skip: SKIP_INTEGRATION && SKIP_INTEGRATION_MSG }, () => {
   // We cannot easily inject broken blocks, so verify that a clean run does
   // NOT emit any ::error lines (which would be false positives in CI).
   const r = runTypecheckScript({ GITHUB_ACTIONS: 'true' })

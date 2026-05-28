@@ -11,6 +11,11 @@
  * NOTE: file UPLOAD requires multipart and is not covered here — call
  * disk.folder.uploadfile manually with a binary payload.
  *
+ * Webhook scope required:
+ *   The incoming webhook must have the **disk** scope enabled.
+ *   Bitrix24 portal → Developer resources → Inbound webhooks → edit → tick "Диск (disk)".
+ *   Without it every call returns `insufficient_scope` (HTTP 401).
+ *
  * Run:
  *   B24_HOOK=https://your.bitrix24.com/rest/1/secret npx tsx 05-disk-files.ts
  */

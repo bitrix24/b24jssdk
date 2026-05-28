@@ -27,6 +27,7 @@ export default defineConfig({
           testTimeout: 30_000,
           hookTimeout: 30_000,
           include: ['./test/integration/**/*.spec.ts'],
+          exclude: ['./test/integration/**/*.unit.spec.ts'],
           setupFiles: ['./test/0_setup/setup-integration-jssdk.ts']
         }
       },

@@ -78,7 +78,7 @@ jobs:
         run: pnpm run package-jssdk:test:run-unit
 
       - name: Security audit
-        run: pnpm audit --audit-level=moderate
+        run: pnpm audit --prod --audit-level=high
 
       - name: Build (jssdk)
         run: pnpm --filter ./packages/jssdk build

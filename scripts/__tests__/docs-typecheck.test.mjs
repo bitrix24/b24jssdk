@@ -234,6 +234,19 @@ test('escapeAnnotation: newlines and % are escaped for GitHub Actions', () => {
 })
 
 // ── Integration tests (require pnpm run dev:prepare) ─────────────────────
+//
+// The docs-lint CI job runs this file but intentionally skips pnpm install /
+// dev:prepare because all other tests here are pure-Node unit tests. These
+// integration tests spawn docs-typecheck.mjs, which needs both tsc (from
+// node_modules) and the built SDK types (dist/). Skip them gracefully when
+// those prereqs are absent; the actual docs-typecheck coverage in CI comes
+// from the `ci` job's `pnpm run typecheck` → `docs:typecheck-blocks` step.
+
+const _tscBin = join(REPO_ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
+const _sdkTypes = join(REPO_ROOT, 'packages', 'jssdk', 'dist', 'esm', 'index.d.ts')
+const SKIP_INTEGRATION = existsSync(_tscBin) && existsSync(_sdkTypes)
+  ? false
+  : 'requires pnpm install && pnpm run dev:prepare'
 
 function runTypecheckScript(env = {}) {
   return spawnSync(process.execPath, [TYPECHECK_SCRIPT], {

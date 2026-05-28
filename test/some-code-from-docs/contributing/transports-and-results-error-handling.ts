@@ -22,13 +22,16 @@ export async function callAndHandleResult(b24: TypeB24) {
   })
 
   if (!result.isSuccess) {
-    // result.getErrorMessages() returns string[]; result.getErrors() returns IterableIterator<Error>
-    void result.getErrorMessages()
-    void result.getErrors()
+    // getErrorMessages() returns string[]; getErrors() returns IterableIterator<Error>
+    const messages: string[] = result.getErrorMessages()
+    const errors: IterableIterator<Error> = result.getErrors()
+    void messages
+    void errors
     return
   }
 
-  void result.getData()
+  const data = result.getData()
+  void data
 }
 
 export async function callAndInspectAjaxError(b24: TypeB24) {
@@ -41,17 +44,23 @@ export async function callAndInspectAjaxError(b24: TypeB24) {
   const [err] = result.getErrors()
   if (err instanceof AjaxError) {
     // AjaxError properties: .code (string), .status (number), .message (string)
-    void err.code
-    void err.status
-    void err.message
+    const code: string = err.code
+    const status: number = err.status
+    const message: string = err.message
+    void code
+    void status
+    void message
   }
 }
 
-export function sdkErrorExample(): never {
-  // SdkError constructor takes a SdkErrorDetails object, not a plain string.
-  throw new SdkError({
-    code: 'B24_HOOK_URL_REQUIRED',
-    description: 'B24Hook.fromWebhookUrl: url is required',
-    status: 400
-  })
+// SdkError constructor takes a SdkErrorDetails object — not a plain string.
+// Realistic usage: a guard function that throws on invalid input.
+export function assertHookUrl(url: string | undefined): asserts url is string {
+  if (!url) {
+    throw new SdkError({
+      code: 'B24_HOOK_URL_REQUIRED',
+      description: 'B24Hook.fromWebhookUrl: url is required',
+      status: 400
+    })
+  }
 }

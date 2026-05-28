@@ -1,8 +1,9 @@
-import { describe, it } from 'vitest'
-import './transports-and-results-error-handling'
+// vitest transpiles via esbuild — no type-checking. The authoritative type gate is `contributing:typecheck`.
+import { describe, expect, it } from 'vitest'
+import { callAndHandleResult } from './transports-and-results-error-handling'
 
 describe('contributing/transports-and-results-error-handling', () => {
-  it('compiles', () => {
-    // type-check fixture only — no runtime behaviour to assert
+  it('module loads without throwing', () => {
+    expect(typeof callAndHandleResult).toBe('function')
   })
 })

@@ -37,6 +37,7 @@ pnpm run docs:dev         # start docs dev server
 | `docs:typecheck` | Nuxt's own type-check for the docs Nuxt app |
 | `docs:generate` | Generate the static docs site (`docs/.output/public/`) |
 | `contributing:typecheck` | Type-check canonical TS snippets in test/some-code-from-docs/contributing/ |
+| `package-jssdk:test-contributing-snippets` | Run contributing-snippet vitest project in isolation |
 | `typecheck` | Runs all of the above plus SDK / playground type-checks |
 
 ## Documentation upkeep
@@ -89,7 +90,16 @@ The URL slug is the filename with the numeric sort-prefix stripped: `99.examples
 
 ### 5. Contributing guide snippet type-checking (`contributing:typecheck`)
 
-Canonical TS snippets extracted from `.github/contributing/` guides live as real `.ts` files under `test/some-code-from-docs/contributing/`. They are type-checked by `pnpm run contributing:typecheck` (tsc against `test/some-code-from-docs/contributing/tsconfig.json`) and run by vitest under the `jsSdk:contributing-snippets` project. Both gates are wired into `pnpm run typecheck`. Introduced in v1.1.3 to prevent agent-facing guide drift (see issue #49).
+Canonical TS snippets extracted from `.github/contributing/` guides live as real `.ts` files under `test/some-code-from-docs/contributing/`. Two complementary gates exist:
+
+- **tsc gate** (`pnpm run contributing:typecheck`): runs `tsc --noEmit` against `test/some-code-from-docs/contributing/tsconfig.json`. This is the **authoritative type check** and is wired into `pnpm run typecheck` (CI).
+- **vitest gate** (`pnpm run package-jssdk:test-contributing-snippets`, project `jsSdk:contributing-snippets`): loads each fixture via esbuild to confirm the module imports without throwing at runtime. **esbuild does not type-check** — it only transpiles. This gate runs via `package-jssdk:test:run` (local tests), not via `typecheck`.
+
+Introduced in v1.1.3 to prevent agent-facing guide drift (see issue #49).
+
+**Import note:** fixture files import from `@bitrix24/b24jssdk` (the workspace package, resolving to `dist/esm/index.d.ts`), not from relative paths into `packages/jssdk/src/`. Importing from source triggers false-positive TS errors (TS2612, TS2578, TS2591) from SDK-internal implementation details that are not part of the public API. The guide snippets may show relative imports for illustrative purposes — this divergence is intentional.
+
+**tsconfig note:** `*.spec.ts` files are excluded from `test/some-code-from-docs/contributing/tsconfig.json` because the spec files use vitest globals (`describe`, `it`, `expect`) that are not declared in that tsconfig. The vitest project has its own environment that provides those globals at runtime.
 
 **Currently wired snippets:**
 
@@ -100,7 +110,7 @@ Canonical TS snippets extracted from `.github/contributing/` guides live as real
 | `transports-and-results-error-handling.ts` | `.github/contributing/transports-and-results.md` § Error Types |
 
 **Rule for new contributing guide snippets:** If you add a new canonical TS pattern to a `.github/contributing/*.md` page, either:
-- Extract it to a new `.ts` file in `test/some-code-from-docs/contributing/` and add a companion `// Compile-checked example:` footnote in the guide, OR
+- Extract it to a new `.ts` file in `test/some-code-from-docs/contributing/` and add a companion `> Compile-checked example:` footnote in the guide, OR
 - Mark it with a `<!-- @contributing-check-ignore: <reason> -->` comment if it's intentionally incomplete.
 
 **Prerequisites for local runs:**

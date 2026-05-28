@@ -6,7 +6,7 @@
  * Prerequisite: pnpm run dev:prepare (builds dist/ and its type declarations).
  */
 
-import type { LoggerInterface, TypeB24 } from '@bitrix24/b24jssdk'
+import type { AjaxResult, LoggerInterface, TypeB24 } from '@bitrix24/b24jssdk'
 import { LoggerFactory, SdkError } from '@bitrix24/b24jssdk'
 
 export class MyManager {
@@ -26,7 +26,7 @@ export class MyManager {
     return this._logger
   }
 
-  async fetch(id: number) {
+  async fetch(id: number): Promise<AjaxResult<{ item: { id: number } }>> {
     if (id <= 0) {
       throw new SdkError({
         code: 'MY_MANAGER_BAD_ID',

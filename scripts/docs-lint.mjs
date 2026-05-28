@@ -135,6 +135,21 @@ function checkAuditFreshness(file, frontmatter) {
   }
 }
 
+// Threshold above which the number of @check-ignore markers triggers a warning.
+// The current baseline is 38 (as of v1.1.3). Raise deliberately when new
+// opt-outs are added; do not let this number creep up silently.
+const CHECK_IGNORE_WARN_THRESHOLD = 50
+
+function countCheckIgnoreMarkers(files) {
+  let total = 0
+  for (const file of files) {
+    const raw = readFileSync(file, 'utf8')
+    const matches = raw.match(/\/\/ @check-ignore/g)
+    if (matches) total += matches.length
+  }
+  return total
+}
+
 function main() {
   const files = walkMarkdownFiles(DOCS_ROOT)
   for (const file of files) {
@@ -149,6 +164,16 @@ function main() {
     }
     checkAuditFreshness(file, frontmatter)
   }
+
+  const ignoreCount = countCheckIgnoreMarkers(files)
+  if (ignoreCount > CHECK_IGNORE_WARN_THRESHOLD) {
+    log(
+      'warn',
+      join(DOCS_ROOT, '..'),
+      `@check-ignore markers: ${ignoreCount} (threshold ${CHECK_IGNORE_WARN_THRESHOLD}) — review whether some can be replaced with real fixes`
+    )
+  }
+
   console.log(`\ndocs-lint: ${errors} error(s), ${warnings} warning(s)`)
   if (errors > 0) process.exit(1)
   if (STRICT && warnings > 0) process.exit(1)

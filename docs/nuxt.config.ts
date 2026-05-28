@@ -13,7 +13,6 @@ const pages = [
   '/docs/getting-started/installation/nodejs/',
   '/docs/getting-started/installation/umd/',
   '/docs/getting-started/migration/v1/',
-  '/docs/getting-started/migration/v1-1-2-security/',
   '/docs/getting-started/ai/llms-txt/',
   // endregion ////
   // region examples ////

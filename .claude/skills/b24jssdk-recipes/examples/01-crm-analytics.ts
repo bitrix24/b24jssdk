@@ -49,6 +49,12 @@ interface DealRow {
 
 async function loadAllDeals($b24: TypeB24): Promise<DealRow[]> {
   const out: DealRow[] = []
+  // Log a heartbeat every N items so a long load on a large portal doesn't
+  // look like a hang. Pure cosmetics: drop the `progressEvery` block on a
+  // small portal where the runtime is sub-second.
+  const progressEvery = 500
+  let nextProgressAt = progressEvery
+  const startedAt = Date.now()
 
   const generator = $b24.actions.v2.fetchList.make<DealRow>({
     method: 'crm.item.list',
@@ -69,6 +75,11 @@ async function loadAllDeals($b24: TypeB24): Promise<DealRow[]> {
         opportunity: Number(it.opportunity ?? 0),
         currencyId: it.currencyId ?? 'RUB'
       })
+    }
+    if (out.length >= nextProgressAt) {
+      const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1)
+      logger.info(`  …${out.length} deals so far (${elapsed}s)`)
+      nextProgressAt += progressEvery
     }
   }
   return out

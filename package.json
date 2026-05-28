@@ -1,9 +1,9 @@
 {
   "name": "@bitrix24/b24jssdk-main",
   "description": "Bitrix24 REST API JS SDK",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "author": "Bitrix",
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@11.4.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bitrix24/b24jssdk.git"
@@ -28,7 +28,7 @@
     "package-jssdk-nuxt:prepare": "pnpm --filter ./packages/jssdk-nuxt dev:prepare",
     "package-jssdk-nuxt:build": "pnpm --filter ./packages/jssdk-nuxt build",
     "package-jssdk-nuxt:lint": "pnpm --filter ./packages/jssdk-nuxt lint",
-    "package-jssdk-nuxt:typecheck": "pnpm --filter ./packages/jssdk typecheck",
+    "package-jssdk-nuxt:typecheck": "pnpm --filter ./packages/jssdk-nuxt typecheck",
     "playground-cli:typecheck": "pnpm --filter ./playgrounds/cli typecheck",
     "playground-nuxt:dev": "nuxt dev playgrounds/nuxt --uiDev",
     "playground-nuxt:prepare": "nuxt prepare playgrounds/nuxt",
@@ -45,6 +45,7 @@
     "docs:typecheck": "pnpm --filter ./docs typecheck",
     "docs:typecheck-blocks": "node scripts/docs-typecheck.mjs",
     "skills:typecheck": "tsc -p .claude/skills/b24jssdk-recipes/tsconfig.json",
+    "package-jssdk:test:run-unit": "vitest run --project jsSdk:unit",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration",
     "package-jssdk:test-integration-js-docs": "vitest -t \"js-docs\" --project jsSdk:integration",
@@ -66,27 +67,25 @@
     "release:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {
+    "@bitrix24/b24jssdk": "workspace:*",
     "@nuxt/eslint-config": "^1.15.2",
     "@types/express": "^5.0.6",
     "@types/node": "^25.3.0",
     "@types/node-cron": "^3.0.11",
     "@vitest/ui": "^4.1.5",
+    "axios": "^1.15.2",
     "dotenv": "^17.4.2",
     "eslint": "^10.3.0",
     "express": "^5.2.1",
     "grammy": "^1.42.0",
     "node-cron": "^4.2.1",
+    "nuxt": "^4.4.6",
     "openai": "^6.37.0",
     "vitest": "^4.1.5",
     "vue-tsc": "^3.2.7"
   },
   "peerDependencies": {
     "typescript": "^5.6.3 || ^6.0.0"
-  },
-  "resolutions": {
-    "@bitrix24/b24jssdk": "workspace:*",
-    "@bitrix24/b24jssdk-nuxt": "workspace:*",
-    "@isaacs/brace-expansion": "^5.0.1"
   },
   "keywords": [
     "bitrix24",

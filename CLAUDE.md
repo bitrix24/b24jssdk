@@ -36,6 +36,7 @@ pnpm run docs:dev         # start docs dev server
 | `docs:typecheck-blocks` | Type-check ` ```ts ` code fences in docs/content/docs/**/*.md |
 | `docs:typecheck` | Nuxt's own type-check for the docs Nuxt app |
 | `docs:generate` | Generate the static docs site (`docs/.output/public/`) |
+| `contributing:typecheck` | Type-check canonical TS snippets in test/some-code-from-docs/contributing/ |
 | `typecheck` | Runs all of the above plus SDK / playground type-checks |
 
 ## Documentation upkeep
@@ -85,3 +86,26 @@ const pages = [
 ```
 
 The URL slug is the filename with the numeric sort-prefix stripped: `99.examples/3.my-new-page.md` → `/docs/examples/my-new-page/`.
+
+### 5. Contributing guide snippet type-checking (`contributing:typecheck`)
+
+Canonical TS snippets extracted from `.github/contributing/` guides live as real `.ts` files under `test/some-code-from-docs/contributing/`. They are type-checked by `pnpm run contributing:typecheck` (tsc against `test/some-code-from-docs/contributing/tsconfig.json`) and run by vitest under the `jsSdk:contributing-snippets` project. Both gates are wired into `pnpm run typecheck`. Introduced in v1.1.3 to prevent agent-facing guide drift (see issue #49).
+
+**Currently wired snippets:**
+
+| File | Guide section |
+|---|---|
+| `package-structure-manager.ts` | `.github/contributing/package-structure.md` § Standard Module Template |
+| `transports-and-results-paging.ts` | `.github/contributing/transports-and-results.md` § Result Type (v2 paging) |
+| `transports-and-results-error-handling.ts` | `.github/contributing/transports-and-results.md` § Error Types |
+
+**Rule for new contributing guide snippets:** If you add a new canonical TS pattern to a `.github/contributing/*.md` page, either:
+- Extract it to a new `.ts` file in `test/some-code-from-docs/contributing/` and add a companion `// Compile-checked example:` footnote in the guide, OR
+- Mark it with a `<!-- @contributing-check-ignore: <reason> -->` comment if it's intentionally incomplete.
+
+**Prerequisites for local runs:**
+```bash
+pnpm install
+pnpm run dev:prepare   # must run first to build jssdk types
+pnpm run contributing:typecheck
+```

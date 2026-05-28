@@ -80,6 +80,17 @@
     "@bitrix24/b24jssdk-nuxt": "workspace:*",
     "@isaacs/brace-expansion": "^5.0.1"
   },
+  "pnpm": {
+    "overrides": {
+      "fast-uri": ">=3.1.2",
+      "hono": ">=4.12.18",
+      "ip-address": ">=10.1.1",
+      "brace-expansion": ">=5.0.6",
+      "ws": ">=8.20.1",
+      "qs": ">=6.15.2",
+      "devalue": ">=5.8.1"
+    }
+  },
   "keywords": [
     "bitrix24",
     "js",

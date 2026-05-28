@@ -12,11 +12,14 @@
 import {
   B24Hook,
   EnumCrmEntityTypeId,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('TaskAuto', true)
+const logger = Logger.create('TaskAuto')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -165,14 +168,19 @@ async function main() {
   let tickRunning = false
   setInterval(() => {
     if (tickRunning) {
-      logger.warn('previous tick still running, skipping this interval')
+      logger.warning('previous tick still running, skipping this interval')
       return
     }
     tickRunning = true
     tick($b24)
-      .catch((e) => logger.error(e))
+      .catch((e: unknown) => logger.error(e instanceof Error ? e.message : String(e), {}))
       .finally(() => { tickRunning = false })
   }, 60_000)
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

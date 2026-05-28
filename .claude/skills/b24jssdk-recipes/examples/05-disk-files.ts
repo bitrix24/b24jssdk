@@ -19,11 +19,14 @@ import {
   type AjaxResult,
   AjaxError,
   B24Hook,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('Disk', true)
+const logger = Logger.create('Disk')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -114,7 +117,7 @@ async function main() {
     const folder = await createSubfolder($b24, storage.ROOT_OBJECT_ID, `Project_${Date.now()}`)
     logger.info(`\nCreated folder #${folder.ID}: ${folder.NAME}`)
   } catch (e) {
-    if (e instanceof AjaxError) logger.warn(`Could not create folder: ${e.code}`)
+    if (e instanceof AjaxError) logger.warning(`Could not create folder: ${e.code}`)
     else throw e
   }
 
@@ -145,4 +148,9 @@ async function main() {
   logger.info(`\nBatch: ${batchedStorages.length} storages, ${batchedChildren.length} root items`)
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

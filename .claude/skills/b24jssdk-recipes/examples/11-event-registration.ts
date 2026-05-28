@@ -21,11 +21,14 @@
 import {
   AjaxError,
   B24Hook,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('EventReg', true)
+const logger = Logger.create('EventReg')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -139,4 +142,9 @@ async function main() {
   else await unbindAction($b24, handler)
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

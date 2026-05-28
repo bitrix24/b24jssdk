@@ -14,12 +14,15 @@
 import {
   B24Hook,
   EnumCrmEntityTypeId,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import cron from 'node-cron'
 
-const logger = LoggerBrowser.build('ErpSync', true)
+const logger = Logger.create('ErpSync')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -208,8 +211,13 @@ async function synchronise($b24: TypeB24) {
 async function main() {
   const $b24 = bootB24()
   await synchronise($b24)
-  cron.schedule('0 * * * *', () => { synchronise($b24).catch((e) => logger.error(e)) })
+  cron.schedule('0 * * * *', () => { synchronise($b24).catch((e: unknown) => logger.error(e instanceof Error ? e.message : String(e), {})) })
   logger.info('Cron scheduled: every hour at :00')
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

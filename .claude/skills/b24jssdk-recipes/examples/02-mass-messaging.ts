@@ -13,11 +13,14 @@ import {
   AjaxError,
   B24Hook,
   EnumCrmEntityTypeId,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('MassMail', true)
+const logger = Logger.create('MassMail')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -117,13 +120,18 @@ async function main() {
       failed++
       const reason = e instanceof AjaxError ? `${e.code}: ${e.message}` : (e as Error).message
       errors.push({ contact: fullName, reason })
-      logger.warn(`[${sent + failed}/${contacts.length}] ${fullName} — failed: ${reason}`)
+      logger.warning(`[${sent + failed}/${contacts.length}] ${fullName} — failed: ${reason}`)
     }
     await sleep(CONFIG.delayBetweenMessages)
   }
 
   logger.info(`Done: sent=${sent}, failed=${failed}`)
-  if (errors.length) logger.warn('Errors:', errors)
+  if (errors.length) logger.warning(`Errors: ${errors.join(', ')}`)
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

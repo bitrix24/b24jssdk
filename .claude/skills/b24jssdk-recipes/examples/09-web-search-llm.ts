@@ -16,22 +16,20 @@
  * Run:
  *   npx tsx 09-web-search-llm.ts <DEAL_ID> "<question>"
  *
- * UNVERIFIED_ON_LIVE_PORTAL: `crm.timeline.comment.add` is called with
- * `ENTITY_TYPE_ID: 2` (numeric, ≡ EnumCrmEntityTypeId.deal) — that form
- * was confirmed to work on the portals tested by PR #34's author. If your
- * portal returns 400, swap to `ENTITY_TYPE: 'deal'` (string). Tracked in
- * REPORT.md.
  */
 
 import {
   B24Hook,
   EnumCrmEntityTypeId,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import OpenAI from 'openai'
 
-const logger = LoggerBrowser.build('WebRag', true)
+const logger = Logger.create('WebRag')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -82,15 +80,14 @@ async function postTimelineComment($b24: TypeB24, dealId: number, comment: strin
   // ENTITY_TYPE_ID (2 = deal, per EnumCrmEntityTypeId.deal): it is accepted on
   // every portal version we've seen. The string form (`ENTITY_TYPE: 'deal'`)
   // also works on most modern portals but a few older ones reject it with 400.
+  const fields = {
+    ENTITY_ID: dealId,
+    ENTITY_TYPE_ID: EnumCrmEntityTypeId.deal,
+    COMMENT: comment
+  }
   await $b24.actions.v2.call.make({
     method: 'crm.timeline.comment.add',
-    params: {
-      fields: {
-        ENTITY_ID: dealId,
-        ENTITY_TYPE_ID: 2,  // EnumCrmEntityTypeId.deal — numeric is the safe default
-        COMMENT: comment
-      }
-    },
+    params: { fields },
     requestId: `timeline-${dealId}`
   })
 }
@@ -135,4 +132,9 @@ async function main() {
   logger.info('Done.')
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

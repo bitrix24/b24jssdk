@@ -26,13 +26,16 @@ import {
   AjaxError,
   B24Hook,
   EnumCrmEntityTypeId,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import express, { type Request, type Response } from 'express'
 import { timingSafeEqual } from 'node:crypto'
 
-const logger = LoggerBrowser.build('Webhook', true)
+const logger = Logger.create('Webhook')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 /**
  * Constant-time string compare. Use for any secret / token comparison so
@@ -85,14 +88,14 @@ async function loadDeal($b24: TypeB24, dealId: number): Promise<DealItem> {
 
 async function handleDealAdd($b24: TypeB24, payload: BitrixEventPayload) {
   const id = Number(payload.data?.FIELDS?.ID)
-  if (!id) { logger.warn('  no deal id in payload'); return }
+  if (!id) { logger.warning('  no deal id in payload'); return }
 
   try {
     const deal = await loadDeal($b24, id)
     logger.info(`  deal #${id} created: title="${deal.title}", stage=${deal.stageId}, amount=${deal.opportunity} ${deal.currencyId}`)
     // …add your downstream actions here (Slack/Telegram, internal queues, etc.)
   } catch (e) {
-    if (e instanceof AjaxError) logger.warn(`  failed to load deal #${id}: ${e.code}`)
+    if (e instanceof AjaxError) logger.warning(`  failed to load deal #${id}: ${e.code}`)
     else throw e
   }
 }
@@ -141,7 +144,7 @@ async function main() {
     // Anti-spoof: constant-time compare against the registered application_token.
     const incomingToken = payload.auth?.application_token ?? ''
     if (!safeEqual(incomingToken, expectedApplicationToken)) {
-      logger.warn('Rejected webhook: application_token mismatch (possible spoof)')
+      logger.warning('Rejected webhook: application_token mismatch (possible spoof)')
       return
     }
 
@@ -154,7 +157,7 @@ async function main() {
     const handler = HANDLERS[eventName]
     if (handler) {
       try { await handler($b24, payload) }
-      catch (e) { logger.error(`  handler failed: ${(e as Error).message}`) }
+      catch (e) { logger.error(`  handler failed: ${(e as Error).message}`, {}) }
     } else {
       logger.info(`  no handler for ${eventName}`)
     }
@@ -170,4 +173,9 @@ async function main() {
   })
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

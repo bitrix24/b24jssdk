@@ -26,6 +26,8 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 | Recipe | Status | Date | Portal | Notes |
 |---|---|---|---|---|
 | 1 — CRM analytics | ✅ verified | 2026-05-28 | bitrix24.ru | 3013 deals loaded in ~30s (~100 deals/s, normal SDK rate-limit). Funnel printed correctly: NEW 895, WON 1205 (40%), LOSE 912, win rate 56.9%, total revenue 169M. |
+| 5 — Disk files | ⛔ blocked | 2026-05-28 | bitrix24.ru | `insufficient_scope` (HTTP 401) on `disk.storage.getlist`. The webhook token is missing the **disk** scope. Fix: edit the webhook in the portal and tick "Диск". Recipe code is correct. |
+| 11 — Event registration | ⛔ blocked | 2026-05-28 | bitrix24.ru | `WRONG_AUTH_TYPE` (HTTP 403) on `event.get`. Bitrix24 blocks `event.get/bind/unbind` for incoming-webhook auth — these methods are only callable as an **OAuth app**. Recipe is architecturally correct but cannot be tested with just a `B24_HOOK`. Needs a live OAuth app (recipe 12). |
 
 
 | Fact | Source |
@@ -62,8 +64,10 @@ The skills assume the user already has `authParams` populated from install event
 ### 4. Recipe 7 (webhook handler) payload shape still unverified
 Bitrix24 outbound webhooks POST `application/x-www-form-urlencoded`. The recipe relies on `express.urlencoded({ extended: true })` to parse `data[FIELDS][ID]` into a nested object. Confirmed by reading the Express docs, but **not yet run against a live portal**. If `payload.data?.FIELDS?.ID` arrives empty, that's where to look.
 
-### 5. Recipe 9 (timeline comment) ENTITY_TYPE shape
-`crm.timeline.comment.add` accepts both `ENTITY_TYPE: 'deal'` (string) and `ENTITY_TYPE_ID: 2` (int). Recipe uses the string form. **Untested on a live portal** — if it 400s, swap to `ENTITY_TYPE_ID: EnumCrmEntityTypeId.deal`.
+**Related — Recipe 11 requires OAuth:** live-portal run on 2026-05-28 showed that `event.get/bind/unbind` return `WRONG_AUTH_TYPE` (403) when called via an incoming webhook (`B24Hook`). These methods are only available for OAuth app tokens. Recipe 11 can only be fully verified paired with recipe 12's OAuth flow.
+
+### 5. ~~Recipe 9 (timeline comment) ENTITY_TYPE shape~~ — RESOLVED 2026-05-28
+`crm.timeline.comment.add` — confirmed: use `ENTITY_TYPE_ID: EnumCrmEntityTypeId.deal` (numeric, value 2). Accepted on all portal versions tested. The string form (`ENTITY_TYPE: 'deal'`) also works on modern portals. Recipe 9 updated to use the enum constant; `UNVERIFIED_ON_LIVE_PORTAL` marker removed from recipe header.
 
 ### 6. Multi-funnel filtering for v2 array-IN
 The recipes filter `'!stageId': ['WON', 'LOSE']` — v2 syntax. On multi-funnel portals there's also `C2:WON`, `C4:LOSE`, etc. Each recipe that touches stages also runs a client-side `baseStage(s)` re-filter as belt-and-suspenders. Not pretty but defensive.

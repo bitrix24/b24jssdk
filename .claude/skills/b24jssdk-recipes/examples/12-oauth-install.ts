@@ -27,7 +27,9 @@ import {
   AjaxError,
   B24OAuth,
   EnumAppStatus,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   type B24OAuthParams,
   type B24OAuthSecret
 } from '@bitrix24/b24jssdk'
@@ -36,7 +38,8 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { timingSafeEqual } from 'node:crypto'
 
-const logger = LoggerBrowser.build('OAuthInstall', true)
+const logger = Logger.create('OAuthInstall')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 /**
  * Constant-time string compare. Use for any token comparison so an attacker
@@ -162,7 +165,7 @@ async function handleInstall(req: Request, res: Response) {
   res.status(200).send('ok')
 
   if (!payload?.auth?.member_id) {
-    logger.warn('install event missing auth.member_id')
+    logger.warning('install event missing auth.member_id')
     return
   }
 
@@ -186,7 +189,7 @@ async function handleUninstall(req: Request, res: Response) {
   const memberId = payload?.auth?.member_id
   const receivedToken = payload?.auth?.application_token
   if (!memberId || !receivedToken) {
-    logger.warn('uninstall event missing member_id or application_token')
+    logger.warning('uninstall event missing member_id or application_token')
     return
   }
 
@@ -201,7 +204,7 @@ async function handleUninstall(req: Request, res: Response) {
   // Constant-time compare so an attacker can't recover applicationToken by
   // hammering /uninstall and measuring response latency.
   if (!safeEqual(stored.applicationToken, receivedToken)) {
-    logger.warn(`[ONAPPUNINSTALL] application_token mismatch for member=${memberId} — refusing to delete`)
+    logger.warning(`[ONAPPUNINSTALL] application_token mismatch for member=${memberId} — refusing to delete`)
     return
   }
 
@@ -322,4 +325,9 @@ async function main() {
   })
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

@@ -16,13 +16,16 @@
 import {
   B24Hook,
   EnumCrmEntityTypeId,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import { Bot } from 'grammy'
 import cron from 'node-cron'
 
-const logger = LoggerBrowser.build('TgBot', true)
+const logger = Logger.create('TgBot')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -63,7 +66,7 @@ async function fetchNewDeals($b24: TypeB24): Promise<DealRow[]> {
   })
 
   if (!res.isSuccess) {
-    logger.warn(`fetchNewDeals failed: ${res.getErrorMessages().join('; ')}`)
+    logger.warning(`fetchNewDeals failed: ${res.getErrorMessages().join('; ')}`)
     return []
   }
 
@@ -125,7 +128,7 @@ async function tick($b24: TypeB24, bot: Bot, chatId: string) {
       logger.info(`Notified about deal #${d.id}`)
       lastSeenDealId = Math.max(lastSeenDealId, d.id)
     } catch (e) {
-      logger.warn(`Failed to notify about deal #${d.id}: ${(e as Error).message} — stopping tick to avoid duplicates`)
+      logger.warning(`Failed to notify about deal #${d.id}: ${(e as Error).message} — stopping tick to avoid duplicates`)
       break
     }
   }
@@ -144,9 +147,14 @@ async function main() {
   bot.command('start', (ctx: any) => ctx.reply('Bot ready. You will receive notifications about new CRM deals.'))
   bot.command('status', (ctx: any) => ctx.reply(`Last seen deal ID: ${lastSeenDealId}`))
 
-  cron.schedule('*/2 * * * *', () => { tick($b24, bot, chatId).catch((e) => logger.error(e)) })
+  cron.schedule('*/2 * * * *', () => { tick($b24, bot, chatId).catch((e: unknown) => logger.error(e instanceof Error ? e.message : String(e), {})) })
 
   await bot.start()
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

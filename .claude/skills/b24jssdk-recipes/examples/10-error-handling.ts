@@ -20,13 +20,16 @@ import {
   AjaxError,
   B24Hook,
   EnumCrmEntityTypeId,
-  LoggerBrowser,
+  ConsoleV2Handler,
+  LogLevel,
+  Logger,
   ParamsFactory,
   SdkError,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('Errors', true)
+const logger = Logger.create('Errors')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -75,7 +78,7 @@ async function loadDealSafely($b24: TypeB24, id: number): Promise<DealItem | nul
 
     if (!res.isSuccess) {
       // Soft error — listed in softErrorCodes, surfaced without throwing.
-      logger.warn(`Soft error for deal #${id}:`, res.getErrorMessages())
+      logger.warning(`Soft error for deal #${id}: ${res.getErrorMessages().join('; ')}`)
       return null
     }
 
@@ -96,7 +99,7 @@ async function loadDealSafely($b24: TypeB24, id: number): Promise<DealItem | nul
         case 'QUERY_LIMIT_EXCEEDED':
           // RestrictionManager has already backed off and retried up to maxRetries.
           // Reaching this catch means we've exhausted retries.
-          logger.error('Rate limited even after backoff — slow down upstream')
+          logger.error('Rate limited even after backoff — slow down upstream', {})
           throw e
         default:
           logger.error('Unhandled AjaxError', {
@@ -142,7 +145,7 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
     })
 
     if (!res.isSuccess) {
-      logger.warn(`Soft error creating deal:`, res.getErrorMessages())
+      logger.warning(`Soft error creating deal: ${res.getErrorMessages().join('; ')}`)
       return null
     }
 
@@ -199,7 +202,7 @@ async function checkSoftError($b24: TypeB24) {
   if (!res.isSuccess) {
     logger.info('Soft-error path worked:', res.getErrorMessages())
   } else {
-    logger.warn('Expected a validation failure but the call succeeded')
+    logger.warning('Expected a validation failure but the call succeeded')
   }
 }
 
@@ -229,4 +232,9 @@ async function main() {
   logger.info('Done.')
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

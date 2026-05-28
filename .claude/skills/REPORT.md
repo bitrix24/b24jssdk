@@ -26,7 +26,7 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 | Recipe | Status | Date | Portal | Notes |
 |---|---|---|---|---|
 | 1 — CRM analytics | ✅ verified | 2026-05-28 | bitrix24.ru | 3013 deals loaded in ~30s (~100 deals/s, normal SDK rate-limit). Funnel printed correctly: NEW 895, WON 1205 (40%), LOSE 912, win rate 56.9%, total revenue 169M. |
-| 5 — Disk files | ⛔ blocked | 2026-05-28 | bitrix24.ru | `insufficient_scope` (HTTP 401) on `disk.storage.getlist`. The webhook token is missing the **disk** scope. Fix: edit the webhook in the portal and tick "Диск". Recipe code is correct. |
+| 5 — Disk files | ✅ verified | 2026-05-28 | bitrix24.ru | 5 storages listed (1 common + 4 user). Root folder read for storage 3. Subfolder #288 created (`Project_1779973933442`). Batch round-trip: 5 storages + 1 root item. Runtime sub-second. Note: disk scope must be enabled on the webhook. |
 | 11 — Event registration | ⛔ blocked | 2026-05-28 | bitrix24.ru | `WRONG_AUTH_TYPE` (HTTP 403) on `event.get`. Bitrix24 blocks `event.get/bind/unbind` for incoming-webhook auth — these methods are only callable as an **OAuth app**. Recipe is architecturally correct but cannot be tested with just a `B24_HOOK`. Needs a live OAuth app (recipe 12). |
 
 

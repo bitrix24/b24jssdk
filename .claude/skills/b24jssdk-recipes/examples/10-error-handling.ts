@@ -87,7 +87,8 @@ async function loadDealSafely($b24: TypeB24, id: number): Promise<DealItem | nul
     if (e instanceof AjaxError) {
       // REST-level error — Bitrix24 said no.
       switch (e.code) {
-        case 'ERROR_NOT_FOUND':
+        case 'NOT_FOUND':
+        case 'ERROR_NOT_FOUND': // crm.deal.get uses this; crm.item.get uses NOT_FOUND
           logger.info(`Deal #${id} does not exist (404)`)
           return null
         case 'INVALID_CREDENTIALS':

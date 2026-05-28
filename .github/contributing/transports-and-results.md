@@ -205,6 +205,27 @@ When adding a new field to `RestrictionParams`:
 2. Wire the field through `RestrictionManager` (`packages/jssdk/src/core/http/limiters/manager.ts`) — that's where hard/soft lists are merged with built-ins.
 3. Add an integration spec under `test/integration/core/limiters-*.spec.ts`. Pin retry counts to **exact** values, not `>=` thresholds — soft assertions silently pass through future regressions in loop bounds.
 
+### Status-based fail-fast (since v1.1.2)
+
+`RestrictionManager.handleError()` gates every retry decision on HTTP status first,
+before consulting the error-code lists
+([`packages/jssdk/src/core/http/limiters/manager.ts:125`](../../packages/jssdk/src/core/http/limiters/manager.ts#L125),
+`#isNonRetryableClientError` defined at [line 192](../../packages/jssdk/src/core/http/limiters/manager.ts#L192)):
+
+| HTTP status | Retry behaviour |
+|-------------|-----------------|
+| `4xx` (except `408` / `429`) | **No retry.** Deterministic client error — fails fast on the first attempt. |
+| `429` | Retried as rate/operating limit (handled earlier in `handleError`). |
+| `408` (request timeout) | Transient — governed by `retryOnNetworkError`. |
+| `5xx`, network errors, timeouts | Retried with exponential backoff + jitter. |
+
+`hardErrorCodes` and `softErrorCodes` remain in effect on top of this status gate. A
+`4xx` soft code (e.g. a v3 validation error) still returns `0` from `handleError` and
+is surfaced as an `AjaxResult` error by `call()` in `abstract-http.ts` — it no longer
+burns extra retry attempts first.
+
+User-facing reference: [Customizing Error Classification — 77.limiters.md](../../docs/content/docs/2.working-with-the-rest-api/77.limiters.md#customizing-error-classification).
+
 ## Logger Discipline
 
 Every transport / limiter holds a `LoggerInterface` (the public abstraction from `packages/jssdk/src/logger/`). It is initialised to a null logger via `LoggerFactory.createNullLogger()` and replaced through a `setLogger(logger)` call — never injected via the constructor.
@@ -226,7 +247,7 @@ Every transport / limiter holds a `LoggerInterface` (the public abstraction from
   Context key is `removalVersion`, not `removeInVersion`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (look for `@deprecated` + `@removed` + `forcedLog`).
 - New warnings or errors must be mentioned in the relevant docs page so users can recognise them.
 
-### Credential redaction
+### Credential redaction (since v1.1.2)
 
 The transport layer redacts credentials from log lines and error messages before they reach the logger. The redaction module is [packages/jssdk/src/core/http/redact.ts](../../packages/jssdk/src/core/http/redact.ts); the full list of redacted keys is the **static** `SENSITIVE_PARAM_KEYS` array — currently `auth`, `token`, `access_token`, `refresh_token`, `password`, `secret`. The list is not extended automatically: when you introduce a new credential-bearing parameter on any code path, add its key to `SENSITIVE_PARAM_KEYS` in `redact.ts` in the same PR, or it will appear unredacted in logs and in `AjaxError`.
 
@@ -235,6 +256,9 @@ Rules for code under `packages/jssdk/src/`:
 - **Never log raw request payloads** from outside the transport layer. Go through the transport's logger so redaction applies automatically. When in doubt, wrap params with `redactSensitiveParams(params)` from `redact.ts`.
 - **Never log the raw request URL for a `B24Hook` transport.** The URL contains the webhook secret in the path segment (`/rest/<userId>/<secret>/`) — redaction only covers payload params, not URL paths. Log only the method name and `requestId`.
 - **Never put credentials into `SdkError` fields.** `code`, `description`, and any value you pass to a thrown error are serialised to logs and to caller-visible error messages.
+- `AjaxError`'s `requestInfo` shape no longer includes a `url` field — the webhook URL cannot leak through error serialisation. Do not add it back.
+
+User-facing references: [Logging & Credential Redaction — 78.logging.md](../../docs/content/docs/2.working-with-the-rest-api/78.logging.md) (full redaction rules and callsite table); [Auditing your log archives](../../docs/content/docs/2.working-with-the-rest-api/78.logging.md#auditing-your-log-archives) (rotation guidance for users on `>= 1.1.0, < 1.1.2`).
 
 ## Adding a New Transport Action
 

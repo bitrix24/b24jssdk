@@ -1,6 +1,6 @@
 # Transports and Results
 
-<sub>Last reviewed: 2026-05-26.</sub>
+<sub>Last reviewed: 2026-05-28.</sub>
 
 These are the SDK's "design tokens" — the cross-cutting types and policies that every transport-touching change has to follow. Read this before adding HTTP code paths, error types, or limiter logic.
 
@@ -215,14 +215,14 @@ before consulting the error-code lists
 | HTTP status | Retry behaviour |
 |-------------|-----------------|
 | `4xx` (except `408` / `429`) | **No retry.** Deterministic client error — fails fast on the first attempt. |
-| `429` | Retried as rate/operating limit (handled earlier in `handleError`). |
-| `408` (request timeout) | Transient — governed by `retryOnNetworkError`. |
+| `429` | Retried as operating limit — matched by `#isOperatingLimitError` (`status === 429` or `code === 'OPERATION_TIME_LIMIT'`), which is evaluated before `#isNonRetryableClientError`, so `429` never reaches the fail-fast gate. (`503` / `QUERY_LIMIT_EXCEEDED` is handled separately by `#isRateLimitError`.) |
+| `408` (request timeout) | Transient — retried when `retryOnNetworkError` is `true` (default); fast-fails when `false`. |
 | `5xx`, network errors, timeouts | Retried with exponential backoff + jitter. |
 
 `hardErrorCodes` and `softErrorCodes` remain in effect on top of this status gate. A
-`4xx` soft code (e.g. a v3 validation error) still returns `0` from `handleError` and
-is surfaced as an `AjaxResult` error by `call()` in `abstract-http.ts` — it no longer
-burns extra retry attempts first.
+`4xx` soft code (e.g. a v3 validation error) causes `handleError` to return `0`
+(meaning "no delay before the next attempt"), and the caller in `abstract-http.ts`
+then surfaces it as an `AjaxResult` error without consuming any further retry budget.
 
 User-facing reference: [Customizing Error Classification — 77.limiters.md](../../docs/content/docs/2.working-with-the-rest-api/77.limiters.md#customizing-error-classification).
 
@@ -256,9 +256,10 @@ Rules for code under `packages/jssdk/src/`:
 - **Never log raw request payloads** from outside the transport layer. Go through the transport's logger so redaction applies automatically. When in doubt, wrap params with `redactSensitiveParams(params)` from `redact.ts`.
 - **Never log the raw request URL for a `B24Hook` transport.** The URL contains the webhook secret in the path segment (`/rest/<userId>/<secret>/`) — redaction only covers payload params, not URL paths. Log only the method name and `requestId`.
 - **Never put credentials into `SdkError` fields.** `code`, `description`, and any value you pass to a thrown error are serialised to logs and to caller-visible error messages.
-- `AjaxError`'s `requestInfo` shape no longer includes a `url` field — the webhook URL cannot leak through error serialisation. Do not add it back.
+- `AjaxError`'s `requestInfo` shape no longer includes a `url` field — the full webhook URL (`/rest/{userId}/{secret}/`) would otherwise appear in `toJSON()` output and log sinks. **Do not widen `AjaxQuery` to add `url` back.**
+- **Never log or serialize `AjaxError.originalError` directly.** `originalError` holds the raw `AxiosError` whose `config.url` carries the webhook secret and `config.headers.Authorization` carries the OAuth token. Neither field is covered by the payload redactor. Log only `err.code`, `err.status`, `err.message`, or `err.requestInfo` (which is redacted).
 
-User-facing references: [Logging & Credential Redaction — 78.logging.md](../../docs/content/docs/2.working-with-the-rest-api/78.logging.md) (full redaction rules and callsite table); [Auditing your log archives](../../docs/content/docs/2.working-with-the-rest-api/78.logging.md#auditing-your-log-archives) (rotation guidance for users on `>= 1.1.0, < 1.1.2`).
+User-facing reference: [Logging & Credential Redaction — 78.logging.md](../../docs/content/docs/2.working-with-the-rest-api/78.logging.md) (full redaction rules, callsite table, and webhook-URL audit patterns).
 
 ## Adding a New Transport Action
 

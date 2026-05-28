@@ -12,7 +12,10 @@
 // $b24 is the live SDK client. Typed as B24Frame so that frame-specific
 // properties (.dialog, .options, .parent, .placement, .slider) are available
 // in short snippets. Hook/OAuth examples that construct their own client use
-// a local `const $b24 = B24Hook.fromWebhookUrl(...)` which shadows this.
+// a local `const $b24 = B24Hook.fromWebhookUrl(...)` which shadows this ambient.
+// `let` (not `const`) is required here: many frame snippets assign to $b24 via
+//   $b24 = await initializeB24Frame()
+// A `declare const` ambient would make those assignments a TS2588 error.
 declare let $b24: import('@bitrix24/b24jssdk').B24Frame
 
 // initializeB24Frame is the standard bootstrap for iframe applications.

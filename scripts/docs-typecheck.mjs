@@ -37,11 +37,20 @@ const IS_CI = process.env.GITHUB_ACTIONS === 'true'
 
 let errors = 0
 
+// GitHub Actions workflow commands use %25/%0D/%0A as escape sequences.
+// Without escaping, a tsc message containing a literal newline could inject
+// additional workflow commands (e.g. ::set-env::, ::add-mask::).
+function escapeAnnotation(s) {
+  return s.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
+}
+
 function logError(mdFile, mdLine, col, code, message) {
   const relFile = relative(REPO_ROOT, mdFile)
   console.log(`\x1B[31mERROR\x1B[0m ${relFile}:${mdLine}:${col} ${code}: ${message}`)
   if (IS_CI) {
-    process.stdout.write(`::error file=${relFile},line=${mdLine},col=${col}::${code}: ${message}\n`)
+    process.stdout.write(
+      `::error file=${escapeAnnotation(relFile)},line=${mdLine},col=${col}::${escapeAnnotation(code)}: ${escapeAnnotation(message)}\n`
+    )
   }
   errors++
 }
@@ -51,13 +60,16 @@ function logError(mdFile, mdLine, col, code, message) {
  *
  * Skips:
  *  - ```ts-type fences (type-signature fragments, not executable code)
- *  - Blocks preceded by // @check-ignore on the nearest non-empty line above
+ *  - Blocks preceded by // @check-ignore (optionally "// @check-ignore: reason")
+ *    on the nearest non-empty line above the fence
  *
  * Returns: Array of { lines: string[], startLine: number, filePath: string }
  * where startLine is the 1-indexed line of the first code line in the MD file.
  */
 function extractTsBlocks(content, filePath) {
-  const fileLines = content.split('\n')
+  // Normalise CRLF so that line splitting and regex matching work correctly
+  // on files committed with Windows line endings.
+  const fileLines = content.replace(/\r\n/g, '\n').split('\n')
   const blocks = []
   let inFence = false
   let fenceLen = 0
@@ -80,10 +92,11 @@ function extractTsBlocks(content, filePath) {
       // blockStart is the 1-indexed line of the first code line (line after the fence).
       blockStart = i + 2
 
-      // Check for // @check-ignore on the nearest preceding non-empty line.
+      // Check for // @check-ignore (optionally "// @check-ignore: reason") on
+      // the nearest preceding non-empty line.
       let prev = i - 1
       while (prev >= 0 && fileLines[prev].trim() === '') prev--
-      skip = prev >= 0 && fileLines[prev].trim() === '// @check-ignore'
+      skip = prev >= 0 && fileLines[prev].trim().startsWith('// @check-ignore')
       continue
     }
 
@@ -153,13 +166,25 @@ function main() {
   const output = (result.stdout ?? '') + (result.stderr ?? '')
 
   // Parse: path/to/block-XXXX.ts(LINE,COL): error|warning TSNNNN: message
+  // tsc sometimes emits continuation lines (indented) after the primary
+  // diagnostic — collect them so the full message is reported.
   const DIAG_RE = /^(.+\.ts)\((\d+),(\d+)\): (error|warning) (TS\d+): (.+)$/
+  const outputLines = output.split('\n')
 
-  for (const line of output.split('\n')) {
+  for (let i = 0; i < outputLines.length; i++) {
+    const line = outputLines[i]
     const m = line.match(DIAG_RE)
     if (!m) continue
-    const [, rawPath, lineStr, colStr, level, code, message] = m
+    const [, rawPath, lineStr, colStr, level, code, firstMessage] = m
     if (level === 'warning') continue // warnings-only: skip for now
+
+    // Collect indented continuation lines (type expansion details, etc.)
+    let message = firstMessage
+    while (i + 1 < outputLines.length && /^\s+/.test(outputLines[i + 1])) {
+      i++
+      message += ' ' + outputLines[i].trim()
+    }
+
     const tmpName = basename(rawPath)
     const block = blockMap.get(tmpName)
     if (!block) {

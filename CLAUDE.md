@@ -55,7 +55,7 @@ Every ` ```ts ` or ` ```typescript ` fenced block in the docs is type-checked ag
 
 **How it works:**
 - Each block is extracted to a temp file in `.docs-typecheck/tmp/`.
-- `.docs-typecheck/globals.d.ts` supplies ambient `$b24`, `$logger`, and `ImportMeta` extensions so short snippets compile without their own imports.
+- `.docs-typecheck/globals.d.ts` supplies ambient `$b24` (`B24Frame`), `$logger` (`any`), `initializeB24Frame`, `hookUrl`, and `ImportMeta.dev`/`.env` extensions so short snippets compile without their own imports.
 - `.docs-typecheck/tsconfig.json` drives tsc with relaxed settings (no `strict`, no `noImplicitAny`).
 - Errors are reported as `docs/content/docs/…:line:col TS####: message`.
 
@@ -66,6 +66,6 @@ pnpm run dev:prepare   # must run first to build jssdk types
 pnpm run docs:typecheck-blocks
 ```
 
-**Opt-out marker:** Add `// @check-ignore` on the line immediately before a ` ```ts ` fence to skip a block (use sparingly — prefer fixing the example).
+**Opt-out marker:** Add `// @check-ignore` (or `// @check-ignore: <short reason>`) on the line immediately before a ` ```ts ` fence to skip a block. Use sparingly — prefer fixing the example. Always include a reason when the cause is non-obvious (e.g. `// @check-ignore: top-level return`, `// @check-ignore: partial snippet`).
 
-**Adding new ambient globals:** If a new pattern appears on many pages (e.g. a new top-level helper), add a `declare const …` to `.docs-typecheck/globals.d.ts`.
+**Adding new ambient globals:** If a new pattern appears on many pages (e.g. a new top-level helper), add a `declare const …` to `.docs-typecheck/globals.d.ts`. Keep it in sync with SDK public API — if a type is renamed or removed, update globals.d.ts accordingly.

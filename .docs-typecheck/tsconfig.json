@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM"],
+
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "moduleDetection": "force",
+
+    "allowJs": false,
+    "allowImportingTsExtensions": false,
+
+    "isolatedModules": false
+  },
+  "include": [
+    "globals.d.ts",
+    "tmp/**/*.ts"
+  ]
+}

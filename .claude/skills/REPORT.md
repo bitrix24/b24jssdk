@@ -21,6 +21,13 @@ Files migrated to `$b24.actions.v{2,3}.*.make()`:
 
 These are the load-bearing facts that the skills rely on. If a future audit finds one of them changed, the related skill needs revision.
 
+### Live-portal verification log
+
+| Recipe | Status | Date | Portal | Notes |
+|---|---|---|---|---|
+| 1 — CRM analytics | ✅ verified | 2026-05-28 | bitrix24.ru | 3013 deals loaded in ~30s (~100 deals/s, normal SDK rate-limit). Funnel printed correctly: NEW 895, WON 1205 (40%), LOSE 912, win rate 56.9%, total revenue 169M. |
+
+
 | Fact | Source |
 |---|---|
 | v3-supported method whitelist (only ~9 methods today) | `packages/jssdk/src/core/version-manager.ts:21-44` |

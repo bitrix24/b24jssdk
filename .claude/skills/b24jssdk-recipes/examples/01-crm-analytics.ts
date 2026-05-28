@@ -11,12 +11,17 @@
 
 import {
   B24Hook,
+  ConsoleV2Handler,
   EnumCrmEntityTypeId,
-  LoggerBrowser,
+  LogLevel,
+  Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('CrmAnalytics', true)
+// New SDK Logger (not the @deprecated LoggerBrowser). pushHandler attaches a
+// console sink at INFO level. See /docs/working-with-the-rest-api/logger/.
+const logger = Logger.create('CrmAnalytics')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -148,4 +153,9 @@ async function main() {
   printFunnel(stages, deals.length)
 }
 
-main().catch((e) => { logger.error(e); process.exit(1) })
+main().catch((e: unknown) => {
+  // Raw console.error so structured-logger formatting can't hide the trace.
+  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+  if (e instanceof Error && e.stack) console.error(e.stack)
+  process.exit(1)
+})

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-05-26.</sub>
+<sub>Last reviewed: 2026-05-28.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -111,16 +111,19 @@ pnpm run typecheck                  # every workspace, sequential
 
 ### Tests
 
-Two Vitest projects, defined in [vitest.config.ts](vitest.config.ts):
+Three Vitest projects, defined in [vitest.config.ts](vitest.config.ts):
 
-- `jsSdk:integration` — `test/integration/**/*.spec.ts`, 30s timeouts, hits a real portal.
+- `jsSdk:unit` — `test/integration/**/*.unit.spec.ts`, 10s timeouts, **no portal required**. Runs in CI.
+- `jsSdk:integration` — `test/integration/**/*.spec.ts` (excluding `*.unit.spec.ts`), 30s timeouts, hits a real portal.
 - `jsSdk:underLoad` — `test/under-load/**.spec.ts`, sequential, 40-min timeouts.
 
-Both projects load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — the underlying client constructor in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it. In tests, reach this client through `setupB24Tests()` from [test/0_setup/hooks-integration-jssdk.ts](test/0_setup/hooks-integration-jssdk.ts) — see [`.github/contributing/testing.md`](.github/contributing/testing.md) for the canonical pattern.
+`jsSdk:integration` and `jsSdk:underLoad` load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — the underlying client constructor in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it. In tests, reach this client through `setupB24Tests()` from [test/0_setup/hooks-integration-jssdk.ts](test/0_setup/hooks-integration-jssdk.ts) — see [`.github/contributing/testing.md`](.github/contributing/testing.md) for the canonical pattern.
 
 **Webhook scopes.** The webhook needs at minimum `crm`, `tasks`, `user`, `im`, and `main`. The `im` scope is required by the issue-23 regression spec (`im.chat.get` inside a batch); `main` is a non-obvious scope (not exposed in the standard webhook scope picker) required by the v3 batch-ref spec that calls `main.eventlog.list`. Add it manually.
 
 ```bash
+pnpm run package-jssdk:test:run-unit              # one-shot, unit project (no portal — also runs in CI)
+
 pnpm run package-jssdk:test                       # watch, integration project
 pnpm run package-jssdk:test:run                   # one-shot, integration project
 pnpm run package-jssdk:test-integration-core      # filter by name "core"
@@ -133,13 +136,14 @@ pnpm run package-jssdk:test:run-underLoad-v2-call-with-operating
 
 # Single test by name from the root:
 pnpm vitest run --project jsSdk:integration -t "<test name>"
+pnpm vitest run --project jsSdk:unit -t "<test name>"
 ```
 
 **Tests hit real Bitrix24 REST endpoints — never mock responses.** They validate API contracts, so a passing mocked test would defeat the suite's purpose.
 
-**Exception — `*.unit.spec.ts` files inside `test/integration/`.** A small number of regression specs (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`) exercise pure-logic invariants that have nothing to verify against a live portal. They live in the `jsSdk:integration` project but mock the axios client / construct SDK primitives in isolation, so they run without `.env.test` / `B24_HOOK`. Use this naming when the test is about the **SDK's internal behaviour**, not about the REST contract.
+**`*.unit.spec.ts` files inside `test/integration/`.** A small number of regression specs (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`) exercise pure-logic invariants that have nothing to verify against a live portal. They belong to the `jsSdk:unit` project, mock the axios client / construct SDK primitives in isolation, and run without `.env.test` / `B24_HOOK`. Use this naming when the test is about the **SDK's internal behaviour**, not about the REST contract.
 
-**CI does not run integration tests.** The CI workflow (`.github/workflows/`) only runs `lint`, `typecheck`, and `build`. Vitest is your local-only responsibility — make sure the relevant test filter is green against a real portal before pushing.
+**CI runs `jsSdk:unit` automatically** (`pnpm run package-jssdk:test:run-unit`) — no portal needed. `jsSdk:integration` and `jsSdk:underLoad` are your local-only responsibility — make sure the relevant test filter is green against a real portal before pushing.
 
 ## Key Conventions
 

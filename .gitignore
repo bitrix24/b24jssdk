@@ -104,3 +104,6 @@ coverage
 .claude/settings.local.json
 .claude/channels/
 .claude/debug/
+
+# docs-typecheck generated temp files (scripts/docs-typecheck.mjs)
+.docs-typecheck/tmp/

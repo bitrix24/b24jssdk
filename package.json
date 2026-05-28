@@ -43,6 +43,7 @@
     "docs:preview": "nuxt preview docs",
     "docs:lint": "pnpm run docs:lint-pages && pnpm run docs:lint-links",
     "docs:typecheck": "pnpm --filter ./docs typecheck",
+    "docs:typecheck-blocks": "node scripts/docs-typecheck.mjs",
     "skills:typecheck": "tsc -p .claude/skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration",
@@ -61,7 +62,7 @@
     "docs:lint-pages:strict": "node scripts/docs-lint.mjs --strict",
     "docs:lint-links": "node scripts/docs-link-check.mjs",
     "docs:lint:test": "node --test \"scripts/__tests__/**/*.test.mjs\"",
-    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run skills:typecheck",
+    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run docs:typecheck-blocks && pnpm run skills:typecheck",
     "release:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {

@@ -72,6 +72,8 @@ jobs:
         run: pnpm run lint
 
       - name: Typecheck
+        # Includes docs:typecheck-blocks — type-checks ```ts fences in docs/content/docs/**/*.md
+        # against @bitrix24/b24jssdk. Runs after dev:prepare so dist/ types are available.
         run: pnpm run typecheck
 
       - name: Build (jssdk)

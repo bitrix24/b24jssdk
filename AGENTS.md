@@ -6,7 +6,7 @@ This file is the single source of truth for AI coding agents and human contribut
 
 ## Project Overview
 
-`@bitrix24/b24jssdk` is a JS/TS SDK for the Bitrix24 REST API. It is a pnpm 10 monorepo that ships:
+`@bitrix24/b24jssdk` is a JS/TS SDK for the Bitrix24 REST API. It is a pnpm 11 monorepo that ships:
 
 - a framework-agnostic core SDK (`packages/jssdk`, published as `@bitrix24/b24jssdk`, ESM + UMD only since v0.4.0),
 - a thin Nuxt module wrapper (`packages/jssdk-nuxt`),

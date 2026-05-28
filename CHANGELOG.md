@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.3](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.1.3) (2026-05-28)
+
+### Security
+
+* **deps:** bump `nuxt` to `^4.4.6` across all workspaces — fixes reflected XSS in `navigateTo()` external redirects (GHSA-fx6j-w5w5-h468) and shared-cache poisoning via `__nuxt_island` endpoint (GHSA-g8wj-3cr3-6w7v)
+* **deps:** add pnpm overrides for transitive vulnerabilities: `fast-uri >=3.1.2` (path traversal GHSA-q3j6-qgpj-74h6, host confusion GHSA-v39h-62p7-jpjc), `devalue >=5.8.1` (DoS sparse array GHSA-77vg-94rm-hx3p), `hono >=4.12.18` (CSS injection, cache leakage, JWT validation GHSA-qp7p-654g-cw7p), `ws >=8.20.1` (memory disclosure GHSA-58qx-3vcg-4xpx), `qs >=6.15.2` (DoS stringify GHSA-q8mj-m7cp-5q26), `ip-address >=10.1.1` (XSS GHSA-v2v4-37r5-5v8g), `brace-expansion >=5.0.6` (DoS GHSA-jxxr-4gwj-5jf2)
+
+### Chore
+
+* **deps:** upgrade pnpm `10.33.2` → `11.4.0`; migrate overrides from `package.json` to `pnpm-workspace.yaml` (pnpm v11 requirement)
+* **pnpm-workspace:** replace deprecated `ignoredBuiltDependencies` / `onlyBuiltDependencies` with `allowBuilds` map (pnpm v11 requirement)
+* **vitest:** add `jsSdk:unit` project for portal-free unit tests; exclude `*.unit.spec.ts` from `jsSdk:integration` to prevent duplicate test execution
+* **ci:** add unit-test step (`vitest run --project jsSdk:unit`) and security-audit step (`pnpm audit --prod --audit-level=high`) to CI workflow
+
 ## [1.1.2](https://github.com/bitrix24/b24jssdk/compare/v1.1.1...v1.1.2) (2026-05-18)
 
 ### Security

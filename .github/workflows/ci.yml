@@ -74,6 +74,12 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      - name: Unit tests (no portal required)
+        run: pnpm run package-jssdk:test:run-unit
+
+      - name: Security audit
+        run: pnpm audit --audit-level=moderate
+
       - name: Build (jssdk)
         run: pnpm --filter ./packages/jssdk build
 

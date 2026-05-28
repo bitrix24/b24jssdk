@@ -13,6 +13,15 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'jsSdk:unit',
+          environment: 'node',
+          testTimeout: 10_000,
+          include: ['./test/integration/**/*.unit.spec.ts']
+        }
+      },
+      {
+        extends: true,
+        test: {
           name: 'jsSdk:integration',
           environment: 'node',
           testTimeout: 30_000,

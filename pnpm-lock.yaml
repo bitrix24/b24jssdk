@@ -30,6 +30,9 @@ importers:
       '@vitest/ui':
         specifier: ^4.1.5
         version: 4.1.7(vitest@4.1.7)
+      axios:
+        specifier: ^1.15.2
+        version: 1.16.1
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2

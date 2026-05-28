@@ -43,6 +43,7 @@
     "docs:preview": "nuxt preview docs",
     "docs:lint": "pnpm run docs:lint-pages && pnpm run docs:lint-links",
     "docs:typecheck": "pnpm --filter ./docs typecheck",
+    "package-jssdk:test:run-unit": "vitest run --project jsSdk:unit",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration",
     "package-jssdk:test-integration-js-docs": "vitest -t \"js-docs\" --project jsSdk:integration",
@@ -66,6 +67,7 @@
   "devDependencies": {
     "@nuxt/eslint-config": "^1.15.2",
     "@types/node": "^25.3.0",
+    "axios": "^1.15.2",
     "dotenv": "^17.4.2",
     "eslint": "^10.3.0",
     "vue-tsc": "^3.2.7",

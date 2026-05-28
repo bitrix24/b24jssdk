@@ -32,6 +32,7 @@ export default createConfigForNuxt({
   ]
 }).prepend({
   ignores: [
-    'packages/jssdk/src/pullClient/protobuf/*.js'
+    'packages/jssdk/src/pullClient/protobuf/*.js',
+    '.claude/**'
   ]
 })

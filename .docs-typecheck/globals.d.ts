@@ -34,3 +34,13 @@ interface ImportMeta {
   readonly dev?: boolean
   readonly env?: Record<string, string | boolean | undefined>
 }
+
+// Node.js `process` global appears in server-side recipe snippets that read
+// env vars (B24_HOOK, OPENAI_API_KEY, …). We declare only the surface used
+// in docs (env + execPath + exit) rather than pulling in full @types/node.
+declare const process: {
+  env: Record<string, string | undefined>
+  execPath: string
+  argv: string[]
+  exit: (code?: number) => never
+}

@@ -44,6 +44,7 @@
     "docs:lint": "pnpm run docs:lint-pages && pnpm run docs:lint-links",
     "docs:typecheck": "pnpm --filter ./docs typecheck",
     "docs:typecheck-blocks": "node scripts/docs-typecheck.mjs",
+    "skills:typecheck": "tsc -p .claude/skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test:run-unit": "vitest run --project jsSdk:unit",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration",
@@ -62,20 +63,26 @@
     "docs:lint-pages:strict": "node scripts/docs-lint.mjs --strict",
     "docs:lint-links": "node scripts/docs-link-check.mjs",
     "docs:lint:test": "node --test \"scripts/__tests__/**/*.test.mjs\"",
-    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run docs:typecheck-blocks",
+    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run docs:typecheck-blocks && pnpm run skills:typecheck",
     "release:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {
     "@bitrix24/b24jssdk": "workspace:*",
     "@nuxt/eslint-config": "^1.15.2",
+    "@types/express": "^5.0.6",
     "@types/node": "^25.3.0",
+    "@types/node-cron": "^3.0.11",
+    "@vitest/ui": "^4.1.5",
     "axios": "^1.15.2",
     "dotenv": "^17.4.2",
     "eslint": "^10.3.0",
+    "express": "^5.2.1",
+    "grammy": "^1.42.0",
+    "node-cron": "^4.2.1",
     "nuxt": "^4.4.6",
-    "vue-tsc": "^3.2.7",
+    "openai": "^6.37.0",
     "vitest": "^4.1.5",
-    "@vitest/ui": "^4.1.5"
+    "vue-tsc": "^3.2.7"
   },
   "peerDependencies": {
     "typescript": "^5.6.3 || ^6.0.0"

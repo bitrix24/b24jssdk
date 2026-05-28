@@ -82,6 +82,24 @@ The Nuxt module ([packages/jssdk-nuxt/src/module.ts](packages/jssdk-nuxt/src/mod
 
 > **Keep this section current.** When you add a new cross-cutting module or change the responsibility boundary of an existing one, update this Architecture section in the same PR — the contributing guides are detailed references, but Architecture is the only top-level map agents read by default.
 
+## Agent Skills (`.claude/skills/`)
+
+For AI coding agents, the canonical task-focused skills live under `.claude/skills/`. Load them by topic — **do not load everything at once**, the skill descriptions are designed for selective consumption.
+
+| Skill | When to use |
+|---|---|
+| `b24jssdk-core` | First skill to load — entry point pick (`B24Hook` / `B24Frame` / `B24OAuth`), boot/teardown, error taxonomy, `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` tuning |
+| `b24jssdk-rest` | `actions.v{2,3}.*.make()` — `call` / `batch` / `callList` / `fetchList` / `batchByChunk`; `AjaxResult` shape; v3 method whitelist |
+| `b24jssdk-filtering` | v2 prefix-keyed filter (`'>=createdTime'`) vs v3 array-of-triples (`[['fld','>=',v]]`); operators; dates via `Text.toB24Format`; `order`-stripping rule of `callList` |
+| `b24jssdk-frame-ui` | iframe-only managers: slider / dialog (`selectUser/Users/CRM/Access`) / parent / placement (with `setValue`) / options / auth |
+| `b24jssdk-helpers` | `useB24Helper`, `B24HelperManager`, Pull client, currency formatting, app/user options |
+| `b24jssdk-recipes` | 12 end-to-end TypeScript mini-apps, type-checked in CI via `pnpm run skills:typecheck` |
+| `b24jssdk-vibecode` | When to combine the SDK with the VibeCode HTTP API (rarely — keeps them apart by default) |
+
+Maintenance / audit docs sit alongside in `.claude/skills/MAINTENANCE.md` (weekly `docs/llms-full.txt` review playbook), `REPORT.md` (anchor-facts citing `packages/jssdk/src/...` lines), and `SUGGESTED-EXAMPLES.md` (prioritised gaps).
+
+Skills mirror the `.github/contributing/` guides from the agent angle — when you change the underlying API, update **both** in the same PR.
+
 ## Commands
 
 Run from the repo root unless noted. All scripts go through pnpm workspaces — never `npm`/`yarn`. Use `pnpm --filter <path>` for package-scoped commands.

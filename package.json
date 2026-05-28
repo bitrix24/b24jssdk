@@ -28,7 +28,7 @@
     "package-jssdk-nuxt:prepare": "pnpm --filter ./packages/jssdk-nuxt dev:prepare",
     "package-jssdk-nuxt:build": "pnpm --filter ./packages/jssdk-nuxt build",
     "package-jssdk-nuxt:lint": "pnpm --filter ./packages/jssdk-nuxt lint",
-    "package-jssdk-nuxt:typecheck": "pnpm --filter ./packages/jssdk typecheck",
+    "package-jssdk-nuxt:typecheck": "pnpm --filter ./packages/jssdk-nuxt typecheck",
     "playground-cli:typecheck": "pnpm --filter ./playgrounds/cli typecheck",
     "playground-nuxt:dev": "nuxt dev playgrounds/nuxt --uiDev",
     "playground-nuxt:prepare": "nuxt prepare playgrounds/nuxt",

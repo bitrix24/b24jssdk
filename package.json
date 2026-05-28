@@ -3,7 +3,7 @@
   "description": "Bitrix24 REST API JS SDK",
   "version": "1.1.2",
   "author": "Bitrix",
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@11.4.0+sha512.f0febc7e37552ab485494a914241b338e0b3580b93d54ce31f00933015880863129038a1b4ae4e414a0ee63ac35bf21197e990172c4a68256450b5636310968f",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bitrix24/b24jssdk.git"
@@ -79,17 +79,6 @@
     "@bitrix24/b24jssdk": "workspace:*",
     "@bitrix24/b24jssdk-nuxt": "workspace:*",
     "@isaacs/brace-expansion": "^5.0.1"
-  },
-  "pnpm": {
-    "overrides": {
-      "fast-uri": ">=3.1.2",
-      "hono": ">=4.12.18",
-      "ip-address": ">=10.1.1",
-      "brace-expansion": ">=5.0.6",
-      "ws": ">=8.20.1",
-      "qs": ">=6.15.2",
-      "devalue": ">=5.8.1"
-    }
   },
   "keywords": [
     "bitrix24",

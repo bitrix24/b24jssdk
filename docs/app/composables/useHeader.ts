@@ -6,6 +6,7 @@ import GitHubIcon from '@bitrix24/b24icons-vue/social/GitHubIcon'
 import BarcodeIcon from '@bitrix24/b24icons-vue/outline/BarcodeIcon'
 import EarthIcon from '@bitrix24/b24icons-vue/outline/EarthIcon'
 import TerminalIcon from '@bitrix24/b24icons-vue/file-type/TerminalIcon'
+import ItemIcon from '@bitrix24/b24icons-vue/crm/ItemIcon'
 import Bitrix24Icon from '@bitrix24/b24icons-vue/common-service/Bitrix24Icon'
 
 const _useHeader = () => {
@@ -31,13 +32,18 @@ const _useHeader = () => {
   const desktopLinks = computed<NavigationMenuItem[]>(() => [
     {
       label: 'Docs',
-      to: '/docs/getting-started/',
+      to: '/docs/getting-started',
       active: route.path.startsWith('/docs/getting-started')
     },
     {
       label: 'Working',
-      to: '/docs/working-with-the-rest-api/',
+      to: '/docs/working-with-the-rest-api',
       active: route.path.startsWith('/docs/working-with-the-rest-api')
+    },
+    {
+      label: 'Examples',
+      to: '/docs/examples',
+      active: route.path.startsWith('/docs/examples')
     },
     {
       label: 'Resources',
@@ -78,15 +84,21 @@ const _useHeader = () => {
   const mobileLinks = computed<NavigationMenuItem[]>(() => [
     {
       label: 'Get Started',
-      to: '/docs/getting-started/',
+      to: '/docs/getting-started',
       icon: PlayLIcon,
       active: route.path.startsWith('/docs/getting-started')
     },
     {
       label: 'Working',
-      to: '/docs/working-with-the-rest-api/',
+      to: '/docs/working-with-the-rest-api',
       icon: TerminalIcon,
       active: route.path.startsWith('/docs/working-with-the-rest-api')
+    },
+    {
+      label: 'Examples',
+      to: '/docs/examples',
+      icon: ItemIcon,
+      active: route.path.startsWith('/docs/examples')
     },
     {
       label: 'GitHub',

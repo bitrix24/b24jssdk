@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   # Docs lint runs in its own job with full history because docs:lint-pages
   # reads `git log -1 -- <source>` and needs each linked source file's real
@@ -20,6 +23,7 @@ jobs:
   # from `build` so the rest of CI can stay on a shallow checkout.
   docs-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -40,8 +44,13 @@ jobs:
       - name: Test docs-lint scripts
         run: node --test "scripts/__tests__/**/*.test.mjs"
 
-  ci:
+  # Installs dependencies and runs dev:prepare once; the generated outputs
+  # (packages/jssdk/dist, .nuxt type dirs) are uploaded as an artifact so
+  # the parallel lint / typecheck / build / docs-build jobs can restore them
+  # without repeating the prepare step.
+  prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       NUXT_PUBLIC_USE_AI: false
       NUXT_PUBLIC_USE_TAB_B24FRAME: false
@@ -68,22 +77,203 @@ jobs:
       - name: Prepare
         run: pnpm run dev:prepare
 
+      - name: Upload prepared workspace
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared-workspace
+          path: |
+            packages/jssdk/dist
+            packages/jssdk-nuxt/dist
+            packages/jssdk-nuxt/.nuxt
+            docs/.nuxt
+            playgrounds/nuxt/.nuxt
+          include-hidden-files: true
+          retention-days: 1
+
+  lint:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download prepared workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-workspace
+
       - name: Lint
         run: pnpm run lint
+
+  typecheck:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NUXT_PUBLIC_USE_AI: false
+      NUXT_PUBLIC_USE_TAB_B24FRAME: false
+      NUXT_PUBLIC_SITE_URL: https://bitrix24.github.io
+      NUXT_PUBLIC_BASE_URL: /b24jssdk
+      NUXT_PUBLIC_CANONICAL_URL: https://bitrix24.github.io
+      NUXT_PUBLIC_GIT_URL: https://github.com/bitrix24/b24jssdk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download prepared workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-workspace
 
       - name: Typecheck
         # Includes docs:typecheck-blocks — type-checks ```ts fences in docs/content/docs/**/*.md
         # against @bitrix24/b24jssdk. Runs after dev:prepare so dist/ types are available.
         run: pnpm run typecheck
 
+  test:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download prepared workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-workspace
+
       - name: Unit tests (no portal required)
+        # Integration and load tests require B24_HOOK — run locally or in a
+        # dedicated environment with secrets. See .github/contributing/testing.md.
         run: pnpm run package-jssdk:test:run-unit
 
       - name: Security audit
         run: pnpm audit --prod --audit-level=high
 
+  build:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download prepared workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-workspace
+
       - name: Build (jssdk)
         run: pnpm --filter ./packages/jssdk build
 
       - name: Build (jssdk-nuxt)
+        # Requires packages/jssdk-nuxt/.nuxt/tsconfig.json (from artifact) to resolve
+        # tsconfig "extends". jssdk must be built first so @bitrix24/b24jssdk resolves.
         run: pnpm --filter ./packages/jssdk-nuxt build
+
+  # Verifies that the documentation site generates cleanly on every PR.
+  # Previously this only ran in deploy.yml (push to main), so broken doc
+  # builds could slip through undetected.
+  # Note: prepared-workspace is needed here because Vite (via nuxt generate)
+  # crawls workspace packages including jssdk-nuxt/src/runtime/plugin.ts,
+  # which resolves tsconfig "extends" from packages/jssdk-nuxt/.nuxt/.
+  docs-build:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NUXT_PUBLIC_USE_AI: false
+      NUXT_PUBLIC_USE_TAB_B24FRAME: false
+      NUXT_PUBLIC_SITE_URL: https://bitrix24.github.io
+      NUXT_PUBLIC_BASE_URL: /b24jssdk
+      NUXT_PUBLIC_CANONICAL_URL: https://bitrix24.github.io
+      NUXT_PUBLIC_GIT_URL: https://github.com/bitrix24/b24jssdk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download prepared workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-workspace
+
+      - name: Build docs
+        run: pnpm run docs:generate
+
+  # Gate job: satisfies the "ci" required status check in branch protection.
+  # Fails if any upstream job failed or was cancelled.
+  ci:
+    needs: [docs-lint, lint, typecheck, test, build, docs-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    steps:
+      - name: All checks passed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more CI jobs failed or were cancelled."
+            exit 1
+          fi
+          echo "All CI jobs passed."

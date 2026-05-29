@@ -44,18 +44,18 @@ const cookbookCards = [
 ]
 
 const catalogueRecipes = [
-  { index: 1, title: 'CRM analytics — sales funnel', to: '/docs/examples/crm-analytics', stack: 'Node', scopes: 'crm' },
-  { index: 2, title: 'Mass messaging', to: '/docs/examples/mass-messaging', stack: 'Node', scopes: 'crm, im' },
-  { index: 3, title: 'Task automation on stage transitions', to: '/docs/examples/task-automation', stack: 'Node', scopes: 'crm, task' },
-  { index: 4, title: 'ERP / 1C contact sync', to: '/docs/examples/erp-sync', stack: 'Node, node-cron', scopes: 'crm' },
-  { index: 5, title: 'Disk: storages, folders, files', to: '/docs/examples/disk-files', stack: 'Node', scopes: 'disk' },
-  { index: 6, title: 'Telegram bot for new deals', to: '/docs/examples/telegram-bot', stack: 'Node, grammy, node-cron', scopes: 'crm' },
-  { index: 7, title: 'Outbound webhook handler', to: '/docs/examples/webhook-handler', stack: 'Node, express', scopes: 'crm' },
-  { index: 8, title: 'AI assistant: analyse a deal, create a task', to: '/docs/examples/ai-assistant', stack: 'Node, openai', scopes: 'crm, task' },
-  { index: 9, title: 'Web search + LLM with timeline write-back', to: '/docs/examples/web-search-llm', stack: 'Node, BYOC', scopes: 'crm' },
-  { index: 10, title: 'Error-handling cookbook', to: '/docs/examples/error-handling', stack: 'Node', scopes: 'any' },
-  { index: 11, title: 'Outbound event registration', to: '/docs/examples/event-registration', stack: 'Node', scopes: 'crm' },
-  { index: 12, title: 'OAuth install handshake', to: '/docs/examples/oauth-install', stack: 'Node, express', scopes: 'OAuth app' }
+  { title: 'CRM analytics — sales funnel', to: '/docs/examples/crm-analytics', stack: 'Node', scopes: 'crm' },
+  { title: 'Mass messaging', to: '/docs/examples/mass-messaging', stack: 'Node', scopes: 'crm, im' },
+  { title: 'Task automation on stage transitions', to: '/docs/examples/task-automation', stack: 'Node', scopes: 'crm, task' },
+  { title: 'ERP / 1C contact sync', to: '/docs/examples/erp-sync', stack: 'Node, node-cron', scopes: 'crm' },
+  { title: 'Disk — storages, folders, files', to: '/docs/examples/disk-files', stack: 'Node', scopes: 'disk' },
+  { title: 'Telegram bot for new deals', to: '/docs/examples/telegram-bot', stack: 'Node, grammy, node-cron', scopes: 'crm' },
+  { title: 'Outbound webhook handler', to: '/docs/examples/webhook-handler', stack: 'Node, express', scopes: 'crm' },
+  { title: 'AI assistant — analyse a deal, create a task', to: '/docs/examples/ai-assistant', stack: 'Node, openai', scopes: 'crm, task' },
+  { title: 'Web search + LLM with timeline write-back', to: '/docs/examples/web-search-llm', stack: 'Node, BYOC', scopes: 'crm' },
+  { title: 'Error-handling cookbook', to: '/docs/examples/error-handling', stack: 'Node', scopes: 'any' },
+  { title: 'Outbound event registration', to: '/docs/examples/event-registration', stack: 'Node', scopes: 'crm' },
+  { title: 'OAuth install handshake', to: '/docs/examples/oauth-install', stack: 'Node, express', scopes: 'OAuth app' }
 ]
 
 const iconFromIconName = (iconName?: string) => {
@@ -158,12 +158,12 @@ const iconFromIconName = (iconName?: string) => {
             </thead>
             <tbody>
               <tr
-                v-for="recipe in catalogueRecipes"
+                v-for="(recipe, i) in catalogueRecipes"
                 :key="recipe.to"
                 class="border-b border-(--ui-border-color)/50 hover:bg-(--ui-color-accent-soft-element-violet)/30 transition-colors"
               >
                 <td class="py-2 px-3 text-muted">
-                  {{ recipe.index }}
+                  {{ i + 1 }}
                 </td>
                 <td class="py-2 px-3">
                   <NuxtLink :to="recipe.to" class="text-primary hover:underline font-medium">

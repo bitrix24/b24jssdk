@@ -43,7 +43,7 @@ const _useHeader = () => {
     {
       label: 'Examples',
       to: '/docs/examples',
-      active: route.path.startsWith('/docs/examples')
+      active: route.path === '/docs/examples' || route.path.startsWith('/docs/examples/')
     },
     {
       label: 'Resources',
@@ -98,7 +98,7 @@ const _useHeader = () => {
       label: 'Examples',
       to: '/docs/examples',
       icon: ItemIcon,
-      active: route.path.startsWith('/docs/examples')
+      active: route.path === '/docs/examples' || route.path.startsWith('/docs/examples/')
     },
     {
       label: 'GitHub',

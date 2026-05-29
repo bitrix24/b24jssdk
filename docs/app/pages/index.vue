@@ -119,7 +119,7 @@ const iconFromIconName = (iconName?: string) => {
                 body: 'p-4'
               }"
             >
-              <p class="font-semibold text-label group-hover:text-primary mb-1">
+              <p class="font-semibold text-label mb-1">
                 {{ card.title }}
               </p>
               <p class="text-sm text-muted">
@@ -131,23 +131,26 @@ const iconFromIconName = (iconName?: string) => {
       </B24Container>
 
       <!-- Extended catalogue -->
-      <B24Container class="px-[22px] lg:px-8 pb-16">
-        <h2 class="text-2xl font-bold mb-2 text-label">
-          Extended catalogue
-        </h2>
-        <p class="text-muted mb-6">
-          End-to-end TypeScript scripts — run with <code>tsx</code> after setting <code>B24_HOOK</code> to your incoming webhook URL.
-        </p>
+      <B24Container class="pb-16">
         <B24Card
+          class="base-mode"
           :b24ui="{
             root: 'rounded-(--ui-border-radius-md)',
-            body: 'p-0 overflow-hidden'
+            body: 'p-0 sm:px-0 sm:py-0 overflow-hidden'
           }"
         >
+          <template #header>
+            <h2 class="text-2xl font-bold mb-1 text-legend">
+              Extended catalogue
+            </h2>
+            <p class="text-description">
+              End-to-end TypeScript scripts — run with <code>tsx</code> after setting <code>B24_HOOK</code> to your incoming webhook URL.
+            </p>
+          </template>
           <div class="overflow-x-auto">
             <table class="w-full text-sm border-collapse">
               <thead>
-                <tr class="border-b border-(--ui-border-color)">
+                <tr class="border-b border-(--ui-color-design-outline-content-divider)">
                   <th class="text-left py-2.5 px-4 font-semibold text-muted w-10">
                     #
                   </th>
@@ -166,9 +169,9 @@ const iconFromIconName = (iconName?: string) => {
                 <tr
                   v-for="(recipe, i) in catalogueRecipes"
                   :key="recipe.to"
-                  class="border-b border-(--ui-border-color)/50 last:border-0 hover:bg-(--ui-color-accent-soft-element-violet)/30 transition-colors"
+                  class="border-b border-(--ui-color-design-outline-content-divider) last:border-0 hover:bg-(--ui-color-accent-soft-element-violet)/30 transition-colors"
                 >
-                  <td class="py-2.5 px-4 text-muted">
+                  <td class="py-2.5 px-4">
                     {{ i + 1 }}
                   </td>
                   <td class="py-2.5 px-4">
@@ -176,7 +179,7 @@ const iconFromIconName = (iconName?: string) => {
                       {{ recipe.title }}
                     </NuxtLink>
                   </td>
-                  <td class="py-2.5 px-4 text-muted hidden sm:table-cell">
+                  <td class="py-2.5 px-4 hidden sm:table-cell">
                     {{ recipe.stack }}
                   </td>
                   <td class="py-2.5 px-4 hidden md:table-cell">
@@ -188,9 +191,9 @@ const iconFromIconName = (iconName?: string) => {
           </div>
         </B24Card>
         <div class="mt-4">
-          <NuxtLink to="/docs/examples" class="text-sm text-primary hover:underline">
+          <B24Button to="/docs/examples">
             View all examples →
-          </NuxtLink>
+          </B24Button>
         </div>
       </B24Container>
     </B24PageSection>

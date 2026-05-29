@@ -278,7 +278,9 @@ export default defineNuxtConfig({
         '@vueuse/core',
         'ai',
         'axios',
+        'luxon',
         'prettier',
+        'qs-esm',
         'tailwindcss/colors'
       ]
     }

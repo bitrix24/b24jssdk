@@ -105,23 +105,25 @@ function printFunnel(stages: Map<string, StageStat>, totalDeals: number) {
 
     const conversion = totalDeals > 0 ? (count / totalDeals) * 100 : 0
     const avg = count > 0 ? total / count : 0
+    const stageName = STAGE_NAMES[baseId] ?? baseId
     console.log(
-      `  ${STAGE_NAMES[baseId].padEnd(25)} ${String(count).padStart(8)} ${conversion.toFixed(1).padStart(9)}% ${avg.toLocaleString('en-US', { maximumFractionDigits: 0 }).padStart(13)}`
+      `  ${stageName.padEnd(25)} ${String(count).padStart(8)} ${conversion.toFixed(1).padStart(9)}% ${avg.toLocaleString('en-US', { maximumFractionDigits: 0 }).padStart(13)}`
     )
   }
 
-  const won: StageStat = { count: 0, total: 0 }
-  const lost: StageStat = { count: 0, total: 0 }
+  let wonCount = 0, wonTotal = 0, lostCount = 0, lostTotal = 0
   for (const [sid, s] of stages) {
     const base = baseStage(sid)
     if (base === 'WON') {
-      won.count += s.count
-      won.total += s.total
+      wonCount += s.count
+      wonTotal += s.total
     } else if (base === 'LOSE') {
-      lost.count += s.count
-      lost.total += s.total
+      lostCount += s.count
+      lostTotal += s.total
     }
   }
+  const won = { count: wonCount, total: wonTotal }
+  const lost = { count: lostCount, total: lostTotal }
   const closed = won.count + lost.count
   console.log('\n' + '-'.repeat(65))
   console.log(`  Total revenue (WON): ${won.total.toLocaleString('en-US', { maximumFractionDigits: 0 })}`)

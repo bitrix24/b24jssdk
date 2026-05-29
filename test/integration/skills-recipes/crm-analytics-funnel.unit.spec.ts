@@ -24,6 +24,15 @@ describe('baseStage', () => {
   it('handles the first category (C1:)', () => {
     expect(baseStage('C1:EXECUTING')).toBe('EXECUTING')
   })
+
+  it('falls back to the original string when the suffix is empty ("C2:")', () => {
+    // Bitrix24 should never send this, but the guard prevents a silent empty-string key.
+    expect(baseStage('C2:')).toBe('C2:')
+  })
+
+  it('returns empty string unchanged', () => {
+    expect(baseStage('')).toBe('')
+  })
 })
 
 describe('analyseFunnel', () => {
@@ -82,5 +91,14 @@ describe('analyseFunnel', () => {
     const result = analyseFunnel(deals)
     expect(result.get('LOSE')).toEqual({ count: 1, total: 9999 })
     expect(result.size).toBe(1)
+  })
+
+  it('correctly sums negative opportunity values (reversals / write-downs)', () => {
+    const deals: DealRow[] = [
+      { id: 1, stageId: 'WON', opportunity: 5000, currencyId: 'RUB' },
+      { id: 2, stageId: 'WON', opportunity: -500, currencyId: 'RUB' }
+    ]
+    const result = analyseFunnel(deals)
+    expect(result.get('WON')).toEqual({ count: 2, total: 4500 })
   })
 })

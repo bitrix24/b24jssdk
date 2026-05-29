@@ -11,21 +11,33 @@ export interface DealRow {
 }
 
 export interface StageStat {
-  count: number
-  total: number
+  readonly count: number
+  readonly total: number
 }
 
-/** Strip multi-funnel prefix: "C2:WON" → "WON", "WON" → "WON". */
-export const baseStage = (s: string): string => (s.includes(':') ? s.split(':')[1]! : s)
+/**
+ * Strip multi-funnel prefix: "C2:WON" → "WON", "WON" → "WON".
+ * Falls back to the original string if the part after the colon is empty.
+ */
+export const baseStage = (s: string): string => {
+  if (!s.includes(':')) return s
+  const suffix = s.split(':')[1]
+  return suffix || s
+}
 
-/** Group deals by stage, summing opportunity amounts. */
+/**
+ * Group deals by their raw `stageId` (prefix NOT stripped).
+ * Multi-funnel portals will produce separate entries for "C1:WON" and "C2:WON".
+ * Call `baseStage(stageId)` on the resulting keys when aggregating across funnels.
+ */
 export function analyseFunnel(deals: DealRow[]): Map<string, StageStat> {
   const stages = new Map<string, StageStat>()
   for (const d of deals) {
-    const s = stages.get(d.stageId) ?? { count: 0, total: 0 }
-    s.count += 1
-    s.total += d.opportunity
-    stages.set(d.stageId, s)
+    const s = stages.get(d.stageId)
+    stages.set(d.stageId, {
+      count: (s?.count ?? 0) + 1,
+      total: (s?.total ?? 0) + d.opportunity
+    })
   }
   return stages
 }

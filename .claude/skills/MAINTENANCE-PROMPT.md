@@ -37,7 +37,9 @@ What you do / Что делаешь:
    # Portable SHA-256 (Linux: sha256sum, macOS: shasum -a 256)
    NEW_HASH=$( (sha256sum docs/llms-full.txt 2>/dev/null \
      || shasum -a 256 docs/llms-full.txt) | awk '{print $1}' )
+   [ -z "$NEW_HASH" ] && echo "ERROR: failed to compute SHA-256" && exit 1
    NEW_TS=$(head -3 docs/llms-full.txt | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z')
+   [ -z "$NEW_TS" ] && echo "ERROR: timestamp not found in file header" && exit 1
    OLD_HASH=$(grep '^sha256=' .claude/skills/.llms-baseline | cut -d= -f2)
    OLD_TS=$(grep '^generated=' .claude/skills/.llms-baseline | cut -d= -f2)
    ```
@@ -52,7 +54,7 @@ What you do / Что делаешь:
 
 3. **Triage each change / Триаж каждого изменения:**
    - update existing skill → open ISSUE (English) with full context
-     / обновить skill → открывай ISSUE (на английском) с хорошим контекстом
+     / обновить skill → открывай ISSUE (на английском) с полным контекстом
    - new pattern → add to `.claude/skills/SUGGESTED-EXAMPLES.md`
      / новый паттерн → добавить в `.claude/skills/SUGGESTED-EXAMPLES.md`
    - unclear / SDK doesn't support yet → `.claude/skills/REPORT.md`
@@ -63,7 +65,9 @@ What you do / Что делаешь:
    these must never be silently skipped regardless of other classification.
    / Всегда отдельно проверяй `## Breaking Changes` и `## Deprecations` — нельзя пропустить.
 
-4. **Update files**, then commit:
+4. **Update files, then make TWO commits / Два коммита:**
+
+   Commit 1 — triage changes:
    ```bash
    pnpm run lint:fix
    git add .claude/skills/SUGGESTED-EXAMPLES.md .claude/skills/REPORT.md
@@ -73,7 +77,14 @@ What you do / Что делаешь:
    git commit -m "docs(maintenance): weekly triage YYYY-MM-DD"
    git push -u origin HEAD
    ```
-   / Обновляй файлы, прогоняй lint + typecheck, коммить, пушь ветку.
+
+   Commit 2 — finalize baseline (see §5.5 of MAINTENANCE.md for exact commands):
+   ```bash
+   # update .llms-baseline + append to REPORT.md triage log + rm docs/llms-full.txt
+   git commit -m "chore: update llms-full.txt baseline hash + triage log YYYY-MM-DD"
+   git push
+   ```
+   / Два коммита: первый — изменения по триажу, второй — обновление baseline + удаление файла.
 
 5. **Report / Отчёт:**
    - skills updated (issues opened) / что изменилось в skills

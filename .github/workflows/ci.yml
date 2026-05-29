@@ -82,6 +82,7 @@ jobs:
             packages/jssdk-nuxt/.nuxt
             docs/.nuxt
             playgrounds/nuxt/.nuxt
+          include-hidden-files: true
           retention-days: 1
 
   lint:
@@ -197,11 +198,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Download prepared workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-workspace
+
       - name: Build (jssdk)
         run: pnpm --filter ./packages/jssdk build
 
       - name: Build (jssdk-nuxt)
-        # jssdk must be built first so @bitrix24/b24jssdk resolves correctly
+        # Requires packages/jssdk-nuxt/.nuxt/tsconfig.json (from artifact) to resolve
+        # tsconfig "extends". jssdk must be built first so @bitrix24/b24jssdk resolves.
         run: pnpm --filter ./packages/jssdk-nuxt build
 
   # Verifies that the documentation site generates cleanly on every PR.

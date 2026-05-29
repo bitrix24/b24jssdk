@@ -2,7 +2,7 @@
 
 <sub>Last reviewed: 2026-05-26.</sub>
 
-> **Agent-facing mirror:** the same surface, condensed for agents generating usage code, lives in [`.claude/skills/`](../../.claude/skills/README.md). The skill set has its own maintenance playbook ([`MAINTENANCE.md`](../../.claude/skills/MAINTENANCE.md)). When the public docs change here, the matching skill files usually need a refresh in the same PR.
+> **Agent-facing mirror:** the same surface, condensed for agents generating usage code, lives in [`skills/`](../../skills/README.md). The skill set has its own maintenance playbook ([`maintenance.md`](../../.github/contributing/maintenance.md)). When the public docs change here, the matching skill files usually need a refresh in the same PR.
 
 The docs site is the public source of truth. Out-of-date documentation is treated as a bug equal to a broken test. Documentation updates ship in the **same PR** as the code change — use a `docs:` commit only when the change is documentation-only.
 

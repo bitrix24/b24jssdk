@@ -19,9 +19,9 @@ Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
 
 ## Top-level docs
 
-- `MAINTENANCE.md` — rules for the weekly `docs/llms-full.txt` review.
-- `REPORT.md` — open questions, conspectus of doubtful bits, migration log.
-- `SUGGESTED-EXAMPLES.md` — gaps in the current example set, ranked by ROI.
+- `.github/contributing/maintenance.md` — rules for the weekly `docs/llms-full.txt` review.
+- `.github/contributing/report.md` — open questions, conspectus of doubtful bits, migration log.
+- `.github/contributing/suggested-examples.md` — gaps in the current example set, ranked by ROI.
 
 ## v3 reference (don't skip)
 

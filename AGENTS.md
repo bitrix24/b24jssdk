@@ -82,9 +82,9 @@ The Nuxt module ([packages/jssdk-nuxt/src/module.ts](packages/jssdk-nuxt/src/mod
 
 > **Keep this section current.** When you add a new cross-cutting module or change the responsibility boundary of an existing one, update this Architecture section in the same PR — the contributing guides are detailed references, but Architecture is the only top-level map agents read by default.
 
-## Agent Skills (`.claude/skills/`)
+## Agent Skills (`skills/`)
 
-For AI coding agents, the canonical task-focused skills live under `.claude/skills/`. Load them by topic — **do not load everything at once**, the skill descriptions are designed for selective consumption.
+For AI coding agents, the canonical task-focused skills live under `skills/`. Load them by topic — **do not load everything at once**, the skill descriptions are designed for selective consumption.
 
 | Skill | When to use |
 |---|---|
@@ -96,9 +96,9 @@ For AI coding agents, the canonical task-focused skills live under `.claude/skil
 | `b24jssdk-recipes` | 12 end-to-end TypeScript mini-apps, type-checked in CI via `pnpm run skills:typecheck` |
 | `b24jssdk-vibecode` | When to combine the SDK with the VibeCode HTTP API (rarely — keeps them apart by default) |
 
-Maintenance / audit docs sit alongside in `.claude/skills/MAINTENANCE.md` (weekly `docs/llms-full.txt` review playbook), `REPORT.md` (anchor-facts citing `packages/jssdk/src/...` lines), and `SUGGESTED-EXAMPLES.md` (prioritised gaps).
+Maintenance / audit docs sit alongside in `.github/contributing/maintenance.md` (weekly `docs/llms-full.txt` review playbook), `.github/contributing/report.md` (anchor-facts citing `packages/jssdk/src/...` lines), and `.github/contributing/suggested-examples.md` (prioritised gaps).
 
-Skills mirror the `.github/contributing/` guides from the agent angle — when you change the underlying API, update **both** in the same PR.
+Skills under `skills/` mirror the `.github/contributing/` guides from the agent angle — when you change the underlying API, update **both** in the same PR.
 
 ## Commands
 

@@ -3,7 +3,6 @@
 Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
 - `packages/jssdk/README-AI.md` — API-guide for callers
 - `test/integration/js-docs/actions-v{2,3}.spec.ts` — canonical surface examples
-- `.claude/bitrix24-rest-v3-reference.md` — internal v3 protocol reference (grounded in server PHP source)
 
 ## Skills
 
@@ -22,17 +21,6 @@ Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
 - `.github/contributing/maintenance.md` — rules for the weekly `docs/llms-full.txt` review.
 - `.github/contributing/report.md` — open questions, conspectus of doubtful bits, migration log.
 - `.github/contributing/suggested-examples.md` — gaps in the current example set, ranked by ROI.
-
-## v3 reference (don't skip)
-
-`.claude/bitrix24-rest-v3-reference.md` (committed in the repo root under `.claude/`, not a skill) is the **authoritative** v3 protocol reference, grounded in server PHP source. Whenever you need to know:
-- the exact list of v3 filter operators (`=`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `between` — no `like`)
-- the v3 response envelope per action (`get` → `item`, `list/tail` → `items`, `add` → `id`, `update/delete` → `result: bool`, `aggregate` → `result: { <func>: { <field>: value } }`)
-- how `$ref` / `$refArray` works in v3 batch
-- the exact pagination contract (`pagination.limit ≤ 1000`, no total count, end-of-data via `items.length < limit`)
-- aggregate function names and gating attributes
-
-…go read it. It's the single source of truth for v3 facts that don't fit cleanly in a skill.
 
 ## Conventions used inside every skill
 

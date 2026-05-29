@@ -324,4 +324,4 @@ For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `soft
 
 ## Cross-reference
 
-For deep facts about the v3 protocol (filter grammar, ordering rules, aggregate functions, batch `$ref`/`$refArray`), see `.claude/bitrix24-rest-v3-reference.md` — it is grounded in the server PHP source.
+For v3 filter dialect / ordering / NULL handling, use the `b24jssdk-filtering` skill.

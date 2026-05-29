@@ -33,7 +33,7 @@ Right now no recipe uses `batchByChunk.make`. The most natural example: import 5
 `crm.duplicate.findbycomm` is a one-call solution for "is this email/phone already a contact?". Comes up in every lead-import workflow.
 
 ### 7. `actions.v3.aggregate.make` for analytics — **M** (once available in SDK)
-The v3 protocol supports aggregate functions (`sum`, `count`, `countDistinct`, etc., per `.claude/bitrix24-rest-v3-reference.md:304-368`), but the SDK doesn't expose a typed `aggregate.make` action yet. When it lands, Recipe 1 (CRM analytics) becomes a one-call query instead of loading all deals into memory.
+The v3 protocol supports aggregate functions (`sum`, `count`, `countDistinct`, etc.), but the SDK doesn't expose a typed `aggregate.make` action yet. When it lands, Recipe 1 (CRM analytics) becomes a one-call query instead of loading all deals into memory.
 
 ## Lower-impact but useful
 

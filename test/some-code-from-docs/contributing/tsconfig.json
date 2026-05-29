@@ -14,7 +14,7 @@
     "moduleDetection": "force",
 
     "allowJs": false,
-    "isolatedModules": false
+    "isolatedModules": true
   },
   "include": ["./**/*.ts"],
   "exclude": ["./**/*.spec.ts"]

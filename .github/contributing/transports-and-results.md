@@ -64,7 +64,7 @@ import { ApiVersion } from '@bitrix24/b24jssdk'
 
 const result = await b24.actions.v2.call.make({
   method: 'crm.deal.list',
-  params: { filter: {}, select: ['ID', 'TITLE'] },
+  params: { filter: {}, select: ['ID', 'TITLE'] }, // filter: {} — replace with any valid filter object
   requestId: 'app/crm.deal.list'
 })
 
@@ -108,7 +108,8 @@ const result = await b24.actions.v3.call.make({
 })
 const [err] = result.getErrors()
 if (err instanceof AjaxError) {
-  // err.code (string), err.status (number), err.message (string)
+  // AjaxError exposes .code (string), .status (number), .message (string).
+  // Note: getCode(), getStatus(), getDescription() do not exist on AjaxError.
 }
 ```
 

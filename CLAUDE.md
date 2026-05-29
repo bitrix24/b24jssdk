@@ -35,6 +35,7 @@ pnpm run docs:dev         # start docs dev server
 | `docs:lint-links` | Check all internal `/docs/` links and fragment anchors |
 | `docs:typecheck-blocks` | Type-check ` ```ts ` code fences in docs/content/docs/**/*.md |
 | `docs:typecheck` | Nuxt's own type-check for the docs Nuxt app |
+| `docs:generate` | Generate the static docs site (`docs/.output/public/`) |
 | `typecheck` | Runs all of the above plus SDK / playground type-checks |
 
 ## Documentation upkeep
@@ -74,11 +75,11 @@ pnpm run docs:typecheck-blocks
 
 Every new docs page **must** also be added to the `pages` array in `docs/nuxt.config.ts`. Nitro uses this list to prerender the `/raw/docs/…<slug>.md` routes used for `Accept: text/markdown` content negotiation and `llms-full.txt` generation. Pages that exist as `.md` files but are absent from `pages` will be missing their raw routes, and `pnpm run docs:generate` will exit with code 1.
 
-```
+```ts
 // docs/nuxt.config.ts
 const pages = [
   ...
-  '/docs/examples/my-new-page/',   // ← add one line per new page
+  '/docs/examples/my-new-page/', // add one line per new page
   ...
 ]
 ```

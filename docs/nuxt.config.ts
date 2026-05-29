@@ -15,7 +15,7 @@ const pages = [
   '/docs/getting-started/migration/v1/',
   '/docs/getting-started/ai/llms-txt/',
   // endregion ////
-  // region examples ////
+  // region working-with-the-rest-api ////
   '/docs/working-with-the-rest-api/',
   '/docs/working-with-the-rest-api/call-rest-api-ver2/',
   '/docs/working-with-the-rest-api/call-rest-api-ver3/',

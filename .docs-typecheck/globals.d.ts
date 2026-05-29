@@ -19,7 +19,7 @@
 declare let $b24: import('@bitrix24/b24jssdk').B24Frame
 
 // initializeB24Frame is the standard bootstrap for iframe applications.
-declare function initializeB24Frame(options?: any): Promise<import('@bitrix24/b24jssdk').B24Frame>
+declare function initializeB24Frame(options?: Record<string, unknown>): Promise<import('@bitrix24/b24jssdk').B24Frame>
 
 // hookUrl is a common placeholder used in webhook-based code examples.
 declare const hookUrl: string

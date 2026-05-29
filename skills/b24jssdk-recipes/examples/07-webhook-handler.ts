@@ -115,7 +115,7 @@ function handleDealDelete(payload: BitrixEventPayload) {
   logger.info(`  deal #${id} deleted`)
 }
 
-const HANDLERS: Record<string, (b: TypeB24, p: BitrixEventPayload) => unknown | Promise<unknown>> = {
+const HANDLERS: Record<string, (b: TypeB24, p: BitrixEventPayload) => void | Promise<void>> = {
   ONCRMDEALADD: handleDealAdd,
   ONCRMDEALUPDATE: handleDealUpdate,
   ONCRMDEALDELETE: (_b, p) => handleDealDelete(p)

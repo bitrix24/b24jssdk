@@ -25,7 +25,7 @@ Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
 
 ## v3 reference (don't skip)
 
-`.claude/bitrix24-rest-v3-reference.md` (already in the repo, not a skill) is the **authoritative** v3 protocol reference, grounded in server PHP source. Whenever you need to know:
+`.claude/bitrix24-rest-v3-reference.md` (committed in the repo root under `.claude/`, not a skill) is the **authoritative** v3 protocol reference, grounded in server PHP source. Whenever you need to know:
 - the exact list of v3 filter operators (`=`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `between` — no `like`)
 - the v3 response envelope per action (`get` → `item`, `list/tail` → `items`, `add` → `id`, `update/delete` → `result: bool`, `aggregate` → `result: { <func>: { <field>: value } }`)
 - how `$ref` / `$refArray` works in v3 batch

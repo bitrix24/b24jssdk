@@ -19,6 +19,7 @@
  * In the Bitrix24 dev console set:
  *   Install handler URL = https://your-server.example.com/install
  *   Uninstall handler URL = https://your-server.example.com/uninstall
+ *   DEMO_API_SECRET=<random-secret>   (required to call /portal/:memberId/profile)
  *
  * For local development expose with `npx ngrok http 3001`.
  */
@@ -299,12 +300,19 @@ async function main() {
   // The explicit `Request<{ memberId: string }>` generic narrows req.params
   // from `string | string[]` (Express 5 default) to `string`.
   //
-  // SECURITY WARNING: this endpoint has NO authentication. Anyone who knows
-  // a member_id can read that portal's profile (and, with the same factory,
-  // execute any other REST call too). DO NOT expose this to the open internet
-  // as-is. In production, gate `/portal/*` behind your own auth — a Bearer
-  // token from your dashboard, an mTLS client cert, or a network-level ACL.
+  // Demo: call REST on behalf of a portal.
+  //
+  // ⛔ SECURITY: Gated behind DEMO_API_SECRET env var. Do not expose this
+  // to the open internet without a real auth layer (Bearer token, mTLS, etc.).
+  // Set DEMO_API_SECRET=<random-secret> and pass it as Authorization: Bearer <secret>.
   app.get('/portal/:memberId/profile', async (req: Request<{ memberId: string }>, res: Response) => {
+    const secret = process.env.DEMO_API_SECRET
+    const auth = req.headers.authorization
+    if (!secret || !auth || !safeEqual(auth, `Bearer ${secret}`)) {
+      res.status(401).json({ error: 'UNAUTHORIZED' })
+      return
+    }
+
     try {
       const $b24 = await clientForMember(req.params.memberId)
       const profile = await demoCall($b24)

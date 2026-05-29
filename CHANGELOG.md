@@ -1,18 +1,45 @@
 # Changelog
 
-## [1.1.3](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.1.3) (2026-05-28)
+## [1.2.0](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.2.0) (2026-05-29)
+
+### Features
+
+* **skills:** new public [`skills/`](https://github.com/bitrix24/b24jssdk/tree/main/skills) directory with 7 task-focused skill files for AI coding agents — `b24jssdk-core`, `b24jssdk-rest`, `b24jssdk-filtering`, `b24jssdk-frame-ui`, `b24jssdk-helpers`, `b24jssdk-recipes`, `b24jssdk-vibecode`. Designed for selective consumption (load only what the current task needs). Landing page: [/docs/getting-started/ai/skills](https://bitrix24.github.io/b24jssdk/docs/getting-started/ai/skills/) (#38, #114)
+* **examples:** 12 end-to-end SDK-native recipes published at [/docs/examples](https://bitrix24.github.io/b24jssdk/docs/examples/) — CRM analytics, mass messaging, task automation, ERP sync, disk files, Telegram bot, webhook handler, AI assistant, web-search LLM, error-handling cookbook, outbound event registration, OAuth install. Each recipe ships as a typed `.ts` file under `skills/b24jssdk-recipes/examples/`, type-checked in CI via `pnpm run skills:typecheck` (#38)
+* **docs(reference):** 29 new reference pages covering `B24Hook`, `B24OAuth`, frame sub-managers (`auth`, `dialog`, `slider`, `placement`, `parent`, `options`, `initializeB24Frame`), pull client, core/tools/types, error codes, telemetry, plus 3 worked examples (#114)
+
+### Bug Fixes
+
+* **http:** stop retrying HTTP 4xx client errors. Retryability was decided by a hardcoded error-code allowlist, so any 4xx whose code was not enumerated (e.g. v3 validation errors, `tasks.task.pause` code `1048582`) fell through and burned `maxRetries` round-trips on a deterministic failure. `RestrictionManager.handleError` now gates on HTTP status: 4xx (except `429` rate/operating limit and `408` request timeout) fails fast on the first attempt. Soft codes still surface via `AjaxResult`. Closes #44, #46 (#45)
 
 ### Security
 
-* **deps:** bump `nuxt` to `^4.4.6` across all workspaces — fixes reflected XSS in `navigateTo()` external redirects (GHSA-fx6j-w5w5-h468) and shared-cache poisoning via `__nuxt_island` endpoint (GHSA-g8wj-3cr3-6w7v)
-* **deps:** add pnpm overrides for transitive vulnerabilities: `fast-uri >=3.1.2` (path traversal GHSA-q3j6-qgpj-74h6, host confusion GHSA-v39h-62p7-jpjc), `devalue >=5.8.1` (DoS sparse array GHSA-77vg-94rm-hx3p), `hono >=4.12.18` (CSS injection, cache leakage, JWT validation GHSA-qp7p-654g-cw7p), `ws >=8.20.1` (memory disclosure GHSA-58qx-3vcg-4xpx), `qs >=6.15.2` (DoS stringify GHSA-q8mj-m7cp-5q26), `ip-address >=10.1.1` (XSS GHSA-v2v4-37r5-5v8g), `brace-expansion >=5.0.6` (DoS GHSA-jxxr-4gwj-5jf2)
+* **deps:** bump `nuxt` to `^4.4.6` across all workspaces — fixes reflected XSS in `navigateTo()` external redirects (GHSA-fx6j-w5w5-h468) and shared-cache poisoning via `__nuxt_island` endpoint (GHSA-g8wj-3cr3-6w7v) (#86)
+* **deps:** add pnpm overrides for transitive vulnerabilities — `fast-uri >=3.1.2` (path traversal GHSA-q3j6-qgpj-74h6, host confusion GHSA-v39h-62p7-jpjc), `devalue >=5.8.1` (DoS sparse array GHSA-77vg-94rm-hx3p), `hono >=4.12.18` (CSS injection, cache leakage, JWT validation GHSA-qp7p-654g-cw7p), `ws >=8.20.1` (memory disclosure GHSA-58qx-3vcg-4xpx), `qs >=6.15.2` (DoS stringify GHSA-q8mj-m7cp-5q26), `ip-address >=10.1.1` (XSS GHSA-v2v4-37r5-5v8g), `brace-expansion >=5.0.6` (DoS GHSA-jxxr-4gwj-5jf2) (#86)
 
 ### Chore
 
-* **deps:** upgrade pnpm `10.33.2` → `11.4.0`; migrate overrides from `package.json` to `pnpm-workspace.yaml` (pnpm v11 requirement)
-* **pnpm-workspace:** replace deprecated `ignoredBuiltDependencies` / `onlyBuiltDependencies` with `allowBuilds` map (pnpm v11 requirement)
-* **vitest:** add `jsSdk:unit` project for portal-free unit tests; exclude `*.unit.spec.ts` from `jsSdk:integration` to prevent duplicate test execution
-* **ci:** add unit-test step (`vitest run --project jsSdk:unit`) and security-audit step (`pnpm audit --prod --audit-level=high`) to CI workflow
+* **deps:** upgrade pnpm `10.33.2` → `11.4.0`; migrate overrides from `package.json` to `pnpm-workspace.yaml` (pnpm v11 requirement) (#86)
+* **pnpm-workspace:** replace deprecated `ignoredBuiltDependencies` / `onlyBuiltDependencies` with `allowBuilds` map (pnpm v11 requirement) (#86)
+* **vitest:** add `jsSdk:unit` project for portal-free unit tests; exclude `*.unit.spec.ts` from `jsSdk:integration` to prevent duplicate test execution (#86)
+* **ci:** add unit-test step (`vitest run --project jsSdk:unit`) and security-audit step (`pnpm audit --prod --audit-level=high`) to CI workflow (#86)
+* **ci:** parallelize lint, typecheck, build, and docs-build jobs (#92)
+* **ci(docs):** type-check TS code blocks in `docs/content/docs/` (104 blocks, 0 errors) (#87)
+* **test(some-code-from-docs):** compile-check canonical contributing snippets (#88)
+
+### Docs
+
+* **agents:** introduce `AGENTS.md` and `.github/contributing/` guides (`package-structure.md`, `transports-and-results.md`, `testing.md`, `documentation.md`, `maintenance.md`, `report.md`, `suggested-examples.md`), `CLAUDE.md` reduced to a single-line redirect to `AGENTS.md` (#35, #59, #114)
+* **README:** full rewrite — badges, three entry points (`B24Hook` / `B24Frame` / `B24OAuth`), Quick Start (#114)
+* **cookbook:** 5 cookbook recipes + REST page lint + `audited:` freshness contract (#36)
+* **examples landing:** refresh `/docs/examples` to list all 20 recipes — Cookbook (5) / Extended catalogue (12) / UI showcases (3) (#116)
+* **logging:** document credential redaction in HTTP layer (#67), log-archive audit patterns + logging hygiene cross-link (#75)
+* **examples (code align):** align inline TS examples with v1.1.0 / v1.1.1 type changes (#37)
+* **homepage:** examples nav cleanup, top-nav entry, cookbook + extended-catalogue sections (#104), card hover polish (#107), vite optimizeDeps + homepage improvements (#115)
+* **prerender / 404:** register 12 recipe pages in prerender list (#95), resolve remaining `docs:generate` failures (#99), absolute paths in examples index (#101), GitHub Pages 404 for trailing-slash URLs (#100)
+* **maintenance:** weekly `llms-full.txt` triage playbook (#97), VibeCode sync playbook v2 (#98)
+* **contributing:** reflect v1.1.2 transport hardening in `transports-and-results.md` (#76)
+* **skills relocation cleanup:** repair 43 stale frontmatter `links:` after `.claude/skills/` → `skills/` relocation (#116)
 
 ## [1.1.2](https://github.com/bitrix24/b24jssdk/compare/v1.1.1...v1.1.2) (2026-05-18)
 

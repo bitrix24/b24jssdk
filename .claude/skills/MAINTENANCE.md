@@ -33,12 +33,12 @@ The SHA-256 hash of the last processed file is stored in `.claude/skills/.llms-b
 
 ```bash
 # Portable SHA-256 (Linux: sha256sum, macOS: shasum -a 256)
-NEW_HASH=$(sha256sum docs/llms-full.txt 2>/dev/null \
-  || shasum -a 256 docs/llms-full.txt) | awk '{print $1}'
+NEW_HASH=$( (sha256sum docs/llms-full.txt 2>/dev/null \
+  || shasum -a 256 docs/llms-full.txt) | awk '{print $1}' )
 
-# Strict ISO-8601 timestamp extractor
+# ISO-8601 timestamp extractor (fractional seconds optional)
 NEW_TS=$(head -3 docs/llms-full.txt \
-  | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+Z')
+  | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z')
 
 echo "New:    $NEW_HASH  ($NEW_TS)"
 
@@ -139,10 +139,10 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
    (single commit prevents inconsistent state if the agent is interrupted):
    ```bash
    # Portable SHA-256
-   NEW_HASH=$(sha256sum docs/llms-full.txt 2>/dev/null \
-     || shasum -a 256 docs/llms-full.txt) | awk '{print $1}'
+   NEW_HASH=$( (sha256sum docs/llms-full.txt 2>/dev/null \
+     || shasum -a 256 docs/llms-full.txt) | awk '{print $1}' )
    NEW_TS=$(head -3 docs/llms-full.txt \
-     | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+Z')
+     | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z')
    TODAY=$(date +%Y-%m-%d)
 
    # Overwrite .llms-baseline with new values
@@ -151,16 +151,17 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 
    # Append a dated entry to "## Weekly llms-full.txt triage log" in REPORT.md
 
-   # Remove the working copy
-   git rm docs/llms-full.txt
+   # Remove the working copy (gitignored → untracked, use plain rm not git rm)
+   rm docs/llms-full.txt
+   rm -f /tmp/llms-full.txt
 
    git add .claude/skills/.llms-baseline .claude/skills/REPORT.md
    git commit -m "chore: update llms-full.txt baseline hash + triage log <YYYY-MM-DD>"
    git push --force-with-lease
    # If push rejected: git pull --rebase && git push --force-with-lease
    ```
-   **Recovery:** if `docs/llms-full.txt` is present in the repo but hash in `.llms-baseline` already
-   matches it, the file was not cleaned up after a previous crash — simply `git rm` it and commit.
+   **Recovery:** if `docs/llms-full.txt` is present locally but hash in `.llms-baseline` already
+   matches it, the file was not cleaned up after a previous crash — simply `rm docs/llms-full.txt`.
 
 6. Push to the branch and STOP. Do **not** open a PR unless the user asks for it.
 

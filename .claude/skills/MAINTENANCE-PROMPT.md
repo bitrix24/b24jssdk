@@ -32,11 +32,11 @@ What you do / Что делаешь:
    / заголовок `# VibeCode — Complete Documentation`, чётное число code-fence.
    Stop if line count < 5000 or fence count is odd.
 
-2. **Hash check** — read the stored hash from `.claude/skills/REPORT.md`:
+2. **Hash check** — read the stored hash from `.claude/skills/.llms-baseline`:
    ```bash
    # Portable SHA-256 (Linux: sha256sum, macOS: shasum -a 256)
-   NEW_HASH=$(sha256sum docs/llms-full.txt 2>/dev/null \
-     || shasum -a 256 docs/llms-full.txt) | awk '{print $1}'
+   NEW_HASH=$( (sha256sum docs/llms-full.txt 2>/dev/null \
+     || shasum -a 256 docs/llms-full.txt) | awk '{print $1}' )
    NEW_TS=$(head -3 docs/llms-full.txt | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z')
    OLD_HASH=$(grep '^sha256=' .claude/skills/.llms-baseline | cut -d= -f2)
    OLD_TS=$(grep '^generated=' .claude/skills/.llms-baseline | cut -d= -f2)

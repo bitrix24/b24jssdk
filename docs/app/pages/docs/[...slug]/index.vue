@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
-import { withTrailingSlash, joinURL } from 'ufo' // withoutTrailingSlash
+import { withoutTrailingSlash, joinURL } from 'ufo' // withTrailingSlash
 import { kebabCase } from 'scule'
 import { useColorMode } from '#b24ui/composables/color-mode/useColorMode'
 import DesignIcon from '@bitrix24/b24icons-vue/outline/DesignIcon'
@@ -17,7 +17,7 @@ import MdnwebdocsIcon from '@bitrix24/b24icons-vue/social/MdnwebdocsIcon'
 
 const route = useRoute()
 const { restApiVersion } = useRestApiVersions()
-const pageUrl = route.path
+const pageUrl = withoutTrailingSlash(route.path)
 const config = useRuntimeConfig()
 const appConfig = useAppConfig()
 
@@ -55,13 +55,13 @@ if (!import.meta.prerender) {
   // Redirect to the correct framework version if the page is not the current framework
   watch(restApiVersion, () => {
     const route = useRoute()
-    const pagePath = withTrailingSlash(page.value?.path)
-    if (pagePath === route.path && page.value?.restApiVersion && page.value?.restApiVersion !== restApiVersion.value) {
+    const pagePath = withoutTrailingSlash(page.value?.path)
+    if (pagePath === withoutTrailingSlash(route.path) && page.value?.restApiVersion && page.value?.restApiVersion !== restApiVersion.value) {
       /** @memo this path */
-      if (route.path.endsWith(`-${page.value?.restApiVersion}/`)) {
-        navigateTo(route.path.replace(`-${page.value.restApiVersion}/`, `-${restApiVersion.value}/`))
+      if (route.path.endsWith(`-${page.value?.restApiVersion}`)) {
+        navigateTo(route.path.replace(`-${page.value.restApiVersion}`, `-${restApiVersion.value}`))
       } else {
-        navigateTo(`/docs/getting-started/`)
+        navigateTo(`/docs/getting-started`)
       }
     }
   })

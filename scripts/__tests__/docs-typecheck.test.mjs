@@ -19,13 +19,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..', '..')
 const TYPECHECK_SCRIPT = resolve(__dirname, '..', 'docs-typecheck.mjs')
 
-// Integration tests spawn docs-typecheck.mjs which requires `pnpm install`
-// (TypeScript) and `pnpm run dev:prepare` (SDK dist types). Skip gracefully
-// when running in environments that only install Node (e.g. docs-lint CI job).
+// Integration tests spawn docs-typecheck.mjs, which needs both tsc (from
+// node_modules) and the built SDK types (dist/). The docs-lint CI job runs
+// this file but intentionally skips pnpm install / dev:prepare because all
+// other tests here are pure-Node unit tests. Skip integration tests gracefully
+// when prereqs are absent; docs-typecheck coverage in CI comes from the `ci`
+// job's `pnpm run typecheck` → `docs:typecheck-blocks` step.
 const TSC_BIN = join(REPO_ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
 const SDK_TYPES = join(REPO_ROOT, 'packages', 'jssdk', 'dist', 'esm', 'index.d.ts')
 const INTEGRATION_SKIP = !existsSync(TSC_BIN) || !existsSync(SDK_TYPES)
-  ? 'requires pnpm install + pnpm run dev:prepare'
+  ? 'requires pnpm install && pnpm run dev:prepare'
   : false
 
 // Import extractTsBlocks directly for unit testing.
@@ -234,19 +237,6 @@ test('escapeAnnotation: newlines and % are escaped for GitHub Actions', () => {
 })
 
 // ── Integration tests (require pnpm run dev:prepare) ─────────────────────
-//
-// The docs-lint CI job runs this file but intentionally skips pnpm install /
-// dev:prepare because all other tests here are pure-Node unit tests. These
-// integration tests spawn docs-typecheck.mjs, which needs both tsc (from
-// node_modules) and the built SDK types (dist/). Skip them gracefully when
-// those prereqs are absent; the actual docs-typecheck coverage in CI comes
-// from the `ci` job's `pnpm run typecheck` → `docs:typecheck-blocks` step.
-
-const _tscBin = join(REPO_ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
-const _sdkTypes = join(REPO_ROOT, 'packages', 'jssdk', 'dist', 'esm', 'index.d.ts')
-const SKIP_INTEGRATION = existsSync(_tscBin) && existsSync(_sdkTypes)
-  ? false
-  : 'requires pnpm install && pnpm run dev:prepare'
 
 function runTypecheckScript(env = {}) {
   return spawnSync(process.execPath, [TYPECHECK_SCRIPT], {

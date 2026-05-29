@@ -54,7 +54,7 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 | Default `idKey` is `'ID'` for v2 (uppercase), `'id'` for v3 (lowercase) | `core/actions/v2/call-list.ts:72`, `core/actions/v3/call-list.ts:72` |
 | `crm.item.list` is v2, response is `{ items: [...] }` → needs `customKeyForResult: 'items'` + `idKey: 'id'` | `test/integration/js-docs/actions-v2.spec.ts:41-65` |
 | `tasks.task.add/get/update/delete` are v3 | `core/version-manager.ts:34-37` |
-| v3 filter dialect: array of `[field, op, value]` or `[field, value]` triples; 8 operators only (`=`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `between`); no `like`/`%` | `.claude/bitrix24-rest-v3-reference.md:111-160` |
+| v3 filter dialect: array of `[field, op, value]` or `[field, value]` triples; 8 operators only (`=`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `between`); no `like`/`%` | `skills/b24jssdk-filtering/SKILL.md` (the v3 section) |
 | v2 filter dialect: prefix-keyed object — `'>=createdTime'`, `'!stageId'`, `'%title'`, `'=%title'` | `test/integration/js-docs/actions-v2.spec.ts:46-49`, `core/actions/v2/call-list.ts:81-86` |
 | Date format: `Text.toB24Format(date)` → `yyyy-MM-dd'T'HH:mm:ssZZ` | `tools/text.ts:213-226` |
 | `AjaxResult.getData()` returns `SuccessPayload<T> \| undefined` = `{ result, time } \| undefined` | `types/payloads.ts:68-82`, `core/http/ajax-result.ts:61-72` |
@@ -72,7 +72,7 @@ Today only `tasks.task.{add,get,update,delete,…}` and `main.eventlog.*` are on
 Action item for the next weekly review: grep `version-manager.ts:#supportMethods` for new entries.
 
 ### 2. Aggregate action (`actions.v3.aggregate`) not exposed in the SDK yet
-The v3 protocol supports `aggregate` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`, per `.claude/bitrix24-rest-v3-reference.md:304-368`). The SDK currently does not expose a typed `aggregate.make` action. Recipe 1 (CRM analytics) loads all deals into memory and aggregates client-side — when an `aggregate` action lands, the recipe becomes a one-call query.
+The v3 protocol supports `aggregate` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). The SDK currently does not expose a typed `aggregate.make` action. Recipe 1 (CRM analytics) loads all deals into memory and aggregates client-side — when an `aggregate` action lands, the recipe becomes a one-call query.
 
 ### 3. `B24OAuth` install handshake still uncovered
 The skills assume the user already has `authParams` populated from install events. The full OAuth install round-trip (Express endpoint that handles `ONAPPINSTALL`, persists tokens, swaps refresh on schedule) isn't a recipe yet — biggest blocker for anyone shipping a Marketplace app. Highest-ROI gap.
@@ -97,7 +97,6 @@ The skill describes it correctly for the documented "select-value" placement cas
 - VibeCode's deploy / infra / Black Hole / preview-token sections — irrelevant to SDK.
 - MCP-for-AI section — VibeCode-only.
 - `Менеджмент-ключи`, `Partner Connect` — VibeCode platform-internal.
-- The `aggregate` action protocol details — already covered in `.claude/bitrix24-rest-v3-reference.md`.
 
 ## What's likely to break first (rank-ordered)
 

@@ -200,8 +200,8 @@ Before propagating a new operator / endpoint / pattern from VibeCode docs into a
 | Check | Source of truth |
 |---|---|
 | Does `actions.v3.*` support this method? | `packages/jssdk/src/core/version-manager.ts:21-44` (`#supportMethods` list) |
-| What's the v3 filter syntax? | `.claude/bitrix24-rest-v3-reference.md` §3 (filter grammar) |
-| What's the v2 filter syntax / prefix list? | `b24jssdk-filtering/SKILL.md` (the v2 table) |
+| What's the v3 filter syntax? | `skills/b24jssdk-filtering/SKILL.md` (the v3 section) |
+| What's the v2 filter syntax / prefix list? | `skills/b24jssdk-filtering/SKILL.md` (the v2 table) |
 | What's the actions API call shape? | `test/integration/js-docs/actions-v{2,3}.spec.ts` |
 | What's `AjaxResult.getData()`'s shape? | `packages/jssdk/src/types/payloads.ts` (`SuccessPayload<P>`) |
 | Is X deprecated? | `packages/jssdk/README-AI.md` "Deprecation notice" + JSDoc `@deprecated` markers on classes |

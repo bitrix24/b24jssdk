@@ -115,7 +115,7 @@ const iconFromIconName = (iconName?: string) => {
           >
             <B24Card
               :b24ui="{
-                root: 'h-full transition-shadow hover:shadow-md cursor-pointer',
+                root: 'h-full transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 hover:ring-1 hover:ring-(--ui-border-color-accented) cursor-pointer',
                 body: 'p-4'
               }"
             >
@@ -138,48 +138,55 @@ const iconFromIconName = (iconName?: string) => {
         <p class="text-muted mb-6">
           End-to-end TypeScript scripts — run with <code>tsx</code> after setting <code>B24_HOOK</code> to your incoming webhook URL.
         </p>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm border-collapse">
-            <thead>
-              <tr class="border-b border-(--ui-border-color)">
-                <th class="text-left py-2 px-3 font-semibold text-muted w-8">
-                  #
-                </th>
-                <th class="text-left py-2 px-3 font-semibold text-muted">
-                  Recipe
-                </th>
-                <th class="text-left py-2 px-3 font-semibold text-muted hidden sm:table-cell">
-                  Stack
-                </th>
-                <th class="text-left py-2 px-3 font-semibold text-muted hidden md:table-cell">
-                  Scopes
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(recipe, i) in catalogueRecipes"
-                :key="recipe.to"
-                class="border-b border-(--ui-border-color)/50 hover:bg-(--ui-color-accent-soft-element-violet)/30 transition-colors"
-              >
-                <td class="py-2 px-3 text-muted">
-                  {{ i + 1 }}
-                </td>
-                <td class="py-2 px-3">
-                  <NuxtLink :to="recipe.to" class="text-primary hover:underline font-medium">
-                    {{ recipe.title }}
-                  </NuxtLink>
-                </td>
-                <td class="py-2 px-3 text-muted hidden sm:table-cell">
-                  {{ recipe.stack }}
-                </td>
-                <td class="py-2 px-3 hidden md:table-cell">
-                  <code class="text-xs">{{ recipe.scopes }}</code>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <B24Card
+          :b24ui="{
+            root: 'rounded-(--ui-border-radius-md) overflow-hidden',
+            body: 'p-0'
+          }"
+        >
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse">
+              <thead>
+                <tr class="border-b border-(--ui-border-color)">
+                  <th class="text-left py-2.5 px-4 font-semibold text-muted w-10">
+                    #
+                  </th>
+                  <th class="text-left py-2.5 px-4 font-semibold text-muted">
+                    Recipe
+                  </th>
+                  <th class="text-left py-2.5 px-4 font-semibold text-muted hidden sm:table-cell">
+                    Stack
+                  </th>
+                  <th class="text-left py-2.5 px-4 font-semibold text-muted hidden md:table-cell">
+                    Scopes
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(recipe, i) in catalogueRecipes"
+                  :key="recipe.to"
+                  class="border-b border-(--ui-border-color)/50 last:border-0 hover:bg-(--ui-color-accent-soft-element-violet)/30 transition-colors"
+                >
+                  <td class="py-2.5 px-4 text-muted">
+                    {{ i + 1 }}
+                  </td>
+                  <td class="py-2.5 px-4">
+                    <NuxtLink :to="recipe.to" class="text-primary hover:underline font-medium">
+                      {{ recipe.title }}
+                    </NuxtLink>
+                  </td>
+                  <td class="py-2.5 px-4 text-muted hidden sm:table-cell">
+                    {{ recipe.stack }}
+                  </td>
+                  <td class="py-2.5 px-4 hidden md:table-cell">
+                    <code class="text-xs">{{ recipe.scopes }}</code>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </B24Card>
         <div class="mt-4">
           <NuxtLink to="/docs/examples" class="text-sm text-primary hover:underline">
             View all examples →

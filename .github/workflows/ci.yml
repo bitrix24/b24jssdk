@@ -197,20 +197,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download prepared workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: prepared-workspace
-
       - name: Build (jssdk)
         run: pnpm --filter ./packages/jssdk build
 
       - name: Build (jssdk-nuxt)
+        # jssdk must be built first so @bitrix24/b24jssdk resolves correctly
         run: pnpm --filter ./packages/jssdk-nuxt build
 
   # Verifies that the documentation site generates cleanly on every PR.
   # Previously this only ran in deploy.yml (push to main), so broken doc
   # builds could slip through undetected.
+  # Note: docs app does not import from @bitrix24/b24jssdk at runtime, so
+  # the prepared-workspace artifact is not needed here.
   docs-build:
     needs: prepare
     runs-on: ubuntu-latest
@@ -236,11 +234,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Download prepared workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: prepared-workspace
 
       - name: Build docs
         run: pnpm run docs:generate

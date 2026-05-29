@@ -17,6 +17,7 @@ import {
   Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
+import { baseStage, analyseFunnel, type DealRow, type StageStat } from '../lib/funnel'
 
 // New SDK Logger (not the @deprecated LoggerBrowser). pushHandler attaches a
 // console sink at INFO level. See /docs/working-with-the-rest-api/logger/.
@@ -32,7 +33,7 @@ function bootB24(): TypeB24 {
 }
 
 // Standard Bitrix24 stages. Multi-funnel portals prefix with `C<categoryId>:`,
-// e.g. C2:WON. baseStage() strips that.
+// e.g. C2:WON. baseStage() (from ../lib/funnel) strips that prefix.
 const STAGE_NAMES: Record<string, string> = {
   NEW: 'New',
   PREPARATION: 'Preparation',
@@ -41,15 +42,6 @@ const STAGE_NAMES: Record<string, string> = {
   FINAL_INVOICE: 'Final invoice',
   WON: 'Won',
   LOSE: 'Lost'
-}
-
-const baseStage = (s: string) => (s.includes(':') ? s.split(':')[1] : s)
-
-interface DealRow {
-  id: number
-  stageId: string
-  opportunity: number
-  currencyId: string
 }
 
 async function loadAllDeals($b24: TypeB24): Promise<DealRow[]> {
@@ -88,19 +80,6 @@ async function loadAllDeals($b24: TypeB24): Promise<DealRow[]> {
     }
   }
   return out
-}
-
-interface StageStat { count: number, total: number }
-
-function analyseFunnel(deals: DealRow[]): Map<string, StageStat> {
-  const stages = new Map<string, StageStat>()
-  for (const d of deals) {
-    const s = stages.get(d.stageId) ?? { count: 0, total: 0 }
-    s.count += 1
-    s.total += d.opportunity
-    stages.set(d.stageId, s)
-  }
-  return stages
 }
 
 function printFunnel(stages: Map<string, StageStat>, totalDeals: number) {

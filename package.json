@@ -47,7 +47,9 @@
     "skills:typecheck": "tsc -p .claude/skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test:run-unit": "vitest run --project jsSdk:unit",
     "package-jssdk:test": "vitest --project jsSdk:integration",
-    "package-jssdk:test:run": "vitest run --project jsSdk:integration",
+    "package-jssdk:test:run": "vitest run --project jsSdk:integration --project jsSdk:contributing-snippets",
+    "package-jssdk:test-contributing-snippets": "vitest run --project jsSdk:contributing-snippets",
+    "contributing:typecheck": "tsc --noEmit -p test/some-code-from-docs/contributing/tsconfig.json",
     "package-jssdk:test-integration-js-docs": "vitest -t \"js-docs\" --project jsSdk:integration",
     "package-jssdk:test-integration-core": "vitest -t \"core\" --project jsSdk:integration",
     "package-jssdk:test:run-underLoad-v3-call": "vitest run -t \"tasksTaskGet @apiV3\" --project jsSdk:underLoad",
@@ -63,7 +65,7 @@
     "docs:lint-pages:strict": "node scripts/docs-lint.mjs --strict",
     "docs:lint-links": "node scripts/docs-link-check.mjs",
     "docs:lint:test": "node --test \"scripts/__tests__/**/*.test.mjs\"",
-    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run docs:typecheck-blocks && pnpm run skills:typecheck",
+    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run docs:typecheck-blocks && pnpm run skills:typecheck && pnpm run contributing:typecheck",
     "release:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {

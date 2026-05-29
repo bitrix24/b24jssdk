@@ -62,9 +62,9 @@ const user = result.getData().result
 ```ts
 import { ApiVersion } from '@bitrix24/b24jssdk'
 
-const result = await b24.actions.v2.callList.make({
+const result = await b24.actions.v2.call.make({
   method: 'crm.deal.list',
-  params: { filter, select: ['ID', 'TITLE'] },
+  params: { filter: {}, select: ['ID', 'TITLE'] }, // filter: {} — replace with any valid filter object
   requestId: 'app/crm.deal.list'
 })
 
@@ -72,6 +72,8 @@ if (result.isMore()) {
   const next = await result.getNext(b24.getHttpClient(ApiVersion.v2)) // continues the cursor
 }
 ```
+
+> Compile-checked example: [`test/some-code-from-docs/contributing/transports-and-results-paging.ts`](../../test/some-code-from-docs/contributing/transports-and-results-paging.ts)
 
 - Pass the http client (from `b24.getHttpClient(version)`) to `getNext()` — it preserves the same limiter stack.
 - Do **not** loop with raw `start` parameters; use `isMore()` + `getNext()`.
@@ -106,9 +108,12 @@ const result = await b24.actions.v3.call.make({
 })
 const [err] = result.getErrors()
 if (err instanceof AjaxError) {
-  // err.getCode(), err.getStatus(), err.getDescription()
+  // AjaxError exposes .code (string), .status (number), .message (string).
+  // Note: getCode(), getStatus(), getDescription() do not exist on AjaxError.
 }
 ```
+
+> Compile-checked example: [`test/some-code-from-docs/contributing/transports-and-results-error-handling.ts`](../../test/some-code-from-docs/contributing/transports-and-results-error-handling.ts)
 
 Rules:
 

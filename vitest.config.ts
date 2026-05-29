@@ -34,6 +34,14 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'jsSdk:contributing-snippets',
+          environment: 'node',
+          include: ['./test/some-code-from-docs/contributing/**/*.spec.ts']
+        }
+      },
+      {
+        extends: true,
+        test: {
           name: 'jsSdk:underLoad',
           environment: 'node',
           maxConcurrency: 10,

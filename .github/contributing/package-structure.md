@@ -91,6 +91,8 @@ export class MyManager {
 }
 ```
 
+> Compile-checked example: [`test/some-code-from-docs/contributing/package-structure-manager.ts`](../../test/some-code-from-docs/contributing/package-structure-manager.ts)
+
 For transport-layer actions (under `src/core/actions/v2/` and `v3/`) extend `AbstractAction` (`packages/jssdk/src/core/actions/abstract-action.ts`) instead — see [packages/jssdk/src/core/actions/v3/call.ts](../../packages/jssdk/src/core/actions/v3/call.ts) for the canonical example.
 
 ## Adding to the Public Surface

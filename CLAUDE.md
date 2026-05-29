@@ -69,3 +69,18 @@ pnpm run docs:typecheck-blocks
 **Opt-out marker:** Add `// @check-ignore` (or `// @check-ignore: <short reason>`) on the line immediately before a ` ```ts ` fence to skip a block. Use sparingly — prefer fixing the example. Always include a reason when the cause is non-obvious (e.g. `// @check-ignore: top-level return`, `// @check-ignore: partial snippet`).
 
 **Adding new ambient globals:** If a new pattern appears on many pages (e.g. a new top-level helper), add a `declare const …` to `.docs-typecheck/globals.d.ts`. Keep it in sync with SDK public API — if a type is renamed or removed, update globals.d.ts accordingly.
+
+### 4. Registering new pages in the prerender list
+
+Every new docs page **must** also be added to the `pages` array in `docs/nuxt.config.ts`. Nitro uses this list to prerender the `/raw/docs/…<slug>.md` routes used for `Accept: text/markdown` content negotiation and `llms-full.txt` generation. Pages that exist as `.md` files but are absent from `pages` will be missing their raw routes, and `pnpm run docs:generate` will exit with code 1.
+
+```
+// docs/nuxt.config.ts
+const pages = [
+  ...
+  '/docs/examples/my-new-page/',   // ← add one line per new page
+  ...
+]
+```
+
+The URL slug is the filename with the numeric sort-prefix stripped: `99.examples/3.my-new-page.md` → `/docs/examples/my-new-page/`.

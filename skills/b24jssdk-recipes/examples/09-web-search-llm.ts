@@ -39,7 +39,7 @@ function bootB24(): TypeB24 {
   return $b24
 }
 
-interface SearchResult { id: number; title: string; url: string; content: string }
+interface SearchResult { id: number, title: string, url: string, content: string }
 
 /**
  * Replace this stub with a real call to your search provider:
@@ -56,7 +56,7 @@ async function webSearch(query: string): Promise<SearchResult[]> {
 
 async function askLlm(question: string, sources: SearchResult[]): Promise<string> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  const sourcesBlock = sources.map((s) => `[${s.id}] ${s.title}\n${s.url}\n${s.content}`).join('\n\n')
+  const sourcesBlock = sources.map(s => `[${s.id}] ${s.title}\n${s.url}\n${s.content}`).join('\n\n')
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
@@ -102,7 +102,7 @@ async function main() {
 
   const $b24 = bootB24()
 
-  const dealRes = await $b24.actions.v2.call.make<{ item: { id: number; title: string } }>({
+  const dealRes = await $b24.actions.v2.call.make<{ item: { id: number, title: string } }>({
     method: 'crm.item.get',
     params: {
       entityTypeId: EnumCrmEntityTypeId.deal,
@@ -123,7 +123,7 @@ async function main() {
   console.log('\n--- ANSWER ---\n' + answer + '\n--------------\n')
 
   logger.info('Posting to deal timeline…')
-  const sourcesList = results.map((s) => `[${s.id}] ${s.url}`).join('\n')
+  const sourcesList = results.map(s => `[${s.id}] ${s.url}`).join('\n')
   await postTimelineComment(
     $b24,
     dealId,

@@ -72,13 +72,13 @@ async function fetchNewDeals($b24: TypeB24): Promise<DealRow[]> {
 
   const items = res.getData()!.result.items ?? []
   // Multi-funnel: filter base stage client-side.
-  return items.filter((d) => baseStage(d.stageId) === 'NEW')
+  return items.filter(d => baseStage(d.stageId) === 'NEW')
 }
 
 async function fetchContactName($b24: TypeB24, contactId?: number): Promise<string> {
   if (!contactId) return 'Not set'
 
-  const res = await $b24.actions.v2.call.make<{ item: { name?: string; lastName?: string } }>({
+  const res = await $b24.actions.v2.call.make<{ item: { name?: string, lastName?: string } }>({
     method: 'crm.item.get',
     params: {
       entityTypeId: EnumCrmEntityTypeId.contact,
@@ -105,13 +105,16 @@ function format(deal: DealRow, contactName: string): string {
 }
 
 function escape(s: string): string {
-  return s.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]!))
+  return s.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]!))
 }
 
 async function tick($b24: TypeB24, bot: Bot, chatId: string) {
   logger.info(`[${new Date().toISOString()}] checking new deals…`)
   const deals = await fetchNewDeals($b24)
-  if (deals.length === 0) { logger.info('  no new deals'); return }
+  if (deals.length === 0) {
+    logger.info('  no new deals')
+    return
+  }
 
   // Deals arrive in id-asc order (filter sets `order: { id: 'asc' }` and
   // `call.make` honours it). On the first failure we STOP the loop entirely
@@ -147,7 +150,9 @@ async function main() {
   bot.command('start', (ctx: any) => ctx.reply('Bot ready. You will receive notifications about new CRM deals.'))
   bot.command('status', (ctx: any) => ctx.reply(`Last seen deal ID: ${lastSeenDealId}`))
 
-  cron.schedule('*/2 * * * *', () => { tick($b24, bot, chatId).catch((e: unknown) => logger.error(e instanceof Error ? e.message : String(e), {})) })
+  cron.schedule('*/2 * * * *', () => {
+    tick($b24, bot, chatId).catch((e: unknown) => logger.error(e instanceof Error ? e.message : String(e), {}))
+  })
 
   await bot.start()
 }

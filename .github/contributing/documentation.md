@@ -1,8 +1,8 @@
 # Documentation
 
-<sub>Last reviewed: 2026-05-26.</sub>
+<sub>Last reviewed: 2026-05-29.</sub>
 
-> **Agent-facing mirror:** the same surface, condensed for agents generating usage code, lives in [`.claude/skills/`](../../.claude/skills/README.md). The skill set has its own maintenance playbook ([`MAINTENANCE.md`](../../.claude/skills/MAINTENANCE.md)). When the public docs change here, the matching skill files usually need a refresh in the same PR.
+> **Agent-facing mirror:** the same surface, condensed for agents generating usage code, lives in [`skills/`](../../skills/README.md). The skill set has its own maintenance playbook ([`maintenance.md`](../../.github/contributing/maintenance.md)). When the public docs change here, the matching skill files usually need a refresh in the same PR.
 
 The docs site is the public source of truth. Out-of-date documentation is treated as a bug equal to a broken test. Documentation updates ship in the **same PR** as the code change — use a `docs:` commit only when the change is documentation-only.
 
@@ -27,6 +27,10 @@ docs/content/docs/
 │   ├── 3.batch-rest-api-ver2.md
 │   └── 3.batch-rest-api-ver3.md
 └── 99.examples/
+    ├── 0.index.md           # catalogue / landing
+    ├── 10.entity-list.md    # B24UI paged list
+    ├── 20.app-installation-wizard.md
+    └── 30.node-hook-company-export.md
 ```
 
 The leading number is sort order, not part of the URL slug. Pages that pair a v2 / v3 variant share a number (e.g. both `1.call-rest-api-ver2.md` and `1.call-rest-api-ver3.md` use `1.`).

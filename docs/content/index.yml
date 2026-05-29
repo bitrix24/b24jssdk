@@ -8,3 +8,15 @@ hero:
       to: /docs/getting-started/
       color: 'air-secondary-accent-2'
       iconName: 'PlayLIcon'
+    - label: B24Frame
+      to: /docs/working-with-the-rest-api/frame/
+      color: 'air-secondary'
+      iconName: 'DemonstrationOnIcon'
+    - label: B24Hook
+      to: /docs/working-with-the-rest-api/hook/
+      color: 'air-secondary'
+      iconName: 'EncloseTextInCodeTagIcon'
+    - label: B24OAuth
+      to: /docs/working-with-the-rest-api/oauth/
+      color: 'air-secondary'
+      iconName: 'InfoCircleIcon'

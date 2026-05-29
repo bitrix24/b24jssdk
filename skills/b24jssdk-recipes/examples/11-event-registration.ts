@@ -44,8 +44,8 @@ const EVENTS = ['ONCRMDEALADD', 'ONCRMDEALUPDATE', 'ONCRMDEALDELETE'] as const
 interface BoundEvent {
   event: string
   handler: string
-  offline: string         // '1' if Bitrix24 should queue delivery during downtime
-  auth_type: string       // numeric user id, as string
+  offline: string // '1' if Bitrix24 should queue delivery during downtime
+  auth_type: string // numeric user id, as string
   event_handler_id?: string
 }
 

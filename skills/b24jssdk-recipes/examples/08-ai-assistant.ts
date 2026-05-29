@@ -85,7 +85,7 @@ async function getDealActivities($b24: TypeB24, dealId: number): Promise<Activit
       filter: { OWNER_TYPE_ID: 2, OWNER_ID: dealId },
       select: ['ID', 'SUBJECT', 'DESCRIPTION', 'TYPE_ID', 'CREATED', 'COMPLETED']
     },
-    idKey: 'ID',                  // classic uppercase id
+    idKey: 'ID', // classic uppercase id
     requestId: `activities-${dealId}`
   })
 
@@ -95,7 +95,7 @@ async function getDealActivities($b24: TypeB24, dealId: number): Promise<Activit
 
 async function analyse(openai: OpenAI, deal: DealItem, activities: ActivityItem[]): Promise<Recommendation> {
   const activitiesText = activities
-    .map((a) => `- [${a.CREATED}] ${a.SUBJECT} (${a.COMPLETED === 'Y' ? 'done' : 'open'})`)
+    .map(a => `- [${a.CREATED}] ${a.SUBJECT} (${a.COMPLETED === 'Y' ? 'done' : 'open'})`)
     .join('\n') || 'No activities yet'
 
   const prompt = `You are an experienced sales manager. Analyse the deal and suggest the next action.
@@ -171,7 +171,10 @@ async function createTask($b24: TypeB24, r: Recommendation, deal: DealItem): Pro
 
 async function main() {
   const dealId = Number(process.argv[2])
-  if (!dealId) { console.log('Usage: tsx 08-ai-assistant.ts <DEAL_ID>'); process.exit(1) }
+  if (!dealId) {
+    console.log('Usage: tsx 08-ai-assistant.ts <DEAL_ID>')
+    process.exit(1)
+  }
 
   const $b24 = bootB24()
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })

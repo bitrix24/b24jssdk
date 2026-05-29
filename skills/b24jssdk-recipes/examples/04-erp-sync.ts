@@ -45,9 +45,9 @@ interface ErpContact {
 
 function fetchErpContacts(): ErpContact[] {
   return [
-    { id: 'erp-001', name: 'Иван',    lastName: 'Петров',   email: 'petrov@example.com',   phone: '+79001234567', inn: '7701234567', company: 'OOO Romashka' },
-    { id: 'erp-002', name: 'Мария',   lastName: 'Сидорова', email: 'sidorova@example.com', phone: '+79009876543', inn: '7709876543', company: 'IP Sidorova' },
-    { id: 'erp-003', name: 'Алексей', lastName: 'Козлов',   email: 'kozlov@example.com',   phone: '+79005551234', inn: '7705551234', company: 'AO Beryozka' }
+    { id: 'erp-001', name: 'Иван', lastName: 'Петров', email: 'petrov@example.com', phone: '+79001234567', inn: '7701234567', company: 'OOO Romashka' },
+    { id: 'erp-002', name: 'Мария', lastName: 'Сидорова', email: 'sidorova@example.com', phone: '+79009876543', inn: '7709876543', company: 'IP Sidorova' },
+    { id: 'erp-003', name: 'Алексей', lastName: 'Козлов', email: 'kozlov@example.com', phone: '+79005551234', inn: '7705551234', company: 'AO Beryozka' }
   ]
 }
 
@@ -61,8 +61,8 @@ interface BitrixContactRaw {
   id: number
   name?: string
   lastName?: string
-  email?: Array<{ VALUE: string; VALUE_TYPE: string }> | string
-  phone?: Array<{ VALUE: string; VALUE_TYPE: string }> | string
+  email?: Array<{ VALUE: string, VALUE_TYPE: string }> | string
+  phone?: Array<{ VALUE: string, VALUE_TYPE: string }> | string
   ufCrmInn?: string
 }
 
@@ -145,7 +145,7 @@ async function updateBitrixContact($b24: TypeB24, id: number, fields: Record<str
 }
 
 interface MatchResult {
-  matched: { bitrix: BitrixContact; erp: ErpContact }[]
+  matched: { bitrix: BitrixContact, erp: ErpContact }[]
   onlyInBitrix: BitrixContact[]
   onlyInErp: ErpContact[]
 }
@@ -172,7 +172,7 @@ function match(bx: BitrixContact[], erp: ErpContact[]): MatchResult {
     }
   }
 
-  const onlyInBitrix = bx.filter((b) => !matchedIds.has(b.id))
+  const onlyInBitrix = bx.filter(b => !matchedIds.has(b.id))
   return { matched, onlyInBitrix, onlyInErp }
 }
 
@@ -201,9 +201,17 @@ async function synchronise($b24: TypeB24) {
   let createdInErp = 0
   let updated = 0
 
-  for (const e of onlyInErp) { await createBitrixContact($b24, e); createdInB24++ }
-  for (const b of onlyInBitrix) { createErpContact(b); createdInErp++ }
-  for (const m of matched) { if (await syncMatched($b24, m.bitrix, m.erp)) updated++ }
+  for (const e of onlyInErp) {
+    await createBitrixContact($b24, e)
+    createdInB24++
+  }
+  for (const b of onlyInBitrix) {
+    createErpContact(b)
+    createdInErp++
+  }
+  for (const m of matched) {
+    if (await syncMatched($b24, m.bitrix, m.erp)) updated++
+  }
 
   logger.info(`  done: created.b24=${createdInB24}, created.erp=${createdInErp}, updated=${updated}, ${(Date.now() - t0) / 1000}s`)
 }
@@ -211,7 +219,9 @@ async function synchronise($b24: TypeB24) {
 async function main() {
   const $b24 = bootB24()
   await synchronise($b24)
-  cron.schedule('0 * * * *', () => { synchronise($b24).catch((e: unknown) => logger.error(e instanceof Error ? e.message : String(e), {})) })
+  cron.schedule('0 * * * *', () => {
+    synchronise($b24).catch((e: unknown) => logger.error(e instanceof Error ? e.message : String(e), {}))
+  })
   logger.info('Cron scheduled: every hour at :00')
 }
 

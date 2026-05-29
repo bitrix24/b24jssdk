@@ -17,6 +17,7 @@ import {
   Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
+import { baseStage, analyseFunnel, type DealRow, type StageStat } from '../lib/funnel'
 
 // New SDK Logger (not the @deprecated LoggerBrowser). pushHandler attaches a
 // console sink at INFO level. See /docs/working-with-the-rest-api/logger/.
@@ -32,7 +33,7 @@ function bootB24(): TypeB24 {
 }
 
 // Standard Bitrix24 stages. Multi-funnel portals prefix with `C<categoryId>:`,
-// e.g. C2:WON. baseStage() strips that.
+// e.g. C2:WON. baseStage() (from ../lib/funnel) strips that prefix.
 const STAGE_NAMES: Record<string, string> = {
   NEW: 'New',
   PREPARATION: 'Preparation',
@@ -41,15 +42,6 @@ const STAGE_NAMES: Record<string, string> = {
   FINAL_INVOICE: 'Final invoice',
   WON: 'Won',
   LOSE: 'Lost'
-}
-
-const baseStage = (s: string) => (s.includes(':') ? s.split(':')[1] : s)
-
-interface DealRow {
-  id: number
-  stageId: string
-  opportunity: number
-  currencyId: string
 }
 
 async function loadAllDeals($b24: TypeB24): Promise<DealRow[]> {
@@ -90,19 +82,6 @@ async function loadAllDeals($b24: TypeB24): Promise<DealRow[]> {
   return out
 }
 
-interface StageStat { count: number; total: number }
-
-function analyseFunnel(deals: DealRow[]): Map<string, StageStat> {
-  const stages = new Map<string, StageStat>()
-  for (const d of deals) {
-    const s = stages.get(d.stageId) ?? { count: 0, total: 0 }
-    s.count += 1
-    s.total += d.opportunity
-    stages.set(d.stageId, s)
-  }
-  return stages
-}
-
 function printFunnel(stages: Map<string, StageStat>, totalDeals: number) {
   const order = ['NEW', 'PREPARATION', 'PREPAYMENT_INVOICE', 'EXECUTING', 'FINAL_INVOICE', 'WON', 'LOSE']
 
@@ -117,24 +96,34 @@ function printFunnel(stages: Map<string, StageStat>, totalDeals: number) {
     let count = 0
     let total = 0
     for (const [sid, s] of stages) {
-      if (baseStage(sid) === baseId) { count += s.count; total += s.total }
+      if (baseStage(sid) === baseId) {
+        count += s.count
+        total += s.total
+      }
     }
     if (count === 0) continue
 
     const conversion = totalDeals > 0 ? (count / totalDeals) * 100 : 0
     const avg = count > 0 ? total / count : 0
+    const stageName = STAGE_NAMES[baseId] ?? baseId
     console.log(
-      `  ${STAGE_NAMES[baseId].padEnd(25)} ${String(count).padStart(8)} ${conversion.toFixed(1).padStart(9)}% ${avg.toLocaleString('en-US', { maximumFractionDigits: 0 }).padStart(13)}`
+      `  ${stageName.padEnd(25)} ${String(count).padStart(8)} ${conversion.toFixed(1).padStart(9)}% ${avg.toLocaleString('en-US', { maximumFractionDigits: 0 }).padStart(13)}`
     )
   }
 
-  let won: StageStat = { count: 0, total: 0 }
-  let lost: StageStat = { count: 0, total: 0 }
+  let wonCount = 0, wonTotal = 0, lostCount = 0, lostTotal = 0
   for (const [sid, s] of stages) {
     const base = baseStage(sid)
-    if (base === 'WON') { won.count += s.count; won.total += s.total }
-    else if (base === 'LOSE') { lost.count += s.count; lost.total += s.total }
+    if (base === 'WON') {
+      wonCount += s.count
+      wonTotal += s.total
+    } else if (base === 'LOSE') {
+      lostCount += s.count
+      lostTotal += s.total
+    }
   }
+  const won = { count: wonCount, total: wonTotal }
+  const lost = { count: lostCount, total: lostTotal }
   const closed = won.count + lost.count
   console.log('\n' + '-'.repeat(65))
   console.log(`  Total revenue (WON): ${won.total.toLocaleString('en-US', { maximumFractionDigits: 0 })}`)

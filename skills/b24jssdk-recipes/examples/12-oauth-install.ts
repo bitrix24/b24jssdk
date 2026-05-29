@@ -19,6 +19,7 @@
  * In the Bitrix24 dev console set:
  *   Install handler URL = https://your-server.example.com/install
  *   Uninstall handler URL = https://your-server.example.com/uninstall
+ *   DEMO_API_SECRET=<random-secret>   (required to call /portal/:memberId/profile)
  *
  * For local development expose with `npx ngrok http 3001`.
  */
@@ -96,8 +97,8 @@ async function getCredentials(memberId: string): Promise<StoredCredentials | nul
 
 async function deleteCredentials(memberId: string): Promise<void> {
   const store = await loadStore()
-  delete store[memberId]
-  await fs.writeFile(STORE_FILE, JSON.stringify(store, null, 2), { mode: 0o600 })
+  const { [memberId]: _removed, ...rest } = store
+  await fs.writeFile(STORE_FILE, JSON.stringify(rest, null, 2), { mode: 0o600 })
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -111,7 +112,7 @@ async function deleteCredentials(memberId: string): Promise<void> {
  */
 interface InstallEventPayload {
   event: 'ONAPPINSTALL' | 'ONAPPUPDATE'
-  data: { VERSION: string; ACTIVE: '0' | '1'; INSTALLED?: '0' | '1'; LANGUAGE_ID: string }
+  data: { VERSION: string, ACTIVE: '0' | '1', INSTALLED?: '0' | '1', LANGUAGE_ID: string }
   ts: string
   auth: {
     access_token: string
@@ -155,7 +156,7 @@ function toOAuthParams(auth: InstallEventPayload['auth']): B24OAuthParams {
     domain: auth.domain,
     clientEndpoint: auth.client_endpoint,
     serverEndpoint: auth.server_endpoint,
-    status: (Object.values(EnumAppStatus).find((s) => s === auth.status) ?? EnumAppStatus.Free)
+    status: (Object.values(EnumAppStatus).find(s => s === auth.status) ?? EnumAppStatus.Free)
   }
 }
 
@@ -259,7 +260,7 @@ async function clientForMember(memberId: string): Promise<B24OAuth> {
 
 async function demoCall($b24: B24OAuth) {
   // The same actions.v2.* / v3.* surface as B24Hook/B24Frame.
-  const profile = await $b24.actions.v2.call.make<{ NAME: string; ID: number; ADMIN: boolean }>({
+  const profile = await $b24.actions.v2.call.make<{ NAME: string, ID: number, ADMIN: boolean }>({
     method: 'profile'
   })
   if (!profile.isSuccess) throw new Error(profile.getErrorMessages().join('; '))
@@ -282,23 +283,36 @@ async function main() {
   app.use(express.urlencoded({ extended: true }))
 
   app.post('/install', (req: Request, res: Response) => {
-    handleInstall(req, res).catch((e) => { logger.error('install failed', e); res.status(200).send('ok') })
+    handleInstall(req, res).catch((e) => {
+      logger.error('install failed', e)
+      res.status(200).send('ok')
+    })
   })
 
   app.post('/uninstall', (req: Request, res: Response) => {
-    handleUninstall(req, res).catch((e) => { logger.error('uninstall failed', e); res.status(200).send('ok') })
+    handleUninstall(req, res).catch((e) => {
+      logger.error('uninstall failed', e)
+      res.status(200).send('ok')
+    })
   })
 
   // Demo: hit /portal/<memberId>/profile to call REST on behalf of that portal.
   // The explicit `Request<{ memberId: string }>` generic narrows req.params
   // from `string | string[]` (Express 5 default) to `string`.
   //
-  // SECURITY WARNING: this endpoint has NO authentication. Anyone who knows
-  // a member_id can read that portal's profile (and, with the same factory,
-  // execute any other REST call too). DO NOT expose this to the open internet
-  // as-is. In production, gate `/portal/*` behind your own auth — a Bearer
-  // token from your dashboard, an mTLS client cert, or a network-level ACL.
+  // Demo: call REST on behalf of a portal.
+  //
+  // ⛔ SECURITY: Gated behind DEMO_API_SECRET env var. Do not expose this
+  // to the open internet without a real auth layer (Bearer token, mTLS, etc.).
+  // Set DEMO_API_SECRET=<random-secret> and pass it as Authorization: Bearer <secret>.
   app.get('/portal/:memberId/profile', async (req: Request<{ memberId: string }>, res: Response) => {
+    const secret = process.env.DEMO_API_SECRET
+    const auth = req.headers.authorization
+    if (!secret || !auth || !safeEqual(auth, `Bearer ${secret}`)) {
+      res.status(401).json({ error: 'UNAUTHORIZED' })
+      return
+    }
+
     try {
       const $b24 = await clientForMember(req.params.memberId)
       const profile = await demoCall($b24)

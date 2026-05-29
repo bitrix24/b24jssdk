@@ -24,6 +24,17 @@ All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The le
 | 11 | `examples/11-event-registration.ts` | Node | `crm` | CLI tool — list / bind / unbind outbound webhook events (`event.get`, `event.bind`, `event.unbind`). Pairs with recipe 7. |
 | 12 | `examples/12-oauth-install.ts` | Node, `express` | OAuth app | OAuth install handshake: handle `ONAPPINSTALL` / `ONAPPUPDATE` / `ONAPPUNINSTALL` events, persist tokens per portal, build `B24OAuth` on demand, refresh callback writes new tokens back to storage |
 
+## Shared library (`lib/`)
+
+Pure, I/O-free helpers extracted from recipes so they can be unit-tested without a live portal.
+
+| File | Exports | Used by |
+|---|---|---|
+| `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipe 01 |
+
+`baseStage(s)` strips the multi-funnel category prefix (`"C2:WON"` → `"WON"`).  
+`analyseFunnel(deals)` groups deals by raw `stageId` key, summing counts and opportunity amounts.
+
 ## Boot snippet (shared by all recipes)
 
 ```ts

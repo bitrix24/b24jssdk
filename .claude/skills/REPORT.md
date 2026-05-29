@@ -17,6 +17,21 @@ Files migrated to `$b24.actions.v{2,3}.*.make()`:
 - `b24jssdk-vibecode/SKILL.md` — AI-add-on example updated to new API.
 - `README.md` + `MAINTENANCE.md` — translation tables now use `actions.v{2,3}.*.make`.
 
+## Weekly llms-full.txt triage log
+
+### 2026-05-29
+
+Source: `docs/llms-full.txt` (generated 2026-05-28, header `# VibeCode — Complete Documentation`, 4942 ``` fences — even). No previous version on `origin/claude/busy-cray-w38fN` (`NO_PREV`), so a full review was done.
+
+Outcome: **no actionable SDK changes.** Every section in the focus list maps to VibeCode's own HTTP API, not the b24jssdk surface:
+
+- **Filtering** — documents the Vibe API `/v1/{entity}?filter[...]` and `POST /v1/{entity}/search` MongoDB-style dialect (`$gte`, `$ne`, `$in`, `$contains`). These are VibeCode-proprietary operators (in the explicit ignore list), distinct from the SDK's v2-prefix / v3-array-triple dialects already covered by `b24jssdk-filtering`.
+- **Batch / Limits** — describe `POST /v1/batch`, `POST /v1/{entity}/batch`, server-side auto-pagination, the portal queue (`QUEUE_TIMEOUT`), and `/v1/{entity}/aggregate`. All VibeCode infra; the SDK equivalents (`actions.v{2,3}.batch/batchByChunk/callList/fetchList`) are unaffected.
+- **Errors** — the `{ success, error: { code } }` envelope and the `MISSING_API_KEY` / `RATE_LIMITED` / `QUEUE_TIMEOUT` code table apply "ко всем эндпоинтам `/v1/...`" — VibeCode error codes, not the SDK's `AjaxError` / restriction-manager `hardErrorCodes` / `softErrorCodes`.
+- **Recipes** — only 9 are present (Ai Assistant, Crm Analytics, Disk Files, Erp Sync, Mass Messaging, Task Automation, Telegram Bot, Web Search With Llm, Webhook Handler). Each is implemented with raw `fetch(${BASE}/v1/...)` + `X-Api-Key`, not the SDK. The `b24jssdk-recipes` skill already covers the same scenarios (plus error-handling, event-registration, and OAuth-install) on the canonical `actions.v{2,3}.*` surface. The Web-Search-with-LLM recipe relies on VibeCode-only endpoints (`/v1/search`, `/v1/ai/chat/completions`, AI Router, Tavily/Brave BYOK) the SDK does not expose.
+
+No issues opened, no SUGGESTED-EXAMPLES.md entries, no new open questions. All content classified D (VibeCode-only) and skipped.
+
 ## Anchor facts (verified against current SDK source)
 
 These are the load-bearing facts that the skills rely on. If a future audit finds one of them changed, the related skill needs revision.

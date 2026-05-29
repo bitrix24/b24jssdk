@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   # Docs lint runs in its own job with full history because docs:lint-pages
   # reads `git log -1 -- <source>` and needs each linked source file's real
@@ -20,6 +23,7 @@ jobs:
   # from `build` so the rest of CI can stay on a shallow checkout.
   docs-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -46,6 +50,7 @@ jobs:
   # without repeating the prepare step.
   prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       NUXT_PUBLIC_USE_AI: false
       NUXT_PUBLIC_USE_TAB_B24FRAME: false
@@ -88,6 +93,7 @@ jobs:
   lint:
     needs: prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -115,6 +121,7 @@ jobs:
   typecheck:
     needs: prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       NUXT_PUBLIC_USE_AI: false
       NUXT_PUBLIC_USE_TAB_B24FRAME: false
@@ -148,10 +155,10 @@ jobs:
         # against @bitrix24/b24jssdk. Runs after dev:prepare so dist/ types are available.
         run: pnpm run typecheck
 
-
   test:
     needs: prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -174,6 +181,8 @@ jobs:
           name: prepared-workspace
 
       - name: Unit tests (no portal required)
+        # Integration and load tests require B24_HOOK — run locally or in a
+        # dedicated environment with secrets. See .github/contributing/testing.md.
         run: pnpm run package-jssdk:test:run-unit
 
       - name: Security audit
@@ -182,6 +191,7 @@ jobs:
   build:
     needs: prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -220,6 +230,7 @@ jobs:
   docs-build:
     needs: prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       NUXT_PUBLIC_USE_AI: false
       NUXT_PUBLIC_USE_TAB_B24FRAME: false

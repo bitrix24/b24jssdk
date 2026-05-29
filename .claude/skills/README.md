@@ -14,7 +14,7 @@ Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
 | **b24jssdk-filtering** | Two filter dialects — v2 prefix-keyed objects (`'>=createdTime'`) and v3 array-of-triples (`[['fld', '>=', v]]`). NOT, IN, dates via `Text.toB24Format`, the `order`-stripping rule of `callList`. |
 | **b24jssdk-frame-ui** | UI managers available only inside Bitrix24 iframe: slider, dialog (`selectUser/Users/CRM/Access`), parent, placement (with `setValue`), options, auth. |
 | **b24jssdk-helpers** | `useB24Helper`, `B24HelperManager`, Pull client, currency formatting, app/user options. |
-| **b24jssdk-recipes** | Nine end-to-end mini-apps (CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler) — built on `actions.v{2,3}.*`. |
+| **b24jssdk-recipes** | Twelve end-to-end mini-apps (CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling, event registration, OAuth install) — built on `actions.v{2,3}.*`. |
 | **b24jssdk-vibecode** | How to use the SDK alongside the VibeCode HTTP API. Mostly: don't — keep them apart. The "AI add-on" pattern is the only sane mix. |
 
 ## Top-level docs

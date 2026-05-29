@@ -261,3 +261,19 @@ jobs:
 
       - name: Build docs
         run: pnpm run docs:generate
+
+  # Gate job: satisfies the "ci" required status check in branch protection.
+  # Fails if any upstream job failed or was cancelled.
+  ci:
+    needs: [docs-lint, lint, typecheck, test, build, docs-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    steps:
+      - name: All checks passed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more CI jobs failed or were cancelled."
+            exit 1
+          fi
+          echo "All CI jobs passed."

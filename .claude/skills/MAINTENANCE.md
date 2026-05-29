@@ -2,51 +2,64 @@
 
 `docs/llms-full.txt` is a generated dump of the VibeCode docs (`https://vibecode.bitrix24.tech`). The user re-pulls it once a week and wants the b24jssdk skills kept in sync with the new content. This file is the playbook for that recurring task.
 
-When the user pastes the **MAINTENANCE** prompt (see below) or says **"разбери llms-full.txt"** / **"обнови по новым данным"**, follow these steps in order.
+When the user pastes the **MAINTENANCE** prompt (see below) or says one of the trigger phrases, follow these steps in order.
+
+**Trigger phrases:**
+- RU: **"Битрикс24 Вайбкод разбери"** / **"обнови по новым данным Битрикс24 Вайбкод"**
+- EN: **"parse Bitrix24 VibeCode"** / **"update from Bitrix24 VibeCode data"**
 
 ### User-facing MAINTENANCE prompt (copy-paste template)
 
 ```
-MAINTENANCE — еженедельная процедура
+MAINTENANCE — weekly procedure / еженедельная процедура
 
-* Открой новую ветку `claude/llms-update-YYYY-MM-DD`
-* Скачай https://vibecode.bitrix24.tech/llms-full.txt → сохрани в docs/llms-full.txt
-  Если скачать не удалось (403 / сеть) — скажи мне, я прикреплю файл в диалог
-* Разбери файл (агент Opus)
-* После завершения работы удали docs/llms-full.txt и обнови ветку-baseline docs/vibe-code-llms-full-txt
+* Open a new branch `claude/llms-update-YYYY-MM-DD`
+* Download https://vibecode.bitrix24.tech/llms-full.txt → save as docs/llms-full.txt
+  If download fails (403 / network) — tell me, I will attach the file to the chat
+  / Если скачать не удалось (403 / сеть) — скажи мне, я прикреплю файл в диалог
+* Parse the file (Opus agent)
+* After the work is done: delete docs/llms-full.txt and update the baseline branch docs/vibe-code-llms-full-txt
+  / После завершения: удали docs/llms-full.txt и обнови ветку-baseline docs/vibe-code-llms-full-txt
 
-Что делаешь:
+What you do / Что делаешь:
 
-1. **Sanity check** — заголовок `# VibeCode — Complete Documentation`, чётное число code-fence.
+1. **Sanity check** — header `# VibeCode — Complete Documentation`, even number of code-fences.
+   / заголовок `# VibeCode — Complete Documentation`, чётное число code-fence.
 
-2. **Diff** — сравни с веткой `docs/vibe-code-llms-full-txt`:
+2. **Diff** — compare against branch `docs/vibe-code-llms-full-txt`:
    ```bash
    git fetch origin docs/vibe-code-llms-full-txt
    diff <(git show origin/docs/vibe-code-llms-full-txt:docs/llms-full.txt) docs/llms-full.txt
    ```
-   Интересны только: новые секции верхнего уровня, изменения в Filtering/Batch/Limits/Errors,
-   изменения в 12 разделах рецептов.
-   Игнорируй `# Bot:`, `# Entity:`, `# AI Router`, инфраструктуру — это шум.
+   Care about: new top-level sections, changes in Filtering / Batch / Limits / Errors,
+   changes in the 12 recipe sections.
+   Ignore `# Bot:`, `# Entity:`, `# AI Router`, infrastructure — noise.
+   / Интересны только: новые секции, изменения в Filtering/Batch/Limits/Errors, 12 рецептов.
+   Игнорируй `# Bot:`, `# Entity:`, `# AI Router`, инфраструктуру — шум.
 
-3. **Триаж каждого изменения:**
-   - обновить существующий skill → открывай ISSUE (на английском) с хорошим контекстом
-   - новый паттерн → добавить в `SUGGESTED-EXAMPLES.md`
-   - непонятно / SDK ещё не поддерживает → в `REPORT.md`
-   - косметика / только VibeCode → skip
+3. **Triage each change / Триаж каждого изменения:**
+   - update existing skill → open ISSUE (English) with full context
+     / обновить skill → открывай ISSUE (на английском) с хорошим контекстом
+   - new pattern → add to `SUGGESTED-EXAMPLES.md`
+     / новый паттерн → добавить в `SUGGESTED-EXAMPLES.md`
+   - unclear / SDK doesn't support yet → `REPORT.md`
+     / непонятно / SDK не поддерживает → в `REPORT.md`
+   - cosmetic / VibeCode-only → skip / косметика → skip
 
-4. **Обновляй файлы**, прогоняй `pnpm run lint:fix && pnpm run typecheck`,
-   коммить на ветке `claude/llms-update-YYYY-MM-DD`.
+4. **Update files**, run `pnpm run lint:fix && pnpm run typecheck`,
+   commit on branch `claude/llms-update-YYYY-MM-DD`.
+   / Обновляй файлы, прогоняй lint + typecheck, коммить на ветке.
 
-5. **Отчёт:**
-   - что изменилось в skills (issues открыты)
-   - что добавлено в SUGGESTED-EXAMPLES.md
-   - открытые вопросы (REPORT.md)
-   - что пропущено
+5. **Report / Отчёт:**
+   - skills updated (issues opened) / что изменилось в skills
+   - added to SUGGESTED-EXAMPLES.md / что добавлено в SUGGESTED
+   - open questions (REPORT.md) / открытые вопросы
+   - skipped / что пропущено
 
-Не делаешь:
-- не открывай PR автоматически
-- не добавляй MongoDB-операторы (`$gt`, `$ne`)
-- не трогай `callMethod`/`callBatch`
+Do NOT / Не делаешь:
+- open PR automatically / не открывай PR автоматически
+- add MongoDB operators (`$gt`, `$ne`) / не добавляй MongoDB-операторы
+- touch `callMethod` / `callBatch`
 ```
 
 ## 0. Sanity check

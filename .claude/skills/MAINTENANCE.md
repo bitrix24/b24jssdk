@@ -21,11 +21,11 @@ MAINTENANCE — weekly procedure / еженедельная процедура
   If download fails (403 / network) — tell me, I will attach the file to the chat.
   / Если скачать не удалось — скажи мне, я прикреплю файл в диалог.
 * Parse the file (run as Opus sub-agent for larger context)
-* After the work is done (in this order!):
-    1. Update baseline branch docs/vibe-code-llms-full-txt (see §5.5 in .claude/skills/MAINTENANCE.md)
+* After the work is done:
+    1. Update SHA-256 hash in `.claude/skills/REPORT.md` (see §5.5)
     2. Delete docs/llms-full.txt
-  / После завершения (именно в таком порядке!):
-    1. Обнови ветку-baseline docs/vibe-code-llms-full-txt (см. §5.5)
+  / После завершения:
+    1. Обнови SHA-256 хеш в `.claude/skills/REPORT.md` (см. §5.5)
     2. Удали docs/llms-full.txt
 
 What you do / Что делаешь:
@@ -34,19 +34,15 @@ What you do / Что делаешь:
    / заголовок `# VibeCode — Complete Documentation`, чётное число code-fence.
    Stop if line count < 100 or fence count is odd.
 
-2. **Diff** — compare against branch `docs/vibe-code-llms-full-txt`:
+2. **Hash check** — read the stored hash from `.claude/skills/REPORT.md` (section `## llms-full.txt baseline hash`), then compare:
    ```bash
-   git fetch origin docs/vibe-code-llms-full-txt
-   BASELINE=$(git show origin/docs/vibe-code-llms-full-txt:docs/llms-full.txt 2>/dev/null) \
-     || echo "NO_BASELINE"
-   diff <(echo "$BASELINE") docs/llms-full.txt > /tmp/llms-diff.txt
-   wc -l /tmp/llms-diff.txt   # report total diff lines
-   head -300 /tmp/llms-diff.txt
+   NEW_HASH=$(sha256sum docs/llms-full.txt | awk '{print $1}')
+   echo "New hash:  $NEW_HASH"
+   # Compare with the sha256: line in REPORT.md
    ```
-   If diff > 300 lines — warn the user, then continue with full /tmp/llms-diff.txt.
-   If diff is empty — report "no changes" and stop without committing.
-   If NO_BASELINE — analyze the full file and note "first run, no baseline".
-   / Если diff пуст — сообщи «изменений нет» и остановись. Если NO_BASELINE — анализируй весь файл.
+   If hashes match — file is unchanged, report "no changes" and stop without committing.
+   If no hash stored yet — full-file analysis mode, note "first run".
+   / Если хеши совпадают — изменений нет, останавливаемся. Если хеша нет — анализируем весь файл.
 
    Care about: new top-level sections, changes in Filtering / Batch / Limits / Errors,
    changes in the 12 recipe sections.
@@ -102,36 +98,29 @@ Expected:
 
 If the format changed (e.g. line 1 isn't a VibeCode header), stop and ask the user — the generator likely rewrote.
 
-## 1. Diff against the last pulled version
+## 1. Hash check and analysis
 
-The canonical baseline lives in the `docs/vibe-code-llms-full-txt` branch.
+The SHA-256 hash of the last processed file is stored in `.claude/skills/REPORT.md`
+under `## llms-full.txt baseline hash`.
 
 ```bash
-# fetch the baseline
-git fetch origin docs/vibe-code-llms-full-txt
-
-# verify baseline file exists
-git show origin/docs/vibe-code-llms-full-txt:docs/llms-full.txt > /dev/null 2>&1 \
-  || { echo "WARNING: baseline file missing — full-file analysis mode"; }
-
-# compare timestamps: new file must not be older than baseline
+# Compute hash of the new file
+NEW_HASH=$(sha256sum docs/llms-full.txt | awk '{print $1}')
 NEW_TS=$(head -3 docs/llms-full.txt | grep Generated | grep -o '[0-9T:.-]*Z')
-OLD_TS=$(git show origin/docs/vibe-code-llms-full-txt:docs/llms-full.txt \
-         | head -3 | grep Generated | grep -o '[0-9T:.-]*Z')
-echo "Baseline: $OLD_TS  New: $NEW_TS"
-# If NEW_TS < OLD_TS — baseline is newer; stop and ask the user.
+echo "New:  $NEW_HASH  ($NEW_TS)"
 
-# save diff to file (avoid truncation)
-diff <(git show origin/docs/vibe-code-llms-full-txt:docs/llms-full.txt 2>/dev/null) \
-     docs/llms-full.txt > /tmp/llms-diff.txt
-
-echo "Diff lines: $(wc -l < /tmp/llms-diff.txt)"
-# If 0 lines — no changes, report and stop.
-# If > 300 lines — warn user, then process full /tmp/llms-diff.txt.
-head -300 /tmp/llms-diff.txt
+# Read stored hash from REPORT.md (the line starting with "sha256:")
+OLD_HASH=$(grep '^sha256:' .claude/skills/REPORT.md | awk '{print $2}')
+OLD_TS=$(grep '^generated:' .claude/skills/REPORT.md | awk '{print $2}')
+echo "Stored: $OLD_HASH  ($OLD_TS)"
 ```
 
-If no baseline exists yet (first ever run), analyze the full file and note it in the report.
+- **Hashes match** → no changes; report "no changes since `$OLD_TS`" and stop, no commit.
+- **No stored hash** → first run; analyze the full file and note "first run, no baseline".
+- **New timestamp older than stored** → downloaded file is stale; stop and ask the user.
+- **Hashes differ** → proceed with full analysis of the new file.
+
+Since there is no stored diff (hashes only, not content), the analysis is always a **full read** of `docs/llms-full.txt` with focus on the sections listed below — not a line diff. This is intentional: it's simpler and the file is parsed by an Opus agent with a large context window.
 
 We only care about changes that affect the **public, end-user-visible surface**. Specifically look for:
 
@@ -204,21 +193,25 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
    git commit -m "docs(maintenance): …"
    ```
 5. Push to the branch and STOP. Do **not** open a PR unless the user asks for it.
-6. **Update the baseline branch** — do this BEFORE deleting `docs/llms-full.txt`:
+6. **Update the hash in REPORT.md** — do this BEFORE deleting `docs/llms-full.txt`:
    ```bash
-   git switch docs/vibe-code-llms-full-txt  # git ≥2.23 auto-creates tracking branch
-   git pull origin docs/vibe-code-llms-full-txt
-   cp docs/llms-full.txt /tmp/llms-new.txt  # save before switching back
-   git switch docs/vibe-code-llms-full-txt
-   cp /tmp/llms-new.txt docs/llms-full.txt
-   git add docs/llms-full.txt
-   git commit -m "chore: update llms-full.txt baseline <YYYY-MM-DD>"
-   git push --force-with-lease origin docs/vibe-code-llms-full-txt
-   # If push rejected: git pull --rebase && git push --force-with-lease
-   git switch claude/llms-update-<YYYY-MM-DD>
+   NEW_HASH=$(sha256sum docs/llms-full.txt | awk '{print $1}')
+   NEW_TS=$(head -3 docs/llms-full.txt | grep Generated | grep -o '[0-9T:.-]*Z')
+   # In .claude/skills/REPORT.md, update the block under "## llms-full.txt baseline hash":
+   #   sha256: <NEW_HASH>
+   #   generated: <NEW_TS>
+   #   updated: <today YYYY-MM-DD>
+   git add .claude/skills/REPORT.md
+   git commit -m "chore: update llms-full.txt baseline hash <YYYY-MM-DD>"
+   git push
    ```
-   This keeps the next diff accurate. **Without this step next week's run will re-report everything.**
-7. **Now** delete the working copy: `rm docs/llms-full.txt && git add docs/llms-full.txt && git commit -m "chore: remove temporary llms-full.txt"`.
+7. **Now** delete the working copy:
+   ```bash
+   rm docs/llms-full.txt
+   git add docs/llms-full.txt
+   git commit -m "chore: remove temporary llms-full.txt"
+   git push
+   ```
 
 ## 6. End-of-task summary template
 
@@ -236,7 +229,7 @@ Diff: <N> lines total
 - …
 --- Skipped (no SDK relevance) ---
 - # AI Router (lines NNNN–NNNN), # Инфраструктура (lines NNNN–NNNN)
-⚠ Baseline updated: docs/vibe-code-llms-full-txt → <date>
+⚠ Baseline hash updated in REPORT.md → <new-sha256> (<date>)
 ```
 
 That's all — no PR, no lecture, just the summary.

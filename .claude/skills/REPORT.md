@@ -17,6 +17,17 @@ Files migrated to `$b24.actions.v{2,3}.*.make()`:
 - `b24jssdk-vibecode/SKILL.md` — AI-add-on example updated to new API.
 - `README.md` + `MAINTENANCE.md` — translation tables now use `actions.v{2,3}.*.make`.
 
+## llms-full.txt baseline hash
+
+The SHA-256 hash of the last processed `llms-full.txt` is stored here.
+Next run: compute `sha256sum docs/llms-full.txt` and compare — if equal, no changes, stop.
+
+```
+sha256: 4ec00bd7c38efced34f067bb817951456971b371f3b16cb5a4b87a34553da0e8
+generated: 2026-05-28T23:33:30.760Z
+updated: 2026-05-29
+```
+
 ## Weekly llms-full.txt triage log
 
 ### 2026-05-29

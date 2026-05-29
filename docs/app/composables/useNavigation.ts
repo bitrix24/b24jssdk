@@ -2,7 +2,7 @@ import type { ContentNavigationItem } from '@nuxt/content'
 import type { NavigationMenuItem } from '@bitrix24/b24ui-nuxt'
 import { findPageChildren, findPageBreadcrumb } from '@nuxt/content/utils'
 import { mapContentNavigation } from '@bitrix24/b24ui-nuxt/utils/content'
-import { withTrailingSlash } from 'ufo' // withoutTrailingSlash
+import { withoutTrailingSlash } from 'ufo'
 // import ALetterIcon from '@bitrix24/b24icons-vue/outline/ALetterIcon'
 import LayersIcon from '@bitrix24/b24icons-vue/outline/LayersIcon'
 import ItemIcon from '@bitrix24/b24icons-vue/crm/ItemIcon'
@@ -97,7 +97,7 @@ function groupChildrenByCategory(items: ContentNavigationItem[], slug: string): 
 
   // Remove icons while grouping
   for (const item of items) {
-    item.path = withTrailingSlash(item.path)
+    item.path = withoutTrailingSlash(item.path)
     if (item.category) {
       categorized[item.category as string] = categorized[item.category as string] || []
       categorized[item.category as string]?.push(item)
@@ -108,7 +108,7 @@ function groupChildrenByCategory(items: ContentNavigationItem[], slug: string): 
 
   if (uncategorized.length) {
     const withChildren = uncategorized.filter(item => item.children?.length)
-      ?.map(item => ({ ...item, children: item.children?.map(child => ({ ...child, path: withTrailingSlash(child.path), icon: undefined })) }))
+      ?.map(item => ({ ...item, children: item.children?.map(child => ({ ...child, path: withoutTrailingSlash(child.path), icon: undefined })) }))
     const withoutChildren = uncategorized.filter(item => !item.children?.length)
 
     if (withoutChildren.length) {
@@ -116,7 +116,7 @@ function groupChildrenByCategory(items: ContentNavigationItem[], slug: string): 
         title: 'Overview',
         type: 'trigger' as const,
         /** @memo this path */
-        path: `/docs/${slug}/`,
+        path: `/docs/${slug}`,
         children: withoutChildren?.map(item => ({ ...item, icon: undefined }))
       })
     }
@@ -133,7 +133,7 @@ function groupChildrenByCategory(items: ContentNavigationItem[], slug: string): 
         /**
          * @memo this path
          */
-        path: `/docs/${slug}/`,
+        path: `/docs/${slug}`,
         class: 'restApiVersion' in category ? [`${category.restApiVersion}-only`] : undefined,
         children: categorized[category.id]
       })
@@ -209,9 +209,9 @@ export const useNavigation = (navigation: Ref<ContentNavigationItem[] | undefine
     rootNavigation.value?.map(item => filterChildrenByRestapiVersion(item, restApiVersion.value)).map((item) => {
       return {
         ...item,
-        path: withTrailingSlash(item.path),
+        path: withoutTrailingSlash(item.path),
         children: (item?.children || []).map((child) => {
-          return { ...child, path: withTrailingSlash(child.path) }
+          return { ...child, path: withoutTrailingSlash(child.path) }
         })
       }
     })
@@ -230,7 +230,7 @@ export const useNavigation = (navigation: Ref<ContentNavigationItem[] | undefine
    * @memo this path
    */
   function findSurround(path: string): [ContentNavigationItem | undefined, ContentNavigationItem | undefined] {
-    const pathFormatted = withTrailingSlash(path)
+    const pathFormatted = withoutTrailingSlash(path)
     const flattenNavigation = navigationByCategory.value
       // @memo: while remove filterChildrenByFramework -> ?.flatMap(item => item?.children) ?? []
       ?.flatMap(item => filterChildrenByRestapiVersion(item, restApiVersion.value)?.children) ?? []
@@ -244,10 +244,10 @@ export const useNavigation = (navigation: Ref<ContentNavigationItem[] | undefine
     const surround: [ContentNavigationItem | undefined, ContentNavigationItem | undefined] = [flattenNavigation[index - 1], flattenNavigation[index + 1]]
 
     if (surround[0]) {
-      surround[0].path = withTrailingSlash(surround[0].path)
+      surround[0].path = withoutTrailingSlash(surround[0].path)
     }
     if (surround[1]) {
-      surround[1].path = withTrailingSlash(surround[1].path)
+      surround[1].path = withoutTrailingSlash(surround[1].path)
     }
 
     return surround
@@ -269,7 +269,7 @@ export const useNavigation = (navigation: Ref<ContentNavigationItem[] | undefine
         ...item,
         open: true,
         children: [
-          ...(((item?.children || []) as (NavigationMenuItem & { description?: string })[]).map(link => ({ ...link, to: withTrailingSlash(link.to as string), active: withTrailingSlash(link.to as string) === route.path })))
+          ...(((item?.children || []) as (NavigationMenuItem & { description?: string })[]).map(link => ({ ...link, to: withoutTrailingSlash(link.to as string), active: withoutTrailingSlash(link.to as string) === withoutTrailingSlash(route.path) })))
         ]
       }
     })

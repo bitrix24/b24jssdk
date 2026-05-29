@@ -57,14 +57,11 @@ jobs:
       - name: Generate Docs
         run: pnpm run docs:generate
 
-      - name: Prepare SPA fallback
-        run: |
-          touch .nojekyll
-
       - name: Create combined artifact
         run: |
           mkdir -p combined-artifact
           cp -r docs/.output/public/* combined-artifact/
+          touch combined-artifact/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4

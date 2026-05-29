@@ -207,6 +207,9 @@ export default defineNuxtConfig({
         ...pagesService
       ],
       crawlLinks: true,
+      // false = flat files (foo.html, not foo/index.html); GitHub Pages serves
+      // these at /foo (no trailing slash). All navigation links must use
+      // withoutTrailingSlash — do NOT change to true without updating useNavigation.ts.
       autoSubfolderIndex: false
     }
   },

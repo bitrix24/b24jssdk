@@ -2,7 +2,7 @@
 import type { NavigationMenuItem } from '@bitrix24/b24ui-nuxt'
 import type { ContentNavigationItem } from '@nuxt/content'
 import { mapContentNavigation } from '@bitrix24/b24ui-nuxt/utils/content'
-import { withTrailingSlash } from 'ufo'
+import { withoutTrailingSlash } from 'ufo'
 
 const route = useRoute()
 
@@ -10,8 +10,8 @@ const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
 
 const items = computed<NavigationMenuItem[]>(() => mapContentNavigation(navigation?.value.map(item => ({ ...item, children: undefined })) ?? [])?.map(item => ({
   ...item,
-  to: withTrailingSlash(item.to as string),
-  active: route.path.startsWith(item.to as string)
+  to: withoutTrailingSlash(item.to as string),
+  active: route.path.startsWith(withoutTrailingSlash(item.to as string))
 })) as NavigationMenuItem[])
 </script>
 

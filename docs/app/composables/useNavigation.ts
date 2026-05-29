@@ -2,7 +2,7 @@ import type { ContentNavigationItem } from '@nuxt/content'
 import type { NavigationMenuItem } from '@bitrix24/b24ui-nuxt'
 import { findPageChildren, findPageBreadcrumb } from '@nuxt/content/utils'
 import { mapContentNavigation } from '@bitrix24/b24ui-nuxt/utils/content'
-import { withoutTrailingSlash } from 'ufo' // withoutTrailingSlash
+import { withoutTrailingSlash } from 'ufo'
 // import ALetterIcon from '@bitrix24/b24icons-vue/outline/ALetterIcon'
 import LayersIcon from '@bitrix24/b24icons-vue/outline/LayersIcon'
 import ItemIcon from '@bitrix24/b24icons-vue/crm/ItemIcon'
@@ -116,7 +116,7 @@ function groupChildrenByCategory(items: ContentNavigationItem[], slug: string): 
         title: 'Overview',
         type: 'trigger' as const,
         /** @memo this path */
-        path: `/docs/${slug}/`,
+        path: `/docs/${slug}`,
         children: withoutChildren?.map(item => ({ ...item, icon: undefined }))
       })
     }
@@ -133,7 +133,7 @@ function groupChildrenByCategory(items: ContentNavigationItem[], slug: string): 
         /**
          * @memo this path
          */
-        path: `/docs/${slug}/`,
+        path: `/docs/${slug}`,
         class: 'restApiVersion' in category ? [`${category.restApiVersion}-only`] : undefined,
         children: categorized[category.id]
       })
@@ -269,7 +269,7 @@ export const useNavigation = (navigation: Ref<ContentNavigationItem[] | undefine
         ...item,
         open: true,
         children: [
-          ...(((item?.children || []) as (NavigationMenuItem & { description?: string })[]).map(link => ({ ...link, to: withoutTrailingSlash(link.to as string), active: withoutTrailingSlash(link.to as string) === route.path })))
+          ...(((item?.children || []) as (NavigationMenuItem & { description?: string })[]).map(link => ({ ...link, to: withoutTrailingSlash(link.to as string), active: withoutTrailingSlash(link.to as string) === withoutTrailingSlash(route.path) })))
         ]
       }
     })

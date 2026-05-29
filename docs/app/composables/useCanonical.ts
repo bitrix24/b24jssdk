@@ -18,7 +18,7 @@ export function useCanonical(markdownAlternate?: MaybeRefOrGetter<string | undef
 
       const md = toValue(markdownAlternate)
       if (md) {
-        const href = md.startsWith('http') ? md : joinURL(siteUrl, md)
+        const href = (md.startsWith('https://') || md.startsWith('http://')) ? md : joinURL(siteUrl, md)
         links.push({ rel: 'alternate', type: 'text/markdown', href })
       }
 

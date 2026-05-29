@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ContentNavigationItem } from '@nuxt/content'
-import { withoutTrailingSlash, joinURL } from 'ufo' // withTrailingSlash
+import { withoutTrailingSlash, joinURL } from 'ufo'
 import { kebabCase } from 'scule'
 import { useColorMode } from '#b24ui/composables/color-mode/useColorMode'
 import DesignIcon from '@bitrix24/b24icons-vue/outline/DesignIcon'

@@ -115,7 +115,7 @@ const iconFromIconName = (iconName?: string) => {
           >
             <B24Card
               :b24ui="{
-                root: 'h-full transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 hover:ring-1 hover:ring-(--ui-border-color-accented) cursor-pointer',
+                root: 'h-full transition-[transform,box-shadow,outline-color] duration-200 hover:shadow-xl hover:-translate-y-0.5 hover:ring-1 hover:ring-(--ui-border-color-accented) cursor-pointer',
                 body: 'p-4'
               }"
             >
@@ -140,8 +140,8 @@ const iconFromIconName = (iconName?: string) => {
         </p>
         <B24Card
           :b24ui="{
-            root: 'rounded-(--ui-border-radius-md) overflow-hidden',
-            body: 'p-0'
+            root: 'rounded-(--ui-border-radius-md)',
+            body: 'p-0 overflow-hidden'
           }"
         >
           <div class="overflow-x-auto">

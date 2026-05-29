@@ -1,6 +1,6 @@
 # Documentation
 
-<sub>Last reviewed: 2026-05-26.</sub>
+<sub>Last reviewed: 2026-05-29.</sub>
 
 > **Agent-facing mirror:** the same surface, condensed for agents generating usage code, lives in [`skills/`](../../skills/README.md). The skill set has its own maintenance playbook ([`maintenance.md`](../../.github/contributing/maintenance.md)). When the public docs change here, the matching skill files usually need a refresh in the same PR.
 

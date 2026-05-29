@@ -1,6 +1,6 @@
 # Package Structure
 
-<sub>Last reviewed: 2026-05-26.</sub>
+<sub>Last reviewed: 2026-05-29.</sub>
 
 > **Agent-facing mirror:** the published surface from the angle of agents writing usage code lives in [`.claude/skills/b24jssdk-core/`](../../.claude/skills/b24jssdk-core/SKILL.md), [`b24jssdk-frame-ui/`](../../.claude/skills/b24jssdk-frame-ui/SKILL.md), and [`b24jssdk-helpers/`](../../.claude/skills/b24jssdk-helpers/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
 

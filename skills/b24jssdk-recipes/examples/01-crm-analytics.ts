@@ -90,7 +90,7 @@ async function loadAllDeals($b24: TypeB24): Promise<DealRow[]> {
   return out
 }
 
-interface StageStat { count: number; total: number }
+interface StageStat { count: number, total: number }
 
 function analyseFunnel(deals: DealRow[]): Map<string, StageStat> {
   const stages = new Map<string, StageStat>()
@@ -117,7 +117,10 @@ function printFunnel(stages: Map<string, StageStat>, totalDeals: number) {
     let count = 0
     let total = 0
     for (const [sid, s] of stages) {
-      if (baseStage(sid) === baseId) { count += s.count; total += s.total }
+      if (baseStage(sid) === baseId) {
+        count += s.count
+        total += s.total
+      }
     }
     if (count === 0) continue
 
@@ -128,12 +131,17 @@ function printFunnel(stages: Map<string, StageStat>, totalDeals: number) {
     )
   }
 
-  let won: StageStat = { count: 0, total: 0 }
-  let lost: StageStat = { count: 0, total: 0 }
+  const won: StageStat = { count: 0, total: 0 }
+  const lost: StageStat = { count: 0, total: 0 }
   for (const [sid, s] of stages) {
     const base = baseStage(sid)
-    if (base === 'WON') { won.count += s.count; won.total += s.total }
-    else if (base === 'LOSE') { lost.count += s.count; lost.total += s.total }
+    if (base === 'WON') {
+      won.count += s.count
+      won.total += s.total
+    } else if (base === 'LOSE') {
+      lost.count += s.count
+      lost.total += s.total
+    }
   }
   const closed = won.count + lost.count
   console.log('\n' + '-'.repeat(65))

@@ -96,8 +96,8 @@ async function getCredentials(memberId: string): Promise<StoredCredentials | nul
 
 async function deleteCredentials(memberId: string): Promise<void> {
   const store = await loadStore()
-  delete store[memberId]
-  await fs.writeFile(STORE_FILE, JSON.stringify(store, null, 2), { mode: 0o600 })
+  const { [memberId]: _removed, ...rest } = store
+  await fs.writeFile(STORE_FILE, JSON.stringify(rest, null, 2), { mode: 0o600 })
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ async function deleteCredentials(memberId: string): Promise<void> {
  */
 interface InstallEventPayload {
   event: 'ONAPPINSTALL' | 'ONAPPUPDATE'
-  data: { VERSION: string; ACTIVE: '0' | '1'; INSTALLED?: '0' | '1'; LANGUAGE_ID: string }
+  data: { VERSION: string, ACTIVE: '0' | '1', INSTALLED?: '0' | '1', LANGUAGE_ID: string }
   ts: string
   auth: {
     access_token: string
@@ -155,7 +155,7 @@ function toOAuthParams(auth: InstallEventPayload['auth']): B24OAuthParams {
     domain: auth.domain,
     clientEndpoint: auth.client_endpoint,
     serverEndpoint: auth.server_endpoint,
-    status: (Object.values(EnumAppStatus).find((s) => s === auth.status) ?? EnumAppStatus.Free)
+    status: (Object.values(EnumAppStatus).find(s => s === auth.status) ?? EnumAppStatus.Free)
   }
 }
 
@@ -259,7 +259,7 @@ async function clientForMember(memberId: string): Promise<B24OAuth> {
 
 async function demoCall($b24: B24OAuth) {
   // The same actions.v2.* / v3.* surface as B24Hook/B24Frame.
-  const profile = await $b24.actions.v2.call.make<{ NAME: string; ID: number; ADMIN: boolean }>({
+  const profile = await $b24.actions.v2.call.make<{ NAME: string, ID: number, ADMIN: boolean }>({
     method: 'profile'
   })
   if (!profile.isSuccess) throw new Error(profile.getErrorMessages().join('; '))
@@ -282,11 +282,17 @@ async function main() {
   app.use(express.urlencoded({ extended: true }))
 
   app.post('/install', (req: Request, res: Response) => {
-    handleInstall(req, res).catch((e) => { logger.error('install failed', e); res.status(200).send('ok') })
+    handleInstall(req, res).catch((e) => {
+      logger.error('install failed', e)
+      res.status(200).send('ok')
+    })
   })
 
   app.post('/uninstall', (req: Request, res: Response) => {
-    handleUninstall(req, res).catch((e) => { logger.error('uninstall failed', e); res.status(200).send('ok') })
+    handleUninstall(req, res).catch((e) => {
+      logger.error('uninstall failed', e)
+      res.status(200).send('ok')
+    })
   })
 
   // Demo: hit /portal/<memberId>/profile to call REST on behalf of that portal.

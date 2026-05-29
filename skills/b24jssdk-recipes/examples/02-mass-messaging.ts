@@ -69,7 +69,7 @@ async function loadContacts($b24: TypeB24): Promise<ContactRow[]> {
   }
 
   const items = response.getData()!.result.items ?? []
-  return items.slice(0, CONFIG.maxContacts).map((c) => ({
+  return items.slice(0, CONFIG.maxContacts).map(c => ({
     id: Number(c.id),
     name: c.name ?? '',
     lastName: c.lastName ?? '',
@@ -96,7 +96,7 @@ async function notifyManager($b24: TypeB24, c: ContactRow, body: string) {
   })
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 async function main() {
   const $b24 = bootB24()
@@ -108,7 +108,7 @@ async function main() {
 
   let sent = 0
   let failed = 0
-  const errors: { contact: string; reason: string }[] = []
+  const errors: { contact: string, reason: string }[] = []
 
   for (const c of contacts) {
     const fullName = `${c.name} ${c.lastName}`.trim()

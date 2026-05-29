@@ -88,7 +88,10 @@ async function loadDeal($b24: TypeB24, dealId: number): Promise<DealItem> {
 
 async function handleDealAdd($b24: TypeB24, payload: BitrixEventPayload) {
   const id = Number(payload.data?.FIELDS?.ID)
-  if (!id) { logger.warning('  no deal id in payload'); return }
+  if (!id) {
+    logger.warning('  no deal id in payload')
+    return
+  }
 
   try {
     const deal = await loadDeal($b24, id)
@@ -156,8 +159,11 @@ async function main() {
 
     const handler = HANDLERS[eventName]
     if (handler) {
-      try { await handler($b24, payload) }
-      catch (e) { logger.error(`  handler failed: ${(e as Error).message}`, {}) }
+      try {
+        await handler($b24, payload)
+      } catch (e) {
+        logger.error(`  handler failed: ${(e as Error).message}`, {})
+      }
     } else {
       logger.info(`  no handler for ${eventName}`)
     }

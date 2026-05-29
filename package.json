@@ -44,7 +44,7 @@
     "docs:lint": "pnpm run docs:lint-pages && pnpm run docs:lint-links",
     "docs:typecheck": "pnpm --filter ./docs typecheck",
     "docs:typecheck-blocks": "node scripts/docs-typecheck.mjs",
-    "skills:typecheck": "tsc -p .claude/skills/b24jssdk-recipes/tsconfig.json",
+    "skills:typecheck": "tsc -p skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test:run-unit": "vitest run --project jsSdk:unit",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration --project jsSdk:contributing-snippets",

@@ -146,7 +146,7 @@ async function tick($b24: TypeB24) {
     }
   }
 
-  const live = new Set(deals.map((d) => d.id))
+  const live = new Set(deals.map(d => d.id))
   for (const id of [...dealStages.keys()]) {
     if (!live.has(id)) dealStages.delete(id)
   }

@@ -66,7 +66,7 @@ async function configureLimits($b24: TypeB24) {
 
 // ─── 2. AjaxError — typical "REST error from Bitrix24" path ─────────────
 
-interface DealItem { id: number; title: string }
+interface DealItem { id: number, title: string }
 
 async function loadDealSafely($b24: TypeB24, id: number): Promise<DealItem | null> {
   try {

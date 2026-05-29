@@ -102,6 +102,8 @@ coverage
 
 # AI
 .claude/settings.local.json
+# VibeCode docs snapshot — temporary working file, never commit
+/docs/llms-full.txt
 .claude/channels/
 .claude/debug/
 

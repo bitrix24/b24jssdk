@@ -2,7 +2,52 @@
 
 `docs/llms-full.txt` is a generated dump of the VibeCode docs (`https://vibecode.bitrix24.tech`). The user re-pulls it once a week and wants the b24jssdk skills kept in sync with the new content. This file is the playbook for that recurring task.
 
-When the user says **"разбери llms-full.txt"** / **"обнови по новым данным"**, follow these steps in order.
+When the user pastes the **MAINTENANCE** prompt (see below) or says **"разбери llms-full.txt"** / **"обнови по новым данным"**, follow these steps in order.
+
+### User-facing MAINTENANCE prompt (copy-paste template)
+
+```
+MAINTENANCE — еженедельная процедура
+
+* Открой новую ветку `claude/llms-update-YYYY-MM-DD`
+* Скачай https://vibecode.bitrix24.tech/llms-full.txt → сохрани в docs/llms-full.txt
+  Если скачать не удалось (403 / сеть) — скажи мне, я прикреплю файл в диалог
+* Разбери файл (агент Opus)
+* После завершения работы удали docs/llms-full.txt и обнови ветку-baseline docs/vibe-code-llms-full-txt
+
+Что делаешь:
+
+1. **Sanity check** — заголовок `# VibeCode — Complete Documentation`, чётное число code-fence.
+
+2. **Diff** — сравни с веткой `docs/vibe-code-llms-full-txt`:
+   ```bash
+   git fetch origin docs/vibe-code-llms-full-txt
+   diff <(git show origin/docs/vibe-code-llms-full-txt:docs/llms-full.txt) docs/llms-full.txt
+   ```
+   Интересны только: новые секции верхнего уровня, изменения в Filtering/Batch/Limits/Errors,
+   изменения в 12 разделах рецептов.
+   Игнорируй `# Bot:`, `# Entity:`, `# AI Router`, инфраструктуру — это шум.
+
+3. **Триаж каждого изменения:**
+   - обновить существующий skill → открывай ISSUE (на английском) с хорошим контекстом
+   - новый паттерн → добавить в `SUGGESTED-EXAMPLES.md`
+   - непонятно / SDK ещё не поддерживает → в `REPORT.md`
+   - косметика / только VibeCode → skip
+
+4. **Обновляй файлы**, прогоняй `pnpm run lint:fix && pnpm run typecheck`,
+   коммить на ветке `claude/llms-update-YYYY-MM-DD`.
+
+5. **Отчёт:**
+   - что изменилось в skills (issues открыты)
+   - что добавлено в SUGGESTED-EXAMPLES.md
+   - открытые вопросы (REPORT.md)
+   - что пропущено
+
+Не делаешь:
+- не открывай PR автоматически
+- не добавляй MongoDB-операторы (`$gt`, `$ne`)
+- не трогай `callMethod`/`callBatch`
+```
 
 ## 0. Sanity check
 
@@ -21,10 +66,17 @@ If the format changed (e.g. line 1 isn't a VibeCode header), stop and ask the us
 
 ## 1. Diff against the last pulled version
 
+The canonical baseline lives in the `docs/vibe-code-llms-full-txt` branch.
+
 ```bash
-git -C /home/user/b24jssdk diff HEAD~1 -- docs/llms-full.txt | head -200
-git -C /home/user/b24jssdk log --oneline -- docs/llms-full.txt | head -5
+# fetch the baseline
+git fetch origin docs/vibe-code-llms-full-txt
+
+# diff new file against baseline
+diff <(git show origin/docs/vibe-code-llms-full-txt:docs/llms-full.txt) docs/llms-full.txt | head -300
 ```
+
+If no baseline exists yet (first ever run), analyze the full file and note it in the report.
 
 We only care about changes that affect the **public, end-user-visible surface**. Specifically look for:
 
@@ -85,11 +137,22 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 ## 5. Maintenance commit protocol
 
 1. Branch: `git switch -c claude/llms-update-<YYYY-MM-DD>`.
+
 2. One commit per logical change (skill update, new recipe, REPORT update). Conventional Commits (`docs:` for skill prose, `feat(skills):` when adding a recipe).
 3. `pnpm run lint:fix && pnpm run typecheck` — both must pass before pushing.
    - `typecheck` includes `skills:typecheck`, which validates `.claude/skills/b24jssdk-recipes/examples/*.ts` against the **built** SDK types (`packages/jssdk/dist/esm/index.d.ts`). Make sure `pnpm run dev:prepare` (or at minimum `pnpm run package-jssdk:build`) has run after any SDK API change, otherwise the skills typecheck against stale types.
    - Opt-in recipe deps (`grammy`, `openai`, `express`, `@types/express`, `node-cron`, `@types/node-cron`) are workspace devDeps so the recipes get strict typechecking — not just SDK calls but external-API misuse too. If you add a recipe that imports a new external package, install the package + its `@types/*` (if not bundled) as a workspace devDep with `pnpm add -Dw <pkg>`.
 4. Push to the branch and STOP. Do **not** open a PR unless the user asks for it.
+5. **Update the baseline branch** after the triage PR is merged:
+   ```bash
+   git checkout docs/vibe-code-llms-full-txt
+   git pull origin docs/vibe-code-llms-full-txt
+   cp /path/to/new/llms-full.txt docs/llms-full.txt
+   git add docs/llms-full.txt
+   git commit -m "chore: update llms-full.txt baseline <YYYY-MM-DD>"
+   git push origin docs/vibe-code-llms-full-txt
+   ```
+   This keeps the next diff accurate — without this step next week's run will re-report everything.
 
 ## 6. End-of-task summary template
 

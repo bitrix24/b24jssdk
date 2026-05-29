@@ -15,7 +15,7 @@ const pages = [
   '/docs/getting-started/migration/v1/',
   '/docs/getting-started/ai/llms-txt/',
   // endregion ////
-  // region examples ////
+  // region working-with-the-rest-api ////
   '/docs/working-with-the-rest-api/',
   '/docs/working-with-the-rest-api/call-rest-api-ver2/',
   '/docs/working-with-the-rest-api/call-rest-api-ver3/',
@@ -50,7 +50,19 @@ const pages = [
   '/docs/examples/frame-app-skeleton/',
   '/docs/examples/webhook-cli-node/',
   '/docs/examples/bulk-update-deals/',
-  '/docs/examples/pull-subscribe-frame/'
+  '/docs/examples/pull-subscribe-frame/',
+  '/docs/examples/crm-analytics/',
+  '/docs/examples/mass-messaging/',
+  '/docs/examples/task-automation/',
+  '/docs/examples/erp-sync/',
+  '/docs/examples/disk-files/',
+  '/docs/examples/telegram-bot/',
+  '/docs/examples/webhook-handler/',
+  '/docs/examples/ai-assistant/',
+  '/docs/examples/web-search-llm/',
+  '/docs/examples/error-handling/',
+  '/docs/examples/event-registration/',
+  '/docs/examples/oauth-install/'
   // endregion ////
 ]
 

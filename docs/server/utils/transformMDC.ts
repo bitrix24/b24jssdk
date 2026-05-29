@@ -203,10 +203,15 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
     const propsName = node[1]['filename'] ?? name
     try {
       const examples = getComponentExample(name)
+      if (!examples) {
+        console.warn('[code-example] no examples found for:', name)
+        replaceNodeWithPre(node, lang, `// example not found: ${name}`, `${propsName}.${lang}`)
+        return
+      }
       const code = b24Instance.prepareCode(examples[name]?.content || '')
       replaceNodeWithPre(node, lang, code, `${propsName}.${lang}`)
     } catch (error) {
-      console.error(error, { name })
+      console.warn('[code-example] error processing:', name, error)
       replaceNodeWithPre(node, 'ts', '? visitAndReplace ?', `${name}.${lang}`)
     }
   })

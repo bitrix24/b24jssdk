@@ -28,12 +28,11 @@ If the format changed (e.g. line 1 isn't a VibeCode header), stop and ask the us
 
 ## 1. Hash check and analysis
 
-The SHA-256 hash of the last processed file is stored in `.claude/skills/REPORT.md`
-under `## llms-full.txt baseline hash`. The format of that section must have no leading
-whitespace on the `sha256:` and `generated:` lines — the agent parses them with `awk`.
+The SHA-256 hash of the last processed file is stored in `.claude/skills/.llms-baseline`
+(one key=value per line, no spaces around `=`).
 
 ```bash
-# Portable SHA-256 (Linux uses sha256sum, macOS uses shasum -a 256)
+# Portable SHA-256 (Linux: sha256sum, macOS: shasum -a 256)
 NEW_HASH=$(sha256sum docs/llms-full.txt 2>/dev/null \
   || shasum -a 256 docs/llms-full.txt) | awk '{print $1}'
 
@@ -43,21 +42,18 @@ NEW_TS=$(head -3 docs/llms-full.txt \
 
 echo "New:    $NEW_HASH  ($NEW_TS)"
 
-# Context-aware parser — avoids false matches elsewhere in REPORT.md
-OLD_HASH=$(awk '/## llms-full.txt baseline hash/{f=1} f && /^sha256:/{print $2; exit}' \
-           .claude/skills/REPORT.md)
-OLD_TS=$(awk '/## llms-full.txt baseline hash/{f=1} f && /^generated:/{print $2; exit}' \
-         .claude/skills/REPORT.md)
+OLD_HASH=$(grep '^sha256=' .claude/skills/.llms-baseline | cut -d= -f2)
+OLD_TS=$(grep '^generated=' .claude/skills/.llms-baseline | cut -d= -f2)
 
 echo "Stored: $OLD_HASH  ($OLD_TS)"
 
 if [ -z "$OLD_HASH" ]; then
-  echo "WARNING: no stored hash found — verify REPORT.md format, or this is first run"
+  echo "WARNING: .llms-baseline missing or empty — first run or file corrupted"
 fi
 ```
 
 - **Hashes match** → no changes; report "no changes since `$OLD_TS`" and stop, no commit.
-- **`OLD_HASH` is empty** → first run or REPORT.md parse error; analyze the full file, note which.
+- **`OLD_HASH` is empty** → first run or `.llms-baseline` missing; analyze the full file, note which.
 - **New timestamp older than stored** → downloaded file is stale; stop and ask the user.
 - **Hashes differ** → proceed with full analysis of the new file.
 
@@ -149,22 +145,21 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
      | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+Z')
    TODAY=$(date +%Y-%m-%d)
 
-   # Edit REPORT.md:
-   # 1. Update the three lines in "## llms-full.txt baseline hash" code block:
-   #    sha256: <NEW_HASH>
-   #    generated: <NEW_TS>
-   #    updated: <TODAY>
-   # 2. Append a dated entry to "## Weekly llms-full.txt triage log"
+   # Overwrite .llms-baseline with new values
+   printf 'sha256=%s\ngenerated=%s\nupdated=%s\n' \
+     "$NEW_HASH" "$NEW_TS" "$TODAY" > .claude/skills/.llms-baseline
+
+   # Append a dated entry to "## Weekly llms-full.txt triage log" in REPORT.md
 
    # Remove the working copy
    git rm docs/llms-full.txt
 
-   git add .claude/skills/REPORT.md
+   git add .claude/skills/.llms-baseline .claude/skills/REPORT.md
    git commit -m "chore: update llms-full.txt baseline hash + triage log <YYYY-MM-DD>"
    git push --force-with-lease
    # If push rejected: git pull --rebase && git push --force-with-lease
    ```
-   **Recovery:** if `docs/llms-full.txt` is present in the repo but hash in REPORT.md already
+   **Recovery:** if `docs/llms-full.txt` is present in the repo but hash in `.llms-baseline` already
    matches it, the file was not cleaned up after a previous crash — simply `git rm` it and commit.
 
 6. Push to the branch and STOP. Do **not** open a PR unless the user asks for it.
@@ -185,7 +180,7 @@ Hash changed: <old-sha256-prefix>… → <new-sha256-prefix>…
 - …
 --- Skipped (no SDK relevance) ---
 - # AI Router (lines NNNN–NNNN), # Инфраструктура (lines NNNN–NNNN)
-⚠ Baseline hash updated in REPORT.md → <new-sha256> (<date>)
+⚠ Baseline hash updated in .llms-baseline → <new-sha256> (<date>)
 ```
 
 That's all — no PR, no lecture, just the summary.

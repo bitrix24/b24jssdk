@@ -20,10 +20,10 @@ MAINTENANCE — weekly procedure / еженедельная процедура
   Note: when user attaches file manually, confirm its SHA-256 in a separate message before proceeding.
 * Parse the file (invoke as Opus sub-agent via Task tool for larger context window)
 * After the work is done (this order matters!):
-    1. Update SHA-256 hash + triage log in `.claude/skills/REPORT.md` AND delete docs/llms-full.txt
+    1. Update `.claude/skills/.llms-baseline` + triage log in REPORT.md AND delete docs/llms-full.txt
        in a SINGLE commit (see §5.5 of MAINTENANCE.md for exact commands)
   / После завершения (порядок важен!):
-    1. Обнови SHA-256 хеш + triage log в `.claude/skills/REPORT.md` И удали docs/llms-full.txt
+    1. Обнови `.claude/skills/.llms-baseline` + triage log в REPORT.md И удали docs/llms-full.txt
        ОДНИМ коммитом (см. §5.5 MAINTENANCE.md)
 
 What you do / Что делаешь:
@@ -38,13 +38,11 @@ What you do / Что делаешь:
    NEW_HASH=$(sha256sum docs/llms-full.txt 2>/dev/null \
      || shasum -a 256 docs/llms-full.txt) | awk '{print $1}'
    NEW_TS=$(head -3 docs/llms-full.txt | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z')
-   OLD_HASH=$(awk '/## llms-full.txt baseline hash/{f=1} f && /^sha256:/{print $2; exit}' \
-              .claude/skills/REPORT.md)
-   OLD_TS=$(awk '/## llms-full.txt baseline hash/{f=1} f && /^generated:/{print $2; exit}' \
-            .claude/skills/REPORT.md)
+   OLD_HASH=$(grep '^sha256=' .claude/skills/.llms-baseline | cut -d= -f2)
+   OLD_TS=$(grep '^generated=' .claude/skills/.llms-baseline | cut -d= -f2)
    ```
    - Hashes match → report "no changes since `$OLD_TS`" and stop, no commit.
-   - `OLD_HASH` is empty → first run (or REPORT.md format issue — verify before proceeding).
+   - `OLD_HASH` is empty → first run (or `.llms-baseline` missing — verify before proceeding).
    - New timestamp older than stored → file is stale, stop and ask user.
    - Hashes differ → full analysis.
    / Совпадают → стоп. Пустой OLD_HASH → первый запуск. Timestamp старее → файл устарел, стоп.

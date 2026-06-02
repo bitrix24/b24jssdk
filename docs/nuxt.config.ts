@@ -339,7 +339,7 @@ export default defineNuxtConfig({
   },
 
   mcp: {
-    enabled: import.meta.dev, // fix if you need
+    enabled: false,
     name: 'Bitrix24 JS SDK',
     version: '1.0.0',
     route: `/mcp/`, // ${baseUrl}

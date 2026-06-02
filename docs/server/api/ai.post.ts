@@ -82,7 +82,8 @@ function checkRateLimit(ip: string) {
     return
   }
   if (entry.count >= RATE_LIMIT_MAX) {
-    throw createError({ status: 429, message: 'Too many requests. Please try again later.' })
+    const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
+    throw createError({ status: 429, message: 'Too many requests. Please try again later.', data: { retryAfter } })
   }
   entry.count++
 }

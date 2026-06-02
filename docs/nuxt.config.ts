@@ -348,9 +348,11 @@ export default defineNuxtConfig({
   },
 
   mcp: {
-    // eng-only: set NUXT_MCP_ENABLED=true on the English deployment
-    // import.meta.dev kept so the module is generated during `nuxt prepare` (needed for typecheck)
-    enabled: import.meta.dev || process.env.NUXT_MCP_ENABLED === 'true',
+    // eng-only: set NUXT_MCP_ENABLED=true on the English production deployment.
+    // The bare `import.meta.dev` branch must stay standalone so Nuxt statically
+    // replaces it during `nuxt prepare` — that generates the #nuxt-mcp-toolkit
+    // alias that server/api/ai.post.ts imports (otherwise typecheck breaks).
+    enabled: process.env.NUXT_MCP_ENABLED === 'true' ? true : import.meta.dev,
     name: 'Bitrix24 JS SDK',
     version: '1.0.0',
     route: `/mcp/`, // ${baseUrl}

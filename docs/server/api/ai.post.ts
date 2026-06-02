@@ -1,5 +1,6 @@
 // @memo we not use jsonSchema
 import { streamText, convertToModelMessages, smoothStream, stepCountIs, jsonSchema } from 'ai'
+import { getHeader } from 'h3'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { z } from 'zod'
 import { tools as mcpToolDefinitions } from '#nuxt-mcp-toolkit/tools.mjs'
@@ -61,12 +62,63 @@ function mcpToolsToAiTools() {
   return aiTools
 }
 
+// NOTE: in-memory rate limit — not shared across multiple instances
+const rateLimitMap = new Map<string, { count: number, resetAt: number }>()
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 20
+const MAX_MESSAGE_CONTENT_LENGTH = 32_000
+
+// Periodically purge expired entries to prevent unbounded memory growth
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(ip)
+  }
+}, RATE_LIMIT_WINDOW_MS)
+
+function checkRateLimit(ip: string) {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return
+  }
+  if (entry.count >= RATE_LIMIT_MAX) {
+    const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
+    throw createError({ status: 429, message: 'Too many requests. Please try again later.', data: { retryAfter } })
+  }
+  entry.count++
+}
+
 export default defineEventHandler(async (event) => {
+  // Use socket remoteAddress as primary; x-forwarded-for only if behind trusted proxy
+  const ip = event.node.req.socket?.remoteAddress
+    ?? getHeader(event, 'x-forwarded-for')?.split(',')[0]?.trim()
+    ?? 'unknown'
+  checkRateLimit(ip)
+
   const { messages, restApiVersion, currentPage } = (await readBody<{ messages?: any, restApiVersion?: string, currentPage?: string }>(event)) || {}
 
   if (!messages || !Array.isArray(messages)) {
     throw createError({ status: 400, message: 'Invalid or missing messages array.' })
   }
+
+  if (messages.length > 30) {
+    throw createError({ status: 400, message: 'Too many messages in conversation.' })
+  }
+
+  for (const msg of messages) {
+    const content = typeof msg?.content === 'string' ? msg.content : JSON.stringify(msg?.content ?? '')
+    if (content.length > MAX_MESSAGE_CONTENT_LENGTH) {
+      throw createError({ status: 400, message: 'Message content exceeds maximum allowed length.' })
+    }
+  }
+
+  const safeRestApiVersion = restApiVersion === 'vue' ? 'vue' : 'nuxt'
+
+  const safePage = currentPage
+    ? currentPage.replace(/[^\w\-/. ]/gi, '').slice(0, 300)
+    : undefined
 
   const mcpTools = mcpToolsToAiTools()
 
@@ -79,8 +131,8 @@ export default defineEventHandler(async (event) => {
 
   const system = `You are a helpful assistant for Bitrix24 JS SDK, a UI library for Nuxt and Vue. Use your knowledge base tools to search for relevant information before answering questions.
 
-The user is using **${restApiVersion === 'vue' ? 'Vue' : 'Nuxt'}**. Tailor your answers accordingly — ${restApiVersion === 'vue' ? 'use the Vite plugin setup, Vue Router, and vite.config.ts instead of Nuxt-specific features like modules or app.config.ts. IMPORTANT: The Vite plugin auto-imports components and Bitrix24 JS SDK composables, but Vue core APIs and VueUse must be explicitly imported — always include these in code examples (e.g. `import { ref, computed } from \'vue\'`).' : 'use Nuxt modules, auto-imports, app.config.ts, and other Nuxt-specific features. Nuxt auto-imports Vue APIs (ref, computed, etc.), composables, and components — do not include these imports in code examples.'}
-${currentPage ? `\nThe user is currently viewing the documentation page at \`${currentPage}\`. Use this context to provide more relevant answers (e.g. read that page first if the question seems related), but don't limit yourself to that page if the question is broader or unrelated.\n` : ''}
+The user is using **${safeRestApiVersion === 'vue' ? 'Vue' : 'Nuxt'}**. Tailor your answers accordingly — ${safeRestApiVersion === 'vue' ? 'use the Vite plugin setup, Vue Router, and vite.config.ts instead of Nuxt-specific features like modules or app.config.ts. IMPORTANT: The Vite plugin auto-imports components and Bitrix24 JS SDK composables, but Vue core APIs and VueUse must be explicitly imported — always include these in code examples (e.g. `import { ref, computed } from \'vue\'`).' : 'use Nuxt modules, auto-imports, app.config.ts, and other Nuxt-specific features. Nuxt auto-imports Vue APIs (ref, computed, etc.), composables, and components — do not include these imports in code examples.'}
+${safePage ? `\nThe user is currently viewing the documentation page at \`${safePage}\`. Use this context to provide more relevant answers (e.g. read that page first if the question seems related), but don't limit yourself to that page if the question is broader or unrelated.\n` : ''}
 Guidelines:
 - For documentation questions, ALWAYS use tools to search for information. Never rely on pre-trained knowledge for Bitrix24 JS SDK APIs, props, or usage.
 — When users ask you to apply a theme change in real time (e.g., "make it blue," "create a Sakura theme," "change the font"), tell them that the library style matches the Bitrix24 style and suggest using standard properties (color, variant).

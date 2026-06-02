@@ -150,7 +150,7 @@ export default defineNuxtConfig({
    */
   runtimeConfig: {
     public: {
-      // @depricate
+      // @deprecated
       // useAI: false,
       useTabB24frame: false,
       version: pkg.version,
@@ -185,6 +185,15 @@ export default defineNuxtConfig({
     // match the rewritten path. This rule re-applies it on the actual
     // served response.
     '/raw/**': { headers: { Vary: 'Accept, User-Agent' } },
+    // security headers for API endpoints
+    '/api/**': {
+      headers: {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Cache-Control': 'no-store'
+      }
+    },
     // redirects - default root pages
     '/docs/': { redirect: '/docs/getting-started/', prerender: false },
     '/docs/getting-started/migration/': { redirect: '/docs/getting-started/migration/v1/', prerender: false },
@@ -339,7 +348,11 @@ export default defineNuxtConfig({
   },
 
   mcp: {
-    enabled: import.meta.dev, // fix if you need
+    // eng-only: set NUXT_MCP_ENABLED=true on the English production deployment.
+    // The bare `import.meta.dev` branch must stay standalone so Nuxt statically
+    // replaces it during `nuxt prepare` — that generates the #nuxt-mcp-toolkit
+    // alias that server/api/ai.post.ts imports (otherwise typecheck breaks).
+    enabled: process.env.NUXT_MCP_ENABLED === 'true' ? true : import.meta.dev,
     name: 'Bitrix24 JS SDK',
     version: '1.0.0',
     route: `/mcp/`, // ${baseUrl}

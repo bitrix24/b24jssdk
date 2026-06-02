@@ -150,7 +150,7 @@ export default defineNuxtConfig({
    */
   runtimeConfig: {
     public: {
-      // @depricate
+      // @deprecated
       // useAI: false,
       useTabB24frame: false,
       version: pkg.version,
@@ -185,6 +185,14 @@ export default defineNuxtConfig({
     // match the rewritten path. This rule re-applies it on the actual
     // served response.
     '/raw/**': { headers: { Vary: 'Accept, User-Agent' } },
+    // security headers for API endpoints
+    '/api/**': {
+      headers: {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin'
+      }
+    },
     // redirects - default root pages
     '/docs/': { redirect: '/docs/getting-started/', prerender: false },
     '/docs/getting-started/migration/': { redirect: '/docs/getting-started/migration/v1/', prerender: false },
@@ -339,7 +347,8 @@ export default defineNuxtConfig({
   },
 
   mcp: {
-    enabled: false,
+    // eng-only: set NUXT_MCP_ENABLED=true on the English deployment
+    enabled: process.env.NUXT_MCP_ENABLED === 'true',
     name: 'Bitrix24 JS SDK',
     version: '1.0.0',
     route: `/mcp/`, // ${baseUrl}

@@ -1,5 +1,6 @@
 // @memo we not use jsonSchema
 import { streamText, convertToModelMessages, smoothStream, stepCountIs, jsonSchema } from 'ai'
+import { getHeader } from 'h3'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { z } from 'zod'
 import { tools as mcpToolDefinitions } from '#nuxt-mcp-toolkit/tools.mjs'
@@ -61,12 +62,42 @@ function mcpToolsToAiTools() {
   return aiTools
 }
 
+const rateLimitMap = new Map<string, { count: number, resetAt: number }>()
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 20
+
+function checkRateLimit(ip: string) {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return
+  }
+  if (entry.count >= RATE_LIMIT_MAX) {
+    throw createError({ status: 429, message: 'Too many requests. Please try again later.' })
+  }
+  entry.count++
+}
+
 export default defineEventHandler(async (event) => {
+  const ip = getHeader(event, 'x-forwarded-for')?.split(',')[0]?.trim()
+    ?? event.node.req.socket?.remoteAddress
+    ?? 'unknown'
+  checkRateLimit(ip)
+
   const { messages, restApiVersion, currentPage } = (await readBody<{ messages?: any, restApiVersion?: string, currentPage?: string }>(event)) || {}
 
   if (!messages || !Array.isArray(messages)) {
     throw createError({ status: 400, message: 'Invalid or missing messages array.' })
   }
+
+  if (messages.length > 30) {
+    throw createError({ status: 400, message: 'Too many messages in conversation.' })
+  }
+
+  const safePage = currentPage
+    ? currentPage.replace(/[^a-zA-Z0-9\-_/. ]/g, '').slice(0, 300)
+    : undefined
 
   const mcpTools = mcpToolsToAiTools()
 
@@ -80,7 +111,7 @@ export default defineEventHandler(async (event) => {
   const system = `You are a helpful assistant for Bitrix24 JS SDK, a UI library for Nuxt and Vue. Use your knowledge base tools to search for relevant information before answering questions.
 
 The user is using **${restApiVersion === 'vue' ? 'Vue' : 'Nuxt'}**. Tailor your answers accordingly — ${restApiVersion === 'vue' ? 'use the Vite plugin setup, Vue Router, and vite.config.ts instead of Nuxt-specific features like modules or app.config.ts. IMPORTANT: The Vite plugin auto-imports components and Bitrix24 JS SDK composables, but Vue core APIs and VueUse must be explicitly imported — always include these in code examples (e.g. `import { ref, computed } from \'vue\'`).' : 'use Nuxt modules, auto-imports, app.config.ts, and other Nuxt-specific features. Nuxt auto-imports Vue APIs (ref, computed, etc.), composables, and components — do not include these imports in code examples.'}
-${currentPage ? `\nThe user is currently viewing the documentation page at \`${currentPage}\`. Use this context to provide more relevant answers (e.g. read that page first if the question seems related), but don't limit yourself to that page if the question is broader or unrelated.\n` : ''}
+${safePage ? `\nThe user is currently viewing the documentation page at \`${safePage}\`. Use this context to provide more relevant answers (e.g. read that page first if the question seems related), but don't limit yourself to that page if the question is broader or unrelated.\n` : ''}
 Guidelines:
 - For documentation questions, ALWAYS use tools to search for information. Never rely on pre-trained knowledge for Bitrix24 JS SDK APIs, props, or usage.
 — When users ask you to apply a theme change in real time (e.g., "make it blue," "create a Sakura theme," "change the font"), tell them that the library style matches the Bitrix24 style and suggest using standard properties (color, variant).

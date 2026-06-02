@@ -117,7 +117,7 @@ export default defineEventHandler(async (event) => {
   const safeRestApiVersion = restApiVersion === 'vue' ? 'vue' : 'nuxt'
 
   const safePage = currentPage
-    ? currentPage.replace(/[^a-zA-Z0-9\-_/. ]/g, '').slice(0, 300)
+    ? currentPage.replace(/[^\w\-/. ]/gi, '').slice(0, 300)
     : undefined
 
   const mcpTools = mcpToolsToAiTools()

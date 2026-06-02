@@ -349,7 +349,8 @@ export default defineNuxtConfig({
 
   mcp: {
     // eng-only: set NUXT_MCP_ENABLED=true on the English deployment
-    enabled: process.env.NUXT_MCP_ENABLED === 'true',
+    // import.meta.dev kept so the module is generated during `nuxt prepare` (needed for typecheck)
+    enabled: import.meta.dev || process.env.NUXT_MCP_ENABLED === 'true',
     name: 'Bitrix24 JS SDK',
     version: '1.0.0',
     route: `/mcp/`, // ${baseUrl}

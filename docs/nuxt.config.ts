@@ -190,7 +190,8 @@ export default defineNuxtConfig({
       headers: {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
-        'Referrer-Policy': 'strict-origin-when-cross-origin'
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Cache-Control': 'no-store'
       }
     },
     // redirects - default root pages

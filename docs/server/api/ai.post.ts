@@ -66,6 +66,14 @@ const rateLimitMap = new Map<string, { count: number, resetAt: number }>()
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX = 20
 
+// Periodically purge expired entries to prevent unbounded memory growth
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(ip)
+  }
+}, RATE_LIMIT_WINDOW_MS)
+
 function checkRateLimit(ip: string) {
   const now = Date.now()
   const entry = rateLimitMap.get(ip)

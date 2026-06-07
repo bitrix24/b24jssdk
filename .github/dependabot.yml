@@ -1,0 +1,19 @@
+# Keeps the GitHub Actions pinned in .github/workflows/* current, so the class
+# of problem in #103 (an action stranded on a removed Node runtime) is caught
+# automatically instead of by hand. All action bumps are collected into a single
+# grouped weekly PR to keep the noise down.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "ci"
+      - "tooling"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

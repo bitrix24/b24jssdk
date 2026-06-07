@@ -6,16 +6,18 @@ import collections from '#content/manifest'
 import { transformMDC } from '../../utils/transformMDC'
 import { clearMD } from '../../utils/clearMD'
 
-// const DOMAIN = 'https://bitrix24.github.io/b24ui'
-
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const baseUrl = `${config.public.canonicalUrl}${config.public.baseUrl}`
 
+  const notFound = (reason: string) => {
+    setResponseHeader(event, 'Content-Type', 'text/markdown; charset=utf-8')
+    return `---\ntitle: Not Found\n---\n\n# Page Not Found\n\n${reason} Browse the [sitemap](${config.public.baseUrl}/sitemap.md) to find available pages.\n`
+  }
+
   const slug = getRouterParams(event)['slug.md']
   if (!slug?.endsWith('.md')) {
-    setResponseHeader(event, 'Content-Type', 'text/markdown; charset=utf-8')
-    return `---\ntitle: Not Found\n---\n\n# Page Not Found\n\nThe requested page does not exist. Browse the [sitemap](${config.public.baseUrl}/sitemap.md) to find available pages.\n`
+    return notFound('The requested page does not exist.')
   }
 
   let path = withLeadingSlash(slug.replace('.md', ''))
@@ -34,8 +36,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!page) {
-    setResponseHeader(event, 'Content-Type', 'text/markdown; charset=utf-8')
-    return `---\ntitle: Not Found\n---\n\n# Page Not Found\n\nThe page \`${config.public.baseUrl}${path}\` does not exist. Browse the [sitemap](${config.public.baseUrl}/sitemap.md) to find available pages.\n`
+    return notFound(`The page \`${config.public.baseUrl}${path}\` does not exist.`)
   }
 
   await transformMDC(event, page as any)

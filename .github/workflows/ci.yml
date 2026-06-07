@@ -78,7 +78,7 @@ jobs:
         run: pnpm run dev:prepare
 
       - name: Upload prepared workspace
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: prepared-workspace
           path: |
@@ -111,7 +111,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download prepared workspace
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: prepared-workspace
 
@@ -146,7 +146,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download prepared workspace
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: prepared-workspace
 
@@ -176,7 +176,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download prepared workspace
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: prepared-workspace
 
@@ -209,7 +209,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download prepared workspace
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: prepared-workspace
 
@@ -255,7 +255,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download prepared workspace
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: prepared-workspace
 

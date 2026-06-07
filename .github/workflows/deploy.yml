@@ -23,7 +23,6 @@ jobs:
         node: [ 22 ]
 
     env:
-      # FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       NUXT_PUBLIC_USE_AI: false
       NUXT_PUBLIC_USE_TAB_B24FRAME: false
       NUXT_PUBLIC_SITE_URL: https://bitrix24.github.io
@@ -46,7 +45,7 @@ jobs:
           cache: pnpm
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v6
 
       - name: Install dependencies
         run: pnpm install
@@ -64,7 +63,7 @@ jobs:
           touch combined-artifact/.nojekyll
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: combined-artifact
   deploy:
@@ -77,4 +76,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

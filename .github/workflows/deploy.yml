@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -16,6 +14,13 @@ concurrency:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+
+    # Build only needs to read the repo and the Pages site config (configure-pages
+    # GETs it to derive the base path). It does NOT need id-token:write — only the
+    # deploy job mints the OIDC token.
+    permissions:
+      contents: read
+      pages: read
 
     strategy:
       matrix:
@@ -67,6 +72,11 @@ jobs:
         with:
           path: combined-artifact
   deploy:
+    # Privileged scope is confined to the deploy step: pages:write to publish and
+    # id-token:write for the OIDC token actions/deploy-pages exchanges.
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

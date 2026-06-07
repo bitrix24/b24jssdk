@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { TabsItem } from '@bitrix24/b24ui-nuxt'
 import type { Result } from '@bitrix24/b24jssdk'
-import { hash } from 'ohash'
 import ConnectByHook from './ConnectByHook.vue'
 import CloudSyncIcon from '@bitrix24/b24icons-vue/outline/CloudSyncIcon'
 import CloudErrorIcon from '@bitrix24/b24icons-vue/main/CloudErrorIcon'
@@ -128,7 +127,7 @@ ${preparedCode}
   return code
 })
 
-const { data: ast } = await useAsyncData(`code-example-${camelName}${hash({ collapse: props.collapse })}`, async () => {
+const { data: ast } = await useAsyncData(`code-example-${camelName}-${String(props.collapse)}`, async () => {
   if (!props.prettier) {
     return parseMarkdown(code.value)
   }

@@ -1,16 +1,14 @@
 import { queryCollection } from '@nuxt/content/server'
 
-// const DOMAIN = 'https://bitrix24.github.io/b24ui'
-
 export default defineCachedEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const baseUrl = `${config.public.canonicalUrl}${config.public.baseUrl}`
-  const DOMAIN = baseUrl
+  const DOMAIN = `${config.public.canonicalUrl}${config.public.baseUrl}`
 
-  const page = await queryCollection(event, 'index').first() as any
+  const page = await queryCollection(event, 'index').first() as { title?: string, description?: string } | null
 
-  const title = page?.title || 'Bitrix24 UI'
-  const description = page?.description || 'A comprehensive Vue UI component library (Nuxt optional) with 125+ accessible, Tailwind CSS components for building modern web applications.'
+  const title = page?.title || 'Bitrix24 JS SDK'
+  const description = page?.description
+    || 'Bitrix24 JS SDK for using the Bitrix24 REST API in local, production applications or via webhooks.'
 
   const frontmatter = [
     '---',
@@ -22,36 +20,37 @@ export default defineCachedEventHandler(async (event) => {
     ''
   ].join('\n')
 
-  // - MCP Server Card: <${DOMAIN}/.well-known/mcp/server-card.json>
-  // - MCP endpoint: <${DOMAIN}/mcp>
-  // @todo fix tg en (https://t.me/b24_dev) | ru (https://t.me/bitrix24apps)
-
   const body = `# ${title}
 
 > ${description}
 
 ## About
 
-Bitrix24 UI is a free and open source Vue UI library powered by [Reka UI](https://reka-ui.com/) and [Tailwind CSS](https://tailwindcss.com/). It works with both Nuxt and plain Vue applications.
+The Bitrix24 JS SDK (\`@bitrix24/b24jssdk\`) is a free and open-source JavaScript/TypeScript library for the Bitrix24 REST API. It runs in the browser inside Bitrix24 applications (B24Frame), on the server through inbound webhooks (B24Hook) or OAuth server apps (B24OAuth), and in any modern JavaScript runtime.
 
-- 125+ accessible, production-ready components
-- Built on Reka UI (WAI-ARIA compliant primitives)
-- Tailwind CSS theming with CSS variables and Tailwind Variants
-- TypeScript support with full auto-completion
-- Server-side rendering (SSR) compatible
-- Dark mode support and 19 languages via i18n
+- Three authentication modes: B24Frame (embedded apps), B24Hook (webhooks), B24OAuth (server apps)
+- REST API v2 and v3: single calls, list iteration, and batch requests
+- Built-in request batching, rate-limit handling, and automatic retries
+- Helper managers for profile, application, payment, license, currency and options data
+- Pluggable logging (including Telegram) and structured error codes
+- First-class TypeScript types with full auto-completion
+- Works with Nuxt, Vue, React, Node.js and UMD builds
 
 ## Installation
 
 - Nuxt: <${DOMAIN}/raw/docs/getting-started/installation/nuxt.md>
 - Vue: <${DOMAIN}/raw/docs/getting-started/installation/vue.md>
+- React: <${DOMAIN}/raw/docs/getting-started/installation/react.md>
+- Node.js: <${DOMAIN}/raw/docs/getting-started/installation/nodejs.md>
+- UMD (browser): <${DOMAIN}/raw/docs/getting-started/installation/umd.md>
 
 ## Explore
 
 - Getting started: <${DOMAIN}/raw/docs/getting-started.md>
-- Components: <${DOMAIN}/raw/docs/components.md>
-- Composables: <${DOMAIN}/raw/docs/composables/define-shortcuts.md>
-- Typography: <${DOMAIN}/raw/docs/typography.md>
+- Working with the REST API: <${DOMAIN}/raw/docs/working-with-the-rest-api.md>
+- B24Frame (embedded apps): <${DOMAIN}/raw/docs/working-with-the-rest-api/frame.md>
+- B24Hook (webhooks): <${DOMAIN}/raw/docs/working-with-the-rest-api/hook.md>
+- B24OAuth (server apps): <${DOMAIN}/raw/docs/working-with-the-rest-api/oauth.md>
 - Sitemap: <${DOMAIN}/sitemap.md>
 - LLMs index: <${DOMAIN}/llms.txt>
 - Full LLMs documentation: <${DOMAIN}/llms-full.txt>
@@ -59,8 +58,9 @@ Bitrix24 UI is a free and open source Vue UI library powered by [Reka UI](https:
 ## Links
 
 - Website: <${DOMAIN}>
-- GitHub: <https://github.com/bitrix24/b24ui>
-- Community: <https://t.me/b24_dev>
+- GitHub: <https://github.com/bitrix24/b24jssdk>
+- Community (EN): <https://t.me/b24_dev>
+- Community (RU): <https://t.me/bitrix24apps>
 `
 
   setResponseHeader(event, 'Content-Type', 'text/markdown; charset=utf-8')

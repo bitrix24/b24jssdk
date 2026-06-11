@@ -460,8 +460,15 @@ export abstract class AbstractHttp implements TypeHttp {
         )
       }
 
+      // Normalize to AjaxError first: axios throws a raw AxiosError here, whose
+      // Bitrix `code` (e.g. `expired_token`) is only populated by conversion. The
+      // 401 auth-retry check must run against the converted error — otherwise the
+      // `instanceof AjaxError` guard in `_isAuthError` is always false and the
+      // refresh-and-retry branch below is dead code. (#182)
+      const ajaxError = this._convertToAjaxError(requestId, error, method, params)
+
       // If this is an authorization error (401), then we try to update the token and repeat
-      if (this._isAuthError(error)) {
+      if (this._isAuthError(ajaxError)) {
         this._logAuthErrorDetected(requestId)
         this._logRefreshingAuthToken(requestId)
 
@@ -519,7 +526,6 @@ export abstract class AbstractHttp implements TypeHttp {
       return false
     }
 
-    // @todo ! test this
     return (
       error.status === 401
       && ['expired_token', 'invalid_token'].includes(error.code)

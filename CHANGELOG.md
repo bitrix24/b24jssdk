@@ -6,6 +6,10 @@
 
 * **core:** `Result.getErrorsByKey()` / `getErrorMessagesByKey()` — keyed error accessors that preserve the batch request label (`Record<string, Error>` / `Record<string, string>`), so `isHaltOnError: false` callers can tell which request failed. Existing `getErrors()` / `getErrorMessages()` are unchanged (#184)
 
+### Bug Fixes
+
+* **http:** a 401 `expired_token` / `invalid_token` response now triggers `refreshAuth()` and a one-shot retry. The auth-retry branch tested `_isAuthError()` against the raw `AxiosError` — whose `instanceof AjaxError` guard was always false — so the refresh-and-retry path was dead code and the 401 propagated to the caller on the first attempt. The error is normalized to `AjaxError` before the check now (#182)
+
 ## [1.2.0](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.2.0) (2026-05-29)
 
 ### Features

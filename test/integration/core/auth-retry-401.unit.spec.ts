@@ -31,7 +31,7 @@ const SUCCESS_RESPONSE = {
   }
 }
 
-function authError(status: number, code: string): AxiosError {
+function axiosError(status: number, code: string): AxiosError {
   return new AxiosError(
     `Request failed with status code ${status}`,
     'ERR_BAD_REQUEST',
@@ -39,10 +39,10 @@ function authError(status: number, code: string): AxiosError {
     undefined,
     {
       status,
-      statusText: 'Unauthorized',
+      statusText: 'Error',
       headers: {},
       config: {} as never,
-      data: { error: code, error_description: 'The access token provided has expired.' }
+      data: { error: code, error_description: `simulated ${code}` }
     }
   )
 }
@@ -53,7 +53,7 @@ function buildHook(): B24Hook {
   })
 }
 
-describe('401 expired_token auth retry (issue #182)', () => {
+describe('401 auth retry (issue #182)', () => {
   let b24: B24Hook | null = null
 
   afterEach(() => {
@@ -67,7 +67,7 @@ describe('401 expired_token auth retry (issue #182)', () => {
     const httpClient = b24.getHttpClient(ApiVersion.v2)
     const refreshSpy = vi.spyOn(b24.auth, 'refreshAuth')
     const postSpy = vi.spyOn(httpClient.ajaxClient, 'post')
-      .mockRejectedValueOnce(authError(401, 'expired_token'))
+      .mockRejectedValueOnce(axiosError(401, 'expired_token'))
       .mockResolvedValue(SUCCESS_RESPONSE)
 
     const result = await b24.actions.v2.call.make({ method: 'user.current', params: {} })
@@ -82,13 +82,14 @@ describe('401 expired_token auth retry (issue #182)', () => {
     b24 = buildHook()
     const httpClient = b24.getHttpClient(ApiVersion.v2)
     const refreshSpy = vi.spyOn(b24.auth, 'refreshAuth')
-    vi.spyOn(httpClient.ajaxClient, 'post')
-      .mockRejectedValueOnce(authError(401, 'invalid_token'))
+    const postSpy = vi.spyOn(httpClient.ajaxClient, 'post')
+      .mockRejectedValueOnce(axiosError(401, 'invalid_token'))
       .mockResolvedValue(SUCCESS_RESPONSE)
 
     const result = await b24.actions.v2.call.make({ method: 'user.current', params: {} })
 
     expect(refreshSpy).toHaveBeenCalledTimes(1)
+    expect(postSpy).toHaveBeenCalledTimes(2)
     expect(result.isSuccess).toBe(true)
   })
 
@@ -96,7 +97,49 @@ describe('401 expired_token auth retry (issue #182)', () => {
     b24 = buildHook()
     const httpClient = b24.getHttpClient(ApiVersion.v2)
     const refreshSpy = vi.spyOn(b24.auth, 'refreshAuth')
-    vi.spyOn(httpClient.ajaxClient, 'post').mockRejectedValue(authError(403, 'access_denied'))
+    vi.spyOn(httpClient.ajaxClient, 'post').mockRejectedValue(axiosError(403, 'access_denied'))
+
+    await expect(
+      b24.actions.v2.call.make({ method: 'user.current', params: {} })
+    ).rejects.toMatchObject({ status: 403 })
+
+    expect(refreshSpy).not.toHaveBeenCalled()
+  })
+
+  it('does not loop: a persistent 401 is thrown after exactly one auth retry', async () => {
+    b24 = buildHook()
+    const httpClient = b24.getHttpClient(ApiVersion.v2)
+    const refreshSpy = vi.spyOn(b24.auth, 'refreshAuth')
+    // Every attempt 401s — the retried request after refresh fails too.
+    const postSpy = vi.spyOn(httpClient.ajaxClient, 'post')
+      .mockRejectedValue(axiosError(401, 'expired_token'))
+
+    await expect(
+      b24.actions.v2.call.make({ method: 'user.current', params: {} })
+    ).rejects.toMatchObject({ status: 401, code: 'expired_token' })
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1) // one auth retry, no refresh loop
+    expect(postSpy).toHaveBeenCalledTimes(2) // original + single retry, then thrown
+  })
+
+  it('surfaces a refreshAuth() failure instead of hanging or succeeding', async () => {
+    b24 = buildHook()
+    const httpClient = b24.getHttpClient(ApiVersion.v2)
+    const refreshSpy = vi.spyOn(b24.auth, 'refreshAuth').mockRejectedValue(new Error('refresh failed'))
+    vi.spyOn(httpClient.ajaxClient, 'post').mockRejectedValue(axiosError(401, 'expired_token'))
+
+    await expect(
+      b24.actions.v2.call.make({ method: 'user.current', params: {} })
+    ).rejects.toBeDefined()
+
+    expect(refreshSpy).toHaveBeenCalled() // refresh was attempted
+  })
+
+  it('does NOT refresh on a 5xx server error (goes through the normal retry loop)', async () => {
+    b24 = buildHook()
+    const httpClient = b24.getHttpClient(ApiVersion.v2)
+    const refreshSpy = vi.spyOn(b24.auth, 'refreshAuth')
+    vi.spyOn(httpClient.ajaxClient, 'post').mockRejectedValue(axiosError(500, 'INTERNAL_SERVER_ERROR'))
 
     await expect(
       b24.actions.v2.call.make({ method: 'user.current', params: {} })

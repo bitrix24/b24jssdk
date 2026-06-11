@@ -480,7 +480,9 @@ export abstract class AbstractHttp implements TypeHttp {
         return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
       }
 
-      throw error
+      // Non-auth error: rethrow the already-converted AjaxError (idempotent in
+      // `call()`'s catch) instead of the raw AxiosError. (#182)
+      throw ajaxError
     }
   }
 

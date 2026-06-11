@@ -8,7 +8,7 @@
 
 ### Bug Fixes
 
-* **http:** a 401 `expired_token` / `invalid_token` response now triggers `refreshAuth()` and a one-shot retry. The auth-retry branch tested `_isAuthError()` against the raw `AxiosError` — whose `instanceof AjaxError` guard was always false — so the refresh-and-retry path was dead code and the 401 propagated to the caller on the first attempt. The error is normalized to `AjaxError` before the check now (#182)
+* **http:** a 401 `expired_token` / `invalid_token` response now refreshes the token and retries the request once on every entry point (`B24Frame`, `B24OAuth`, `B24Hook`). Previously the auth-retry branch was silently skipped, so the 401 surfaced to the caller on the first attempt — e.g. a long-lived Frame app idling past the access-token TTL (#182)
 
 ## [1.2.0](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.2.0) (2026-05-29)
 

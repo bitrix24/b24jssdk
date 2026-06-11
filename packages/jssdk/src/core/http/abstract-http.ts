@@ -48,6 +48,13 @@ export abstract class AbstractHttp implements TypeHttp {
   protected _requestIdGenerator: RequestIdGenerator
   protected _restrictionManager: RestrictionManager
 
+  /**
+   * In-flight token refresh, shared so concurrent 401s coalesce into a single
+   * `refreshAuth()` round-trip — avoids OAuth refresh-token reuse errors when a
+   * burst of requests expires together. (#182)
+   */
+  protected _pendingRefresh: Promise<AuthData> | null = null
+
   protected _logger: LoggerInterface
 
   protected _isClientSideWarning: boolean = false
@@ -435,9 +442,29 @@ export abstract class AbstractHttp implements TypeHttp {
     let authData = this._authActions.getAuthData()
     if (authData === false) {
       this._logRefreshingAuthToken(requestId)
-      authData = await this._authActions.refreshAuth()
+      authData = await this._refreshAuth()
     }
     return authData
+  }
+
+  /**
+   * Refresh the auth token, coalescing concurrent callers onto a single
+   * in-flight `refreshAuth()` so a burst of 401s triggers exactly one refresh
+   * round-trip. The slot clears once the refresh settles. (#182)
+   */
+  protected _refreshAuth(): Promise<AuthData> {
+    if (this._pendingRefresh) {
+      return this._pendingRefresh
+    }
+    const refresh = this._authActions.refreshAuth()
+    this._pendingRefresh = refresh
+    // Clear the slot once settled; the extra no-op catch keeps this cleanup
+    // chain from surfacing as an unhandled rejection — callers still receive
+    // the rejection through the returned promise.
+    refresh.finally(() => {
+      this._pendingRefresh = null
+    }).catch(() => {})
+    return refresh
   }
 
   // Execute the request with 401 error handling
@@ -460,12 +487,19 @@ export abstract class AbstractHttp implements TypeHttp {
         )
       }
 
+      // Normalize to AjaxError first: axios throws a raw AxiosError here, whose
+      // Bitrix `code` (e.g. `expired_token`) is only populated by conversion. The
+      // 401 auth-retry check must run against the converted error — otherwise the
+      // `instanceof AjaxError` guard in `_isAuthError` is always false and the
+      // refresh-and-retry branch below is dead code. (#182)
+      const ajaxError = this._convertToAjaxError(requestId, error, method, params)
+
       // If this is an authorization error (401), then we try to update the token and repeat
-      if (this._isAuthError(error)) {
+      if (this._isAuthError(ajaxError)) {
         this._logAuthErrorDetected(requestId)
         this._logRefreshingAuthToken(requestId)
 
-        const refreshedAuthData = await this._authActions.refreshAuth()
+        const refreshedAuthData = await this._refreshAuth()
 
         // 4. Apply the rate limit through the manager
         await this._restrictionManager.checkRateLimit(requestId, method)
@@ -473,7 +507,9 @@ export abstract class AbstractHttp implements TypeHttp {
         return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
       }
 
-      throw error
+      // Non-auth error: rethrow the already-converted AjaxError (idempotent in
+      // `call()`'s catch) instead of the raw AxiosError. (#182)
+      throw ajaxError
     }
   }
 
@@ -519,7 +555,6 @@ export abstract class AbstractHttp implements TypeHttp {
       return false
     }
 
-    // @todo ! test this
     return (
       error.status === 401
       && ['expired_token', 'invalid_token'].includes(error.code)

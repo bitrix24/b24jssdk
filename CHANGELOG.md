@@ -6,6 +6,10 @@
 
 * **core:** `Result.getErrorsByKey()` / `getErrorMessagesByKey()` — keyed error accessors that preserve the batch request label (`Record<string, Error>` / `Record<string, string>`), so `isHaltOnError: false` callers can tell which request failed. Existing `getErrors()` / `getErrorMessages()` are unchanged (#184)
 
+### Bug Fixes
+
+* **http:** a 401 `expired_token` / `invalid_token` response now refreshes the token and retries the request once on every entry point (`B24Frame`, `B24OAuth`, `B24Hook`). Previously the auth-retry branch was silently skipped, so the 401 surfaced to the caller on the first attempt — e.g. a long-lived Frame app idling past the access-token TTL (#182)
+
 ## [1.2.0](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.2.0) (2026-05-29)
 
 ### Features

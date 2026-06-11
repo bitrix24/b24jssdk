@@ -141,7 +141,7 @@ try {
 
 Common AjaxError codes worth handling:
 - `ERROR_NOT_FOUND` — id does not exist (404)
-- `INVALID_CREDENTIALS` / `EXPIRED_TOKEN` — let `B24Frame` / `B24OAuth` refresh; for `B24Hook`, the webhook is wrong
+- `INVALID_CREDENTIALS` / `EXPIRED_TOKEN` (401) — the SDK auto-refreshes the token and retries once on every entry point; for `B24Hook` the refresh is a no-op, so a wrong webhook still fails
 - `QUERY_LIMIT_EXCEEDED` — rate limit. The SDK already throttles, but you may need `batchByChunk` instead of a tight loop.
 - `INTERNAL_SERVER_ERROR` (50x) — transient. The SDK retries automatically up to `maxRetries`.
 

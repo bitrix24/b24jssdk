@@ -4,7 +4,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { join, resolve, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { walkMarkdownFiles, parseFrontmatter } from './_docs-utils.mjs'
+import { walkMarkdownFiles, parseFrontmatter, isFreshnessTrackedSource } from './_docs-utils.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -116,13 +116,18 @@ function checkActionSkeleton(file, body) {
   }
 }
 
-// Audit-freshness check applies to any page that opted in via
-// `audited:` in its frontmatter, regardless of category.
+// Audit-freshness check applies to any page that opted in via `audited:` in its
+// frontmatter, regardless of category. Only source-code link targets are tracked
+// — `.md` sources (skills, AGENTS.md, CHANGELOG.md) are parallel docs, not the
+// API source of truth, so they don't age a page's audit (see
+// `isFreshnessTrackedSource`). This avoids a 1→N `audited:` bump cascade whenever
+// a widely-cited skill or the changelog is edited.
 function checkAuditFreshness(file, frontmatter) {
   if (!frontmatter.audited) return
   const auditedDate = new Date(frontmatter.audited + 'T23:59:59Z')
   const ghPaths = extractGithubLinkPaths(frontmatter.links || [])
   for (const localPath of ghPaths) {
+    if (!isFreshnessTrackedSource(localPath)) continue
     const lastCommit = gitLastCommitDate(localPath)
     if (!lastCommit) continue
     if (new Date(lastCommit) > auditedDate) {

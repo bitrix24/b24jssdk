@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseFrontmatter, walkMarkdownFiles } from '../_docs-utils.mjs'
+import { parseFrontmatter, walkMarkdownFiles, isFreshnessTrackedSource } from '../_docs-utils.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..', '..')
@@ -101,6 +101,21 @@ test('walkMarkdownFiles: returns .md files but skips symlinks', () => {
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+// ── isFreshnessTrackedSource ─────────────────────────────────────────────
+
+test('isFreshnessTrackedSource: source code (.ts) is tracked', () => {
+  assert.equal(isFreshnessTrackedSource('packages/jssdk/src/core/result.ts'), true)
+  assert.equal(isFreshnessTrackedSource('scripts/docs-lint.mjs'), true)
+})
+
+test('isFreshnessTrackedSource: Markdown sources are NOT tracked (cascade fix)', () => {
+  // A widely-cited skill / the changelog must not staleify the pages that link it.
+  assert.equal(isFreshnessTrackedSource('skills/b24jssdk-rest/SKILL.md'), false)
+  assert.equal(isFreshnessTrackedSource('AGENTS.md'), false)
+  assert.equal(isFreshnessTrackedSource('CHANGELOG.md'), false)
+  assert.equal(isFreshnessTrackedSource('docs/whatever.MD'), false) // case-insensitive
 })
 
 // ── docs-lint --strict end-to-end ────────────────────────────────────────

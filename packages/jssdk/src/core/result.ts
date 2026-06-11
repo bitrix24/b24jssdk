@@ -54,6 +54,23 @@ export interface IResult<T = any> {
    * @returns {string[]} An array of strings representing the error messages.
    */
   getErrorMessages: () => string[]
+
+  /**
+   * Retrieves all errors keyed by their identifier (e.g. the batch request key),
+   * preserving which request produced each error. Unlike {@link getErrors}, the
+   * keys are not discarded — useful for batch calls with `isHaltOnError: false`.
+   *
+   * @returns {Record<string, Error>} A map of error key to Error object.
+   */
+  getErrorsByKey: () => Record<string, Error>
+
+  /**
+   * Retrieves all error messages keyed by their identifier (e.g. the batch
+   * request key). Unlike {@link getErrorMessages}, the keys are preserved.
+   *
+   * @returns {Record<string, string>} A map of error key to error message.
+   */
+  getErrorMessagesByKey: () => Record<string, string>
   /**
    * Checks for an error in a collection by key
    * @param key - Error key
@@ -132,6 +149,31 @@ export class Result<T = any> implements IResult<T> {
    */
   getErrorMessages(): string[] {
     return Array.from(this._errors.values(), e => e.message)
+  }
+
+  /**
+   * Retrieves all errors keyed by their identifier (e.g. the batch request key),
+   * preserving which request produced each error. Unlike {@link Result.getErrors},
+   * the keys are not discarded — useful for batch calls with `isHaltOnError: false`.
+   *
+   * @returns {Record<string, Error>} A map of error key to Error object.
+   */
+  getErrorsByKey(): Record<string, Error> {
+    return Object.fromEntries(this._errors)
+  }
+
+  /**
+   * Retrieves all error messages keyed by their identifier (e.g. the batch
+   * request key). Unlike {@link Result.getErrorMessages}, the keys are preserved.
+   *
+   * @returns {Record<string, string>} A map of error key to error message.
+   */
+  getErrorMessagesByKey(): Record<string, string> {
+    const result: Record<string, string> = {}
+    for (const [key, error] of this._errors) {
+      result[key] = error.message
+    }
+    return result
   }
 
   /**

@@ -15,7 +15,7 @@
 Purpose: give AI agents a precise, code-oriented overview of the SDK to generate working Bitrix24 apps. This SDK lets you:
 
 - Call Bitrix24 REST API from apps embedded in Bitrix24 (iframe) and from backend services
-- Interact with Bitrix24 UI: open sliders, dialogs, resize frame, set page title, IM integrations, etc.
+- Interact with Bitrix24 UI: open sliders, dialogs, resize frame, set in-app page title (`#pagetitle`, not the browser tab), IM integrations, etc.
 - Manage app/user options via the parent portal
 - Use helpers (profile/app/options/currencies/licenses/payments) and Pull client
 
@@ -264,7 +264,7 @@ Parent window and IM integrations
 
 ```ts
 await $b24.parent.fitWindow()
-await $b24.parent.setTitle('My Page')
+await $b24.parent.setTitle('My Page')        // in-page #pagetitle, not the browser tab
 await $b24.parent.scrollParentWindow(0)
 await $b24.parent.imCallTo(5, true)          // video call to user 5
 await $b24.parent.imOpenMessenger('chat12')  // open messenger

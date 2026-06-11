@@ -90,11 +90,13 @@ Less commonly used. Returns the parent window's raw access-selection payload —
 await $b24.parent.fitWindow()                // shrink-wrap to content
 await $b24.parent.resizeWindow(800, 600)     // explicit size
 await $b24.parent.resizeWindowAuto(rootEl, /* minH */ 400, /* minW */ 300)
-await $b24.parent.setTitle('My App')         // header title in the portal
+await $b24.parent.setTitle('My App')         // in-page #pagetitle, NOT the browser tab
 await $b24.parent.scrollParentWindow(0)
 await $b24.parent.reloadWindow()
 await $b24.parent.closeApplication()
 ```
+
+`setTitle` changes the in-page `#pagetitle`, not the browser tab — to set the browser tab title, open a slider via `slider.openSliderAppPage({ bx24_title: '…' })`.
 
 For IM:
 

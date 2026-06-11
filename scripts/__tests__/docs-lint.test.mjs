@@ -16,6 +16,7 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseFrontmatter, walkMarkdownFiles, isFreshnessTrackedSource } from '../_docs-utils.mjs'
+import { checkAuditFreshness } from '../docs-lint.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..', '..')
@@ -120,6 +121,28 @@ test('isFreshnessTrackedSource: Markdown sources are NOT tracked (cascade fix)',
   assert.equal(isFreshnessTrackedSource('CHANGELOG.md'), false)
   assert.equal(isFreshnessTrackedSource('docs/whatever.MD'), false) // case-insensitive
   assert.equal(isFreshnessTrackedSource('docs/page.mdx'), false) // MDX is a Markdown format too
+})
+
+// ── checkAuditFreshness wiring (integration) ─────────────────────────────
+
+test('checkAuditFreshness: a .md source never ages a page; a .ts source does', () => {
+  const frontmatter = {
+    audited: '2026-01-01',
+    links: [
+      'label: Code\nto: https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/src/core/result.ts',
+      'label: Skill\nto: https://github.com/bitrix24/b24jssdk/blob/main/skills/b24jssdk-rest/SKILL.md'
+    ]
+  }
+  const warns = []
+  // Both targets are "modified" long after the audited date — only the
+  // non-Markdown one (`.ts`) should warn; the skill (`.md`) is skipped.
+  checkAuditFreshness('page.md', frontmatter, {
+    getCommitDate: () => '2026-06-11T00:00:00Z',
+    warn: (_file, msg) => warns.push(msg)
+  })
+  assert.equal(warns.length, 1)
+  assert.match(warns[0], /result\.ts/)
+  assert.doesNotMatch(warns[0], /SKILL\.md/)
 })
 
 // ── docs-lint --strict end-to-end ────────────────────────────────────────

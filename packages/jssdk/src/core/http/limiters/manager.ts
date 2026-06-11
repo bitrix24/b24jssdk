@@ -227,7 +227,7 @@ export class RestrictionManager {
     'ERROR_BATCH_METHOD_NOT_ALLOWED', 'ERROR_BATCH_LENGTH_EXCEEDED',
     'NO_AUTH_FOUND',
     'INVALID_REQUEST',
-    'OVERLOAD_LIMIT', 'expired_token',
+    'OVERLOAD_LIMIT', 'expired_token', 'invalid_token',
     'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
     'ERROR_MANIFEST_IS_NOT_AVAILABLE',
     'allowed_only_intranet_user',

@@ -147,4 +147,50 @@ describe('401 auth retry (issue #182)', () => {
 
     expect(refreshSpy).not.toHaveBeenCalled()
   })
+
+  it('also fires the auth retry on the v3 client', async () => {
+    b24 = buildHook()
+    const httpClient = b24.getHttpClient(ApiVersion.v3)
+    const refreshSpy = vi.spyOn(b24.auth, 'refreshAuth')
+    vi.spyOn(httpClient.ajaxClient, 'post')
+      .mockRejectedValueOnce(axiosError(401, 'expired_token'))
+      .mockResolvedValue(SUCCESS_RESPONSE)
+
+    const result = await b24.actions.v3.call.make({ method: 'tasks.task.get', params: { taskId: 1 } })
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1)
+    expect(result.isSuccess).toBe(true)
+  })
+
+  it('coalesces concurrent 401s into a single refreshAuth (no refresh storm)', async () => {
+    b24 = buildHook()
+    const httpClient = b24.getHttpClient(ApiVersion.v2)
+    const validAuth = b24.auth.getAuthData()
+    let releaseRefresh!: () => void
+    const refreshHeld = new Promise<void>((res) => {
+      releaseRefresh = res
+    })
+    const refreshSpy = vi.spyOn(b24.auth, 'refreshAuth').mockImplementation(async () => {
+      await refreshHeld // keep the single refresh in-flight while the 401s pile up
+      return validAuth as never
+    })
+    let post = 0
+    vi.spyOn(httpClient.ajaxClient, 'post').mockImplementation(async () => {
+      post += 1
+      if (post <= 3) throw axiosError(401, 'expired_token') // three concurrent first attempts
+      return SUCCESS_RESPONSE // retries after the single refresh succeed
+    })
+
+    const inflight = [0, 1, 2].map(() =>
+      b24!.actions.v2.call.make({ method: 'user.current', params: {} })
+    )
+
+    // Let all three first attempts reject and queue on the single held refresh.
+    await new Promise(r => setTimeout(r, 25))
+    expect(refreshSpy).toHaveBeenCalledTimes(1) // one refresh for three concurrent 401s
+
+    releaseRefresh()
+    const results = await Promise.all(inflight)
+    expect(results.every(r => r.isSuccess)).toBe(true)
+  })
 })

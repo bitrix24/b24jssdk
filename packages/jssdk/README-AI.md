@@ -362,7 +362,7 @@ Core REST utilities live in AbstractB24 and Http:
 - callMethod(method, params[, start]) => `Promise<AjaxResult>`
 - callBatch(calls, isHaltOnError = true, returnAjaxResult = false) => `Promise<Result>`
   - calls can be object { key: { method, params } } or array [ [method, params], ... ]
-  - If isHaltOnError=false, Result accumulates errors; otherwise rejects on first error
+  - If isHaltOnError=false, Result accumulates errors (object-form calls are keyed by request label — read via getErrorsByKey()/getErrorMessagesByKey()); otherwise rejects on first error
   - If returnAjaxResult=true, you receive AjaxResult objects per command
 - callListMethod(method, params, progress?, customKey?) => `Promise<Result>` (auto-paging)
 - fetchListMethod(method, params, idKey='ID', customKey?) => `AsyncGenerator<any[]>`

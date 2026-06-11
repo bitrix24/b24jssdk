@@ -135,6 +135,8 @@ const successes = items.filter((r) => r.isSuccess)
 const failures = items.filter((r) => !r.isSuccess).map((r) => r.getErrorMessages().join('; '))
 ```
 
+For **object / named-command** calls (`calls: { name: { method, params } }`), the outer `Result` keys each failure by the command name — use `response.getErrorsByKey()` / `getErrorMessagesByKey()` to get a `{ name: error }` map instead of iterating per-item results.
+
 ## `batchByChunk.make` — large batches
 
 Chunk size is 50 per Bitrix24 batch limit. The action splits and re-aggregates:
@@ -252,7 +254,8 @@ const res = await $b24.actions.v2.call.make<{ item: CrmItem }>({
 res.isSuccess               // boolean
 res.getData()               // SuccessPayload<T> | undefined → { result, time } | undefined
 res.getErrorMessages()      // string[] (preferred)
-res.getErrors()             // [string, AjaxError][] (lower-level)
+res.getErrors()             // IterableIterator<Error> (values only, no keys)
+res.getErrorsByKey()        // Record<string, Error> (keyed by request label; batch)
 res.getStatus()             // HTTP status
 res.getQuery()              // { method, params, requestId }
 ```

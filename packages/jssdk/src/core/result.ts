@@ -45,6 +45,7 @@ export interface IResult<T = any> {
    * Retrieves an iterator for the errors collected in the result.
    *
    * @returns {IterableIterator<Error>} An iterator over the stored Error objects.
+   * @see {@link IResult.getErrorsByKey} — keeps the request keys.
    */
   getErrors: () => IterableIterator<Error>
 
@@ -54,6 +55,24 @@ export interface IResult<T = any> {
    * @returns {string[]} An array of strings representing the error messages.
    */
   getErrorMessages: () => string[]
+
+  /**
+   * Retrieves all errors keyed by their identifier (e.g. the batch request key),
+   * preserving which request produced each error. Unlike {@link getErrors}, the
+   * keys are not discarded — useful for batch calls with `isHaltOnError: false`.
+   *
+   * @returns {Record<string, Error>} A map of error key to Error object.
+   */
+  getErrorsByKey: () => Record<string, Error>
+
+  /**
+   * Retrieves all error messages keyed by their identifier (e.g. the batch
+   * request key). Unlike {@link getErrorMessages}, the keys are preserved.
+   *
+   * @returns {Record<string, string>} A map of error key to error message.
+   */
+  getErrorMessagesByKey: () => Record<string, string>
+
   /**
    * Checks for an error in a collection by key
    * @param key - Error key
@@ -132,6 +151,37 @@ export class Result<T = any> implements IResult<T> {
    */
   getErrorMessages(): string[] {
     return Array.from(this._errors.values(), e => e.message)
+  }
+
+  /**
+   * Retrieves all errors as a plain object (a snapshot copy) keyed by their
+   * identifier, preserving which request produced each error. Unlike
+   * {@link Result.getErrors}, the keys are not discarded — useful for batch
+   * calls with `isHaltOnError: false`.
+   *
+   * Keys are meaningful only when the error was added with an explicit key
+   * (e.g. an object / named-command batch). Array-mode batches and
+   * {@link Result.addErrors} fall back to generated UUID keys.
+   *
+   * @returns {Record<string, Error>} A map of error key to Error object.
+   */
+  getErrorsByKey(): Record<string, Error> {
+    return Object.fromEntries(this._errors)
+  }
+
+  /**
+   * Retrieves all error messages as a plain object (a snapshot copy) keyed by
+   * their identifier. Unlike {@link Result.getErrorMessages}, the keys are
+   * preserved. See {@link Result.getErrorsByKey} for when keys are meaningful.
+   *
+   * @returns {Record<string, string>} A map of error key to error message.
+   */
+  getErrorMessagesByKey(): Record<string, string> {
+    // `Object.fromEntries` (like getErrorsByKey) is prototype-safe: a literal
+    // `__proto__` key becomes an own property instead of being silently dropped.
+    return Object.fromEntries(
+      Array.from(this._errors, ([key, error]): [string, string] => [key, error.message])
+    )
   }
 
   /**

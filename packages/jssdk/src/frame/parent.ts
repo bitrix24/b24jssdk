@@ -182,7 +182,11 @@ export class ParentManager {
   }
 
   /**
-   * Set Page Title
+   * Sets the in-layout page title (the `#pagetitle` element the portal renders around the app).
+   *
+   * Does NOT change the browser tab title (`document.title`): the portal applies this command to
+   * `#pagetitle`, never to the tab. To set the browser tab title, open the view as a slider via
+   * `SliderManager.openSliderAppPage` with a `bx24_title` option.
    *
    * @param {string} title
    *

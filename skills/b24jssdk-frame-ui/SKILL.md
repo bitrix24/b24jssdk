@@ -96,7 +96,7 @@ await $b24.parent.reloadWindow()
 await $b24.parent.closeApplication()
 ```
 
-`setTitle` changes the in-page `#pagetitle`, not the browser tab — to set the browser tab title, open a slider via `slider.openSliderAppPage({ bx24_title })`.
+`setTitle` changes the in-page `#pagetitle`, not the browser tab — to set the browser tab title, open a slider via `slider.openSliderAppPage({ bx24_title: '…' })`.
 
 For IM:
 

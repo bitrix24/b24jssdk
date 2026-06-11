@@ -32,6 +32,10 @@ export class SliderManager {
   /**
    * When the method is called, a pop-up window with the application frame will be opened.
    *
+   * Settings are passed via `bx24_`-prefixed keys (e.g. `bx24_title`, `bx24_width`).
+   * `bx24_title` sets the slider title; the portal also reflects it to the browser tab title
+   * (`document.title`) — unlike `ParentManager.setTitle`, which only updates the in-layout `#pagetitle`.
+   *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-open-application.html
    */
   async openSliderAppPage(params: any = {}): Promise<any> {

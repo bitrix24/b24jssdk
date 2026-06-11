@@ -108,6 +108,9 @@ test('walkMarkdownFiles: returns .md files but skips symlinks', () => {
 test('isFreshnessTrackedSource: source code (.ts) is tracked', () => {
   assert.equal(isFreshnessTrackedSource('packages/jssdk/src/core/result.ts'), true)
   assert.equal(isFreshnessTrackedSource('scripts/docs-lint.mjs'), true)
+  // `.md` only matters at the end of the path; an empty path is not Markdown.
+  assert.equal(isFreshnessTrackedSource('docs/.md-notes/result.ts'), true)
+  assert.equal(isFreshnessTrackedSource(''), true)
 })
 
 test('isFreshnessTrackedSource: Markdown sources are NOT tracked (cascade fix)', () => {
@@ -116,6 +119,7 @@ test('isFreshnessTrackedSource: Markdown sources are NOT tracked (cascade fix)',
   assert.equal(isFreshnessTrackedSource('AGENTS.md'), false)
   assert.equal(isFreshnessTrackedSource('CHANGELOG.md'), false)
   assert.equal(isFreshnessTrackedSource('docs/whatever.MD'), false) // case-insensitive
+  assert.equal(isFreshnessTrackedSource('docs/page.mdx'), false) // MDX is a Markdown format too
 })
 
 // ── docs-lint --strict end-to-end ────────────────────────────────────────

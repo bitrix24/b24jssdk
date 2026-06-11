@@ -110,13 +110,13 @@ export function parseFrontmatter(text) {
  * `CHANGELOG.md`): those are parallel documentation, not the API source of
  * truth. A one-line edit to a widely-cited skill (or any changelog bump) would
  * otherwise staleify every page that links it — a 1→N cascade of mechanical
- * `audited:` bumps. So `.md` link targets are excluded; `.ts` (and other code)
- * targets still drive the check.
+ * `audited:` bumps. So Markdown link targets (`.md` / `.mdx`) are excluded;
+ * every non-Markdown target (`.ts`, config, …) still drives the check.
  *
  * @param {string} localPath Repo-relative path of the link target (e.g.
  *   `packages/jssdk/src/core/result.ts` or `skills/b24jssdk-rest/SKILL.md`).
  * @returns {boolean} `true` if changes to this target should age a page's audit.
  */
 export function isFreshnessTrackedSource(localPath) {
-  return !/\.md$/i.test(localPath)
+  return !/\.mdx?$/i.test(localPath)
 }

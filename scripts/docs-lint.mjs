@@ -117,11 +117,11 @@ function checkActionSkeleton(file, body) {
 }
 
 // Audit-freshness check applies to any page that opted in via `audited:` in its
-// frontmatter, regardless of category. Only source-code link targets are tracked
-// — `.md` sources (skills, AGENTS.md, CHANGELOG.md) are parallel docs, not the
-// API source of truth, so they don't age a page's audit (see
-// `isFreshnessTrackedSource`). This avoids a 1→N `audited:` bump cascade whenever
-// a widely-cited skill or the changelog is edited.
+// frontmatter, regardless of category. Only non-Markdown link targets are
+// tracked — Markdown sources (`.md`/`.mdx`: skills, AGENTS.md, CHANGELOG.md) are
+// parallel docs, not the API source of truth, so they don't age a page's audit
+// (see `isFreshnessTrackedSource`). This avoids a 1→N `audited:` bump cascade
+// whenever a widely-cited skill or the changelog is edited.
 function checkAuditFreshness(file, frontmatter) {
   if (!frontmatter.audited) return
   const auditedDate = new Date(frontmatter.audited + 'T23:59:59Z')

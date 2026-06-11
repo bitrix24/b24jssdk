@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **core:** `Result.getErrorsByKey()` / `getErrorMessagesByKey()` — keyed error accessors that preserve the batch request label (`Record<string, Error>` / `Record<string, string>`), so `isHaltOnError: false` callers can tell which request failed. Existing `getErrors()` / `getErrorMessages()` are unchanged (#184)
+
 ## [1.2.0](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.2.0) (2026-05-29)
 
 ### Features

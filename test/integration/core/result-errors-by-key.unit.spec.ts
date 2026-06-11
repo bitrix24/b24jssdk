@@ -41,4 +41,31 @@ describe('Result keyed error accessors (issue #184)', () => {
     expect(result.getErrorsByKey()).toEqual({})
     expect(result.getErrorMessagesByKey()).toEqual({})
   })
+
+  it('preserves numeric-style batch index keys (object batch keys via `${index}`)', () => {
+    const result = new Result()
+      .addError(new Error('row 0 failed'), '0')
+      .addError(new Error('row 1 failed'), '1')
+
+    expect(result.getErrorsByKey()['0']?.message).toBe('row 0 failed')
+    expect(result.getErrorMessagesByKey()).toEqual({ 0: 'row 0 failed', 1: 'row 1 failed' })
+  })
+
+  it('keeps a "__proto__" key as an own property and does not pollute the prototype', () => {
+    const result = new Result()
+      .addError(new Error('proto err'), '__proto__')
+      .addError(new Error('normal err'), 'normal')
+
+    const byKey = result.getErrorsByKey()
+    const byMsg = result.getErrorMessagesByKey()
+
+    // both accessors keep the entry as an own property (Object.fromEntries is proto-safe)
+    expect(Object.prototype.hasOwnProperty.call(byKey, '__proto__')).toBe(true)
+    expect(Object.prototype.hasOwnProperty.call(byMsg, '__proto__')).toBe(true)
+    expect(byMsg.normal).toBe('normal err')
+
+    // no prototype pollution
+    expect(Object.getPrototypeOf(byKey)).toBe(Object.prototype)
+    expect(Object.getPrototypeOf(byMsg)).toBe(Object.prototype)
+  })
 })

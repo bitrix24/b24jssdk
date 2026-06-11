@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-05-29.</sub>
+<sub>Last reviewed: 2026-06-11.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -293,7 +293,7 @@ Cookbook recipes under `docs/content/docs/99.examples/` follow a separate, light
 
 ### `audited:` frontmatter
 
-Every action / tools page should carry an `audited: YYYY-MM-DD` field stating the date its content was verified against the linked source. `pnpm run docs:lint-pages` extracts every `https://github.com/bitrix24/b24jssdk/blob/main/<path>` from the page's `links:` array, runs `git log -1 --format=%cI -- <path>`, and warns if any source's last commit is newer than `audited`. When you sync a page after a code change, bump `audited` to today's date in the same commit. Use `pnpm run docs:lint-pages:strict` in CI gates that should fail on stale pages.
+Every action / tools page should carry an `audited: YYYY-MM-DD` field stating the date its content was verified against the linked source. `pnpm run docs:lint-pages` extracts every `https://github.com/bitrix24/b24jssdk/blob/main/<path>` from the page's `links:` array, runs `git log -1 --format=%cI -- <path>`, and warns if any source's last commit is newer than `audited`. Only non-Markdown sources drive this check — `.md` / `.mdx` link targets (skills, `AGENTS.md`, `CHANGELOG.md`) are parallel docs, not the API source of truth, so editing them never ages a page's audit (a one-line skill edit shouldn't staleify every page that cites it). When you sync a page after a code change, bump `audited` to today's date in the same commit. Use `pnpm run docs:lint-pages:strict` in CI gates that should fail on stale pages.
 
 `pnpm run docs:lint-links` is the companion check — validates every internal `](/docs/...)` and frontmatter `to: /docs/...` against the actual file tree, and validates `#fragment` parts against actual page headings (slugified the way Nuxt Content does at runtime, including the `-1` / `-2` suffixes github-slugger emits on duplicate headings).
 

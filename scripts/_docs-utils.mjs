@@ -99,3 +99,24 @@ export function parseFrontmatter(text) {
   }
   return { frontmatter, body }
 }
+
+/**
+ * Whether a `links:` source target participates in the audit-freshness check.
+ *
+ * Audit-freshness (`docs-lint.mjs`) flags a page when a source it documents has
+ * changed since the page's `audited:` date — the page should then be
+ * re-verified. That signal is meaningful for *source code* (`.ts`), but not for
+ * the Markdown sources some pages also link (skills, `AGENTS.md`,
+ * `CHANGELOG.md`): those are parallel documentation, not the API source of
+ * truth. A one-line edit to a widely-cited skill (or any changelog bump) would
+ * otherwise staleify every page that links it — a 1→N cascade of mechanical
+ * `audited:` bumps. So Markdown link targets (`.md` / `.mdx`) are excluded;
+ * every non-Markdown target (`.ts`, config, …) still drives the check.
+ *
+ * @param {string} localPath Repo-relative path of the link target (e.g.
+ *   `packages/jssdk/src/core/result.ts` or `skills/b24jssdk-rest/SKILL.md`).
+ * @returns {boolean} `true` if changes to this target should age a page's audit.
+ */
+export function isFreshnessTrackedSource(localPath) {
+  return !/\.mdx?$/i.test(localPath)
+}

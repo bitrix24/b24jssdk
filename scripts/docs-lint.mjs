@@ -2,9 +2,9 @@
 
 import { readFileSync, statSync } from 'node:fs'
 import { join, resolve, relative, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { walkMarkdownFiles, parseFrontmatter } from './_docs-utils.mjs'
+import { walkMarkdownFiles, parseFrontmatter, isFreshnessTrackedSource } from './_docs-utils.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -116,18 +116,25 @@ function checkActionSkeleton(file, body) {
   }
 }
 
-// Audit-freshness check applies to any page that opted in via
-// `audited:` in its frontmatter, regardless of category.
-function checkAuditFreshness(file, frontmatter) {
+// Audit-freshness check applies to any page that opted in via `audited:` in its
+// frontmatter, regardless of category. Only non-Markdown link targets are
+// tracked — Markdown sources (`.md`/`.mdx`: skills, AGENTS.md, CHANGELOG.md) are
+// parallel docs, not the API source of truth, so they don't age a page's audit
+// (see `isFreshnessTrackedSource`). This avoids a 1→N `audited:` bump cascade
+// whenever a widely-cited skill or the changelog is edited.
+export function checkAuditFreshness(file, frontmatter, deps = {}) {
   if (!frontmatter.audited) return
+  // Dependency seams so tests can exercise the skip logic without a git history.
+  const getCommitDate = deps.getCommitDate || gitLastCommitDate
+  const warn = deps.warn || ((f, m) => log('warn', f, m))
   const auditedDate = new Date(frontmatter.audited + 'T23:59:59Z')
   const ghPaths = extractGithubLinkPaths(frontmatter.links || [])
   for (const localPath of ghPaths) {
-    const lastCommit = gitLastCommitDate(localPath)
+    if (!isFreshnessTrackedSource(localPath)) continue
+    const lastCommit = getCommitDate(localPath)
     if (!lastCommit) continue
     if (new Date(lastCommit) > auditedDate) {
-      log(
-        'warn',
+      warn(
         file,
         `source "${localPath}" was modified on ${lastCommit.slice(0, 10)}, after audited=${frontmatter.audited}`
       )
@@ -179,4 +186,8 @@ function main() {
   if (STRICT && warnings > 0) process.exit(1)
 }
 
-main()
+// Run only when executed directly (e.g. `node scripts/docs-lint.mjs`), not when
+// imported by tests (which exercise the exported helpers in isolation).
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  main()
+}

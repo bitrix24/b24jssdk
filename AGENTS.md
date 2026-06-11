@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-05-29.</sub>
+<sub>Last reviewed: 2026-06-11.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 

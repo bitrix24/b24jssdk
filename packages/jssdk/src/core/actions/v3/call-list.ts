@@ -8,6 +8,7 @@ export type ActionCallListV3 = ActionOptions & {
   method: string
   params?: Omit<TypeCallParams, 'pagination' | 'order'>
   idKey?: string
+  cursorIdKey?: string
   customKeyForResult: string
   requestId?: string
   limit?: number
@@ -29,8 +30,12 @@ export class CallListV3 extends AbstractAction {
    *     - `params?: Omit<TypeCallParams, 'pagination'>` - Request parameters, excluding the `pagination` parameter,
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter`, `order`, and `select` to control the selection.
-   *     - `idKey?: string` - The name of the field containing the unique identifier of the element.
-   *         Default is 'id'. Alternatively, it can be another field, depending on the REST API data structure.
+   *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
+   *         drives the cursor. Default is 'id'. Set it to match the id field the method returns.
+   *     - `cursorIdKey?: string` - The field name used in the REQUEST for `order` and the
+   *         `[field, '>', n]` page filter. Defaults to `idKey`. Set it only when the sortable /
+   *         filterable field name differs from the response field name (e.g. an uppercase request
+   *         field but a lowercase response id): pass `idKey: 'id', cursorIdKey: 'ID'`.
    *     - `customKeyForResult: string` - A custom key indicating that the response REST API will be
    *        grouped by this field.
    *        Example: `items` to group a list of CRM items.
@@ -70,18 +75,19 @@ export class CallListV3 extends AbstractAction {
     const result: Result<T[]> = new Result()
 
     const idKey = options?.idKey ?? 'id'
+    const cursorIdKey = options?.cursorIdKey ?? idKey
     const customKeyForResult = options?.customKeyForResult ?? null
     const params = options?.params ?? {}
 
-    // Warn and strip user-provided `order` — cursor pagination requires ordering by idKey only
+    // Warn and strip user-provided `order` — cursor pagination requires ordering by cursorIdKey only
     if ('order' in params && params['order']) {
-      this._logger.warning('callList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by idKey. Use `filter` to narrow results instead.')
+      this._logger.warning('callList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by cursorIdKey. Use `filter` to narrow results instead.')
     }
 
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
     const requestParams: TypeCallParams = {
       ...restParams,
-      order: { [idKey]: 'ASC' },
+      order: { [cursorIdKey]: 'ASC' },
       filter: [...(params['filter'] || [])],
       pagination: { page: 0, limit: batchSize }
     }
@@ -91,7 +97,7 @@ export class CallListV3 extends AbstractAction {
     let nextId = 0
     do {
       const sendParams = { ...requestParams, filter: [...requestParams.filter] }
-      sendParams.filter.push([idKey, '>', nextId])
+      sendParams.filter.push([cursorIdKey, '>', nextId])
       const response: AjaxResult<T> = await this._b24.actions.v3.call.make<T>({
         method: options.method,
         params: sendParams,
@@ -134,6 +140,11 @@ export class CallListV3 extends AbstractAction {
       if (lastItem && typeof lastItem[idKey] !== 'undefined') {
         nextId = Number.parseInt(lastItem[idKey] as string)
       } else {
+        // A full page came back, yet the cursor id can't be read from its items —
+        // almost always an `idKey` that doesn't match the response field. Without a
+        // cursor value we can't advance, so stop and tell the caller how to fix it
+        // instead of silently truncating at the first page.
+        this._logger.warning(`callList.make: a full page returned but idKey "${idKey}" is missing on its items — pagination stops after the first page. Make sure idKey matches the id field in the response; if the sortable field name differs, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`)
         isContinue = false
         break
       }

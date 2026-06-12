@@ -11,7 +11,7 @@ Every example uses `$b24` of type `TypeB24`, so the same code runs on `B24Hook`,
 
 ## Pick the API version
 
-The SDK exposes both `v2` and `v3` under `$b24.actions`. **v3 only works for a small whitelist of methods** (see `packages/jssdk/src/core/version-manager.ts:21-44`):
+The SDK exposes both `v2` and `v3` under `$b24.actions`. **v3 only works for a small whitelist of methods** (see the whitelist in `packages/jssdk/src/core/version-manager.ts`):
 
 | v3-supported methods | All other Bitrix24 methods |
 |---|---|
@@ -217,7 +217,7 @@ for await (const chunk of generator) {
 For v3:
 
 ```ts
-const generator = $b24.actions.v3.fetchList.make<TaskItem>({
+const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
   method: 'main.eventlog.list',
   params: {
     filter: [['timestampX', '>=', Text.toB24Format(sixMonthsAgo)]],

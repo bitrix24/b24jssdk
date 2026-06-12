@@ -126,7 +126,8 @@ describe('list helpers cursorIdKey (issue #185)', () => {
 
     expect(collected).toHaveLength(50) // exactly the symptom the user reported
     expect(warnings).toHaveLength(1)
-    expect(warnings[0]).toMatch(/idKey "ID" is missing/)
+    expect(warnings[0]).toMatch(/idKey "ID"/)
+    expect(warnings[0]).toMatch(/no numeric id could be read/)
     expect(warnings[0]).toMatch(/cursorIdKey/) // the message points at the fix
   })
 
@@ -204,5 +205,106 @@ describe('list helpers cursorIdKey (issue #185)', () => {
     expect(result.isSuccess).toBe(true)
     expect(result.getData()).toHaveLength(110)
     expect(calls[1].filter).toContainEqual(['ID', '>', 50])
+  })
+
+  // ── review follow-ups (#191): negative + edge cases ──────────────────────
+
+  it('v2 fetchList: a clean short last page does NOT warn', async () => {
+    const { b24, calls } = makeB24({ version: 'v2', customKey: 'items', items: rows(30, 'id'), idField: 'id' })
+    const { logger, warnings } = makeLogger()
+    const collected: Item[] = []
+    for await (const chunk of new FetchListV2(b24, logger).make<Item>({
+      method: 'crm.item.list', idKey: 'id', customKeyForResult: 'items'
+    })) {
+      collected.push(...chunk)
+    }
+    expect(collected).toHaveLength(30)
+    expect(calls).toHaveLength(1) // one short page, no second request
+    expect(warnings).toEqual([]) // a short final page is a clean stop, not a misconfig
+  })
+
+  it('v2 fetchList: an empty result set yields nothing and does not warn', async () => {
+    const { b24 } = makeB24({ version: 'v2', customKey: 'items', items: rows(0, 'id'), idField: 'id' })
+    const { logger, warnings } = makeLogger()
+    const collected: Item[] = []
+    for await (const chunk of new FetchListV2(b24, logger).make<Item>({
+      method: 'crm.item.list', idKey: 'id', customKeyForResult: 'items'
+    })) {
+      collected.push(...chunk)
+    }
+    expect(collected).toHaveLength(0)
+    expect(warnings).toEqual([])
+  })
+
+  it('v2 fetchList: a full page of non-numeric ids warns and stops — never sends a NaN cursor', async () => {
+    let calls = 0
+    const make = async () => {
+      calls += 1
+      return {
+        isSuccess: true,
+        getData: () => ({ result: { items: Array.from({ length: 50 }, (_, i) => ({ id: `guid-${i}` })) } })
+      } as never
+    }
+    const { logger, warnings } = makeLogger()
+    const collected: Item[] = []
+    for await (const chunk of new FetchListV2({ actions: { v2: { call: { make } } } } as never, logger).make<Item>({
+      method: 'x.list', idKey: 'id', customKeyForResult: 'items'
+    })) {
+      collected.push(...chunk)
+    }
+    expect(collected).toHaveLength(50) // stopped after the first full page
+    expect(calls).toBe(1) // crucial: no second request carrying a NaN cursor
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/no numeric id could be read/)
+  })
+
+  it('v2 callList: returns !isSuccess and surfaces errors when the API fails', async () => {
+    const make = async () => ({
+      isSuccess: false,
+      getErrorMessages: () => ['boom'],
+      errors: [[0, new Error('boom')]]
+    } as never)
+    const { logger } = makeLogger()
+    const result = await new CallListV2({ actions: { v2: { call: { make } } } } as never, logger).make<Item>({
+      method: 'x.list', idKey: 'id', customKeyForResult: 'items'
+    })
+    expect(result.isSuccess).toBe(false)
+    expect(result.getErrorMessages().join(' ')).toMatch(/boom/)
+  })
+
+  it('v3 fetchList: without cursorIdKey it defaults to idKey "id"', async () => {
+    const { b24, calls } = makeB24({ version: 'v3', customKey: 'items', items: rows(60, 'id'), idField: 'id' })
+    const { logger, warnings } = makeLogger()
+    const collected: Item[] = []
+    for await (const chunk of new FetchListV3(b24, logger).make<Item>({
+      method: 'main.eventlog.list', customKeyForResult: 'items'
+    })) {
+      collected.push(...chunk)
+    }
+    expect(collected).toHaveLength(60)
+    expect(warnings).toEqual([])
+    expect(calls[0].order).toEqual({ id: 'ASC' }) // default idKey 'id' drives the request
+    expect(calls[1].filter).toContainEqual(['id', '>', 50])
+  })
+
+  it('v3 callList: warns and stops on a full page whose idKey is missing', async () => {
+    let calls = 0
+    const make = async () => {
+      calls += 1
+      return {
+        isSuccess: true,
+        getData: () => ({ result: { items: Array.from({ length: 50 }, (_, i) => ({ id: String(i) })) } }),
+        getErrorMessages: () => [],
+        errors: []
+      } as never
+    }
+    const { logger, warnings } = makeLogger()
+    const result = await new CallListV3({ actions: { v3: { call: { make } } } } as never, logger).make<Item>({
+      method: 'x.list', idKey: 'WRONG', customKeyForResult: 'items'
+    })
+    expect(result.getData()).toHaveLength(50)
+    expect(calls).toBe(1)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/idKey "WRONG"/)
   })
 })

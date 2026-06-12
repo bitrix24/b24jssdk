@@ -104,7 +104,7 @@ The top-level array is implicitly `logic: 'and'`.
 
 ## `order` rule for callList / fetchList
 
-Both `actions.v{2,3}.callList.make` and `fetchList.make` **strip user-supplied `order`** and force `{ [idKey]: 'ASC' }` because the action uses keyset cursor pagination. If you pass an `order`, the SDK logs a warning (`callList.make: user-provided 'order' parameter is ignored…`) and discards it (see `packages/jssdk/src/core/actions/v2/call-list.ts:77-79` and the v3 equivalent).
+Both `actions.v{2,3}.callList.make` and `fetchList.make` **strip user-supplied `order`** and force `{ [cursorIdKey]: 'ASC' }` (where `cursorIdKey` defaults to `idKey`) because the action uses keyset cursor pagination. If you pass an `order`, the SDK logs a warning (`callList.make: user-provided 'order' parameter is ignored…`) and discards it (see the `order` warning in `packages/jssdk/src/core/actions/v2/call-list.ts` and the v3 equivalent).
 
 If you need a specific sort order, drop down to `call.make` and page manually — but you almost certainly want to filter more narrowly instead.
 
@@ -208,7 +208,8 @@ const response = await $b24.actions.v2.callList.make<TaskItem>({
     filter: { '!REAL_STATUS': 5 }, // 5 = COMPLETED
     select: ['ID', 'TITLE', 'STATUS', 'RESPONSIBLE_ID']
   },
-  idKey: 'ID',                   // classic uppercase id
+  idKey: 'id',                   // tasks.task.list returns lowercase id
+  cursorIdKey: 'ID',             // ...but sorts / filters by uppercase ID
   customKeyForResult: 'tasks'
 })
 ```

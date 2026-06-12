@@ -28,7 +28,7 @@ export class FetchListV3 extends AbstractAction {
    *
    * @param {ActionFetchListV3} options - parameters for executing the request.
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
-   *     - `params?: Omit<TypeCallParams, 'pagination'>` - Request parameters, excluding the `pagination` parameter,
+   *     - `params?: Omit<TypeCallParams, 'pagination' | 'order'>` - Request parameters, excluding the `pagination` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter`, `order`, and `select` to control the selection.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
@@ -138,17 +138,16 @@ export class FetchListV3 extends AbstractAction {
 
       // Update the filter for the next iteration
       const lastItem = resultData[resultData.length - 1] as Record<string, any>
-      if (
-        lastItem
-        && typeof lastItem[idKey] !== 'undefined'
-      ) {
-        nextId = Number.parseInt(lastItem[idKey] as string)
+      const cursorValue = lastItem ? Number.parseInt(lastItem[idKey], 10) : Number.NaN
+      if (Number.isFinite(cursorValue)) {
+        nextId = cursorValue
       } else {
-        // A full page came back, yet the cursor id can't be read from its items —
-        // almost always an `idKey` that doesn't match the response field. Without a
-        // cursor value we can't advance, so stop and tell the caller how to fix it
-        // instead of silently truncating at the first page.
-        this._logger.warning(`fetchList.make: a full page returned but idKey "${idKey}" is missing on its items — pagination stops after the first page. Make sure idKey matches the id field in the response; if the sortable field name differs, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`)
+        // A full page came back, yet no usable numeric cursor id could be read from
+        // its items via `idKey` — almost always an `idKey` that doesn't match the
+        // response field (e.g. a request that sorts by `ID` while the response
+        // carries a lowercase `id`). Without a cursor we can't advance, so stop and
+        // tell the caller how to fix it instead of silently truncating.
+        this._logger.warning(`fetchList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`)
         isContinue = false
         break
       }

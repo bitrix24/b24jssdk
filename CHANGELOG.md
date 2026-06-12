@@ -9,6 +9,7 @@
 ### Bug Fixes
 
 * **http:** a 401 `expired_token` / `invalid_token` response now refreshes the token and retries the request once on every entry point (`B24Frame`, `B24OAuth`, `B24Hook`). Previously the auth-retry branch was silently skipped, so the 401 surfaced to the caller on the first attempt — e.g. a long-lived Frame app idling past the access-token TTL (#182)
+* **actions:** `callList` / `fetchList` (v2 and v3) gain a `cursorIdKey` option so keyset pagination works when a method sorts/filters by one field name but returns another — e.g. `tasks.task.list` sorts by `ID` (uppercase) yet returns a lowercase `id`. Previously the single `idKey` drove both the request cursor and the response read, so the default silently stopped after the first 50 records (the `b24jssdk-rest` skill cheat sheet recommended that broken config — now corrected). The helpers now also log a `warning` when a full page is returned but no numeric id can be read via `idKey` (#185)
 
 ### Chore
 

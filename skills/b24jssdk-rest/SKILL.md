@@ -11,7 +11,7 @@ Every example uses `$b24` of type `TypeB24`, so the same code runs on `B24Hook`,
 
 ## Pick the API version
 
-The SDK exposes both `v2` and `v3` under `$b24.actions`. **v3 only works for a small whitelist of methods** (see `packages/jssdk/src/core/version-manager.ts:21-44`):
+The SDK exposes both `v2` and `v3` under `$b24.actions`. **v3 only works for a small whitelist of methods** (see the whitelist in `packages/jssdk/src/core/version-manager.ts`):
 
 | v3-supported methods | All other Bitrix24 methods |
 |---|---|
@@ -161,7 +161,7 @@ const items = data.map((row) => row.item)
 
 ## `callList.make` — small lists in memory
 
-Loads up to 1000 items into a single array. Internally pages with keyset cursor on `idKey`.
+Loads up to 1000 items into a single array. Internally pages with a keyset cursor on `cursorIdKey` (which defaults to `idKey`).
 
 ```ts
 import { Text } from '@bitrix24/b24jssdk'
@@ -191,7 +191,7 @@ if (!response.isSuccess) throw new Error(response.getErrorMessages().join('; '))
 const items = response.getData()! // CrmItem[]
 ```
 
-> **`order` is ignored** by `callList.make`. The action forces `order: { [idKey]: 'ASC' }` for cursor stability and **logs a warning** when you pass an `order` (see `actions/v2/call-list.ts:77-79`). Use `filter` to narrow results.
+> **`order` is ignored** by `callList.make`. The action forces `order: { [cursorIdKey]: 'ASC' }` for cursor stability and **logs a warning** when you pass an `order` (see the `order` warning in `actions/v2/call-list.ts`). Use `filter` to narrow results.
 
 ## `fetchList.make` — large lists, streaming
 
@@ -217,7 +217,7 @@ for await (const chunk of generator) {
 For v3:
 
 ```ts
-const generator = $b24.actions.v3.fetchList.make<TaskItem>({
+const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
   method: 'main.eventlog.list',
   params: {
     filter: [['timestampX', '>=', Text.toB24Format(sixMonthsAgo)]],
@@ -231,15 +231,17 @@ const generator = $b24.actions.v3.fetchList.make<TaskItem>({
 
 > **Note the v2 vs v3 filter difference.** v2 uses prefix-keyed objects; v3 uses arrays of `[field, op, value]` triples. See the `b24jssdk-filtering` skill.
 
-## `idKey` and `customKeyForResult` cheat sheet
+## `idKey`, `cursorIdKey` and `customKeyForResult` cheat sheet
 
-| Method | `idKey` | `customKeyForResult` |
-|---|---|---|
-| `crm.item.list` (v2) | `'id'` | `'items'` |
-| `crm.deal.list`, `crm.contact.list`, … (classic v2) | `'ID'` (default) | omit (default `result`) |
-| `tasks.task.list` (v2) | `'ID'` (default) | `'tasks'` |
-| `disk.folder.getchildren` | `'ID'` (default) | omit |
-| `main.eventlog.list` (v3) | `'id'` | `'items'` |
+`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method sorts/filters by one name but returns another — most notably `tasks.task.list` (request `ID`, response `id`).
+
+| Method | `idKey` (response) | `cursorIdKey` (request) | `customKeyForResult` |
+|---|---|---|---|
+| `crm.item.list` (v2) | `'id'` | — (= `idKey`) | `'items'` |
+| `crm.deal.list`, `crm.contact.list`, … (classic v2) | `'ID'` (default) | — (= `idKey`) | omit (default `result`) |
+| `tasks.task.list` (v2) | `'id'` | `'ID'` | `'tasks'` |
+| `disk.folder.getchildren` | `'ID'` (default) | — (= `idKey`) | omit |
+| `main.eventlog.list` (v3) | `'id'` | — (= `idKey`) | `'items'` |
 
 Wrong `customKeyForResult` makes `getData()` return an empty array — there is no error. If you're getting `[]` and expect data, this is the first thing to check.
 
@@ -322,6 +324,7 @@ For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `soft
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.
 - ❌ `customKeyForResult: 'result'` for `crm.item.list` — wrong, use `'items'`. Otherwise you'll get an empty list silently.
 - ❌ `idKey: 'ID'` for `crm.item.list` — wrong, use `'id'`. The classic `crm.deal.list` is the opposite.
+- ❌ `idKey: 'ID'` alone for `tasks.task.list` — the response id is lowercase `id`, so the cursor can't read it and paging silently stops after 50. Use `idKey: 'id', cursorIdKey: 'ID'`.
 - ❌ `Promise.all` over `callList.make` for parallel paging — internal cursor pagination is sequential by design; you'll get duplicates or skipped rows.
 - ❌ `B24Hook` in a browser bundle — leaks the webhook secret. Use `B24Frame` there.
 

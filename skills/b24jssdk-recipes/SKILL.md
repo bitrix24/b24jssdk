@@ -95,9 +95,9 @@ npx tsx examples/01-crm-analytics.ts
 ## Caveats applied across recipes
 
 - **Multi-funnel pipelines**: stage IDs may carry a category prefix (`C2:WON`, `C4:LOSE`). Recipes 1, 3, and 6 strip the prefix when checking the base stage.
-- **`order` in `callList.make`**: silently dropped (the action forces `idKey ASC` for cursor stability). Use `filter` to narrow.
+- **`order` in `callList.make`**: silently dropped (the action forces `cursorIdKey ASC`, defaulting to `idKey`, for cursor stability). Use `filter` to narrow.
 - **`customKeyForResult`**: `'items'` for `crm.item.list`, omit or `'tasks'` for classic methods. Wrong value → silent empty array.
-- **`idKey`**: `'id'` for `crm.item.list`, `'ID'` (default) for classic methods.
+- **`idKey` / `cursorIdKey`**: `idKey: 'id'` for `crm.item.list`; `'ID'` (default) for classic methods. `tasks.task.list` is the exception — it returns lowercase `id` but sorts by `ID`, so use `idKey: 'id', cursorIdKey: 'ID'`.
 - **Error handling**: failed calls throw `AjaxError` for REST errors; recipes log and continue where it makes sense. Tune via `setRestrictionManagerParams` if you need different retry behaviour (see `b24jssdk-core`).
 - **Webhook events** (recipe 7): registration of the outbound webhooks themselves (which events go where) is a one-off setup. Recipe 11 (`11-event-registration.ts`) is a small CLI for that: `list` / `bind` / `unbind` via `event.get` / `event.bind` / `event.unbind`.
 

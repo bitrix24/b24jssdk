@@ -59,7 +59,7 @@ jobs:
           echo "$PKG@$VER is not yet published — OK to proceed"
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       - name: Install node
         uses: actions/setup-node@v6

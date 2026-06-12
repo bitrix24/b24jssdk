@@ -77,6 +77,15 @@ jobs:
       - name: Build
         run: pnpm --filter ./packages/jssdk-nuxt build
 
+      - name: Verify version token was replaced
+        shell: bash
+        run: |
+          if grep -q "__SDK_VERSION__" packages/jssdk-nuxt/dist/module.mjs; then
+            echo "::error::__SDK_VERSION__ was not replaced in dist/module.mjs — check packages/jssdk-nuxt/build.config.ts (#119)"
+            exit 1
+          fi
+          echo "module.mjs version token replaced — OK"
+
       - name: 'Publish NUXT 🚀'
         shell: bash
         run: pnpm --filter ./packages/jssdk-nuxt publish --no-git-checks

@@ -14,6 +14,7 @@
 ### Chore
 
 * **docs-lint:** audit-freshness now tracks source-code link targets only — Markdown sources (skills, `AGENTS.md`, `CHANGELOG.md`) no longer staleify the pages that cite them, removing the 1→N `audited:` bump cascade on every skill/changelog edit (#190)
+* **build(nuxt):** the Nuxt module's `meta.version` is now injected from `package.json` at build time via the `__SDK_VERSION__` token (matching the core SDK) instead of a hand-maintained literal in `module.ts`, so `release:bump` can no longer leave it stale; the publish workflow also fails if the token is left unreplaced (#119)
 
 ## [1.2.0](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.2.0) (2026-05-29)
 

@@ -1,6 +1,6 @@
 # Package Structure
 
-<sub>Last reviewed: 2026-05-29.</sub>
+<sub>Last reviewed: 2026-06-12.</sub>
 
 > **Agent-facing mirror:** the published surface from the angle of agents writing usage code lives in [`.claude/skills/b24jssdk-core/`](../../.claude/skills/b24jssdk-core/SKILL.md), [`b24jssdk-frame-ui/`](../../.claude/skills/b24jssdk-frame-ui/SKILL.md), and [`b24jssdk-helpers/`](../../.claude/skills/b24jssdk-helpers/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
 
@@ -196,9 +196,9 @@ Internal-only helpers go to `src/core/tools/`. Do not export those from `index.t
 
 ## Build Tokens
 
-The build replaces these placeholders at bundle time (see [packages/jssdk/build.config.ts](../../packages/jssdk/build.config.ts)):
+The build replaces these placeholders at bundle time (see [packages/jssdk/build.config.ts](../../packages/jssdk/build.config.ts), and [packages/jssdk-nuxt/build.config.ts](../../packages/jssdk-nuxt/build.config.ts) for the Nuxt module's `meta.version`):
 
-- `__SDK_VERSION__` → the `version` from `packages/jssdk/package.json`
+- `__SDK_VERSION__` → the `version` from `packages/jssdk/package.json` (the Nuxt module injects the same token from `packages/jssdk-nuxt/package.json` into its `meta.version`)
 - `__SDK_USER_AGENT__` → the user-agent string sent on REST calls
 
 Use the placeholders directly — never read `package.json` at runtime, never hard-code a version string.

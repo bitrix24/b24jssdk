@@ -221,6 +221,24 @@ jobs:
         # tsconfig "extends". jssdk must be built first so @bitrix24/b24jssdk resolves.
         run: pnpm --filter ./packages/jssdk-nuxt build
 
+      - name: Verify jssdk-nuxt version token was replaced (#119)
+        # The real build (above, not the dev:prepare stub) must substitute the
+        # __SDK_VERSION__ placeholder in meta.version from package.json. Catch a
+        # build-config regression here, on every PR — not only at publish time.
+        shell: bash
+        run: |
+          PKG_VER=$(node -p "require('./packages/jssdk-nuxt/package.json').version")
+          DIST=packages/jssdk-nuxt/dist/module.mjs
+          if grep -q "__SDK_VERSION__" "$DIST"; then
+            echo "::error::__SDK_VERSION__ left unreplaced in $DIST — check packages/jssdk-nuxt/build.config.ts"
+            exit 1
+          fi
+          if ! grep -qF "\"$PKG_VER\"" "$DIST"; then
+            echo "::error::version \"$PKG_VER\" (from package.json) not found in $DIST — wrong or empty replacement"
+            exit 1
+          fi
+          echo "jssdk-nuxt meta.version = $PKG_VER (token replaced) — OK"
+
   # Verifies that the documentation site generates cleanly on every PR.
   # Previously this only ran in deploy.yml (push to main), so broken doc
   # builds could slip through undetected.

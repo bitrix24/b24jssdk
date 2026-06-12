@@ -5,7 +5,9 @@ export type ModuleOptions = object
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: '@bitrix24/b24jssdk-nuxt',
-    version: '1.2.0',
+    // Replaced from package.json at build time by rollup.replace (build.config.ts).
+    // In `dev:prepare` (stub) mode the placeholder is left as-is — expected.
+    version: '__SDK_VERSION__',
     configKey: 'B24JsSdkNuxt',
     compatibility: {
       nuxt: '>=4.2.2'

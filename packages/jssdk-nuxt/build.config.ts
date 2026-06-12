@@ -8,6 +8,9 @@ import packageInfo from './package.json'
 export default defineBuildConfig({
   entries: [],
   rollup: {
+    // Only the rolled-up module entry (src/module) is processed here; runtime/*
+    // files go through mkdist and are NOT replaced — keep version tokens out of
+    // runtime code.
     replace: {
       values: {
         __SDK_VERSION__: packageInfo.version

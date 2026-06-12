@@ -43,7 +43,7 @@ packages/
 │   │   └── index.ts                # public surface — treat as a contract
 │   ├── README-AI.md                # caller-facing API guide (being absorbed into this guide)
 │   └── build.config.ts             # unbuild config (replaces __SDK_VERSION__ etc.)
-├── jssdk-nuxt/                     # Nuxt module — only registers runtime/plugin
+├── jssdk-nuxt/                     # Nuxt module (registers runtime/plugin; build.config.ts injects __SDK_VERSION__ into meta.version)
 playgrounds/
 ├── cli/                            # Node smoke
 └── nuxt/                           # Nuxt smoke (live SDK)
@@ -76,7 +76,7 @@ Cross-cutting modules:
 - [packages/jssdk/src/types](packages/jssdk/src/types) — public types and enums (CRM, catalog, bizproc, event, placement, pull, payloads, etc.). Prefer importing enums like `EnumCrmEntityTypeId` from the package root.
 - [packages/jssdk/src/tools](packages/jssdk/src/tools) — `Text` (Luxon dates, number/format helpers, UUID v7), `Type` runtime guards, `Browser`, `useFormatters`, `pick / omit / getEnumValue`, scroll/environment utilities.
 - [packages/jssdk/src/logger](packages/jssdk/src/logger) — `LoggerBrowser.build(name, isDev)` + `LoggerFactory`. `AbstractB24` defaults to `LoggerFactory.createNullLogger()`; a real logger is installed via `b24.setLogger(logger)`.
-- The build-time tokens `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced by unbuild ([packages/jssdk/build.config.ts](packages/jssdk/build.config.ts)).
+- The build-time tokens `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced by unbuild ([packages/jssdk/build.config.ts](packages/jssdk/build.config.ts)). The Nuxt module replaces `__SDK_VERSION__` the same way for its `meta.version` ([packages/jssdk-nuxt/build.config.ts](packages/jssdk-nuxt/build.config.ts)).
 
 The Nuxt module ([packages/jssdk-nuxt/src/module.ts](packages/jssdk-nuxt/src/module.ts)) is intentionally tiny — it only registers [packages/jssdk-nuxt/src/runtime/plugin.ts](packages/jssdk-nuxt/src/runtime/plugin.ts). Any new SDK surface that needs Nuxt auto-import / SSR handling has to be wired through that runtime plugin.
 
@@ -171,7 +171,7 @@ pnpm vitest run --project jsSdk:unit -t "<test name>"
 - **Public contract**: exports from [packages/jssdk/src/index.ts](packages/jssdk/src/index.ts) are a public API. Any breaking change needs a deprecation cycle, not a silent rename.
 - **Cross-package awareness**: when you change the core SDK API, check whether [packages/jssdk-nuxt/src/runtime/plugin.ts](packages/jssdk-nuxt/src/runtime/plugin.ts) needs an update.
 - **Code formatting**: `@nuxt/eslint-config` (flat) with stylistic overrides — 2-space indent, no trailing commas, 1tbs braces. `.editorconfig` enforces LF + 2 spaces. The protobuf JS files in `packages/jssdk/src/pullClient` are eslint-ignored intentionally.
-- **Build tokens**: `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced at build time by [packages/jssdk/build.config.ts](packages/jssdk/build.config.ts). Do not hard-code versions.
+- **Build tokens**: `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced at build time by [packages/jssdk/build.config.ts](packages/jssdk/build.config.ts); the Nuxt module's `meta.version` uses the same `__SDK_VERSION__` token via [packages/jssdk-nuxt/build.config.ts](packages/jssdk-nuxt/build.config.ts). Do not hard-code versions.
 - **English only** in code, comments, and documentation pages.
 
 ## SDK Source (`packages/jssdk/src/` and `test/`)

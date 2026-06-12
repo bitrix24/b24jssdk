@@ -80,11 +80,17 @@ jobs:
       - name: Verify version token was replaced
         shell: bash
         run: |
-          if grep -q "__SDK_VERSION__" packages/jssdk-nuxt/dist/module.mjs; then
-            echo "::error::__SDK_VERSION__ was not replaced in dist/module.mjs — check packages/jssdk-nuxt/build.config.ts (#119)"
+          PKG_VER=$(node -p "require('./packages/jssdk-nuxt/package.json').version")
+          DIST=packages/jssdk-nuxt/dist/module.mjs
+          if grep -q "__SDK_VERSION__" "$DIST"; then
+            echo "::error::__SDK_VERSION__ was not replaced in $DIST — check packages/jssdk-nuxt/build.config.ts (#119)"
             exit 1
           fi
-          echo "module.mjs version token replaced — OK"
+          if ! grep -qF "\"$PKG_VER\"" "$DIST"; then
+            echo "::error::version \"$PKG_VER\" (from package.json) not found in $DIST — wrong or empty replacement"
+            exit 1
+          fi
+          echo "module.mjs meta.version = $PKG_VER (token replaced) — OK"
 
       - name: 'Publish NUXT 🚀'
         shell: bash

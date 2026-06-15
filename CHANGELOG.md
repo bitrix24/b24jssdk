@@ -13,7 +13,7 @@
 
 ### Security
 
-* **deps:** pin `esbuild` to `>=0.28.1` via a pnpm override — clears the high-severity advisory GHSA-gv7w-rqvm-qjhr (missing binary-integrity verification; affected `>=0.17.0 <0.28.1`) that `pnpm audit --audit-level=high` was failing CI on repo-wide. esbuild is a transitive build dependency (Vite / Nuxt tooling); all instances now resolve to a single 0.28.1 (#196)
+* **deps:** pin `esbuild` to `>=0.28.1` via a pnpm override — clears the high-severity advisory GHSA-gv7w-rqvm-qjhr (esbuild's Deno module fetched its native binary without integrity verification → RCE via `NPM_CONFIG_REGISTRY`; affected `>=0.17.0 <0.28.1`) that `pnpm audit --audit-level=high` was failing CI on repo-wide. esbuild is a transitive build dependency (Vite / Nuxt tooling); all instances collapse to a single 0.28.1. The path was already unreachable here (Node-only project, and `allowBuilds: esbuild: false` blocks esbuild's install script) — the override clears the audit gate and adds defense-in-depth (#196)
 
 ### Chore
 

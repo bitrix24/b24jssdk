@@ -1,0 +1,176 @@
+# Releasing `@bitrix24/b24jssdk`
+
+<sub>Last reviewed: 2026-06-15.</sub>
+
+How to cut a release of the two published packages — `@bitrix24/b24jssdk` (core
+SDK) and `@bitrix24/b24jssdk-nuxt` (Nuxt module). They ship **in lockstep at one
+shared version**; there is no independent release of either package.
+
+Publishing is automated by [`.github/workflows/release.yml`](.github/workflows/release.yml).
+The human steps are: bump the version, finalise the changelog, tag, and publish a
+GitHub Release. The workflow does the rest.
+
+## TL;DR
+
+```bash
+git switch main && git pull origin main
+
+pnpm run release:bump <version>          # e.g. 1.3.0 — rewrites all 3 package.json + lockfile
+
+# Edit CHANGELOG.md: rename "## [Unreleased]" to
+#   ## [<version>](https://github.com/bitrix24/b24jssdk/compare/v<previous>...v<version>) (YYYY-MM-DD)
+# and start a fresh empty [Unreleased] above it.
+
+git add package.json packages/jssdk/package.json packages/jssdk-nuxt/package.json pnpm-lock.yaml CHANGELOG.md
+git commit -m "chore(release): v<version>"
+git push origin main
+```
+
+Then, on GitHub: **Releases → Draft a new release →** create tag `v<version>`
+targeting `main`, paste the changelog section as the notes, and **Publish**. That
+fires `release.yml`, which runs CI once and publishes both packages.
+
+## Prerequisites (per releaser)
+
+- **Push access to `main`** and rights to **create GitHub Releases**.
+- **npm** — publishing is via **OIDC trusted publishing**, not a personal token:
+  - **One-time admin setup:** each package on npm (Settings → Publishing → Trusted
+    Publishers) must list `bitrix24/b24jssdk` + the `release.yml` workflow. If that
+    entry is missing, the publish step fails with a 401/403 — not something a
+    releaser can fix mid-run.
+  - **Per releaser:** you need **no npm token or credential** on your machine — the
+    CI runner authenticates with a short-lived OIDC token (`release.yml` grants
+    `id-token: write` and sets no `NPM_TOKEN`/`NODE_AUTH_TOKEN`, so there is no
+    long-lived secret to rotate or leak).
+- A working **CI** — `release.yml` reuses `ci.yml` and will not publish if CI is red.
+
+> ⚠️ **Bus factor (#171).** At least two people should hold the rights above, so a
+> security patch or release never blocks on one person being away. See
+> [Handover](#handover-171).
+
+## Versioning
+
+- **SemVer.** `patch` for bug fixes, `minor` for backward-compatible features,
+  `major` for breaking changes. Decide from what sits under `## [Unreleased]` in
+  [`CHANGELOG.md`](CHANGELOG.md) (a `Features` block ⇒ at least a minor; any
+  `BREAKING CHANGE` ⇒ major).
+- **Lockstep.** The root `package.json`, `packages/jssdk/package.json`, and
+  `packages/jssdk-nuxt/package.json` always carry the **same** version.
+  `pnpm run release:bump` rewrites all three and refuses to run if they are already
+  out of sync — resolve the drift by hand first, then retry.
+- **Pre-releases** (`1.3.0-rc.1`) bump cleanly — the script accepts a `-prerelease`
+  suffix — **but the publish workflow has no pre-release handling yet.** `release.yml`
+  runs `pnpm publish` with no `--tag`, so npm would tag the pre-release as `latest`
+  and move every consumer onto the RC. Until the workflow learns `--tag next`
+  (planned follow-up), **do not cut pre-releases through the release workflow** — or
+  be ready to repair the dist-tags by hand immediately after
+  (`npm dist-tag add <pkg>@<last-stable> latest`).
+
+## Step by step
+
+1. **Start clean.**
+   ```bash
+   git switch main && git pull origin main
+   ```
+   Make sure `## [Unreleased]` in `CHANGELOG.md` reflects everything merged since
+   the last tag (each PR should have added its own entry).
+
+2. **Bump the version.**
+   ```bash
+   pnpm run release:bump <version>
+   ```
+   This rewrites the `version` field in all three `package.json` files and runs
+   `pnpm install --lockfile-only` to refresh `pnpm-lock.yaml`. Review the diff.
+
+3. **Finalise the changelog.** In `CHANGELOG.md`, rename the `## [Unreleased]`
+   heading to the released version with a compare link and the date, e.g.:
+   ```md
+   ## [1.3.0](https://github.com/bitrix24/b24jssdk/compare/v1.2.0...v1.3.0) (2026-06-15)
+   ```
+   Then add a new empty `## [Unreleased]` section above it for the next cycle.
+   Keep the `Features` / `Bug Fixes` / `Security` / `Chore` grouping.
+
+4. **Commit and push to `main`.**
+   ```bash
+   git add package.json packages/jssdk/package.json packages/jssdk-nuxt/package.json pnpm-lock.yaml CHANGELOG.md
+   git commit -m "chore(release): v<version>"
+   git push origin main
+   ```
+   The version-bump commit **must** land on `main` before the release — the
+   workflow verifies that `package.json` matches the tag.
+
+5. **Publish a GitHub Release.** Releases → *Draft a new release* → create the tag
+   `v<version>` on `main`, title `v<version>`, body = the changelog block you just
+   wrote (the whole `## [<version>]` section, including its `Features` / `Bug Fixes`
+   / … subsections). Click **Publish release**. (Equivalently: `git tag v<version> && git push origin
+   v<version>`, then publish a release from that existing tag.)
+
+6. **Watch the run.** Open Actions → **release 🚀**. It runs CI, then
+   `publish-jssdk`, then `publish-nuxt`, then the `release-status` gate. The gate is
+   green only if **both** packages published.
+
+7. **Verify on npm.**
+   ```bash
+   npm view @bitrix24/b24jssdk version
+   npm view @bitrix24/b24jssdk-nuxt version
+   ```
+   Both should report `<version>`. (For a pre-release, `version` shows only the
+   `latest` tag — use `npm dist-tag ls <pkg>` instead.)
+
+8. **The docs site redeploys itself.** The `chore(release)` commit pushed to `main`
+   in step 4 also triggers `ci.yml`, which redeploys the docs site to GitHub Pages
+   as part of normal CI — no manual action. (The CI *reused inside* `release.yml`
+   deliberately skips the deploy; the direct push to `main` is what ships the site.)
+
+## What `release.yml` does
+
+Triggered by a **published GitHub Release**, or by a manual **workflow_dispatch on
+`main`** (for a re-run). In order:
+
+| Job | What it does |
+|-----|--------------|
+| `ci` | Reuses [`ci.yml`](.github/workflows/ci.yml) — one full CI pass. A red CI stops the release. |
+| `publish-jssdk` | Publishes `@bitrix24/b24jssdk` (core first — the Nuxt module depends on it). |
+| `publish-nuxt` | `needs: publish-jssdk`. Publishes `@bitrix24/b24jssdk-nuxt`. |
+| `release-status` | `if: always()` gate — fails unless **both** publishes succeeded. |
+
+Each publish job guards itself before shipping:
+
+- **version lockstep** across the three `package.json` files;
+- **tag matches version** (`v1.3.0` ⇒ `1.3.0`) on a real release;
+- **not already published** (`npm view <pkg>@<ver>` must exit non-zero);
+- **`__SDK_VERSION__` token replaced** in the built Nuxt `module.mjs` (#119).
+
+npm has no cross-package transaction, so the design is the best achievable:
+**ordered + visible**, not atomic — a partial release turns the run red instead of
+passing unnoticed.
+
+## If something goes wrong
+
+- **Partial release** (one package published, the other failed): fix the cause, then
+  use **Re-run failed jobs** in the Actions UI (it re-runs only the failed/skipped
+  jobs). Do **not** use *Re-run all jobs* — re-running `publish-jssdk` after it
+  already published trips the "already published" guard and fails. The
+  `release-status` error message says the same.
+- **CI failed before any publish:** nothing reached npm. Fix `main`, then re-cut
+  (a fresh release, or `workflow_dispatch` on `main` once `main` is green).
+- **Wrong/broken version published:** npm does **not** allow re-publishing the same
+  version (and unpublish is restricted to a 72-hour window with a 24-hour
+  re-publish block). Don't fight it — bump a new `patch`, fix forward, and release
+  again.
+- **Tag/version mismatch or version already published:** the guards fail the job
+  early with a clear `::error::` message — bump correctly and re-tag.
+
+## Handover (#171)
+
+This runbook is one half of de-risking the release process. The account-level half
+is **not** code and must be done by a repo/org admin:
+
+- [ ] Add a **second npm publisher** to the `@bitrix24` packages' trusted-publisher
+      config (and as a fallback maintainer), so releases survive one person being
+      away.
+- [ ] Add a **second GitHub releaser** (push to `main` + create releases).
+- [ ] Add a **`CODEOWNERS`** file so reviews are routed and ownership is explicit.
+- [ ] Provision a shared/secondary integration-test environment (`.env.test`,
+      webhook scopes per [AGENTS.md](AGENTS.md)) so release validation isn't tied
+      to one machine.

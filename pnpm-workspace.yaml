@@ -13,6 +13,7 @@ overrides:
   ws: '>=8.20.1'
   qs: '>=6.15.2'
   devalue: '>=5.8.1'
+  esbuild: '>=0.28.1'
 
 allowBuilds:
   '@parcel/watcher': false

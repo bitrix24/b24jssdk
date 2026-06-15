@@ -44,6 +44,15 @@ jobs:
       - name: Test docs-lint scripts
         run: node --test "scripts/__tests__/**/*.test.mjs"
 
+      - name: Lint GitHub Actions workflows (actionlint)
+        # Catches workflow mistakes (bad expressions, job/needs wiring, shell
+        # issues via shellcheck on the runner) on every PR — the publish path in
+        # release.yml has no other gate. Pinned release asset, not a mutable tag.
+        run: |
+          ACTIONLINT_VERSION=1.7.7
+          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp actionlint
+          /tmp/actionlint -color
+
   # Installs dependencies and runs dev:prepare once; the generated outputs
   # (packages/jssdk/dist, .nuxt type dirs) are uploaded as an artifact so
   # the parallel lint / typecheck / build / docs-build jobs can restore them

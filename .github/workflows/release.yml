@@ -98,7 +98,20 @@ jobs:
 
       - name: 'Publish 🚀'
         shell: bash
-        run: pnpm --filter ./packages/jssdk publish --no-git-checks
+        run: |
+          VER=$(jq -r .version packages/jssdk/package.json)
+          # A pre-release (e.g. 1.3.0-rc.1) must NOT take the default `latest`
+          # dist-tag, or every `npm install @bitrix24/b24jssdk` would jump onto the
+          # RC. Route pre-releases (version contains a `-`) to `next`; stable
+          # versions keep `latest`.
+          TAG_ARGS=()
+          if [[ "$VER" == *-* ]]; then
+            TAG_ARGS=(--tag next)
+            echo "Pre-release $VER → dist-tag 'next'"
+          else
+            echo "Stable $VER → dist-tag 'latest'"
+          fi
+          pnpm --filter ./packages/jssdk publish --no-git-checks "${TAG_ARGS[@]}"
 
   publish-nuxt:
     # Sequential: only after the core SDK is published, since the published Nuxt
@@ -188,7 +201,18 @@ jobs:
 
       - name: 'Publish NUXT 🚀'
         shell: bash
-        run: pnpm --filter ./packages/jssdk-nuxt publish --no-git-checks
+        run: |
+          VER=$(jq -r .version packages/jssdk-nuxt/package.json)
+          # Pre-release → `next` dist-tag, never `latest` (see publish-jssdk for
+          # the rationale).
+          TAG_ARGS=()
+          if [[ "$VER" == *-* ]]; then
+            TAG_ARGS=(--tag next)
+            echo "Pre-release $VER → dist-tag 'next'"
+          else
+            echo "Stable $VER → dist-tag 'latest'"
+          fi
+          pnpm --filter ./packages/jssdk-nuxt publish --no-git-checks "${TAG_ARGS[@]}"
 
   release-status:
     # Combined gate: green only if BOTH packages actually published. A partial

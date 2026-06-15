@@ -59,12 +59,10 @@ fires `release.yml`, which runs CI once and publishes both packages.
   `pnpm run release:bump` rewrites all three and refuses to run if they are already
   out of sync — resolve the drift by hand first, then retry.
 - **Pre-releases** (`1.3.0-rc.1`) bump cleanly — the script accepts a `-prerelease`
-  suffix — **but the publish workflow has no pre-release handling yet.** `release.yml`
-  runs `pnpm publish` with no `--tag`, so npm would tag the pre-release as `latest`
-  and move every consumer onto the RC. Until the workflow learns `--tag next`
-  (planned follow-up), **do not cut pre-releases through the release workflow** — or
-  be ready to repair the dist-tags by hand immediately after
-  (`npm dist-tag add <pkg>@<last-stable> latest`).
+  suffix — and publish safely: `release.yml` detects the `-` in the version and ships
+  the package under the **`next`** dist-tag instead of `latest`, so a plain
+  `npm install` (which follows `latest`) stays on the last stable release. Promote a
+  pre-release to stable later with `npm dist-tag add <pkg>@<version> latest`.
 
 ## Step by step
 

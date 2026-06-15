@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-06-12.</sub>
+<sub>Last reviewed: 2026-06-15.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -162,6 +162,10 @@ pnpm vitest run --project jsSdk:unit -t "<test name>"
 **`*.unit.spec.ts` files inside `test/integration/`.** A small number of regression specs (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`) exercise pure-logic invariants that have nothing to verify against a live portal. They belong to the `jsSdk:unit` project, mock the axios client / construct SDK primitives in isolation, and run without `.env.test` / `B24_HOOK`. Use this naming when the test is about the **SDK's internal behaviour**, not about the REST contract.
 
 **CI runs `jsSdk:unit` automatically** (`pnpm run package-jssdk:test:run-unit`) — no portal needed. `jsSdk:integration` and `jsSdk:underLoad` are your local-only responsibility — make sure the relevant test filter is green against a real portal before pushing.
+
+### Releasing
+
+Cutting a release (bump → changelog → tag → publish) is documented in **[RELEASING.md](RELEASING.md)**. In brief: `pnpm run release:bump <version>` sets all three `package.json` files in lockstep (+ refreshes the lockfile), and publishing a GitHub Release on the `v<version>` tag triggers [`.github/workflows/release.yml`](.github/workflows/release.yml), which runs CI once and publishes `@bitrix24/b24jssdk` then `@bitrix24/b24jssdk-nuxt` (sequential, core first) behind a combined status gate. Publishing uses npm OIDC trusted publishing — there is no `NPM_TOKEN` to manage.
 
 ## Key Conventions
 

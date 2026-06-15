@@ -248,9 +248,11 @@ jobs:
           fi
           echo "jssdk-nuxt meta.version = $PKG_VER (token replaced) — OK"
 
-  # Verifies that the documentation site generates cleanly on every PR.
-  # Previously this only ran in deploy.yml (push to main), so broken doc
-  # builds could slip through undetected.
+  # Builds the documentation site. On PRs it only validates that the docs
+  # generate cleanly (broken builds used to slip through — they only ran in
+  # deploy.yml on push to main). On a push / manual dispatch to main it ALSO
+  # produces the GitHub Pages artifact, which the `deploy` job below ships — so
+  # the site is built once, not twice (was: here + deploy.yml) (#111).
   # Note: prepared-workspace is needed here because Vite (via nuxt generate)
   # crawls workspace packages including jssdk-nuxt/src/runtime/plugin.ts,
   # which resolves tsconfig "extends" from packages/jssdk-nuxt/.nuxt/.
@@ -258,6 +260,10 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # pages: read lets configure-pages derive the base path on a main deploy build.
+    permissions:
+      contents: read
+      pages: read
     env:
       NUXT_PUBLIC_USE_AI: false
       NUXT_PUBLIC_USE_TAB_B24FRAME: false
@@ -286,8 +292,49 @@ jobs:
         with:
           name: prepared-workspace
 
+      # Pages plumbing only on a main deploy build; PRs just validate the build.
+      - name: Setup Pages
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: actions/configure-pages@v6
+
       - name: Build docs
         run: pnpm run docs:generate
+
+      - name: Create Pages artifact
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: |
+          mkdir -p combined-artifact
+          cp -r docs/.output/public/* combined-artifact/
+          touch combined-artifact/.nojekyll
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: combined-artifact
+
+  # Publishes the docs site to GitHub Pages, reusing the artifact built once by
+  # docs-build (no second docs:generate). Runs only on a push / manual dispatch
+  # to main — never on PRs, and not when ci.yml is reused by release.yml. (#111)
+  deploy:
+    needs: docs-build
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
 
   # Gate job: satisfies the "ci" required status check in branch protection.
   # Fails if any upstream job failed or was cancelled.

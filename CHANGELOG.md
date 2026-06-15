@@ -16,6 +16,7 @@
 * **docs-lint:** audit-freshness now tracks source-code link targets only — Markdown sources (skills, `AGENTS.md`, `CHANGELOG.md`) no longer staleify the pages that cite them, removing the 1→N `audited:` bump cascade on every skill/changelog edit (#190)
 * **nuxt:** the Nuxt module's `meta.version` is now injected from `package.json` at build time via the `__SDK_VERSION__` token (matching the core SDK) instead of a hand-maintained literal in `module.ts`, so `release:bump` can no longer leave it stale; CI and the publish workflow both fail if the token is left unreplaced (#119)
 * **ci:** a release now runs through a single `release.yml` — one CI invocation instead of two, then `@bitrix24/b24jssdk` and `@bitrix24/b24jssdk-nuxt` publish sequentially (core first, since the Nuxt module depends on the released core version) behind a combined status gate, so a partial release turns the run red instead of passing unnoticed. Replaces the two separate `npm-publish-*` workflows; CI also gained an `actionlint` gate so workflow errors are caught on PRs (#177)
+* **ci:** the docs site is built once per push to `main` — `deploy.yml` is removed and its Pages build + deploy fold into `ci.yml` (the `docs-build` job uploads the Pages artifact; a new `deploy` job ships it), eliminating the duplicate `docs:generate` that previously ran in both workflows on every main push. PRs still validate the docs build (#111)
 
 ## [1.2.0](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.2.0) (2026-05-29)
 

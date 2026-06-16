@@ -39,7 +39,7 @@ function runDocsLinkCheck(root) {
 }
 
 test('docs-link-check: valid internal pages, index pages, fragments, and frontmatter links pass', () => {
-  withFixture(root => {
+  withFixture((root) => {
     writePage(root, '0.index.md', [
       '---',
       'title: Home',
@@ -97,7 +97,7 @@ test('docs-link-check: valid internal pages, index pages, fragments, and frontma
 })
 
 test('docs-link-check: missing markdown link target exits 1', () => {
-  withFixture(root => {
+  withFixture((root) => {
     writePage(root, '0.index.md', [
       '---',
       'title: Home',
@@ -116,7 +116,7 @@ test('docs-link-check: missing markdown link target exits 1', () => {
 })
 
 test('docs-link-check: missing frontmatter link target exits 1', () => {
-  withFixture(root => {
+  withFixture((root) => {
     writePage(root, '0.index.md', [
       '---',
       'title: Home',
@@ -136,7 +136,7 @@ test('docs-link-check: missing frontmatter link target exits 1', () => {
 })
 
 test('docs-link-check: missing heading fragment exits 1', () => {
-  withFixture(root => {
+  withFixture((root) => {
     writePage(root, '0.index.md', [
       '---',
       'title: Home',

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-06-15.</sub>
+<sub>Last reviewed: 2026-06-16.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -176,6 +176,7 @@ Cutting a release (bump → changelog → tag → publish) is documented in **[R
 - **Cross-package awareness**: when you change the core SDK API, check whether [packages/jssdk-nuxt/src/runtime/plugin.ts](packages/jssdk-nuxt/src/runtime/plugin.ts) needs an update.
 - **Code formatting**: `@nuxt/eslint-config` (flat) with stylistic overrides — 2-space indent, no trailing commas, 1tbs braces. `.editorconfig` enforces LF + 2 spaces. The protobuf JS files in `packages/jssdk/src/pullClient` are eslint-ignored intentionally.
 - **Build tokens**: `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced at build time by [packages/jssdk/build.config.ts](packages/jssdk/build.config.ts); the Nuxt module's `meta.version` uses the same `__SDK_VERSION__` token via [packages/jssdk-nuxt/build.config.ts](packages/jssdk-nuxt/build.config.ts). Do not hard-code versions.
+- **Pinned Actions**: third-party GitHub Actions in `.github/workflows/` are pinned to a full commit SHA with a `# vX.Y.Z` comment — a moved or compromised mutable tag on a publish-privileged action is a supply-chain risk (#152). Dependabot (weekly, grouped) bumps the SHAs; don't introduce `@vN` tag refs in new steps.
 - **English only** in code, comments, and documentation pages.
 
 ## SDK Source (`packages/jssdk/src/` and `test/`)

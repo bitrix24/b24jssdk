@@ -14,6 +14,7 @@
 ### Security
 
 * **deps:** pin `esbuild` to `>=0.28.1` via a pnpm override — clears the high-severity advisory GHSA-gv7w-rqvm-qjhr (esbuild's Deno module fetched its native binary without integrity verification → RCE via `NPM_CONFIG_REGISTRY`; affected `>=0.17.0 <0.28.1`) that `pnpm audit --audit-level=high` was failing CI on repo-wide. esbuild is a transitive build dependency (Vite / Nuxt tooling); all instances collapse to a single 0.28.1. The path was already unreachable here (Node-only project, and `allowBuilds: esbuild: false` blocks esbuild's install script) — the override clears the audit gate and adds defense-in-depth (#196)
+* **deps:** pin `form-data` to `>=4.0.6` and `vite` to `>=7.3.5 <8` via pnpm overrides — clears two high-severity advisories that `pnpm audit --audit-level=high` began failing CI on repo-wide (form-data GHSA-hmw2-7cc7-3qxx: unsafe random boundary, `<4.0.6`; vite GHSA-fx2h-pf6j-xcff: `server.fs.deny` bypass on Windows, `>=7.0.0 <=7.3.4`). Both are transitive docs/build tooling (`docs` → … → axios / vite), not in the published `@bitrix24/b24jssdk*` packages; vite is capped below the v8 major so it stays a `7.3.3 → 7.3.5` patch (#199)
 
 ### Chore
 

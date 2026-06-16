@@ -199,7 +199,7 @@ Before propagating a new operator / endpoint / pattern from VibeCode docs into a
 
 | Check | Source of truth |
 |---|---|
-| Does `actions.v3.*` support this method? | `packages/jssdk/src/core/version-manager.ts:21-44` (`#supportMethods` list) |
+| Does `actions.v3.*` support this method? | `packages/jssdk/src/core/version-manager.ts` — the `#supportMethods` array |
 | What's the v3 filter syntax? | `skills/b24jssdk-filtering/SKILL.md` (the v3 section) |
 | What's the v2 filter syntax / prefix list? | `skills/b24jssdk-filtering/SKILL.md` (the v2 table) |
 | What's the actions API call shape? | `test/integration/js-docs/actions-v{2,3}.spec.ts` |

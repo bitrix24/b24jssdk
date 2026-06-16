@@ -8,14 +8,22 @@ import { ParseRow } from './interaction/batch/parse-row'
 import { SdkError } from './sdk-error'
 
 /**
- * @todo add docs ??
+ * Decides which REST API version (v2 or v3) a method is routed through:
+ * v3 only for methods on the published allowlist (`#supportMethods`); everything
+ * else falls back to v2.
  */
 class VersionManager {
   #supportMethods: string[]
 
   constructor() {
     /**
-     * get from https://{portal}/rest/api/{user_id}/{webhook}/documentation
+     * Mirrors the methods published under Bitrix24 REST v3 (per the module pages
+     * of apidocs rest-v3). Absences are intentional — a module exposes only what
+     * is published (e.g. `timeman` is read-only in v3: no `record.get` / `add` /
+     * `update`). Entries WITHOUT a `// done` marker are routed but not yet verified
+     * end-to-end against a live portal in this SDK.
+     *
+     * Source of truth: https://{portal}/rest/api/{user_id}/{webhook}/documentation
      * @see https://apidocs.bitrix24.com/api-reference/rest-v3/index.html#openapi
      */
     this.#supportMethods = [
@@ -106,7 +114,7 @@ class VersionManager {
       '/tasks.task.chat.message.field.list',
       '/tasks.task.chat.message.field.get',
 
-      // --- timeman (rest-v3) ---
+      // --- timeman (rest-v3) — read-only in v3 (no record.get / add / update / delete) ---
       '/timeman.record.list',
       '/timeman.record.field.list',
       '/timeman.record.field.get'
@@ -119,11 +127,11 @@ class VersionManager {
       //   disk.storage.getchildren / disk.folder.getchildren            — disk module (seen on tasks)
       //
       // @todo When API.v3 arrives - change in AuthOAuthManager.initIsAdmin()
-      // '/profile' // waite
-      // '/main.message.get' // waite
-      // '/main.chat.update' // waite
-      // '/main.chat.list' // waite
-      // '/main.user.list' // waite
+      // '/profile' // wait
+      // '/main.message.get' // wait
+      // '/main.chat.update' // wait
+      // '/main.chat.list' // wait
+      // '/main.user.list' // wait
     ]
   }
 

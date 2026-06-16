@@ -23,6 +23,7 @@
 * **ci:** a release now runs through a single `release.yml` — one CI invocation instead of two, then `@bitrix24/b24jssdk` and `@bitrix24/b24jssdk-nuxt` publish sequentially (core first, since the Nuxt module depends on the released core version) behind a combined status gate, so a partial release turns the run red instead of passing unnoticed. Replaces the two separate `npm-publish-*` workflows; CI also gained an `actionlint` gate so workflow errors are caught on PRs (#177)
 * **ci:** the docs site is built once per push to `main` — `deploy.yml` is removed and its Pages build + deploy fold into `ci.yml` (the `docs-build` job uploads the Pages artifact; a new `deploy` job ships it), eliminating the duplicate `docs:generate` that previously ran in both workflows on every main push. PRs still validate the docs build (#111)
 * **docs:** add a [`RELEASING.md`](RELEASING.md) runbook — the bump → changelog → tag → publish flow (single `release.yml`, npm OIDC trusted publishing, partial-release recovery) plus a bus-factor/handover checklist, so cutting a release is no longer tribal knowledge — though the account-level items (a second npm publisher and a `CODEOWNERS` file) still need a repo/org admin (#171)
+* **ci:** `release.yml` now publishes pre-release versions (e.g. `1.3.0-rc.1`) under the `next` dist-tag instead of `latest`, so a pre-release can't move `npm install` consumers off the last stable release; stable releases are unaffected (#198)
 
 ## [1.2.0](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.2.0) (2026-05-29)
 

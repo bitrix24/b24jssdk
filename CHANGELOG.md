@@ -25,6 +25,7 @@
 * **ci:** the docs site is built once per push to `main` — `deploy.yml` is removed and its Pages build + deploy fold into `ci.yml` (the `docs-build` job uploads the Pages artifact; a new `deploy` job ships it), eliminating the duplicate `docs:generate` that previously ran in both workflows on every main push. PRs still validate the docs build (#111)
 * **docs:** add a [`RELEASING.md`](RELEASING.md) runbook — the bump → changelog → tag → publish flow (single `release.yml`, npm OIDC trusted publishing, partial-release recovery) plus a bus-factor/handover checklist, so cutting a release is no longer tribal knowledge — though the account-level items (a second npm publisher and a `CODEOWNERS` file) still need a repo/org admin (#171)
 * **ci:** `release.yml` now publishes pre-release versions (e.g. `1.3.0-rc.1`) under the `next` dist-tag instead of `latest`, so a pre-release can't move `npm install` consumers off the last stable release; stable releases are unaffected (#198)
+* **test(docs-lint):** add fixture coverage for `scripts/docs-link-check.mjs` — the last untested script in the docs-lint pipeline. Valid internal/index/heading-fragment/frontmatter links pass; a missing page, a missing frontmatter `to:` target, and a missing heading fragment each fail the check. The script gained a `DOCS_LINK_CHECK_ROOT` override so the tests run against a temp fixture instead of the live docs tree (#118)
 
 ## [1.2.0](https://github.com/bitrix24/b24jssdk/compare/v1.1.2...v1.2.0) (2026-05-29)
 

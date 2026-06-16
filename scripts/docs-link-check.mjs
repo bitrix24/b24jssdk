@@ -7,7 +7,9 @@ import { walkMarkdownFiles, parseFrontmatter } from './_docs-utils.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
-const DOCS_ROOT = join(REPO_ROOT, 'docs', 'content', 'docs')
+const DOCS_ROOT = process.env.DOCS_LINK_CHECK_ROOT
+  ? resolve(process.env.DOCS_LINK_CHECK_ROOT)
+  : join(REPO_ROOT, 'docs', 'content', 'docs')
 const URL_PREFIX = '/docs/'
 
 let errors = 0

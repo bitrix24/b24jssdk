@@ -48,12 +48,12 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 
 | Fact | Source |
 |---|---|
-| v3-supported method whitelist (only ~9 methods today) | `packages/jssdk/src/core/version-manager.ts:21-44` |
+| v3-supported method whitelist (~79 methods: infrastructure, `main.eventlog.*`, `mail.*`, `humanresources.*`, `tasks.task.*`, `timeman.record.*`) | `packages/jssdk/src/core/version-manager.ts` — the `#supportMethods` array |
 | `actions.v{2,3}.call.make` returns `Promise<AjaxResult<T>>`; access with `res.getData()!.result.<key>` | `core/actions/v{2,3}/call.ts`, `test/integration/js-docs/actions-v{2,3}.spec.ts` |
 | `actions.v{2,3}.callList.make` strips user-supplied `order` and forces `{ [idKey]: 'ASC' }` | `core/actions/v2/call-list.ts:77-87`, v3 equivalent at `core/actions/v3/call-list.ts:77-87` |
 | Default `idKey` is `'ID'` for v2 (uppercase), `'id'` for v3 (lowercase) | `core/actions/v2/call-list.ts:72`, `core/actions/v3/call-list.ts:72` |
 | `crm.item.list` is v2, response is `{ items: [...] }` → needs `customKeyForResult: 'items'` + `idKey: 'id'` | `test/integration/js-docs/actions-v2.spec.ts:41-65` |
-| `tasks.task.add/get/update/delete` are v3 | `core/version-manager.ts:34-37` |
+| `tasks.task.*` are v3 (add/get/update/delete, `result.*`, `*.field.*`) | `core/version-manager.ts` — the `#supportMethods` array |
 | v3 filter dialect: array of `[field, op, value]` or `[field, value]` triples; 8 operators only (`=`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `between`); no `like`/`%` | `skills/b24jssdk-filtering/SKILL.md` (the v3 section) |
 | v2 filter dialect: prefix-keyed object — `'>=createdTime'`, `'!stageId'`, `'%title'`, `'=%title'` | `test/integration/js-docs/actions-v2.spec.ts:46-49`, `core/actions/v2/call-list.ts:81-86` |
 | Date format: `Text.toB24Format(date)` → `yyyy-MM-dd'T'HH:mm:ssZZ` | `tools/text.ts:213-226` |
@@ -67,9 +67,9 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 ## Open questions / unresolved
 
 ### 1. v3 method whitelist will grow — when do we re-balance recipes?
-Today only `tasks.task.{add,get,update,delete,…}` and `main.eventlog.*` are on v3. The whitelist is owned by Bitrix24 and will expand. When `crm.item.list` arrives on v3, several recipes (1, 3, 4, 6, 7, 9) should be moved to `actions.v3.*` — but the **filter dialect changes from prefix-keyed to array-of-triples** at the same time. That's a meaningful rewrite, not a renaming.
+As of #203 the v3 whitelist covers `tasks.task.*`, `main.eventlog.*`, `mail.*`, `humanresources.*`, and `timeman.record.*`. The whitelist is owned by Bitrix24 and will keep expanding. When `crm.item.list` arrives on v3, several recipes (1, 3, 4, 6, 7, 9) should be moved to `actions.v3.*` — but the **filter dialect changes from prefix-keyed to array-of-triples** at the same time. That's a meaningful rewrite, not a renaming.
 
-Action item for the next weekly review: grep `version-manager.ts:#supportMethods` for new entries.
+Action item for the next weekly review: check `version-manager.ts` `#supportMethods` for new entries (the recipes still use `crm.*`, which remains v2).
 
 ### 2. Aggregate action (`actions.v3.aggregate`) not exposed in the SDK yet
 The v3 protocol supports `aggregate` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). The SDK currently does not expose a typed `aggregate.make` action. Recipe 1 (CRM analytics) loads all deals into memory and aggregates client-side — when an `aggregate` action lands, the recipe becomes a one-call query.

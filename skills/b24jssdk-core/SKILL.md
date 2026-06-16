@@ -229,6 +229,9 @@ When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth in
 | Profile / users | `profile`, `user.get`, `user.current` | v2 |
 | IM | `im.notify`, `im.message.add` | v2 |
 | Event log | `main.eventlog.{list,get,tail}` | **v3** |
+| Mail | `mail.mailbox.*`, `mail.message.*`, `mail.recipient.*` | **v3** |
+| Org structure (HR) | `humanresources.node.*`, `humanresources.employee.*` | **v3** |
+| Time tracking | `timeman.record.*` (read-only) | **v3** |
 
 > Calling a v3-eligible method through `actions.v2.*` works but logs a warning (`JSSDK_CORE_METHOD_AVAILABLE_IN_API_V3`). Move it to v3 when convenient.
 

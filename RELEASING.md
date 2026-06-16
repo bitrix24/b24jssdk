@@ -1,6 +1,6 @@
 # Releasing `@bitrix24/b24jssdk`
 
-<sub>Last reviewed: 2026-06-15.</sub>
+<sub>Last reviewed: 2026-06-16.</sub>
 
 How to cut a release of the two published packages — `@bitrix24/b24jssdk` (core
 SDK) and `@bitrix24/b24jssdk-nuxt` (Nuxt module). They ship **in lockstep at one

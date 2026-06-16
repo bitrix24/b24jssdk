@@ -11,12 +11,15 @@ Every example uses `$b24` of type `TypeB24`, so the same code runs on `B24Hook`,
 
 ## Pick the API version
 
-The SDK exposes both `v2` and `v3` under `$b24.actions`. **v3 only works for a small whitelist of methods** (see the whitelist in `packages/jssdk/src/core/version-manager.ts`):
+The SDK exposes both `v2` and `v3` under `$b24.actions`. **v3 works only for a curated whitelist of methods** — the source of truth is the `#supportMethods` array in `packages/jssdk/src/core/version-manager.ts` (it grows as Bitrix24 publishes more v3 methods):
 
-| v3-supported methods | All other Bitrix24 methods |
+| v3-supported method families | All other Bitrix24 methods |
 |---|---|
-| `tasks.task.{add,get,update,delete,chat.message.send,access.get,file.attach}` | use **v2** |
-| `main.eventlog.{list,get,tail}` | |
+| `tasks.task.*` — `add`, `get`, `update`, `delete`, `result.*`, `access.*`, `file.*`, `chat.message.*`, plus `*.field.list`/`field.get` | use **v2** |
+| `mail.*` — `mailbox.*`, `message.*`, `recipient.*` | |
+| `humanresources.*` — `node.*`, `employee.*` | |
+| `timeman.record.*` — read-only (`list`, `field.*`) | |
+| `main.eventlog.*` | |
 | `batch`, `scopes`, `rest.scope.list`, `rest.documentation.openapi`, `documentation` | |
 
 Rule of thumb:

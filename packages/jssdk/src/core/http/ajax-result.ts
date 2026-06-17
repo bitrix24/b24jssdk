@@ -167,10 +167,10 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
 
   /**
    * @deprecated Will be removed in `2.0.0`. Tied to the `restApi:v2` envelope
-   *   field `total`, which `restApi:v3` does not return. For `restApi:v3` the
-   *   SDK exposes element counts via the `aggregate` action (`count` /
-   *   `countDistinct`); for `restApi:v2` use the list helpers, which iterate
-   *   without exposing `total`.
+   *   field `total`, which `restApi:v3` does not return. `restApi:v3` has no
+   *   element-count replacement yet — an `aggregate` action (`count` /
+   *   `countDistinct`) is planned but not exposed in the SDK; for `restApi:v2`
+   *   use the list helpers, which iterate without exposing `total`.
    *
    * @removed 2.0.0
    */

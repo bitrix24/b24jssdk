@@ -53,7 +53,7 @@ filter: { '!stageId': ['LOST', 'WON'] }
 
 ## v3 — array of triples
 
-Used by `$b24.actions.v3.{call,callList,fetchList,aggregate}.make({ params: { filter: ... }})`. The filter is a JSON **array**, each element is a condition.
+Used by `$b24.actions.v3.{call,callList,fetchList}.make({ params: { filter: ... }})`. The filter is a JSON **array**, each element is a condition.
 
 ```ts
 filter: [

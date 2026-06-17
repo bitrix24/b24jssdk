@@ -46,6 +46,9 @@ jobs:
       - name: Check guide internal links (AGENTS.md + .github/contributing)
         run: node scripts/md-internal-links.mjs
 
+      - name: Check v3 action/method references (docs + skills)
+        run: node scripts/check-v3-method-refs.mjs
+
       - name: Test docs-lint scripts
         run: node --test "scripts/__tests__/**/*.test.mjs"
 

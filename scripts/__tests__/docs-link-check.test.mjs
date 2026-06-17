@@ -179,5 +179,7 @@ test('docs-link-check: a relative ./ or ../ link is rejected (#102)', () => {
     const r = runDocsLinkCheck(root)
     assert.equal(r.status, 1, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
     assert.match(r.stdout, /relative link/)
+    assert.match(r.stdout, /\.\.\/guide\/intro/)
+    assert.match(r.stdout, /\.\/sibling/)
   })
 })

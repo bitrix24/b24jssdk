@@ -17,6 +17,7 @@
 * **ci(docs):** add `markdownlint` + an internal-link check over `AGENTS.md` and `.github/contributing/*.md` (permissive config; a renamed/moved link target now fails CI). The link check immediately caught 7 stale `../../.claude/skills/*` links, repointed to `skills/*` (#54)
 * **dx:** `contributing:typecheck` and `docs:typecheck-blocks` now fail with an actionable "run `pnpm run dev:prepare`" message instead of a cryptic `TS2307` when the SDK types haven't been built yet (#109)
 * **test(contributing):** compile-check the high-value contributing-guide snippets — the `LoggerFactory.forcedLog` four-arg deprecation pattern, the `B24Hook` quick-start, and the public `Result` type — each with a "Compile-checked example" footnote so drift turns red in CI (#108)
+* **ci(docs):** `docs-lint` now errors on a frontmatter `links:` `blob/main/` target whose file is missing (catches renamed/deleted source links — #117), and `docs-link-check` rejects relative `./`/`../` links in `docs/content/docs/` — internal cross-page links must be site-absolute `/docs/…` (#102)
 
 ## [1.3.0](https://github.com/bitrix24/b24jssdk/compare/v1.2.0...v1.3.0) (2026-06-16)
 

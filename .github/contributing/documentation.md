@@ -71,7 +71,9 @@ links:
 | `restApiVersion` | for action pages | `rest-api-ver2` or `rest-api-ver3` — drives the `::rest-api-version-only` filter |
 | `links` | yes for API pages | Each entry points to the source file backing this page. Always include the primary class plus `Result`/`AjaxResult`/`AjaxError`/`SdkError` when relevant |
 
-The `links` block is how readers (and agents) jump from a doc page to the implementation. **Keep these links accurate** — every page in `2.working-with-the-rest-api/` already follows this pattern, copy from the closest existing page.
+The `links` block is how readers (and agents) jump from a doc page to the implementation. **Keep these links accurate** — every page in `2.working-with-the-rest-api/` already follows this pattern, copy from the closest existing page. CI enforces this: a `blob/main/` target in `links:` whose file no longer exists fails the `docs-lint` job (#117).
+
+**In-page links must be site-absolute.** Link to another doc page with an absolute route (`[Call v3](/docs/working-with-the-rest-api/call-rest-api-ver3/)`), never a relative `./` or `../` path — relative links silently fail to resolve in Nuxt Content and are rejected by CI (#102).
 
 ## Page Structure
 

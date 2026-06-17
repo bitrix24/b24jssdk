@@ -1,109 +1,44 @@
+import { readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { createResolver } from '@nuxt/kit'
 import pkg from '../package.json'
 import { withoutTrailingSlash } from 'ufo'
 
 const { resolve } = createResolver(import.meta.url)
 
-// Hand-maintained — keep in sync with docs/content/docs/**. A page absent here has
-// no /raw/<page>.md route and 404s for LLM/agent consumers (crawlLinks only finds
-// HTML). TODO(#96): replace with a filesystem-driven generator + CI guard so this
-// can't silently drift again (it has now drifted twice — see #95, #165).
-const pages = [
-  // region getting-started ////
-  '/docs/getting-started/',
-  '/docs/getting-started/installation/vue/',
-  '/docs/getting-started/installation/nuxt/',
-  '/docs/getting-started/installation/react/',
-  '/docs/getting-started/installation/nodejs/',
-  '/docs/getting-started/installation/umd/',
-  '/docs/getting-started/migration/v1/',
-  '/docs/getting-started/ai/llms-txt/',
-  '/docs/getting-started/ai/skills/',
-  // endregion ////
-  // region working-with-the-rest-api ////
-  '/docs/working-with-the-rest-api/',
-  '/docs/working-with-the-rest-api/call-rest-api-ver2/',
-  '/docs/working-with-the-rest-api/call-rest-api-ver3/',
-  '/docs/working-with-the-rest-api/call-list-rest-api-ver2/',
-  '/docs/working-with-the-rest-api/call-list-rest-api-ver3/',
-  '/docs/working-with-the-rest-api/fetch-list-rest-api-ver2/',
-  '/docs/working-with-the-rest-api/fetch-list-rest-api-ver3/',
-  '/docs/working-with-the-rest-api/batch-rest-api-ver2/',
-  '/docs/working-with-the-rest-api/batch-rest-api-ver3/',
-  '/docs/working-with-the-rest-api/batch-by-chunk-rest-api-ver2/',
-  '/docs/working-with-the-rest-api/batch-by-chunk-rest-api-ver3/',
-  '/docs/working-with-the-rest-api/choosing-the-right-method/',
-  '/docs/working-with-the-rest-api/errors/',
-  '/docs/working-with-the-rest-api/tools-health-check/',
-  '/docs/working-with-the-rest-api/tools-ping/',
-  '/docs/working-with-the-rest-api/logger/',
-  '/docs/working-with-the-rest-api/logger-telegram/',
-  '/docs/working-with-the-rest-api/limiters/',
-  '/docs/working-with-the-rest-api/logging/',
-  '/docs/working-with-the-rest-api/frame/',
-  '/docs/working-with-the-rest-api/frame-auth/',
-  '/docs/working-with-the-rest-api/frame-dialog/',
-  '/docs/working-with-the-rest-api/frame-initialize-b24-frame/',
-  '/docs/working-with-the-rest-api/frame-parent/',
-  '/docs/working-with-the-rest-api/frame-placement/',
-  '/docs/working-with-the-rest-api/frame-options/',
-  '/docs/working-with-the-rest-api/frame-slider/',
-  // hook / oauth entry points
-  '/docs/working-with-the-rest-api/hook/',
-  '/docs/working-with-the-rest-api/oauth/',
-  // helper managers
-  '/docs/working-with-the-rest-api/helper/',
-  '/docs/working-with-the-rest-api/helper-use-b24-helper/',
-  '/docs/working-with-the-rest-api/helper-app-manager/',
-  '/docs/working-with-the-rest-api/helper-profile-manager/',
-  '/docs/working-with-the-rest-api/helper-currency-manager/',
-  '/docs/working-with-the-rest-api/helper-payment-manager/',
-  '/docs/working-with-the-rest-api/helper-license-manager/',
-  '/docs/working-with-the-rest-api/helper-options-manager/',
-  // pull client
-  '/docs/working-with-the-rest-api/pull/',
-  // core types
-  '/docs/working-with-the-rest-api/core-result/',
-  '/docs/working-with-the-rest-api/core-ajax-result/',
-  '/docs/working-with-the-rest-api/core-http/',
-  '/docs/working-with-the-rest-api/core-lang-list/',
-  '/docs/working-with-the-rest-api/core-request-id-generator/',
-  // tools
-  '/docs/working-with-the-rest-api/tools-browser/',
-  '/docs/working-with-the-rest-api/tools-text/',
-  '/docs/working-with-the-rest-api/tools-type/',
-  '/docs/working-with-the-rest-api/tools-use-formatters/',
-  // types
-  '/docs/working-with-the-rest-api/types-iresult/',
-  '/docs/working-with-the-rest-api/types-type-b24/',
-  // telemetry / error codes
-  '/docs/working-with-the-rest-api/telemetry/',
-  '/docs/working-with-the-rest-api/error-codes/',
-  // endregion ////
-  // region examples ////
-  '/docs/examples/',
-  '/docs/examples/dashboard-deals-csv/',
-  '/docs/examples/frame-app-skeleton/',
-  '/docs/examples/webhook-cli-node/',
-  '/docs/examples/bulk-update-deals/',
-  '/docs/examples/pull-subscribe-frame/',
-  '/docs/examples/crm-analytics/',
-  '/docs/examples/mass-messaging/',
-  '/docs/examples/task-automation/',
-  '/docs/examples/erp-sync/',
-  '/docs/examples/disk-files/',
-  '/docs/examples/telegram-bot/',
-  '/docs/examples/webhook-handler/',
-  '/docs/examples/ai-assistant/',
-  '/docs/examples/web-search-llm/',
-  '/docs/examples/error-handling/',
-  '/docs/examples/event-registration/',
-  '/docs/examples/oauth-install/',
-  '/docs/examples/entity-list/',
-  '/docs/examples/app-installation-wizard/',
-  '/docs/examples/node-hook-company-export/'
-  // endregion ////
-]
+// Prerender list is derived from the filesystem (#96) so a new page can't be
+// forgotten and silently 404 on the /raw/<page>.md path (crawlLinks only finds
+// HTML). Each content page becomes one route, slugged the way Nuxt Content builds
+// the URL: strip the `NN.` nav-order prefix from every path segment, and map a
+// directory's `index` file to the directory route. The list was hand-maintained
+// before and drifted twice (#95, #165).
+function buildDocsPages(): string[] {
+  const root = resolve('content/docs')
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        return walk(full)
+      }
+      return entry.name.endsWith('.md') ? [full] : []
+    })
+  return walk(root)
+    .map((file) => {
+      const segments = file
+        .slice(root.length + 1)
+        .replace(/\.md$/, '')
+        .split(/[/\\]/)
+        .map(segment => segment.replace(/^\d+\./, ''))
+      if (segments.at(-1) === 'index') {
+        segments.pop()
+      }
+      const path = segments.length > 0 ? `${segments.join('/')}/` : ''
+      return `/docs/${path}`
+    })
+    .sort()
+}
+
+const pages = buildDocsPages()
 
 /**
  * @memo need add for iframe examples

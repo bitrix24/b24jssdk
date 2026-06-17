@@ -49,6 +49,9 @@ jobs:
       - name: Test docs-lint scripts
         run: node --test "scripts/__tests__/**/*.test.mjs"
 
+      - name: Check v3 action/method references (docs + skills)
+        run: node scripts/check-v3-method-refs.mjs
+
       - name: Lint GitHub Actions workflows (actionlint)
         # Catches workflow mistakes (bad expressions, job/needs wiring, shell
         # issues via shellcheck on the runner) on every PR — the publish path in

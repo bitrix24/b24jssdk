@@ -157,6 +157,8 @@ console.log(result.getData().result)
 
 > Compile-checked example: [`documentation-b24hook-example.ts`](../../test/some-code-from-docs/contributing/documentation-b24hook-example.ts)
 
+> **CI guard:** the `docs-lint` job runs [`scripts/check-v3-method-refs.mjs`](../../scripts/check-v3-method-refs.mjs), which blocks examples that call a non-existent `actions.v3.*` action or a v3 method missing from the SDK whitelist. For a deliberate "this throws" / anti-pattern snippet, opt the fence out by putting `<!-- v3-check-ignore: reason -->` on the line directly above it. (Separate from `// @check-ignore`, which skips the `docs:typecheck-blocks` TypeScript pass.)
+
 ### Steps
 
 ```md

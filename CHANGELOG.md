@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Chore
+
+* **ci:** split the single `release.yml` back into two sibling publish workflows — `npm-publish-js-sdk.yml` (`@bitrix24/b24jssdk`) and `npm-publish-js-sdk-nuxt.yml` (`@bitrix24/b24jssdk-nuxt`). npm OIDC trusted publishing keys each package's Trusted Publisher entry to one exact workflow filename, and both were registered under these two names; the consolidated `release.yml` (#194) therefore failed the OIDC token exchange with a 404 (`ERR_PNPM_AUTH_TOKEN_EXCHANGE`) and fell back to an unauthenticated publish that npm rejected. The two workflows keep all of `release.yml`'s guards (version lockstep, tag-match, already-published, Nuxt `__SDK_VERSION__` replacement, `next` dist-tag for pre-releases, SHA-pinned actions, and the Pages-permission grant on the reused `ci.yml`). Re-consolidating later requires a repo/org admin to first repoint both packages' Trusted Publisher filename on npm — documented in `RELEASING.md`
+
 ## [1.3.0](https://github.com/bitrix24/b24jssdk/compare/v1.2.0...v1.3.0) (2026-06-16)
 
 ### Features

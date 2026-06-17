@@ -247,15 +247,6 @@ importers:
       '@nuxt/kit':
         specifier: ^4.4.6
         version: 4.4.6(magicast@0.5.3)
-      axios:
-        specifier: ^1.15.2
-        version: 1.16.1
-      luxon:
-        specifier: ^3.7.2
-        version: 3.7.2
-      qs-esm:
-        specifier: ^8.0.1
-        version: 8.0.1
     devDependencies:
       '@nuxt/devtools':
         specifier: ^3.2.4
@@ -266,9 +257,6 @@ importers:
       '@nuxt/schema':
         specifier: ^4.4.6
         version: 4.4.6
-      '@types/luxon':
-        specifier: ^3.7.1
-        version: 3.7.1
       '@types/node':
         specifier: ^25.3.0
         version: 25.9.1

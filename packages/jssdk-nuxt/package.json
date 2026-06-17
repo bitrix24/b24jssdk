@@ -50,13 +50,9 @@
   },
   "dependencies": {
     "@nuxt/kit": "^4.4.6",
-    "@bitrix24/b24jssdk": "workspace:*",
-    "axios": "^1.15.2",
-    "qs-esm": "^8.0.1",
-    "luxon": "^3.7.2"
+    "@bitrix24/b24jssdk": "workspace:*"
   },
   "devDependencies": {
-    "@types/luxon": "^3.7.1",
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/module-builder": "^1.0.2",
     "unbuild": "^3.6.0",

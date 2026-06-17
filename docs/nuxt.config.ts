@@ -4,6 +4,10 @@ import { withoutTrailingSlash } from 'ufo'
 
 const { resolve } = createResolver(import.meta.url)
 
+// Hand-maintained — keep in sync with docs/content/docs/**. A page absent here has
+// no /raw/<page>.md route and 404s for LLM/agent consumers (crawlLinks only finds
+// HTML). TODO(#96): replace with a filesystem-driven generator + CI guard so this
+// can't silently drift again (it has now drifted twice — see #95, #165).
 const pages = [
   // region getting-started ////
   '/docs/getting-started/',
@@ -14,6 +18,7 @@ const pages = [
   '/docs/getting-started/installation/umd/',
   '/docs/getting-started/migration/v1/',
   '/docs/getting-started/ai/llms-txt/',
+  '/docs/getting-started/ai/skills/',
   // endregion ////
   // region working-with-the-rest-api ////
   '/docs/working-with-the-rest-api/',
@@ -43,6 +48,37 @@ const pages = [
   '/docs/working-with-the-rest-api/frame-placement/',
   '/docs/working-with-the-rest-api/frame-options/',
   '/docs/working-with-the-rest-api/frame-slider/',
+  // hook / oauth entry points
+  '/docs/working-with-the-rest-api/hook/',
+  '/docs/working-with-the-rest-api/oauth/',
+  // helper managers
+  '/docs/working-with-the-rest-api/helper/',
+  '/docs/working-with-the-rest-api/helper-use-b24-helper/',
+  '/docs/working-with-the-rest-api/helper-app-manager/',
+  '/docs/working-with-the-rest-api/helper-profile-manager/',
+  '/docs/working-with-the-rest-api/helper-currency-manager/',
+  '/docs/working-with-the-rest-api/helper-payment-manager/',
+  '/docs/working-with-the-rest-api/helper-license-manager/',
+  '/docs/working-with-the-rest-api/helper-options-manager/',
+  // pull client
+  '/docs/working-with-the-rest-api/pull/',
+  // core types
+  '/docs/working-with-the-rest-api/core-result/',
+  '/docs/working-with-the-rest-api/core-ajax-result/',
+  '/docs/working-with-the-rest-api/core-http/',
+  '/docs/working-with-the-rest-api/core-lang-list/',
+  '/docs/working-with-the-rest-api/core-request-id-generator/',
+  // tools
+  '/docs/working-with-the-rest-api/tools-browser/',
+  '/docs/working-with-the-rest-api/tools-text/',
+  '/docs/working-with-the-rest-api/tools-type/',
+  '/docs/working-with-the-rest-api/tools-use-formatters/',
+  // types
+  '/docs/working-with-the-rest-api/types-iresult/',
+  '/docs/working-with-the-rest-api/types-type-b24/',
+  // telemetry / error codes
+  '/docs/working-with-the-rest-api/telemetry/',
+  '/docs/working-with-the-rest-api/error-codes/',
   // endregion ////
   // region examples ////
   '/docs/examples/',
@@ -62,7 +98,10 @@ const pages = [
   '/docs/examples/web-search-llm/',
   '/docs/examples/error-handling/',
   '/docs/examples/event-registration/',
-  '/docs/examples/oauth-install/'
+  '/docs/examples/oauth-install/',
+  '/docs/examples/entity-list/',
+  '/docs/examples/app-installation-wizard/',
+  '/docs/examples/node-hook-company-export/'
   // endregion ////
 ]
 
@@ -333,14 +372,14 @@ export default defineNuxtConfig({
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '/docs/working-with-the-rest-api/%' }
         ]
+      },
+      {
+        title: 'Examples',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '/docs/examples/%' }
+        ]
       }
-      // {
-      //   title: 'Examples',
-      //   contentCollection: 'docs',
-      //   contentFilters: [
-      //     { field: 'path', operator: 'LIKE', value: '/docs/examples/%' }
-      //   ]
-      // }
     ],
     notes: [
       'The content is automatically generated from the same source as the official documentation.'

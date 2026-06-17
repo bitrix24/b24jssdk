@@ -35,4 +35,19 @@ export default createConfigForNuxt({
     'packages/jssdk/src/pullClient/protobuf/*.js',
     '.claude/**'
   ]
+}).append({
+  // Defence-in-depth against re-introducing the #39/#40 webhook-secret leak:
+  // forbid passing a URL- or credential-shaped variable as a value in a logger
+  // context object inside the HTTP layer. Log the bare REST method name (not the
+  // formatted URL) and let redactSensitiveParams() handle params. (#42)
+  files: ['packages/jssdk/src/core/http/**/*.ts'],
+  rules: {
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector: 'CallExpression[callee.property.name=/^(debug|info|warning|error|notice|log|forcedLog)$/] Property[value.type="Identifier"][value.name=/[Uu]rl|methodFormatted|[Pp]assword|[Ss]ecret|[Tt]oken/]',
+        message: 'Do not pass a URL/credential-shaped variable into a logger context object — it may carry the webhook secret (#39/#40). Log the bare REST method name (not methodFormatted); let redactSensitiveParams() handle params. Add `// eslint-disable-next-line no-restricted-syntax` with a reason for a genuine false positive.'
+      }
+    ]
+  }
 })

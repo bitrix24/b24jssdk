@@ -2,7 +2,7 @@
 
 <sub>Last reviewed: 2026-06-17.</sub>
 
-> **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/) are validated by `pnpm run skills:typecheck` against the built SDK types. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
+> **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
 
 Tests use Vitest and run against a **real Bitrix24 portal**. The suite validates REST API contracts — a passing mocked test would defeat its purpose. **Never mock REST responses** (with one narrow exception, see [No-mock policy](#what-tests-do-not-do)).
 

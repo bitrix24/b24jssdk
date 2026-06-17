@@ -19,21 +19,33 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { resolve, dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// MD_INTERNAL_LINKS_ROOT overrides the scan root (used by the fixture tests).
+const ROOT = process.env.MD_INTERNAL_LINKS_ROOT
+  ? resolve(process.env.MD_INTERNAL_LINKS_ROOT)
+  : resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 function targetFiles() {
-  const files = [join(ROOT, 'AGENTS.md')]
+  const files = []
+  const agents = join(ROOT, 'AGENTS.md')
+  if (existsSync(agents)) {
+    files.push(agents)
+  }
   const contribDir = join(ROOT, '.github', 'contributing')
-  for (const name of readdirSync(contribDir).sort()) {
-    if (name.endsWith('.md')) {
-      files.push(join(contribDir, name))
+  if (existsSync(contribDir)) {
+    for (const name of readdirSync(contribDir).sort()) {
+      if (name.endsWith('.md')) {
+        files.push(join(contribDir, name))
+      }
     }
   }
   return files
 }
 
+// Strip fenced code (a run of ≥3 backticks closed by the same length, so a
+// ```` ```` ```` block can wrap nested ``` fences) and inline code, so
+// illustrative snippets don't produce false positives.
 function stripCode(md) {
-  return md.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '')
+  return md.replace(/(`{3,})[\s\S]*?\1/g, '').replace(/`[^`\n]*`/g, '')
 }
 
 // [text](target) and ![alt](target); capture up to ) or whitespace (drops a "title")

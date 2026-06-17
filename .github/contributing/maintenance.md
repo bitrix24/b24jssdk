@@ -123,7 +123,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 - Keep multi-funnel awareness wherever stage names appear (`baseStage()` helper).
 - Dates → `Text.toB24Format(date)`.
 - v3 entities (`crm.item.*`) need `idKey: 'id'` + `customKeyForResult: 'items'` for `callList`/`fetchList`. Classic methods (`crm.deal.list`, `tasks.task.list`) use uppercase `'ID'` and either omit `customKeyForResult` or use the right key (`'tasks'`, `'files'`, etc.).
-- For new recipes: file goes under `.claude/skills/b24jssdk-recipes/examples/NN-name.ts` and gets a row in the SKILL.md table.
+- For new recipes: file goes under `skills/b24jssdk-recipes/examples/NN-name.ts` and gets a row in the SKILL.md table.
 
 ## 5. Maintenance commit protocol
 

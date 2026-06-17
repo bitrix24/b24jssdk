@@ -1,8 +1,8 @@
 # Transports and Results
 
-<sub>Last reviewed: 2026-05-29.</sub>
+<sub>Last reviewed: 2026-06-17.</sub>
 
-> **Agent-facing mirror:** the same area, viewed from the angle of agents writing usage code, lives in [`.claude/skills/b24jssdk-rest/SKILL.md`](../../.claude/skills/b24jssdk-rest/SKILL.md), [`.claude/skills/b24jssdk-filtering/SKILL.md`](../../.claude/skills/b24jssdk-filtering/SKILL.md), and [`.claude/skills/b24jssdk-core/SKILL.md`](../../.claude/skills/b24jssdk-core/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
+> **Agent-facing mirror:** the same area, viewed from the angle of agents writing usage code, lives in [`skills/b24jssdk-rest/SKILL.md`](../../skills/b24jssdk-rest/SKILL.md), [`skills/b24jssdk-filtering/SKILL.md`](../../skills/b24jssdk-filtering/SKILL.md), and [`skills/b24jssdk-core/SKILL.md`](../../skills/b24jssdk-core/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
 
 These are the SDK's "design tokens" — the cross-cutting types and policies that every transport-touching change has to follow. Read this before adding HTTP code paths, error types, or limiter logic.
 
@@ -40,6 +40,8 @@ async function load(): Promise<Result> {
   return new Result(payload)
 }
 ```
+
+> Compile-checked example: [`transports-and-results-result-type.ts`](../../test/some-code-from-docs/contributing/transports-and-results-result-type.ts)
 
 Callers consume it through the action surface (`b24.actions.vX.<action>.make({ ... })`):
 
@@ -250,6 +252,8 @@ Every transport / limiter holds a `LoggerInterface` (the public abstraction from
     { class: 'Foo', method: 'bar', replacement: 'Foo.baz()', removalVersion: 'X.Y.Z' }
   )
   ```
+
+  > Compile-checked example: [`package-structure-deprecation-warning.ts`](../../test/some-code-from-docs/contributing/package-structure-deprecation-warning.ts) (shared with package-structure.md)
 
   Context key is `removalVersion`, not `removeInVersion`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (look for `@deprecated` + `@removed` + `forcedLog`).
 - New warnings or errors must be mentioned in the relevant docs page so users can recognise them.

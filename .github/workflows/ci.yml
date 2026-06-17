@@ -43,6 +43,9 @@ jobs:
       - name: Check docs internal links
         run: node scripts/docs-link-check.mjs
 
+      - name: Check guide internal links (AGENTS.md + .github/contributing)
+        run: node scripts/md-internal-links.mjs
+
       - name: Test docs-lint scripts
         run: node --test "scripts/__tests__/**/*.test.mjs"
 
@@ -129,6 +132,9 @@ jobs:
 
       - name: Lint
         run: pnpm run lint
+
+      - name: Lint guide Markdown (markdownlint)
+        run: pnpm run lint:md
 
   typecheck:
     needs: prepare

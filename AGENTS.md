@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-06-16.</sub>
+<sub>Last reviewed: 2026-06-17.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -177,6 +177,7 @@ Cutting a release (bump → changelog → tag → publish) is documented in **[R
 - **Code formatting**: `@nuxt/eslint-config` (flat) with stylistic overrides — 2-space indent, no trailing commas, 1tbs braces. `.editorconfig` enforces LF + 2 spaces. The protobuf JS files in `packages/jssdk/src/pullClient` are eslint-ignored intentionally.
 - **Build tokens**: `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced at build time by [packages/jssdk/build.config.ts](packages/jssdk/build.config.ts); the Nuxt module's `meta.version` uses the same `__SDK_VERSION__` token via [packages/jssdk-nuxt/build.config.ts](packages/jssdk-nuxt/build.config.ts). Do not hard-code versions.
 - **Pinned Actions**: third-party GitHub Actions in `.github/workflows/` are pinned to a full commit SHA with a `# vX.Y.Z` comment — a moved or compromised mutable tag on a publish-privileged action is a supply-chain risk (#152). Dependabot (weekly, grouped) bumps the SHAs; don't introduce `@vN` tag refs in new steps.
+- **No secrets in logs**: inside `packages/jssdk/src/core/http/**`, never pass a URL- or credential-shaped variable into a logger context object — log the bare REST method name (not the formatted URL) and let `redactSensitiveParams()` handle params. A scoped `no-restricted-syntax` ESLint rule enforces this against the #39/#40 webhook-secret-leak class; use `// eslint-disable-next-line no-restricted-syntax` with a reason for a genuine exception (#42).
 - **English only** in code, comments, and documentation pages.
 
 ## SDK Source (`packages/jssdk/src/` and `test/`)

@@ -1,8 +1,8 @@
 # Package Structure
 
-<sub>Last reviewed: 2026-06-12.</sub>
+<sub>Last reviewed: 2026-06-17.</sub>
 
-> **Agent-facing mirror:** the published surface from the angle of agents writing usage code lives in [`.claude/skills/b24jssdk-core/`](../../.claude/skills/b24jssdk-core/SKILL.md), [`b24jssdk-frame-ui/`](../../.claude/skills/b24jssdk-frame-ui/SKILL.md), and [`b24jssdk-helpers/`](../../.claude/skills/b24jssdk-helpers/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
+> **Agent-facing mirror:** the published surface from the angle of agents writing usage code lives in [`b24jssdk-core/`](../../skills/b24jssdk-core/SKILL.md), [`b24jssdk-frame-ui/`](../../skills/b24jssdk-frame-ui/SKILL.md), and [`b24jssdk-helpers/`](../../skills/b24jssdk-helpers/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
 
 How to author code inside `packages/jssdk/src/`. This is the published `@bitrix24/b24jssdk` surface — every change here ships to consumers.
 
@@ -125,6 +125,8 @@ export type { TypeMyPayload } from './types/payloads'
         }
       )
       ```
+
+      > Compile-checked example: [`package-structure-deprecation-warning.ts`](../../test/some-code-from-docs/contributing/package-structure-deprecation-warning.ts)
 
       The context key is `removalVersion`, not `removeInVersion`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (search for `@deprecated` + `forcedLog`).
   3. **Both symbols ship together** for at least one minor release.

@@ -41,6 +41,8 @@ async function load(): Promise<Result> {
 }
 ```
 
+> Compile-checked example: [`transports-and-results-result-type.ts`](../../test/some-code-from-docs/contributing/transports-and-results-result-type.ts)
+
 Callers consume it through the action surface (`b24.actions.vX.<action>.make({ ... })`):
 
 ```ts
@@ -250,6 +252,8 @@ Every transport / limiter holds a `LoggerInterface` (the public abstraction from
     { class: 'Foo', method: 'bar', replacement: 'Foo.baz()', removalVersion: 'X.Y.Z' }
   )
   ```
+
+  > Compile-checked example: [`package-structure-deprecation-warning.ts`](../../test/some-code-from-docs/contributing/package-structure-deprecation-warning.ts) (shared with package-structure.md)
 
   Context key is `removalVersion`, not `removeInVersion`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (look for `@deprecated` + `@removed` + `forcedLog`).
 - New warnings or errors must be mentioned in the relevant docs page so users can recognise them.

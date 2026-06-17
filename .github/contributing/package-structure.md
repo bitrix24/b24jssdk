@@ -126,6 +126,8 @@ export type { TypeMyPayload } from './types/payloads'
       )
       ```
 
+      > Compile-checked example: [`package-structure-deprecation-warning.ts`](../../test/some-code-from-docs/contributing/package-structure-deprecation-warning.ts)
+
       The context key is `removalVersion`, not `removeInVersion`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (search for `@deprecated` + `forcedLog`).
   3. **Both symbols ship together** for at least one minor release.
 

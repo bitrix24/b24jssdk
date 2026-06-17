@@ -269,7 +269,7 @@ res.getQuery()              // { method, params, requestId }
 
 Removed from the public surface for `2.0.0`:
 - `isMore()`, `hasMore()` — was tied to v2 envelope `next`
-- `getTotal()` — was tied to v2 envelope `total`. For v3 use `actions.v3.aggregate.make` with `count` / `countDistinct`.
+- `getTotal()` — was tied to v2 envelope `total`. **No v3 count replacement yet**: an `aggregate` action (`count` / `countDistinct`) is planned but not exposed in the SDK.
 - `getNext()`, `fetchNext()` — replaced by `callList.make` / `fetchList.make`
 
 ## Null result is passthrough
@@ -322,7 +322,7 @@ For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `soft
 ## Anti-patterns
 
 - ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 2.0.0. Use the actions API.
-- ❌ `res.getTotal()` / `res.isMore()` / `res.getNext()` — `@deprecated`, throw on v3. Use `callList` / `fetchList` for paging, `aggregate` (v3) for counts.
+- ❌ `res.getTotal()` / `res.isMore()` / `res.getNext()` — `@deprecated`, throw on v3. Use `callList` / `fetchList` for paging; v3 has **no count replacement yet** (an `aggregate` action is planned but not exposed).
 - ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — throws because `crm.item.get` is not in the v3 whitelist (yet).
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.
 - ❌ `customKeyForResult: 'result'` for `crm.item.list` — wrong, use `'items'`. Otherwise you'll get an empty list silently.

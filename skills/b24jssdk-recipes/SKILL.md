@@ -103,4 +103,4 @@ npx tsx examples/01-crm-analytics.ts
 
 ## Cross-reference
 
-For v3 wire-level details (filter grammar, aggregate functions, batch `$ref`/`$refArray`, cursor pagination), use the `b24jssdk-rest` and `b24jssdk-filtering` skills.
+For v3 wire-level details (filter grammar, batch `$ref`/`$refArray`, cursor pagination), use the `b24jssdk-rest` and `b24jssdk-filtering` skills.

@@ -33,6 +33,17 @@ const TMP_DIR = join(CHECK_DIR, 'tmp')
 const TSCONFIG_PATH = join(CHECK_DIR, 'tsconfig.json')
 const TSC_BIN = join(REPO_ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
 
+// SDK types live in dist/, produced by `pnpm run dev:prepare`. Without them the
+// generated blocks fail with a cryptic TS2307 — guard with an actionable message (#109).
+if (!existsSync(join(REPO_ROOT, 'packages', 'jssdk', 'dist', 'esm', 'index.d.ts'))) {
+  process.stderr.write(
+    '\n[docs:typecheck-blocks] @bitrix24/b24jssdk types not found'
+    + ' (packages/jssdk/dist/esm/index.d.ts).\n'
+    + 'Run  pnpm run dev:prepare  first to build the SDK types, then re-run.\n\n'
+  )
+  process.exit(1)
+}
+
 const IS_CI = process.env.GITHUB_ACTIONS === 'true'
 
 let errors = 0

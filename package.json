@@ -49,7 +49,7 @@
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration --project jsSdk:contributing-snippets",
     "package-jssdk:test-contributing-snippets": "vitest run --project jsSdk:contributing-snippets",
-    "contributing:typecheck": "tsc --noEmit -p test/some-code-from-docs/contributing/tsconfig.json",
+    "contributing:typecheck": "node scripts/contributing-typecheck.mjs",
     "package-jssdk:test-integration-js-docs": "vitest -t \"js-docs\" --project jsSdk:integration",
     "package-jssdk:test-integration-core": "vitest -t \"core\" --project jsSdk:integration",
     "package-jssdk:test:run-underLoad-v3-call": "vitest run -t \"tasksTaskGet @apiV3\" --project jsSdk:underLoad",

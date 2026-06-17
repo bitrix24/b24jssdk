@@ -1,0 +1,13 @@
+{
+  "$comment": "Permissive markdownlint config for AGENTS.md + .github/contributing/*.md (#54). Goal: catch real defects (broken headings, empty links, bad heading increments) WITHOUT forcing a style sweep. Rules that fire on current content — and would only churn diffs — are disabled; everything else stays on default to guard new edits.",
+  "default": true,
+  "MD013": false,
+  "MD060": false,
+  "MD040": false,
+  "MD033": false,
+  "MD022": false,
+  "MD031": false,
+  "MD032": false,
+  "MD038": false,
+  "MD012": false
+}

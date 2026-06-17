@@ -116,6 +116,19 @@ function extractInternalLinksFromBody(body) {
   return out
 }
 
+function extractRelativeLinksFromBody(body) {
+  // Nuxt Content internal links must be site-absolute (/docs/…). A ./ or ../
+  // relative target silently fails to resolve at build time. (#102)
+  // Like extractInternalLinksFromBody, this does NOT strip fenced code, so a
+  // markdown link with a relative target shown inside a ```code``` example would
+  // be flagged too — fine today (no such examples); revisit if one is ever needed.
+  const re = /\]\((\.\.?\/[^\s)"]*)\)/g
+  const out = []
+  let m
+  while ((m = re.exec(body)) !== null) out.push(m[1])
+  return out
+}
+
 function extractInternalLinksFromLinksArray(linksArray) {
   // The frontmatter `links:` array is parsed into raw entry strings like
   // "label: Foo\niconName: GitHubIcon\nto: /docs/foo/". Pull each `to:` line
@@ -168,6 +181,10 @@ function main() {
           `broken fragment in link "${link}" — "#${fragment}" is not a heading on ${targetUrl}`
         )
       }
+    }
+
+    for (const rel of extractRelativeLinksFromBody(body)) {
+      logError(file, `relative link "${rel}" — docs links must be site-absolute (/docs/…), not ./ or ../`)
     }
   }
 

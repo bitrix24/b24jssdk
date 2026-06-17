@@ -20,6 +20,16 @@
  *      a fence opts it out — for deliberate "this throws" / anti-pattern examples.
  *
  * The allowlist is parsed straight from the source so it can never go stale.
+ *
+ * Known scope limits (low-risk today; tighten if the docs grow — tracked as a
+ * follow-up):
+ *   - only call/callList/fetchList are method-checked; batch/batchByChunk take
+ *     nested call arrays (not a top-level `method:`), so their methods aren't
+ *     validated here.
+ *   - the method is matched within ~400 chars of its `.make({`, so a method placed
+ *     after a very long `params` block could be missed.
+ *   - method names in prose / inline code aren't checked (only fenced TS); phantom
+ *     actions (layer 1) are checked everywhere.
  */
 
 import { readFileSync, readdirSync } from 'node:fs'
@@ -36,13 +46,19 @@ const REAL_ACTIONS = [...V3_ACTIONS].join(' / ')
 // Illustrative, non-real method names that legitimately appear in snippets.
 const PLACEHOLDER = /^(?:some|your|my|the|example|any)\.|[<>…*]/
 
+// Parse the v3 allowlist straight from source — no build needed, so this runs in
+// the dist-free docs-lint CI job. Assumptions (true today): `#supportMethods` is a
+// single array literal of `'/method'` string literals, closed by a `]` on its own
+// line. A shared exported allowlist would be sturdier — see the follow-up.
 function loadWhitelist() {
   const src = readFileSync(join(ROOT, 'packages/jssdk/src/core/version-manager.ts'), 'utf8')
   const start = src.indexOf('#supportMethods = [')
   if (start === -1) {
     throw new Error('check-v3-method-refs: could not find #supportMethods in version-manager.ts')
   }
-  const block = src.slice(start, src.indexOf(']', start))
+  const rest = src.slice(start)
+  const close = rest.search(/\n[ \t]*\]/) // closing bracket on its own line, not a `]` inside a comment/value
+  const block = close === -1 ? rest : rest.slice(0, close)
   const methods = new Set()
   for (const line of block.split('\n')) {
     const code = line.replace(/\/\/.*$/, '') // drop line comments (commented-out entries + `// done`)

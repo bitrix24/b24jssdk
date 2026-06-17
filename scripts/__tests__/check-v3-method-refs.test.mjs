@@ -16,7 +16,7 @@ const SCRIPT = resolve(__dirname, '..', 'check-v3-method-refs.mjs')
 
 const WHITELIST_SRC = [
   'class VersionManager {',
-  '  #supportMethods = [',
+  '  this.#supportMethods = [',
   '    \'/tasks.task.get\', // done',
   '    \'/tasks.task.add\',',
   '    // \'/profile\' // wait — commented out, must NOT count',
@@ -119,6 +119,35 @@ test('a non-whitelisted method passed to v2 (not v3) is ignored', () => {
     'docs/content/docs/v2.md': [
       '```ts',
       'await $b24.actions.v2.call.make({ method: \'crm.deal.add\', params: {} })',
+      '```'
+    ].join('\n')
+  }, (root) => {
+    const r = runCheck(root)
+    assert.equal(r.status, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+  })
+})
+
+test('a commented-out whitelist entry does not count as supported', () => {
+  withFixture({
+    'docs/content/docs/profile.md': [
+      '```ts',
+      'await $b24.actions.v3.call.make({ method: \'profile\' })',
+      '```'
+    ].join('\n')
+  }, (root) => {
+    const r = runCheck(root)
+    assert.equal(r.status, 1, `stdout:\n${r.stdout}`)
+    assert.match(r.stdout, /profile/)
+  })
+})
+
+test('v3-check-ignore with a blank line before the fence still suppresses', () => {
+  withFixture({
+    'docs/content/docs/ignore-gap.md': [
+      '<!-- v3-check-ignore: deliberate throw -->',
+      '',
+      '```ts',
+      'await $b24.actions.v3.call.make({ method: \'crm.deal.add\' })',
       '```'
     ].join('\n')
   }, (root) => {

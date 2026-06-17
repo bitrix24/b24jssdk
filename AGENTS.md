@@ -165,7 +165,7 @@ pnpm vitest run --project jsSdk:unit -t "<test name>"
 
 ### Releasing
 
-Cutting a release (bump → changelog → tag → publish) is documented in **[RELEASING.md](RELEASING.md)**. In brief: `pnpm run release:bump <version>` sets all three `package.json` files in lockstep (+ refreshes the lockfile), and publishing a GitHub Release on the `v<version>` tag triggers [`.github/workflows/release.yml`](.github/workflows/release.yml), which runs CI once and publishes `@bitrix24/b24jssdk` then `@bitrix24/b24jssdk-nuxt` (sequential, core first) behind a combined status gate. Publishing uses npm OIDC trusted publishing — there is no `NPM_TOKEN` to manage.
+Cutting a release (bump → changelog → tag → publish) is documented in **[RELEASING.md](RELEASING.md)**. In brief: `pnpm run release:bump <version>` sets all three `package.json` files in lockstep (+ refreshes the lockfile), and publishing a GitHub Release on the `v<version>` tag triggers two sibling workflows — [`npm-publish-js-sdk.yml`](.github/workflows/npm-publish-js-sdk.yml) (`@bitrix24/b24jssdk`) and [`npm-publish-js-sdk-nuxt.yml`](.github/workflows/npm-publish-js-sdk-nuxt.yml) (`@bitrix24/b24jssdk-nuxt`) — each running CI then publishing its package. Publishing uses npm OIDC trusted publishing — there is no `NPM_TOKEN` to manage. The two files exist because each package's npm Trusted Publisher entry is keyed to one exact workflow filename; see RELEASING.md for the consolidation path.
 
 ## Key Conventions
 

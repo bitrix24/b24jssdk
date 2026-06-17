@@ -1,14 +1,24 @@
 # Releasing `@bitrix24/b24jssdk`
 
-<sub>Last reviewed: 2026-06-16.</sub>
+<sub>Last reviewed: 2026-06-17.</sub>
 
 How to cut a release of the two published packages — `@bitrix24/b24jssdk` (core
 SDK) and `@bitrix24/b24jssdk-nuxt` (Nuxt module). They ship **in lockstep at one
 shared version**; there is no independent release of either package.
 
-Publishing is automated by [`.github/workflows/release.yml`](.github/workflows/release.yml).
-The human steps are: bump the version, finalise the changelog, tag, and publish a
-GitHub Release. The workflow does the rest.
+Publishing is automated by two sibling workflows —
+[`npm-publish-js-sdk.yml`](.github/workflows/npm-publish-js-sdk.yml) (core) and
+[`npm-publish-js-sdk-nuxt.yml`](.github/workflows/npm-publish-js-sdk-nuxt.yml)
+(Nuxt) — both triggered by a published GitHub Release. The human steps are: bump
+the version, finalise the changelog, tag, and publish a GitHub Release. The
+workflows do the rest.
+
+> **Why two workflows, not one `release.yml`?** npm OIDC trusted publishing keys
+> each package's Trusted Publisher entry to **one exact workflow filename**. The two
+> packages were registered under these two filenames, so a single `release.yml`
+> publishing both fails the OIDC token exchange with a 404 (`ERR_PNPM_AUTH_TOKEN_EXCHANGE`).
+> Folding them back into one file requires a repo/org admin to update the Trusted
+> Publisher filename on npm for both packages first — see [Handover](#handover-171).
 
 ## TL;DR
 
@@ -28,21 +38,25 @@ git push origin main
 
 Then, on GitHub: **Releases → Draft a new release →** create tag `v<version>`
 targeting `main`, paste the changelog section as the notes, and **Publish**. That
-fires `release.yml`, which runs CI once and publishes both packages.
+fires both publish workflows — each runs CI, then publishes its package.
 
 ## Prerequisites (per releaser)
 
 - **Push access to `main`** and rights to **create GitHub Releases**.
 - **npm** — publishing is via **OIDC trusted publishing**, not a personal token:
   - **One-time admin setup:** each package on npm (Settings → Publishing → Trusted
-    Publishers) must list `bitrix24/b24jssdk` + the `release.yml` workflow. If that
-    entry is missing, the publish step fails with a 401/403 — not something a
-    releaser can fix mid-run.
+    Publishers) must list `bitrix24/b24jssdk` + the **matching workflow filename** —
+    `npm-publish-js-sdk.yml` for `@bitrix24/b24jssdk`, `npm-publish-js-sdk-nuxt.yml`
+    for `@bitrix24/b24jssdk-nuxt`, with **Environment left empty** (the publish jobs
+    set no `environment:`). If the filename/environment doesn't match, the OIDC token
+    exchange fails with a 404 (`ERR_PNPM_AUTH_TOKEN_EXCHANGE`) and the publish step
+    falls back to an unauthenticated `PUT` that npm rejects — not something a releaser
+    can fix mid-run.
   - **Per releaser:** you need **no npm token or credential** on your machine — the
-    CI runner authenticates with a short-lived OIDC token (`release.yml` grants
-    `id-token: write` and sets no `NPM_TOKEN`/`NODE_AUTH_TOKEN`, so there is no
+    CI runner authenticates with a short-lived OIDC token (the publish jobs grant
+    `id-token: write` and set no `NPM_TOKEN`/`NODE_AUTH_TOKEN`, so there is no
     long-lived secret to rotate or leak).
-- A working **CI** — `release.yml` reuses `ci.yml` and will not publish if CI is red.
+- A working **CI** — each publish workflow reuses `ci.yml` and will not publish if CI is red.
 
 > ⚠️ **Bus factor (#171).** At least two people should hold the rights above, so a
 > security patch or release never blocks on one person being away. See
@@ -59,8 +73,8 @@ fires `release.yml`, which runs CI once and publishes both packages.
   `pnpm run release:bump` rewrites all three and refuses to run if they are already
   out of sync — resolve the drift by hand first, then retry.
 - **Pre-releases** (`1.3.0-rc.1`) bump cleanly — the script accepts a `-prerelease`
-  suffix — and publish safely: `release.yml` detects the `-` in the version and ships
-  the package under the **`next`** dist-tag instead of `latest`, so a plain
+  suffix — and publish safely: each publish workflow detects the `-` in the version
+  and ships the package under the **`next`** dist-tag instead of `latest`, so a plain
   `npm install` (which follows `latest`) stays on the last stable release. Promote a
   pre-release to stable later with `npm dist-tag add <pkg>@<version> latest`.
 
@@ -103,9 +117,11 @@ fires `release.yml`, which runs CI once and publishes both packages.
    / … subsections). Click **Publish release**. (Equivalently: `git tag v<version> && git push origin
    v<version>`, then publish a release from that existing tag.)
 
-6. **Watch the run.** Open Actions → **release 🚀**. It runs CI, then
-   `publish-jssdk`, then `publish-nuxt`, then the `release-status` gate. The gate is
-   green only if **both** packages published.
+6. **Watch the runs.** Open Actions. The release fires **both** workflows —
+   **NPM publish JS SDK 🚀** (`@bitrix24/b24jssdk`) and **NPM publish JS SDK Nuxt 🚀**
+   (`@bitrix24/b24jssdk-nuxt`). Each runs CI, then its `publish` job. Both must go
+   green; if one fails, the two packages can drift out of lockstep on npm (see
+   [If something goes wrong](#if-something-goes-wrong)).
 
 7. **Verify on npm.**
    ```bash
@@ -117,20 +133,27 @@ fires `release.yml`, which runs CI once and publishes both packages.
 
 8. **The docs site redeploys itself.** The `chore(release)` commit pushed to `main`
    in step 4 also triggers `ci.yml`, which redeploys the docs site to GitHub Pages
-   as part of normal CI — no manual action. (The CI *reused inside* `release.yml`
-   deliberately skips the deploy; the direct push to `main` is what ships the site.)
+   as part of normal CI — no manual action. (The CI *reused inside* each publish
+   workflow deliberately skips the deploy; the direct push to `main` is what ships
+   the site.)
 
-## What `release.yml` does
+## What the publish workflows do
 
-Triggered by a **published GitHub Release**, or by a manual **workflow_dispatch on
-`main`** (for a re-run). In order:
+Each is triggered by a **published GitHub Release**, or by a manual
+**workflow_dispatch on `main`** (for a re-run). In order, per workflow:
 
 | Job | What it does |
 |-----|--------------|
-| `ci` | Reuses [`ci.yml`](.github/workflows/ci.yml) — one full CI pass. A red CI stops the release. |
-| `publish-jssdk` | Publishes `@bitrix24/b24jssdk` (core first — the Nuxt module depends on it). |
-| `publish-nuxt` | `needs: publish-jssdk`. Publishes `@bitrix24/b24jssdk-nuxt`. |
-| `release-status` | `if: always()` gate — fails unless **both** publishes succeeded. |
+| `ci` | Reuses [`ci.yml`](.github/workflows/ci.yml) — one full CI pass. A red CI stops the publish. |
+| `publish` | Publishes the package (`@bitrix24/b24jssdk` or `@bitrix24/b24jssdk-nuxt`) via OIDC, after the guards below. |
+
+Both workflows fire on the same release event and run in parallel. The published
+Nuxt module depends on `@bitrix24/b24jssdk` at the released version, so in the brief
+window before the core publish lands an external `npm install` of the Nuxt module
+could miss the matching core version — the package contents are still correct (the
+build resolves core via the workspace). npm has no cross-package transaction, so
+this ordering gap is unavoidable while the two packages publish from separate
+trusted-publisher filenames.
 
 Each publish job guards itself before shipping:
 
@@ -139,17 +162,13 @@ Each publish job guards itself before shipping:
 - **not already published** (`npm view <pkg>@<ver>` must exit non-zero);
 - **`__SDK_VERSION__` token replaced** in the built Nuxt `module.mjs` (#119).
 
-npm has no cross-package transaction, so the design is the best achievable:
-**ordered + visible**, not atomic — a partial release turns the run red instead of
-passing unnoticed.
-
 ## If something goes wrong
 
 - **Partial release** (one package published, the other failed): fix the cause, then
-  use **Re-run failed jobs** in the Actions UI (it re-runs only the failed/skipped
-  jobs). Do **not** use *Re-run all jobs* — re-running `publish-jssdk` after it
-  already published trips the "already published" guard and fails. The
-  `release-status` error message says the same.
+  **re-run only the failed workflow** (Actions → the red workflow → *Re-run failed
+  jobs*, or *Run workflow* on `main`). The already-published package's own
+  "already published" guard would fail it, so never re-run the workflow that already
+  succeeded — re-run only the one that failed.
 - **CI failed before any publish:** nothing reached npm. Fix `main`, then re-cut
   (a fresh release, or `workflow_dispatch` on `main` once `main` is green).
 - **Wrong/broken version published:** npm does **not** allow re-publishing the same
@@ -167,6 +186,12 @@ is **not** code and must be done by a repo/org admin:
 - [ ] Add a **second npm publisher** to the `@bitrix24` packages' trusted-publisher
       config (and as a fallback maintainer), so releases survive one person being
       away.
+- [ ] *(Optional cleanup)* To re-consolidate publishing into a single `release.yml`,
+      first update the **Trusted Publisher workflow filename** on npm to `release.yml`
+      (Environment empty) for **both** `@bitrix24/b24jssdk` and
+      `@bitrix24/b24jssdk-nuxt`, then merge the two `npm-publish-*.yml` files back
+      into one. Without the npm-side change first, the consolidated workflow's OIDC
+      token exchange 404s.
 - [ ] Add a **second GitHub releaser** (push to `main` + create releases).
 - [ ] Add a **`CODEOWNERS`** file so reviews are routed and ownership is explicit.
 - [ ] Provision a shared/secondary integration-test environment (`.env.test`,

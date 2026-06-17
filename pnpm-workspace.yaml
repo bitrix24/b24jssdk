@@ -7,7 +7,7 @@ packages:
 
 overrides:
   fast-uri: '>=3.1.2'
-  hono: '>=4.12.18'
+  hono: '>=4.12.25'
   ip-address: '>=10.1.1'
   brace-expansion: '>=5.0.6'
   ws: '>=8.20.1'
@@ -16,6 +16,7 @@ overrides:
   esbuild: '>=0.28.1'
   form-data: '>=4.0.6'
   vite: '>=7.3.5 <8'
+  nuxt: '>=4.4.7'
 
 allowBuilds:
   '@parcel/watcher': false

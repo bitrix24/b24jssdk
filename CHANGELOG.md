@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Bug Fixes
+
+* **pull:** `PullClient.destroy()` now fully tears the client down — removes its `beforeunload` / `offline` / `online` window listeners, cancels all seven pending timers (including the self-rescheduling `pull.watch.extend` watch loop), and no longer schedules a reconnect on teardown. A destroyed client is inert: `updateWatch` / `scheduleReconnect` / `onOnline` / `connect` and every timer-arming path bail out, and `start()` rejects with `PULL_DISPOSED`. Previously only the check interval was cleared, so timers and window listeners survived `destroy()` and the client kept firing background REST and could reconnect after an explicit teardown — accumulating across SPA/Nuxt `destroyB24Helper()` cycles (#141)
+
 ### Security
 
 * **ci:** an ESLint `no-restricted-syntax` guard scoped to `packages/jssdk/src/core/http/**` now forbids passing a URL- or credential-shaped variable into a logger context object, blocking the #39/#40 webhook-secret-leak class at lint time — defence-in-depth alongside the existing runtime redaction test (#42)

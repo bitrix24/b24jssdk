@@ -111,10 +111,17 @@ export class PullClient implements ConnectorParent {
   // manual stop workaround ////
   private _isManualDisconnect: boolean = false
 
+  // set once destroy() has run; gates reconnect / watch / online so a torn-down
+  // client never schedules new work (#141) ////
+  private _disposed: boolean = false
+
   private _loggingEnabled: boolean = false
 
-  // bound event handlers ////
+  // bound event handlers, stored so they can be removed in destroy() (#141) ////
   private _onPingTimeoutHandler: () => void
+  private _onBeforeUnloadHandler: () => void
+  private _onOfflineHandler: () => void
+  private _onOnlineHandler: () => void
 
   // [userId] => array of callbacks
   private _userStatusCallbacks: Record<number, UserStatusCallback[]> = {}
@@ -216,6 +223,9 @@ export class PullClient implements ConnectorParent {
 
     // bound event handlers ////
     this._onPingTimeoutHandler = this.onPingTimeout.bind(this)
+    this._onBeforeUnloadHandler = this.onBeforeUnload.bind(this)
+    this._onOfflineHandler = this.onOffline.bind(this)
+    this._onOnlineHandler = this.onOnline.bind(this)
   }
 
   setLogger(logger: LoggerInterface): void {
@@ -233,13 +243,33 @@ export class PullClient implements ConnectorParent {
     return this._logger
   }
 
+  /**
+   * Terminal teardown: removes the window listeners, cancels every pending timer,
+   * persists the session for a quick re-init, and disconnects. Irreversible — a
+   * destroyed client schedules no further work and `start()` rejects with
+   * `PULL_DISPOSED`; create a new instance to reconnect.
+   */
   destroy(): void {
+    this._disposed = true
+
     this.stop(CloseReasons.NORMAL_CLOSURE, 'manual stop')
 
-    this.onBeforeUnload()
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', this._onBeforeUnloadHandler)
+      window.removeEventListener('offline', this._onOfflineHandler)
+      window.removeEventListener('online', this._onOnlineHandler)
+    }
+
+    // Save the session for a quick re-init, but — unlike onBeforeUnload — do NOT
+    // schedule a reconnect: the client is being torn down (#141).
+    this.persistSession()
   }
 
   private init(): void {
+    if (this._disposed) {
+      return
+    }
+
     this._connectors.webSocket = new WebSocketConnector({
       parent: this,
       onOpen: this.onWebSocketOpen.bind(this),
@@ -260,9 +290,11 @@ export class PullClient implements ConnectorParent {
       ? ConnectionType.WebSocket
       : ConnectionType.LongPolling
 
-    window.addEventListener('beforeunload', this.onBeforeUnload.bind(this))
-    window.addEventListener('offline', this.onOffline.bind(this))
-    window.addEventListener('online', this.onOnline.bind(this))
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', this._onBeforeUnloadHandler)
+      window.addEventListener('offline', this._onOfflineHandler)
+      window.addEventListener('online', this._onOnlineHandler)
+    }
 
     /**
      * @memo Not use under Node.js
@@ -514,7 +546,11 @@ export class PullClient implements ConnectorParent {
   }
 
   /**
+   * Connects the client and begins receiving events.
+   *
    * @param config
+   * @throws Rejects with `{ ex: { error: 'PULL_DISPOSED' } }` when called after
+   *   `destroy()` — a destroyed client cannot be restarted; create a new instance.
    */
   public async start(
     config:
@@ -523,6 +559,15 @@ export class PullClient implements ConnectorParent {
         skipReconnectToLastSession?: boolean
       }) = null
   ): Promise<boolean> {
+    if (this._disposed) {
+      return Promise.reject({
+        ex: {
+          error: 'PULL_DISPOSED',
+          error_description: 'PullClient has been destroyed; create a new instance'
+        }
+      })
+    }
+
     let allowConfigCaching = true
 
     if (this.isConnected()) {
@@ -610,6 +655,10 @@ export class PullClient implements ConnectorParent {
     disconnectCode: number | CloseReasons = CloseReasons.NORMAL_CLOSURE,
     disconnectReason: string = 'manual restart'
   ): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._restartTimeout) {
       clearTimeout(this._restartTimeout)
       this._restartTimeout = null
@@ -664,6 +713,36 @@ export class PullClient implements ConnectorParent {
     this.disconnect(disconnectCode, disconnectReason)
 
     this.stopCheckConfig()
+
+    this.clearAllTimers()
+  }
+
+  // Cancel every pending timer so a stopped/destroyed client leaves nothing
+  // running. Previously only _checkInterval was cleared, so the other six timers
+  // (including the self-rescheduling watch-extend) survived teardown (#141).
+  private clearAllTimers(): void {
+    for (const timer of [
+      this._reconnectTimeout,
+      this._restartTimeout,
+      this._restoreWebSocketTimeout,
+      this._offlineTimeout,
+      this._watchUpdateTimeout,
+      this._pingWaitTimeout
+    ]) {
+      if (timer) {
+        clearTimeout(timer)
+      }
+    }
+    if (this._checkInterval) {
+      clearInterval(this._checkInterval)
+    }
+    this._reconnectTimeout = null
+    this._restartTimeout = null
+    this._restoreWebSocketTimeout = null
+    this._offlineTimeout = null
+    this._watchUpdateTimeout = null
+    this._pingWaitTimeout = null
+    this._checkInterval = null
   }
 
   public reconnect(
@@ -1678,6 +1757,10 @@ export class PullClient implements ConnectorParent {
   }
 
   private startCheckConfig(): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._checkInterval) {
       clearInterval(this._checkInterval)
       this._checkInterval = null
@@ -1808,7 +1891,7 @@ export class PullClient implements ConnectorParent {
    * @param connectionDelay
    */
   private scheduleReconnect(connectionDelay: number = 0): void {
-    if (!this._enabled) {
+    if (this._disposed || !this._enabled) {
       return
     }
 
@@ -1855,6 +1938,10 @@ export class PullClient implements ConnectorParent {
   }
 
   private scheduleRestoreWebSocketConnection(): void {
+    if (this._disposed) {
+      return
+    }
+
     this.logToConsole(
       `Pull: scheduling restoration of websocket connection in ${RESTORE_WEBSOCKET_TIMEOUT} seconds`
     )
@@ -1873,7 +1960,7 @@ export class PullClient implements ConnectorParent {
    * @returns {Promise}
    */
   private async connect(): Promise<void> {
-    if (!this._enabled) {
+    if (this._disposed || !this._enabled) {
       return Promise.reject()
     }
     if (this.connector?.connected) {
@@ -1906,6 +1993,10 @@ export class PullClient implements ConnectorParent {
     disconnectReason: string,
     restartDelay: number = 0
   ): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._restartTimeout) {
       clearTimeout(this._restartTimeout)
       this._restartTimeout = null
@@ -2399,10 +2490,16 @@ export class PullClient implements ConnectorParent {
 
   // region Events.Status /////
   private onOffline(): void {
+    if (this._disposed) {
+      return
+    }
     this.disconnect(CloseReasons.NORMAL_CLOSURE, 'offline')
   }
 
   private onOnline(): void {
+    if (this._disposed) {
+      return
+    }
     this.connect().catch((error) => {
       this.getLogger().error('onOnline', { error })
     })
@@ -2411,6 +2508,15 @@ export class PullClient implements ConnectorParent {
   private onBeforeUnload(): void {
     this._unloading = true
 
+    this.persistSession()
+
+    this.scheduleReconnect(15)
+  }
+
+  // Persist the current session (with a short TTL) so a quick reload / re-init can
+  // resume it. Shared by onBeforeUnload and destroy() — destroy() saves WITHOUT
+  // scheduling a reconnect (#141).
+  private persistSession(): void {
     const session = Type.clone(this.session)
     session.ttl = Date.now() + LS_SESSION_CACHE_TIME * 1000
     if (this._storage) {
@@ -2427,8 +2533,6 @@ export class PullClient implements ConnectorParent {
         )
       }
     }
-
-    this.scheduleReconnect(15)
   }
 
   // endregion ////
@@ -2439,6 +2543,10 @@ export class PullClient implements ConnectorParent {
    * @param delay
    */
   private sendPullStatusDelayed(status: PullStatus, delay: number): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._offlineTimeout) {
       clearTimeout(this._offlineTimeout)
       this._offlineTimeout = null
@@ -2492,6 +2600,10 @@ export class PullClient implements ConnectorParent {
    * @param force
    */
   private updateWatch(force: boolean = false): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._watchUpdateTimeout) {
       clearTimeout(this._watchUpdateTimeout)
       this._watchUpdateTimeout = null
@@ -2549,6 +2661,10 @@ export class PullClient implements ConnectorParent {
   }
 
   private updatePingWaitTimeout(): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._pingWaitTimeout) {
       clearTimeout(this._pingWaitTimeout)
       this._pingWaitTimeout = null
@@ -2570,7 +2686,7 @@ export class PullClient implements ConnectorParent {
 
   private onPingTimeout(): void {
     this._pingWaitTimeout = null
-    if (!this._enabled || !this.isConnected()) {
+    if (this._disposed || !this._enabled || !this.isConnected()) {
       return
     }
 

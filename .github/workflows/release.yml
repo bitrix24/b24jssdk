@@ -26,6 +26,16 @@ concurrency:
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
+    # ci.yml's `deploy` job declares `pages: write` + `id-token: write`. A called
+    # reusable workflow cannot request more than its caller grants, and GitHub
+    # validates this at startup — before the job-level `if:` that skips `deploy`
+    # on a release is ever evaluated — so the run fails immediately with
+    # `startup_failure` unless the caller grants these here. `deploy` itself stays
+    # skipped during a release (its `if:` gates on `github.workflow == 'ci'`).
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
 
   publish-jssdk:
     needs: ci

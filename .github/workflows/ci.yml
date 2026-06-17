@@ -49,7 +49,8 @@ jobs:
       - name: Lint GitHub Actions workflows (actionlint)
         # Catches workflow mistakes (bad expressions, job/needs wiring, shell
         # issues via shellcheck on the runner) on every PR — the publish path in
-        # release.yml has no other gate. Pinned release asset, not a mutable tag.
+        # the npm-publish-*.yml workflows has no other gate. Pinned release asset,
+        # not a mutable tag.
         run: |
           ACTIONLINT_VERSION=1.7.7
           curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp actionlint
@@ -318,7 +319,8 @@ jobs:
   # Publishes the docs site to GitHub Pages, reusing the artifact built once by
   # docs-build (no second docs:generate). The `github.workflow == 'ci'` guard
   # makes it run only on a direct push / manual dispatch to main — never on PRs,
-  # and never when ci.yml is reused via workflow_call by release.yml. (#111)
+  # and never when ci.yml is reused via workflow_call by the npm-publish-*.yml
+  # release workflows. (#111)
   deploy:
     needs: docs-build
     if: github.workflow == 'ci' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')

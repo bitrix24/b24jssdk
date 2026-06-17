@@ -1,0 +1,123 @@
+name: NPM publish JS SDK 🚀
+
+# Publishes @bitrix24/b24jssdk (core) to npm via OIDC trusted publishing.
+#
+# This is a TOP-LEVEL workflow on purpose. npm's Trusted Publisher entry for the
+# package is keyed to this exact workflow filename (`npm-publish-js-sdk.yml`); the
+# OIDC token exchange 404s if the publishing job runs from any other file. The
+# Nuxt module publishes from its own sibling workflow (`npm-publish-js-sdk-nuxt.yml`)
+# for the same reason — each package trusts one filename, so the two cannot be
+# folded into a single `release.yml` without an npm-side config change.
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+# Least privilege: only the publish job mints an OIDC token (job-level below).
+permissions:
+  contents: read
+
+# Never run two core publishes at once; do NOT cancel an in-flight publish.
+concurrency:
+  group: npm-publish-js-sdk
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    # ci.yml's `deploy` job declares `pages: write` + `id-token: write`. A called
+    # reusable workflow cannot request more than its caller grants, and GitHub
+    # validates this at startup — before the job-level `if:` that skips `deploy`
+    # on a release is ever evaluated — so the run fails immediately with
+    # `startup_failure` unless the caller grants these here. `deploy` itself stays
+    # skipped during a release (its `if:` gates on `github.workflow == 'ci'`).
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    if: >
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Verify version lockstep across workspaces
+        shell: bash
+        run: |
+          ROOT=$(jq -r .version package.json)
+          SDK=$(jq -r .version packages/jssdk/package.json)
+          NUXT=$(jq -r .version packages/jssdk-nuxt/package.json)
+          if [ "$ROOT" != "$SDK" ] || [ "$ROOT" != "$NUXT" ]; then
+            echo "::error::Version mismatch: root=$ROOT jssdk=$SDK nuxt=$NUXT"
+            exit 1
+          fi
+          echo "All packages at version $ROOT"
+
+      - name: Verify package version matches release tag
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        shell: bash
+        run: |
+          EXPECTED="${TAG#v}"
+          ACTUAL=$(jq -r .version packages/jssdk/package.json)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Release tag $TAG (expected version $EXPECTED) does not match package.json version $ACTUAL"
+            exit 1
+          fi
+
+      - name: Verify version is not already published
+        shell: bash
+        run: |
+          PKG=$(jq -r .name packages/jssdk/package.json)
+          VER=$(jq -r .version packages/jssdk/package.json)
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "::error::$PKG@$VER is already published on npm"
+            exit 1
+          fi
+          echo "$PKG@$VER is not yet published — OK to proceed"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Install node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 'lts/*'
+          registry-url: 'https://registry.npmjs.org'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare
+        run: pnpm run dev:prepare
+
+      - name: Build
+        run: pnpm --filter ./packages/jssdk build
+
+      - name: 'Publish 🚀'
+        shell: bash
+        run: |
+          VER=$(jq -r .version packages/jssdk/package.json)
+          # A pre-release (e.g. 1.3.0-rc.1) must NOT take the default `latest`
+          # dist-tag, or every `npm install @bitrix24/b24jssdk` would jump onto the
+          # RC. Route pre-releases (version contains a `-`) to `next`; stable
+          # versions keep `latest`.
+          TAG_ARGS=()
+          if [[ "$VER" == *-* ]]; then
+            TAG_ARGS=(--tag next)
+            echo "Pre-release $VER → dist-tag 'next'"
+          else
+            echo "Stable $VER → dist-tag 'latest'"
+          fi
+          pnpm --filter ./packages/jssdk publish --no-git-checks "${TAG_ARGS[@]}"

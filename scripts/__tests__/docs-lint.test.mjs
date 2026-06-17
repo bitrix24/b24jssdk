@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseFrontmatter, walkMarkdownFiles, isFreshnessTrackedSource } from '../_docs-utils.mjs'
-import { checkAuditFreshness } from '../docs-lint.mjs'
+import { checkAuditFreshness, checkFrontmatterLinkTargets } from '../docs-lint.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..', '..')
@@ -143,6 +143,39 @@ test('checkAuditFreshness: a .md source never ages a page; a .ts source does', (
   assert.equal(warns.length, 1)
   assert.match(warns[0], /result\.ts/)
   assert.doesNotMatch(warns[0], /SKILL\.md/)
+})
+
+// ── checkFrontmatterLinkTargets (#117) ───────────────────────────────────
+
+test('checkFrontmatterLinkTargets: errors on a blob/main link whose file is gone', () => {
+  const frontmatter = {
+    links: [
+      'label: Live\nto: https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/src/core/result.ts',
+      'label: Gone\nto: https://github.com/bitrix24/b24jssdk/blob/main/packages/jssdk/src/core/deleted.ts'
+    ]
+  }
+  const errs = []
+  checkFrontmatterLinkTargets('page.md', frontmatter, {
+    exists: localPath => localPath.endsWith('result.ts'),
+    error: (_file, msg) => errs.push(msg)
+  })
+  assert.equal(errs.length, 1)
+  assert.match(errs[0], /deleted\.ts/)
+})
+
+test('checkFrontmatterLinkTargets: external and tree/ links are not checked', () => {
+  const frontmatter = {
+    links: [
+      'label: Ext\nto: https://example.com/whatever',
+      'label: Dir\nto: https://github.com/bitrix24/b24jssdk/tree/main/packages'
+    ]
+  }
+  const errs = []
+  checkFrontmatterLinkTargets('page.md', frontmatter, {
+    exists: () => false,
+    error: (_file, msg) => errs.push(msg)
+  })
+  assert.equal(errs.length, 0)
 })
 
 // ── docs-lint --strict end-to-end ────────────────────────────────────────

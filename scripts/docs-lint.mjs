@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, statSync } from 'node:fs'
+import { readFileSync, statSync, existsSync } from 'node:fs'
 import { join, resolve, relative, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -142,6 +142,19 @@ export function checkAuditFreshness(file, frontmatter, deps = {}) {
   }
 }
 
+// Frontmatter `links:` point at the source files a page documents. A renamed or
+// deleted target leaves a dead pointer that neither tsc nor the snippet checks
+// catch — error on any blob/main link whose file no longer exists (#117).
+export function checkFrontmatterLinkTargets(file, frontmatter, deps = {}) {
+  const exists = deps.exists || (localPath => existsSync(join(REPO_ROOT, localPath)))
+  const error = deps.error || ((f, m) => log('error', f, m))
+  for (const localPath of extractGithubLinkPaths(frontmatter.links || [])) {
+    if (!exists(localPath)) {
+      error(file, `frontmatter links: target "${localPath}" does not exist in the repo`)
+    }
+  }
+}
+
 // Threshold above which the number of @check-ignore markers triggers a warning.
 // The current baseline is 38 (as of v1.1.3). Raise deliberately when new
 // opt-outs are added; do not let this number creep up silently.
@@ -170,6 +183,7 @@ function main() {
       }
     }
     checkAuditFreshness(file, frontmatter)
+    checkFrontmatterLinkTargets(file, frontmatter)
   }
 
   const ignoreCount = countCheckIgnoreMarkers(files)

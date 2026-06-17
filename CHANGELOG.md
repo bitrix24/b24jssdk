@@ -2,9 +2,17 @@
 
 ## [Unreleased]
 
+### Security
+
+* **ci:** an ESLint `no-restricted-syntax` guard scoped to `packages/jssdk/src/core/http/**` now forbids passing a URL- or credential-shaped variable into a logger context object, blocking the #39/#40 webhook-secret-leak class at lint time — defence-in-depth alongside the existing runtime redaction test (#42)
+
 ### Chore
 
 * **ci:** split the single `release.yml` back into two sibling publish workflows — `npm-publish-js-sdk.yml` (`@bitrix24/b24jssdk`) and `npm-publish-js-sdk-nuxt.yml` (`@bitrix24/b24jssdk-nuxt`). npm OIDC trusted publishing keys each package's Trusted Publisher entry to one exact workflow filename, and both were registered under these two names; the consolidated `release.yml` (#194) therefore failed the OIDC token exchange with a 404 (`ERR_PNPM_AUTH_TOKEN_EXCHANGE`) and fell back to an unauthenticated publish that npm rejected. The two workflows keep all of `release.yml`'s guards (version lockstep, tag-match, already-published, Nuxt `__SDK_VERSION__` replacement, `next` dist-tag for pre-releases, SHA-pinned actions, and the Pages-permission grant on the reused `ci.yml`). Re-consolidating later requires a repo/org admin to first repoint both packages' Trusted Publisher filename on npm — documented in `RELEASING.md`
+* **deps(jssdk-nuxt):** drop phantom runtime deps `axios` / `qs-esm` / `luxon` (and the orphaned `@types/luxon`) — never imported by the module, which only wraps `@bitrix24/b24jssdk` (already owns them); lightens every Nuxt consumer's install (#180)
+* **ci(docs):** add `markdownlint` + an internal-link check over `AGENTS.md` and `.github/contributing/*.md` (permissive config; a renamed/moved link target now fails CI). The link check immediately caught 7 stale `../../.claude/skills/*` links, repointed to `skills/*` (#54)
+* **dx:** `contributing:typecheck` and `docs:typecheck-blocks` now fail with an actionable "run `pnpm run dev:prepare`" message instead of a cryptic `TS2307` when the SDK types haven't been built yet (#109)
+* **test(contributing):** compile-check the high-value contributing-guide snippets — the `LoggerFactory.forcedLog` four-arg deprecation pattern, the `B24Hook` quick-start, and the public `Result` type — each with a "Compile-checked example" footnote so drift turns red in CI (#108)
 
 ## [1.3.0](https://github.com/bitrix24/b24jssdk/compare/v1.2.0...v1.3.0) (2026-06-16)
 

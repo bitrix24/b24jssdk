@@ -115,12 +115,15 @@ describe('PullClient teardown (#141)', () => {
     const internal = client as any
     internal.init()
 
-    // Arm representative timers: the self-rescheduling watch-extend and a reconnect.
+    // Arm six of the seven timer-arming paths (the 7th, _offlineTimeout, needs a
+    // PullStatus). clearAllTimers() must cancel every one.
     internal.updateWatch(true)
     internal.scheduleReconnect(5)
-    expect(internal._watchUpdateTimeout).not.toBeNull()
-    expect(internal._reconnectTimeout).not.toBeNull()
-    expect(vi.getTimerCount()).toBeGreaterThan(0)
+    internal.scheduleRestart(1000, 'test', 5)
+    internal.scheduleRestoreWebSocketConnection()
+    internal.startCheckConfig()
+    internal.updatePingWaitTimeout()
+    expect(vi.getTimerCount()).toBeGreaterThanOrEqual(6)
 
     client.destroy()
 
@@ -155,5 +158,40 @@ describe('PullClient teardown (#141)', () => {
     const client = createClient()
     client.destroy()
     await expect(client.start()).rejects.toMatchObject({ ex: { error: 'PULL_DISPOSED' } })
+  })
+
+  it('a disposed client re-arms no timers and re-registers no listeners', () => {
+    const client = createClient()
+    const internal = client as any
+    internal.init()
+    client.destroy()
+
+    // Every timer-arming path — and init() — must no-op once disposed, even if a
+    // late connector callback reaches them after clearAllTimers() ran.
+    internal.updateWatch(true)
+    internal.scheduleReconnect(5)
+    internal.scheduleRestart(1000, 'test', 5)
+    internal.scheduleRestoreWebSocketConnection()
+    internal.startCheckConfig()
+    internal.updatePingWaitTimeout()
+    internal.onOnline()
+    internal.init()
+
+    expect(vi.getTimerCount()).toBe(0)
+    for (const field of TIMER_FIELDS) {
+      expect(internal[field], `${field} stays null`).toBeNull()
+    }
+    for (const type of WINDOW_EVENTS) {
+      expect(windowStub.added.get(type)?.size ?? 0, `no ${type} listener re-registered`).toBe(0)
+    }
+  })
+
+  it('destroy() is safe with no window (SSR/Node teardown)', () => {
+    const client = createClient()
+    const internal = client as any
+    internal.init()
+    delete (globalThis as any).window
+    expect(() => client.destroy()).not.toThrow()
+    expect(internal._disposed).toBe(true)
   })
 })

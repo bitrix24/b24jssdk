@@ -243,6 +243,12 @@ export class PullClient implements ConnectorParent {
     return this._logger
   }
 
+  /**
+   * Terminal teardown: removes the window listeners, cancels every pending timer,
+   * persists the session for a quick re-init, and disconnects. Irreversible — a
+   * destroyed client schedules no further work and `start()` rejects with
+   * `PULL_DISPOSED`; create a new instance to reconnect.
+   */
   destroy(): void {
     this._disposed = true
 
@@ -260,6 +266,10 @@ export class PullClient implements ConnectorParent {
   }
 
   private init(): void {
+    if (this._disposed) {
+      return
+    }
+
     this._connectors.webSocket = new WebSocketConnector({
       parent: this,
       onOpen: this.onWebSocketOpen.bind(this),
@@ -536,7 +546,11 @@ export class PullClient implements ConnectorParent {
   }
 
   /**
+   * Connects the client and begins receiving events.
+   *
    * @param config
+   * @throws Rejects with `{ ex: { error: 'PULL_DISPOSED' } }` when called after
+   *   `destroy()` — a destroyed client cannot be restarted; create a new instance.
    */
   public async start(
     config:
@@ -641,6 +655,10 @@ export class PullClient implements ConnectorParent {
     disconnectCode: number | CloseReasons = CloseReasons.NORMAL_CLOSURE,
     disconnectReason: string = 'manual restart'
   ): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._restartTimeout) {
       clearTimeout(this._restartTimeout)
       this._restartTimeout = null
@@ -1739,6 +1757,10 @@ export class PullClient implements ConnectorParent {
   }
 
   private startCheckConfig(): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._checkInterval) {
       clearInterval(this._checkInterval)
       this._checkInterval = null
@@ -1916,6 +1938,10 @@ export class PullClient implements ConnectorParent {
   }
 
   private scheduleRestoreWebSocketConnection(): void {
+    if (this._disposed) {
+      return
+    }
+
     this.logToConsole(
       `Pull: scheduling restoration of websocket connection in ${RESTORE_WEBSOCKET_TIMEOUT} seconds`
     )
@@ -1967,6 +1993,10 @@ export class PullClient implements ConnectorParent {
     disconnectReason: string,
     restartDelay: number = 0
   ): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._restartTimeout) {
       clearTimeout(this._restartTimeout)
       this._restartTimeout = null
@@ -2460,6 +2490,9 @@ export class PullClient implements ConnectorParent {
 
   // region Events.Status /////
   private onOffline(): void {
+    if (this._disposed) {
+      return
+    }
     this.disconnect(CloseReasons.NORMAL_CLOSURE, 'offline')
   }
 
@@ -2510,6 +2543,10 @@ export class PullClient implements ConnectorParent {
    * @param delay
    */
   private sendPullStatusDelayed(status: PullStatus, delay: number): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._offlineTimeout) {
       clearTimeout(this._offlineTimeout)
       this._offlineTimeout = null
@@ -2624,6 +2661,10 @@ export class PullClient implements ConnectorParent {
   }
 
   private updatePingWaitTimeout(): void {
+    if (this._disposed) {
+      return
+    }
+
     if (this._pingWaitTimeout) {
       clearTimeout(this._pingWaitTimeout)
       this._pingWaitTimeout = null
@@ -2645,7 +2686,7 @@ export class PullClient implements ConnectorParent {
 
   private onPingTimeout(): void {
     this._pingWaitTimeout = null
-    if (!this._enabled || !this.isConnected()) {
+    if (this._disposed || !this._enabled || !this.isConnected()) {
       return
     }
 

@@ -247,14 +247,16 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   #buildNextPageQuery(): AjaxQuery {
-    const result = { ...this._query }
-
     const payload = this._data as { next?: number }
     const nextValue = 'next' in payload ? payload.next : undefined
 
-    result.params.start = Text.toInteger(Text.toInteger(nextValue))
-
-    return result
+    // Fresh params object — the previous shallow `{ ...this._query }` shared the
+    // params reference and wrote `start` back into the frozen _query, so the
+    // previous result's getQuery().params silently changed after getNext() (#144).
+    return {
+      ...this._query,
+      params: { ...this._query.params, start: Text.toInteger(nextValue) }
+    }
   }
 
   // Immutable API

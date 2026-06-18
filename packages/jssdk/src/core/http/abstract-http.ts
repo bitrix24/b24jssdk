@@ -90,13 +90,15 @@ export abstract class AbstractHttp implements TypeHttp {
     this._requestIdGenerator = new RequestIdGenerator()
 
     this._clientAxios = axios.create({
-      headers: {
-        ...defaultHeaders,
-        ...(options ? (options as any).headers : {})
-      },
       timeout: 30_000,
       timeoutErrorMessage: 'Request timeout exceeded',
-      ...(options && { ...options, headers: undefined })
+      ...(options ?? {}),
+      // headers last so the merged default + caller headers aren't wiped by an
+      // `options.headers` (or the previous `headers: undefined`) spread (#144).
+      headers: {
+        ...defaultHeaders,
+        ...((options as any)?.headers ?? {})
+      }
     })
 
     /**
@@ -153,7 +155,7 @@ export abstract class AbstractHttp implements TypeHttp {
   } {
     return {
       ...this._restrictionManager.getStats(),
-      totalRequests: this._metrics.totalDuration,
+      totalRequests: this._metrics.totalRequests,
       successfulRequests: this._metrics.successfulRequests,
       failedRequests: this._metrics.failedRequests,
       totalDuration: this._metrics.totalDuration,
@@ -166,7 +168,7 @@ export abstract class AbstractHttp implements TypeHttp {
    * @inheritDoc
    */
   public async reset(): Promise<void> {
-    this._metrics.totalDuration = 0
+    this._metrics.totalRequests = 0
     this._metrics.successfulRequests = 0
     this._metrics.failedRequests = 0
     this._metrics.totalDuration = 0
@@ -296,7 +298,7 @@ export abstract class AbstractHttp implements TypeHttp {
         // Log the results
         this._logFailedRequest(requestId, method, attempt + 1, maxRetries, lastError)
 
-        if (attempt < maxRetries) {
+        if (attempt + 1 < maxRetries) {
           const waitTime = await this._restrictionManager.handleError(requestId, method, params, lastError, attempt)
           // We don't repeat if waitTime === 0
           if (waitTime > 0) {

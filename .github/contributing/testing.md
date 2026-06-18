@@ -1,6 +1,6 @@
 # Testing
 
-<sub>Last reviewed: 2026-06-17.</sub>
+<sub>Last reviewed: 2026-06-18.</sub>
 
 > **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
 

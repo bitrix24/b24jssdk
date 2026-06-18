@@ -10,7 +10,7 @@
 
 ### Security
 
-* **ci:** an ESLint `no-restricted-syntax` guard scoped to `packages/jssdk/src/core/http/**` now forbids passing a URL- or credential-shaped variable into a logger context object, blocking the #39/#40 webhook-secret-leak class at lint time — defence-in-depth alongside the existing runtime redaction test (#42)
+* **ci:** an ESLint `no-restricted-syntax` guard scoped to `packages/jssdk/src/core/http/**` forbids leaking a URL- or credential-shaped value into a logger context object — whether a bare variable (`{ url }`), a member access (`{ x: err.config.url }`), a spread of an axios `config`/`request`/`response`, or a value under a credential-shaped property key (`{ apiUrl: someVar }`) — blocking the #39/#40 webhook-secret-leak class at lint time, as defence-in-depth alongside the runtime redaction test. The guard's selectors are locked by a unit test that runs them through ESLint, so an edit that silently stops one from firing turns CI red (#42, #212)
 
 ### Chore
 
@@ -18,6 +18,7 @@
 * **deps(jssdk-nuxt):** drop phantom runtime deps `axios` / `qs-esm` / `luxon` (and the orphaned `@types/luxon`) — never imported by the module, which only wraps `@bitrix24/b24jssdk` (already owns them); lightens every Nuxt consumer's install (#180)
 * **ci(docs):** add `markdownlint` + an internal-link check over `AGENTS.md` and `.github/contributing/*.md` (permissive config; a renamed/moved link target now fails CI). The link check immediately caught 7 stale `../../.claude/skills/*` links, repointed to `skills/*` (#54)
 * **dx:** `contributing:typecheck` and `docs:typecheck-blocks` now fail with an actionable "run `pnpm run dev:prepare`" message instead of a cryptic `TS2307` when the SDK types haven't been built yet (#109)
+* **dx:** the #109 "run `pnpm run dev:prepare`" SDK-types preflight is extracted to a single shared `scripts/_require-sdk-types.mjs` helper — the marker path and message previously lived in three places across `contributing-typecheck.mjs` / `docs-typecheck.mjs` (one a stale second copy) — and is locked by a fixture test (types missing → exit 1 with the actionable message; present → proceeds) (#213)
 * **test(contributing):** compile-check the high-value contributing-guide snippets — the `LoggerFactory.forcedLog` four-arg deprecation pattern, the `B24Hook` quick-start, and the public `Result` type — each with a "Compile-checked example" footnote so drift turns red in CI (#108)
 * **ci(docs):** `docs-lint` now errors on a frontmatter `links:` `blob/main/` target whose file is missing (catches renamed/deleted source links — #117), and `docs-link-check` rejects relative `./`/`../` links in `docs/content/docs/` — internal cross-page links must be site-absolute `/docs/…` (#102)
 

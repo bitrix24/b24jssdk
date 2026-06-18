@@ -29,6 +29,8 @@ import composer from '../../../eslint.config.mjs'
 const HTTP_GLOB = 'packages/jssdk/src/core/http/**/*.ts'
 
 const linter = new Linter()
+// Populated once before any test. Vitest runs beforeAll to completion before the
+// first it()/it.each(), so `rule` is always set by the time guardHits() runs.
 let rule: unknown
 
 beforeAll(async () => {
@@ -53,23 +55,33 @@ function guardHits(code: string): number {
 }
 
 describe('HTTP logger secret-leak ESLint guard (#212, guards #39/#40)', () => {
-  // Each case is labelled with the selector it exercises, so a future failure
-  // points straight at the broken selector.
+  // One case per regex arm of each selector, so deleting an arm (or narrowing a
+  // selector) drops the matching case to 0 hits and reddens this test. Each
+  // label names the arm it exercises, so a failure points straight at it.
   const shouldFire: Array<[string, string]> = [
-    // selector 1 (bare identifier value) — the original #40 regression.
-    ['bare identifier value: methodFormatted (#40 regression)', 'this.getLogger().info(\'post/send\', { method: methodFormatted })'],
-    // selector 1 (bare identifier value), shorthand property.
-    ['bare identifier value: { url }', 'logger.debug(\'m\', { url })'],
-    // selector 2 (member-access value ending in a credential-shaped property).
-    ['member-access value: { foo: err.config.url }', 'logger.error(\'m\', { foo: err.config.url })'],
-    // selector 3 (spread of an axios config/request/response object).
-    ['axios object spread: { ...error.config }', 'logger.warning(\'m\', { ...error.config })']
+    // selector 1 — bare identifier value, one per regex arm.
+    ['sel1 bare identifier { url }', 'logger.debug(\'m\', { url })'],
+    ['sel1 bare identifier methodFormatted (the #40 regression)', 'this.getLogger().info(\'post/send\', { method: methodFormatted })'],
+    ['sel1 bare identifier { password }', 'logger.debug(\'m\', { password })'],
+    ['sel1 bare identifier { secret }', 'logger.error(\'m\', { secret })'],
+    ['sel1 bare identifier { token } (singular — the carve-out below blocks only the plural)', 'logger.debug(\'m\', { token })'],
+    // selector 2 — member-access value ending in a credential-shaped property.
+    ['sel2 member-access { foo: err.config.url }', 'logger.error(\'m\', { foo: err.config.url })'],
+    ['sel2 member-access { pw: cfg.password }', 'logger.warning(\'m\', { pw: cfg.password })'],
+    // selector 3 — spread of an axios config/request/response object, one per arm.
+    ['sel3 spread { ...error.config }', 'logger.warning(\'m\', { ...error.config })'],
+    ['sel3 spread { ...err.request }', 'logger.warning(\'m\', { ...err.request })'],
+    ['sel3 spread { ...err.response }', 'logger.warning(\'m\', { ...err.response })']
   ]
 
   const shouldStaySilent: Array<[string, string]> = [
-    ['the post-#40 correct form: { method }', 'logger.info(\'post/send\', { method })'],
-    ['the `tokens` carve-out: [Tt]oken(?!s\\b)', 'logger.debug(\'m\', { retriesLeft: tokens })'],
-    ['real current usage: { requestId, code }', 'logger.info(\'m\', { requestId, code: \'JSSDK_CLIENT_SIDE_WARNING\' })']
+    // value `method` is not in the credential pattern — only methodFormatted is.
+    ['the post-#40 correct form { method }', 'logger.info(\'post/send\', { method })'],
+    // the [Tt]oken(?!s\b) lookahead must let the plural `tokens` (a real retry
+    // counter) through while still blocking the singular `token` (fired above).
+    ['the `tokens` plural carve-out', 'logger.debug(\'m\', { retriesLeft: tokens })'],
+    // a string-literal value is neither an Identifier nor a MemberExpression.
+    ['real current usage { requestId, code }', 'logger.info(\'m\', { requestId, code: \'JSSDK_CLIENT_SIDE_WARNING\' })']
   ]
 
   it.each(shouldFire)('fires on %s', (_label, code) => {

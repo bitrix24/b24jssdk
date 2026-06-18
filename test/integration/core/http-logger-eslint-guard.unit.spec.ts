@@ -71,7 +71,12 @@ describe('HTTP logger secret-leak ESLint guard (#212, guards #39/#40)', () => {
     // selector 3 — spread of an axios config/request/response object, one per arm.
     ['sel3 spread { ...error.config }', 'logger.warning(\'m\', { ...error.config })'],
     ['sel3 spread { ...err.request }', 'logger.warning(\'m\', { ...err.request })'],
-    ['sel3 spread { ...err.response }', 'logger.warning(\'m\', { ...err.response })']
+    ['sel3 spread { ...err.response }', 'logger.warning(\'m\', { ...err.response })'],
+    // selector 4 — credential-shaped KEY with a dynamic value (the value may
+    // carry the secret even when its own name looks innocent).
+    ['sel4 key+identifier { apiUrl: someVar }', 'logger.debug(\'m\', { apiUrl: someVar })'],
+    ['sel4 key+identifier { password: pw }', 'logger.warning(\'m\', { password: pw })'],
+    ['sel4 key+member { token: cfg.value }', 'logger.error(\'m\', { token: cfg.value })']
   ]
 
   const shouldStaySilent: Array<[string, string]> = [
@@ -81,7 +86,9 @@ describe('HTTP logger secret-leak ESLint guard (#212, guards #39/#40)', () => {
     // counter) through while still blocking the singular `token` (fired above).
     ['the `tokens` plural carve-out', 'logger.debug(\'m\', { retriesLeft: tokens })'],
     // a string-literal value is neither an Identifier nor a MemberExpression.
-    ['real current usage { requestId, code }', 'logger.info(\'m\', { requestId, code: \'JSSDK_CLIENT_SIDE_WARNING\' })']
+    ['real current usage { requestId, code }', 'logger.info(\'m\', { requestId, code: \'JSSDK_CLIENT_SIDE_WARNING\' })'],
+    // selector 4's carve-out: a hard-coded literal under a credential key is safe.
+    ['a literal value under a credential key { url: \'/static\' }', 'logger.debug(\'m\', { url: \'/static/doc\' })']
   ]
 
   it.each(shouldFire)('fires on %s', (_label, code) => {
@@ -92,12 +99,13 @@ describe('HTTP logger secret-leak ESLint guard (#212, guards #39/#40)', () => {
     expect(guardHits(code)).toBe(0)
   })
 
-  it('reuses the real three-selector rule from eslint.config.mjs (not a hand-copy)', () => {
+  it('reuses the real four-selector rule from eslint.config.mjs (not a hand-copy)', () => {
     expect(Array.isArray(rule)).toBe(true)
     const [severity, ...selectors] = rule as [unknown, ...Array<{ selector: string }>]
     expect(severity).toBe('error')
-    // bare-identifier, member-access, axios-spread — drop one and coverage above weakens.
-    expect(selectors).toHaveLength(3)
+    // bare-identifier value, member-access value, axios-spread, credential-shaped
+    // key — drop one and the coverage above weakens.
+    expect(selectors).toHaveLength(4)
     for (const entry of selectors) {
       expect(typeof entry.selector).toBe('string')
     }

@@ -13,22 +13,14 @@
  * typecheck, so this only ever helps local runs.
  */
 
-import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
+import { requireSdkTypes } from './_require-sdk-types.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const SDK_TYPES = resolve(ROOT, 'packages/jssdk/dist/esm/index.d.ts')
 
-if (!existsSync(SDK_TYPES)) {
-  process.stderr.write(
-    '\n[contributing:typecheck] @bitrix24/b24jssdk types not found'
-    + ' (packages/jssdk/dist/esm/index.d.ts).\n'
-    + 'Run  pnpm run dev:prepare  first to build the SDK types, then re-run.\n\n'
-  )
-  process.exit(1)
-}
+requireSdkTypes('contributing:typecheck')
 
 const tsc = resolve(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
 const result = spawnSync(

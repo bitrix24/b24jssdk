@@ -24,6 +24,7 @@ import { join, resolve, relative, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { walkMarkdownFiles } from './_docs-utils.mjs'
+import { requireSdkTypes } from './_require-sdk-types.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -35,14 +36,7 @@ const TSC_BIN = join(REPO_ROOT, 'node_modules', 'typescript', 'bin', 'tsc')
 
 // SDK types live in dist/, produced by `pnpm run dev:prepare`. Without them the
 // generated blocks fail with a cryptic TS2307 — guard with an actionable message (#109).
-if (!existsSync(join(REPO_ROOT, 'packages', 'jssdk', 'dist', 'esm', 'index.d.ts'))) {
-  process.stderr.write(
-    '\n[docs:typecheck-blocks] @bitrix24/b24jssdk types not found'
-    + ' (packages/jssdk/dist/esm/index.d.ts).\n'
-    + 'Run  pnpm run dev:prepare  first to build the SDK types, then re-run.\n\n'
-  )
-  process.exit(1)
-}
+requireSdkTypes('docs:typecheck-blocks')
 
 const IS_CI = process.env.GITHUB_ACTIONS === 'true'
 
@@ -134,11 +128,8 @@ function main() {
     console.error('\x1B[31mERROR\x1B[0m docs-typecheck: TypeScript not installed — run `pnpm install`')
     process.exit(1)
   }
-  const sdkTypes = join(REPO_ROOT, 'packages', 'jssdk', 'dist', 'esm', 'index.d.ts')
-  if (!existsSync(sdkTypes)) {
-    console.error('\x1B[31mERROR\x1B[0m docs-typecheck: @bitrix24/b24jssdk types not built — run `pnpm run dev:prepare`')
-    process.exit(1)
-  }
+  // The built SDK types are guarded once at module load by requireSdkTypes()
+  // above — no need to re-check here.
 
   // Clean and recreate the tmp directory on every run.
   if (existsSync(TMP_DIR)) rmSync(TMP_DIR, { recursive: true })

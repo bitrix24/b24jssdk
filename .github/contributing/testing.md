@@ -1,6 +1,6 @@
 # Testing
 
-<sub>Last reviewed: 2026-06-17.</sub>
+<sub>Last reviewed: 2026-06-18.</sub>
 
 > **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
 
@@ -169,7 +169,7 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 
 ### Narrow exception: `*.unit.spec.ts`
 
-A small number of regression specs live inside `test/integration/<area>/` but are named `*.unit.spec.ts` (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`). They exercise pure-logic invariants — batch response parsing, log-context redaction, retry decision — that have nothing to verify against a live portal. They use `vi.spyOn(...).mockResolvedValue(...)` / `mockRejectedValue(...)` on the axios client, run without `.env.test` / `B24_HOOK`, and live in the `jsSdk:integration` project for convenience.
+A small number of regression specs live inside `test/integration/<area>/` but are named `*.unit.spec.ts` (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`). They exercise pure-logic invariants — batch response parsing, log-context redaction, retry decision — that have nothing to verify against a live portal. They use `vi.spyOn(...).mockResolvedValue(...)` / `mockRejectedValue(...)` on the axios client, run without `.env.test` / `B24_HOOK`, and run in the `jsSdk:unit` project — the `*.unit.spec.ts` suffix routes them there, not to `jsSdk:integration`, even though they sit under `test/integration/`.
 
 Use this naming when the test is about the **SDK's internal behaviour**, not about a REST request/response shape. Document the reason in a JSDoc header at the top of the file — see [`test/integration/core/http-logger-redaction.unit.spec.ts`](../../test/integration/core/http-logger-redaction.unit.spec.ts) (lines 1–19) for the reference shape. For anything that touches a real REST method's request or response shape — no mocks.
 

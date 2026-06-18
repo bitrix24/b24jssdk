@@ -5,6 +5,8 @@
 ### Bug Fixes
 
 * **pull:** `PullClient.destroy()` now fully tears the client down — removes its `beforeunload` / `offline` / `online` window listeners, cancels all seven pending timers (including the self-rescheduling `pull.watch.extend` watch loop), and no longer schedules a reconnect on teardown. A destroyed client is inert: `updateWatch` / `scheduleReconnect` / `onOnline` / `connect` and every timer-arming path bail out, and `start()` rejects with `PULL_DISPOSED`. Previously only the check interval was cleared, so timers and window listeners survived `destroy()` and the client kept firing background REST and could reconnect after an explicit teardown — accumulating across SPA/Nuxt `destroyB24Helper()` cycles (#141)
+* **http:** on retry exhaustion the SDK now surfaces the underlying error with its **real code** (e.g. `QUERY_LIMIT_EXCEEDED`) — thrown for hard codes, returned in the `AjaxResult` for soft codes — instead of the generic `JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED`, and the final attempt no longer sleeps a full backoff before giving up. `JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED` is now thrown only for the degenerate `maxRetries < 1` config. Behaviour change: code that caught `JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED` on rate-limit / transient exhaustion now catches the real code (#143)
+* **http:** `getStats().totalRequests` now returns the actual request count (was wired to `totalDuration`) and `reset()` zeroes it; the HTTP client constructor no longer wipes caller-supplied headers (incl. the SDK `User-Agent`) when `options` is passed; and `AjaxResult.getNext()` no longer mutates the previous page's `getQuery().params` (#144)
 
 ### Security
 

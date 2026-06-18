@@ -327,6 +327,9 @@ export abstract class AbstractHttp implements TypeHttp {
       }
     }
 
+    // Unreachable on normal exhaustion — the final attempt throws `lastError` (its
+    // real code) above. Only reached when maxRetries < 1: the loop never runs and
+    // there is no lastError to surface. (#143)
     throw new AjaxError({
       code: 'JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED',
       description: 'All attempts exhausted',

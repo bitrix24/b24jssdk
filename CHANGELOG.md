@@ -12,7 +12,6 @@
 ### Security
 
 * **ci:** an ESLint `no-restricted-syntax` guard scoped to `packages/jssdk/src/core/http/**` forbids leaking a URL- or credential-shaped value into a logger context object — whether a bare variable (`{ url }`), a member access (`{ x: err.config.url }`), a spread of an axios `config`/`request`/`response`, or a value under a credential-shaped property key (`{ apiUrl: someVar }`) — blocking the #39/#40 webhook-secret-leak class at lint time, as defence-in-depth alongside the runtime redaction test. The guard's selectors are locked by a unit test that runs them through ESLint, so an edit that silently stops one from firing turns CI red (#42, #212)
-* **docs:** add [`SECURITY.md`](.github/SECURITY.md) — a private vulnerability-reporting policy (report via GitHub private reporting, never a public issue for a credential leak), a supported-versions table (latest `1.x`), and a secret-redaction reminder. Enabling GitHub private vulnerability reporting and publishing the outstanding GHSA (#41) remain maintainer/admin actions (#173)
 
 ### Chore
 

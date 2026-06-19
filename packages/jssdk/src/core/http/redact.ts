@@ -8,16 +8,31 @@
  * Keeping a single source of truth means the redaction list stays
  * consistent across all of them.
  *
- * The walk descends two levels into nested objects and arrays. That is
- * the minimum that covers batch payloads (`{ cmd: [{ method, params:
- * { ...credentials... } }, ...] }`) where the credential lives at
- * `cmd[i].params.<key>`, as well as flat one-level-nested payloads like
- * `{ data: { token } }`. Deeper walks risk arbitrary cost on
- * user-supplied trees and brittle false positives; two levels is the
- * documented contract — beyond that, redact at the callsite.
+ * Two complementary passes run over each value:
+ *   1. Key match — a property whose (lower-cased) name is in
+ *      {@link SENSITIVE_PARAM_KEYS} has its whole value replaced, so a nested
+ *      credential object (e.g. `auth: { application_token }`) is masked
+ *      wholesale (#151).
+ *   2. Query-string scrub — a *string* value is scanned for
+ *      `<sensitive-key>=<value>` pairs and the value is masked. This catches the
+ *      batch `cmd[i]` shape (`method?auth=<token>&...`) where `_prepareParams`
+ *      has already serialised the credential into text the key walk can't see
+ *      (#229).
  *
- * Empty / nullish values are still considered sensitive — an empty
- * `access_token` is unusual but not safe to leave un-redacted.
+ * The object walk descends two levels into nested objects and arrays — the
+ * minimum that covers batch payloads (`{ cmd: [{ method, params:
+ * { ...credentials... } }, ...] }`) and flat one-level-nested payloads like
+ * `{ data: { token } }`.
+ *
+ * Residual risk (documented, accepted):
+ *   - credential keys nested deeper than two object levels are NOT masked —
+ *     redact at the callsite for those;
+ *   - the query-string scrub only masks a `key=value` pair whose key is itself
+ *     a sensitive key; a bracketed/encoded query key (`auth[application_token]=`)
+ *     is not matched by the string pass (its `auth` prefix object form is,
+ *     though, via pass 1).
+ *   - empty / nullish values are still treated as sensitive — an empty
+ *     `access_token` is unusual but not safe to leave un-redacted.
  */
 
 export const SENSITIVE_PARAM_KEYS: readonly string[] = [
@@ -26,13 +41,42 @@ export const SENSITIVE_PARAM_KEYS: readonly string[] = [
   'token',
   'secret',
   'access_token',
-  'refresh_token'
+  'refresh_token',
+  'client_secret',
+  'application_token',
+  'sessid',
+  'key'
 ]
 
 export const REDACTED_PLACEHOLDER = '***REDACTED***'
 
+// Matches `<sep><sensitive-key>=<value-up-to-next-&-or-#>` inside a string,
+// case-insensitively. The `([?&]|^)` prefix anchors to a real query-param
+// boundary so a credential name appearing inside a value (`foo=token=x`) or as
+// the tail of a longer key (`access_token` vs `token`) is not mis-matched.
+const QS_SENSITIVE_RE = new RegExp(
+  `([?&]|^)(${SENSITIVE_PARAM_KEYS.join('|')})=([^&#]*)`,
+  'gi'
+)
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function redactQueryString(value: string): string {
+  if (!value.includes('=')) return value
+  return value.replace(
+    QS_SENSITIVE_RE,
+    (_match, sep: string, key: string) => `${sep}${key}=${REDACTED_PLACEHOLDER}`
+  )
+}
+
+function redactValue(value: unknown, depth: number): unknown {
+  if (typeof value === 'string') return redactQueryString(value)
+  if (depth <= 0) return value
+  if (isPlainObject(value)) return redactObject(value, depth - 1)
+  if (Array.isArray(value)) return value.map(item => redactValue(item, depth))
+  return value
 }
 
 function redactObject(
@@ -41,19 +85,11 @@ function redactObject(
 ): Record<string, unknown> {
   const sanitized: Record<string, unknown> = { ...source }
   for (const key of Object.keys(sanitized)) {
-    if (SENSITIVE_PARAM_KEYS.includes(key)) {
+    if (SENSITIVE_PARAM_KEYS.includes(key.toLowerCase())) {
       sanitized[key] = REDACTED_PLACEHOLDER
       continue
     }
-    if (depth <= 0) continue
-    const child = sanitized[key]
-    if (isPlainObject(child)) {
-      sanitized[key] = redactObject(child, depth - 1)
-    } else if (Array.isArray(child)) {
-      sanitized[key] = child.map(item =>
-        isPlainObject(item) ? redactObject(item, depth - 1) : item
-      )
-    }
+    sanitized[key] = redactValue(sanitized[key], depth)
   }
   return sanitized
 }
@@ -61,11 +97,12 @@ function redactObject(
 const DEFAULT_REDACT_DEPTH = 2
 
 /**
- * Returns a copy of `params` with any known credential-bearing key
- * replaced by `REDACTED_PLACEHOLDER`. Walks up to two levels into nested
- * objects/arrays so batch-shaped payloads (`cmd[i].params.<key>`) are
- * covered. Non-object inputs are returned as-is so callers don't have
- * to pre-check.
+ * Returns a copy of `params` with any known credential-bearing key replaced by
+ * `REDACTED_PLACEHOLDER`, and any credential value embedded in a query-string
+ * value masked in place. Walks up to two levels into nested objects/arrays so
+ * batch-shaped payloads (`cmd[i].params.<key>` and `cmd[i]` query strings) are
+ * covered. Non-object inputs are returned as-is so callers don't have to
+ * pre-check.
  */
 export function redactSensitiveParams(
   params: Record<string, unknown>

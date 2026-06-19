@@ -12,9 +12,8 @@
  * contains the sentinel — regardless of which path (success/error) ran and
  * how many retries fired.
  *
- * `*.unit.spec.ts` keeps this file in the `jsSdk:integration` Vitest
- * project but signals (alongside `batch-null-result.unit.spec.ts`) that the
- * spec does not need a real Bitrix24 portal — `.env.test` / `B24_HOOK` are
+ * The `*.unit.spec.ts` suffix routes this file to the portal-free `jsSdk:unit`
+ * Vitest project — it mocks the axios client, so `.env.test` / `B24_HOOK` are
  * not required.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
@@ -416,5 +415,69 @@ describe('core.http logger redaction @issue-39', () => {
     expect(cmd[1].params.token).toBe('***REDACTED***')
     // Nested object one level deep — credential key inside is masked.
     expect((out.top_secret as Record<string, unknown>).token).toBe('***REDACTED***')
+  })
+
+  it('#151 redacts the expanded key set (client_secret / application_token / sessid / key)', () => {
+    const out = redactSensitiveParams({
+      client_secret: 'CS_PROBE',
+      application_token: 'AT_PROBE',
+      sessid: 'SESSID_PROBE',
+      key: 'KEY_PROBE',
+      keep: 'visible'
+    } as Record<string, unknown>)
+    expect(out.client_secret).toBe('***REDACTED***')
+    expect(out.application_token).toBe('***REDACTED***')
+    expect(out.sessid).toBe('***REDACTED***')
+    expect(out.key).toBe('***REDACTED***')
+    expect(out.keep).toBe('visible') // non-sensitive sibling survives
+  })
+
+  it('#151 key matching is case-insensitive (AUTH / Token / PASSWORD / Access_Token)', () => {
+    const out = redactSensitiveParams({
+      AUTH: 'a', Token: 'b', PASSWORD: 'c', Access_Token: 'd'
+    } as Record<string, unknown>)
+    expect(out.AUTH).toBe('***REDACTED***')
+    expect(out.Token).toBe('***REDACTED***')
+    expect(out.PASSWORD).toBe('***REDACTED***')
+    expect(out.Access_Token).toBe('***REDACTED***')
+  })
+
+  it('#151 a credential nested under a sensitive key is masked wholesale (auth[application_token])', () => {
+    const out = redactSensitiveParams({
+      auth: { application_token: 'EVENT_APP_TOKEN_PROBE' }
+    } as Record<string, unknown>)
+    // `auth` is itself sensitive → the whole subtree is replaced; the probe never survives.
+    expect(out.auth).toBe('***REDACTED***')
+    expect(JSON.stringify(out)).not.toContain('EVENT_APP_TOKEN_PROBE')
+  })
+
+  it('#229 scrubs credentials embedded in query-string values (batch cmd[i])', () => {
+    const out = redactSensitiveParams({
+      halt: 0,
+      cmd: [
+        'crm.item.add?auth=OAUTH_TOKEN_IN_CMD_PROBE&fields[TITLE]=safe',
+        'user.current?AUTH=CASED_TOKEN_PROBE'
+      ],
+      cmdObj: { c0: 'profile?access_token=AT_IN_CMD_PROBE&start=0' }
+    } as Record<string, unknown>)
+    const blob = JSON.stringify(out)
+    expect(blob).not.toContain('OAUTH_TOKEN_IN_CMD_PROBE')
+    expect(blob).not.toContain('CASED_TOKEN_PROBE') // case-insensitive in the qs scrub too
+    expect(blob).not.toContain('AT_IN_CMD_PROBE')
+    expect(blob).toContain('***REDACTED***')
+    // non-credential query params survive so the log stays useful
+    expect(blob).toContain('fields[TITLE]=safe')
+    expect(blob).toContain('start=0')
+  })
+
+  it('#229 does not mangle non-query strings or value-position "=" (no false positives)', () => {
+    const out = redactSensitiveParams({
+      note: 'plain description without params',
+      sql: 'SELECT * WHERE id=5', // `id` is not sensitive and not at a query boundary
+      pair: 'foo=token=bar' // `token` here is a value, not a key → untouched
+    } as Record<string, unknown>)
+    expect(out.note).toBe('plain description without params')
+    expect(out.sql).toBe('SELECT * WHERE id=5')
+    expect(out.pair).toBe('foo=token=bar')
   })
 })

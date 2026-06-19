@@ -3,7 +3,7 @@ import { LoggerFactory } from '../logger'
 import { Type } from '../tools/type'
 import { Text } from '../tools/text'
 import { Browser } from '../tools/browser'
-import { redactSensitiveUrl } from '../core/http/redact'
+import { redactSensitiveUrl, REDACTED_PLACEHOLDER } from '../core/http/redact'
 import { StorageManager } from './storage-manager'
 import { JsonRpc } from './json-rpc'
 import { SharedConfig } from './shared-config'
@@ -1036,7 +1036,10 @@ export class PullClient implements ConnectorParent {
     let configDump
     if (this._config && this._config.channels) {
       configDump = {
-        ChannelID: this._config.channels.private?.id || 'n/a',
+        // The private channel id is a subscription secret — mask it here too, not
+        // just in `Path` below, so the debug dump never surfaces it (#148). Expiry
+        // timestamps are non-sensitive and kept for diagnostics.
+        ChannelID: this._config.channels.private?.id ? REDACTED_PLACEHOLDER : 'n/a',
         ChannelDie: this._config.channels.private?.end || 'n/a',
         ChannelDieShared: this._config.channels.shared?.end || 'n/a'
       }
@@ -1064,6 +1067,8 @@ export class PullClient implements ConnectorParent {
       }
     }
 
+    const connectionPath = this.connector?.connectionPath
+
     return {
       'UserId': this._userId + (this._userId > 0 ? '' : '(guest)'),
       'Guest userId':
@@ -1083,8 +1088,8 @@ export class PullClient implements ConnectorParent {
 
       // Mask the push JWT (`token`) and private `CHANNEL_ID`s before exposing
       // the connection path through this developer-facing debug dump (#148).
-      'Path': this.connector?.connectionPath
-        ? redactSensitiveUrl(this.connector.connectionPath, ['CHANNEL_ID'])
+      'Path': connectionPath
+        ? redactSensitiveUrl(connectionPath, ['CHANNEL_ID'])
         : '-',
       ...configDump,
 

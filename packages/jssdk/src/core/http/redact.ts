@@ -133,15 +133,17 @@ export function redactSensitiveParams(params: unknown): unknown {
  * `connectionPath` surfaced by `getDebugInfo()`. Masks every
  * {@link SENSITIVE_PARAM_KEYS} value plus any caller-supplied `extraKeys`
  * (e.g. Pull's `CHANNEL_ID`, a private identifier that is not a global
- * credential key). Anchored and bounded exactly like the in-object scrub, so a
+ * credential key). `extraKeys` are regex-escaped, so any literal key name is
+ * safe to pass. Anchored and bounded exactly like the in-object scrub, so a
  * value-position `=` and non-query strings are left intact. Non-string input is
- * returned unchanged.
+ * returned unchanged (a defensive guard for untyped JS callers).
  */
 export function redactSensitiveUrl(url: string, extraKeys: readonly string[] = []): string {
   if (typeof url !== 'string' || !url.includes('=')) return url
   if (extraKeys.length === 0) return redactQueryString(url)
+  const escaped = extraKeys.map(key => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   const re = new RegExp(
-    `([?&]|^)(${[...SENSITIVE_PARAM_KEYS, ...extraKeys].join('|')})=[^&#;]*`,
+    `([?&]|^)(${[...SENSITIVE_PARAM_KEYS, ...escaped].join('|')})=[^&#;]*`,
     'gi'
   )
   return url.replace(re, (_match, sep: string, key: string) => `${sep}${key}=${REDACTED_PLACEHOLDER}`)

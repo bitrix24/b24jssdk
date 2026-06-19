@@ -519,7 +519,7 @@ describe('core.http logger redaction @issue-39', () => {
     expect((out.wrapper as Record<string, unknown>).sessid).toBe('***REDACTED***')
   })
 
-  it('#148 redactSensitiveUrl masks token + caller-supplied extra keys (CHANNEL_ID) in a URL', () => {
+  it('#148 redactSensitiveUrl masks token + a caller-supplied extra key (CHANNEL_ID)', () => {
     const url = 'wss://push.example/sub/?token=PUSH_JWT_PROBE&CHANNEL_ID=PRIV_CH/SHARED_CH&clientId=cid&revision=22'
     const out = redactSensitiveUrl(url, ['CHANNEL_ID'])
     expect(out).not.toContain('PUSH_JWT_PROBE')
@@ -529,9 +529,23 @@ describe('core.http logger redaction @issue-39', () => {
     expect(out).toContain('CHANNEL_ID=***REDACTED***')
     expect(out).toContain('clientId=cid') // non-secret params survive
     expect(out).toContain('revision=22')
-    // Without the extra key, CHANNEL_ID is not a global credential key — only token is masked.
-    const tokenOnly = redactSensitiveUrl(url)
-    expect(tokenOnly).toContain('token=***REDACTED***')
-    expect(tokenOnly).toContain('CHANNEL_ID=PRIV_CH/SHARED_CH')
+  })
+
+  it('#148 redactSensitiveUrl with no extra key masks only global keys (token), not CHANNEL_ID', () => {
+    const url = 'wss://push.example/sub/?token=PUSH_JWT_PROBE&CHANNEL_ID=PRIV_CH'
+    const out = redactSensitiveUrl(url)
+    expect(out).toContain('token=***REDACTED***')
+    expect(out).toContain('CHANNEL_ID=PRIV_CH') // not a global credential key → kept
+  })
+
+  it('#148 redactSensitiveUrl: multiple extra keys, ";" boundary, and the guard branches', () => {
+    const out = redactSensitiveUrl('x?token=T;keep=1&sig=SIGV&clientId=c', ['sig', 'CHANNEL_ID'])
+    expect(out).toContain('token=***REDACTED***')
+    expect(out).toContain('keep=1') // ';' is a boundary — the adjacent param is not swallowed
+    expect(out).toContain('sig=***REDACTED***') // the second extra key is masked too
+    expect(out).toContain('clientId=c')
+    // guard branches: non-string and no-"=" inputs are returned unchanged
+    expect(redactSensitiveUrl(null as any)).toBe(null)
+    expect(redactSensitiveUrl('wss://host/sub/no-query')).toBe('wss://host/sub/no-query')
   })
 })

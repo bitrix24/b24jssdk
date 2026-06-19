@@ -12,6 +12,7 @@
 ### Security
 
 * **ci:** an ESLint `no-restricted-syntax` guard scoped to `packages/jssdk/src/core/http/**` forbids leaking a URL- or credential-shaped value into a logger context object — whether a bare variable (`{ url }`), a member access (`{ x: err.config.url }`), a spread of an axios `config`/`request`/`response`, or a value under a credential-shaped property key (`{ apiUrl: someVar }`) — blocking the #39/#40 webhook-secret-leak class at lint time, as defence-in-depth alongside the runtime redaction test. The guard's selectors are locked by a unit test that runs them through ESLint, so an edit that silently stops one from firing turns CI red (#42, #212)
+* **redact:** harden `redactSensitiveParams` (the single source of truth behind the logger context, the `post/send` / `post/catchError` logs, and `AjaxError.toJSON()`/`toString()`): the credential-key set gains `client_secret` / `application_token` / `sessid` / `key`; matching is now **case-insensitive** (`AUTH` / `Token` / `PASSWORD` no longer slip through); and credential values embedded in a **query-string** value — most importantly a batch `cmd[i]` like `method?auth=<token>&…` — are masked in place (previously only object *keys* were walked, so a serialised credential survived). The two-level object-depth limit is documented as accepted residual risk, as is the deliberate breadth of `key` (it masks any param literally named `key` — a conservative choice, since `key` is a Bitrix24 credential parameter) (#151, #229)
 
 ### Chore
 

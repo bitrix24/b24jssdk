@@ -24,7 +24,7 @@ import {
   ParamsFactory
 } from '../../../packages/jssdk/src/'
 import { AjaxError } from '../../../packages/jssdk/src/core/http/ajax-error'
-import { redactSensitiveParams } from '../../../packages/jssdk/src/core/http/redact'
+import { redactSensitiveParams, redactSensitiveUrl } from '../../../packages/jssdk/src/core/http/redact'
 import type { LoggerInterface } from '../../../packages/jssdk/src/types/logger'
 
 const FAKE_SECRET = 'SECRET_TOKEN_REDACTION_SENTINEL_xyz123'
@@ -517,5 +517,21 @@ describe('core.http logger redaction @issue-39', () => {
       wrapper: { sessid: 'NESTED_SESSID_PROBE' }
     } as Record<string, unknown>)
     expect((out.wrapper as Record<string, unknown>).sessid).toBe('***REDACTED***')
+  })
+
+  it('#148 redactSensitiveUrl masks token + caller-supplied extra keys (CHANNEL_ID) in a URL', () => {
+    const url = 'wss://push.example/sub/?token=PUSH_JWT_PROBE&CHANNEL_ID=PRIV_CH/SHARED_CH&clientId=cid&revision=22'
+    const out = redactSensitiveUrl(url, ['CHANNEL_ID'])
+    expect(out).not.toContain('PUSH_JWT_PROBE')
+    expect(out).not.toContain('PRIV_CH')
+    expect(out).not.toContain('SHARED_CH')
+    expect(out).toContain('token=***REDACTED***')
+    expect(out).toContain('CHANNEL_ID=***REDACTED***')
+    expect(out).toContain('clientId=cid') // non-secret params survive
+    expect(out).toContain('revision=22')
+    // Without the extra key, CHANNEL_ID is not a global credential key — only token is masked.
+    const tokenOnly = redactSensitiveUrl(url)
+    expect(tokenOnly).toContain('token=***REDACTED***')
+    expect(tokenOnly).toContain('CHANNEL_ID=PRIV_CH/SHARED_CH')
   })
 })

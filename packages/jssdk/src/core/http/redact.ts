@@ -127,3 +127,22 @@ export function redactSensitiveParams(params: unknown): unknown {
   if (!isPlainObject(params)) return params
   return redactObject(params, DEFAULT_REDACT_DEPTH)
 }
+
+/**
+ * Redact credential query-string values in a URL string — e.g. a Pull
+ * `connectionPath` surfaced by `getDebugInfo()`. Masks every
+ * {@link SENSITIVE_PARAM_KEYS} value plus any caller-supplied `extraKeys`
+ * (e.g. Pull's `CHANNEL_ID`, a private identifier that is not a global
+ * credential key). Anchored and bounded exactly like the in-object scrub, so a
+ * value-position `=` and non-query strings are left intact. Non-string input is
+ * returned unchanged.
+ */
+export function redactSensitiveUrl(url: string, extraKeys: readonly string[] = []): string {
+  if (typeof url !== 'string' || !url.includes('=')) return url
+  if (extraKeys.length === 0) return redactQueryString(url)
+  const re = new RegExp(
+    `([?&]|^)(${[...SENSITIVE_PARAM_KEYS, ...extraKeys].join('|')})=[^&#;]*`,
+    'gi'
+  )
+  return url.replace(re, (_match, sep: string, key: string) => `${sep}${key}=${REDACTED_PLACEHOLDER}`)
+}

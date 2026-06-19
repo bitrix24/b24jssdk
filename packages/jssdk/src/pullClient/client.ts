@@ -3,6 +3,7 @@ import { LoggerFactory } from '../logger'
 import { Type } from '../tools/type'
 import { Text } from '../tools/text'
 import { Browser } from '../tools/browser'
+import { redactSensitiveUrl } from '../core/http/redact'
 import { StorageManager } from './storage-manager'
 import { JsonRpc } from './json-rpc'
 import { SharedConfig } from './shared-config'
@@ -1080,7 +1081,11 @@ export class PullClient implements ConnectorParent {
       'Try connect': this._reconnectTimeout ? 'Y' : 'N',
       'Try number': this._connectionAttempt,
 
-      'Path': this.connector?.connectionPath || '-',
+      // Mask the push JWT (`token`) and private `CHANNEL_ID`s before exposing
+      // the connection path through this developer-facing debug dump (#148).
+      'Path': this.connector?.connectionPath
+        ? redactSensitiveUrl(this.connector.connectionPath, ['CHANNEL_ID'])
+        : '-',
       ...configDump,
 
       'Last message': this._session.mid || '-',

@@ -480,4 +480,42 @@ describe('core.http logger redaction @issue-39', () => {
     expect(out.sql).toBe('SELECT * WHERE id=5')
     expect(out.pair).toBe('foo=token=bar')
   })
+
+  it('#229 QS scrub covers the four new keys (mixed case) and stops at a ";" boundary', () => {
+    const out = redactSensitiveParams({
+      cmd: [
+        'crm.event.get?sessid=SESSID_PROBE&start=0',
+        'catalog.section.list?Key=KEY_PROBE',
+        'app.info?CLIENT_SECRET=CS_PROBE',
+        'event.subscribe?application_token=AT_PROBE&event=ONCRMDEALADD',
+        'method?token=SEMI_PROBE;keep=visible'
+      ]
+    } as Record<string, unknown>)
+    const blob = JSON.stringify(out)
+    expect(blob).not.toContain('SESSID_PROBE')
+    expect(blob).not.toContain('KEY_PROBE')
+    expect(blob).not.toContain('CS_PROBE')
+    expect(blob).not.toContain('AT_PROBE')
+    expect(blob).not.toContain('SEMI_PROBE')
+    expect(blob).toContain('event=ONCRMDEALADD') // non-sensitive query param survives
+    expect(blob).toContain('start=0')
+    expect(blob).toContain('keep=visible') // ';' is a boundary — adjacent param not swallowed
+  })
+
+  it('#229 a bracketed/encoded query key is NOT scrubbed by the string pass (documented residual risk)', () => {
+    const out = redactSensitiveParams({
+      cmd: ['event.get?auth[application_token]=BRACKETED_PROBE']
+    } as Record<string, unknown>)
+    // The string pass can't see this form — only the `auth: {…}` object form is
+    // masked (via the key walk). Pin it so a future regex change is a conscious
+    // scope decision, not a silent one.
+    expect((out.cmd as string[])[0]).toContain('auth[application_token]=BRACKETED_PROBE')
+  })
+
+  it('#151 new keys are redacted at nested depth too (wrapper.sessid)', () => {
+    const out = redactSensitiveParams({
+      wrapper: { sessid: 'NESTED_SESSID_PROBE' }
+    } as Record<string, unknown>)
+    expect((out.wrapper as Record<string, unknown>).sessid).toBe('***REDACTED***')
+  })
 })

@@ -31,6 +31,11 @@
  *     a sensitive key; a bracketed/encoded query key (`auth[application_token]=`)
  *     is not matched by the string pass (its `auth` prefix object form is,
  *     though, via pass 1).
+ *   - `key` is deliberately broad: any property literally named `key` (and any
+ *     `?key=…` query pair) is masked. In Bitrix24 REST `key` is a credential
+ *     parameter (e.g. the Pull shared config), so this is a conservative,
+ *     accepted trade-off — it can over-redact a non-credential field that
+ *     happens to be named `key`.
  *   - empty / nullish values are still treated as sensitive — an empty
  *     `access_token` is unusual but not safe to leave un-redacted.
  */
@@ -50,12 +55,17 @@ export const SENSITIVE_PARAM_KEYS: readonly string[] = [
 
 export const REDACTED_PLACEHOLDER = '***REDACTED***'
 
-// Matches `<sep><sensitive-key>=<value-up-to-next-&-or-#>` inside a string,
-// case-insensitively. The `([?&]|^)` prefix anchors to a real query-param
+// Matches `<sep><sensitive-key>=<value>` inside a string, case-insensitively,
+// and masks the value. The `([?&]|^)` prefix anchors to a real query-param
 // boundary so a credential name appearing inside a value (`foo=token=x`) or as
-// the tail of a longer key (`access_token` vs `token`) is not mis-matched.
+// the tail of a longer key (`access_token` vs `token`) is not mis-matched. The
+// value runs to the next `&`, `#`, or `;`, so a `;`-separated adjacent param is
+// not swallowed into the redacted span. An embedded `?token=…` inside a nested
+// URL value IS masked (intended — still a credential). Single-line: `^` carries
+// no `m` flag, so a credential after a newline in a multi-line string value is
+// not caught (accepted residual risk, same class as encoded/bracketed keys).
 const QS_SENSITIVE_RE = new RegExp(
-  `([?&]|^)(${SENSITIVE_PARAM_KEYS.join('|')})=([^&#]*)`,
+  `([?&]|^)(${SENSITIVE_PARAM_KEYS.join('|')})=[^&#;]*`,
   'gi'
 )
 
@@ -71,6 +81,11 @@ function redactQueryString(value: string): string {
   )
 }
 
+// String scrubbing runs before the `depth <= 0` guard on purpose: scanning a
+// string is cheap and bounded, so a serialised credential is masked even at a
+// level the object walk would stop descending into. Arrays do not consume a
+// depth slot (only object descent decrements `depth`), so an array nested in an
+// array is still walked.
 function redactValue(value: unknown, depth: number): unknown {
   if (typeof value === 'string') return redactQueryString(value)
   if (depth <= 0) return value

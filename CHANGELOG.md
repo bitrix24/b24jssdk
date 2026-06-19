@@ -12,6 +12,7 @@
 ### Security
 
 * **ci:** an ESLint `no-restricted-syntax` guard scoped to `packages/jssdk/src/core/http/**` forbids leaking a URL- or credential-shaped value into a logger context object — whether a bare variable (`{ url }`), a member access (`{ x: err.config.url }`), a spread of an axios `config`/`request`/`response`, or a value under a credential-shaped property key (`{ apiUrl: someVar }`) — blocking the #39/#40 webhook-secret-leak class at lint time, as defence-in-depth alongside the runtime redaction test. The guard's selectors are locked by a unit test that runs them through ESLint, so an edit that silently stops one from firing turns CI red (#42, #212)
+* **docs:** add [`SECURITY.md`](.github/SECURITY.md) — a private vulnerability-reporting policy (report via GitHub private reporting, never a public issue for a credential leak), a supported-versions table (latest `1.x`), and a secret-redaction reminder. Enabling GitHub private vulnerability reporting and publishing the outstanding GHSA (#41) remain maintainer/admin actions (#173)
 
 ### Chore
 
@@ -22,6 +23,9 @@
 * **dx:** the #109 "run `pnpm run dev:prepare`" SDK-types preflight is extracted to a single shared `scripts/_require-sdk-types.mjs` helper — the marker path and message previously lived in three places across `contributing-typecheck.mjs` / `docs-typecheck.mjs` (one a stale second copy) — and is locked by a fixture test (types missing → exit 1 with the actionable message; present → proceeds) (#213)
 * **test(contributing):** compile-check the high-value contributing-guide snippets — the `LoggerFactory.forcedLog` four-arg deprecation pattern, the `B24Hook` quick-start, and the public `Result` type — each with a "Compile-checked example" footnote so drift turns red in CI (#108)
 * **ci(docs):** `docs-lint` now errors on a frontmatter `links:` `blob/main/` target whose file is missing (catches renamed/deleted source links — #117), and `docs-link-check` rejects relative `./`/`../` links in `docs/content/docs/` — internal cross-page links must be site-absolute `/docs/…` (#102)
+* **docs:** fix a double-hash in-page anchor (`](##…)` → `](#…)`) that silently broke the "Additional options" link on the batch-by-chunk `restApi:v2`/`v3` pages (#131)
+* **docs:** remove the "We are still updating this page" WIP banner from the 23 `audited:` pages it contradicted (kept on the 6 genuinely in-progress, non-audited pages), per the `documentation.md` "remove the banner when the page is complete" rule (#170)
+* **ci(deps):** add the `npm` ecosystem to Dependabot — minor + patch updates grouped into a single weekly PR so direct dependencies stay current — and document the transitive-override retirement process in `pnpm-workspace.yaml` (#175)
 
 ## [1.3.0](https://github.com/bitrix24/b24jssdk/compare/v1.2.0...v1.3.0) (2026-06-16)
 

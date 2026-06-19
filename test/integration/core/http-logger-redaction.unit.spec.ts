@@ -24,7 +24,7 @@ import {
   ParamsFactory
 } from '../../../packages/jssdk/src/'
 import { AjaxError } from '../../../packages/jssdk/src/core/http/ajax-error'
-import { redactSensitiveParams } from '../../../packages/jssdk/src/core/http/redact'
+import { redactSensitiveParams, redactSensitiveUrl } from '../../../packages/jssdk/src/core/http/redact'
 import type { LoggerInterface } from '../../../packages/jssdk/src/types/logger'
 
 const FAKE_SECRET = 'SECRET_TOKEN_REDACTION_SENTINEL_xyz123'
@@ -517,5 +517,35 @@ describe('core.http logger redaction @issue-39', () => {
       wrapper: { sessid: 'NESTED_SESSID_PROBE' }
     } as Record<string, unknown>)
     expect((out.wrapper as Record<string, unknown>).sessid).toBe('***REDACTED***')
+  })
+
+  it('#148 redactSensitiveUrl masks token + a caller-supplied extra key (CHANNEL_ID)', () => {
+    const url = 'wss://push.example/sub/?token=PUSH_JWT_PROBE&CHANNEL_ID=PRIV_CH/SHARED_CH&clientId=cid&revision=22'
+    const out = redactSensitiveUrl(url, ['CHANNEL_ID'])
+    expect(out).not.toContain('PUSH_JWT_PROBE')
+    expect(out).not.toContain('PRIV_CH')
+    expect(out).not.toContain('SHARED_CH')
+    expect(out).toContain('token=***REDACTED***')
+    expect(out).toContain('CHANNEL_ID=***REDACTED***')
+    expect(out).toContain('clientId=cid') // non-secret params survive
+    expect(out).toContain('revision=22')
+  })
+
+  it('#148 redactSensitiveUrl with no extra key masks only global keys (token), not CHANNEL_ID', () => {
+    const url = 'wss://push.example/sub/?token=PUSH_JWT_PROBE&CHANNEL_ID=PRIV_CH'
+    const out = redactSensitiveUrl(url)
+    expect(out).toContain('token=***REDACTED***')
+    expect(out).toContain('CHANNEL_ID=PRIV_CH') // not a global credential key → kept
+  })
+
+  it('#148 redactSensitiveUrl: multiple extra keys, ";" boundary, and the guard branches', () => {
+    const out = redactSensitiveUrl('x?token=T;keep=1&sig=SIGV&clientId=c', ['sig', 'CHANNEL_ID'])
+    expect(out).toContain('token=***REDACTED***')
+    expect(out).toContain('keep=1') // ';' is a boundary — the adjacent param is not swallowed
+    expect(out).toContain('sig=***REDACTED***') // the second extra key is masked too
+    expect(out).toContain('clientId=c')
+    // guard branches: non-string and no-"=" inputs are returned unchanged
+    expect(redactSensitiveUrl(null as any)).toBe(null)
+    expect(redactSensitiveUrl('wss://host/sub/no-query')).toBe('wss://host/sub/no-query')
   })
 })

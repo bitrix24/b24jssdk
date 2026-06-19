@@ -5,6 +5,13 @@ packages:
   - playgrounds/nuxt
   - playgrounds/cli
 
+# Security/audit override pins for transitive dependencies. Each is a floor
+# (`>=fixed-version`) held until the dependency tree resolves that version on its
+# own. RETIREMENT (#175): when `pnpm why <pkg>` shows every path already resolves
+# at or above the floor — i.e. the pin no longer changes resolution — drop the
+# line, run `pnpm install`, and confirm `pnpm audit --prod --audit-level=high`
+# stays clean. Re-evaluate on each dependency bump (the weekly Dependabot npm PR
+# is a natural trigger).
 overrides:
   fast-uri: '>=3.1.2'
   hono: '>=4.12.25'

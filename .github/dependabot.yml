@@ -17,3 +17,24 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # npm: keep direct dependencies current so the window in which a fixed upstream
+  # version sits unadopted shrinks. Transitive CVEs are still caught after the
+  # fact by `pnpm audit --prod --audit-level=high` (ci.yml) plus the override pins
+  # in pnpm-workspace.yaml. Minor + patch bumps are grouped into a single weekly
+  # PR to keep the noise down on the heavy Nuxt dependency tree; majors come
+  # individually (rare, and they need human review anyway).
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+    groups:
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"

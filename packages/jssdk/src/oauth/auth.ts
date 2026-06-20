@@ -25,7 +25,7 @@ export class AuthOAuthManager implements AuthActions {
   readonly #b24TargetRest: string
   readonly #b24Target: string
   readonly #b24TargetRestWithPath: Map<ApiVersion, string>
-  readonly #oAuthTarget: string // 'https://oauth.bitrix.info'
+  readonly #oAuthTarget: string // from serverEndpoint, e.g. 'https://oauth.bitrix24.tech'
 
   #isAdmin: null | boolean = null
 
@@ -47,11 +47,10 @@ export class AuthOAuthManager implements AuthActions {
     this.#authExpires = this.#authOptions.expires * 1_000
     this.#authExpiresIn = this.#authOptions.expiresIn
 
+    // No default Content-Type: the only request on this client (token refresh)
+    // sets its own `application/x-www-form-urlencoded` header per call (#149).
     this.#clientAxios = axios.create({
-      baseURL: this.#oAuthTarget,
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      baseURL: this.#oAuthTarget
     })
 
     this.#b24TargetRestWithPath = new Map()
@@ -92,8 +91,10 @@ export class AuthOAuthManager implements AuthActions {
          * POST body rather than as GET query params, so `client_secret` and
          * `refresh_token` never appear in the request URL — where they would leak
          * via proxy / CDN / server access logs (which routinely record full URLs
-         * with their query strings). The Bitrix auth server accepts the params
-         * from the body (verified against `oauth.bitrix24.tech`). (#149)
+         * with their query strings). The auth server (the portal's
+         * `serverEndpoint`) accepts the params from the body — the Bitrix docs
+         * document only the GET-with-query form, so this was verified empirically
+         * against the current host `oauth.bitrix24.tech`. (#149)
          */
         const body = new URLSearchParams({
           grant_type: 'refresh_token',
@@ -116,7 +117,7 @@ export class AuthOAuthManager implements AuthActions {
         }
 
         /**
-         * @memo domain = 'oauth.bitrix.info'
+         * @memo domain = e.g. 'oauth.bitrix24.tech'
          */
         payload = response.data
       }
@@ -186,7 +187,7 @@ export class AuthOAuthManager implements AuthActions {
 
       throw new Error(
         `Strange error: ${error instanceof Error ? error.message : error}`,
-        { cause: error }
+        { cause: error instanceof Error ? error : undefined }
       )
     }
   }

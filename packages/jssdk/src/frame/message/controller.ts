@@ -146,8 +146,12 @@ export class MessageManager {
         cmd += ':' + listParams.filter(Boolean).join(':')
       }
 
+      // Log only the command + callback key, never the assembled `cmd` string:
+      // for setAppOption / setUserOption it carries the serialised option
+      // `value`, which an app may use to store a credential (#43).
       this.getLogger().debug(`send to ${this.#appFrame.getTargetOrigin()}`, {
-        cmd,
+        command: command.toString(),
+        callbackKey: keyPromise,
         origin: this.#appFrame.getTargetOrigin()
       })
 

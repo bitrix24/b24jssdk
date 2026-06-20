@@ -1,8 +1,11 @@
 /**
- * #43 — the frame `MessageManager` receives auth tokens from the parent window
- * over `postMessage` (the `refreshAuth` / `getInitData` responses carry `AUTH_ID`
- * and `REFRESH_ID`). The inbound handler must log only the callback id/origin,
- * never the raw payload. Portal-free (jsSdk:unit).
+ * #43 — the frame `MessageManager` carries credentials both ways over `postMessage`:
+ *   - inbound, the `refreshAuth` / `getInitData` responses carry `AUTH_ID` /
+ *     `REFRESH_ID` — the handler must log only the callback id/origin;
+ *   - outbound, `send('setAppOption'/'setUserOption', …)` assembles a `cmd`
+ *     string that embeds the serialised option `value` (an app may store a
+ *     secret there) — the log must not echo the `cmd`.
+ * Portal-free (jsSdk:unit).
  */
 import { describe, it, expect } from 'vitest'
 import { MessageManager } from '../../../packages/jssdk/src/frame/message/controller'
@@ -11,6 +14,7 @@ import type { LoggerInterface } from '../../../packages/jssdk/src/types/logger'
 const ORIGIN = 'https://portal.bitrix24.com'
 const AUTH_SENTINEL = 'FRAME_AUTH_ID_SENTINEL'
 const REFRESH_SENTINEL = 'FRAME_REFRESH_ID_SENTINEL'
+const OPTION_SENTINEL = 'FRAME_APP_OPTION_SENTINEL'
 
 function capturingLogger(captured: Array<{ message: string, context?: unknown }>): LoggerInterface {
   const push = (message: string, context?: unknown): void => {
@@ -37,5 +41,30 @@ describe('#43 frame MessageManager does not log inbound auth tokens', () => {
     expect(blob).not.toContain(AUTH_SENTINEL)
     expect(blob).not.toContain(REFRESH_SENTINEL)
     expect(blob).toContain('cb1') // sanity: the callback id IS logged
+  })
+})
+
+describe('#43 frame MessageManager.send does not log app-defined option values', () => {
+  it('send(setAppOption, { value }) logs the command + callback key, never the cmd payload', () => {
+    const captured: Array<{ message: string, context?: unknown }> = []
+    const mgr = new MessageManager({
+      getTargetOrigin: () => ORIGIN,
+      getAppSid: () => 'APPSID'
+    } as never)
+    mgr.setLogger(capturingLogger(captured))
+
+    // `send` posts to the parent window; stub it so the synchronous body runs.
+    const savedParent = (globalThis as any).parent
+    ;(globalThis as any).parent = { postMessage() {} }
+    try {
+      // fire-and-forget: the promise only settles on an inbound callback we never send
+      void mgr.send('setAppOption', { value: OPTION_SENTINEL }).catch(() => {})
+    } finally {
+      ;(globalThis as any).parent = savedParent
+    }
+
+    const blob = JSON.stringify(captured)
+    expect(blob).not.toContain(OPTION_SENTINEL)
+    expect(blob).toContain('setAppOption') // sanity: the command name IS logged
   })
 })

@@ -536,7 +536,8 @@ export class PullClient implements ConnectorParent {
           if (this._debug && this._context !== 'master') {
             this.getLogger().warning(
               `${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string`,
-              { data }
+              // data.params / data.extra are app-defined and may carry a credential key (#43)
+              redactSensitiveParams({ data } as unknown as Record<string, unknown>)
             )
           }
 
@@ -1830,7 +1831,10 @@ export class PullClient implements ConnectorParent {
         // `jwt` and channel signatures. localStorage is readable by any same-origin
         // script, so this is no weaker than the in-memory config under an
         // XSS/extension threat — and caching avoids a config round-trip on every
-        // reconnect. A deliberate trade-off; documented rather than stripped.
+        // reconnect. One asymmetry: localStorage persists across reloads/tabs, so a
+        // stolen value outlives the page (bounded by the short-lived, push-session-
+        // tied jwt/signatures). A deliberate trade-off; documented rather than
+        // stripped, and tracked for re-evaluation in #242.
         this._storage.set(LsKeys.PullConfig, config)
       } catch (error) {
         /**
@@ -2442,8 +2446,10 @@ export class PullClient implements ConnectorParent {
     if (dataArray === null) {
       this.getLogger().warning('PULL ERROR', {
         errorType: 'parseResponse error parsing message',
-        // truncate: the raw wire frame could carry credential-shaped data (#43)
-        dataString: pullEvent.slice(0, 200)
+        // The frame failed the NGINX-delimiter match, so its content is
+        // unparseable anyway and could carry a credential (e.g. a channel
+        // `signature`); log only its size, never the bytes (#43).
+        byteLength: pullEvent.length
       })
 
       return []

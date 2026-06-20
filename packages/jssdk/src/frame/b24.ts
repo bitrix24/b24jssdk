@@ -119,9 +119,11 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
   public override async init(): Promise<void> {
     const data: MessageInitData = await this.#messageManager.send(MessageCommands.getInitData, {})
 
-    // Log only non-credential fields — the raw `data` carries AUTH_ID (access
-    // token), REFRESH_ID (refresh token) and MEMBER_ID, which must not reach a
-    // wired logger sink (#43).
+    // Log only a fixed allowlist of known-safe scalar fields. The raw `data`
+    // carries the bearer tokens AUTH_ID (access) / REFRESH_ID (refresh), the
+    // MEMBER_ID portal identifier, and the app-defined APP_OPTIONS /
+    // USER_OPTIONS / PLACEMENT_OPTIONS stores (which may hold developer-stored
+    // secrets) — none of which must reach a wired logger sink (#43).
     this.getLogger().debug('init data', {
       PLACEMENT: data.PLACEMENT,
       LANG: data.LANG,

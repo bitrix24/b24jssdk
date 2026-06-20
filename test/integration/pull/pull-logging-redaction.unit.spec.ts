@@ -1,10 +1,14 @@
 /**
- * #43 — the pull JSON-RPC layer logs unknown/error server frames, which are opaque
- * and could carry a credential-shaped key (e.g. a channel `signature`). Those logs
- * must be run through `redactSensitiveParams` first. Portal-free (jsSdk:unit).
+ * #43 — the pull layer logs server frames and events that are opaque or app-defined
+ * and could carry a credential-shaped key (e.g. a channel `signature`). Two surfaces:
+ *   - `JsonRpc` logs unknown / error RPC frames (three branches);
+ *   - `PullClient.logMessage` logs every inbound event when debug is enabled.
+ * Both must run through `redactSensitiveParams` first. Portal-free (jsSdk:unit).
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { JsonRpc } from '../../../packages/jssdk/src/pullClient/json-rpc'
+import { PullClient } from '../../../packages/jssdk/src/pullClient/client'
+import type { TypeB24 } from '../../../packages/jssdk/src/types/b24'
 import type { LoggerInterface } from '../../../packages/jssdk/src/types/logger'
 
 const SIG_SENTINEL = 'PULL_SIGNATURE_SENTINEL'
@@ -33,5 +37,87 @@ describe('#43 pull JsonRpc redacts credential keys in logged unknown frames', ()
     const blob = JSON.stringify(captured)
     expect(blob).not.toContain(SIG_SENTINEL)
     expect(blob).toContain('***REDACTED***')
+  })
+
+  it('an unknown rpc packet (no jsonrpc field) carrying a `signature` is redacted', () => {
+    const captured: Array<{ message: string, context?: unknown }> = []
+    const rpc = new JsonRpc({ connector: { send: () => {} } } as never)
+    rpc.setLogger(capturingLogger(captured))
+
+    // neither request nor response → "unknown rpc packet" log of { decoded }
+    rpc.parseJsonRpcMessage(JSON.stringify({ signature: SIG_SENTINEL }))
+
+    const blob = JSON.stringify(captured)
+    expect(blob).not.toContain(SIG_SENTINEL)
+    expect(blob).toContain('***REDACTED***')
+  })
+
+  it('an unknown batch command carrying a `signature` is redacted', () => {
+    const captured: Array<{ message: string, context?: unknown }> = []
+    const rpc = new JsonRpc({ connector: { send: () => {} } } as never)
+    rpc.setLogger(capturingLogger(captured))
+
+    // array item that is neither request nor response → "unknown rpc command in batch"
+    rpc.parseJsonRpcMessage(JSON.stringify([{ command: 'test', signature: SIG_SENTINEL }]))
+
+    const blob = JSON.stringify(captured)
+    expect(blob).not.toContain(SIG_SENTINEL)
+    expect(blob).toContain('***REDACTED***')
+  })
+})
+
+describe('#43 PullClient.logMessage redacts credential keys before logging', () => {
+  const saved: Record<string, unknown> = {}
+  beforeEach(() => {
+    saved.window = (globalThis as any).window
+    saved.document = (globalThis as any).document
+    ;(globalThis as any).window = { addEventListener() {}, removeEventListener() {} }
+    ;(globalThis as any).document = { location: { href: 'https://test.local/' } }
+  })
+  afterEach(() => {
+    ;(globalThis as any).window = saved.window
+    ;(globalThis as any).document = saved.document
+  })
+
+  function makeClient(captured: Array<{ message: string, context?: unknown }>): PullClient {
+    const client = new PullClient({
+      b24: {} as unknown as TypeB24,
+      userId: 1,
+      serverEnabled: true,
+      skipStorageInit: true,
+      skipCheckRevision: true
+    })
+    client.setLogger(capturingLogger(captured))
+    // logMessage only logs in debug mode
+    ;(client as any)._debug = true
+    return client
+  }
+
+  it('an onPullEvent whose params carry a `signature` is redacted (else branch)', () => {
+    const captured: Array<{ message: string, context?: unknown }> = []
+    const client = makeClient(captured)
+
+    ;(client as any).logMessage({
+      module_id: 'crm', command: 'onX', params: { signature: SIG_SENTINEL }, extra: {}
+    })
+
+    const blob = JSON.stringify(captured)
+    expect(blob).not.toContain(SIG_SENTINEL)
+    expect(blob).toContain('***REDACTED***')
+    client.destroy()
+  })
+
+  it('an onPullOnlineEvent whose params carry a `signature` is redacted (online branch)', () => {
+    const captured: Array<{ message: string, context?: unknown }> = []
+    const client = makeClient(captured)
+
+    ;(client as any).logMessage({
+      module_id: 'online', command: 'onX', params: { signature: SIG_SENTINEL }, extra: {}
+    })
+
+    const blob = JSON.stringify(captured)
+    expect(blob).not.toContain(SIG_SENTINEL)
+    expect(blob).toContain('***REDACTED***')
+    client.destroy()
   })
 })

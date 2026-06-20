@@ -519,6 +519,17 @@ describe('core.http logger redaction @issue-39', () => {
     expect((out.wrapper as Record<string, unknown>).sessid).toBe('***REDACTED***')
   })
 
+  it('#43 redacts the `signature` key (Pull channel credential), case-insensitively and nested', () => {
+    const out = redactSensitiveParams({
+      signature: 'SIG_PROBE',
+      Signature: 'CASED_SIG_PROBE',
+      channel: { signature: 'NESTED_SIG_PROBE' }
+    } as Record<string, unknown>)
+    expect(out.signature).toBe('***REDACTED***')
+    expect(out.Signature).toBe('***REDACTED***')
+    expect((out.channel as Record<string, unknown>).signature).toBe('***REDACTED***')
+  })
+
   it('#148 redactSensitiveUrl masks token + a caller-supplied extra key (CHANNEL_ID)', () => {
     const url = 'wss://push.example/sub/?token=PUSH_JWT_PROBE&CHANNEL_ID=PRIV_CH/SHARED_CH&clientId=cid&revision=22'
     const out = redactSensitiveUrl(url, ['CHANNEL_ID'])

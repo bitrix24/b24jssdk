@@ -50,7 +50,8 @@ export const SENSITIVE_PARAM_KEYS: readonly string[] = [
   'client_secret',
   'application_token',
   'sessid',
-  'key'
+  'key',
+  'signature'
 ]
 
 export const REDACTED_PLACEHOLDER = '***REDACTED***'

@@ -97,7 +97,8 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     try {
       parsedUrl = new URL(url.replace('/rest/api', '/rest'))
     } catch {
-      throw new Error(`Invalid webhook URL format: ${url}`)
+      // Don't echo the URL — it carries the webhook secret in its path (#43).
+      throw new Error('Invalid webhook URL format')
     }
 
     if (parsedUrl.protocol !== 'https:') {
@@ -124,7 +125,8 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     const secret = pathParts[secretIndex]!
 
     if (!/^\d+$/.test(userIdStr)) {
-      throw new Error(`User ID must be numeric in webhook URL, received: ${userIdStr}`)
+      // Don't echo the segment — in a transposed URL it could be the secret (#43).
+      throw new Error('User ID must be numeric in webhook URL')
     }
     const userId = Number.parseInt(userIdStr, 10)
 

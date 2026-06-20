@@ -185,17 +185,21 @@ export class MessageManager {
     }
 
     if (event.data) {
-      this.getLogger().debug(`get from ${event.origin}`, {
-        data: event.data,
-        origin: event.origin
-      })
-
       const tmp = event.data.split(':')
 
       const cmd: { id: string, args: any } = {
         id: tmp[0],
         args: tmp.slice(1).join(':')
       }
+
+      // Log only the callback id and origin — never `event.data` / `cmd.args`.
+      // The inbound message carries the auth tokens (AUTH_ID / REFRESH_ID) for
+      // refreshAuth / getInitData responses, embedded in the colon-joined
+      // payload as an opaque substring a redactor can't see (#43).
+      this.getLogger().debug(`get from ${event.origin}`, {
+        id: cmd.id,
+        origin: event.origin
+      })
 
       if (cmd.args) {
         cmd.args = JSON.parse(cmd.args)

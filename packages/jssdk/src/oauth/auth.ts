@@ -87,16 +87,25 @@ export class AuthOAuthManager implements AuthActions {
       if (this.#customRefreshAuth) {
         payload = await this.#customRefreshAuth()
       } else {
-        const response = await this.#clientAxios.get(
+        /**
+         * Send the refresh request as an `application/x-www-form-urlencoded`
+         * POST body rather than as GET query params, so `client_secret` and
+         * `refresh_token` never appear in the request URL — where they would leak
+         * via proxy / CDN / server access logs (which routinely record full URLs
+         * with their query strings). The Bitrix auth server accepts the params
+         * from the body (verified against `oauth.bitrix24.tech`). (#149)
+         */
+        const body = new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: this.#oAuthSecret.clientId,
+          client_secret: this.#oAuthSecret.clientSecret,
+          refresh_token: this.#authOptions.refreshToken
+        })
+
+        const response = await this.#clientAxios.post(
           '/oauth/token/',
-          {
-            params: {
-              grant_type: 'refresh_token',
-              client_id: this.#oAuthSecret.clientId,
-              client_secret: this.#oAuthSecret.clientSecret,
-              refresh_token: this.#authOptions.refreshToken
-            }
-          }
+          body,
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
         )
 
         if (response.data.error) {

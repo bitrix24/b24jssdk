@@ -36,6 +36,11 @@
  *     parameter (e.g. the Pull shared config), so this is a conservative,
  *     accepted trade-off — it can over-redact a non-credential field that
  *     happens to be named `key`.
+ *   - `signature` is broad in the same way (added in #43 for the Pull channel
+ *     HMAC, `TypeChanel.signature`): any property named `signature` and any
+ *     `?signature=…` query pair is masked. In the Bitrix24 push/pull domain
+ *     `signature` is the channel HMAC, so the breadth is accepted — at the cost
+ *     of over-redacting a non-credential field that happens to be named so.
  *   - empty / nullish values are still treated as sensitive — an empty
  *     `access_token` is unusual but not safe to leave un-redacted.
  */
@@ -50,7 +55,8 @@ export const SENSITIVE_PARAM_KEYS: readonly string[] = [
   'client_secret',
   'application_token',
   'sessid',
-  'key'
+  'key',
+  'signature'
 ]
 
 export const REDACTED_PLACEHOLDER = '***REDACTED***'

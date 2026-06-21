@@ -261,8 +261,17 @@ export class PullClient implements ConnectorParent {
       window.removeEventListener('online', this._onOnlineHandler)
     }
 
-    // Save the session for a quick re-init, but — unlike onBeforeUnload — do NOT
-    // schedule a reconnect: the client is being torn down (#141).
+    // Drop the cached pull config on teardown: it holds the push `jwt` and the
+    // channel signatures, which must not linger in localStorage after the client
+    // is gone (it is readable by any same-origin script and survives reloads). A
+    // torn-down client is terminal; a fresh instance re-fetches the config (#242).
+    if (this._storage) {
+      this._storage.remove(LsKeys.PullConfig)
+    }
+
+    // Save the (non-secret) session for a quick re-init, but — unlike
+    // onBeforeUnload — do NOT schedule a reconnect: the client is being torn
+    // down (#141).
     this.persistSession()
   }
 

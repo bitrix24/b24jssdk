@@ -3,6 +3,7 @@ import { LoggerFactory } from '../logger'
 import { Type } from '../tools/type'
 import { Text } from '../tools/text'
 import { Browser } from '../tools/browser'
+import { redactSensitiveParams, redactSensitiveUrl, REDACTED_PLACEHOLDER } from '../core/http/redact'
 import { StorageManager } from './storage-manager'
 import { JsonRpc } from './json-rpc'
 import { SharedConfig } from './shared-config'
@@ -535,7 +536,8 @@ export class PullClient implements ConnectorParent {
           if (this._debug && this._context !== 'master') {
             this.getLogger().warning(
               `${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string`,
-              { data }
+              // data.params / data.extra are app-defined and may carry a credential key (#43)
+              redactSensitiveParams({ data } as unknown as Record<string, unknown>)
             )
           }
 
@@ -1035,7 +1037,10 @@ export class PullClient implements ConnectorParent {
     let configDump
     if (this._config && this._config.channels) {
       configDump = {
-        ChannelID: this._config.channels.private?.id || 'n/a',
+        // The private channel id is a subscription secret — mask it here too, not
+        // just in `Path` below, so the debug dump never surfaces it (#148). Expiry
+        // timestamps are non-sensitive and kept for diagnostics.
+        ChannelID: this._config.channels.private?.id ? REDACTED_PLACEHOLDER : 'n/a',
         ChannelDie: this._config.channels.private?.end || 'n/a',
         ChannelDieShared: this._config.channels.shared?.end || 'n/a'
       }
@@ -1063,6 +1068,8 @@ export class PullClient implements ConnectorParent {
       }
     }
 
+    const connectionPath = this.connector?.connectionPath
+
     return {
       'UserId': this._userId + (this._userId > 0 ? '' : '(guest)'),
       'Guest userId':
@@ -1080,7 +1087,11 @@ export class PullClient implements ConnectorParent {
       'Try connect': this._reconnectTimeout ? 'Y' : 'N',
       'Try number': this._connectionAttempt,
 
-      'Path': this.connector?.connectionPath || '-',
+      // Mask the push JWT (`token`) and private `CHANNEL_ID`s before exposing
+      // the connection path through this developer-facing debug dump (#148).
+      'Path': connectionPath
+        ? redactSensitiveUrl(connectionPath, ['CHANNEL_ID'])
+        : '-',
       ...configDump,
 
       'Last message': this._session.mid || '-',
@@ -1451,7 +1462,8 @@ export class PullClient implements ConnectorParent {
       this.getLogger().warning('PULL ERROR', {
         errorType: 'broadcastMessages execute error',
         errorEvent: error,
-        message
+        // app-defined message.params / extra may carry a credential key (#43)
+        message: redactSensitiveParams(message as unknown as Record<string, unknown>)
       })
     }
 
@@ -1815,6 +1827,14 @@ export class PullClient implements ConnectorParent {
 
     if (this._storage && allowCaching) {
       try {
+        // Accepted shared-origin risk (#43): the cached config includes the push
+        // `jwt` and channel signatures. localStorage is readable by any same-origin
+        // script, so this is no weaker than the in-memory config under an
+        // XSS/extension threat — and caching avoids a config round-trip on every
+        // reconnect. One asymmetry: localStorage persists across reloads/tabs, so a
+        // stolen value outlives the page (bounded by the short-lived, push-session-
+        // tied jwt/signatures). A deliberate trade-off; documented rather than
+        // stripped, and tracked for re-evaluation in #242.
         this._storage.set(LsKeys.PullConfig, config)
       } catch (error) {
         /**
@@ -2104,13 +2124,13 @@ export class PullClient implements ConnectorParent {
           if (typeChanel === 'private' && this._config?.channels?.private) {
             this._config.channels.private = message.params.new_channel
             this.logToConsole(
-              `Pull: new config for ${message.params.channel.type} channel set: ${this._config.channels.private}`
+              `Pull: new config for ${message.params.channel.type} channel set: [updated]`
             )
           }
           if (typeChanel === 'shared' && this._config?.channels?.shared) {
             this._config.channels.shared = message.params.new_channel
             this.logToConsole(
-              `Pull: new config for ${message.params.channel.type} channel set: ${this._config.channels.shared}`
+              `Pull: new config for ${message.params.channel.type} channel set: [updated]`
             )
           }
 
@@ -2426,7 +2446,10 @@ export class PullClient implements ConnectorParent {
     if (dataArray === null) {
       this.getLogger().warning('PULL ERROR', {
         errorType: 'parseResponse error parsing message',
-        dataString: pullEvent
+        // The frame failed the NGINX-delimiter match, so its content is
+        // unparseable anyway and could carry a credential (e.g. a channel
+        // `signature`); log only its size, never the bytes (#43).
+        byteLength: pullEvent.length
       })
 
       return []
@@ -2761,29 +2784,29 @@ export class PullClient implements ConnectorParent {
       && message.extra.sender.type === SenderType.Client
     ) {
       this.getLogger().info(
-        `onPullClientEvent-${message.module_id}`, {
+        `onPullClientEvent-${message.module_id}`, redactSensitiveParams({
           command: message.command,
           params: message.params,
           extra: message.extra
-        }
+        })
       )
     } else if (message.module_id == 'online') {
       this.getLogger().info(
-        `onPullOnlineEvent`, {
+        `onPullOnlineEvent`, redactSensitiveParams({
           command: message.command,
           params: message.params,
           extra: message.extra
-        }
+        })
       )
     } else {
       this.getLogger().info(
         `onPullEvent`,
-        {
+        redactSensitiveParams({
           moduleId: message.module_id,
           command: message.command,
           params: message.params,
           extra: message.extra
-        }
+        })
       )
     }
   }

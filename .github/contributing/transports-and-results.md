@@ -1,6 +1,6 @@
 # Transports and Results
 
-<sub>Last reviewed: 2026-06-17.</sub>
+<sub>Last reviewed: 2026-06-19.</sub>
 
 > **Agent-facing mirror:** the same area, viewed from the angle of agents writing usage code, lives in [`skills/b24jssdk-rest/SKILL.md`](../../skills/b24jssdk-rest/SKILL.md), [`skills/b24jssdk-filtering/SKILL.md`](../../skills/b24jssdk-filtering/SKILL.md), and [`skills/b24jssdk-core/SKILL.md`](../../skills/b24jssdk-core/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
 
@@ -260,7 +260,7 @@ Every transport / limiter holds a `LoggerInterface` (the public abstraction from
 
 ### Credential redaction (since v1.1.2)
 
-The transport layer redacts credentials from log lines and error messages before they reach the logger. The redaction module is [packages/jssdk/src/core/http/redact.ts](../../packages/jssdk/src/core/http/redact.ts); the full list of redacted keys is the **static** `SENSITIVE_PARAM_KEYS` array — currently `auth`, `token`, `access_token`, `refresh_token`, `password`, `secret`. The list is not extended automatically: when you introduce a new credential-bearing parameter on any code path, add its key to `SENSITIVE_PARAM_KEYS` in `redact.ts` in the same PR, or it will appear unredacted in logs and in `AjaxError`.
+The transport layer redacts credentials from log lines and error messages before they reach the logger. The redaction module is [packages/jssdk/src/core/http/redact.ts](../../packages/jssdk/src/core/http/redact.ts); the full list of redacted keys is the **static** `SENSITIVE_PARAM_KEYS` array in that file (matched **case-insensitively**, and the scrub also masks `key=value` pairs embedded in string values, e.g. a batch `cmd[i]`). The list is not extended automatically: when you introduce a new credential-bearing parameter on any code path, add its key to `SENSITIVE_PARAM_KEYS` in `redact.ts` in the same PR, or it will appear unredacted in logs and in `AjaxError`.
 
 Rules for code under `packages/jssdk/src/`:
 

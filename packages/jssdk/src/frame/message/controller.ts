@@ -38,6 +38,9 @@ export class MessageManager {
   #appFrame: AppFrame
   #callbackPromises: Map<string, PromiseHandlers>
   #callbackSingletone: Map<string, (...args: any[]) => void>
+  // origins already warned about (#244) — dedup so a peer spamming postMessage
+  // from a foreign origin can't flood a wired logger sink
+  #rejectedOrigins: Set<string> = new Set()
 
   protected _logger: LoggerInterface
 
@@ -188,10 +191,14 @@ export class MessageManager {
       // Surface a message from an unexpected origin (a probe, or a misconfigured
       // parent) — log the origins only, never event.data, which may carry the
       // AUTH_ID / REFRESH_ID a foreign sender must not have echoed back (#244).
-      this.getLogger().warning('message rejected: unexpected origin', {
-        origin: event.origin,
-        expected: this.#appFrame.getTargetOrigin()
-      })
+      // Log once per distinct origin so a spamming peer can't flood the sink.
+      if (!this.#rejectedOrigins.has(event.origin)) {
+        this.#rejectedOrigins.add(event.origin)
+        this.getLogger().warning('message rejected: unexpected origin', {
+          origin: event.origin,
+          expected: this.#appFrame.getTargetOrigin()
+        })
+      }
 
       return
     }

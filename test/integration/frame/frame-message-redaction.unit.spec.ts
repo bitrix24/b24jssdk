@@ -84,4 +84,18 @@ describe('#244 frame MessageManager surfaces a rejected foreign-origin message',
     expect(blob).toContain(ORIGIN) // and the expected one
     expect(blob).not.toContain(AUTH_SENTINEL) // but never the payload
   })
+
+  it('warns only once per distinct foreign origin (dedup against flood)', () => {
+    const captured: Array<{ message: string, context?: unknown }> = []
+    const mgr = new MessageManager({ getTargetOrigin: () => ORIGIN } as never)
+    mgr.setLogger(capturingLogger(captured))
+
+    const ev = { origin: 'https://evil.example', data: 'cb1:{}' } as MessageEvent
+    mgr._runCallback(ev)
+    mgr._runCallback(ev)
+    mgr._runCallback(ev)
+
+    const rejections = captured.filter(c => c.message === 'message rejected: unexpected origin')
+    expect(rejections).toHaveLength(1)
+  })
 })

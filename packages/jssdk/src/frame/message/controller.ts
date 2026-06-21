@@ -185,6 +185,14 @@ export class MessageManager {
    */
   public _runCallback(event: MessageEvent): void {
     if (event.origin !== this.#appFrame.getTargetOrigin()) {
+      // Surface a message from an unexpected origin (a probe, or a misconfigured
+      // parent) — log the origins only, never event.data, which may carry the
+      // AUTH_ID / REFRESH_ID a foreign sender must not have echoed back (#244).
+      this.getLogger().warning('message rejected: unexpected origin', {
+        origin: event.origin,
+        expected: this.#appFrame.getTargetOrigin()
+      })
+
       return
     }
 

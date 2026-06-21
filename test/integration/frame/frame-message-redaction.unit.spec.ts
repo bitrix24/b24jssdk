@@ -68,3 +68,34 @@ describe('#43 frame MessageManager.send does not log app-defined option values',
     expect(blob).toContain('setAppOption') // sanity: the command name IS logged
   })
 })
+
+describe('#244 frame MessageManager surfaces a rejected foreign-origin message', () => {
+  it('logs the origins (rejected + expected) but never the event.data payload', () => {
+    const captured: Array<{ message: string, context?: unknown }> = []
+    const mgr = new MessageManager({ getTargetOrigin: () => ORIGIN } as never)
+    mgr.setLogger(capturingLogger(captured))
+
+    const FOREIGN = 'https://evil.example'
+    const data = `cb1:${JSON.stringify({ AUTH_ID: AUTH_SENTINEL })}`
+    mgr._runCallback({ origin: FOREIGN, data } as MessageEvent)
+
+    const blob = JSON.stringify(captured)
+    expect(blob).toContain(FOREIGN) // the rejected origin IS surfaced
+    expect(blob).toContain(ORIGIN) // and the expected one
+    expect(blob).not.toContain(AUTH_SENTINEL) // but never the payload
+  })
+
+  it('warns only once per distinct foreign origin (dedup against flood)', () => {
+    const captured: Array<{ message: string, context?: unknown }> = []
+    const mgr = new MessageManager({ getTargetOrigin: () => ORIGIN } as never)
+    mgr.setLogger(capturingLogger(captured))
+
+    const ev = { origin: 'https://evil.example', data: 'cb1:{}' } as MessageEvent
+    mgr._runCallback(ev)
+    mgr._runCallback(ev)
+    mgr._runCallback(ev)
+
+    const rejections = captured.filter(c => c.message === 'message rejected: unexpected origin')
+    expect(rejections).toHaveLength(1)
+  })
+})

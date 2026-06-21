@@ -1834,7 +1834,10 @@ export class PullClient implements ConnectorParent {
 
     this._configTimestamp = Number(config.server.config_timestamp)
 
-    if (this._storage && allowCaching) {
+    // Skip re-persisting once disposed: an in-flight loadConfig() from
+    // start()/restart() can resolve AFTER destroy() removed the cache, which
+    // would write the jwt + channel signatures back to localStorage (#242).
+    if (this._storage && allowCaching && !this._disposed) {
       try {
         // Accepted shared-origin risk (#43): the cached config includes the push
         // `jwt` and channel signatures. localStorage is readable by any same-origin

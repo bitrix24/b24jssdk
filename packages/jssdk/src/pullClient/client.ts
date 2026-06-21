@@ -261,8 +261,17 @@ export class PullClient implements ConnectorParent {
       window.removeEventListener('online', this._onOnlineHandler)
     }
 
-    // Save the session for a quick re-init, but — unlike onBeforeUnload — do NOT
-    // schedule a reconnect: the client is being torn down (#141).
+    // Drop the cached pull config on teardown: it holds the push `jwt` and the
+    // channel signatures, which must not linger in localStorage after the client
+    // is gone (it is readable by any same-origin script and survives reloads). A
+    // torn-down client is terminal; a fresh instance re-fetches the config (#242).
+    if (this._storage) {
+      this._storage.remove(LsKeys.PullConfig)
+    }
+
+    // Save the (non-secret) session for a quick re-init, but — unlike
+    // onBeforeUnload — do NOT schedule a reconnect: the client is being torn
+    // down (#141).
     this.persistSession()
   }
 
@@ -1825,7 +1834,10 @@ export class PullClient implements ConnectorParent {
 
     this._configTimestamp = Number(config.server.config_timestamp)
 
-    if (this._storage && allowCaching) {
+    // Skip re-persisting once disposed: an in-flight loadConfig() from
+    // start()/restart() can resolve AFTER destroy() removed the cache, which
+    // would write the jwt + channel signatures back to localStorage (#242).
+    if (this._storage && allowCaching && !this._disposed) {
       try {
         // Accepted shared-origin risk (#43): the cached config includes the push
         // `jwt` and channel signatures. localStorage is readable by any same-origin

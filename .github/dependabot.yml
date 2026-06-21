@@ -8,6 +8,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Only propose versions that have aged a few days, so a freshly-published
+    # release can't land before it has been vetted — and a group re-resolution is
+    # less likely to pull a <24h dependency that the pnpm `minimumReleaseAge`
+    # supply-chain guard (ci.yml `prepare`) then rejects.
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: "ci"
     labels:
@@ -29,10 +35,16 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # See the cooldown note above — most relevant here, where the 36-package
+    # group re-resolution kept pulling just-published transitive deps that
+    # failed the pnpm `minimumReleaseAge` guard in CI.
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: "deps"
-    labels:
-      - "dependencies"
+    # NOTE: no `labels:` here — the previous `dependencies` label does not exist
+    # in this repo, which made Dependabot log a config error on every npm PR.
+    # Re-add a `labels:` block once the label is created in the repo settings.
     groups:
       npm-minor-patch:
         update-types:

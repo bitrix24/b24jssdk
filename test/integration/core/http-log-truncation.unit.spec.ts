@@ -18,6 +18,10 @@ describe('#236 truncateForLog caps oversized log payloads', () => {
     expect(truncateForLog(atLimit)).toBe(atLimit)
   })
 
+  it('truncates the first-over-boundary (301) string to a 100-char prefix + marker', () => {
+    expect(truncateForLog('z'.repeat(301))).toBe('z'.repeat(100) + '...')
+  })
+
   it('truncates an oversized string to a 100-char prefix + marker', () => {
     const out = truncateForLog('x'.repeat(5000))
     expect(out).toBe('x'.repeat(100) + '...')

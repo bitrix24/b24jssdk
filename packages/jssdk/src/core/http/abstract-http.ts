@@ -25,6 +25,17 @@ import { Type } from '../../tools/type'
 import { Environment, getEnvironment } from '../../tools/environment'
 import { ApiVersion } from '../../types/b24'
 
+// Logger payloads are truncated so a large params / result / error body can't
+// flood a wired logger sink. Shared by the post/send, post/response, and
+// post/catchError log callsites (#236).
+const LOG_MAX_LENGTH = 300
+const LOG_SLICE_LENGTH = 100
+export function truncateForLog(value: string): string {
+  return value.length > LOG_MAX_LENGTH
+    ? value.slice(0, LOG_SLICE_LENGTH) + '...'
+    : value
+}
+
 export type AjaxResponse<T = unknown> = {
   status: number
   payload: SuccessPayload<T>
@@ -486,8 +497,9 @@ export abstract class AbstractHttp implements TypeHttp {
             requestId,
             status: error.status,
             // Redact in case a future portal response embeds credentials in
-            // the error body (today it doesn't, but the channel is open). (#39)
-            responseData: JSON.stringify(redactSensitiveParams(error?.response?.data), null, 0)
+            // the error body (today it doesn't, but the channel is open) (#39),
+            // and cap the length so a large error body can't flood the sink (#236).
+            responseData: truncateForLog(JSON.stringify(redactSensitiveParams(error?.response?.data), null, 0))
           }
         )
       }
@@ -527,13 +539,11 @@ export abstract class AbstractHttp implements TypeHttp {
     // still receives the original below. (#39)
     const paramsFormattedForLog = JSON.stringify(redactSensitiveParams(paramsFormatted), null, 0)
 
-    const maxLogLength = 300
-    const sliceLogLength = 100
     this.getLogger().info(
       `post/send`, {
         requestId,
         method,
-        params: paramsFormattedForLog.length > maxLogLength ? paramsFormattedForLog.slice(0, sliceLogLength) + '...' : paramsFormattedForLog
+        params: truncateForLog(paramsFormattedForLog)
       }
     )
 
@@ -544,7 +554,7 @@ export abstract class AbstractHttp implements TypeHttp {
       `post/response`, {
         requestId,
         // responseFull: JSON.stringify(response.data, null, 2),
-        result: resultFormattedForLog.length > maxLogLength ? resultFormattedForLog.slice(0, sliceLogLength) + '...' : resultFormattedForLog,
+        result: truncateForLog(resultFormattedForLog),
         time: JSON.stringify(response.data.time, null, 0)
       }
     )

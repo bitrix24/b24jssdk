@@ -1141,15 +1141,14 @@ export class PullClient implements ConnectorParent {
     } else {
       const channels: string[] = []
 
-      if (this._config?.channels?.private) {
-        channels.push(this._config.channels.private?.id || '')
-      }
-
-      if (this._config?.channels.private?.id) {
+      // One guarded push per channel — previously the private id was pushed
+      // twice (and an empty segment when `private` existed without an `id`),
+      // producing a malformed `CHANNEL_ID` like `id/id` or a leading `/` (#238).
+      if (this._config?.channels?.private?.id) {
         channels.push(this._config.channels.private.id)
       }
 
-      if (this._config?.channels.shared?.id) {
+      if (this._config?.channels?.shared?.id) {
         channels.push(this._config.channels.shared.id)
       }
 

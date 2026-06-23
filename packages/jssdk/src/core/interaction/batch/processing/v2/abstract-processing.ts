@@ -5,7 +5,7 @@ import * as qs from 'qs-esm'
 import { AbstractProcessing } from '../interface-strategy'
 import { SdkError } from '../../../../sdk-error'
 import { AjaxResult } from '../../../../http/ajax-result'
-import { Result } from '../../../../result'
+import type { Result } from '../../../../result'
 
 export abstract class AbstractProcessingV2 extends AbstractProcessing implements IProcessingStrategy {
   protected _buildRow(command: BatchCommandV3): string {
@@ -42,25 +42,13 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
   }
 
   // region prepareItems ////
-  public override async prepareItems<T>(
+  // Soft-error guard lives in AbstractProcessing.prepareItems (#228); this is the
+  // success-only path for apiVer2.
+  protected override async _prepareItemsSuccess<T>(
     commands: BatchCommandV3[],
-    responseHelper: ResponseHelper<T>
+    responseHelper: ResponseHelper<T>,
+    results: ResultItems<T>
   ): Promise<ResultItems<T>> {
-    const results: ResultItems<T> = new Map()
-
-    /**
-     * When the batch CALL itself soft-errors — a top-level code in the
-     * restriction manager's `exceptionCodeForSoft` set (e.g. a validation
-     * exception surfaced as a soft `Result` instead of a throw) — the envelope
-     * carries `{ error }` and no `result` payload, so `response.getData()` is
-     * `undefined`. Skip per-row parsing (it would dereference
-     * `getData()!.result`) and let {@link AbstractProcessingV2.handleResults}
-     * surface the top-level errors. Mirrors {@link AbstractProcessingV3.prepareItems}. (#145)
-     */
-    if (!responseHelper.response.isSuccess) {
-      return results
-    }
-
     for (const [index, command] of commands.entries()) {
       await this._processResponseItem<T>(
         command,
@@ -129,26 +117,15 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
   // endregion ////
 
   // region handleResults ////
-  public override async handleResults<T>(_commands: BatchCommandV3[], results: ResultItems<T>, responseHelper: ResponseHelper<T>): Promise<Result<ICallBatchResult<T>>> {
-    const result = new Result<ICallBatchResult<T>>()
+  // Soft-error guard lives in AbstractProcessing.handleResults (#228); this is the
+  // success-only path for apiVer2.
+  protected override async _handleResultsSuccess<T>(
+    _commands: BatchCommandV3[],
+    results: ResultItems<T>,
+    responseHelper: ResponseHelper<T>,
+    result: Result<ICallBatchResult<T>>
+  ): Promise<Result<ICallBatchResult<T>>> {
     const dataResult: ResultItems<T> = new Map()
-
-    /**
-     * Top-level soft error (see {@link AbstractProcessingV2.prepareItems}):
-     * there is no per-row data and `response.getData()` is `undefined`, so
-     * surface the envelope errors and return an empty data map instead of
-     * dereferencing `getData()!.time`. Mirrors {@link AbstractProcessingV3.handleResults}. (#145)
-     */
-    if (!responseHelper.response.isSuccess) {
-      for (const [index, error] of responseHelper.response.errors) {
-        result.addError(error, index)
-      }
-      result.setData({
-        result: dataResult,
-        time: undefined
-      })
-      return result
-    }
 
     for (const [index, data] of results) {
       if (data.getStatus() !== 200 || !data.isSuccess) {

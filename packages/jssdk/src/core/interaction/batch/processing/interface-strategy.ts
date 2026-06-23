@@ -58,7 +58,7 @@ export abstract class AbstractProcessing implements IProcessingStrategy {
     return this._prepareItemsSuccess<T>(commands, responseHelper, results)
   }
 
-  /** Per-version success path: parse the response payload into `results`. */
+  /** Per-version success path: parse the response payload into `results` (the empty accumulator created by {@link prepareItems}). */
   protected abstract _prepareItemsSuccess<T>(
     commands: BatchCommandV3[],
     responseHelper: ResponseHelper<T>,
@@ -93,7 +93,7 @@ export abstract class AbstractProcessing implements IProcessingStrategy {
         result.addError(error, index)
       }
       result.setData({
-        result: new Map(),
+        result: new Map() as ResultItems<T>,
         time: undefined
       })
       return result
@@ -102,7 +102,12 @@ export abstract class AbstractProcessing implements IProcessingStrategy {
     return this._handleResultsSuccess<T>(commands, results, responseHelper, result)
   }
 
-  /** Per-version success path: fold per-command `results` into `result`. */
+  /**
+   * Per-version success path: fold per-command `results` into `result` — the
+   * empty accumulator created by {@link handleResults}. Mutate and RETURN that
+   * same `result`; do not construct a new one (the base relies on the instance
+   * it passed in).
+   */
   protected abstract _handleResultsSuccess<T>(
     commands: BatchCommandV3[],
     results: ResultItems<T>,

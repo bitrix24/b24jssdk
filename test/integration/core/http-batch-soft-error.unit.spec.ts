@@ -88,4 +88,10 @@ describe('#145 a soft-error batch returns a Result, not a TypeError', () => {
     ;(http as any).call = vi.fn().mockResolvedValue(softErrorBatchResponse())
     expectSoftErrorResult(await http.batch(arrayCalls))
   })
+
+  it('HttpV3.batch object/named mode behaves the same (ProcessingAsObjectV3)', async () => {
+    const http = new HttpV3({} as unknown as AuthActions, null, {})
+    ;(http as any).call = vi.fn().mockResolvedValue(softErrorBatchResponse())
+    expectSoftErrorResult(await http.batch(namedCalls))
+  })
 })

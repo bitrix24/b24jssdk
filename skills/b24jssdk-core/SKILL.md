@@ -223,8 +223,8 @@ When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth in
 | Need | Method | API version |
 |---|---|---|
 | CRM entities (deals, contacts, companies, leads, smart processes) | `crm.item.{list,get,add,update,delete}` with `entityTypeId` from `EnumCrmEntityTypeId` | v2 |
-| Tasks read/write | `tasks.task.{add,get,update,delete}` | **v3** |
-| Tasks listing / extras | `tasks.task.list`, `tasks.task.checklistitem.*`, … | v2 |
+| Tasks read/write/list | `tasks.task.{add,get,update,delete,list}` | **v3** |
+| Tasks extras | `tasks.task.checklistitem.*`, … | v2 |
 | Disk | `disk.storage.getlist`, `disk.folder.{getchildren,addsubfolder}`, `disk.file.get` | v2 |
 | Profile / users | `profile`, `user.get`, `user.current` | v2 |
 | IM | `im.notify`, `im.message.add` | v2 |

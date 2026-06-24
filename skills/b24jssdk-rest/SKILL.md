@@ -242,7 +242,7 @@ const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
 |---|---|---|---|
 | `crm.item.list` (v2) | `'id'` | — (= `idKey`) | `'items'` |
 | `crm.deal.list`, `crm.contact.list`, … (classic v2) | `'ID'` (default) | — (= `idKey`) | omit (default `result`) |
-| `tasks.task.list` (v2) | `'id'` | `'ID'` | `'tasks'` |
+| `tasks.task.list` (v2 or **v3**) | `'id'` | `'ID'` | `'tasks'` |
 | `disk.folder.getchildren` | `'ID'` (default) | — (= `idKey`) | omit |
 | `main.eventlog.list` (v3) | `'id'` | — (= `idKey`) | `'items'` |
 

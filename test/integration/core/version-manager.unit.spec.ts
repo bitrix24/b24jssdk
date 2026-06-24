@@ -31,6 +31,11 @@ describe('VersionManager — v3 supported-methods allowlist', () => {
       expect(versionManager.isSupport(ApiVersion.v3, 'batch')).toBe(true)
     })
 
+    it('routes tasks.task.list through v3 (rest-v3 list method)', () => {
+      expect(versionManager.isSupport(ApiVersion.v3, 'tasks.task.list')).toBe(true)
+      expect(versionManager.automaticallyObtainApiVersion('tasks.task.list')).toBe(ApiVersion.v3)
+    })
+
     it('rejects methods that are not on the allowlist (they fall to v2)', () => {
       expect(versionManager.isSupport(ApiVersion.v3, 'crm.item.list')).toBe(false)
       expect(versionManager.isSupport(ApiVersion.v3, 'crm.deal.list')).toBe(false)

@@ -61,8 +61,7 @@ Inside the recipes the split is:
 |---|---|---|
 | `crm.item.{get,list,add,update,delete}` | `actions.v2.*` | Not in the v3 whitelist (see `version-manager.ts`) |
 | `crm.activity.list`, `crm.timeline.comment.add` | `actions.v2.*` | Classic API, v2 only |
-| `tasks.task.{add,get,update,delete}` | **`actions.v3.*`** | On the v3 whitelist |
-| `tasks.task.list` | `actions.v2.*` | Not yet on the v3 whitelist |
+| `tasks.task.{add,get,update,delete,list}` | **`actions.v3.*`** | On the v3 whitelist |
 | `disk.*`, `im.*`, `profile`, `user.*` | `actions.v2.*` | Classic API, v2 only |
 | `main.eventlog.{list,get,tail}` | **`actions.v3.*`** | On the v3 whitelist |
 

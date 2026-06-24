@@ -95,6 +95,13 @@ export class FetchListV3 extends AbstractAction {
 
     let isContinue = true
     let nextId = 0
+    // Largest page size actually returned so far. Some v3 list methods (e.g.
+    // `tasks.task.list`) silently cap the page below the requested `limit`
+    // (doc §6: "максимум 1000, всё больше — молча обрезается"), so the requested
+    // `batchSize` cannot be used as the end-of-data signal — that would stop right
+    // after the first capped page. We treat a page as the last one only when it is
+    // shorter than the biggest page we have already seen (or empty).
+    let maxPageSize = 0
     do {
       const sendParams = { ...requestParams, filter: [...requestParams.filter] }
       sendParams.filter.push([cursorIdKey, '>', nextId])
@@ -131,7 +138,8 @@ export class FetchListV3 extends AbstractAction {
 
       yield resultData
 
-      if (resultData.length < batchSize) {
+      maxPageSize = Math.max(maxPageSize, resultData.length)
+      if (resultData.length < maxPageSize) {
         isContinue = false
         break
       }

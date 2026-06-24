@@ -7,6 +7,7 @@ import { CallListV3 } from './call-list'
 import { FetchListV3 } from './fetch-list'
 import { CallTailV3 } from './call-tail'
 import { FetchTailV3 } from './fetch-tail'
+import { AggregateV3 } from './aggregate'
 import { BatchV3 } from './batch'
 import { BatchByChunkV3 } from './batch-by-chunk'
 
@@ -15,6 +16,7 @@ const callListName = Symbol('callList_V3')
 const fetchListName = Symbol('fetchList_V3')
 const callTailName = Symbol('callTail_V3')
 const fetchTailName = Symbol('fetchTail_V3')
+const aggregateName = Symbol('aggregate_V3')
 const batchName = Symbol('batch_V3')
 const batchByChunkName = Symbol('batchByChunk_V3')
 /**
@@ -74,6 +76,13 @@ export class ActionsManagerV3 {
       this._mapActions.set(fetchTailName, new FetchTailV3(this._b24, this._logger))
     }
     return this._mapActions.get(fetchTailName)! as FetchTailV3
+  }
+
+  get aggregate(): AggregateV3 {
+    if (!this._mapActions.has(aggregateName)) {
+      this._mapActions.set(aggregateName, new AggregateV3(this._b24, this._logger))
+    }
+    return this._mapActions.get(aggregateName)! as AggregateV3
   }
 
   get batch(): BatchV3 {

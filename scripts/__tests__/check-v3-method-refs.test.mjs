@@ -71,21 +71,21 @@ test('clean: real actions (including callTail/fetchTail) and any method pass', (
 
 test('phantom v3 action (dotted) is flagged', () => {
   withFixture({
-    'skills/b24jssdk-rest/SKILL.md': 'For v3 counts use `actions.v3.aggregate.make`.\n'
+    'skills/b24jssdk-rest/SKILL.md': 'For v3 counts use `actions.v3.frobnicate.make`.\n'
   }, (root) => {
     const r = runCheck(root)
     assert.equal(r.status, 1, `stdout:\n${r.stdout}`)
-    assert.match(r.stdout, /non-existent v3 action "actions\.v3\.aggregate"/)
+    assert.match(r.stdout, /non-existent v3 action "actions\.v3\.frobnicate"/)
   })
 })
 
 test('phantom v3 action inside a {a,b,c} list is flagged', () => {
   withFixture({
-    'docs/content/docs/filter.md': 'Used by `actions.v3.{call,callList,aggregate}.make(...)`.\n'
+    'docs/content/docs/filter.md': 'Used by `actions.v3.{call,callList,frobnicate}.make(...)`.\n'
   }, (root) => {
     const r = runCheck(root)
     assert.equal(r.status, 1, `stdout:\n${r.stdout}`)
-    assert.match(r.stdout, /non-existent v3 action "aggregate"/)
+    assert.match(r.stdout, /non-existent v3 action "frobnicate"/)
   })
 })
 

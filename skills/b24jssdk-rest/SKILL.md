@@ -30,6 +30,7 @@ Rule of thumb:
 | Read a small list (<1000 items) and process in memory | `actions.v{2,3}.callList.make` |
 | Read a large list with low memory footprint | `actions.v{2,3}.fetchList.make` (async iterator) |
 | Read a v3 method that exposes a native `tail` (keyset) action — e.g. `main.eventlog.tail` | `actions.v3.callTail.make` / `actions.v3.fetchTail.make` (v3 only) |
+| Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only) |
 
 There is no manual-pagination path any more — the list helpers page for you. Two mechanisms exist, and they are not interchangeable:
 

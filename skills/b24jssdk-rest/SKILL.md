@@ -124,6 +124,8 @@ console.log(data.Deal.getData()!.result.item)
 
 Set `isHaltOnError: false` to collect per-command failures. **v3 batch is all-or-nothing** — partial errors are not surfaced. If any command in a v3 batch fails, the whole batch fails (see `README-AI.md` "Limitations").
 
+To feed one v3 command's output into a later one, give it an `as` alias and reference it with the `BatchRefV3` markers (`import { BatchRefV3 } from '@bitrix24/b24jssdk'`): `BatchRefV3.ref('alias.item.id')` (single value) or `BatchRefV3.refArray('alias.id')` (a field collected across the alias's `items[]`). The server does the substitution.
+
 ```ts
 const response = await $b24.actions.v2.batch.make<{ item: Contact }>({
   calls: arrayOfCalls,

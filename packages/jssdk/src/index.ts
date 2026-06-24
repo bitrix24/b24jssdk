@@ -43,6 +43,7 @@ export * from './tools/scroll-size'
 export * from './tools/use-formatters'
 export * from './tools/environment'
 export * from './tools/filter-v3'
+export * from './tools/batch-ref-v3'
 
 export * from './hook/index'
 export * from './frame/index'

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Features
+
+* **package:** add CommonJS support so the package can be consumed with `require('@bitrix24/b24jssdk')` (and from `tsx`-driven Node projects), in addition to ESM and UMD — previously a CommonJS / non-`import` resolver failed with `ERR_PACKAGE_PATH_NOT_EXPORTED`. `exports` now carries `require`/`default` conditions (with CJS-flavored `.d.cts` types), the build emits `dist/umd/package.json` (`{"type":"commonjs"}`) and `dist/umd/index.d.cts`, and `main` points at the UMD/CJS entry while `module` stays on ESM. ESM remains the recommended entry point; the CommonJS path resolves to the UMD bundle, which inlines its dependencies (a dedicated CJS build with external deps is planned). Verified end-to-end (`require`, `import`, `tsx`, TypeScript `node16`/`nodenext`/`bundler`, `publint`, `@arethetypeswrong/cli`) (#256)
+
 ### Bug Fixes
 
 * **pull:** `PullClient.destroy()` now fully tears the client down — removes its `beforeunload` / `offline` / `online` window listeners, cancels all seven pending timers (including the self-rescheduling `pull.watch.extend` watch loop), and no longer schedules a reconnect on teardown. A destroyed client is inert: `updateWatch` / `scheduleReconnect` / `onOnline` / `connect` and every timer-arming path bail out, and `start()` rejects with `PULL_DISPOSED`. Previously only the check interval was cleared, so timers and window listeners survived `destroy()` and the client kept firing background REST and could reconnect after an explicit teardown — accumulating across SPA/Nuxt `destroyB24Helper()` cycles (#141)

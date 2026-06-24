@@ -518,6 +518,7 @@ try {
 
 - UMD: window.B24Js global; load via unpkg CDN; use inside Bitrix24 iframe
 - ESM: import from '@bitrix24/b24jssdk'; works in browsers with bundlers and in Node (server-side) for B24Hook
+- CommonJS: const { B24Hook } = require('@bitrix24/b24jssdk'); works in Node.js CJS projects (resolves to the UMD bundle, which inlines deps)
 
 
 ## Caveats and constraints

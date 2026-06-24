@@ -197,4 +197,114 @@ describe('v3 native tail helpers (fetchTail / callTail)', () => {
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toMatch(/no value could be read/)
   })
+
+  it('fetchTail: initialValue resumes the cursor from a given point', async () => {
+    const { b24, calls } = makeB24({ customKey: 'items', items: rows(120, 'id'), idField: 'id' })
+    const { logger } = makeLogger()
+
+    const collected: Item[] = []
+    for await (const chunk of new FetchTailV3(b24, logger).make<Item>({
+      method: 'main.eventlog.tail',
+      cursorField: 'id',
+      customKeyForResult: 'items',
+      initialValue: 100 // skip ids 1..100
+    })) {
+      collected.push(...chunk)
+    }
+
+    expect(collected).toHaveLength(20) // ids 101..120 only
+    expect(calls[0].cursor.value).toBe(100) // first page starts from the given value
+  })
+
+  it('callTail: a server page cap below `limit` returns every record', async () => {
+    const { b24 } = makeB24({ customKey: 'items', items: rows(130, 'id'), idField: 'id', pageSize: 50 })
+    const { logger } = makeLogger()
+
+    const result = await new CallTailV3(b24, logger).make<Item>({
+      method: 'main.eventlog.tail',
+      cursorField: 'id',
+      customKeyForResult: 'items',
+      limit: 1000 // far above the server cap
+    })
+
+    expect(result.isSuccess).toBe(true)
+    expect(result.getData()).toHaveLength(130) // 50 + 50 + 30
+  })
+
+  it('fetchTail: an exact-multiple result set ends via the empty confirmation page', async () => {
+    const { b24, calls } = makeB24({ customKey: 'items', items: rows(100, 'id'), idField: 'id', pageSize: 50 })
+    const { logger } = makeLogger()
+
+    const collected: Item[] = []
+    for await (const chunk of new FetchTailV3(b24, logger).make<Item>({
+      method: 'main.eventlog.tail', cursorField: 'id', customKeyForResult: 'items', limit: 50
+    })) {
+      collected.push(...chunk)
+    }
+
+    expect(collected).toHaveLength(100)
+    expect(calls).toHaveLength(3) // 50 + 50 + one empty confirmation page
+  })
+
+  it('fetchTail: omits `select` when none is given and the cursor field is the default id', async () => {
+    const { b24, calls } = makeB24({ customKey: 'items', items: rows(5, 'id'), idField: 'id' })
+    const { logger, warnings } = makeLogger()
+
+    const collected: Item[] = []
+    for await (const chunk of new FetchTailV3(b24, logger).make<Item>({
+      method: 'main.eventlog.tail', customKeyForResult: 'items'
+    })) {
+      collected.push(...chunk)
+    }
+
+    expect(collected).toHaveLength(5)
+    expect(calls[0].select).toBeUndefined() // no select sent; rely on server defaults
+    expect(warnings).toEqual([]) // default 'id' cursor → no warning
+  })
+
+  it('fetchTail: warns when select is omitted with a non-default cursor field', async () => {
+    const { b24 } = makeB24({ customKey: 'items', items: rows(3, 'createdTime'), idField: 'createdTime' })
+    const { logger, warnings } = makeLogger()
+
+    const collected: Item[] = []
+    for await (const chunk of new FetchTailV3(b24, logger).make<Item>({
+      method: 'main.eventlog.tail', cursorField: 'createdTime', customKeyForResult: 'items'
+    })) {
+      collected.push(...chunk)
+    }
+
+    expect(collected).toHaveLength(3)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/non-default cursorField "createdTime"/)
+  })
+
+  it('fetchTail: DESC without initialValue throws (the server would page below the default 0)', async () => {
+    const { b24 } = makeB24({ customKey: 'items', items: rows(10, 'id'), idField: 'id' })
+    const { logger } = makeLogger()
+    const gen = new FetchTailV3(b24, logger).make<Item>({
+      method: 'main.eventlog.tail', cursorField: 'id', order: 'DESC', customKeyForResult: 'items'
+    })
+    await expect(gen.next()).rejects.toThrow(/order "DESC" requires an explicit `initialValue`/)
+  })
+
+  it('callTail: DESC without initialValue throws', async () => {
+    const { b24 } = makeB24({ customKey: 'items', items: rows(10, 'id'), idField: 'id' })
+    const { logger } = makeLogger()
+    await expect(new CallTailV3(b24, logger).make<Item>({
+      method: 'main.eventlog.tail', cursorField: 'id', order: 'DESC', customKeyForResult: 'items'
+    })).rejects.toThrow(/order "DESC" requires an explicit `initialValue`/)
+  })
+
+  it('fetchTail: DESC with initialValue is allowed and forwards order to the cursor', async () => {
+    const { b24, calls } = makeB24({ customKey: 'items', items: rows(5, 'id'), idField: 'id' })
+    const { logger } = makeLogger()
+    const collected: Item[] = []
+    for await (const chunk of new FetchTailV3(b24, logger).make<Item>({
+      method: 'main.eventlog.tail', cursorField: 'id', order: 'DESC', initialValue: 1000, customKeyForResult: 'items'
+    })) {
+      collected.push(...chunk)
+    }
+    expect(calls[0].cursor.order).toBe('DESC')
+    expect(calls[0].cursor.value).toBe(1000)
+  })
 })

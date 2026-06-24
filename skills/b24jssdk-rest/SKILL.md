@@ -1,6 +1,6 @@
 ---
 name: b24jssdk-rest
-description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface is @deprecated for 2.0.0 — do not generate code against it.
+description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk (and the v3-only native-keyset callTail/fetchTail) for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface is @deprecated for 2.0.0 — do not generate code against it.
 ---
 
 # b24jssdk REST patterns (actions API)
@@ -15,7 +15,7 @@ The SDK exposes both `v2` and `v3` under `$b24.actions`. **v3 works only for a c
 
 | v3-supported method families | All other Bitrix24 methods |
 |---|---|
-| `tasks.task.*` — `add`, `get`, `update`, `delete`, `result.*`, `access.*`, `file.*`, `chat.message.*`, plus `*.field.list`/`field.get` | use **v2** |
+| `tasks.task.*` — `add`, `get`, `update`, `delete`, `list`, `result.*`, `access.*`, `file.*`, `chat.message.*`, plus `*.field.list`/`field.get` | use **v2** |
 | `mail.*` — `mailbox.*`, `message.*`, `recipient.*` | |
 | `humanresources.*` — `node.*`, `employee.*` | |
 | `timeman.record.*` — read-only (`list`, `field.*`) | |
@@ -37,8 +37,12 @@ Calling a non-v3 method via `$b24.actions.v3.*` throws `SdkError` with code `JSS
 | Many independent calls (>50) | `actions.v{2,3}.batchByChunk.make` |
 | Read a small list (<1000 items) and process in memory | `actions.v{2,3}.callList.make` |
 | Read a large list with low memory footprint | `actions.v{2,3}.fetchList.make` (async iterator) |
+| Read a v3 method that exposes a native `tail` (keyset) action — e.g. `main.eventlog.tail` | `actions.v3.callTail.make` / `actions.v3.fetchTail.make` (v3 only) |
 
-There is no manual-pagination path any more — both `callList` and `fetchList` handle the keyset cursor internally.
+There is no manual-pagination path any more — the list helpers page for you. Two mechanisms exist, and they are not interchangeable:
+
+- **`callList` / `fetchList`** *emulate* a cursor on top of the `list` action by injecting a `[idField, '>', n]` condition into `filter` and forcing `order`. Works for any `*.list` method (v2 and v3).
+- **`callTail` / `fetchTail`** (v3 only) drive the server's *native* `tail` action via its `cursor: { field, value, order, limit }` parameter. Use these when a method publishes a `*.tail` endpoint. The cursor field must **not** appear in `filter` (the server rejects it), is auto-added to `select`, and `order: 'DESC'` requires an explicit `initialValue`.
 
 ## `call.make` — single call
 

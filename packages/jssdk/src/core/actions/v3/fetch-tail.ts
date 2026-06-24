@@ -9,7 +9,7 @@ export type ActionFetchTailV3 = ActionOptions & {
   params?: Omit<TypeCallParams, 'pagination' | 'order' | 'cursor'>
   cursorField?: string
   order?: 'ASC' | 'DESC' | 'asc' | 'desc' | string
-  customKeyForResult: string
+  customKeyForResult?: string
   requestId?: string
   limit?: number
   initialValue?: number | string
@@ -41,11 +41,13 @@ export class FetchTailV3 extends AbstractAction {
    *         are managed by this helper and must not be passed. The cursor field must NOT be used in `filter`.
    *     - `cursorField?: string` - The DTO field that drives the cursor. Must be monotonic and
    *         preferably unique, and present in `select`. Default is `id`.
-   *     - `order?: 'ASC' | 'DESC'` - Cursor direction. Default is `ASC`.
-   *     - `customKeyForResult: string` - The key the response groups rows under (for example `items`).
+   *     - `order?: 'ASC' | 'DESC'` - Cursor direction. Default is `ASC`. For `DESC` you MUST pass
+   *         `initialValue` (the server pages by `field < value`, so the default `0` returns nothing).
+   *     - `customKeyForResult?: string` - The key the response groups rows under. Default is `items`.
    *     - `requestId?: string` - Unique request identifier for tracking.
    *     - `limit?: number` - How many records to retrieve at a time. Default is `50`. Maximum is `1000`.
-   *     - `initialValue?: number | string` - Cursor start value for the first page. Default is `0`.
+   *     - `initialValue?: number | string` - Cursor start value for the first page. Default is `0`
+   *         (valid for ascending numeric fields); required for `DESC` and for non-numeric fields.
    *
    * @returns {AsyncGenerator<T[]>} An async generator that yields chunks of data as arrays of type `T`.
    *
@@ -64,23 +66,42 @@ export class FetchTailV3 extends AbstractAction {
     const batchSize = options?.limit ?? 50
     const cursorField = options?.cursorField ?? 'id'
     const order = options?.order ?? 'ASC'
-    const customKeyForResult = options?.customKeyForResult ?? null
+    const customKeyForResult = options?.customKeyForResult ?? 'items'
     const params = options?.params ?? {}
+
+    // DESC keyset needs an explicit start: the server pages by `field < value`,
+    // so the default first-page value 0 would match nothing for a non-negative
+    // field. Require `initialValue` (the type maximum / newest value) for DESC.
+    if (/desc/i.test(order) && options?.initialValue === undefined) {
+      throw new SdkError({
+        code: 'JSSDK_CORE_B24_FETCH_TAIL_DESC_REQUIRES_INITIAL_VALUE',
+        description: 'fetchTail.make: order "DESC" requires an explicit `initialValue` (the server pages by `field < value`, so the default 0 returns nothing). Pass `initialValue` set to the type maximum / newest value.',
+        status: 500
+      })
+    }
 
     // The cursor field cannot also live in `filter` — the server forces ordering
     // and the `> value` condition on it and rejects a duplicate with
-    // INVALIDFILTEREXCEPTION. Warn instead of letting the server 400.
+    // INVALIDFILTEREXCEPTION. Warn instead of letting the server 400. (Detection
+    // covers only the short-form `[field, op, value]` triples the SDK emits.)
     if (Array.isArray(params['filter']) && params['filter'].some((c: any) => Array.isArray(c) && c[0] === cursorField)) {
       this._logger.warning(`fetchTail.make: the cursor field "${cursorField}" must not appear in \`filter\` — the server orders and pages by it and will reject a filter on the same field (INVALIDFILTEREXCEPTION). Remove it from \`filter\`.`)
     }
 
-    // The cursor field must be selected so the next page's cursor value can be read.
+    // The cursor field must be readable in the response to advance. Append it to
+    // an explicit `select`; when `select` is omitted we rely on the server's
+    // default field set — warn for a non-default cursorField, which may not be
+    // in those defaults (the per-page guard below would otherwise stop silently).
     let select = params['select'] as string[] | undefined
-    if (Array.isArray(select) && !select.includes(cursorField)) {
-      select = [...select, cursorField]
+    if (Array.isArray(select)) {
+      if (!select.includes(cursorField)) {
+        select = [...select, cursorField]
+      }
+    } else if (cursorField !== 'id') {
+      this._logger.warning(`fetchTail.make: no \`select\` provided with a non-default cursorField "${cursorField}" — make sure it is in the server's default field set, otherwise pass \`select\` including "${cursorField}" so the cursor can advance.`)
     }
 
-    const { ...restParams } = params as TypeCallParams
+    const { select: _ignoredSelect, ...restParams } = params as TypeCallParams
     let cursorValue: number | string = options?.initialValue ?? 0
     let maxPageSize = 0
     let isContinue = true

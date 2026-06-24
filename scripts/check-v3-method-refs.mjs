@@ -40,7 +40,7 @@ const ROOT = process.env.V3_CHECK_ROOT
   ? resolve(process.env.V3_CHECK_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-const V3_ACTIONS = new Set(['call', 'callList', 'fetchList', 'batch', 'batchByChunk'])
+const V3_ACTIONS = new Set(['call', 'callList', 'fetchList', 'callTail', 'fetchTail', 'batch', 'batchByChunk'])
 const REAL_ACTIONS = [...V3_ACTIONS].join(' / ')
 
 // Illustrative, non-real method names that legitimately appear in snippets.

@@ -64,8 +64,8 @@ export class AggregateV3 extends AbstractAction {
    *   const total = response.getData()?.sum?.amount
    * }
    */
-  public override async make<T = number>(options: ActionAggregateV3): Promise<Result<AggregateResultV3 & Record<string, Record<string, T>>>> {
-    const result: Result<AggregateResultV3 & Record<string, Record<string, T>>> = new Result()
+  public override async make(options: ActionAggregateV3): Promise<Result<AggregateResultV3>> {
+    const result: Result<AggregateResultV3> = new Result()
 
     const select = options?.select ?? {}
     for (const fn of Object.keys(select)) {
@@ -86,6 +86,9 @@ export class AggregateV3 extends AbstractAction {
       }
     }
 
+    // `TypeCallParams.select` is typed `string[]` for the `list` methods, but the
+    // v3 `aggregate` action takes an object select (`{ sum: { field: alias } }`);
+    // the server accepts it, hence the cast.
     const params: TypeCallParams = { select: select as unknown as TypeCallParams['select'] }
     if (options?.params?.filter) {
       params.filter = options.params.filter
@@ -109,9 +112,21 @@ export class AggregateV3 extends AbstractAction {
       return result
     }
 
-    const responseData = response.getData()
-    // The aggregate payload nests one extra level: { result: { result: { <func>: {...} } } }.
-    const buckets = ((responseData?.result as any)?.result ?? {}) as AggregateResultV3 & Record<string, Record<string, T>>
+    // The reference (§7) nests one extra level: { result: { result: { <func>: {...} } } }.
+    // `getData()` unwraps the outer `result`, so the buckets are at `payload.result`.
+    // This shape is unverified against a live portal — be defensive: if a portal
+    // returns the buckets at a single level instead, fall back to the payload and
+    // warn rather than silently returning empty data.
+    const payload = response.getData()?.result as any
+    let buckets: AggregateResultV3
+    if (payload && typeof payload === 'object' && 'result' in payload) {
+      buckets = (payload.result ?? {}) as AggregateResultV3
+    } else if (payload && typeof payload === 'object') {
+      this._logger.warning(`aggregate.make: response has no nested 'result.result' envelope (the v3 reference §7 specifies double nesting); falling back to the top-level 'result'. method=${options.method}`)
+      buckets = payload as AggregateResultV3
+    } else {
+      buckets = {}
+    }
     return result.setData(buckets)
   }
 }

@@ -69,8 +69,8 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 ### 1. v3 method whitelist removed — when do we re-balance recipes?
 **Update:** the hardcoded v3 allowlist (`version-manager.ts` `#supportMethods`) has been removed — `actions.v3.*` now sends any method to the v3 endpoint and the server validates it. So routing is no longer gated by a list. The open recipe question stands on its own merits: when a CRM method's v3 form is the better fit, several recipes (1, 3, 4, 6, 7, 9) could move to `actions.v3.*` — but the **filter dialect changes from prefix-keyed to array-of-triples** at the same time, so it's a meaningful rewrite, not a renaming. The earlier "watch `#supportMethods` for new entries" action item no longer applies.
 
-### 2. Aggregate action (`actions.v3.aggregate`) not exposed in the SDK yet
-The v3 protocol supports `aggregate` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). The SDK currently does not expose a typed `aggregate.make` action. Recipe 1 (CRM analytics) loads all deals into memory and aggregates client-side — when an `aggregate` action lands, the recipe becomes a one-call query.
+### 2. ~~Aggregate action not exposed in the SDK~~ — RESOLVED
+The SDK now exposes a typed `actions.v3.aggregate.make` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). It is spec-based and not yet verified against a live portal — no module on the test portal publishes an `*.aggregate` endpoint (confirmed via OpenAPI). Recipe 1 (CRM analytics) still aggregates client-side because CRM is v2-only here; switch it to a one-call `aggregate` query if/when a CRM `*.aggregate` v3 method appears.
 
 ### 3. `B24OAuth` install handshake still uncovered
 The skills assume the user already has `authParams` populated from install events. The full OAuth install round-trip (Express endpoint that handles `ONAPPINSTALL`, persists tokens, swaps refresh on schedule) isn't a recipe yet — biggest blocker for anyone shipping a Marketplace app. Highest-ROI gap.

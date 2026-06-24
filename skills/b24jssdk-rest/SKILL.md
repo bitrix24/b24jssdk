@@ -267,7 +267,7 @@ res.getQuery()              // { method, params, requestId }
 
 Removed from the public surface for `2.0.0`:
 - `isMore()`, `hasMore()` — was tied to v2 envelope `next`
-- `getTotal()` — was tied to v2 envelope `total`. **No v3 count replacement yet**: an `aggregate` action (`count` / `countDistinct`) is planned but not exposed in the SDK.
+- `getTotal()` — was tied to v2 envelope `total`. v3 has no `total` in the envelope; for a count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action (most don't yet — otherwise reduce a `callList` client-side).
 - `getNext()`, `fetchNext()` — replaced by `callList.make` / `fetchList.make`
 
 ## Null result is passthrough
@@ -320,7 +320,7 @@ For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `soft
 ## Anti-patterns
 
 - ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 2.0.0. Use the actions API.
-- ❌ `res.getTotal()` / `res.isMore()` / `res.getNext()` — `@deprecated`, throw on v3. Use `callList` / `fetchList` for paging; v3 has **no count replacement yet** (an `aggregate` action is planned but not exposed).
+- ❌ `res.getTotal()` / `res.isMore()` / `res.getNext()` — `@deprecated`, throw on v3. Use `callList` / `fetchList` for paging; for a count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action.
 - ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — `crm.*` is v2-only, so the v3 server returns a `METHODNOTFOUNDEXCEPTION` soft error (`response.isSuccess === false`); use `actions.v2.*` for CRM. (The SDK no longer pre-flight-throws here.)
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.
 - ❌ `customKeyForResult: 'result'` for `crm.item.list` — wrong, use `'items'`. Otherwise you'll get an empty list silently.

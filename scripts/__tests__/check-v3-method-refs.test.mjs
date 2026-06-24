@@ -54,12 +54,13 @@ test('clean: real actions (including callTail/fetchTail) and any method pass', (
     'docs/content/docs/ok.md': [
       '# OK',
       '',
-      'Use `actions.v3.call.make`, `actions.v3.fetchTail.make` and the',
-      '`actions.v3.{call,callList,fetchList,callTail,fetchTail}` family.',
+      'Use `actions.v3.call.make`, `actions.v3.fetchTail.make`, `actions.v3.aggregate.make` and the',
+      '`actions.v3.{call,callList,fetchList,callTail,fetchTail,aggregate}` family.',
       '',
       '```ts',
       'await $b24.actions.v3.call.make({ method: \'note.collection.list\' })',
       'await $b24.actions.v3.callTail.make({ method: \'main.eventlog.tail\' })',
+      'await $b24.actions.v3.aggregate.make({ method: \'x.aggregate\', select: { count: [\'id\'] } })',
       '```'
     ].join('\n')
   }, (root) => {

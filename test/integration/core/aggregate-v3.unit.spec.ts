@@ -40,10 +40,31 @@ describe('AggregateV3', () => {
 
     expect(response.isSuccess).toBe(true)
     expect(response.getData()).toEqual({ sum: { amount: 12345 }, count: { id: 87 } })
-    // request params: select forwarded verbatim, filter included, no pagination
+    // golden request shape: ONLY select + filter — no pagination/order/cursor leak
     expect(calls[0].method).toBe('some.entity.aggregate')
-    expect(calls[0].params.select).toEqual({ sum: { amount: 'totalAmount' }, count: ['id'] })
-    expect(calls[0].params.filter).toEqual([['status', '=', 'NEW']])
+    expect(calls[0].params).toEqual({
+      select: { sum: { amount: 'totalAmount' }, count: ['id'] },
+      filter: [['status', '=', 'NEW']]
+    })
+  })
+
+  it('falls back to single-level result and warns if the envelope is not double-nested', async () => {
+    const warnings: string[] = []
+    const logger = { warning: (m: string) => warnings.push(m), error: () => {}, info: () => {}, log: () => {}, debug: () => {}, trace: () => {} } as never
+    // server returns buckets directly under `result`, not `result.result`
+    const make = async () => ({
+      isSuccess: true,
+      getData: () => ({ result: { count: { id: 5 } } }),
+      getErrorMessages: () => [],
+      errors: []
+    } as never)
+    const b24 = { actions: { v3: { call: { make } } } } as never
+
+    const response = await new AggregateV3(b24, logger).make({ method: 'x.aggregate', select: { count: ['id'] } })
+    expect(response.isSuccess).toBe(true)
+    expect(response.getData()).toEqual({ count: { id: 5 } })
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/no nested 'result.result' envelope/)
   })
 
   it('accepts both the list form and the map form per function', async () => {

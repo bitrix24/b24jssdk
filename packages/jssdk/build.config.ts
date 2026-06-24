@@ -134,6 +134,21 @@ function initConfig(formatTypeParam: string): BuildConfig {
           async 'build:prepare'(ctx) {
             ctx.pkg.dependencies = {}
             ctx.options.dependencies = []
+          },
+          // The root package is `"type": "module"`, so a bare `.js` file in
+          // `dist/umd` would be parsed as ESM and the UMD/CJS wrapper would
+          // export nothing under `require()`. Emitting a local
+          // `package.json` with `"type": "commonjs"` marks this directory as
+          // CommonJS so `require('@bitrix24/b24jssdk')` resolves correctly.
+          async 'build:done'(ctx) {
+            const { writeFile, mkdir } = await import('node:fs/promises')
+            const { resolve } = await import('node:path')
+            const umdDir = resolve(ctx.options.outDir)
+            await mkdir(umdDir, { recursive: true })
+            await writeFile(
+              resolve(umdDir, 'package.json'),
+              `${JSON.stringify({ type: 'commonjs' }, null, 2)}\n`
+            )
           }
         }
       } as BuildConfig

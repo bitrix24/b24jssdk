@@ -29,11 +29,13 @@
   "exports": {
     ".": {
       "types": "./dist/esm/index.d.ts",
-      "import": "./dist/esm/index.mjs"
+      "import": "./dist/esm/index.mjs",
+      "require": "./dist/umd/index.js",
+      "default": "./dist/umd/index.js"
     },
     "./package.json": "./package.json"
   },
-  "main": "./dist/esm/index.mjs",
+  "main": "./dist/umd/index.js",
   "module": "./dist/esm/index.mjs",
   "typesVersions": {
     "*": { ".": ["./dist/esm/index.d.ts"] }

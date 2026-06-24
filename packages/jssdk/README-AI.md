@@ -27,7 +27,7 @@ Core building blocks:
 - UI managers: parent, slider, dialog, placement, options, auth
 - Helpers: B24HelperManager and useB24Helper hook; Pull client
 
-Note: since v0.4.0 the package ships ESM and UMD only (no CommonJS).
+Note: the package ships ESM, CommonJS, and UMD builds. ESM is the recommended entry point; CommonJS is supported via `require('@bitrix24/b24jssdk')`, and the UMD build is for `<script>` usage in the browser.
 
 ## Deprecation notice — read before generating code
 

@@ -94,7 +94,7 @@ class VersionManager {
 
       // --- tasks (rest-v3) ---
       '/tasks.task.add',
-      '/tasks.task.list',
+      '/tasks.task.list', // done
       '/tasks.task.get', // done
       '/tasks.task.update', // done
       '/tasks.task.delete',

@@ -11,13 +11,14 @@ import type { TaskListItem } from '../../types'
  * `b24.actions.v3.fetchList.make()` (an async generator that yields the data in
  * chunks without loading everything into memory at once).
  *
- * `tasks.task.list` is special: it sorts / filters by the uppercase `ID` but
- * returns each task with a lowercase `id`. The list helper therefore needs
- * `idKey: 'id'` (response field, drives the cursor), `cursorIdKey: 'ID'`
- * (request field, used for `order` and the `> id` page filter) and
- * `customKeyForResult: 'tasks'` (the response groups items under `result.tasks`).
+ * In **v3** `tasks.task.list` is a standard v3 list method: it uses the
+ * lowercase `id` field for both the request cursor and the response, and groups
+ * the rows under `result.items`. So the helper only needs `idKey: 'id'` (the
+ * default) and `customKeyForResult: 'items'` — no `cursorIdKey` override (that
+ * is only needed on the v2 endpoint, where the method sorts by `ID` but returns
+ * `id`). Verified against a live portal.
  *
- * @usage pnpm --filter @bitrix24/b24jssdk-cli dev list tasks --responsibleId=5 --limit=50
+ * @usage pnpm --filter @bitrix24/b24jssdk-cli dev list tasks --limit=50
  */
 export default defineCommand({
   meta: {
@@ -25,11 +26,9 @@ export default defineCommand({
     description: 'List tasks from Bitrix24 via REST API v3 (tasks.task.list)'
   },
   args: {
-    responsibleId: { description: 'Filter by responsible user ID (0 = no filter)', default: '0' },
     limit: { description: 'Page size per request (server caps tasks.task.list at 50)', default: '50' }
   },
   async setup({ args }) {
-    const responsibleId = Number(args.responsibleId)
     const limit = Number(args.limit)
 
     // region Logger ////
@@ -50,22 +49,13 @@ export default defineCommand({
     b24.setLogger(loggerForDebugB24)
     logger.info('Connected to Bitrix24', { target: b24.getTargetOrigin() })
 
-    const filter: unknown[] = []
-    if (responsibleId > 0) {
-      // tasks.task.list filters on the request-side uppercase field name
-      // (`RESPONSIBLE_ID`), the same casing asymmetry as the cursor (`ID`).
-      filter.push(['RESPONSIBLE_ID', '=', responsibleId])
-    }
-
     const generator = b24.actions.v3.fetchList.make<TaskListItem>({
       method: 'tasks.task.list',
       params: {
-        filter,
         select: ['id', 'title', 'status', 'responsibleId']
       },
       idKey: 'id',
-      cursorIdKey: 'ID',
-      customKeyForResult: 'tasks',
+      customKeyForResult: 'items',
       requestId: 'list-tasks',
       limit
     })

@@ -236,13 +236,14 @@ const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
 
 ## `idKey`, `cursorIdKey` and `customKeyForResult` cheat sheet
 
-`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method sorts/filters by one name but returns another — most notably `tasks.task.list` (request `ID`, response `id`).
+`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method sorts/filters by one name but returns another — most notably `tasks.task.list` **on v2** (request `ID`, response `id`). On the **v3** endpoint `tasks.task.list` is all-lowercase (`id` for both request and response, rows under `result.items`), so no `cursorIdKey` override is needed.
 
 | Method | `idKey` (response) | `cursorIdKey` (request) | `customKeyForResult` |
 |---|---|---|---|
 | `crm.item.list` (v2) | `'id'` | — (= `idKey`) | `'items'` |
 | `crm.deal.list`, `crm.contact.list`, … (classic v2) | `'ID'` (default) | — (= `idKey`) | omit (default `result`) |
-| `tasks.task.list` (v2 or **v3**) | `'id'` | `'ID'` | `'tasks'` |
+| `tasks.task.list` (v2) | `'id'` | `'ID'` | `'tasks'` |
+| `tasks.task.list` (v3) | `'id'` | — (= `idKey`) | `'items'` |
 | `disk.folder.getchildren` | `'ID'` (default) | — (= `idKey`) | omit |
 | `main.eventlog.list` (v3) | `'id'` | — (= `idKey`) | `'items'` |
 

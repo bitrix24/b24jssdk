@@ -4,7 +4,7 @@
 
 ### Features
 
-* **v3:** `tasks.task.list` joins the REST API v3 allowlist, so the list method now routes through `actions.v3.*` (`call` / `callList` / `fetchList` / `batch`) instead of falling back to v2. With the list helpers use `idKey: 'id'`, `cursorIdKey: 'ID'`, `customKeyForResult: 'tasks'` — the method sorts/filters by the uppercase request field `ID` but returns each task with a lowercase `id`. A `list tasks` CLI playground command demonstrates the v3 fetch (#253)
+* **v3:** `tasks.task.list` joins the REST API v3 allowlist, so the list method now routes through `actions.v3.*` (`call` / `callList` / `fetchList` / `batch`) instead of falling back to v2. On v3 it is a standard all-lowercase list method, so with the list helpers use `idKey: 'id'` (the default) and `customKeyForResult: 'items'` — no `cursorIdKey` override (that is only needed on the v2 endpoint, which sorts by `ID` but returns `id`). A `list tasks` CLI playground command demonstrates the v3 fetch. Verified end-to-end against a live portal (#253)
 
 ### Bug Fixes
 

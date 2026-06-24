@@ -102,6 +102,28 @@ filter: [
 
 The top-level array is implicitly `logic: 'and'`.
 
+### v3 — typed builder (`FilterV3`)
+
+For anything beyond a flat list of triples, prefer the `FilterV3` builder over hand-writing the structs — it validates operators and `in`/`between` shapes on the client (a typo fails fast instead of as a server `UNKNOWNFILTEROPERATOREXCEPTION`):
+
+```ts
+import { FilterV3 as F } from '@bitrix24/b24jssdk'
+
+// status = NEW  AND  (id in [1,2]  OR  id > 100)
+const filter = F.build(
+  F.eq('status', 'NEW'),
+  F.or(
+    F.in('id', [1, 2]),
+    F.gt('id', 100)
+  )
+)
+await $b24.actions.v3.call.make({ method: 'tasks.task.list', params: { filter } })
+```
+
+- Leaves: `F.eq` / `F.ne` / `F.gt` / `F.ge` / `F.lt` / `F.le` / `F.in(field, array)` / `F.between(field, from, to)`.
+- Groups: `F.and(...)`, `F.or(...)`, `F.not(node)` (negates a condition or group).
+- `F.build(...nodes)` returns the top-level (AND-joined) array for `params.filter`; falsy nodes are skipped, so `F.build(F.eq('a', 1), flag && F.gt('b', 2))` inlines conditionals.
+
 ## `order` rule for callList / fetchList
 
 Both `actions.v{2,3}.callList.make` and `fetchList.make` **strip user-supplied `order`** and force `{ [cursorIdKey]: 'ASC' }` (where `cursorIdKey` defaults to `idKey`) because the action uses keyset cursor pagination. If you pass an `order`, the SDK logs a warning (`callList.make: user-provided 'order' parameter is ignored…`) and discards it (see the `order` warning in `packages/jssdk/src/core/actions/v2/call-list.ts` and the v3 equivalent).

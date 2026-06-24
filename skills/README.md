@@ -27,7 +27,7 @@ Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
 - TypeScript / ESM. Bare imports from `@bitrix24/b24jssdk`.
 - The active client is always `$b24` and is treated as `TypeB24` — every example works for `B24Hook`, `B24Frame`, and `B24OAuth` because the actions surface lives on `AbstractB24`.
 - Always use **`$b24.actions.v{2,3}.*.make()`** — the legacy `callMethod`/`callBatch`/`callListMethod`/`fetchListMethod` is `@deprecated` for 2.0.0.
-- Pick `v3` only for methods on the v3 whitelist (`tasks.task.{add,get,update,delete,…}`, `main.eventlog.*`, `batch`); everything else stays on `v2`.
+- Pick `v3` only for methods on the v3 whitelist (`tasks.task.{add,get,update,delete,list,…}`, `main.eventlog.*`, `batch`); everything else stays on `v2`.
 - v3 entities (`crm.item.*`) on v2 still need `idKey: 'id'` (lowercase) and `customKeyForResult: 'items'` for list helpers; classic methods (`crm.deal.*`) use default `idKey: 'ID'`. `tasks.task.list` is special — it sorts / filters by `ID` but returns lowercase `id`, so it needs `idKey: 'id', cursorIdKey: 'ID'` (and `customKeyForResult: 'tasks'`).
 - Filters: v2 = prefix-keyed object; v3 = array of `[field, op, value]` triples. Never mix.
 - Dates: use `Text.toB24Format(date)` for the canonical `yyyy-MM-dd'T'HH:mm:ssZZ` format.

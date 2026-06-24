@@ -251,6 +251,49 @@ describe('list helpers cursorIdKey (issue #185)', () => {
     expect(result.getData()).toHaveLength(130) // 50 + 50 + 30, not stopped after page 1
   })
 
+  it('v3 fetchList: an exact-multiple result set ends via the empty confirmation page', async () => {
+    // 100 items, server cap 50 → two full pages, then one empty page confirms the end
+    const { b24, calls } = makeB24({ version: 'v3', customKey: 'tasks', items: rows(100, 'id'), idField: 'id', pageSize: 50 })
+    const { logger, warnings } = makeLogger()
+
+    const collected: Item[] = []
+    for await (const chunk of new FetchListV3(b24, logger).make<Item>({
+      method: 'tasks.task.list',
+      idKey: 'id',
+      cursorIdKey: 'ID',
+      customKeyForResult: 'tasks',
+      limit: 100
+    })) {
+      collected.push(...chunk)
+    }
+
+    expect(collected).toHaveLength(100) // every record, none dropped at the boundary
+    expect(warnings).toEqual([])
+    expect(calls).toHaveLength(3) // 50 + 50 + one empty confirmation page
+  })
+
+  it('v3 fetchList: a single short page costs one extra confirmation request (by design)', async () => {
+    // 30 items, requested limit 50 — indistinguishable from a 50-cap on one page,
+    // so the helper issues one extra request to confirm there is nothing after it.
+    const { b24, calls } = makeB24({ version: 'v3', customKey: 'tasks', items: rows(30, 'id'), idField: 'id', pageSize: 50 })
+    const { logger, warnings } = makeLogger()
+
+    const collected: Item[] = []
+    for await (const chunk of new FetchListV3(b24, logger).make<Item>({
+      method: 'tasks.task.list',
+      idKey: 'id',
+      cursorIdKey: 'ID',
+      customKeyForResult: 'tasks',
+      limit: 50
+    })) {
+      collected.push(...chunk)
+    }
+
+    expect(collected).toHaveLength(30)
+    expect(warnings).toEqual([])
+    expect(calls).toHaveLength(2) // 30 + one empty confirmation page
+  })
+
   // ── review follow-ups (#191): negative + edge cases ──────────────────────
 
   it('v2 fetchList: a clean short last page does NOT warn', async () => {

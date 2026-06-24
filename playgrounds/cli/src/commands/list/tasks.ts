@@ -52,7 +52,9 @@ export default defineCommand({
 
     const filter: unknown[] = []
     if (responsibleId > 0) {
-      filter.push(['responsibleId', '=', responsibleId])
+      // tasks.task.list filters on the request-side uppercase field name
+      // (`RESPONSIBLE_ID`), the same casing asymmetry as the cursor (`ID`).
+      filter.push(['RESPONSIBLE_ID', '=', responsibleId])
     }
 
     const generator = b24.actions.v3.fetchList.make<TaskListItem>({

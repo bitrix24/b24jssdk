@@ -29,10 +29,3 @@ export interface TaskListItem {
   status: string
   responsibleId: string
 }
-
-/**
- * Shape of a single `tasks.task.list` (v3) page: `{ result: { tasks: [...] } }`.
- */
-export interface TaskListResult {
-  tasks: TaskListItem[]
-}

@@ -13,7 +13,7 @@ Files migrated to `$b24.actions.v{2,3}.*.make()`:
 - `b24jssdk-core/SKILL.md` — added `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` tuning. Updated examples to the new surface.
 - `b24jssdk-frame-ui/SKILL.md` — un-deprecated `selectCRM` (it's actively maintained now and normalizes response buckets); added `placement.setValue` helper.
 - `b24jssdk-helpers/SKILL.md` — corrected `usePullClient()` to be arg-less; mentioned new `isInitB24Helper()` getter.
-- `b24jssdk-recipes/SKILL.md` + 9 recipe `.ts` files — all rewritten on the new surface. CRM → `actions.v2.*`, tasks → `actions.v3.*` where on the whitelist (`tasks.task.add/get/update/delete`).
+- `b24jssdk-recipes/SKILL.md` + 9 recipe `.ts` files — all rewritten on the new surface. CRM → `actions.v2.*`, tasks → `actions.v3.*` where on the whitelist (`tasks.task.add/get/update/delete/list`).
 - `b24jssdk-vibecode/SKILL.md` — AI-add-on example updated to new API.
 - `README.md` + `MAINTENANCE.md` — translation tables now use `actions.v{2,3}.*.make`.
 

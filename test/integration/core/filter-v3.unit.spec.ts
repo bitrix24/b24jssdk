@@ -79,10 +79,73 @@ describe('FilterV3 builder', () => {
     expect(() => F.eq('', 1)).toThrow(/non-empty string/)
   })
 
-  it('not() does not mutate the original group', () => {
+  it('not() does not mutate the original group (flag or conditions array)', () => {
     const group = F.or(F.eq('a', 1))
     const negated = F.not(group)
     expect((group as any).negative).toBeUndefined()
     expect(negated.negative).toBe(true)
+    // the conditions array must be a copy, not shared
+    expect(negated.conditions).not.toBe(group.conditions)
+    negated.conditions.push(F.eq('b', 2))
+    expect(group.conditions).toHaveLength(1) // original untouched
+  })
+
+  it('not(not(group)) stays negated (idempotent, does not toggle back)', () => {
+    const once = F.not(F.or(F.eq('a', 1)))
+    const twice = F.not(once)
+    expect(once.negative).toBe(true)
+    expect(twice.negative).toBe(true)
+  })
+
+  it('nests groups several levels deep', () => {
+    const filter = F.build(
+      F.and(
+        F.eq('a', 1),
+        F.or(
+          F.eq('b', 2),
+          F.and(F.gt('c', 3), F.lt('c', 9))
+        )
+      )
+    )
+    expect(filter).toEqual([
+      {
+        logic: 'and',
+        conditions: [
+          ['a', '=', 1],
+          {
+            logic: 'or',
+            conditions: [
+              ['b', '=', 2],
+              { logic: 'and', conditions: [['c', '>', 3], ['c', '<', 9]] }
+            ]
+          }
+        ]
+      }
+    ])
+  })
+
+  it('build() returns an empty array when every node is falsy', () => {
+    expect(F.build(false, null, undefined)).toEqual([])
+  })
+
+  it('build() rejects a malformed node (forgotten spread / hand-rolled triple)', () => {
+    // @ts-expect-error — passing an array of nodes instead of spreading
+    expect(() => F.build([F.eq('a', 1)])).toThrow(/each node must be/)
+    // hand-rolled triple with a bad operator escapes the leaf factories
+    expect(() => F.build(['field', 'LIKE', 'x'] as never)).toThrow(/each node must be/)
+  })
+
+  it('golden payload: the exact wire shape verified live is stable and JSON-serializable', () => {
+    // status = NEW AND (id in [1,2] OR id > 100) AND createdTime between [a,b]
+    const filter = F.build(
+      F.eq('status', 'NEW'),
+      F.or(F.in('id', [1, 2]), F.gt('id', 100)),
+      F.between('createdTime', '2025-01-01', '2025-12-31')
+    )
+    expect(JSON.stringify(filter)).toBe(
+      '[["status","=","NEW"],'
+      + '{"logic":"or","conditions":[["id","in",[1,2]],["id",">",100]]},'
+      + '["createdTime","between",["2025-01-01","2025-12-31"]]]'
+    )
   })
 })

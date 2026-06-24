@@ -63,7 +63,7 @@ function condition(field: string, operator: FilterV3Operator, value: unknown): F
  * )
  * await b24.actions.v3.call.make({ method: 'tasks.task.list', params: { filter } })
  */
-export const FilterV3 = {
+export const FilterV3 = Object.freeze({
   /** `field = value` */
   eq(field: string, value: unknown): FilterV3Condition {
     return condition(field, '=', value)
@@ -115,10 +115,11 @@ export const FilterV3 = {
   /**
    * Negate a condition or group (wraps it in a NOT). A bare condition is wrapped
    * in a single-item AND group so the `negative` flag has somewhere to live.
+   * Returns a fresh group (the input's `conditions` array is copied, not shared).
    */
   not(node: FilterV3Node): FilterV3Group {
     if (isGroup(node)) {
-      return { ...node, negative: true }
+      return { ...node, conditions: [...node.conditions], negative: true }
     }
     return { logic: 'and', negative: true, conditions: [node] }
   },
@@ -127,12 +128,39 @@ export const FilterV3 = {
    * Assemble the top-level filter array (its elements are AND-joined) ready to
    * pass as `params.filter`. Falsy nodes are skipped, so you can inline
    * conditionals: `F.build(F.eq('a', 1), flag && F.gt('b', 2))`.
+   *
+   * Always wrap with `build` (or an array) even for a single condition —
+   * `params.filter` must be an array, so pass `build(F.eq('a', 1))`, not the bare
+   * `F.eq('a', 1)`. Each surviving node is shape-checked, so a forgotten spread
+   * (`build([F.eq(...)])`) or a hand-rolled malformed triple fails fast here
+   * instead of as an opaque server error.
    */
   build(...nodes: Array<FilterV3Node | false | null | undefined>): FilterV3Node[] {
-    return nodes.filter(Boolean) as FilterV3Node[]
+    const result = nodes.filter(Boolean) as FilterV3Node[]
+    for (const node of result) {
+      assertNode(node)
+    }
+    return result
   }
+})
+
+function isGroup(node: unknown): node is FilterV3Group {
+  return !Array.isArray(node) && typeof node === 'object' && node !== null && 'conditions' in node
 }
 
-function isGroup(node: FilterV3Node): node is FilterV3Group {
-  return !Array.isArray(node) && typeof node === 'object' && node !== null && 'conditions' in node
+function assertNode(node: FilterV3Node): void {
+  if (isGroup(node)) {
+    return
+  }
+  const ok = Array.isArray(node)
+    && node.length === 3
+    && typeof node[0] === 'string'
+    && FILTER_V3_OPERATORS.includes(node[1] as FilterV3Operator)
+  if (!ok) {
+    throw new SdkError({
+      code: 'JSSDK_FILTER_V3_INVALID_NODE',
+      description: `FilterV3.build: each node must be a [field, operator, value] condition or a group — got ${JSON.stringify(node)}. Did you forget to spread (build(...nodes)) or build a condition with FilterV3 helpers?`,
+      status: 400
+    })
+  }
 }

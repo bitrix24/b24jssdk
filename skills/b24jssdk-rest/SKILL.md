@@ -228,7 +228,7 @@ const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
 })
 ```
 
-> **Note the v2 vs v3 filter difference.** v2 uses prefix-keyed objects; v3 uses arrays of `[field, op, value]` triples. See the `b24jssdk-filtering` skill.
+> **Note the v2 vs v3 filter difference.** v2 uses prefix-keyed objects; v3 uses arrays of `[field, op, value]` triples — for nested groups build them with the typed `FilterV3` helper (`import { FilterV3 } from '@bitrix24/b24jssdk'`). See the `b24jssdk-filtering` skill.
 
 ## `idKey`, `cursorIdKey` and `customKeyForResult` cheat sheet
 

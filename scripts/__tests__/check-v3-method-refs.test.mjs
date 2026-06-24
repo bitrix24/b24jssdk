@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 // Fixture tests for scripts/check-v3-method-refs.mjs.
 //
+// The script guards docs/skills against referencing a non-existent
+// `actions.v3.<x>` action. (It used to also validate v3 *method* names against a
+// hardcoded allowlist; that allowlist was removed — the server is the source of
+// truth — so the method-check tests went with it.)
+//
 // Run with: node --test scripts/__tests__/check-v3-method-refs.test.mjs
 
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
@@ -14,16 +19,6 @@ import assert from 'node:assert/strict'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = resolve(__dirname, '..', 'check-v3-method-refs.mjs')
 
-const WHITELIST_SRC = [
-  'class VersionManager {',
-  '  this.#supportMethods = [',
-  '    \'/tasks.task.get\', // done',
-  '    \'/tasks.task.add\',',
-  '    // \'/profile\' // wait — commented out, must NOT count',
-  '  ]',
-  '}'
-].join('\n')
-
 function writeFile(root, relPath, content) {
   const file = join(root, ...relPath.split('/'))
   mkdirSync(dirname(file), { recursive: true })
@@ -33,7 +28,6 @@ function writeFile(root, relPath, content) {
 function withFixture(files, run) {
   const root = mkdtempSync(join(tmpdir(), 'v3-refs-'))
   try {
-    writeFile(root, 'packages/jssdk/src/core/version-manager.ts', WHITELIST_SRC)
     // The script reads README-AI.md and walks docs/content/docs + skills; make
     // sure they all exist even when a test only populates one of them.
     writeFile(root, 'packages/jssdk/README-AI.md', '# AI surface\n')
@@ -55,21 +49,17 @@ function runCheck(root) {
   })
 }
 
-test('clean: real actions, whitelisted method, placeholder, and an ignored anti-pattern all pass', () => {
+test('clean: real actions (including callTail/fetchTail) and any method pass', () => {
   withFixture({
     'docs/content/docs/ok.md': [
       '# OK',
       '',
-      'Use `actions.v3.call.make` and the `actions.v3.{call,callList,fetchList}` family.',
+      'Use `actions.v3.call.make`, `actions.v3.fetchTail.make` and the',
+      '`actions.v3.{call,callList,fetchList,callTail,fetchTail}` family.',
       '',
       '```ts',
-      'await $b24.actions.v3.call.make({ method: \'tasks.task.get\', params: { id: 1 } })',
-      'await $b24.actions.v3.call.make({ method: \'some.method\' })',
-      '```',
-      '',
-      '<!-- v3-check-ignore: deliberate "this throws" example -->',
-      '```ts',
-      'await $b24.actions.v3.call.make({ method: \'crm.deal.add\' })',
+      'await $b24.actions.v3.call.make({ method: \'note.collection.list\' })',
+      'await $b24.actions.v3.callTail.make({ method: \'main.eventlog.tail\' })',
       '```'
     ].join('\n')
   }, (root) => {
@@ -99,55 +89,11 @@ test('phantom v3 action inside a {a,b,c} list is flagged', () => {
   })
 })
 
-test('non-whitelisted method in a v3 ts fence is flagged', () => {
-  withFixture({
-    'docs/content/docs/bad.md': [
-      '```ts',
-      'await $b24.actions.v3.call.make({ method: \'crm.deal.add\', params: {} })',
-      '```'
-    ].join('\n')
-  }, (root) => {
-    const r = runCheck(root)
-    assert.equal(r.status, 1, `stdout:\n${r.stdout}`)
-    assert.match(r.stdout, /crm\.deal\.add/)
-    assert.match(r.stdout, /not on the version-manager v3 whitelist/)
-  })
-})
-
-test('a non-whitelisted method passed to v2 (not v3) is ignored', () => {
+test('a method passed to v2 (not v3) is never flagged', () => {
   withFixture({
     'docs/content/docs/v2.md': [
       '```ts',
       'await $b24.actions.v2.call.make({ method: \'crm.deal.add\', params: {} })',
-      '```'
-    ].join('\n')
-  }, (root) => {
-    const r = runCheck(root)
-    assert.equal(r.status, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
-  })
-})
-
-test('a commented-out whitelist entry does not count as supported', () => {
-  withFixture({
-    'docs/content/docs/profile.md': [
-      '```ts',
-      'await $b24.actions.v3.call.make({ method: \'profile\' })',
-      '```'
-    ].join('\n')
-  }, (root) => {
-    const r = runCheck(root)
-    assert.equal(r.status, 1, `stdout:\n${r.stdout}`)
-    assert.match(r.stdout, /profile/)
-  })
-})
-
-test('v3-check-ignore with a blank line before the fence still suppresses', () => {
-  withFixture({
-    'docs/content/docs/ignore-gap.md': [
-      '<!-- v3-check-ignore: deliberate throw -->',
-      '',
-      '```ts',
-      'await $b24.actions.v3.call.make({ method: \'crm.deal.add\' })',
       '```'
     ].join('\n')
   }, (root) => {

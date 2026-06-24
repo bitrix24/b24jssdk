@@ -2,7 +2,7 @@
  * Recipe 10 — Error-handling cookbook
  *
  * Demonstrates the four error layers in b24jssdk:
- *   1. SdkError       — wrong SDK usage (e.g. v3 method on v2 client)
+ *   1. SdkError       — wrong SDK usage (config / deprecated paging helpers)
  *   2. AjaxError      — Bitrix24 REST returned an error
  *   3. Network-level  — timeout, ECONNRESET
  *   4. Soft errors    — returned inside AjaxResult (configurable per code)

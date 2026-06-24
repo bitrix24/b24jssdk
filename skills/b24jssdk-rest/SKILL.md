@@ -320,7 +320,7 @@ For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `soft
 
 - ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 2.0.0. Use the actions API.
 - ❌ `res.getTotal()` / `res.isMore()` / `res.getNext()` — `@deprecated`, throw on v3. Use `callList` / `fetchList` for paging; v3 has **no count replacement yet** (an `aggregate` action is planned but not exposed).
-- ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — throws because `crm.item.get` is not in the v3 whitelist (yet).
+- ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — `crm.*` is v2-only, so the v3 server returns a `METHODNOTFOUNDEXCEPTION` soft error (`response.isSuccess === false`); use `actions.v2.*` for CRM. (The SDK no longer pre-flight-throws here.)
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.
 - ❌ `customKeyForResult: 'result'` for `crm.item.list` — wrong, use `'items'`. Otherwise you'll get an empty list silently.
 - ❌ `idKey: 'ID'` for `crm.item.list` — wrong, use `'id'`. The classic `crm.deal.list` is the opposite.

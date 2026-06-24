@@ -146,8 +146,7 @@ Common AjaxError codes worth handling:
 - `INTERNAL_SERVER_ERROR` (50x) — transient. The SDK retries automatically up to `maxRetries`.
 
 Common SdkError codes:
-- `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — you called `actions.v3.*.make` with a method that isn't in the v3 whitelist.
-- `JSSDK_VERSION_MANAGER_NOT_DETECT_FOR_METHOD` — auto-detection failed (typically means the method doesn't exist).
+- `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — thrown only by the deprecated `AjaxResult.getNext()` against a v3 client. `actions.v3.*.make` no longer throws it: the SDK dropped its v3 method allowlist, so an unknown v3 method comes back as a `METHODNOTFOUNDEXCEPTION` soft error on the result instead.
 
 ## Tuning retry / throw behaviour
 

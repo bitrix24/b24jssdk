@@ -27,7 +27,7 @@ Core building blocks:
 - UI managers: parent, slider, dialog, placement, options, auth
 - Helpers: B24HelperManager and useB24Helper hook; Pull client
 
-Note: since v0.4.0 the package ships ESM and UMD only (no CommonJS).
+Note: the package ships ESM, CommonJS, and UMD builds. ESM is the recommended entry point; CommonJS is supported via `require('@bitrix24/b24jssdk')`, and the UMD build is for `<script>` usage in the browser.
 
 ## Deprecation notice — read before generating code
 
@@ -518,6 +518,7 @@ try {
 
 - UMD: window.B24Js global; load via unpkg CDN; use inside Bitrix24 iframe
 - ESM: import from '@bitrix24/b24jssdk'; works in browsers with bundlers and in Node (server-side) for B24Hook
+- CommonJS: const { B24Hook } = require('@bitrix24/b24jssdk'); works in Node.js CJS projects (resolves to the UMD bundle, which inlines deps)
 
 
 ## Caveats and constraints

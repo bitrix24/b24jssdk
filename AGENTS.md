@@ -8,7 +8,7 @@ This file is the single source of truth for AI coding agents and human contribut
 
 `@bitrix24/b24jssdk` is a JS/TS SDK for the Bitrix24 REST API. It is a pnpm 11 monorepo that ships:
 
-- a framework-agnostic core SDK (`packages/jssdk`, published as `@bitrix24/b24jssdk`, ESM + UMD only since v0.4.0),
+- a framework-agnostic core SDK (`packages/jssdk`, published as `@bitrix24/b24jssdk`, shipping ESM, CommonJS, and UMD; ESM is the recommended entry point),
 - a thin Nuxt module wrapper (`packages/jssdk-nuxt`),
 - a public docs site (`docs/`, deployed to GitHub Pages),
 - manual smoke playgrounds (`playgrounds/cli`, `playgrounds/nuxt`),

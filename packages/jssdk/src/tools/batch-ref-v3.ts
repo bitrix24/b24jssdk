@@ -25,19 +25,26 @@ function assertPath(path: string, who: string): void {
 /**
  * Helpers for the v3 batch `$ref` / `$refArray` substitution markers (reference
  * §8). The **server** performs the substitution: these helpers just build the
- * marker objects you drop into a later command's `query`, with a little
- * client-side validation. Reference an earlier command by its `as` alias.
+ * marker objects you drop into a later command's `params` (the SDK forwards
+ * `params` to the wire `query`), with a little client-side validation. Reference
+ * an earlier command by its `as` alias — or by its numeric index if you omit `as`.
+ * Only `item` (get) and `items` (list/tail) results land in context; `add` → id
+ * and `update` → bool results do not.
+ *
+ * **v3 only.** Substitution is a v3 batch feature. Dropped into a v2 batch
+ * (`actions.v2.batch.make`) the markers are NOT substituted — they are encoded
+ * as literal filter values and silently yield wrong/empty results.
  *
  * @example
  * import { BatchRefV3 as R } from '@bitrix24/b24jssdk'
  *
  * const response = await b24.actions.v3.batch.make({
  *   calls: [
- *     { method: 'tasks.task.list', as: 'tasks', query: { select: ['id'] } },
+ *     { method: 'tasks.task.list', as: 'tasks', params: { select: ['id'] } },
  *     {
  *       method: 'tasks.task.comment.list',
  *       // server substitutes the array of ids collected from the first command's items[]
- *       query: { filter: [['taskId', 'in', R.refArray('tasks.id')]] }
+ *       params: { filter: [['taskId', 'in', R.refArray('tasks.id')]] }
  *     }
  *   ]
  * })

@@ -124,6 +124,8 @@ await $b24.actions.v3.call.make({ method: 'tasks.task.list', params: { filter } 
 - Groups: `F.and(...)`, `F.or(...)`, `F.not(node)` (negates a condition or group).
 - `F.build(...nodes)` returns the top-level (AND-joined) array for `params.filter`; falsy nodes are skipped, so `F.build(F.eq('a', 1), flag && F.gt('b', 2))` inlines conditionals.
 
+> Inside a **v3 batch**, a filter value can reference an earlier command's output via a `$ref`/`$refArray` marker — build them with `BatchRefV3` (`import { BatchRefV3 } from '@bitrix24/b24jssdk'`), e.g. `['id', 'in', BatchRefV3.refArray('tasks.id')]`. The server does the substitution; see the `b24jssdk-rest` skill / the v3 batch docs.
+
 ## `order` rule for callList / fetchList
 
 Both `actions.v{2,3}.callList.make` and `fetchList.make` **strip user-supplied `order`** and force `{ [cursorIdKey]: 'ASC' }` (where `cursorIdKey` defaults to `idKey`) because the action uses keyset cursor pagination. If you pass an `order`, the SDK logs a warning (`callList.make: user-provided 'order' parameter is ignored…`) and discards it (see the `order` warning in `packages/jssdk/src/core/actions/v2/call-list.ts` and the v3 equivalent).

@@ -35,6 +35,10 @@ function assertPath(path: string, who: string): void {
  * (`actions.v2.batch.make`) the markers are NOT substituted — they are encoded
  * as literal filter values and silently yield wrong/empty results.
  *
+ * **Security:** the `path` selects from the batch's own response context, but do
+ * not build it from untrusted end-user input — a crafted path could read context
+ * the caller did not intend to expose to the next command.
+ *
  * @example
  * import { BatchRefV3 as R } from '@bitrix24/b24jssdk'
  *

@@ -25,6 +25,13 @@ describe('FilterV3 builder', () => {
     expect(F.between('createdTime', '2025-01-01', '2025-12-31')).toEqual([
       'createdTime', 'between', ['2025-01-01', '2025-12-31']
     ])
+    // a reversed range is preserved verbatim (the server decides emptiness)
+    expect(F.between('id', 9, 1)).toEqual(['id', 'between', [9, 1]])
+  })
+
+  it('between() rejects an undefined/null operand (fail fast on the client)', () => {
+    expect(() => F.between('id', undefined, 5)).toThrow(/both range operands must be defined/)
+    expect(() => F.between('id', 1, null)).toThrow(/both range operands must be defined/)
   })
 
   it('and()/or() build logic groups', () => {
@@ -133,6 +140,8 @@ describe('FilterV3 builder', () => {
     expect(() => F.build([F.eq('a', 1)])).toThrow(/each node must be/)
     // hand-rolled triple with a bad operator escapes the leaf factories
     expect(() => F.build(['field', 'LIKE', 'x'] as never)).toThrow(/each node must be/)
+    // a bare v2-style string (common migration mistake) is rejected
+    expect(() => F.build('status = NEW' as never)).toThrow(/each node must be/)
   })
 
   it('golden payload: the exact wire shape verified live is stable and JSON-serializable', () => {

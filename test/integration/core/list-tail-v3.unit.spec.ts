@@ -93,7 +93,7 @@ describe('v3 native tail helpers (fetchTail / callTail)', () => {
   })
 
   it('fetchTail: a server page cap below `limit` does not truncate the result', async () => {
-    const { b24 } = makeB24({ customKey: 'items', items: rows(120, 'id'), idField: 'id', pageSize: 50 })
+    const { b24, calls } = makeB24({ customKey: 'items', items: rows(120, 'id'), idField: 'id', pageSize: 50 })
     const { logger } = makeLogger()
 
     const collected: Item[] = []
@@ -101,12 +101,14 @@ describe('v3 native tail helpers (fetchTail / callTail)', () => {
       method: 'main.eventlog.tail',
       cursorField: 'id',
       customKeyForResult: 'items',
-      limit: 100 // larger than the server cap
+      limit: 100 // larger than the server cap (50)
     })) {
       collected.push(...chunk)
     }
 
     expect(collected).toHaveLength(120) // not truncated to the first 50
+    // proves the helper does NOT stop after the first page<limit: 50 + 50 + 20
+    expect(calls).toHaveLength(3)
   })
 
   it('fetchTail: auto-selects the cursor field when select omits it', async () => {

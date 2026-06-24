@@ -27,6 +27,7 @@ export type AggregateSelectV3 = Partial<Record<AggregateFunctionV3, string[] | R
  */
 export type AggregateResultV3 = Partial<Record<AggregateFunctionV3, Record<string, number>>>
 
+/** @experimental options for the v3 `aggregate` action — unverified live (see {@link AggregateV3}). */
 export type ActionAggregateV3 = ActionOptions & {
   method: string
   select: AggregateSelectV3
@@ -38,14 +39,13 @@ export type ActionAggregateV3 = ActionOptions & {
  * Runs the v3 `aggregate` action for modules that support it (reference §7).
  * `restApi:v3`
  *
- * NOTE: not verified against a live portal — no module on the SDK's reference
- * test portal currently exposes an `*.aggregate` endpoint. The request/response
- * shapes follow the published v3 reference.
+ * @experimental NOT verified against a live portal — no module on the SDK's
+ * reference test portal currently exposes an `*.aggregate` endpoint. The
+ * request/response shapes follow the published v3 reference and may change once
+ * verified live; pin to a version if you depend on the exact shape.
  */
 export class AggregateV3 extends AbstractAction {
   /**
-   * @template T - bucket value type (default `number`).
-   *
    * @param {ActionAggregateV3} options
    *     - `method: string` - an `*.aggregate` method name.
    *     - `select: AggregateSelectV3` - per-function field selection (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`).

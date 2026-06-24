@@ -99,8 +99,15 @@ export const FilterV3 = Object.freeze({
     }
     return condition(field, 'in', values)
   },
-  /** `field between [from, to]` — inclusive range of exactly two operands. */
+  /** `field between [from, to]` — inclusive range of exactly two defined operands. */
   between(field: string, from: unknown, to: unknown): FilterV3Condition {
+    if (from === undefined || from === null || to === undefined || to === null) {
+      throw new SdkError({
+        code: 'JSSDK_FILTER_V3_INVALID_BETWEEN',
+        description: `FilterV3.between("${field}"): both range operands must be defined (got [${String(from)}, ${String(to)}]).`,
+        status: 400
+      })
+    }
     return condition(field, 'between', [from, to])
   },
 

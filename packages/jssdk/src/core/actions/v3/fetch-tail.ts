@@ -136,7 +136,9 @@ export class FetchTailV3 extends AbstractAction {
       }
 
       const resultData: T[] = (responseData.result as any)[customKeyForResult] as T[]
-      if (resultData.length === 0) {
+      // Guard against a wrong `customKeyForResult` (key absent → undefined): treat
+      // a missing/non-array bucket as "no data" instead of throwing on `.length`.
+      if (!Array.isArray(resultData) || resultData.length === 0) {
         isContinue = false
         break
       }

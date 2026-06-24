@@ -3,7 +3,10 @@ import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
 import { AjaxError, type SdkError } from '../../../packages/jssdk/src/'
 
 /**
- * @todo add test new type functions `Aggregate`, `Tail`
+ * `Tail` (fetchTail/callTail) and `Aggregate` ship with unit coverage
+ * (test/integration/core/list-tail-v3.unit.spec.ts, aggregate-v3.unit.spec.ts).
+ * Live-portal coverage here is still a gap: tail needs a `*.tail` method with the
+ * right scope, and no module on the reference portal exposes `*.aggregate`.
  */
 describe('core.actions.call @apiV3', () => {
   const { getB24Client, getMapId } = setupB24Tests()

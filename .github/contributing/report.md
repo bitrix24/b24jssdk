@@ -66,10 +66,8 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 
 ## Open questions / unresolved
 
-### 1. v3 method whitelist will grow — when do we re-balance recipes?
-As of #203 the v3 whitelist covers `tasks.task.*`, `main.eventlog.*`, `mail.*`, `humanresources.*`, and `timeman.record.*`. The whitelist is owned by Bitrix24 and will keep expanding. When `crm.item.list` arrives on v3, several recipes (1, 3, 4, 6, 7, 9) should be moved to `actions.v3.*` — but the **filter dialect changes from prefix-keyed to array-of-triples** at the same time. That's a meaningful rewrite, not a renaming.
-
-Action item for the next weekly review: check `version-manager.ts` `#supportMethods` for new entries (the recipes still use `crm.*`, which remains v2).
+### 1. v3 method whitelist removed — when do we re-balance recipes?
+**Update:** the hardcoded v3 allowlist (`version-manager.ts` `#supportMethods`) has been removed — `actions.v3.*` now sends any method to the v3 endpoint and the server validates it. So routing is no longer gated by a list. The open recipe question stands on its own merits: when a CRM method's v3 form is the better fit, several recipes (1, 3, 4, 6, 7, 9) could move to `actions.v3.*` — but the **filter dialect changes from prefix-keyed to array-of-triples** at the same time, so it's a meaningful rewrite, not a renaming. The earlier "watch `#supportMethods` for new entries" action item no longer applies.
 
 ### 2. Aggregate action (`actions.v3.aggregate`) not exposed in the SDK yet
 The v3 protocol supports `aggregate` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). The SDK currently does not expose a typed `aggregate.make` action. Recipe 1 (CRM analytics) loads all deals into memory and aggregates client-side — when an `aggregate` action lands, the recipe becomes a one-call query.

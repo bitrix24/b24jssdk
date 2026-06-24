@@ -199,7 +199,7 @@ Before propagating a new operator / endpoint / pattern from VibeCode docs into a
 
 | Check | Source of truth |
 |---|---|
-| Does `actions.v3.*` support this method? | `packages/jssdk/src/core/version-manager.ts` — the `#supportMethods` array |
+| Does this method exist on v3? | The portal's own OpenAPI (`rest.documentation.openapi`) or [apidocs rest-v3](https://apidocs.bitrix24.com/api-reference/rest-v3/index.html) — the SDK no longer keeps a `version-manager` allowlist; the server validates v3 methods |
 | What's the v3 filter syntax? | `skills/b24jssdk-filtering/SKILL.md` (the v3 section) |
 | What's the v2 filter syntax / prefix list? | `skills/b24jssdk-filtering/SKILL.md` (the v2 table) |
 | What's the actions API call shape? | `test/integration/js-docs/actions-v{2,3}.spec.ts` |

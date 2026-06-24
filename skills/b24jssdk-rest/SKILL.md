@@ -11,22 +11,14 @@ Every example uses `$b24` of type `TypeB24`, so the same code runs on `B24Hook`,
 
 ## Pick the API version
 
-The SDK exposes both `v2` and `v3` under `$b24.actions`. **v3 works only for a curated whitelist of methods** — the source of truth is the `#supportMethods` array in `packages/jssdk/src/core/version-manager.ts` (it grows as Bitrix24 publishes more v3 methods):
+The SDK exposes both `v2` and `v3` under `$b24.actions`. **The SDK no longer keeps a hardcoded v3 method allowlist** — the server is the source of truth for which methods exist on a portal (the authoritative list is the portal's own OpenAPI document, `rest.documentation.openapi`). So `$b24.actions.v3.*` will send *any* method to the v3 endpoint; if the method isn't a v3 method, the server returns a `METHODNOTFOUNDEXCEPTION` (a soft error on the `AjaxResult`, not an SDK throw).
 
-| v3-supported method families | All other Bitrix24 methods |
-|---|---|
-| `tasks.task.*` — `add`, `get`, `update`, `delete`, `list`, `result.*`, `access.*`, `file.*`, `chat.message.*`, plus `*.field.list`/`field.get` | use **v2** |
-| `mail.*` — `mailbox.*`, `message.*`, `recipient.*` | |
-| `humanresources.*` — `node.*`, `employee.*` | |
-| `timeman.record.*` — read-only (`list`, `field.*`) | |
-| `main.eventlog.*` | |
-| `batch`, `scopes`, `rest.scope.list`, `rest.documentation.openapi`, `documentation` | |
+Method families that are known to exist on v3 today (non-exhaustive): `tasks.task.*` (incl. `list`), `mail.*`, `humanresources.*`, `timeman.record.*` (read-only), `main.eventlog.*` (incl. native `tail`), `note.*`, `rest.application.*`, `rest.incomingwebhook.*`, plus infrastructure (`batch`, `scopes`, `rest.scope.list`, `rest.documentation.openapi`).
 
 Rule of thumb:
-- Default to `$b24.actions.v2.*`.
-- Switch to `$b24.actions.v3.*` only when the method is in the whitelist above. The SDK logs a warning (`JSSDK_CORE_METHOD_AVAILABLE_IN_API_V3`) when you call a v3-eligible method via v2.
-
-Calling a non-v3 method via `$b24.actions.v3.*` throws `SdkError` with code `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`.
+- Default to `$b24.actions.v2.*` — it works for every classic method.
+- Use `$b24.actions.v3.*` when you specifically want the v3 representation of a method (camelCase fields, the unified `{result}` envelope, native `tail`/cursor, dotted relation select). Confirm a method exists on this portal's v3 via `rest.documentation.openapi` if unsure.
+- Version auto-detection (the deprecated legacy `callMethod`/`callBatch` shims) defaults to v2; v3 is opt-in only via the explicit `actions.v3.*` surface.
 
 ## Decision tree
 

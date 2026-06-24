@@ -233,7 +233,7 @@ When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth in
 | Org structure (HR) | `humanresources.node.*`, `humanresources.employee.*` | **v3** |
 | Time tracking | `timeman.record.*` (read-only) | **v3** |
 
-> Calling a v3-eligible method through `actions.v2.*` works but logs a warning (`JSSDK_CORE_METHOD_AVAILABLE_IN_API_V3`). Move it to v3 when convenient.
+> The version column is a recommendation, not a gate: the SDK no longer keeps a v3 allowlist, so `actions.v3.*` will send any method to the v3 endpoint (the server validates it) and `actions.v2.*` no longer warns about v3-eligible methods. Pick the version that gives you the representation you want.
 
 ## When you don't know which entry point you're in
 

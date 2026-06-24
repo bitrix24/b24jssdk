@@ -165,23 +165,19 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
   }
 }
 
-// ─── 4. Calling a v3 method on the v2 surface (SdkError) ────────────────
+// ─── 4. Calling a non-v3 method on the v3 surface (soft error) ──────────
 
 async function intentionallyWrongCall($b24: TypeB24) {
-  try {
-    // tasks.task.get is on the v3 whitelist; calling it via v2 is allowed but
-    // logs a "you should migrate" warning. The opposite — calling crm.item.*
-    // via v3 — throws SdkError JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3.
-    await $b24.actions.v3.call.make({
-      method: 'crm.item.get',
-      params: { entityTypeId: EnumCrmEntityTypeId.deal, id: 1 }
-    })
-  } catch (e) {
-    if (e instanceof SdkError && e.code === 'JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3') {
-      logger.info('Got the expected SdkError: this method is not on the v3 whitelist yet')
-    } else {
-      throw e
-    }
+  // The SDK no longer keeps a client-side v3 allowlist: a non-v3 method (crm.*
+  // lives on v2 only) is still sent to the v3 endpoint, and the server rejects
+  // it as a SOFT error — the call does NOT throw, it returns a failed
+  // AjaxResult. Check `isSuccess` rather than catching.
+  const response = await $b24.actions.v3.call.make({
+    method: 'crm.item.get',
+    params: { entityTypeId: EnumCrmEntityTypeId.deal, id: 1 }
+  })
+  if (!response.isSuccess) {
+    logger.info(`Got the expected server-side rejection: ${response.getErrorMessages().join('; ')}`)
   }
 }
 

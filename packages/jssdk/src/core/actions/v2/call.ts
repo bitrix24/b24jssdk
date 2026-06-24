@@ -2,9 +2,7 @@ import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParams } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
-import { versionManager } from '../../version-manager'
 import { ApiVersion } from '../../../types/b24'
-import { LoggerFactory } from '../../../logger'
 
 export type ActionCallV2 = ActionOptions & {
   method: string
@@ -48,19 +46,6 @@ export class CallV2 extends AbstractAction {
    * console.log(response.getData().result.item.name)
    */
   public override async make<T = unknown>(options: ActionCallV2): Promise<AjaxResult<T>> {
-    if (versionManager.isSupport(ApiVersion.v3, options.method)) {
-      LoggerFactory.forcedLog(
-        this._logger,
-        'warning',
-        `The method ${options.method} is available in restApi:v3. It's worth migrating to the new API.`,
-        {
-          method: options.method,
-          requestId: options.requestId,
-          code: 'JSSDK_CORE_METHOD_AVAILABLE_IN_API_V3'
-        }
-      )
-    }
-
     const params = options.params || {}
     return this._b24.getHttpClient(ApiVersion.v2).call<T>(options.method, params, options.requestId)
   }

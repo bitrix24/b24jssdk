@@ -18,6 +18,10 @@ import type { TaskListItem } from '../../types'
  * is only needed on the v2 endpoint, where the method sorts by `ID` but returns
  * `id`). Verified against a live portal.
  *
+ * Note: in v3 the TaskDto marks almost every field `filterable: false` — only
+ * `id` is filterable (check with `tasks.task.field.list`). That is why this demo
+ * exposes no filter args; the keyset cursor works because it pages on `id`.
+ *
  * @usage pnpm --filter @bitrix24/b24jssdk-cli dev list tasks --limit=50
  */
 export default defineCommand({

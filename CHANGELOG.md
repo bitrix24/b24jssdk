@@ -4,6 +4,7 @@
 
 ### Features
 
+* **v3:** new `actions.v3.fetchTail` / `actions.v3.callTail` helpers drive the native v3 `tail` (keyset cursor) action with its `cursor: { field, value, order, limit }` parameter, instead of emulating a cursor on top of `list` by injecting a `[field, '>', n]` filter. `fetchTail` streams pages (async generator); `callTail` returns every record as one array. The cursor field is auto-added to `select` and must not appear in `filter` (the helper warns). Same page-cap-tolerant stop as the list helpers (#253)
 * **v3:** `tasks.task.list` joins the REST API v3 allowlist, so the list method now routes through `actions.v3.*` (`call` / `callList` / `fetchList` / `batch`) instead of falling back to v2. On v3 it is a standard all-lowercase list method, so with the list helpers use `idKey: 'id'` (the default) and `customKeyForResult: 'items'` — no `cursorIdKey` override (that is only needed on the v2 endpoint, which sorts by `ID` but returns `id`). A `list tasks` CLI playground command demonstrates the v3 fetch. Verified end-to-end against a live portal (#253)
 
 ### Bug Fixes

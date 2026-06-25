@@ -1,8 +1,8 @@
 import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParams } from '../../../types/http'
-import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
+import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionCallListV3 = ActionOptions & {
   method: string
@@ -92,75 +92,39 @@ export class CallListV3 extends AbstractAction {
       pagination: { page: 0, limit: batchSize }
     }
 
-    let allItems: T[] = []
-    let isContinue = true
-    let nextId = 0
-    // Largest page size actually returned so far. Some v3 list methods (e.g.
-    // `tasks.task.list`) silently cap the page below the requested `limit`
-    // (doc §6: "максимум 1000, всё больше — молча обрезается"), so the requested
-    // `batchSize` cannot be used as the end-of-data signal — that would stop right
-    // after the first capped page. We treat a page as the last one only when it is
-    // shorter than the biggest page we have already seen (or empty).
-    let maxPageSize = 0
-    do {
-      const sendParams = { ...requestParams, filter: [...requestParams.filter] }
-      sendParams.filter.push([cursorIdKey, '>', nextId])
-      const response: AjaxResult<T> = await this._b24.actions.v3.call.make<T>({
+    const allItems: T[] = []
+    try {
+      for await (const page of keysetPaginate<T>(this._b24, this._logger, {
         method: options.method,
-        params: sendParams,
-        requestId: options.requestId
-      })
-
-      if (!response.isSuccess) {
-        this._logger.error('callFastListMethod', {
-          method: options.method,
-          requestId: options.requestId,
-          messages: response.getErrorMessages()
-        })
-        for (const [index, error] of response.errors) {
-          result.addError(error, index)
+        requestId: options.requestId,
+        customKeyForResult,
+        initialCursor: 0,
+        // Emulated keyset: append the `[cursorIdKey, '>', cursor]` page filter.
+        buildParams: cursor => ({ ...requestParams, filter: [...requestParams.filter, [cursorIdKey, '>', cursor]] }),
+        // Advance by the numeric id read from the last item via `idKey`. A
+        // non-numeric value (almost always an `idKey` that doesn't match the
+        // response field — e.g. sorting by `ID` while the response carries a
+        // lowercase `id`) stops the walk instead of silently truncating.
+        readNextCursor: (lastItem) => {
+          const value = Number.parseInt(lastItem[idKey], 10)
+          return Number.isFinite(value) ? value : null
+        },
+        noCursorWarning: `callList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`,
+        errorLabel: 'callFastListMethod'
+      })) {
+        for (const item of page) {
+          allItems.push(item)
         }
-        isContinue = false
-        break
       }
-      const responseData = response.getData()
-      if (!responseData) {
-        isContinue = false
-        break
-      }
-
-      const resultData = (responseData.result as any)[customKeyForResult] as T[]
-      // Guard against a wrong `customKeyForResult` (key absent → undefined): treat
-      // a missing/non-array bucket as "no data" instead of throwing on `.length`.
-      if (!Array.isArray(resultData) || resultData.length === 0) {
-        isContinue = false
-        break
-      }
-
-      allItems = [...allItems, ...resultData]
-
-      maxPageSize = Math.max(maxPageSize, resultData.length)
-      if (resultData.length < maxPageSize) {
-        isContinue = false
-        break
-      }
-
-      // Update the filter for the next iteration
-      const lastItem = resultData[resultData.length - 1] as Record<string, any>
-      const cursorValue = lastItem ? Number.parseInt(lastItem[idKey], 10) : Number.NaN
-      if (Number.isFinite(cursorValue)) {
-        nextId = cursorValue
+    } catch (error) {
+      if (error instanceof KeysetPaginationError) {
+        for (const [index, err] of error.errors) {
+          result.addError(err, index)
+        }
       } else {
-        // A full page came back, yet no usable numeric cursor id could be read from
-        // its items via `idKey` — almost always an `idKey` that doesn't match the
-        // response field (e.g. a request that sorts by `ID` while the response
-        // carries a lowercase `id`). Without a cursor we can't advance, so stop and
-        // tell the caller how to fix it instead of silently truncating.
-        this._logger.warning(`callList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`)
-        isContinue = false
-        break
+        throw error
       }
-    } while (isContinue)
+    }
 
     return result.setData(allItems)
   }

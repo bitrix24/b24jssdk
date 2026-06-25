@@ -1,8 +1,8 @@
 import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParams } from '../../../types/http'
-import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
+import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionFetchTailV3 = ActionOptions & {
   method: string
@@ -102,69 +102,34 @@ export class FetchTailV3 extends AbstractAction {
     }
 
     const { select: _ignoredSelect, ...restParams } = params as TypeCallParams
-    let cursorValue: number | string = options?.initialValue ?? 0
-    let maxPageSize = 0
-    let isContinue = true
-    do {
-      const response: AjaxResult<T> = await this._b24.actions.v3.call.make<T>({
+
+    try {
+      yield* keysetPaginate<T>(this._b24, this._logger, {
         method: options.method,
-        params: {
+        requestId: options.requestId,
+        customKeyForResult,
+        initialCursor: options?.initialValue ?? 0,
+        // Native keyset: drive the server's `cursor: { field, value, order, limit }`.
+        buildParams: cursor => ({
           ...restParams,
           ...(select ? { select } : {}),
-          cursor: { field: cursorField, value: cursorValue, order, limit: batchSize }
-        },
-        requestId: options.requestId
+          cursor: { field: cursorField, value: cursor, order, limit: batchSize }
+        }),
+        // Advance by the raw cursor-field value from the last item; a missing
+        // value (cursorField not selected / wrong name) stops the walk.
+        readNextCursor: lastItem => lastItem[cursorField] ?? null,
+        noCursorWarning: `fetchTail.make: pagination stops here — no value could be read from the returned items via cursorField "${cursorField}". Make sure cursorField matches a field present in the response (and in \`select\`).`,
+        errorLabel: 'fetchTailMethod'
       })
-
-      if (!response.isSuccess) {
-        this._logger.error('fetchTailMethod', {
-          method: options.method,
-          requestId: options.requestId,
-          messages: response.getErrorMessages()
-        })
+    } catch (error) {
+      if (error instanceof KeysetPaginationError) {
         throw new SdkError({
           code: 'JSSDK_CORE_B24_FETCH_TAIL_METHOD_API_V3',
-          description: `API Error: ${response.getErrorMessages().join('; ')}`,
+          description: `API Error: ${error.messages.join('; ')}`,
           status: 500
         })
       }
-
-      const responseData = response.getData()
-      if (!responseData) {
-        isContinue = false
-        break
-      }
-
-      const resultData: T[] = (responseData.result as any)[customKeyForResult] as T[]
-      // Guard against a wrong `customKeyForResult` (key absent → undefined): treat
-      // a missing/non-array bucket as "no data" instead of throwing on `.length`.
-      if (!Array.isArray(resultData) || resultData.length === 0) {
-        isContinue = false
-        break
-      }
-
-      yield resultData
-
-      // Stop on the largest page seen, not on the requested `limit`: some methods
-      // silently cap the page below `limit`, and using `limit` as the end signal
-      // would stop after the first capped page. See fetch-list for the rationale.
-      maxPageSize = Math.max(maxPageSize, resultData.length)
-      if (resultData.length < maxPageSize) {
-        isContinue = false
-        break
-      }
-
-      const lastItem = resultData[resultData.length - 1] as Record<string, any>
-      const nextValue = lastItem ? lastItem[cursorField] : undefined
-      if (nextValue === undefined || nextValue === null) {
-        // A full page came back but the cursor field could not be read from its
-        // items — almost always a `cursorField` that is not in the response (not
-        // selected, or a wrong name). Without a cursor value we cannot advance.
-        this._logger.warning(`fetchTail.make: pagination stops here — no value could be read from the returned items via cursorField "${cursorField}". Make sure cursorField matches a field present in the response (and in \`select\`).`)
-        isContinue = false
-        break
-      }
-      cursorValue = nextValue
-    } while (isContinue)
+      throw error
+    }
   }
 }

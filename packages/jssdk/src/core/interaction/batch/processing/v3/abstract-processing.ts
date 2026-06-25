@@ -3,7 +3,7 @@ import type { IProcessingStrategy, ResponseHelper, ResultItems } from '../interf
 import { AbstractProcessing } from '../interface-strategy'
 import { SdkError } from '../../../../sdk-error'
 import { AjaxResult } from '../../../../http/ajax-result'
-import { Result } from '../../../../result'
+import type { Result } from '../../../../result'
 
 export abstract class AbstractProcessingV3 extends AbstractProcessing implements IProcessingStrategy {
   public buildCommands(commands: BatchCommandV3[]): BatchCommandV3[] {
@@ -19,22 +19,13 @@ export abstract class AbstractProcessingV3 extends AbstractProcessing implements
   }
 
   // region prepareItems ////
-  public override async prepareItems<T>(
+  // Soft-error guard lives in AbstractProcessing.prepareItems (#228); this is the
+  // success-only path for apiVer3 (all-or-nothing — no per-command errors).
+  protected override async _prepareItemsSuccess<T>(
     commands: BatchCommandV3[],
-    responseHelper: ResponseHelper<T>
+    responseHelper: ResponseHelper<T>,
+    results: ResultItems<T>
   ): Promise<ResultItems<T>> {
-    const results: ResultItems<T> = new Map()
-
-    /**
-     * In `restApi:v3`, batch is all-or-nothing: per-command errors are not
-     * returned, and if any command fails the whole batch fails. In that case
-     * we skip per-item parsing — the top-level error is surfaced by
-     * {@link AbstractProcessingV3.handleResults}.
-     */
-    if (!responseHelper.response.isSuccess) {
-      return results
-    }
-
     for (const [index, command] of commands.entries()) {
       await this._processResponseItem<T>(
         command,
@@ -103,25 +94,15 @@ export abstract class AbstractProcessingV3 extends AbstractProcessing implements
   // endregion ////
 
   // region handleResults ////
-  public override async handleResults<T>(commands: BatchCommandV3[], results: ResultItems<T>, responseHelper: ResponseHelper<T>): Promise<Result<ICallBatchResult<T>>> {
-    const result = new Result<ICallBatchResult<T>>()
+  // Soft-error guard lives in AbstractProcessing.handleResults (#228); this is the
+  // success-only path for apiVer3.
+  protected override async _handleResultsSuccess<T>(
+    commands: BatchCommandV3[],
+    results: ResultItems<T>,
+    responseHelper: ResponseHelper<T>,
+    result: Result<ICallBatchResult<T>>
+  ): Promise<Result<ICallBatchResult<T>>> {
     const dataResult: ResultItems<T> = new Map()
-    /**
-     * v3 batch is all-or-nothing — on failure the response carries one or more
-     * top-level errors and no per-row data.
-     *
-     * @see AbstractProcessingV3.prepareItems()
-     */
-    if (!responseHelper.response.isSuccess) {
-      for (const [index, error] of responseHelper.response.errors) {
-        result.addError(error, index)
-      }
-      result.setData({
-        result: dataResult,
-        time: undefined
-      })
-      return result
-    }
 
     for (const [index, data] of results) {
       const rowIndex = Number.parseInt(`${index}`)

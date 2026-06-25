@@ -159,9 +159,14 @@ export class Result<T = any> implements IResult<T> {
    * {@link Result.getErrors}, the keys are not discarded — useful for batch
    * calls with `isHaltOnError: false`.
    *
-   * Keys are meaningful only when the error was added with an explicit key
-   * (e.g. an object / named-command batch). Array-mode batches and
-   * {@link Result.addErrors} fall back to generated UUID keys.
+   * Keys are meaningful only when the error was added with an explicit key —
+   * e.g. an **object / named-command batch**, keyed by the command label. An
+   * **array-mode batch** does NOT key per-command errors by their numeric
+   * position: a per-command failure lands under a generated UUID, and an
+   * envelope-level soft error under the internal `'base-error'` key. Neither is
+   * a stable command identifier (and {@link Result.addErrors} also uses UUIDs),
+   * so for array batches prefer {@link Result.getErrors} /
+   * {@link Result.getErrorMessages} over keyed lookup. (#230)
    *
    * @returns {Record<string, Error>} A map of error key to Error object.
    */

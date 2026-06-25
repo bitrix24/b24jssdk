@@ -319,6 +319,34 @@ try {
 
 For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` section in the `b24jssdk-core` skill.
 
+## Discover available v3 methods (OpenAPI)
+
+The portal is the source of truth for which v3 methods exist — the SDK keeps no allowlist. Ask the portal with `rest.documentation.openapi`, an ordinary v3 call that returns the portal's own OpenAPI 3.0.0 document (every v3 method available *on that portal*, with each method's request fields and response shape). Useful for an agent before generating a call: enumerate real method names and field names instead of guessing.
+
+```ts
+type OpenApiDoc = {
+  openapi: string
+  tags: Array<{ name: string, description: string }> // one per module
+  paths: Record<string, { post?: { tags?: string[], requestBody?: unknown } }> // keyed by "/method.name"
+}
+
+const res = await $b24.actions.v3.call.make<OpenApiDoc>({ method: 'rest.documentation.openapi' })
+if (!res.isSuccess) {
+  throw new Error(res.getErrorMessages().join('; '))
+}
+const doc = res.getData()?.result
+
+// every available method name
+const methods = Object.keys(doc?.paths ?? {}).map(p => p.replace(/^\//, ''))
+
+// does a method exist on this portal's v3?
+const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
+```
+
+- The document is **portal-specific** (reflects installed modules + token scopes) and **large** (100 KB+). Fetch it **once and cache it** — it's response-only and stable within a session; don't re-request per interaction.
+- Each `paths['/method.name'].post.requestBody` schema lists the accepted parameters (often with an `example` of real field names) — read those instead of inventing `select` fields.
+- Full guide: [Discovering v3 methods](https://github.com/bitrix24/b24jssdk/blob/main/docs/content/docs/2.working-with-the-rest-api/7.discovering-v3-methods.md).
+
 ## Anti-patterns
 
 - ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 2.0.0. Use the actions API.
@@ -329,6 +357,7 @@ For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `soft
 - ❌ `idKey: 'ID'` for `crm.item.list` — wrong, use `'id'`. The classic `crm.deal.list` is the opposite.
 - ❌ `idKey: 'ID'` alone for `tasks.task.list` — the response id is lowercase `id`, so the cursor can't read it and paging silently stops after 50. Use `idKey: 'id', cursorIdKey: 'ID'`.
 - ❌ `Promise.all` over `callList.make` for parallel paging — internal cursor pagination is sequential by design; you'll get duplicates or skipped rows.
+- ❌ Hand-paging a v3 list method by the `nextCursor` it returns (e.g. `note.*`) — `callList` / `fetchList` page via their own `idKey` cursor and walk every page; `nextCursor` is informational and the SDK ignores it. Just use the list helpers with `idKey` + `customKeyForResult`.
 - ❌ `B24Hook` in a browser bundle — leaks the webhook secret. Use `B24Frame` there.
 
 ## Cross-reference

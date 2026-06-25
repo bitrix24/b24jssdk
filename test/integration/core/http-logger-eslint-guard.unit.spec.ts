@@ -54,7 +54,10 @@ describe('no-credential-in-logger rule (#226, guards #39/#40)', () => {
     // credential-shaped KEY with a dynamic value (value may carry the secret).
     ['key+identifier { apiUrl: someVar }', 'logger.debug(\'m\', { apiUrl: someVar })'],
     ['key+identifier { password: pw }', 'logger.warning(\'m\', { password: pw })'],
-    ['key+member { token: cfg.value }', 'logger.error(\'m\', { token: cfg.value })']
+    ['key+member { token: cfg.value }', 'logger.error(\'m\', { token: cfg.value })'],
+    // capital-`Token` KEY — locks the `[Tt]` arm of CREDENTIAL_KEY; a future
+    // edit that narrowed it to `t` (lowercase only) would silently let this slip.
+    ['key+identifier { Token: someVar } (capital T)', 'logger.debug(\'m\', { Token: someVar })']
   ]
 
   const shouldStaySilent: Array<[string, string]> = [
@@ -79,19 +82,39 @@ describe('no-credential-in-logger rule (#226, guards #39/#40)', () => {
   })
 
   it('names the offending key/value in the message (contextual)', () => {
+    // each snippet fires exactly once, so `[0]` is the sole message we assert on.
+    expect(verify('logger.debug(\'m\', { apiUrl: someVar })')).toHaveLength(1)
     expect(verify('logger.debug(\'m\', { apiUrl: someVar })')[0]?.message).toContain('apiUrl')
     expect(verify('logger.warning(\'m\', { ...error.config })')[0]?.message).toContain('config')
     expect(verify('logger.error(\'m\', { foo: err.config.url })')[0]?.message).toContain('url')
     expect(verify('logger.debug(\'m\', { url })')[0]?.message).toContain('url')
   })
 
+  it('reports a key+value dual-match ONCE, as memberValue (early-return, not the old 2)', () => {
+    // `{ url: err.config.url }`: the KEY `url` and the member-access VALUE are
+    // BOTH credential-shaped. The old four independent selectors fired twice
+    // (memberValue + credentialKey); the promoted rule returns after the first
+    // arm, so exactly one report — the most specific, memberValue — is emitted.
+    const messages = verify('logger.error(\'m\', { url: err.config.url })')
+    expect(messages).toHaveLength(1)
+    expect(messages[0]?.messageId).toBe('memberValue')
+  })
+
   it('is wired into eslint.config.mjs over a scope wider than core/http', async () => {
-    const configs = (await composer) as Array<{ files?: string[], rules?: Record<string, unknown> }>
+    const configs = (await composer) as Array<{
+      files?: string[]
+      plugins?: Record<string, { rules?: Record<string, unknown> }>
+      rules?: Record<string, unknown>
+    }>
     const entry = configs.find(
       c => c.rules && Object.prototype.hasOwnProperty.call(c.rules, RULE_ID)
     )
     expect(entry, `no eslint.config.mjs entry enables ${RULE_ID}`).toBeTruthy()
     expect(entry!.rules![RULE_ID]).toBe('error')
+    // the severity points at `local/no-credential-in-logger`; the `local` plugin
+    // must actually register that rule in the SAME entry, else ESLint throws
+    // "definition for rule … was not found" at load. Lock the plugin block too.
+    expect(entry!.plugins?.local?.rules?.['no-credential-in-logger']).toBeTruthy()
     // widened from core/http to the whole SDK source (#226)
     expect(entry!.files).toContain('packages/jssdk/src/**/*.ts')
   })

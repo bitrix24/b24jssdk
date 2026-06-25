@@ -13,9 +13,15 @@
  *   3. spread of an axios `config`/`request`/`response` — `{ ...error.config }`
  *   4. credential-shaped property KEY with a dynamic value — `{ apiUrl: someVar }`
  *
- * NOT covered — the linter can't see the value through string interpolation:
- * template literals (`logger.debug(`GET ${url}`)`) and `'…' + url` concatenation.
- * Reviewers must still reject those by hand: log the bare method name.
+ * NOT covered — two known gaps:
+ *   • String interpolation the linter can't see through: template literals
+ *     (`logger.debug(`GET ${url}`)`) and `'…' + url` concatenation. Now that the
+ *     rule spans the whole SDK, reviewers in pull / frame / hook / oauth (not just
+ *     the HTTP layer) must reject these by hand: log the bare method name.
+ *   • Vocabulary: `auth` and `sessid` are deliberately NOT in CREDENTIAL_KEY —
+ *     `auth` is too common a word (false-positive risk) and both are already
+ *     masked at runtime by redactSensitiveParams(). The lint layer stays narrow
+ *     on purpose; the runtime redactor is the broader net.
  */
 
 // Logger methods whose context object must stay credential-free.
@@ -25,6 +31,7 @@ const LOGGER_METHODS = new Set([
 
 // Credential-shaped property KEY (selector 4) / member-access property (selector 2).
 // `[Tt]oken(?!s\b)` carves out a plural `tokens` (a real retry counter).
+// `auth` / `sessid` are intentionally excluded — see the fileoverview vocabulary note.
 const CREDENTIAL_KEY = /[Uu]rl|[Pp]assword|[Ss]ecret|[Tt]oken(?!s\b)/
 // Credential-shaped VALUE identifier (selector 1) — the key set plus
 // `methodFormatted` (the #40 regression: the formatted URL bound to an identifier).
@@ -80,6 +87,13 @@ export default {
         if (!insideLoggerCall(node)) {
           return
         }
+
+        // The three arms below are checked most-specific-first and the first
+        // match `return`s. A property whose KEY and VALUE are both credential-
+        // shaped (`{ url: err.config.url }`) therefore reports ONCE — as
+        // memberValue — not twice as the old four independent selectors did.
+        // One report per offending property is enough to redden CI and name a
+        // real reason; the duplicate only added noise.
 
         // selector 1 — VALUE is a credential-shaped bare identifier
         // (shorthand `{ url }` or `{ method: methodFormatted }`).

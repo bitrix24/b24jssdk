@@ -2,9 +2,7 @@ import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParams } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
-import { versionManager } from '../../version-manager'
 import { ApiVersion } from '../../../types/b24'
-import { SdkError } from '../../sdk-error'
 
 export type ActionCallV3 = ActionOptions & {
   method: string
@@ -43,13 +41,8 @@ export class CallV3 extends AbstractAction {
    * console.log(response.getData().result.item.title)
    */
   public override async make<T = unknown>(options: ActionCallV3): Promise<AjaxResult<T>> {
-    if (!versionManager.isSupport(ApiVersion.v3, options.method)) {
-      throw new SdkError({
-        code: 'JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3',
-        description: `restApi:v3 not support method ${options.method}`,
-        status: 500
-      })
-    }
+    // No client-side allowlist: the method is sent straight to the v3 endpoint
+    // and the server decides (an unknown method returns METHODNOTFOUNDEXCEPTION).
     const params = options.params || {}
     return this._b24.getHttpClient(ApiVersion.v3).call<T>(options.method, params, options.requestId)
   }

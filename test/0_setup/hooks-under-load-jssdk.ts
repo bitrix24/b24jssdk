@@ -91,6 +91,11 @@ export const testConfig = {
       method: 'tasks.task.get',
       params: { id: 1, select: ['id', 'title', 'siteId'] }
     },
+    tasksTaskListV3: {
+      apiVersion: ApiVersion.v3,
+      method: 'tasks.task.list',
+      params: { select: ['id', 'title'], pagination: { page: 0, limit: 50 } }
+    },
     batchTasksTaskGerV3: {
       apiVersion: ApiVersion.v3,
       method: CustomMethod.callBatch,

@@ -59,14 +59,13 @@ Inside the recipes the split is:
 
 | Method | Action surface | Why |
 |---|---|---|
-| `crm.item.{get,list,add,update,delete}` | `actions.v2.*` | Not in the v3 whitelist (see `version-manager.ts`) |
+| `crm.item.{get,list,add,update,delete}` | `actions.v2.*` | Classic API used via v2 here |
 | `crm.activity.list`, `crm.timeline.comment.add` | `actions.v2.*` | Classic API, v2 only |
-| `tasks.task.{add,get,update,delete}` | **`actions.v3.*`** | On the v3 whitelist |
-| `tasks.task.list` | `actions.v2.*` | Not yet on the v3 whitelist |
+| `tasks.task.{add,get,update,delete,list}` | **`actions.v3.*`** | Used via v3 (camelCase, `result.items`) |
 | `disk.*`, `im.*`, `profile`, `user.*` | `actions.v2.*` | Classic API, v2 only |
-| `main.eventlog.{list,get,tail}` | **`actions.v3.*`** | On the v3 whitelist |
+| `main.eventlog.{list,get,tail}` | **`actions.v3.*`** | v3, incl. native `tail` |
 
-> Calling a v3-eligible method through `actions.v2.*` works but logs `JSSDK_CORE_METHOD_AVAILABLE_IN_API_V3`. Calling a non-v3 method through `actions.v3.*` throws `SdkError(JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3)`.
+> The SDK no longer gates v3 by a hardcoded allowlist: `actions.v3.*` sends any method to the v3 endpoint and the server validates it (an unknown method returns `METHODNOTFOUNDEXCEPTION` as a soft error on the `AjaxResult`, not an SDK throw). The recipes pick a surface per method by what reads cleanest for that data, not by a whitelist.
 
 ## Field-naming choice
 
@@ -97,7 +96,7 @@ npx tsx examples/01-crm-analytics.ts
 - **Multi-funnel pipelines**: stage IDs may carry a category prefix (`C2:WON`, `C4:LOSE`). Recipes 1, 3, and 6 strip the prefix when checking the base stage.
 - **`order` in `callList.make`**: silently dropped (the action forces `cursorIdKey ASC`, defaulting to `idKey`, for cursor stability). Use `filter` to narrow.
 - **`customKeyForResult`**: `'items'` for `crm.item.list`, omit or `'tasks'` for classic methods. Wrong value → silent empty array.
-- **`idKey` / `cursorIdKey`**: `idKey: 'id'` for `crm.item.list`; `'ID'` (default) for classic methods. `tasks.task.list` is the exception — it returns lowercase `id` but sorts by `ID`, so use `idKey: 'id', cursorIdKey: 'ID'`.
+- **`idKey` / `cursorIdKey`**: `idKey: 'id'` for `crm.item.list`; `'ID'` (default) for classic methods. `tasks.task.list` is the exception **on v2** — it returns lowercase `id` but sorts by `ID`, so use `idKey: 'id', cursorIdKey: 'ID'` (and `customKeyForResult: 'tasks'`); on **v3** it is all-lowercase: `idKey: 'id'` (default), no `cursorIdKey`, `customKeyForResult: 'items'`.
 - **Error handling**: failed calls throw `AjaxError` for REST errors; recipes log and continue where it makes sense. Tune via `setRestrictionManagerParams` if you need different retry behaviour (see `b24jssdk-core`).
 - **Webhook events** (recipe 7): registration of the outbound webhooks themselves (which events go where) is a one-off setup. Recipe 11 (`11-event-registration.ts`) is a small CLI for that: `list` / `bind` / `unbind` via `event.get` / `event.bind` / `event.unbind`.
 

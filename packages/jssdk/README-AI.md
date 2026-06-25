@@ -27,7 +27,7 @@ Core building blocks:
 - UI managers: parent, slider, dialog, placement, options, auth
 - Helpers: B24HelperManager and useB24Helper hook; Pull client
 
-Note: since v0.4.0 the package ships ESM and UMD only (no CommonJS).
+Note: the package ships ESM, CommonJS, and UMD builds. ESM is the recommended entry point; CommonJS is supported via `require('@bitrix24/b24jssdk')`, and the UMD build is for `<script>` usage in the browser.
 
 ## Deprecation notice — read before generating code
 
@@ -42,7 +42,7 @@ widely-used path today, but new code should target the `actions.v{2,3}.*` API.
 | `b24.callBatchByChunk(calls, isHaltOnError)` | `b24.actions.v2.batchByChunk.make({ calls, options })` / `b24.actions.v3.batchByChunk.make(...)` |
 | `b24.callListMethod(method, params, progress?, customKey?)` | `b24.actions.v2.callList.make({ method, params, customKeyForResult })` / `b24.actions.v3.callList.make(...)` |
 | `b24.fetchListMethod(method, params, idKey?, customKey?)` | `b24.actions.v2.fetchList.make({ method, params, idKey, customKeyForResult })` / `b24.actions.v3.fetchList.make(...)` |
-| `AjaxResult#isMore()`, `#hasMore()`, `#getNext()`, `#fetchNext()`, `#getTotal()` | The `next`/`total` envelope fields are `restApi:v2`-only (no `restApi:v3` counterpart). Do not iterate manually — let `actions.v{2,3}.{callList,fetchList}` handle pagination. `restApi:v3` has no element-count replacement yet — an `aggregate` action (`count` / `countDistinct`) is planned but not exposed in the SDK. |
+| `AjaxResult#isMore()`, `#hasMore()`, `#getNext()`, `#fetchNext()`, `#getTotal()` | The `next`/`total` envelope fields are `restApi:v2`-only (no `restApi:v3` counterpart). Do not iterate manually — let `actions.v{2,3}.{callList,fetchList}` handle pagination. `restApi:v3` has no `total` in the envelope; for a count use `actions.v3.aggregate.make` (`@experimental`) with `count`/`countDistinct` on a method that exposes an `*.aggregate` action — check `rest.documentation.openapi` to confirm the endpoint exists; otherwise reduce a `callList` client-side. |
 
 `AjaxResult.getData()` returns exactly `{ result: T, time: PayloadTime }` — the
 v2-only `next` and `total` fields are no longer surfaced through the public type.
@@ -518,6 +518,7 @@ try {
 
 - UMD: window.B24Js global; load via unpkg CDN; use inside Bitrix24 iframe
 - ESM: import from '@bitrix24/b24jssdk'; works in browsers with bundlers and in Node (server-side) for B24Hook
+- CommonJS: const { B24Hook } = require('@bitrix24/b24jssdk'); works in Node.js CJS projects (resolves to the UMD bundle, which inlines deps)
 
 
 ## Caveats and constraints

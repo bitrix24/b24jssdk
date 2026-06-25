@@ -144,7 +144,7 @@ async function createTask($b24: TypeB24, r: Recommendation, deal: DealItem): Pro
   deadline.setDate(deadline.getDate() + Math.max(1, r.deadlineDays))
   const priorityMap = { high: 2, medium: 1, low: 0 } as const
 
-  // tasks.task.add is on the v3 whitelist.
+  // tasks.task.add is called on v3 (camelCase fields, result.item).
   const res = await $b24.actions.v3.call.make<{ task: { id: number } }>({
     method: 'tasks.task.add',
     params: {

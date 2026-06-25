@@ -116,7 +116,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 
 ## 4. Skill update conventions
 
-- Keep TypeScript / ESM style throughout. No `fetch + X-Api-Key` examples in the SDK skills (except the documented AI-add-on pattern in `b24jssdk-vibecode`).
+- Keep TypeScript / ESM style throughout (a skill-authoring convention — the package itself also ships CommonJS, but skills target TypeScript / ESM). No `fetch + X-Api-Key` examples in the SDK skills (except the documented AI-add-on pattern in `b24jssdk-vibecode`).
 - Use `$b24.actions.v{2,3}.*.make({ method, params, requestId? })` everywhere. **Do NOT** introduce `b24.callMethod(...)` or `b24.callBatch(...)` — they're `@deprecated` for 2.0.0.
 - Do NOT add MongoDB-style filter operators (`$gt`, `$ne`, `$contains`) anywhere in the b24jssdk skill set.
 - Use `EnumCrmEntityTypeId` from `@bitrix24/b24jssdk` over numeric literals.
@@ -199,7 +199,7 @@ Before propagating a new operator / endpoint / pattern from VibeCode docs into a
 
 | Check | Source of truth |
 |---|---|
-| Does `actions.v3.*` support this method? | `packages/jssdk/src/core/version-manager.ts` — the `#supportMethods` array |
+| Does this method exist on v3? | The portal's own OpenAPI (`rest.documentation.openapi`) or [apidocs rest-v3](https://apidocs.bitrix24.com/api-reference/rest-v3/index.html) — the SDK no longer keeps a `version-manager` allowlist; the server validates v3 methods |
 | What's the v3 filter syntax? | `skills/b24jssdk-filtering/SKILL.md` (the v3 section) |
 | What's the v2 filter syntax / prefix list? | `skills/b24jssdk-filtering/SKILL.md` (the v2 table) |
 | What's the actions API call shape? | `test/integration/js-docs/actions-v{2,3}.spec.ts` |

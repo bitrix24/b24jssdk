@@ -146,8 +146,7 @@ Common AjaxError codes worth handling:
 - `INTERNAL_SERVER_ERROR` (50x) — transient. The SDK retries automatically up to `maxRetries`.
 
 Common SdkError codes:
-- `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — you called `actions.v3.*.make` with a method that isn't in the v3 whitelist.
-- `JSSDK_VERSION_MANAGER_NOT_DETECT_FOR_METHOD` — auto-detection failed (typically means the method doesn't exist).
+- `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — thrown only by the deprecated `AjaxResult.getNext()` against a v3 client. `actions.v3.*.make` no longer throws it: the SDK dropped its v3 method allowlist, so an unknown v3 method comes back as a `METHODNOTFOUNDEXCEPTION` soft error on the result instead.
 
 ## Tuning retry / throw behaviour
 
@@ -223,8 +222,8 @@ When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth in
 | Need | Method | API version |
 |---|---|---|
 | CRM entities (deals, contacts, companies, leads, smart processes) | `crm.item.{list,get,add,update,delete}` with `entityTypeId` from `EnumCrmEntityTypeId` | v2 |
-| Tasks read/write | `tasks.task.{add,get,update,delete}` | **v3** |
-| Tasks listing / extras | `tasks.task.list`, `tasks.task.checklistitem.*`, … | v2 |
+| Tasks read/write/list | `tasks.task.{add,get,update,delete,list}` | **v3** |
+| Tasks extras | `tasks.task.checklistitem.*`, … | v2 |
 | Disk | `disk.storage.getlist`, `disk.folder.{getchildren,addsubfolder}`, `disk.file.get` | v2 |
 | Profile / users | `profile`, `user.get`, `user.current` | v2 |
 | IM | `im.notify`, `im.message.add` | v2 |
@@ -233,7 +232,7 @@ When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth in
 | Org structure (HR) | `humanresources.node.*`, `humanresources.employee.*` | **v3** |
 | Time tracking | `timeman.record.*` (read-only) | **v3** |
 
-> Calling a v3-eligible method through `actions.v2.*` works but logs a warning (`JSSDK_CORE_METHOD_AVAILABLE_IN_API_V3`). Move it to v3 when convenient.
+> The version column is a recommendation, not a gate: the SDK no longer keeps a v3 allowlist, so `actions.v3.*` will send any method to the v3 endpoint (the server validates it) and `actions.v2.*` no longer warns about v3-eligible methods. Pick the version that gives you the representation you want.
 
 ## When you don't know which entry point you're in
 

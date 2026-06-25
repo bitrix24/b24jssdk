@@ -1,0 +1,21 @@
+// Not run in CI: the `jsSdk:underLoad` project requires a live Bitrix24 portal
+// (B24_HOOK) with sufficient quota. Run locally via the package's under-load scripts.
+import { describe } from 'vitest'
+import { setupB24Tests, LoadTesterV2, LoadTesterV3, testConfig, processTests } from '../0_setup/hooks-under-load-jssdk'
+import { ApiVersion } from '../../packages/jssdk/src/index'
+
+describe('tasksTaskList @apiV3', () => {
+  const { getB24Client } = setupB24Tests()
+  const b24 = getB24Client()
+
+  const testParams = testConfig.calls.tasksTaskListV3
+
+  const tester = testParams.apiVersion === ApiVersion.v3
+    ? new LoadTesterV3(b24, testParams.method, testParams.params)
+    : new LoadTesterV2(b24, testParams.method, testParams.params)
+
+  processTests(tester, {
+    parallel: testConfig.parallel,
+    ttlCall: testConfig.ttlCall
+  })
+})

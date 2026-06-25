@@ -13,7 +13,7 @@ Files migrated to `$b24.actions.v{2,3}.*.make()`:
 - `b24jssdk-core/SKILL.md` — added `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` tuning. Updated examples to the new surface.
 - `b24jssdk-frame-ui/SKILL.md` — un-deprecated `selectCRM` (it's actively maintained now and normalizes response buckets); added `placement.setValue` helper.
 - `b24jssdk-helpers/SKILL.md` — corrected `usePullClient()` to be arg-less; mentioned new `isInitB24Helper()` getter.
-- `b24jssdk-recipes/SKILL.md` + 9 recipe `.ts` files — all rewritten on the new surface. CRM → `actions.v2.*`, tasks → `actions.v3.*` where on the whitelist (`tasks.task.add/get/update/delete`).
+- `b24jssdk-recipes/SKILL.md` + 9 recipe `.ts` files — all rewritten on the new surface. CRM → `actions.v2.*`, tasks → `actions.v3.*` where on the whitelist (`tasks.task.add/get/update/delete/list`).
 - `b24jssdk-vibecode/SKILL.md` — AI-add-on example updated to new API.
 - `README.md` + `MAINTENANCE.md` — translation tables now use `actions.v{2,3}.*.make`.
 
@@ -48,12 +48,12 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 
 | Fact | Source |
 |---|---|
-| v3-supported method whitelist (~79 methods: infrastructure, `main.eventlog.*`, `mail.*`, `humanresources.*`, `tasks.task.*`, `timeman.record.*`) | `packages/jssdk/src/core/version-manager.ts` — the `#supportMethods` array |
+| Which methods exist on v3 (the SDK no longer keeps a `#supportMethods` allowlist — removed; the server validates) | The portal's OpenAPI (`rest.documentation.openapi`) or [apidocs rest-v3](https://apidocs.bitrix24.com/api-reference/rest-v3/index.html) |
 | `actions.v{2,3}.call.make` returns `Promise<AjaxResult<T>>`; access with `res.getData()!.result.<key>` | `core/actions/v{2,3}/call.ts`, `test/integration/js-docs/actions-v{2,3}.spec.ts` |
 | `actions.v{2,3}.callList.make` strips user-supplied `order` and forces `{ [idKey]: 'ASC' }` | `core/actions/v2/call-list.ts:77-87`, v3 equivalent at `core/actions/v3/call-list.ts:77-87` |
 | Default `idKey` is `'ID'` for v2 (uppercase), `'id'` for v3 (lowercase) | `core/actions/v2/call-list.ts:72`, `core/actions/v3/call-list.ts:72` |
 | `crm.item.list` is v2, response is `{ items: [...] }` → needs `customKeyForResult: 'items'` + `idKey: 'id'` | `test/integration/js-docs/actions-v2.spec.ts:41-65` |
-| `tasks.task.*` are v3 (add/get/update/delete, `result.*`, `*.field.*`) | `core/version-manager.ts` — the `#supportMethods` array |
+| `tasks.task.*` have a v3 form (add/get/update/delete/list, `result.*`, `*.field.*`) | The portal's OpenAPI (`rest.documentation.openapi`) |
 | v3 filter dialect: array of `[field, op, value]` or `[field, value]` triples; 8 operators only (`=`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `between`); no `like`/`%` | `skills/b24jssdk-filtering/SKILL.md` (the v3 section) |
 | v2 filter dialect: prefix-keyed object — `'>=createdTime'`, `'!stageId'`, `'%title'`, `'=%title'` | `test/integration/js-docs/actions-v2.spec.ts:46-49`, `core/actions/v2/call-list.ts:81-86` |
 | Date format: `Text.toB24Format(date)` → `yyyy-MM-dd'T'HH:mm:ssZZ` | `tools/text.ts:213-226` |
@@ -66,13 +66,11 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 
 ## Open questions / unresolved
 
-### 1. v3 method whitelist will grow — when do we re-balance recipes?
-As of #203 the v3 whitelist covers `tasks.task.*`, `main.eventlog.*`, `mail.*`, `humanresources.*`, and `timeman.record.*`. The whitelist is owned by Bitrix24 and will keep expanding. When `crm.item.list` arrives on v3, several recipes (1, 3, 4, 6, 7, 9) should be moved to `actions.v3.*` — but the **filter dialect changes from prefix-keyed to array-of-triples** at the same time. That's a meaningful rewrite, not a renaming.
+### 1. v3 method whitelist removed — when do we re-balance recipes?
+**Update:** the hardcoded v3 allowlist (`version-manager.ts` `#supportMethods`) has been removed — `actions.v3.*` now sends any method to the v3 endpoint and the server validates it. So routing is no longer gated by a list. The open recipe question stands on its own merits: when a CRM method's v3 form is the better fit, several recipes (1, 3, 4, 6, 7, 9) could move to `actions.v3.*` — but the **filter dialect changes from prefix-keyed to array-of-triples** at the same time, so it's a meaningful rewrite, not a renaming. The earlier "watch `#supportMethods` for new entries" action item no longer applies.
 
-Action item for the next weekly review: check `version-manager.ts` `#supportMethods` for new entries (the recipes still use `crm.*`, which remains v2).
-
-### 2. Aggregate action (`actions.v3.aggregate`) not exposed in the SDK yet
-The v3 protocol supports `aggregate` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). The SDK currently does not expose a typed `aggregate.make` action. Recipe 1 (CRM analytics) loads all deals into memory and aggregates client-side — when an `aggregate` action lands, the recipe becomes a one-call query.
+### 2. ~~Aggregate action not exposed in the SDK~~ — RESOLVED
+The SDK now exposes a typed `actions.v3.aggregate.make` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). It is spec-based and not yet verified against a live portal — no module on the test portal publishes an `*.aggregate` endpoint (confirmed via OpenAPI). Recipe 1 (CRM analytics) still aggregates client-side because CRM is v2-only here; switch it to a one-call `aggregate` query if/when a CRM `*.aggregate` v3 method appears.
 
 ### 3. `B24OAuth` install handshake still uncovered
 The skills assume the user already has `authParams` populated from install events. The full OAuth install round-trip (Express endpoint that handles `ONAPPINSTALL`, persists tokens, swaps refresh on schedule) isn't a recipe yet — biggest blocker for anyone shipping a Marketplace app. Highest-ROI gap.

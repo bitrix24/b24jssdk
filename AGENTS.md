@@ -8,7 +8,7 @@ This file is the single source of truth for AI coding agents and human contribut
 
 `@bitrix24/b24jssdk` is a JS/TS SDK for the Bitrix24 REST API. It is a pnpm 11 monorepo that ships:
 
-- a framework-agnostic core SDK (`packages/jssdk`, published as `@bitrix24/b24jssdk`, ESM + UMD only since v0.4.0),
+- a framework-agnostic core SDK (`packages/jssdk`, published as `@bitrix24/b24jssdk`, shipping ESM, CommonJS, and UMD; ESM is the recommended entry point),
 - a thin Nuxt module wrapper (`packages/jssdk-nuxt`),
 - a public docs site (`docs/`, deployed to GitHub Pages),
 - manual smoke playgrounds (`playgrounds/cli`, `playgrounds/nuxt`),
@@ -89,7 +89,7 @@ For AI coding agents, the canonical task-focused skills live under `skills/`. Lo
 | Skill | When to use |
 |---|---|
 | `b24jssdk-core` | First skill to load — entry point pick (`B24Hook` / `B24Frame` / `B24OAuth`), boot/teardown, error taxonomy, `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` tuning |
-| `b24jssdk-rest` | `actions.v{2,3}.*.make()` — `call` / `batch` / `callList` / `fetchList` / `batchByChunk`; `AjaxResult` shape; v3 method whitelist |
+| `b24jssdk-rest` | `actions.v{2,3}.*.make()` — `call` / `batch` / `callList` / `fetchList` / `callTail` / `fetchTail` / `batchByChunk`; `AjaxResult` shape; v2/v3 routing (no v3 allowlist — the server validates) |
 | `b24jssdk-filtering` | v2 prefix-keyed filter (`'>=createdTime'`) vs v3 array-of-triples (`[['fld','>=',v]]`); operators; dates via `Text.toB24Format`; `order`-stripping rule of `callList` |
 | `b24jssdk-frame-ui` | iframe-only managers: slider / dialog (`selectUser/Users/CRM/Access`) / parent / placement (with `setValue`) / options / auth |
 | `b24jssdk-helpers` | `useB24Helper`, `B24HelperManager`, Pull client, currency formatting, app/user options |

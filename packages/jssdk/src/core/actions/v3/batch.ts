@@ -7,8 +7,6 @@ import type {
 } from '../../../types/http'
 import { AbstractBatch } from '../abstract-batch'
 import { ApiVersion } from '../../../types/b24'
-import { versionManager } from '../../version-manager'
-import { SdkError } from '../../sdk-error'
 
 export type ActionBatchV3 = ActionOptions & {
   calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
@@ -119,14 +117,8 @@ export class BatchV3 extends AbstractBatch {
       apiVersion: ApiVersion.v3
     }
 
-    if (versionManager.automaticallyObtainApiVersionForBatch(options.calls) !== opts.apiVersion) {
-      throw new SdkError({
-        code: 'JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3',
-        description: `restApi:v3 not support some methods in calls: ${JSON.stringify(options.calls)}`,
-        status: 500
-      })
-    }
-
+    // No client-side allowlist: every command is sent to the v3 batch endpoint
+    // and the server validates each method (unknown ones come back as errors).
     const response = await this._b24.getHttpClient(ApiVersion.v3).batch<T>(options.calls, opts)
 
     return this._processBatchResponse<T>(response, options.calls, opts)

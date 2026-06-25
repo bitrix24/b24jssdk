@@ -1,3 +1,5 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import type { ModuleFormat } from 'rollup'
 import type { BuildConfig } from 'unbuild'
 import { defineBuildConfig } from 'unbuild'
@@ -134,6 +136,38 @@ function initConfig(formatTypeParam: string): BuildConfig {
           async 'build:prepare'(ctx) {
             ctx.pkg.dependencies = {}
             ctx.options.dependencies = []
+          },
+          // CommonJS is served from the UMD bundle (a separate first-class CJS
+          // build with external deps is tracked as a follow-up). Two things are
+          // needed so `require('@bitrix24/b24jssdk')` resolves cleanly:
+          //
+          // 1. `dist/umd/package.json` with `"type": "commonjs"`. The root
+          //    package is `"type": "module"`, so a bare `.js` file in `dist/umd`
+          //    would otherwise be parsed as ESM and the UMD/CJS wrapper would
+          //    export nothing under `require()`.
+          // 2. `dist/umd/index.d.cts`. Without a CJS-flavored declaration, a
+          //    `require()` consumer under node16/nodenext gets the ESM `.d.ts`
+          //    describing a CommonJS module ("Masquerading as ESM" in
+          //    @arethetypeswrong/cli). The ESM build emits a single
+          //    self-contained `index.d.ts` (no relative re-exports), so it is
+          //    valid as a `.d.cts` describing the UMD bundle's named exports.
+          async 'build:done'(ctx) {
+            const umdDir = resolve(ctx.options.outDir)
+            await mkdir(umdDir, { recursive: true })
+            await writeFile(
+              resolve(umdDir, 'package.json'),
+              `${JSON.stringify({ type: 'commonjs' }, null, 2)}\n`
+            )
+            const esmDts = await readFile(
+              resolve(umdDir, '../esm/index.d.ts'),
+              'utf8'
+            )
+            await writeFile(
+              resolve(umdDir, 'index.d.cts'),
+              // Drop the ESM declaration-map pointer — there is no matching map
+              // for the .cts copy, and it is irrelevant to type resolution.
+              esmDts.replace(/\n\/\/# sourceMappingURL=.*$/m, '\n')
+            )
           }
         }
       } as BuildConfig

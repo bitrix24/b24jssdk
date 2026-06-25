@@ -18,7 +18,7 @@ The core SDK exposes three concrete entry points over a shared abstract base —
 
 ## Project Structure
 
-```
+```text
 packages/
 ├── jssdk/                          # core SDK (published)
 │   ├── src/
@@ -219,7 +219,7 @@ Load these based on your task. **Do not load all files at once** — only load w
 
 Copy this checklist and track progress:
 
-```
+```text
 Surface: [name]
 Progress:
 - [ ] 1. Decide the entry point that owns it (B24Frame, B24Hook, B24OAuth, or shared in core)
@@ -239,7 +239,7 @@ Progress:
 
 The lightweight path for the most common change — calling a new REST method from caller code or wrapping it in a tiny helper. The full New Surface workflow above is overkill here.
 
-```
+```text
 Method: [rest.method.name]
 Progress:
 - [ ] 1. Determine v2 or v3 (default v3 if available; v2 logs a deprecation warning when v3 exists)
@@ -256,7 +256,7 @@ Progress:
 
 When reviewing PRs that touch `packages/jssdk/src/` or `test/`, verify:
 
-```
+```text
 PR Review:
 - [ ] Follows the file layout in .github/contributing/package-structure.md
 - [ ] No default exports introduced

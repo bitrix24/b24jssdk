@@ -8,7 +8,7 @@ These are the SDK's "design tokens" — the cross-cutting types and policies tha
 
 ## Files
 
-```
+```text
 packages/jssdk/src/core/
 ├── result.ts                            # Result<T> — uniform return type
 ├── sdk-error.ts                         # SdkError — invariant violations
@@ -163,7 +163,7 @@ Two more batch contracts shared by both versions:
 
 Every transport call passes through three layers. Skipping any of them is a bug.
 
-```
+```text
 caller
   └─> RateLimiter         # client-side QPS cap
        └─> OperatingLimiter  # honours the server "operating reset" header
@@ -276,7 +276,7 @@ User-facing reference: [Logging & Credential Redaction — 78.logging.md](../../
 
 A checklist mirroring the steps verified by code review. The canonical example is [packages/jssdk/src/core/actions/v3/call.ts](../../packages/jssdk/src/core/actions/v3/call.ts).
 
-```
+```text
 - [ ] Picked the version directory (src/core/actions/v2/ or v3/) matching the REST method
 - [ ] kebab-case.ts file, one primary export, extends AbstractAction (packages/jssdk/src/core/actions/abstract-action.ts) and overrides make(options)
 - [ ] Uses the action's existing http reference — does not instantiate axios; limiter stack is wired by the base class

@@ -45,7 +45,6 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 | 10 — Error handling | ✅ verified | 2026-05-28 | bitrix24.ru | All error paths exercised. `NOT_FOUND` (from `crm.item.get`) caught correctly after fix; `ERROR_NOT_FOUND` fallthrough kept for `crm.deal.get` compat. `SdkError JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` triggered as expected. Runtime sub-second. Bug found and fixed: recipe originally used `ERROR_NOT_FOUND` but `crm.item.get` returns `NOT_FOUND`. |
 | 11 — Event registration | ⛔ blocked | 2026-05-28 | bitrix24.ru | `WRONG_AUTH_TYPE` (HTTP 403) on `event.get`. Bitrix24 blocks `event.get/bind/unbind` for incoming-webhook auth — these methods are only callable as an **OAuth app**. Recipe is architecturally correct but cannot be tested with just a `B24_HOOK`. Needs a live OAuth app (recipe 12). |
 
-
 | Fact | Source |
 |---|---|
 | Which methods exist on v3 (the SDK no longer keeps a `#supportMethods` allowlist — removed; the server validates) | The portal's OpenAPI (`rest.documentation.openapi`) or [apidocs rest-v3](https://apidocs.bitrix24.com/api-reference/rest-v3/index.html) |
@@ -67,26 +66,33 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 ## Open questions / unresolved
 
 ### 1. v3 method whitelist removed — when do we re-balance recipes?
+
 **Update:** the hardcoded v3 allowlist (`version-manager.ts` `#supportMethods`) has been removed — `actions.v3.*` now sends any method to the v3 endpoint and the server validates it. So routing is no longer gated by a list. The open recipe question stands on its own merits: when a CRM method's v3 form is the better fit, several recipes (1, 3, 4, 6, 7, 9) could move to `actions.v3.*` — but the **filter dialect changes from prefix-keyed to array-of-triples** at the same time, so it's a meaningful rewrite, not a renaming. The earlier "watch `#supportMethods` for new entries" action item no longer applies.
 
 ### 2. ~~Aggregate action not exposed in the SDK~~ — RESOLVED
+
 The SDK now exposes a typed `actions.v3.aggregate.make` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). It is spec-based and not yet verified against a live portal — no module on the test portal publishes an `*.aggregate` endpoint (confirmed via OpenAPI). Recipe 1 (CRM analytics) still aggregates client-side because CRM is v2-only here; switch it to a one-call `aggregate` query if/when a CRM `*.aggregate` v3 method appears.
 
 ### 3. `B24OAuth` install handshake still uncovered
+
 The skills assume the user already has `authParams` populated from install events. The full OAuth install round-trip (Express endpoint that handles `ONAPPINSTALL`, persists tokens, swaps refresh on schedule) isn't a recipe yet — biggest blocker for anyone shipping a Marketplace app. Highest-ROI gap.
 
 ### 4. Recipe 7 (webhook handler) payload shape still unverified
+
 Bitrix24 outbound webhooks POST `application/x-www-form-urlencoded`. The recipe relies on `express.urlencoded({ extended: true })` to parse `data[FIELDS][ID]` into a nested object. Confirmed by reading the Express docs, but **not yet run against a live portal**. If `payload.data?.FIELDS?.ID` arrives empty, that's where to look.
 
 **Related — Recipe 11 requires OAuth:** live-portal run on 2026-05-28 showed that `event.get/bind/unbind` return `WRONG_AUTH_TYPE` (403) when called via an incoming webhook (`B24Hook`). These methods are only available for OAuth app tokens. Recipe 11 can only be fully verified paired with recipe 12's OAuth flow.
 
 ### 5. ~~Recipe 9 (timeline comment) ENTITY_TYPE shape~~ — RESOLVED 2026-05-28
+
 `crm.timeline.comment.add` — confirmed: use `ENTITY_TYPE_ID: EnumCrmEntityTypeId.deal` (numeric, value 2). Accepted on all portal versions tested. The string form (`ENTITY_TYPE: 'deal'`) also works on modern portals. Recipe 9 updated to use the enum constant; `UNVERIFIED_ON_LIVE_PORTAL` marker removed from recipe header.
 
 ### 6. Multi-funnel filtering for v2 array-IN
+
 The recipes filter `'!stageId': ['WON', 'LOSE']` — v2 syntax. On multi-funnel portals there's also `C2:WON`, `C4:LOSE`, etc. Each recipe that touches stages also runs a client-side `baseStage(s)` re-filter as belt-and-suspenders. Not pretty but defensive.
 
 ### 7. `placement.setValue` semantics
+
 The skill describes it correctly for the documented "select-value" placement case. Whether it works for other placement types isn't clear from the source comments — there's just the `setValue` command name and a JSON.parse-on-receipt rule. Treat as out-of-scope until needed.
 
 ## Items deliberately NOT extracted from llms-full.txt

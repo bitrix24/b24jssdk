@@ -1,13 +1,7 @@
 {
-  "$comment": "Permissive markdownlint config for AGENTS.md + .github/contributing/*.md (#54). Goal: catch real defects (broken headings, empty links, bad heading increments) WITHOUT forcing a style sweep. Rules that fire on current content — and would only churn diffs — are disabled; everything else stays on default to guard new edits.",
+  "$comment": "markdownlint over AGENTS.md + .github/contributing/*.md (#54; one-time formatting sweep in #214). Off BY CHOICE: MD013 (line length — long lines are fine in these guides), MD033 (inline HTML — <sub>, <details>, etc. are used on purpose), MD060 (table-column-style — 110 hits across the report/maintenance tables; a cosmetic reflow not worth the churn). Everything else runs on default and now passes: the #214 sweep reflowed whitespace (MD022/031/032/012), and the bare ASCII-tree / template / diagram fences are tagged `text` (MD040). One justified MD038 exception is inline-disabled in maintenance.md.",
   "default": true,
   "MD013": false,
-  "MD060": false,
-  "MD040": false,
   "MD033": false,
-  "MD022": false,
-  "MD031": false,
-  "MD032": false,
-  "MD038": false,
-  "MD012": false
+  "MD060": false
 }

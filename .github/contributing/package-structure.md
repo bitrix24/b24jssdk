@@ -135,7 +135,7 @@ export type { TypeMyPayload } from './types/payloads'
 
 The four canonical classes inherit from a single abstract base. When extending, pick the lowest one that fits — do not duplicate logic into `B24Frame`/`B24Hook`/`B24OAuth` if it can live in `AbstractB24`.
 
-```
+```text
 AbstractB24                       packages/jssdk/src/core/abstract-b24.ts
 ├── B24Frame                      packages/jssdk/src/frame/b24.ts
 ├── B24Hook                       packages/jssdk/src/hook/b24.ts

@@ -1,6 +1,6 @@
 ---
 name: b24jssdk-filtering
-description: Build filter, order, and select parameters for Bitrix24 REST methods called via b24jssdk's actions.v{2,3}.* API. Covers the v2 prefix dialect (>=, <=, !, %, =%), the v3 array-triple dialect ([['field', 'op', value]]), NOT, multi-value (IN), dates via Text.toB24Format, and the order-stripping rule of callList. Load when building filtered queries.
+description: Build filter, order, and select parameters for Bitrix24 REST methods called via b24jssdk's actions.v{2,3}.* API. Covers the v2 prefix dialect (>=, <=, !, %, =%), the v3 array-triple dialect ([['field', 'op', value]]) and the typed FilterV3 builder (eq/in/between/and/or/not/build), NOT, multi-value (IN), dates via Text.toB24Format, and the order-stripping rule of callList. Load when building filtered queries.
 ---
 
 # b24jssdk filtering
@@ -100,7 +100,31 @@ filter: [
 ]
 ```
 
-The top-level array is implicitly `logic: 'and'`.
+The top-level array is implicitly `logic: 'and'`. The `type: 'filter'` key above is optional — the server infers it — so the `FilterV3` builder below emits the shorter `{ logic, conditions }` form (verified live), and both are accepted.
+
+### v3 — typed builder (`FilterV3`)
+
+For anything beyond a flat list of triples, prefer the `FilterV3` builder over hand-writing the structs — it validates operators and `in`/`between` shapes on the client (a typo fails fast instead of as a server `UNKNOWNFILTEROPERATOREXCEPTION`):
+
+```ts
+import { FilterV3 as F } from '@bitrix24/b24jssdk'
+
+// status = NEW  AND  (id in [1,2]  OR  id > 100)
+const filter = F.build(
+  F.eq('status', 'NEW'),
+  F.or(
+    F.in('id', [1, 2]),
+    F.gt('id', 100)
+  )
+)
+await $b24.actions.v3.call.make({ method: 'tasks.task.list', params: { filter } })
+```
+
+- Leaves: `F.eq` / `F.ne` / `F.gt` / `F.ge` / `F.lt` / `F.le` / `F.in(field, array)` / `F.between(field, from, to)`.
+- Groups: `F.and(...)`, `F.or(...)`, `F.not(node)` (negates a condition or group).
+- `F.build(...nodes)` returns the top-level (AND-joined) array for `params.filter`; falsy nodes are skipped, so `F.build(F.eq('a', 1), flag && F.gt('b', 2))` inlines conditionals.
+
+> Inside a **v3 batch**, a filter value can reference an earlier command's output via a `$ref`/`$refArray` marker — build them with `BatchRefV3` (`import { BatchRefV3 } from '@bitrix24/b24jssdk'`), e.g. `['id', 'in', BatchRefV3.refArray('tasks.id')]`. The server does the substitution; see the `b24jssdk-rest` skill / the v3 batch docs.
 
 ## `order` rule for callList / fetchList
 
@@ -254,6 +278,8 @@ On portals with multiple funnels, stage IDs come prefixed: `C2:WON`, `C4:LOSE`. 
 
 - ❌ `filter: { stageId: { $gte: 100 } }` — MongoDB-style. Not understood by Bitrix24, will 400.
 - ❌ `filter: [['title', 'like', 'A%']]` — `like` is not in the v3 operator set. Use v2 + `=%` for substring search.
+- ❌ Hand-assembling nested v3 groups (`{ logic, conditions }`) by hand — use the `FilterV3` builder, which validates operators and `in`/`between` shapes client-side.
+- ❌ Passing a single condition as `params.filter` (`filter: F.eq('a', 1)`) — `filter` must be an **array**; wrap it: `filter: F.build(F.eq('a', 1))` (or `[F.eq('a', 1)]`).
 - ❌ Passing `order` to `callList.make` / `fetchList.make` — silently discarded with a warning.
 - ❌ Mixing `STAGE_ID` and `stageId` across `filter` and `select` — they're different fields per method.
 - ❌ Forgetting timezone in date strings — Bitrix24 portals are configured in a portal timezone. Use `Text.toB24Format()` to stay consistent.

@@ -207,6 +207,89 @@ describe('list helpers cursorIdKey (issue #185)', () => {
     expect(calls[1].filter).toContainEqual(['ID', '>', 50])
   })
 
+  // ── issue #253: server caps the page below the requested `limit` ─────────
+  // `tasks.task.list` honours `limit` only up to 50 and silently truncates
+  // anything larger (doc §6: "максимум 1000, всё больше — молча обрезается").
+  // The v3 list helpers must not treat that first capped page as end-of-data —
+  // they key the stop on the largest page seen, not on the requested `limit`.
+
+  it('v3 fetchList: a server page cap below `limit` does not truncate the result', async () => {
+    // request limit 100, but the mock server only ever returns 50 per page
+    const { b24, calls } = makeB24({ version: 'v3', customKey: 'items', items: rows(120, 'id'), idField: 'id', pageSize: 50 })
+    const { logger, warnings } = makeLogger()
+
+    const collected: Item[] = []
+    for await (const chunk of new FetchListV3(b24, logger).make<Item>({
+      method: 'tasks.task.list',
+      idKey: 'id',
+      customKeyForResult: 'items',
+      limit: 100 // larger than the server cap — must still page through everything
+    })) {
+      collected.push(...chunk)
+    }
+
+    expect(collected).toHaveLength(120) // NOT truncated to the first 50
+    expect(warnings).toEqual([])
+    expect(calls).toHaveLength(3) // 50 + 50 + 20 (last page shorter than the cap → stop)
+    expect(calls[0].pagination).toEqual({ page: 0, limit: 100 }) // requested limit is still sent
+  })
+
+  it('v3 callList: a server page cap below `limit` returns every record', async () => {
+    const { b24 } = makeB24({ version: 'v3', customKey: 'items', items: rows(130, 'id'), idField: 'id', pageSize: 50 })
+    const { logger } = makeLogger()
+
+    const result = await new CallListV3(b24, logger).make<Item>({
+      method: 'tasks.task.list',
+      idKey: 'id',
+      customKeyForResult: 'items',
+      limit: 1000 // doc max; the mock server caps at 50 per page
+    })
+
+    expect(result.isSuccess).toBe(true)
+    expect(result.getData()).toHaveLength(130) // 50 + 50 + 30, not stopped after page 1
+  })
+
+  it('v3 fetchList: an exact-multiple result set ends via the empty confirmation page', async () => {
+    // 100 items, server cap 50 → two full pages, then one empty page confirms the end
+    const { b24, calls } = makeB24({ version: 'v3', customKey: 'items', items: rows(100, 'id'), idField: 'id', pageSize: 50 })
+    const { logger, warnings } = makeLogger()
+
+    const collected: Item[] = []
+    for await (const chunk of new FetchListV3(b24, logger).make<Item>({
+      method: 'tasks.task.list',
+      idKey: 'id',
+      customKeyForResult: 'items',
+      limit: 100
+    })) {
+      collected.push(...chunk)
+    }
+
+    expect(collected).toHaveLength(100) // every record, none dropped at the boundary
+    expect(warnings).toEqual([])
+    expect(calls).toHaveLength(3) // 50 + 50 + one empty confirmation page
+  })
+
+  it('v3 fetchList: a single short page costs one extra confirmation request (by design)', async () => {
+    // 30 items, requested limit 50 — indistinguishable from a 50-cap on one page,
+    // so the helper issues one extra request to confirm there is nothing after it.
+    const { b24, calls } = makeB24({ version: 'v3', customKey: 'items', items: rows(30, 'id'), idField: 'id', pageSize: 50 })
+    const { logger, warnings } = makeLogger()
+
+    const collected: Item[] = []
+    for await (const chunk of new FetchListV3(b24, logger).make<Item>({
+      method: 'tasks.task.list',
+      idKey: 'id',
+      customKeyForResult: 'items',
+      limit: 50
+    })) {
+      collected.push(...chunk)
+    }
+
+    expect(collected).toHaveLength(30)
+    expect(warnings).toEqual([])
+    expect(calls).toHaveLength(2) // 30 + one empty confirmation page
+  })
+
   // ── review follow-ups (#191): negative + edge cases ──────────────────────
 
   it('v2 fetchList: a clean short last page does NOT warn', async () => {

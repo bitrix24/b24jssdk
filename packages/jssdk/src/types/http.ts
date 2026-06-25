@@ -34,12 +34,16 @@ export type TypeCallParams = {
     offset?: number
   }
   /**
-   * Used only in Api:V3
+   * Used only in Api:V3 — keyset (`tail`) pagination cursor.
+   * `value` is the last seen value of `field`; `0` (or the type minimum) on the
+   * first page. `order` defaults to `asc`; `limit` shares the 50/1000 rule of
+   * `pagination`.
    */
   cursor?: {
     field: string
-    value: number
-    order: 'ASC' | 'DESC' | 'asc' | 'desc' | string
+    value: number | string
+    order?: 'ASC' | 'DESC' | 'asc' | 'desc' | string
+    limit?: number
   }
   [key: string]: any
 }

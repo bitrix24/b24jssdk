@@ -105,7 +105,7 @@ async function createTask($b24: TypeB24, deal: DealRow, t: TaskTemplate): Promis
   const deadline = new Date()
   deadline.setDate(deadline.getDate() + t.deadlineDays)
 
-  // tasks.task.add is on the v3 whitelist.
+  // tasks.task.add is called on v3 (camelCase fields, result.item).
   const res = await $b24.actions.v3.call.make<TasksTaskAddResponse>({
     method: 'tasks.task.add',
     params: {

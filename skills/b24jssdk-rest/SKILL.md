@@ -1,6 +1,6 @@
 ---
 name: b24jssdk-rest
-description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface is @deprecated for 2.0.0 — do not generate code against it.
+description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk (and the v3-only native-keyset callTail/fetchTail) for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface is @deprecated for 2.0.0 — do not generate code against it.
 ---
 
 # b24jssdk REST patterns (actions API)
@@ -11,22 +11,14 @@ Every example uses `$b24` of type `TypeB24`, so the same code runs on `B24Hook`,
 
 ## Pick the API version
 
-The SDK exposes both `v2` and `v3` under `$b24.actions`. **v3 works only for a curated whitelist of methods** — the source of truth is the `#supportMethods` array in `packages/jssdk/src/core/version-manager.ts` (it grows as Bitrix24 publishes more v3 methods):
+The SDK exposes both `v2` and `v3` under `$b24.actions`. **The SDK no longer keeps a hardcoded v3 method allowlist** — the server is the source of truth for which methods exist on a portal (the authoritative list is the portal's own OpenAPI document, `rest.documentation.openapi`). So `$b24.actions.v3.*` will send *any* method to the v3 endpoint; if the method isn't a v3 method, the server returns a `METHODNOTFOUNDEXCEPTION` (a soft error on the `AjaxResult`, not an SDK throw).
 
-| v3-supported method families | All other Bitrix24 methods |
-|---|---|
-| `tasks.task.*` — `add`, `get`, `update`, `delete`, `result.*`, `access.*`, `file.*`, `chat.message.*`, plus `*.field.list`/`field.get` | use **v2** |
-| `mail.*` — `mailbox.*`, `message.*`, `recipient.*` | |
-| `humanresources.*` — `node.*`, `employee.*` | |
-| `timeman.record.*` — read-only (`list`, `field.*`) | |
-| `main.eventlog.*` | |
-| `batch`, `scopes`, `rest.scope.list`, `rest.documentation.openapi`, `documentation` | |
+Method families that are known to exist on v3 today (non-exhaustive): `tasks.task.*` (incl. `list`), `mail.*`, `humanresources.*`, `timeman.record.*` (read-only), `main.eventlog.*` (incl. native `tail`), `note.*`, `rest.application.*`, `rest.incomingwebhook.*`, plus infrastructure (`batch`, `scopes`, `rest.scope.list`, `rest.documentation.openapi`).
 
 Rule of thumb:
-- Default to `$b24.actions.v2.*`.
-- Switch to `$b24.actions.v3.*` only when the method is in the whitelist above. The SDK logs a warning (`JSSDK_CORE_METHOD_AVAILABLE_IN_API_V3`) when you call a v3-eligible method via v2.
-
-Calling a non-v3 method via `$b24.actions.v3.*` throws `SdkError` with code `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`.
+- Default to `$b24.actions.v2.*` — it works for every classic method.
+- Use `$b24.actions.v3.*` when you specifically want the v3 representation of a method (camelCase fields, the unified `{result}` envelope, native `tail`/cursor, dotted relation select). Confirm a method exists on this portal's v3 via `rest.documentation.openapi` if unsure.
+- Version auto-detection (the deprecated legacy `callMethod`/`callBatch` shims) defaults to v2; v3 is opt-in only via the explicit `actions.v3.*` surface.
 
 ## Decision tree
 
@@ -37,8 +29,13 @@ Calling a non-v3 method via `$b24.actions.v3.*` throws `SdkError` with code `JSS
 | Many independent calls (>50) | `actions.v{2,3}.batchByChunk.make` |
 | Read a small list (<1000 items) and process in memory | `actions.v{2,3}.callList.make` |
 | Read a large list with low memory footprint | `actions.v{2,3}.fetchList.make` (async iterator) |
+| Read a v3 method that exposes a native `tail` (keyset) action — e.g. `main.eventlog.tail` | `actions.v3.callTail.make` / `actions.v3.fetchTail.make` (v3 only) |
+| Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only, **`@experimental`** — unverified live; fall back to `callList` + reduce if the endpoint isn't available) |
 
-There is no manual-pagination path any more — both `callList` and `fetchList` handle the keyset cursor internally.
+There is no manual-pagination path any more — the list helpers page for you. Two mechanisms exist, and they are not interchangeable:
+
+- **`callList` / `fetchList`** *emulate* a cursor on top of the `list` action by injecting a `[idField, '>', n]` condition into `filter` and forcing `order`. Works for any `*.list` method (v2 and v3).
+- **`callTail` / `fetchTail`** (v3 only) drive the server's *native* `tail` action via its `cursor: { field, value, order, limit }` parameter. Use these when a method publishes a `*.tail` endpoint. The cursor field must **not** appear in `filter` (the server rejects it), is auto-added to `select`, and `order: 'DESC'` requires an explicit `initialValue`.
 
 ## `call.make` — single call
 
@@ -126,6 +123,8 @@ console.log(data.Deal.getData()!.result.item)
 ## `batch.make` — partial errors (v2 only)
 
 Set `isHaltOnError: false` to collect per-command failures. **v3 batch is all-or-nothing** — partial errors are not surfaced. If any command in a v3 batch fails, the whole batch fails (see `README-AI.md` "Limitations").
+
+To feed one v3 command's output into a later one, give it an `as` alias and reference it with the `BatchRefV3` markers (`import { BatchRefV3 } from '@bitrix24/b24jssdk'`): `BatchRefV3.ref('alias.item.id')` (single value) or `BatchRefV3.refArray('alias.id')` (a field collected across the alias's `items[]`). The server does the substitution.
 
 ```ts
 const response = await $b24.actions.v2.batch.make<{ item: Contact }>({
@@ -232,17 +231,18 @@ const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
 })
 ```
 
-> **Note the v2 vs v3 filter difference.** v2 uses prefix-keyed objects; v3 uses arrays of `[field, op, value]` triples. See the `b24jssdk-filtering` skill.
+> **Note the v2 vs v3 filter difference.** v2 uses prefix-keyed objects; v3 uses arrays of `[field, op, value]` triples — for nested groups build them with the typed `FilterV3` helper (`import { FilterV3 } from '@bitrix24/b24jssdk'`). See the `b24jssdk-filtering` skill.
 
 ## `idKey`, `cursorIdKey` and `customKeyForResult` cheat sheet
 
-`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method sorts/filters by one name but returns another — most notably `tasks.task.list` (request `ID`, response `id`).
+`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method sorts/filters by one name but returns another — most notably `tasks.task.list` **on v2** (request `ID`, response `id`). On the **v3** endpoint `tasks.task.list` is all-lowercase (`id` for both request and response, rows under `result.items`), so no `cursorIdKey` override is needed.
 
 | Method | `idKey` (response) | `cursorIdKey` (request) | `customKeyForResult` |
 |---|---|---|---|
 | `crm.item.list` (v2) | `'id'` | — (= `idKey`) | `'items'` |
 | `crm.deal.list`, `crm.contact.list`, … (classic v2) | `'ID'` (default) | — (= `idKey`) | omit (default `result`) |
 | `tasks.task.list` (v2) | `'id'` | `'ID'` | `'tasks'` |
+| `tasks.task.list` (v3) | `'id'` | — (= `idKey`) | `'items'` |
 | `disk.folder.getchildren` | `'ID'` (default) | — (= `idKey`) | omit |
 | `main.eventlog.list` (v3) | `'id'` | — (= `idKey`) | `'items'` |
 
@@ -269,7 +269,7 @@ res.getQuery()              // { method, params, requestId }
 
 Removed from the public surface for `2.0.0`:
 - `isMore()`, `hasMore()` — was tied to v2 envelope `next`
-- `getTotal()` — was tied to v2 envelope `total`. **No v3 count replacement yet**: an `aggregate` action (`count` / `countDistinct`) is planned but not exposed in the SDK.
+- `getTotal()` — was tied to v2 envelope `total`. v3 has no `total` in the envelope; for a count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action (most don't yet — otherwise reduce a `callList` client-side).
 - `getNext()`, `fetchNext()` — replaced by `callList.make` / `fetchList.make`
 
 ## Null result is passthrough
@@ -322,8 +322,8 @@ For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `soft
 ## Anti-patterns
 
 - ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 2.0.0. Use the actions API.
-- ❌ `res.getTotal()` / `res.isMore()` / `res.getNext()` — `@deprecated`, throw on v3. Use `callList` / `fetchList` for paging; v3 has **no count replacement yet** (an `aggregate` action is planned but not exposed).
-- ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — throws because `crm.item.get` is not in the v3 whitelist (yet).
+- ❌ `res.getTotal()` / `res.isMore()` / `res.getNext()` — `@deprecated`, throw on v3. Use `callList` / `fetchList` for paging; for a count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action.
+- ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — `crm.*` is v2-only, so the v3 server returns a `METHODNOTFOUNDEXCEPTION` soft error (`response.isSuccess === false`); use `actions.v2.*` for CRM. (The SDK no longer pre-flight-throws here.)
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.
 - ❌ `customKeyForResult: 'result'` for `crm.item.list` — wrong, use `'items'`. Otherwise you'll get an empty list silently.
 - ❌ `idKey: 'ID'` for `crm.item.list` — wrong, use `'id'`. The classic `crm.deal.list` is the opposite.

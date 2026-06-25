@@ -53,6 +53,7 @@
     "package-jssdk:test-integration-js-docs": "vitest -t \"js-docs\" --project jsSdk:integration",
     "package-jssdk:test-integration-core": "vitest -t \"core\" --project jsSdk:integration",
     "package-jssdk:test:run-underLoad-v3-call": "vitest run -t \"tasksTaskGet @apiV3\" --project jsSdk:underLoad",
+    "package-jssdk:test:run-underLoad-v3-list": "vitest run -t \"tasksTaskList @apiV3\" --project jsSdk:underLoad",
     "package-jssdk:test:run-underLoad-v3-batch": "vitest run -t \"TasksTaskGet batch @apiV3\" --project jsSdk:underLoad",
     "package-jssdk:test:run-underLoad-v3-batchByChunk": "vitest run -t \"TasksTaskGet batchByChunk @apiV3\" --project jsSdk:underLoad",
     "package-jssdk:test:run-underLoad-v2-call": "vitest run -t \"crmDealList @apiV2\" --project jsSdk:underLoad",

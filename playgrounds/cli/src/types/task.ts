@@ -15,3 +15,17 @@ export interface TaskAddResult {
     id: number
   }
 }
+
+/**
+ * A single task as returned by `tasks.task.list` (v3).
+ *
+ * Note the field casing: `tasks.task.list` sorts / filters by the uppercase
+ * `ID` but returns each task with a lowercase `id`. Only the fields read by the
+ * `list tasks` command are typed here — extend as needed.
+ */
+export interface TaskListItem {
+  id: string
+  title: string
+  status: string
+  responsibleId: string
+}

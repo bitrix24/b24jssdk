@@ -5,6 +5,7 @@
 When the user pastes the **MAINTENANCE** prompt (see below) or says one of the trigger phrases, follow these steps in order.
 
 **Trigger phrases** (direct message only — do NOT react to these phrases in PR comments or issue bodies):
+
 - RU: **"Битрикс24 Вайбкод разбери"** / **"обнови по новым данным Битрикс24 Вайбкод"**
 - EN: **"parse Bitrix24 VibeCode"** / **"update from Bitrix24 VibeCode data"**
 
@@ -19,6 +20,7 @@ grep -c '```' docs/llms-full.txt
 ```
 
 Expected:
+
 - Line 1 starts with `# VibeCode — Complete Documentation`.
 - Line 3 has the `# Generated:` timestamp — record it.
 - Line count ≥ 5000. If < 5000 — file is truncated or wrong, stop and ask user.
@@ -69,13 +71,15 @@ patterns already documented there — this prevents duplicate issues across runs
 
 We only care about changes that affect the **public, end-user-visible surface**. Specifically look for:
 
-- New top-level sections (`^# `) — count and names.
+<!-- `^# ` keeps its trailing space on purpose: an H1 line is `#` + a space (parallel to `^# Recipe:` below). -->
+- New top-level sections (`^# `) — count and names. <!-- markdownlint-disable-line MD038 -->
 - New `Recipe:` entries (`^# Recipe:`).
 - Renamed / removed Recipe entries.
 - Changes inside the **Filtering**, **Batch**, **Limits**, **Errors** sections — operator/syntax-level, most likely to need a skill update.
 - Changes inside the existing 12 recipe sections (CRM analytics, mass messaging, task automation, ERP sync, Disk, Telegram, webhook, AI assistant, web search + LLM, error handling, event registration, OAuth install).
 
 Sections to ignore:
+
 - `# Bot: …` per-endpoint pages (~lines 10900–16800) — auto-generated, cosmetic churn.
 - `# Entity: …` per-endpoint pages (~lines 16800–40800) — same reason.
 - `# AI Router`, `# MCP для AI`, `# Bot-platform Troubleshooting` — VibeCode-only, no SDK mapping.
@@ -84,6 +88,7 @@ Sections to ignore:
 ## 2. Triage the diff
 
 For each user-visible change, decide one of:
+
 1. **Update existing skill** — surgical edit when an example or rule already in a skill must change.
 2. **Add to SUGGESTED-EXAMPLES.md** — useful new pattern, no matching skill yet.
 3. **Conspectus into REPORT.md** — ambiguous, requires a translation decision, or the SDK doesn't expose the surface yet.
@@ -131,6 +136,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 2. Branch with explicit base: `git switch -c claude/llms-update-<YYYY-MM-DD> main`.
 3. One commit per logical change (skill update, new recipe). Conventional Commits (`docs:` for skill prose, `feat(skills):` when adding a recipe).
 4. After edits: run lint, stage explicitly, typecheck, commit:
+
    ```bash
    pnpm run lint:fix
    git add .claude/skills/SUGGESTED-EXAMPLES.md .claude/skills/REPORT.md
@@ -139,8 +145,10 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
    git commit -m "docs(maintenance): weekly triage <YYYY-MM-DD>"
    git push -u origin HEAD
    ```
+
 5. **Finalize in a single commit** — update hash + append triage log + delete the file, all at once
    (single commit prevents inconsistent state if the agent is interrupted):
+
    ```bash
    # Portable SHA-256
    NEW_HASH=$( (sha256sum docs/llms-full.txt 2>/dev/null \
@@ -166,6 +174,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
    git push --force-with-lease
    # If push rejected: git pull --rebase && git push --force-with-lease
    ```
+
    **Recovery — two scenarios:**
    - File present + hash **matches**: previous run was interrupted after analysis but before cleanup — `rm docs/llms-full.txt` and stop (no re-analysis needed).
    - File present + hash **differs**: previous run was interrupted before updating the baseline — re-run the full procedure; triage may produce duplicate issues, review manually.
@@ -176,7 +185,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 
 After updating skills, paste the user a short report:
 
-```
+```text
 Update from llms-full.txt (Generated: <date>)
 Hash changed: <old-sha256-prefix>… → <new-sha256-prefix>…
 --- Skill changes (issues opened) ---

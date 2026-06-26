@@ -10,7 +10,7 @@ The docs site is the public source of truth. Out-of-date documentation is treate
 
 Pages live under `docs/content/docs/` and use **kebab-case** filenames with a numeric prefix that controls navigation order:
 
-```
+```text
 docs/content/docs/
 ├── 1.getting-started/
 │   ├── 2.installation/
@@ -139,7 +139,7 @@ Source for the AuthActions surface used by `B24Frame`.
 
 ### Code examples
 
-```md
+````md
 ::code-example
 ```ts
 import { B24Hook } from '@bitrix24/b24jssdk'
@@ -155,10 +155,10 @@ const result = await b24.actions.v3.call.make({
 console.log(result.getData().result)
 ```
 ::
-```
+````
 
 > Compile-checked example: [`documentation-b24hook-example.ts`](../../test/some-code-from-docs/contributing/documentation-b24hook-example.ts)
-
+>
 > **CI guard:** the `docs-lint` job runs [`scripts/check-v3-method-refs.mjs`](../../scripts/check-v3-method-refs.mjs), which blocks examples that call a non-existent `actions.v3.*` action (real actions: `call` / `callList` / `fetchList` / `callTail` / `fetchTail` / `batch` / `batchByChunk`). It no longer validates v3 *method* names against a whitelist — the SDK dropped its hardcoded v3 allowlist, so any method may be called on v3 and the server validates it. (Separate from `// @check-ignore`, which skips the `docs:typecheck-blocks` TypeScript pass.)
 
 ### Steps
@@ -189,7 +189,7 @@ The `links:` block in frontmatter is the canonical pointer from documentation to
 
 These three move together:
 
-```
+```text
 packages/jssdk/src/core/actions/v3/call.ts        # implementation
 test/integration/core/actions-v3-call.spec.ts     # integration test (no mocks)
 docs/content/docs/2.working-with-the-rest-api/    # docs page

@@ -27,7 +27,7 @@ Both projects load `.env.test` (gitignored) via `dotenv`.
 
 2. Set `B24_HOOK` to a real webhook URL:
 
-   ```
+   ```text
    B24_HOOK=https://your-domain.bitrix24.com/rest/YOUR_USER_ID/YOUR_WEBHOOK_SECRET/
    ```
 

@@ -70,7 +70,9 @@ async function run() {
   const stamp = String(Date.now()).slice(-6)
   const typeId = `cs_test_obj_${stamp}`
   const fieldName = `CS_TEST_OBJ_${stamp}`
-  const handler = 'https://apps-dev.cassoft.ru/apps/brokci/objectFormB24'
+  // Use the current origin (e.g. your tunnel URL) so the type's HANDLER points
+  // at wherever this app is actually served from while testing.
+  const handler = window.location.origin
 
   let userFieldId: unknown = null
   let typeRegistered = false
@@ -86,6 +88,7 @@ async function run() {
     }
 
     push('step', `Step 3 · register custom type ${typeId}`)
+    push('dim', `HANDLER = ${handler}`)
     const added = await call('userfieldtype.add', {
       USER_TYPE_ID: typeId,
       HANDLER: handler,
@@ -109,14 +112,14 @@ async function run() {
     }
 
     push('step', `Step 4 · crm.deal.userfield.add with USER_TYPE_ID=${typeId} ← the #269 case`)
-    push('dim', 'A webhook returned ERROR_CORE / "Указан неверный пользовательский тип" here.')
+    push('dim', 'A webhook returned ERROR_CORE / "invalid user type" here.')
     const field = await call('crm.deal.userfield.add', {
       fields: {
         FIELD_NAME: fieldName,
         USER_TYPE_ID: typeId,
         LABEL: `CS object ${stamp}`,
-        EDIT_FORM_LABEL: { ru: 'Объект недвижимости (форма)' },
-        LIST_COLUMN_LABEL: { ru: 'Объект недвижимости (форма)' }
+        EDIT_FORM_LABEL: { en: 'Real estate object (form)' },
+        LIST_COLUMN_LABEL: { en: 'Real estate object (form)' }
       }
     }, 'crm.deal.userfield.add')
 

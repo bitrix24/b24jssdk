@@ -26,8 +26,11 @@ export class ProcessingAsArrayV3 extends AbstractProcessingV3 implements IProces
   protected _processResponseError<T>(
     result: Result<ICallBatchResult<T>>,
     ajaxError: AjaxError,
-    _index: string
+    index: string
   ): void {
-    result.addError(ajaxError)
+    // Key the error by the command's numeric position so getErrorsByKey() /
+    // getErrorMessagesByKey() tell the caller *which* command failed, matching
+    // object/named-command mode. (#255)
+    result.addError(ajaxError, index)
   }
 }

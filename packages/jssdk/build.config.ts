@@ -10,7 +10,7 @@ const SDK_USER_AGENT = 'b24-js-sdk'
 const COPYRIGHT_DATE = new Date().getFullYear()
 
 export default defineBuildConfig(
-  ['esm', 'umd', 'umd-min'].map(formatTypeParam => initConfig(formatTypeParam))
+  ['esm', 'cjs', 'umd', 'umd-min'].map(formatTypeParam => initConfig(formatTypeParam))
 )
 
 function initConfig(formatTypeParam: string): BuildConfig {
@@ -47,7 +47,7 @@ function initConfig(formatTypeParam: string): BuildConfig {
         // Export all named exports for better tree shaking
         exports: 'named',
         // Maintaining a modular structure
-        preserveModules: formatType === 'esm',
+        preserveModules: formatType === 'esm' || formatType === 'cjs',
         preserveModulesRoot: 'src',
         // Generate a sourcemap with the original content
         sourcemap: true,
@@ -102,6 +102,68 @@ function initConfig(formatTypeParam: string): BuildConfig {
         }
       } as BuildConfig
 
+    case 'cjs':
+      // First-class CommonJS build: same modular structure as ESM but emitted
+      // as `.cjs` with dependencies kept EXTERNAL (`require('axios')` etc.),
+      // unlike the UMD bundle which inlines them. This is the `require()` target
+      // (#258). A single rollup pass writes `.cjs` (format from baseConfig);
+      // the `build:done` hook below produces the `index.d.cts` that
+      // `exports.require.types` points at.
+      return {
+        ...baseConfig,
+        entries: ['./src/index'],
+        declaration: true,
+        sourcemap: true,
+        rollup: {
+          ...baseConfig.rollup,
+          esbuild: {
+            ...baseConfig.rollup.esbuild,
+            legalComments: 'external'
+          },
+          // NB: do NOT set `emitCJS` here. The rollup `output.format` already
+          // comes from `baseConfig` (`format: formatType` === 'cjs'), so a
+          // single rollup pass emits CommonJS. `emitCJS: true` would ADD a
+          // second cjs output on top of that — building every file twice.
+          emitCJS: false,
+          cjsBridge: false,
+          inlineDependencies: false,
+          output: {
+            ...baseConfig.rollup.output,
+            // explicit for clarity (already 'cjs' via baseConfig formatType)
+            format: 'cjs',
+            entryFileNames: '[name].cjs',
+            chunkFileNames: '[name]-[hash].cjs',
+            hoistTransitiveImports: false,
+            // ESM-only deps are interop'd for CommonJS consumers
+            interop: 'auto'
+          }
+        },
+        declarationOptions: {
+          emitDeclarationOnly: false,
+          compilerOptions: {
+            declaration: true,
+            emitDeclarationOnly: false,
+            declarationMap: true,
+            preserveSymlinks: true
+          }
+        },
+        hooks: {
+          // Without `emitCJS` rollup-plugin-dts emits `index.d.ts` / `.d.mts`
+          // but not `.d.cts`. The emitted `index.d.ts` is a single self-contained
+          // declaration (no relative re-exports), so it is valid verbatim as the
+          // `.d.cts` that `exports.require.types` resolves to — copy it (dropping
+          // the declaration-map pointer, which has no matching `.d.cts.map`).
+          async 'build:done'(ctx) {
+            const cjsDir = resolve(ctx.options.outDir)
+            const dts = await readFile(resolve(cjsDir, 'index.d.ts'), 'utf8')
+            await writeFile(
+              resolve(cjsDir, 'index.d.cts'),
+              dts.replace(/\n\/\/# sourceMappingURL=.*$/m, '\n')
+            )
+          }
+        } as Record<string, () => {}>
+      } as BuildConfig
+
     case 'umd':
       return {
         ...baseConfig,
@@ -137,36 +199,21 @@ function initConfig(formatTypeParam: string): BuildConfig {
             ctx.pkg.dependencies = {}
             ctx.options.dependencies = []
           },
-          // CommonJS is served from the UMD bundle (a separate first-class CJS
-          // build with external deps is tracked as a follow-up). Two things are
-          // needed so `require('@bitrix24/b24jssdk')` resolves cleanly:
+          // The UMD bundle is the browser `<script>` / unpkg / jsdelivr target
+          // (deps inlined). `require()` is now served by the first-class `cjs`
+          // build (external deps) — see the `cjs` config above and #258.
           //
-          // 1. `dist/umd/package.json` with `"type": "commonjs"`. The root
-          //    package is `"type": "module"`, so a bare `.js` file in `dist/umd`
-          //    would otherwise be parsed as ESM and the UMD/CJS wrapper would
-          //    export nothing under `require()`.
-          // 2. `dist/umd/index.d.cts`. Without a CJS-flavored declaration, a
-          //    `require()` consumer under node16/nodenext gets the ESM `.d.ts`
-          //    describing a CommonJS module ("Masquerading as ESM" in
-          //    @arethetypeswrong/cli). The ESM build emits a single
-          //    self-contained `index.d.ts` (no relative re-exports), so it is
-          //    valid as a `.d.cts` describing the UMD bundle's named exports.
+          // We still drop a `dist/umd/package.json` with `"type": "commonjs"`:
+          // the root package is `"type": "module"`, so a bare `.js` file in
+          // `dist/umd` would otherwise be parsed as ESM. This keeps the UMD
+          // bundle loadable as CommonJS for anyone pointing a `<script>` /
+          // bundler directly at `dist/umd/index.js`.
           async 'build:done'(ctx) {
             const umdDir = resolve(ctx.options.outDir)
             await mkdir(umdDir, { recursive: true })
             await writeFile(
               resolve(umdDir, 'package.json'),
               `${JSON.stringify({ type: 'commonjs' }, null, 2)}\n`
-            )
-            const esmDts = await readFile(
-              resolve(umdDir, '../esm/index.d.ts'),
-              'utf8'
-            )
-            await writeFile(
-              resolve(umdDir, 'index.d.cts'),
-              // Drop the ESM declaration-map pointer — there is no matching map
-              // for the .cts copy, and it is irrelevant to type resolution.
-              esmDts.replace(/\n\/\/# sourceMappingURL=.*$/m, '\n')
             )
           }
         }

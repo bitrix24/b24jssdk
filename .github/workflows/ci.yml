@@ -238,18 +238,22 @@ jobs:
         run: pnpm --filter ./packages/jssdk build
 
       - name: Validate package exports (publint + arethetypeswrong + runtime resolution)
-        # Guards the dual ESM/CJS exports contract (#256): publint checks the
-        # exports map / files, arethetypeswrong checks types resolve correctly
-        # per module system, and the two node one-liners assert the built
-        # package actually resolves and exposes B24Hook under both require() and
-        # import — catching a regression in dist/umd/package.json or the
-        # exports conditions that the type-only tools would miss.
+        # Guards the dual ESM/CJS exports contract (#256, #258): publint checks
+        # the exports map / files, arethetypeswrong checks types resolve
+        # correctly per module system, and the two node one-liners assert the
+        # built package actually resolves and exposes B24Hook under both
+        # require() (the dist/cjs build) and import — catching a regression in
+        # the exports conditions that the type-only tools would miss.
         working-directory: packages/jssdk
         run: |
           npx --yes publint@0.3.21
           npx --yes @arethetypeswrong/cli@0.18.4 --pack .
           node -e "const m = require('@bitrix24/b24jssdk'); if (typeof m.B24Hook !== 'function') { console.error('CJS require did not expose B24Hook'); process.exit(1) } console.log('CJS require OK')"
           node --input-type=module -e "const m = await import('@bitrix24/b24jssdk'); if (typeof m.B24Hook !== 'function') { console.error('ESM import did not expose B24Hook'); process.exit(1) } console.log('ESM import OK')"
+          # Guard the #258 contract: the CJS build must keep its deps EXTERNAL
+          # (require('axios') etc.), not inline them like the UMD bundle. A flip
+          # of inlineDependencies in build.config.ts would silently regress this.
+          node -e "const fs=require('fs'); const g=require('child_process').execSync('grep -rl \"require(.axios.)\" dist/cjs',{encoding:'utf8'}).trim(); if(!g){console.error('axios is not externalized in dist/cjs — check inlineDependencies'); process.exit(1)} console.log('CJS deps external OK')"
 
       - name: Build (jssdk-nuxt)
         # Requires packages/jssdk-nuxt/.nuxt/tsconfig.json (from artifact) to resolve

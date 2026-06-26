@@ -250,6 +250,10 @@ jobs:
           npx --yes @arethetypeswrong/cli@0.18.4 --pack .
           node -e "const m = require('@bitrix24/b24jssdk'); if (typeof m.B24Hook !== 'function') { console.error('CJS require did not expose B24Hook'); process.exit(1) } console.log('CJS require OK')"
           node --input-type=module -e "const m = await import('@bitrix24/b24jssdk'); if (typeof m.B24Hook !== 'function') { console.error('ESM import did not expose B24Hook'); process.exit(1) } console.log('ESM import OK')"
+          # Guard the #258 contract: the CJS build must keep its deps EXTERNAL
+          # (require('axios') etc.), not inline them like the UMD bundle. A flip
+          # of inlineDependencies in build.config.ts would silently regress this.
+          node -e "const fs=require('fs'); const g=require('child_process').execSync('grep -rl \"require(.axios.)\" dist/cjs',{encoding:'utf8'}).trim(); if(!g){console.error('axios is not externalized in dist/cjs — check inlineDependencies'); process.exit(1)} console.log('CJS deps external OK')"
 
       - name: Build (jssdk-nuxt)
         # Requires packages/jssdk-nuxt/.nuxt/tsconfig.json (from artifact) to resolve

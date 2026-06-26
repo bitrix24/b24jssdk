@@ -260,7 +260,7 @@ res.isSuccess               // boolean
 res.getData()               // SuccessPayload<T> | undefined → { result, time } | undefined
 res.getErrorMessages()      // string[] (preferred)
 res.getErrors()             // IterableIterator<Error> (values only, no keys)
-res.getErrorsByKey()        // Record<string, Error> (keyed by request label; batch)
+res.getErrorsByKey()        // Record<string, Error> (batch: keyed by command label, or numeric position for array-mode)
 res.getStatus()             // HTTP status
 res.getQuery()              // { method, params, requestId }
 ```

@@ -75,7 +75,7 @@ provide('files', files)
         ]"
       >
         <template v-if="!route.path.startsWith('/examples')">
-          <Banner />
+          <!-- <Banner /> -->
 
           <Header />
         </template>

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.0.0](https://github.com/bitrix24/b24jssdk/compare/v1.3.0...v2.0.0) (2026-06-27)
+
 ### ⚠ BREAKING CHANGES
 
 * **v3:** `actions.v3.call` / `actions.v3.batch` no longer pre-flight-throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` for methods that were not on the (now-removed) hardcoded v3 allowlist. An unknown v3 method now comes back as a `METHODNOTFOUNDEXCEPTION` **soft error** on the `AjaxResult` (`response.isSuccess === false`) instead of a thrown `SdkError`. Code that caught that `SdkError` must switch to checking `response.isSuccess` / `response.getErrorMessages()`.
@@ -63,6 +65,9 @@
 * **docs:** fix a double-hash in-page anchor (`](##…)` → `](#…)`) that silently broke the "Additional options" link on the batch-by-chunk `restApi:v2`/`v3` pages (#131)
 * **docs:** remove the "We are still updating this page" WIP banner from the 23 `audited:` pages it contradicted (kept on the 6 genuinely in-progress, non-audited pages), per the `documentation.md` "remove the banner when the page is complete" rule (#170)
 * **ci(deps):** add the `npm` ecosystem to Dependabot — minor + patch updates grouped into a single weekly PR so direct dependencies stay current — and document the transitive-override retirement process in `pnpm-workspace.yaml` (#175)
+* **chore(playgrounds/cli):** housekeeping + bug-fix pass on the example CLI (playground-only — `packages/jssdk` untouched): dedup the logger + `B24Hook` init into a shared `createB24Client()` helper, replace deep `process.exit(1)` with a typed `SdkError` caught at `runMain`, drop `as any` in favour of typed `GetPayload<…>` / `instanceof` narrowing, enable `noUncheckedIndexedAccess`, fix a `deals.ts` count-before-flush bug and a silent WON/LOSE stage fallback, and gate emoji log prefixes behind a TTY check so CI logs stay clean (PR-1 of #47) (#273)
+* **ci(playgrounds/cli):** nightly `smoke-retry` regression workflow (manual dispatch + schedule, gated on a webhook secret, never runs on PRs) for the #45/#44/#46 retry-policy scenarios, plus `cli-utils.unit.spec.ts` so the existing portal-free `jsSdk:unit` gate covers the playground's pure utils (PR-2 of #47, closes it) (#274)
+* **ci(playgrounds/cli):** point the `smoke-retry` nightly at the already-configured `NUXT_BITRIX24_TEST_WEBHOOK_URL` secret (mapped onto the `B24_HOOK` env the CLI reads) instead of an unconfigured `B24_HOOK` secret that would have always skipped (#276)
 
 ## [1.3.0](https://github.com/bitrix24/b24jssdk/compare/v1.2.0...v1.3.0) (2026-06-16)
 

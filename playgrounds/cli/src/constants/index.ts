@@ -1,5 +1,12 @@
 import type { Language } from '../types'
 
+/** Non-HTTP marker: status 0 indicates a client-side / playground error, not an HTTP response code. */
+export const CLIENT_ERROR_STATUS = 0
+
+export const CHECKLIST_PROBABILITY = 0.4
+export const CHECKLIST_MIN_ITEMS = 2
+export const CHECKLIST_MAX_ITEMS = 6
+
 export const LANGUAGES: readonly Language[] = ['english', 'russian', 'spanish', 'chinese'] as const
 
 export const COUNTRY_CODES: Record<Language, string> = {

@@ -19,6 +19,9 @@ platform-side change. So the rule is: **reproduce before concluding.**
 6. **Form the answer** for the reporter: "call it like this and it works", or a
    concrete cause (scope/context/method), or — if it's a platform regression — a
    minimal repro to file with Bitrix24 technical support.
+7. **Attach the transcript to the issue** (and to any Bitrix24 support report) as
+   the evidence of what ran — the request/response chain, not just a verdict.
+   Redact the tunnel host and any private data first (see Gotchas → Privacy).
 
 ## The tool
 

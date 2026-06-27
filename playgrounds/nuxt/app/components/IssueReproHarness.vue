@@ -40,6 +40,7 @@ let $b24: B24Frame
 const isInit = ref(false)
 const entries = ref<Entry[]>([])
 const transcript = ref('')
+const view = ref<'raw' | 'preview'>('raw')
 let counter = 0
 
 const pretty = (value: unknown): string => {
@@ -247,10 +248,29 @@ onMounted(async () => {
 
       <!-- Full request/response chain as markdown — select & copy, hand it back -->
       <div v-if="transcript" class="flex flex-col gap-1">
-        <div class="text-xs opacity-60">
-          Transcript (markdown) — select all and copy:
+        <div class="flex flex-row items-center gap-2">
+          <B24Button
+            label="raw md"
+            size="xs"
+            :color="view === 'raw' ? 'air-boost' : 'air-secondary-no-accent'"
+            @click="view = 'raw'"
+          />
+          <B24Button
+            label="preview"
+            size="xs"
+            :color="view === 'preview' ? 'air-boost' : 'air-secondary-no-accent'"
+            @click="view = 'preview'"
+          />
+          <span class="text-xs opacity-60">Transcript — select all and copy</span>
         </div>
+
+        <pre
+          v-if="view === 'raw'"
+          class="w-full rounded-lg border border-(--ui-border) p-2 font-mono text-xs whitespace-pre-wrap break-words"
+        >{{ transcript }}</pre>
+
         <B24Editor
+          v-else
           :model-value="transcript"
           content-type="markdown"
           :editable="false"

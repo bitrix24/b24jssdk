@@ -112,7 +112,13 @@ export default defineCommand({
       return n
     }
 
-    async function run(label: string, fn: () => Promise<unknown>): Promise<void> {
+    async function run(label: string, fn: () => Promise<unknown>): Promise<{
+      outcome: 'OK' | 'THROWN'
+      attempts: number
+      notRetryable: number
+      exhausted: number
+      elapsed: number
+    }> {
       memHandler.clear()
       const t0 = Date.now()
       logger.notice(`===== ${label} =====`)
@@ -138,7 +144,13 @@ export default defineCommand({
         `[${outcome}] ${elapsed}ms | attempts=${attempts} | not-retryable=${notRetryable} | exhausted=${exhausted}`
       )
       if (summary) logger.notice(`       ${summary}`)
+      return { outcome, attempts, notRetryable, exhausted, elapsed }
     }
+
+    // Definitive PR #45 regressions that should turn a nightly run red (via
+    // process.exitCode below). Kept narrow + transient-noise-robust — only
+    // invariants that portal flakiness can't plausibly explain.
+    const regressions: string[] = []
 
     // region A. issue #44 — v3 validation 400 ////
     /**
@@ -160,12 +172,16 @@ export default defineCommand({
      * **FAIL markers:** `attempts=3`, `exhausted=1`, elapsed `> 5_000`ms.
      */
     if (want('A')) {
-      await run('A. issue #44 — v3 validation 400 (bad payload)', () =>
+      const a = await run('A. issue #44 — v3 validation 400 (bad payload)', () =>
         b24.actions.v3.call.make({
           method: 'tasks.task.update',
           params: { wrong: 'shape' }
         })
       )
+      // A 400 validation error must fast-fail: classified non-retryable, no retry
+      // exhaustion. A clean 400 never exhausts, so this is robust to transient noise.
+      if (a.exhausted > 0) regressions.push('A: a v3 validation 400 exhausted retries — the 4xx fast-fail (PR #45) regressed')
+      if (a.notRetryable < 1) regressions.push('A: a v3 validation 400 was not classified non-retryable (PR #45)')
     }
     // endregion ////
 
@@ -225,13 +241,18 @@ export default defineCommand({
       const v2 = b24.getHttpClient(ApiVersion.v2).ajaxClient
       const restore = v2.defaults.timeout
       v2.defaults.timeout = 1
+      let d: Awaited<ReturnType<typeof run>> | null = null
       try {
-        await run('D. transient — timeout still retries (axios timeout=1ms)', () =>
+        d = await run('D. transient — timeout still retries (axios timeout=1ms)', () =>
           b24.actions.v2.call.make({ method: 'user.current' })
         )
       } finally {
         v2.defaults.timeout = restore
       }
+      // A 1ms timeout (HTTP 408) must keep retrying, not fast-fail. Deterministic:
+      // every attempt times out, so a healthy SDK records more than one attempt.
+      if (d && d.attempts < 2) regressions.push('D: a client timeout (408) did not retry — it was wrongly fast-failed (PR #45)')
+      if (d && d.notRetryable > 0) regressions.push('D: a client timeout (408) was classified non-retryable (PR #45)')
     }
     // endregion ////
 
@@ -290,8 +311,17 @@ export default defineCommand({
       if (failed.length > 0) {
         logger.notice('       failures by code:', byCode)
       }
+      // Rate-limit / transient signals must never be classified non-retryable.
+      if (notRetryable > 0) regressions.push('E: a rate-limit / transient signal was classified non-retryable (PR #45)')
     }
     // endregion ////
+
+    if (regressions.length > 0) {
+      await logger.error('SMOKE REGRESSION(S) DETECTED — see the scenario markers above', { regressions })
+      // Non-zero exit turns the nightly workflow red. Use process.exitCode (not
+      // process.exit) so the trailing log flush below still completes.
+      process.exitCode = 1
+    }
 
     // Trailing summary MUST run before fileStream.end(): logger.notice
     // fans out to the StreamHandler too, and writing after end() crashes

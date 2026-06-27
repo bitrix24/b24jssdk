@@ -11,7 +11,7 @@
  * To repro a NEW issue: edit ONLY the `scenario()` function below
  * (the `===== SCENARIO =====` block). The harness around it stays the same.
  */
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, nextTick } from 'vue'
 import type { B24Frame } from '@bitrix24/b24jssdk'
 import { LoggerFactory, AjaxError } from '@bitrix24/b24jssdk'
 
@@ -40,6 +40,9 @@ let $b24: B24Frame
 const isInit = ref(false)
 const copied = ref(false)
 const entries = ref<Entry[]>([])
+const transcript = ref('')
+const showTranscript = ref(false)
+const transcriptArea = ref<HTMLTextAreaElement | null>(null)
 let counter = 0
 
 const pretty = (value: unknown): string => {
@@ -160,6 +163,8 @@ async function run(): Promise<void> {
   entries.value = []
   counter = 0
   copied.value = false
+  showTranscript.value = false
+  transcript.value = ''
   try {
     await scenario()
   } catch (error) {
@@ -186,14 +191,32 @@ function buildTranscript(): string {
 }
 
 async function copyReport(): Promise<void> {
+  const text = buildTranscript()
+  // Always reveal a selectable textarea — the async Clipboard API is blocked by
+  // the Bitrix24 iframe permissions policy, so the textarea is the reliable way
+  // to copy (Ctrl/Cmd+A, Ctrl/Cmd+C). We still attempt a programmatic copy.
+  transcript.value = text
+  showTranscript.value = true
+  copied.value = false
+
   try {
-    await navigator.clipboard.writeText(buildTranscript())
+    await navigator.clipboard.writeText(text)
     copied.value = true
-    window.setTimeout(() => {
+    return
+  } catch {
+    // ignore — fall back to selection + execCommand below
+  }
+
+  await nextTick()
+  const area = transcriptArea.value
+  if (area) {
+    area.focus()
+    area.select()
+    try {
+      copied.value = document.execCommand('copy')
+    } catch {
       copied.value = false
-    }, 1500)
-  } catch (error) {
-    $logger.error('clipboard failed', { error })
+    }
   }
 }
 
@@ -228,6 +251,19 @@ onMounted(async () => {
           color="air-secondary-no-accent"
           :disabled="entries.length === 0"
           @click="copyReport"
+        />
+      </div>
+
+      <div v-if="showTranscript" class="flex flex-col gap-1">
+        <div v-if="!copied" class="text-xs opacity-60">
+          Clipboard is blocked inside the Bitrix24 iframe — select all and copy manually:
+        </div>
+        <textarea
+          ref="transcriptArea"
+          readonly
+          :value="transcript"
+          rows="8"
+          class="w-full rounded-lg border border-(--ui-border) p-2 font-mono text-xs"
         />
       </div>
 

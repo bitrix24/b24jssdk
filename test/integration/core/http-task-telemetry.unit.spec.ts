@@ -45,7 +45,7 @@ const SUPPRESSED = [
   'task.checklistitem.getlist', // verified live: breaks with telemetry
   'task.commentitem.add',
   'task.elapseditem.getlist',
-  'tasks.task.list', // modern — contains `.task.`, so also matched
+  'tasks.task.list', // modern named-param method — matched only by the broad substring; would NOT break with telemetry, just loses the optional param
   'bizproc.task.list'
 ]
 // No `task.` substring → telemetry appended.

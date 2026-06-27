@@ -639,7 +639,8 @@ export abstract class AbstractHttp implements TypeHttp {
    * `includes('task.')` is a deliberate over-approximation: it also drops the
    * (optional, telemetry-safe) params for modern `tasks.task.*` / `bizproc.task.*`.
    * Narrowing to an anchored `^task\.` is possible but unverified across the
-   * whole task surface, so the broad, safe match is kept.
+   * whole task surface, so the broad, safe match is kept. Bitrix24 method names
+   * are lowercase by convention, so the case-sensitive match is sufficient.
    *
    * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
    */

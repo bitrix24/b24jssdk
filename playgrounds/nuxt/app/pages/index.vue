@@ -4,6 +4,7 @@ import type { B24Frame, BatchNamedCommandsUniversal } from '@bitrix24/b24jssdk'
 import { B24LangList, LoadDataType, LoggerFactory, useB24Helper, SdkError, AjaxError } from '@bitrix24/b24jssdk'
 import SimpleProfile from '~/components/SimpleProfile.vue'
 import SimpleAppInfo from '~/components/SimpleAppInfo.vue'
+import IssueReproHarness from '~/components/IssueReproHarness.vue'
 
 const { $initializeB24Frame } = useNuxtApp()
 
@@ -559,6 +560,14 @@ async function checkUserPassHistoryStorage(arStoragesList: StorageInfoV2[]) {
           </ProseH3>
           <SimpleAppInfo v-if="isShowComponent2" />
         </div>
+      </div>
+
+      <div class="mt-6">
+        <ProseH3 class="mb-2">
+          Issue repro harness
+          <ProseCode>scenario</ProseCode>
+        </ProseH3>
+        <IssueReproHarness />
       </div>
     </template>
   </ClientOnly>

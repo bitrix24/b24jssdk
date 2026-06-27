@@ -194,6 +194,7 @@ Load these based on your task. **Do not load all files at once** — only load w
 | **[.github/contributing/transports-and-results.md](.github/contributing/transports-and-results.md)** | `AbstractHttp` v2 / v3 transports, `Result` / `AjaxResult` / `AjaxError` / `SdkError`, the limiter stack, `ParamsFactory` presets, paging, batch semantics, log redaction |
 | **[.github/contributing/testing.md](.github/contributing/testing.md)** | Vitest projects (integration + under-load), `.env.test`, `setupB24Tests()`, naming filters, no-mock policy + `*.unit.spec.ts` exception |
 | **[.github/contributing/documentation.md](.github/contributing/documentation.md)** | `docs/content/docs/` Markdown structure, frontmatter (`links`, `category`, `restApiVersion`), MDC blocks (`::warning`, `::caution`, `::rest-api-version-only`), examples |
+| **[.github/contributing/reproducing-user-reports.md](.github/contributing/reproducing-user-reports.md)** | Turning a user report into a runnable REST chain via the nuxt playground `IssueReproHarness.vue`, running it in the app OAuth context, reading the request/response transcript, and deciding SDK-bug vs caller-context vs platform |
 
 ### Code Conventions
 

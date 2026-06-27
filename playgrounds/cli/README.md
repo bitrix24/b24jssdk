@@ -271,6 +271,28 @@ pnpm run dev make deals --total=50 --categoryId=3 --maxProducts=5 --assignedById
 pnpm run dev make deals --total=150
 ```
 
+### List Tasks
+
+Lists tasks from Bitrix24 CRM.
+
+**Syntax:**
+
+```bash
+pnpm run dev list tasks [--responsibleId=<id>]
+```
+
+### Smoke Retry
+
+Manual smoke tests for the retry-policy fix.
+
+**Syntax:**
+
+```bash
+pnpm run dev smoke-retry [--scenario=<A|B|D|E|all>] [--taskId=<id>] [--total=<n>] [--logFile=<path>]
+```
+
+See [Smoke tests: retry policy](#smoke-tests-retry-policy) for full documentation.
+
 ## Smoke tests: retry policy
 
 > Manual end-to-end checks for the retry-policy fix (PR #45, issues #44 / #46).

@@ -49,3 +49,40 @@ export interface CatalogProduct {
   measure?: number
   vatId?: number
 }
+
+export interface CatalogCatalogItem {
+  iblockId: number | string | null
+  productIblockId: number | string | null
+}
+
+export interface CatalogVatItem {
+  id: number
+  rate: number
+}
+
+export interface CatalogMeasureItem {
+  id: number
+}
+
+export interface CatalogPriceType {
+  id: number
+}
+
+export interface CrmCurrency {
+  CURRENCY: string
+}
+
+export interface DealStage {
+  STATUS_ID: string
+}
+
+export interface CrmSource {
+  STATUS_ID: string
+}
+
+export interface CatalogProductApiItem {
+  id: number
+  name: string
+  measure?: number
+  vatId?: number
+}

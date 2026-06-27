@@ -4,13 +4,13 @@ import { defineCommand } from 'citty'
 import 'dotenv/config'
 import {
   ApiVersion,
-  B24Hook,
-  ConsoleV2Handler,
-  Logger,
   LogLevel,
   MemoryHandler,
+  SdkError,
   StreamHandler
 } from '@bitrix24/b24jssdk'
+import { CLIENT_ERROR_STATUS } from '../constants'
+import { createB24Client } from '../utils'
 
 /**
  * CLI command — manual smoke tests for the retry-policy fix
@@ -62,40 +62,38 @@ export default defineCommand({
     type ScenarioKey = typeof SCENARIO_KEYS[number]
     const scenario = String(args.scenario).toUpperCase()
     if (!(SCENARIO_KEYS as readonly string[]).includes(scenario)) {
-      console.error(
-        `Unknown --scenario=${args.scenario}. Allowed: ${SCENARIO_KEYS.join(' | ')} (Latin letters, case-insensitive).`
-      )
-      process.exit(2)
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_UNKNOWN_SCENARIO',
+        description: `Unknown --scenario=${args.scenario}. Allowed: ${SCENARIO_KEYS.join(' | ')} (Latin letters, case-insensitive).`,
+        status: CLIENT_ERROR_STATUS
+      })
     }
     const want = (key: Exclude<ScenarioKey, 'ALL'>): boolean =>
       scenario === key || scenario === 'ALL'
-    const taskIdArg = Number(args.taskId)
-    const totalArg = Number(args.total)
+
+    const taskIdArg = Number.parseInt(args.taskId, 10)
+    const totalArg = Number.parseInt(args.total, 10)
+    if (Number.isNaN(totalArg)) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--total must be a valid integer, got: ${args.total}`,
+        status: CLIENT_ERROR_STATUS
+      })
+    }
+
     const logPath = resolve(process.cwd(), String(args.logFile))
 
     // region Loggers ////
     const fileStream = createWriteStream(logPath, { flags: 'w' })
     const memHandler = new MemoryHandler(LogLevel.DEBUG, { limit: 50_000 })
+    const streamHandler = new StreamHandler(LogLevel.DEBUG, { stream: fileStream })
 
-    const logger = Logger.create('smoke-retry')
-    logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
-    logger.pushHandler(new StreamHandler(LogLevel.DEBUG, { stream: fileStream }))
-    logger.pushHandler(memHandler)
-
-    const loggerForDebugB24 = Logger.create('b24')
-    loggerForDebugB24.pushHandler(new ConsoleV2Handler(LogLevel.ERROR, { useStyles: false }))
-    loggerForDebugB24.pushHandler(new StreamHandler(LogLevel.DEBUG, { stream: fileStream }))
-    loggerForDebugB24.pushHandler(memHandler)
+    const { b24, logger } = createB24Client('smoke-retry', {
+      consoleLevel: LogLevel.INFO,
+      restrictionParams: null,
+      extraHandlers: [streamHandler, memHandler]
+    })
     // endregion Loggers ////
-
-    const hookPath = process.env.B24_HOOK ?? ''
-    if (!hookPath.trim()) {
-      logger.emergency('B24_HOOK environment variable is not set. Configure it in playgrounds/cli/.env')
-      process.exit(1)
-    }
-
-    const b24 = B24Hook.fromWebhookUrl(hookPath)
-    b24.setLogger(loggerForDebugB24)
 
     logger.notice(`Connected to Bitrix24: ${b24.getTargetOrigin()}`)
     logger.notice(`Scenario: ${scenario} | log file: ${logPath}`)
@@ -122,12 +120,15 @@ export default defineCommand({
       let summary = ''
       try {
         const res = await fn()
-        summary = (res && typeof res === 'object' && '_status' in (res as any))
-          ? `status=${(res as any)._status}`
+        summary = (res && typeof res === 'object' && '_status' in res)
+          ? `status=${(res as { _status: unknown })._status}`
           : String(res ?? '')
-      } catch (e: any) {
+      } catch (e: unknown) {
         outcome = 'THROWN'
-        summary = `code=${e?.code} status=${e?.status} msg=${e?.message}`
+        const err = e instanceof SdkError ? e : (e instanceof Error ? e : null)
+        summary = err instanceof SdkError
+          ? `code=${err.code} status=${err.status} msg=${err.message}`
+          : `msg=${err?.message ?? String(e)}`
       }
       const elapsed = Date.now() - t0
       const attempts = countInMemory('http request attempt')
@@ -189,7 +190,7 @@ export default defineCommand({
      * If `--taskId` is unset (default `0`), the scenario is skipped.
      */
     if (want('B')) {
-      if (taskIdArg > 0) {
+      if (!Number.isNaN(taskIdArg) && taskIdArg > 0) {
         await run('B1. issue #46 — pause once', () =>
           b24.actions.v2.call.make({ method: 'tasks.task.pause', params: { taskId: taskIdArg } })
         )
@@ -270,7 +271,7 @@ export default defineCommand({
       const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[]
       const byCode: Record<string, number> = {}
       for (const f of failed) {
-        const c = (f.reason as any)?.code ?? 'unknown'
+        const c = f.reason instanceof SdkError ? f.reason.code : (f.reason instanceof Error ? f.reason.message : 'unknown')
         byCode[c] = (byCode[c] ?? 0) + 1
       }
       const attempts = countInMemory('http request attempt')

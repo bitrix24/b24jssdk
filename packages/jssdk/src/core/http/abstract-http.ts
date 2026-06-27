@@ -616,9 +616,47 @@ export abstract class AbstractHttp implements TypeHttp {
 
   // region Prepare ////
   /**
-   * Makes the function name safe and adds JSON format
+   * Builds the request URL: the method path plus the SDK telemetry query params
+   * (`bx24_request_id` / `bx24_sdk_ver` / `bx24_sdk_type` — request tracing and
+   * SDK identification, not auth material).
+   *
+   * Carve-out for the legacy positional `task.*` methods (`task.commentitem.*`,
+   * `task.checklistitem.*`, `task.elapseditem.*`, …): these read the request
+   * **query string positionally**, so appending the telemetry params shifts
+   * `Param #0` and the server rejects the call —
+   * `WRONG_ARGUMENTS: Param #0 (taskId) ... expected integer, but given
+   * something else`. Verified live against a portal: the same
+   * `task.commentitem.getlist` / `task.checklistitem.getlist` call succeeds
+   * without the telemetry params and fails with them; modern `tasks.task.*`
+   * (named params) is unaffected. So telemetry is omitted for any method whose
+   * name contains `task.`.
+   *
+   * Shared by v2 and v3 (rather than per-transport): once the v3 method
+   * allowlist was dropped (#259) a positional `task.*` method can be routed via
+   * `actions.v3.*` too, so v3 needs the same suppression — keeping the rule in
+   * one place stops the two transports drifting apart again (#207).
+   *
+   * `includes('task.')` is a deliberate over-approximation: it also drops the
+   * (optional, telemetry-safe) params for modern `tasks.task.*` / `bizproc.task.*`.
+   * Narrowing to an anchored `^task\.` is possible but unverified across the
+   * whole task surface, so the broad, safe match is kept.
+   *
+   * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
    */
-  protected abstract _prepareMethod(requestId: string, method: string, baseUrl: string): string
+  protected _prepareMethod(requestId: string, method: string, baseUrl: string): string {
+    const methodUrl = `/${encodeURIComponent(method)}`
+
+    if (method.includes('task.')) {
+      return `${baseUrl}${methodUrl}`
+    }
+
+    const queryParams = new URLSearchParams({
+      [this._requestIdGenerator.getQueryStringParameterName()]: requestId,
+      [this._requestIdGenerator.getQueryStringSdkParameterName()]: '__SDK_VERSION__',
+      [this._requestIdGenerator.getQueryStringSdkTypeParameterName()]: '__SDK_USER_AGENT__'
+    })
+    return `${baseUrl}${methodUrl}?${queryParams.toString()}`
+  }
 
   /**
    * Processes function parameters and adds authorization

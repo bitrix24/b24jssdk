@@ -40,7 +40,6 @@ let $b24: B24Frame
 const isInit = ref(false)
 const entries = ref<Entry[]>([])
 const transcript = ref('')
-const view = ref<'raw' | 'preview'>('raw')
 let counter = 0
 
 const pretty = (value: unknown): string => {
@@ -230,12 +229,9 @@ onMounted(async () => {
           >
             {{ e.text }}
           </div>
-          <B24Alert
-            v-else-if="e.kind === 'verdict'"
-            :title="e.ok ? 'OK' : 'Failed'"
-            :description="e.text"
-            :color="e.ok ? 'air-primary-success' : 'air-primary-alert'"
-          />
+          <div v-else-if="e.kind === 'verdict'" class="font-bold">
+            {{ e.ok ? 'OK' : 'FAILED' }} — {{ e.text }}
+          </div>
           <div
             v-else
             class="font-mono"
@@ -246,36 +242,12 @@ onMounted(async () => {
         </template>
       </div>
 
-      <!-- Full request/response chain as markdown — select & copy, hand it back -->
+      <!-- Full request/response chain as raw markdown — select all and copy -->
       <div v-if="transcript" class="flex flex-col gap-1">
-        <div class="flex flex-row items-center gap-2">
-          <B24Button
-            label="raw md"
-            size="xs"
-            :color="view === 'raw' ? 'air-boost' : 'air-secondary-no-accent'"
-            @click="view = 'raw'"
-          />
-          <B24Button
-            label="preview"
-            size="xs"
-            :color="view === 'preview' ? 'air-boost' : 'air-secondary-no-accent'"
-            @click="view = 'preview'"
-          />
-          <span class="text-xs opacity-60">Transcript — select all and copy</span>
+        <div class="text-xs opacity-60">
+          Transcript (markdown) — select all and copy
         </div>
-
-        <pre
-          v-if="view === 'raw'"
-          class="w-full rounded-lg border border-(--ui-border) p-2 font-mono text-xs whitespace-pre-wrap break-words"
-        >{{ transcript }}</pre>
-
-        <B24Editor
-          v-else
-          :model-value="transcript"
-          content-type="markdown"
-          :editable="false"
-          class="rounded-lg border border-(--ui-border) p-2"
-        />
+        <pre class="w-full rounded-lg border border-(--ui-border) p-2 font-mono text-xs whitespace-pre-wrap break-words">{{ transcript }}</pre>
       </div>
     </div>
   </ClientOnly>

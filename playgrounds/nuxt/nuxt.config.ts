@@ -29,18 +29,6 @@ export default defineNuxtConfig({
     server: {
       // Fix: "Blocked request. This host is not allowed" when using tunnels like ngrok
       allowedHosts: [...extraAllowedHosts]
-    },
-    // B24Editor (TipTap/ProseMirror): pre-bundle the prosemirror packages so the
-    // editor doesn't hit "Adding different instances of a keyed plugin" and
-    // renders correctly. Required per the b24ui editor docs.
-    optimizeDeps: {
-      include: [
-        '@bitrix24/b24ui-nuxt > prosemirror-state',
-        '@bitrix24/b24ui-nuxt > prosemirror-transform',
-        '@bitrix24/b24ui-nuxt > prosemirror-model',
-        '@bitrix24/b24ui-nuxt > prosemirror-view',
-        '@bitrix24/b24ui-nuxt > prosemirror-gapcursor'
-      ]
     }
   }
 })

@@ -9,7 +9,7 @@ When the user pastes the **MAINTENANCE** prompt (see below) or says one of the t
 - RU: **"Битрикс24 Вайбкод разбери"** / **"обнови по новым данным Битрикс24 Вайбкод"**
 - EN: **"parse Bitrix24 VibeCode"** / **"update from Bitrix24 VibeCode data"**
 
-**Copy-paste prompt for users:** see `.claude/skills/MAINTENANCE-PROMPT.md`.
+**Copy-paste prompt for users:** see `.github/contributing/MAINTENANCE-PROMPT.md`.
 
 ## 0. Sanity check
 
@@ -30,7 +30,7 @@ If the format changed (e.g. line 1 isn't a VibeCode header), stop and ask the us
 
 ## 1. Hash check and analysis
 
-The SHA-256 hash of the last processed file is stored in `.claude/skills/.llms-baseline`
+The SHA-256 hash of the last processed file is stored in `.github/contributing/.llms-baseline`
 (one key=value per line, no spaces around `=`).
 
 ```bash
@@ -46,8 +46,8 @@ NEW_TS=$(head -3 docs/llms-full.txt \
 
 echo "New:    $NEW_HASH  ($NEW_TS)"
 
-OLD_HASH=$(grep '^sha256=' .claude/skills/.llms-baseline | cut -d= -f2)
-OLD_TS=$(grep '^generated=' .claude/skills/.llms-baseline | cut -d= -f2)
+OLD_HASH=$(grep '^sha256=' .github/contributing/.llms-baseline | cut -d= -f2)
+OLD_TS=$(grep '^generated=' .github/contributing/.llms-baseline | cut -d= -f2)
 
 echo "Stored: $OLD_HASH  ($OLD_TS)"
 
@@ -139,7 +139,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 
    ```bash
    pnpm run lint:fix
-   git add .claude/skills/SUGGESTED-EXAMPLES.md .claude/skills/REPORT.md
+   git add .github/contributing/suggested-examples.md .github/contributing/report.md
    # Add any other modified skill files explicitly
    pnpm run typecheck
    git commit -m "docs(maintenance): weekly triage <YYYY-MM-DD>"
@@ -161,7 +161,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 
    # Overwrite .llms-baseline with new values (keep version=1 as first line)
    printf 'version=1\nsha256=%s\ngenerated=%s\nupdated=%s\n' \
-     "$NEW_HASH" "$NEW_TS" "$TODAY" > .claude/skills/.llms-baseline
+     "$NEW_HASH" "$NEW_TS" "$TODAY" > .github/contributing/.llms-baseline
 
    # Append a dated entry to "## Weekly llms-full.txt triage log" in REPORT.md
 
@@ -169,7 +169,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
    rm docs/llms-full.txt
    rm -f /tmp/llms-full.txt
 
-   git add .claude/skills/.llms-baseline .claude/skills/REPORT.md
+   git add .github/contributing/.llms-baseline .github/contributing/report.md
    git commit -m "chore: update llms-full.txt baseline hash + triage log <YYYY-MM-DD>"
    git push --force-with-lease
    # If push rejected: git pull --rebase && git push --force-with-lease

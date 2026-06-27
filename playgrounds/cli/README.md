@@ -345,6 +345,14 @@ pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=E --total=500
 pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=all --taskId=2016
 ```
 
+### Running in CI (nightly)
+
+[`.github/workflows/smoke-retry.yml`](../../.github/workflows/smoke-retry.yml) runs these scenarios on a nightly schedule (and on manual **Run workflow** dispatch) against a real portal. It reuses the repository's existing **`NUXT_BITRIX24_TEST_WEBHOOK_URL`** secret (a webhook URL — the same value local dev puts in `B24_HOOK`), mapping it onto the `B24_HOOK` env var the CLI reads, so **no new secret is needed**. (The `NUXT_*` prefix is a misnomer — the secret is consumed SDK-wide; renaming it to `B24_HOOK` is a possible follow-up.)
+
+Without that secret the workflow logs a warning and skips (it never runs on pull requests, so forks are unaffected). The full trace is published as the `smoke-retry-log` artifact. Trigger an ad-hoc run from **Actions → smoke-retry → Run workflow** and pick a `scenario`.
+
+The job **fails (red)** when a scenario shows a definitive PR #45 regression — scenario **A** exhausts retries on a 400, **D** stops retrying a timeout, or **E** classifies a rate-limit signal as non-retryable (`smoke-retry` sets a non-zero exit code). Otherwise it stays green and the trace is there for inspection. The deterministic version of these checks also runs portal-free in the unit suite (the CI `test` job), so a regression is caught there first; this nightly confirms it against a live portal.
+
 ### What you see in the console
 
 Each scenario prints a compact summary from an in-process `MemoryHandler` — no

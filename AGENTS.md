@@ -163,6 +163,8 @@ pnpm vitest run --project jsSdk:unit -t "<test name>"
 
 **CI runs `jsSdk:unit` automatically** (`pnpm run package-jssdk:test:run-unit`) — no portal needed. `jsSdk:integration` and `jsSdk:underLoad` are your local-only responsibility — make sure the relevant test filter is green against a real portal before pushing.
 
+A nightly **[`smoke-retry.yml`](.github/workflows/smoke-retry.yml)** workflow runs the `playgrounds/cli` retry-policy smoke scenarios against a live portal. It is gated on a `B24_HOOK` **repository secret** (a webhook URL — *Settings → Secrets and variables → Actions*) and skips with a warning when that secret is absent; it never runs on pull requests. See [playgrounds/cli/README.md](playgrounds/cli/README.md#running-in-ci-nightly).
+
 ### Releasing
 
 Cutting a release (bump → changelog → tag → publish) is documented in **[RELEASING.md](RELEASING.md)**. In brief: `pnpm run release:bump <version>` sets all three `package.json` files in lockstep (+ refreshes the lockfile), and publishing a GitHub Release on the `v<version>` tag triggers two sibling workflows — [`npm-publish-js-sdk.yml`](.github/workflows/npm-publish-js-sdk.yml) (`@bitrix24/b24jssdk`) and [`npm-publish-js-sdk-nuxt.yml`](.github/workflows/npm-publish-js-sdk-nuxt.yml) (`@bitrix24/b24jssdk-nuxt`) — each running CI then publishing its package. Publishing uses npm OIDC trusted publishing — there is no `NPM_TOKEN` to manage. The two files exist because each package's npm Trusted Publisher entry is keyed to one exact workflow filename; see RELEASING.md for the consolidation path.

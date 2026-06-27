@@ -74,8 +74,10 @@ export interface CrmCurrency {
 
 export interface DealStage {
   STATUS_ID: string
-  /** Stage semantics: 'S' = success (won), 'F' = failure (lost), null = in-progress. */
+  /** Deprecated legacy semantics ('S' = won, 'F' = lost). Prefer `EXTRA.SEMANTICS`. */
   SEMANTICS: string | null
+  /** Canonical stage semantics: `EXTRA.SEMANTICS` is 'success' | 'failure' | 'process' | 'apology' | null. */
+  EXTRA?: { SEMANTICS?: string | null }
 }
 
 export interface CrmSource {

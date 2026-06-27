@@ -195,19 +195,26 @@ export default defineCommand({
       const stages: string[] = stagesRaw.map(s => s.STATUS_ID)
       const firstStage = stages[0] ?? ''
 
-      // Won/lose stages are identified by SEMANTICS ('S' = success, 'F' = failure),
-      // NOT by a literal STATUS_ID: custom funnels use ids like 'C1:WON' / 'C2:LOSE',
-      // so exact-string 'WON'/'LOSE' matching would false-warn and pick the wrong
-      // stage on every non-default funnel. SEMANTICS is funnel-agnostic.
-      const wonStageId = stagesRaw.find(s => s.SEMANTICS === 'S')?.STATUS_ID
+      // Won/lose stages are identified by the canonical EXTRA.SEMANTICS
+      // ('success' / 'failure'), falling back to the deprecated top-level
+      // SEMANTICS ('S' / 'F') on older portals. Funnel-agnostic: custom funnels
+      // use STATUS_IDs like 'C1:WON' that a literal 'WON'/'LOSE' match would miss
+      // (false-warning and picking the wrong stage on every non-default funnel).
+      const wonStageId = (
+        stagesRaw.find(s => s.EXTRA?.SEMANTICS === 'success')
+        ?? stagesRaw.find(s => s.SEMANTICS === 'S')
+      )?.STATUS_ID
       if (!wonStageId) {
-        logger.warning('No success (SEMANTICS "S") stage in this funnel; won deals will use the first stage.')
+        logger.warning('No success stage found in this funnel; won deals will use the first stage.')
       }
       const wonStage = wonStageId ?? firstStage
 
-      const loseStageId = stagesRaw.find(s => s.SEMANTICS === 'F')?.STATUS_ID
+      const loseStageId = (
+        stagesRaw.find(s => s.EXTRA?.SEMANTICS === 'failure')
+        ?? stagesRaw.find(s => s.SEMANTICS === 'F')
+      )?.STATUS_ID
       if (!loseStageId) {
-        logger.warning('No failure (SEMANTICS "F") stage in this funnel; lost deals will use the last stage.')
+        logger.warning('No failure stage found in this funnel; lost deals will use the last stage.')
       }
       const loseStage = loseStageId ?? (stages[stages.length - 1] ?? '')
 
@@ -349,20 +356,24 @@ export default defineCommand({
       let batchDealCount = 0 // deals added to current batch (for naming)
 
       // Helper to execute a batch
-      async function flushBatch(dealCountInBatch: number) {
+      async function flushBatch() {
         if (commandsCount === 0) return
 
         try {
           const response = await b24.actions.v2.batch.make({
             calls: batchCommands,
-            // isHaltOnError:false so one invalid deal doesn't abort the rest of the
-            // batch; createdCount is then the deals actually created (attempted minus
-            // the per-command deal_* failures), so it can't over- or under-count (#47 item 11).
+            // isHaltOnError:false so one invalid deal doesn't abort the rest. With
+            // returnAjaxResult:false, getData() holds ONLY the successful commands
+            // (abstract-batch _extractBatchSimpleData), so counting the deal_* keys is
+            // exactly the deals created — no over-count on an envelope failure (empty
+            // data) and no under-count on a partial failure (#47 item 11).
             options: { isHaltOnError: false, returnAjaxResult: false }
           })
-          const failedDeals = Object.keys(response.getErrorMessagesByKey())
-            .filter(key => key.startsWith('deal_')).length
-          createdCount += dealCountInBatch - failedDeals
+          const data = response.getData() as Record<string, unknown> | null | undefined
+          const createdInBatch = data && typeof data === 'object'
+            ? Object.keys(data).filter(key => key.startsWith('deal_')).length
+            : 0
+          createdCount += createdInBatch
           if (!response.isSuccess) {
             errors.push(...response.getErrorMessages())
           }
@@ -480,13 +491,13 @@ export default defineCommand({
 
         // If batch limit reached or all deals created, execute
         if (commandsCount >= (MAX_BATCH_SIZE - 10) || i === params.total - 1) {
-          await flushBatch(batchDealCount)
+          await flushBatch()
           batchDealCount = 0
         }
       }
 
       // Final batch if any leftovers
-      await flushBatch(batchDealCount)
+      await flushBatch()
 
       const endTime = Date.now()
       const duration = ((endTime - startTime) / 1000).toFixed(2)

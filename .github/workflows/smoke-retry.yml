@@ -30,11 +30,11 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      B24_HOOK: ${{ secrets.B24_HOOK }}
     steps:
       - name: Check B24_HOOK secret is present
         id: guard
+        env:
+          B24_HOOK: ${{ secrets.B24_HOOK }}
         run: |
           if [ -z "${B24_HOOK}" ]; then
             echo "::warning::B24_HOOK secret is not set — add it under Settings -> Secrets and variables -> Actions to enable the live smoke tests. Skipping this run."
@@ -69,6 +69,7 @@ jobs:
       - name: Run smoke-retry scenarios
         if: steps.guard.outputs.skip == 'false'
         env:
+          B24_HOOK: ${{ secrets.B24_HOOK }}
           # `inputs.*` is empty on a schedule run, so fall back to the nightly defaults.
           SCENARIO: ${{ inputs.scenario || 'all' }}
           TOTAL: ${{ inputs.total || '200' }}

@@ -42,6 +42,14 @@ describe('playgrounds/cli utils', () => {
     it('returns the single value when min === max', () => {
       expect(randomInt(5, 5)).toBe(5)
     })
+
+    it('reaches both endpoints inclusively (guards the off-by-one)', () => {
+      const seen = new Set<number>()
+      for (let i = 0; i < 2000; i++) {
+        seen.add(randomInt(1, 3))
+      }
+      expect([...seen].sort((a, b) => a - b)).toEqual([1, 2, 3])
+    })
   })
 
   describe('pickRandom()', () => {

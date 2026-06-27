@@ -354,6 +354,8 @@ pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=all --taskId=201
 
 Without that secret the workflow logs a warning and skips (it never runs on pull requests, so forks are unaffected). The full trace is published as the `smoke-retry-log` artifact. Trigger an ad-hoc run from **Actions → smoke-retry → Run workflow** and pick a `scenario`.
 
+The job **fails (red)** when a scenario shows a definitive PR #45 regression — scenario **A** exhausts retries on a 400, **D** stops retrying a timeout, or **E** classifies a rate-limit signal as non-retryable (`smoke-retry` sets a non-zero exit code). Otherwise it stays green and the trace is there for inspection. The deterministic version of these checks also runs portal-free in the unit suite (the CI `test` job), so a regression is caught there first; this nightly confirms it against a live portal.
+
 ### What you see in the console
 
 Each scenario prints a compact summary from an in-process `MemoryHandler` — no

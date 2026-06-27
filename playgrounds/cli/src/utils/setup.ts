@@ -3,11 +3,31 @@ import type { Handler } from '@bitrix24/b24jssdk'
 import { CLIENT_ERROR_STATUS } from '../constants'
 
 export interface CreateB24ClientOptions {
+  /** Console handler level for the foreground `logger`. Default: `LogLevel.DEBUG`. */
   consoleLevel?: LogLevel
+  /**
+   * Restriction params for the B24Hook. Three states:
+   * - omitted (`undefined`) → defaults to `ParamsFactory.getBatchProcessing()`;
+   * - `null` → no restriction params at all (e.g. the smoke-retry harness);
+   * - a value → used as-is.
+   */
   restrictionParams?: ReturnType<typeof ParamsFactory.getBatchProcessing> | null
+  /** Extra handlers pushed onto BOTH loggers (e.g. a file StreamHandler + MemoryHandler). */
   extraHandlers?: Handler[]
 }
 
+/**
+ * Builds the CLI's `B24Hook` client and the two loggers every command shares,
+ * replacing the ~25-line init block that was duplicated across the commands (#47).
+ *
+ * Throws an `SdkError` (status `CLIENT_ERROR_STATUS`) when `B24_HOOK` is unset —
+ * citty's `runMain` catches it and exits non-zero, so commands never call
+ * `process.exit()` from inside their setup/helpers.
+ *
+ * @param name - the foreground logger channel name (e.g. `'companies'`).
+ * @param options - see {@link CreateB24ClientOptions}.
+ * @returns the `b24` client, the foreground `logger`, and the SDK-facing `loggerForDebugB24`.
+ */
 export function createB24Client(
   name: string,
   options?: CreateB24ClientOptions

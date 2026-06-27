@@ -64,10 +64,10 @@ export default defineCommand({
   },
   async setup({ args }) {
     const total = Number.parseInt(args.total, 10)
-    if (Number.isNaN(total)) {
+    if (Number.isNaN(total) || total < 1) {
       throw new SdkError({
         code: 'PLAYGROUND_CLI_INVALID_ARG',
-        description: `--total must be a valid integer, got: ${args.total}`,
+        description: `--total must be a positive integer (>= 1), got: ${args.total}`,
         status: CLIENT_ERROR_STATUS
       })
     }
@@ -193,22 +193,23 @@ export default defineCommand({
         })
       }
       const stages: string[] = stagesRaw.map(s => s.STATUS_ID)
-
-      // Determine which stages are considered successful/unsuccessful.
-      // Default Bitrix24: 'WON' – success, 'LOSE' – failure. Everything else – in progress.
-      const wonStageFound = stages.find(s => s === 'WON')
-      if (!wonStageFound) {
-        logger.warning('Canonical WON stage not found; falling back to first stage. Deal stages may be incorrect.')
-      }
-      const wonStage = wonStageFound ?? (stages[0] ?? '')
-
-      const loseStageFound = stages.find(s => s === 'LOSE')
-      if (!loseStageFound) {
-        logger.warning('Canonical LOSE stage not found; falling back to last stage. Deal stages may be incorrect.')
-      }
-      const loseStage = loseStageFound ?? (stages[stages.length - 1] ?? '')
-
       const firstStage = stages[0] ?? ''
+
+      // Won/lose stages are identified by SEMANTICS ('S' = success, 'F' = failure),
+      // NOT by a literal STATUS_ID: custom funnels use ids like 'C1:WON' / 'C2:LOSE',
+      // so exact-string 'WON'/'LOSE' matching would false-warn and pick the wrong
+      // stage on every non-default funnel. SEMANTICS is funnel-agnostic.
+      const wonStageId = stagesRaw.find(s => s.SEMANTICS === 'S')?.STATUS_ID
+      if (!wonStageId) {
+        logger.warning('No success (SEMANTICS "S") stage in this funnel; won deals will use the first stage.')
+      }
+      const wonStage = wonStageId ?? firstStage
+
+      const loseStageId = stagesRaw.find(s => s.SEMANTICS === 'F')?.STATUS_ID
+      if (!loseStageId) {
+        logger.warning('No failure (SEMANTICS "F") stage in this funnel; lost deals will use the last stage.')
+      }
+      const loseStage = loseStageId ?? (stages[stages.length - 1] ?? '')
 
       // --- Deal sources ---
       const sourcesData = sourcesResponse.getData() as SourcesListResult | null
@@ -354,12 +355,16 @@ export default defineCommand({
         try {
           const response = await b24.actions.v2.batch.make({
             calls: batchCommands,
-            options: { isHaltOnError: true, returnAjaxResult: false }
+            // isHaltOnError:false so one invalid deal doesn't abort the rest of the
+            // batch; createdCount is then the deals actually created (attempted minus
+            // the per-command deal_* failures), so it can't over- or under-count (#47 item 11).
+            options: { isHaltOnError: false, returnAjaxResult: false }
           })
+          const failedDeals = Object.keys(response.getErrorMessagesByKey())
+            .filter(key => key.startsWith('deal_')).length
+          createdCount += dealCountInBatch - failedDeals
           if (!response.isSuccess) {
             errors.push(...response.getErrorMessages())
-          } else {
-            createdCount += dealCountInBatch
           }
         } catch (e) {
           errors.push(`Batch execution error: ${e}`)

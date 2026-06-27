@@ -99,10 +99,10 @@ export default defineCommand({
   },
   async setup({ args }) {
     const total = Number.parseInt(args.total, 10)
-    if (Number.isNaN(total)) {
+    if (Number.isNaN(total) || total < 1) {
       throw new SdkError({
         code: 'PLAYGROUND_CLI_INVALID_ARG',
-        description: `--total must be a valid integer, got: ${args.total}`,
+        description: `--total must be a positive integer (>= 1), got: ${args.total}`,
         status: CLIENT_ERROR_STATUS
       })
     }

@@ -74,15 +74,10 @@ export interface CrmCurrency {
 
 export interface DealStage {
   STATUS_ID: string
+  /** Stage semantics: 'S' = success (won), 'F' = failure (lost), null = in-progress. */
+  SEMANTICS: string | null
 }
 
 export interface CrmSource {
   STATUS_ID: string
-}
-
-export interface CatalogProductApiItem {
-  id: number
-  name: string
-  measure?: number
-  vatId?: number
 }

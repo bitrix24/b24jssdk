@@ -2,10 +2,13 @@ name: smoke-retry
 
 # Live smoke tests for the retry-policy fix (PR #45 / issues #44, #46), driven by
 # the playgrounds/cli `smoke-retry` command. They need a real portal, so the
-# workflow is gated on the `B24_HOOK` repository secret (a webhook URL) and runs
-# only on a nightly schedule + manual dispatch — never on PRs (forks have no
-# secret). Enable it by adding a `B24_HOOK` secret under
-# Settings -> Secrets and variables -> Actions. See playgrounds/cli/README.md.
+# workflow maps the existing `NUXT_BITRIX24_TEST_WEBHOOK_URL` repository secret (a
+# webhook URL — the same value local dev puts in `B24_HOOK`) onto the `B24_HOOK`
+# env var the CLI reads, and runs only on a nightly schedule + manual dispatch —
+# never on PRs (forks have no secret). It skips with a warning if the secret is
+# unset. The `NUXT_*` prefix is a misnomer (the secret is consumed SDK-wide, not
+# Nuxt-only); renaming it to `B24_HOOK` is a possible follow-up. See
+# playgrounds/cli/README.md.
 
 on:
   schedule:
@@ -31,13 +34,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Check B24_HOOK secret is present
+      - name: Check the webhook secret is present
         id: guard
         env:
-          B24_HOOK: ${{ secrets.B24_HOOK }}
+          B24_HOOK: ${{ secrets.NUXT_BITRIX24_TEST_WEBHOOK_URL }}
         run: |
           if [ -z "${B24_HOOK}" ]; then
-            echo "::warning::B24_HOOK secret is not set — add it under Settings -> Secrets and variables -> Actions to enable the live smoke tests. Skipping this run."
+            echo "::warning::NUXT_BITRIX24_TEST_WEBHOOK_URL secret is not set — add it under Settings -> Secrets and variables -> Actions to enable the live smoke tests. Skipping this run."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -69,7 +72,7 @@ jobs:
       - name: Run smoke-retry scenarios
         if: steps.guard.outputs.skip == 'false'
         env:
-          B24_HOOK: ${{ secrets.B24_HOOK }}
+          B24_HOOK: ${{ secrets.NUXT_BITRIX24_TEST_WEBHOOK_URL }}
           # `inputs.*` is empty on a schedule run, so fall back to the nightly defaults.
           SCENARIO: ${{ inputs.scenario || 'all' }}
           TOTAL: ${{ inputs.total || '200' }}

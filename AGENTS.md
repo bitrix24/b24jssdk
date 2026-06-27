@@ -163,7 +163,7 @@ pnpm vitest run --project jsSdk:unit -t "<test name>"
 
 **CI runs `jsSdk:unit` automatically** (`pnpm run package-jssdk:test:run-unit`) — no portal needed. `jsSdk:integration` and `jsSdk:underLoad` are your local-only responsibility — make sure the relevant test filter is green against a real portal before pushing.
 
-A nightly **[`smoke-retry.yml`](.github/workflows/smoke-retry.yml)** workflow runs the `playgrounds/cli` retry-policy smoke scenarios against a live portal. It is gated on a `B24_HOOK` **repository secret** (a webhook URL — *Settings → Secrets and variables → Actions*) and skips with a warning when that secret is absent; it never runs on pull requests. See [playgrounds/cli/README.md](playgrounds/cli/README.md#running-in-ci-nightly).
+A nightly **[`smoke-retry.yml`](.github/workflows/smoke-retry.yml)** workflow runs the `playgrounds/cli` retry-policy smoke scenarios against a live portal. It reuses the existing `NUXT_BITRIX24_TEST_WEBHOOK_URL` **repository secret** (a webhook URL), mapping it onto the `B24_HOOK` env var the CLI reads — so no new secret is needed; it skips with a warning when that secret is absent and never runs on pull requests. It fails (non-zero exit) on a definitive PR #45 regression. See [playgrounds/cli/README.md](playgrounds/cli/README.md#running-in-ci-nightly).
 
 ### Releasing
 

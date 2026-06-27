@@ -347,10 +347,7 @@ pnpm --filter @bitrix24/b24jssdk-cli dev smoke-retry --scenario=all --taskId=201
 
 ### Running in CI (nightly)
 
-[`.github/workflows/smoke-retry.yml`](../../.github/workflows/smoke-retry.yml) runs these scenarios on a nightly schedule (and on manual **Run workflow** dispatch) against a real portal. It is gated on a **`B24_HOOK` repository secret** — the same webhook URL the local `.env` uses:
-
-1. In the GitHub repo: **Settings → Secrets and variables → Actions → New repository secret**.
-2. Name `B24_HOOK`, value `https://<portal>/rest/<userId>/<secret>/`.
+[`.github/workflows/smoke-retry.yml`](../../.github/workflows/smoke-retry.yml) runs these scenarios on a nightly schedule (and on manual **Run workflow** dispatch) against a real portal. It reuses the repository's existing **`NUXT_BITRIX24_TEST_WEBHOOK_URL`** secret (a webhook URL — the same value local dev puts in `B24_HOOK`), mapping it onto the `B24_HOOK` env var the CLI reads, so **no new secret is needed**. (The `NUXT_*` prefix is a misnomer — the secret is consumed SDK-wide; renaming it to `B24_HOOK` is a possible follow-up.)
 
 Without that secret the workflow logs a warning and skips (it never runs on pull requests, so forks are unaffected). The full trace is published as the `smoke-retry-log` artifact. Trigger an ad-hoc run from **Actions → smoke-retry → Run workflow** and pick a `scenario`.
 

@@ -11,7 +11,7 @@
  * To repro a NEW issue: edit ONLY the `scenario()` function below
  * (the `===== SCENARIO =====` block). The harness around it stays the same.
  */
-import { onMounted, ref, nextTick } from 'vue'
+import { onMounted, ref } from 'vue'
 import type { B24Frame } from '@bitrix24/b24jssdk'
 import { LoggerFactory, AjaxError } from '@bitrix24/b24jssdk'
 
@@ -38,11 +38,8 @@ type Entry
 
 let $b24: B24Frame
 const isInit = ref(false)
-const copied = ref(false)
 const entries = ref<Entry[]>([])
 const transcript = ref('')
-const showTranscript = ref(false)
-const transcriptArea = ref<HTMLTextAreaElement | null>(null)
 let counter = 0
 
 const pretty = (value: unknown): string => {
@@ -162,8 +159,6 @@ async function scenario(): Promise<void> {
 async function run(): Promise<void> {
   entries.value = []
   counter = 0
-  copied.value = false
-  showTranscript.value = false
   transcript.value = ''
   try {
     await scenario()
@@ -171,6 +166,8 @@ async function run(): Promise<void> {
     note('harness error: ' + (error instanceof Error ? error.message : String(error)), 'err')
     $logger.error('scenario crashed', { error })
   }
+  // Render the full request/response chain as a markdown document to copy.
+  transcript.value = buildTranscript()
 }
 
 /** Build a copy-paste transcript (requests + responses) for handing back. */
@@ -188,36 +185,6 @@ function buildTranscript(): string {
     }
   }
   return lines.join('\n')
-}
-
-async function copyReport(): Promise<void> {
-  const text = buildTranscript()
-  // Always reveal a selectable textarea — the async Clipboard API is blocked by
-  // the Bitrix24 iframe permissions policy, so the textarea is the reliable way
-  // to copy (Ctrl/Cmd+A, Ctrl/Cmd+C). We still attempt a programmatic copy.
-  transcript.value = text
-  showTranscript.value = true
-  copied.value = false
-
-  try {
-    await navigator.clipboard.writeText(text)
-    copied.value = true
-    return
-  } catch {
-    // ignore — fall back to selection + execCommand below
-  }
-
-  await nextTick()
-  const area = transcriptArea.value
-  if (area) {
-    area.focus()
-    area.select()
-    try {
-      copied.value = document.execCommand('copy')
-    } catch {
-      copied.value = false
-    }
-  }
 }
 
 onMounted(async () => {
@@ -244,35 +211,14 @@ onMounted(async () => {
       description="Connection to Bitrix24 ..."
     />
     <div v-else class="flex flex-col gap-3">
-      <div class="flex flex-row items-center gap-2">
-        <B24Button label="▶ Run scenario" color="air-boost" loading-auto @click="run" />
-        <B24Button
-          :label="copied ? 'Copied ✓' : 'Copy transcript'"
-          color="air-secondary-no-accent"
-          :disabled="entries.length === 0"
-          @click="copyReport"
-        />
-      </div>
+      <B24Button label="▶ Run scenario" color="air-boost" loading-auto class="self-start" @click="run" />
 
-      <div v-if="showTranscript" class="flex flex-col gap-1">
-        <div v-if="!copied" class="text-xs opacity-60">
-          Clipboard is blocked inside the Bitrix24 iframe — select all and copy manually:
-        </div>
-        <textarea
-          ref="transcriptArea"
-          readonly
-          :value="transcript"
-          rows="8"
-          class="w-full rounded-lg border border-(--ui-border) p-2 font-mono text-xs"
-        />
-      </div>
-
-      <div v-if="entries.length > 0" class="flex flex-col gap-2 text-xs">
+      <!-- Compact live status of the chain -->
+      <div v-if="entries.length > 0" class="flex flex-col gap-1 text-xs">
         <template v-for="(e, index) in entries" :key="index">
-          <div v-if="e.kind === 'step'" class="mt-2 font-bold">
+          <div v-if="e.kind === 'step'" class="mt-1 font-bold">
             {{ e.text }}
           </div>
-
           <div
             v-else-if="e.kind === 'note'"
             :class="{
@@ -283,28 +229,33 @@ onMounted(async () => {
           >
             {{ e.text }}
           </div>
-
           <B24Alert
             v-else-if="e.kind === 'verdict'"
             :title="e.ok ? 'OK' : 'Failed'"
             :description="e.text"
             :color="e.ok ? 'air-primary-success' : 'air-primary-alert'"
           />
-
-          <div v-else class="rounded-lg border border-(--ui-border) p-2 font-mono">
-            <div :class="e.ok ? 'text-(--ui-color-success-text)' : 'text-(--ui-color-danger-text)'">
-              #{{ e.n }} {{ e.method }} <span class="opacity-60">[{{ e.ver }}] · {{ e.ms }}ms · {{ e.ok ? 'OK' : 'ERROR' }}</span>
-            </div>
-            <div class="mt-1 opacity-60">
-              request
-            </div>
-            <pre class="whitespace-pre-wrap break-words">{{ pretty(e.params) }}</pre>
-            <div class="mt-1 opacity-60">
-              {{ e.ok ? 'response' : 'error' }}
-            </div>
-            <pre class="whitespace-pre-wrap break-words">{{ e.ok ? pretty(e.result) : e.error }}</pre>
+          <div
+            v-else
+            class="font-mono"
+            :class="e.ok ? 'text-(--ui-color-success-text)' : 'text-(--ui-color-danger-text)'"
+          >
+            #{{ e.n }} {{ e.method }} <span class="opacity-60">[{{ e.ver }}] · {{ e.ms }}ms · {{ e.ok ? 'OK' : 'ERROR' }}</span>
           </div>
         </template>
+      </div>
+
+      <!-- Full request/response chain as markdown — select & copy, hand it back -->
+      <div v-if="transcript" class="flex flex-col gap-1">
+        <div class="text-xs opacity-60">
+          Transcript (markdown) — select all and copy:
+        </div>
+        <B24Editor
+          :model-value="transcript"
+          content-type="markdown"
+          :editable="false"
+          class="rounded-lg border border-(--ui-border) p-2"
+        />
       </div>
     </div>
   </ClientOnly>

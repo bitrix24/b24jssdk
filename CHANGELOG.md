@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.0.0](https://github.com/bitrix24/b24jssdk/compare/v1.3.0...v2.0.0) (2026-06-27)
+
 ### ⚠ BREAKING CHANGES
 
 * **v3:** `actions.v3.call` / `actions.v3.batch` no longer pre-flight-throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` for methods that were not on the (now-removed) hardcoded v3 allowlist. An unknown v3 method now comes back as a `METHODNOTFOUNDEXCEPTION` **soft error** on the `AjaxResult` (`response.isSuccess === false`) instead of a thrown `SdkError`. Code that caught that `SdkError` must switch to checking `response.isSuccess` / `response.getErrorMessages()`.

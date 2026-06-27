@@ -273,13 +273,19 @@ pnpm run dev make deals --total=150
 
 ### List Tasks
 
-Lists tasks from Bitrix24 CRM.
+Lists tasks from Bitrix24 via the REST API v3 `tasks.task.list` method, paging through the full result set with a keyset cursor.
 
 **Syntax:**
 
 ```bash
-pnpm run dev list tasks [--responsibleId=<id>]
+pnpm run dev list tasks [--limit=<number>]
 ```
+
+**Arguments:**
+
+| Argument | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `--limit` | No | `50` | Page size per request (the server caps `tasks.task.list` at 50) |
 
 ### Smoke Retry
 

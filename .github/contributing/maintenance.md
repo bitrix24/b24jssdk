@@ -122,7 +122,7 @@ If a VibeCode endpoint has no Bitrix24 REST equivalent (AI Router, web search, i
 ## 4. Skill update conventions
 
 - Keep TypeScript / ESM style throughout (a skill-authoring convention — the package itself also ships CommonJS, but skills target TypeScript / ESM). No `fetch + X-Api-Key` examples in the SDK skills (except the documented AI-add-on pattern in `b24jssdk-vibecode`).
-- Use `$b24.actions.v{2,3}.*.make({ method, params, requestId? })` everywhere. **Do NOT** introduce `b24.callMethod(...)` or `b24.callBatch(...)` — they're `@deprecated` for 2.0.0.
+- Use `$b24.actions.v{2,3}.*.make({ method, params, requestId? })` everywhere. **Do NOT** introduce `b24.callMethod(...)` or `b24.callBatch(...)` — they're `@deprecated` for 2.1.0.
 - Do NOT add MongoDB-style filter operators (`$gt`, `$ne`, `$contains`) anywhere in the b24jssdk skill set.
 - Use `EnumCrmEntityTypeId` from `@bitrix24/b24jssdk` over numeric literals.
 - Keep multi-funnel awareness wherever stage names appear (`baseStage()` helper).

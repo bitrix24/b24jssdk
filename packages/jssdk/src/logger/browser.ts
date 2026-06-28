@@ -4,7 +4,7 @@ import { LoggerFactory } from './logger-factory'
 const deprecateMessage = '@deprecate: use Logger. https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/logger/'
 
 /**
- * @deprecate This enum is deprecated and will be removed in version `2.0.0`
+ * @deprecate This enum is deprecated and will be removed in version `2.1.0`
  */
 export enum LoggerType {
   desktop = 'desktop',
@@ -18,10 +18,10 @@ export enum LoggerType {
 /**
  * LoggerBrowser
  *
- * @deprecate This class is deprecated and will be removed in version `2.0.0`
+ * @deprecate This class is deprecated and will be removed in version `2.1.0`
  *   - use {@link Logger `Logger`}
  *
- * @removed 2.0.0
+ * @removed 2.1.0
  */
 export class LoggerBrowser implements LoggerInterface {
   #logger: LoggerInterface
@@ -29,9 +29,9 @@ export class LoggerBrowser implements LoggerInterface {
   /**
    * Create a LoggerBrowser instance
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   static build(title: string, isDevelopment: boolean = false): LoggerBrowser {
     return new LoggerBrowser(title, isDevelopment)
@@ -50,9 +50,9 @@ export class LoggerBrowser implements LoggerInterface {
   /**
    * Set config
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   setConfig(_types: Record<string | LoggerType, boolean>): void {
     console.warn(deprecateMessage)
@@ -61,9 +61,9 @@ export class LoggerBrowser implements LoggerInterface {
   /**
    * Set enable
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   enable(_type: LoggerType): boolean {
     console.warn(deprecateMessage)
@@ -73,9 +73,9 @@ export class LoggerBrowser implements LoggerInterface {
   /**
    * Set disable
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   disable(_type: LoggerType): boolean {
     console.warn(deprecateMessage)
@@ -85,9 +85,9 @@ export class LoggerBrowser implements LoggerInterface {
   /**
    * Test is enable
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   isEnabled(_type: LoggerType): boolean {
     console.warn(deprecateMessage)

@@ -7,7 +7,7 @@ description: End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}
 
 Twelve end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each function body takes `$b24: TypeB24` so the same code works in-frame too — just swap the boot for `initializeB24Frame()`.
 
-All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The legacy `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` is `@deprecated` for 2.0.0 — do not generate code against it.
+All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The legacy `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` is `@deprecated` for 2.1.0 — do not generate code against it.
 
 | # | File | Stack | Scopes | What it does |
 |---|---|---|---|---|

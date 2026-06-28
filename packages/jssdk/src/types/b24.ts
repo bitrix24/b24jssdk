@@ -85,55 +85,55 @@ export type TypeB24 = {
   /**
    * Calls the Bitrix24 REST API method.
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *   - for `restApi:v3` use {@link CallV3.make `b24.actions.v3.call.make(options)`}
    *   - for `restApi:v2` use {@link CallV2.make `b24.actions.v2.call.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   callMethod(method: string, params?: object, start?: number): Promise<AjaxResult>
 
   /**
    * Calls a Bitrix24 REST API list method to retrieve all data.
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *   - for `restApi:v3` use {@link CallListV3.make `b24.actions.v3.callList.make(options)`}
    *   - for `restApi:v2` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   callListMethod(method: string, params?: object, progress?: null | ((progress: number) => void), customKeyForResult?: string | null): Promise<Result>
 
   /**
    * Calls a Bitrix24 REST API list method and returns an async generator.
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *   - for `restApi:v3` use {@link FetchListV3.make `b24.actions.v3.fetchList.make(options)`}
    *   - for `restApi:v2` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   fetchListMethod(method: string, params?: any, idKey?: string, customKeyForResult?: string | null): AsyncGenerator<any[]>
 
   /**
    * Executes a batch request to the Bitrix24 REST API
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}
    *   - for `restApi:v2` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   callBatch(calls: Array<any> | object, isHaltOnError?: boolean, returnAjaxResult?: boolean): Promise<Result>
 
   /**
    * Executes a batch request to the Bitrix24 REST API with automatic chunking for any number of commands.
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `2.1.0`
    *   - for `restApi:v3` use {@link BatchByChunkV3.make `b24.actions.v3.batchByChunk.make(options)`}
    *   - for `restApi:v2` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result>
 

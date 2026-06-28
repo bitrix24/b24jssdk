@@ -5,7 +5,7 @@
  * v2 paging: result.isMore() + result.getNext(b24.getHttpClient(ApiVersion.v2)).
  * AjaxResult (returned by b24.actions.v2.call.make) has isMore() and getNext().
  *
- * NOTE: isMore() and getNext() are @deprecated and will be removed in v2.0.0.
+ * NOTE: isMore() and getNext() are @deprecated and will be removed in v2.1.0.
  * For new code prefer b24.actions.v3.callList.make() or fetchList.make().
  *
  * v3 does NOT support getNext() — calling it throws at runtime:
@@ -26,7 +26,7 @@ export async function pagingV2Example(b24: TypeB24) {
     requestId: 'app/crm.deal.list'
   })
 
-  // isMore() and getNext() are @deprecated — removed in v2.0.0. Shown here for guide coverage only.
+  // isMore() and getNext() are @deprecated — removed in v2.1.0. Shown here for guide coverage only.
   if (result.isMore()) {
     // Pass the v2 http client so the same limiter stack is preserved on the next page.
     const next = await result.getNext(b24.getHttpClient(ApiVersion.v2))

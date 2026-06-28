@@ -31,7 +31,7 @@ Note: the package ships ESM, CommonJS, and UMD builds. ESM is the recommended en
 
 ## Deprecation notice — read before generating code
 
-The following surface is `@deprecated` and **scheduled for removal in `2.0.0`**.
+The following surface is `@deprecated` and **scheduled for removal in `2.1.0`**.
 Many examples in this document still reference it because it remains the most
 widely-used path today, but new code should target the `actions.v{2,3}.*` API.
 
@@ -437,7 +437,7 @@ async function loadAllDealsStreaming($b24: any) {
 
 #### C) Manual pagination: callMethod + next pages
 
-> **`@deprecated` — slated for removal in `2.0.0`.** `callMethod`, `isMore()`,
+> **`@deprecated` — slated for removal in `2.1.0`.** `callMethod`, `isMore()`,
 > and `getNext()` rely on the `restApi:v2` envelope field `next`, which
 > `restApi:v3` does not return. Prefer `b24.actions.v{2,3}.fetchList.make` for
 > custom-throttled iteration; that helper hides pagination for both API versions.
@@ -485,7 +485,7 @@ try {
   const res = await $b24.callMethod('crm.item.get', { entityTypeId: 1, id: 10 })
   const payload = res.getData()                  // { result, time } — see Deprecation notice
   const ok = res.isSuccess                       // boolean
-  // const total = res.getTotal()                // @deprecated, removed in 2.0.0; v3 has no `total`
+  // const total = res.getTotal()                // @deprecated, removed in 2.1.0; v3 has no `total`
 } catch (e) {
   if (e instanceof AjaxError) {
     console.error(e.code, e.description, e.status, e.requestInfo)
@@ -595,7 +595,7 @@ This document is based on the SDK source in packages/jssdk/src and the docs unde
   ```
  
 - Unique ID Generator: request IDs are appended automatically via Http
-- Result / AjaxResult: uniform result objects, error aggregation. (Legacy paging helpers `isMore`/`getNext`/`getTotal` are `@deprecated` for `2.0.0` — see Deprecation notice.)
+- Result / AjaxResult: uniform result objects, error aggregation. (Legacy paging helpers `isMore`/`getNext`/`getTotal` are `@deprecated` for `2.1.0` — see Deprecation notice.)
 - Language List and LoggerBrowser
 
 ### Tools

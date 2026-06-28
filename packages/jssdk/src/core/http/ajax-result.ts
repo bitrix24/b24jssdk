@@ -134,26 +134,26 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   /**
    * Alias for isMore
    *
-   * @deprecated Will be removed in `2.0.0`. Tied to the `restApi:v2` envelope
+   * @deprecated Will be removed in `2.1.0`. Tied to the `restApi:v2` envelope
    *   field `next`, which `restApi:v3` does not return. Use the SDK's list
    *   helpers — they hide pagination entirely:
    *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
    *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   hasMore(): boolean {
     return this.isMore()
   }
 
   /**
-   * @deprecated Will be removed in `2.0.0`. Tied to the `restApi:v2` envelope
+   * @deprecated Will be removed in `2.1.0`. Tied to the `restApi:v2` envelope
    *   field `next`, which `restApi:v3` does not return. Use the SDK's list
    *   helpers — they hide pagination entirely:
    *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
    *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   isMore(): boolean {
     if (!this.isSuccess) {
@@ -166,13 +166,13 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * @deprecated Will be removed in `2.0.0`. Tied to the `restApi:v2` envelope
+   * @deprecated Will be removed in `2.1.0`. Tied to the `restApi:v2` envelope
    *   field `total`, which `restApi:v3` does not return. `restApi:v3` has no
    *   element-count replacement yet — an `aggregate` action (`count` /
    *   `countDistinct`) is planned but not exposed in the SDK; for `restApi:v2`
    *   use the list helpers, which iterate without exposing `total`.
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   getTotal(): number {
     if (!this.isSuccess) {
@@ -196,13 +196,13 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * Alias for getNext
    * @param http
    *
-   * @deprecated Will be removed in `2.0.0`. `restApi:v3` does not support
+   * @deprecated Will be removed in `2.1.0`. `restApi:v3` does not support
    *   `getNext()` (the v2 envelope field `next` does not exist). Use the SDK's
    *   list helpers instead — they hide pagination entirely:
    *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
    *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
    *
-   * @removed 2.0.0
+   * @removed 2.1.0
    */
   async fetchNext(http: TypeHttp): Promise<AjaxResult<T> | null> {
     const data = await this.getNext(http)
@@ -214,14 +214,14 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * @deprecated Will be removed in `2.0.0`. Throws on `restApi:v3` because the
+   * @deprecated Will be removed in `2.1.0`. Throws on `restApi:v3` because the
    *   v2 envelope field `next` is not part of the v3 protocol. Use the SDK's
    *   list helpers instead — they hide pagination entirely:
    *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
    *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
    *
-   * @throws {SdkError} `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` when called against a `restApi:v3` HTTP client. This throw is preserved until `2.0.0`.
-   * @removed 2.0.0
+   * @throws {SdkError} `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` when called against a `restApi:v3` HTTP client. This throw is preserved until `2.1.0`.
+   * @removed 2.1.0
    */
   async getNext(http: TypeHttp): Promise<AjaxResult<T> | false> {
     // @todo ! Correction -> we can use pagination to navigate to the next page

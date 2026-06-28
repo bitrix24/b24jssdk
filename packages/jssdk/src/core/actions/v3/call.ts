@@ -1,12 +1,12 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParamsV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { ApiVersion } from '../../../types/b24'
 
 export type ActionCallV3 = ActionOptions & {
   method: string
-  params?: TypeCallParams
+  params?: TypeCallParamsV3
   requestId?: string
 }
 
@@ -26,7 +26,7 @@ export class CallV3 extends AbstractAction {
    *
    * @param {ActionCallV3} options - parameters for executing the request.
    *     - `method: string` - REST API method name (eg: `crm.item.get`)
-   *     - `params?: TypeCallParams` - Parameters for calling the method.
+   *     - `params?: TypeCallParamsV3` - Parameters for calling the method.
    *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
    *
    * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an REST API call.

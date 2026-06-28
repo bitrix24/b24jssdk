@@ -11,6 +11,19 @@ import type { AxiosInstance } from 'axios'
  * pagination for both v2 and v3), batch command formats, and the core `TypeHttp` client interface.
  */
 
+/**
+ * `restApi:v2` filter — a prefix-operator dialect keyed by field, where the
+ * operator is encoded in the key, e.g. `{ '>id': 100, '%NAME': 'Iv' }`.
+ */
+export type TypeFilterV2 = Record<string, unknown>
+
+/**
+ * `restApi:v3` filter — an array of `[field, operator, value]` triples (joined
+ * with AND at the top level), e.g. `[['id', '>', 100], ['stageId', '=', 'NEW']]`.
+ * Build it ergonomically with {@link FilterV3}.
+ */
+export type TypeFilterV3 = Array<[string, string, unknown]>
+
 export type TypeCallParams = {
   order?: Record<string, 'ASC' | 'DESC' | 'asc' | 'desc' | string>
   filter?: any
@@ -47,6 +60,26 @@ export type TypeCallParams = {
     limit?: number
   }
   [key: string]: any
+}
+
+/**
+ * Per-version specialisation of {@link TypeCallParams} that types the request-side
+ * `filter` for `restApi:v2` (prefix-operator object) and drops the v3-only
+ * `pagination` / `cursor` fields. The permissive `[key: string]: any` index
+ * signature is retained, so existing call sites keep compiling.
+ */
+export type TypeCallParamsV2 = Omit<TypeCallParams, 'filter' | 'pagination' | 'cursor'> & {
+  filter?: TypeFilterV2
+}
+
+/**
+ * Per-version specialisation of {@link TypeCallParams} that types the request-side
+ * `filter` for `restApi:v3` (array of triples) and drops the v2-only `start`
+ * field. The permissive `[key: string]: any` index signature is retained, so
+ * existing call sites keep compiling.
+ */
+export type TypeCallParamsV3 = Omit<TypeCallParams, 'filter' | 'start'> & {
+  filter?: TypeFilterV3
 }
 
 // region Batch interface ////
@@ -122,7 +155,7 @@ export interface IRequestIdGenerator {
  */
 export type TypeHttp = {
   apiVersion: ApiVersion
-  ajaxClient: AxiosInstance | any
+  ajaxClient: AxiosInstance
 
   setLogger(logger: LoggerInterface): void
   getLogger(): LoggerInterface

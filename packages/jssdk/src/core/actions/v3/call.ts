@@ -13,7 +13,10 @@ export type ActionCallV3 = ActionOptions & {
 /**
  * Calls the Bitrix24 REST API method `restApi:v3`
  *
- * @todo add docs
+ * Executes a single REST API request against the v3 HTTP client and returns the raw response.
+ * Unlike its v2 counterpart `CallV2`, it routes through the v3 endpoint without a client-side
+ * method allowlist — the server validates the method and returns `METHODNOTFOUNDEXCEPTION` for
+ * unknown ones. Like `CallV2`, it makes exactly one HTTP call with no pagination or batching.
  */
 export class CallV3 extends AbstractAction {
   /**

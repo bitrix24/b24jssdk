@@ -8,7 +8,8 @@ import type { ActionsManager } from '../core/actions/manager'
 import type { ToolsManager } from '../core/tools/manager'
 
 /**
- * @todo docs
+ * Core types for the Bitrix24 REST API client: API version enumeration, batch call options,
+ * and the main B24 client interface exposing HTTP, auth, tools, and actions managers.
  */
 
 export enum ApiVersion {

@@ -137,7 +137,8 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
          * However, `batch` is executed without retries, so there will be an immediate error.
          */
 
-        // @todo fix docs
+        // Errors are collected into the result rather than thrown, so all batch
+        // commands are processed even when individual ones fail.
         // @memo we not throw ajaxError
         this._processResponseError<T>(result, ajaxError, `${index}`)
         dataResult.set(index, data)

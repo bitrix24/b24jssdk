@@ -1,6 +1,6 @@
 /**
- * Special cases of data passed to handlers
- * @todo add docs
+ * Types for authentication and OAuth token data passed to Bitrix24 REST API event handlers.
+ * `HandlerAuthParams` contains the full auth context provided with every incoming event request.
  */
 
 export interface HandlerAuthParams {

@@ -1,9 +1,9 @@
 /**
- * Data Types and Object Structure in the REST API bizproc activity and robot
+ * Data Types and Object Structure in the REST API bizproc activity and robot.
+ * Covers handler parameter shapes, property type enumerations, and descriptor interfaces used
+ * when registering or handling custom workflow activities and robots via the REST API.
  * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-activity/index.html
  * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-robot/index.html
- *
- * @todo add docs
  */
 import type { BoolString } from '../../common'
 import type { HandlerAuthParams } from '../../handler'

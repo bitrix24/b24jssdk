@@ -17,7 +17,11 @@ export type ActionCallListV3 = ActionOptions & {
 /**
  * Fast data retrieval without counting the total number of records. `restApi:v3`
  *
- * @todo add docs
+ * Iterates through all pages of a v3 list method using keyset (cursor) pagination and collects
+ * every item into a single array returned as a `Result`. Unlike the v2 counterpart `CallListV2`,
+ * it uses v3-style array filter syntax and supports the `limit` option (up to 1000 per page).
+ * Unlike `FetchListV3`, which streams pages via an async generator, this class returns the
+ * complete dataset in one awaited call.
  */
 export class CallListV3 extends AbstractAction {
   /**

@@ -16,7 +16,10 @@ export type ActionCallListV2 = ActionOptions & {
 /**
  * Fast data retrieval without counting the total number of records. `restApi:v2`
  *
- * @todo add docs
+ * Iterates through all pages of a v2 list method using cursor-based pagination (ordering and
+ * filtering by the item id) and collects every item into a single array returned as a `Result`.
+ * Unlike `FetchListV2`, which yields pages one by one via an async generator, this class waits
+ * for all pages to finish and returns the complete dataset in one call.
  */
 export class CallListV2 extends AbstractAction {
   /**

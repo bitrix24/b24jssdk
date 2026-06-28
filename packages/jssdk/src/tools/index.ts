@@ -1,5 +1,5 @@
 /**
- * @todo add docs
+ * Returns a new object containing only the specified keys from `data`.
  */
 export function pick<Data extends object, Keys extends keyof Data>(data: Data, keys: Keys[]): Pick<Data, Keys> {
   const result = {} as Pick<Data, Keys>
@@ -12,7 +12,7 @@ export function pick<Data extends object, Keys extends keyof Data>(data: Data, k
 }
 
 /**
- * @todo add docs
+ * Returns a shallow copy of `data` with the specified keys removed.
  */
 export function omit<Data extends object, Keys extends keyof Data>(data: Data, keys: Keys[]): Omit<Data, Keys> {
   const result = { ...data }
@@ -26,14 +26,14 @@ export function omit<Data extends object, Keys extends keyof Data>(data: Data, k
 }
 
 /**
- * @todo add docs
+ * Type guard that returns `true` when `item` is an array of arrays rather than a flat array.
  */
 export function isArrayOfArray<A>(item: A[] | A[][]): item is A[][] {
   return Array.isArray(item[0])
 }
 
 /**
- * @todo add docs
+ * Returns the enum member whose value equals `value`, or `undefined` if no match is found.
  *
  * @example
  * const result = getEnumValue(EnumBizprocDocumentType, 'CCrmDocumentSmartOrder')

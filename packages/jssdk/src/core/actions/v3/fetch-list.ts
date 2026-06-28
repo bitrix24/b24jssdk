@@ -17,7 +17,12 @@ export type ActionFetchListV3 = ActionOptions & {
 /**
  * Calls a REST API list method and returns an async generator for efficient large data retrieval. `restApi:v3`
  *
- * @todo add docs
+ * Iterates through all pages of a v3 list method using keyset (cursor) pagination and yields
+ * each page as an array, allowing callers to process records incrementally without holding the
+ * entire dataset in memory. Unlike `CallListV3`, which accumulates all pages before returning,
+ * this class exposes an `AsyncGenerator` so processing can begin as soon as the first page
+ * arrives. Compared to `FetchListV2`, it uses v3-style array filter syntax and supports the
+ * `limit` option (up to 1000 per page).
  */
 export class FetchListV3 extends AbstractAction {
   /**

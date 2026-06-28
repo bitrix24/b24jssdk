@@ -16,11 +16,14 @@ import { ProcessingAsObjectV2 } from '../interaction/batch/processing/v2/as-obje
 import { AjaxError } from './ajax-error'
 
 /**
- * Class for working with RestApi v2 requests via http
+ * HTTP transport for Bitrix24 REST API v2.
+ *
+ * Extends {@link AbstractHttp} with v2-specific batch execution: dispatches
+ * `batch` calls through {@link InteractionBatchV2} and selects either
+ * {@link ProcessingAsArrayV2} or {@link ProcessingAsObjectV2} depending on
+ * the shape of the commands argument.
  *
  * @link https://bitrix24.github.io/b24jssdk/
- *
- * @todo docs
  */
 export class HttpV2 extends AbstractHttp implements TypeHttp {
   constructor(

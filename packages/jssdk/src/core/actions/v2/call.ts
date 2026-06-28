@@ -13,7 +13,9 @@ export type ActionCallV2 = ActionOptions & {
 /**
  * Calls the Bitrix24 REST API method `restApi:v2`
  *
- * @todo add docs
+ * Executes a single REST API request against the v2 HTTP client and returns the raw response.
+ * Unlike `CallListV2`, `FetchListV2`, `BatchV2`, or `BatchByChunkV2`, this class makes exactly
+ * one HTTP call and returns the result without any pagination or batching logic.
  */
 export class CallV2 extends AbstractAction {
   /**

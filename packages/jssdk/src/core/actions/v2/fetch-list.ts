@@ -16,7 +16,10 @@ export type ActionFetchListV2 = ActionOptions & {
 /**
  * Calls a REST API list method and returns an async generator for efficient large data retrieval. `restApi:v2`
  *
- * @todo add docs
+ * Iterates through all pages of a v2 list method using cursor-based pagination and yields each
+ * page as an array, allowing callers to process records incrementally without holding the entire
+ * dataset in memory. Unlike `CallListV2`, which accumulates all pages before returning, this
+ * class exposes an `AsyncGenerator` so processing can begin as soon as the first page arrives.
  */
 export class FetchListV2 extends AbstractAction {
   /**

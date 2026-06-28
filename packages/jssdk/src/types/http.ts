@@ -7,7 +7,8 @@ import type { ApiVersion } from './b24'
 import type { AxiosInstance } from 'axios'
 
 /**
- * @todo fix docs
+ * Types for HTTP communication with the Bitrix24 REST API: call parameters (filtering, ordering,
+ * pagination for both v2 and v3), batch command formats, and the core `TypeHttp` client interface.
  */
 
 export type TypeCallParams = {
@@ -81,7 +82,8 @@ export type BatchCommandV3 = {
 
 export type CommandTuple<M extends string = string, P = undefined | TypeCallParams> = [M, P?]
 /**
- * @todo add docs - api v3 only use this ??
+ * Object form of a batch command. The `as`, `parallel`, and `params.cursor` / `params.pagination`
+ * fields are supported in API v3 only; `params.start` is the v2 equivalent for offset pagination.
  */
 export interface CommandObject<M extends string = string, P = undefined | TypeCallParams> { method: M, params?: P, as?: string, parallel?: boolean }
 export type CommandUniversal<M extends string = string, P = undefined | TypeCallParams>

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Deprecations
+
+* The legacy REST surface — the `AbstractB24` shortcuts (`callMethod`, `callListMethod`, `fetchListMethod`, `callBatch`, `callBatchByChunk`) and the `batchSize` const, the `AjaxResult` paging helpers (`isMore` / `hasMore` / `getNext` / `fetchNext` / `getTotal`), and `LoggerBrowser` / `LoggerType` — remains available in `2.x` (it works and emits a runtime deprecation warning) and is **scheduled for removal in `3.0.0`** (was previously mislabelled for `2.0.0`). Migrate to `b24.actions.v{2,3}.*.make(...)`, the list helpers, and `LoggerFactory` — see the [v2 → v3 migration guide](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/). Tracked in #277.
+
 ## [2.0.0](https://github.com/bitrix24/b24jssdk/compare/v1.3.0...v2.0.0) (2026-06-27)
 
 ### ⚠ BREAKING CHANGES

@@ -18,7 +18,7 @@ import { versionManager } from '../core/version-manager'
  * @example
  * ```ts
  * const b24 = B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/abc123xyz/')
- * const result = await b24.callMethod('user.current')
+ * const result = await b24.actions.v2.call.make({ method: 'user.current' })
  * ```
  *
  * @link https://bitrix24.github.io/b24jssdk/docs/hook/

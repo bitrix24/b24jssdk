@@ -1,5 +1,5 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
 import { SdkError } from '../../sdk-error'
@@ -7,7 +7,7 @@ import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionCallTailV3 = ActionOptions & {
   method: string
-  params?: Omit<TypeCallParams, 'pagination' | 'order' | 'cursor'>
+  params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'cursor'>
   cursorField?: string
   order?: 'ASC' | 'DESC' | 'asc' | 'desc' | string
   customKeyForResult?: string
@@ -33,7 +33,7 @@ export class CallTailV3 extends AbstractAction {
    *
    * @param {ActionCallTailV3} options - parameters for executing the request.
    *     - `method: string` - A REST API `tail` method name (for example: `main.eventlog.tail`).
-   *     - `params?: Omit<TypeCallParams, 'pagination' | 'order' | 'cursor'>` - Request parameters
+   *     - `params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'cursor'>` - Request parameters
    *         (`filter`, `select`). `pagination`, `order` and `cursor` are managed by this helper.
    *         The cursor field must NOT be used in `filter`.
    *     - `cursorField?: string` - The DTO field that drives the cursor. Default is `id`.

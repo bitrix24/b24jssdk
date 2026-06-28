@@ -19,7 +19,7 @@ export type ActionCallListV3 = ActionOptions & {
  *
  * Iterates through all pages of a v3 list method using keyset (cursor) pagination and collects
  * every item into a single array returned as a `Result`. Unlike the v2 counterpart `CallListV2`,
- * it uses v3-style array filter syntax and supports the `limit` option (up to 1000 per page).
+ * it uses v3-style array filter syntax and supports the `limit` option (the server enforces its own per-method maximum, commonly 1000).
  * Unlike `FetchListV3`, which streams pages via an async generator, this class returns the
  * complete dataset in one awaited call.
  */

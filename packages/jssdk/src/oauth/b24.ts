@@ -18,7 +18,7 @@ import { versionManager } from '../core/version-manager'
  * @example
  * ```ts
  * const b24 = new B24OAuth(authOptions, { clientId: '...', clientSecret: '...' })
- * const result = await b24.callMethod('crm.lead.list')
+ * const result = await b24.actions.v2.call.make({ method: 'crm.lead.list' })
  * ```
  *
  * @link https://apidocs.bitrix24.com/settings/oauth/index.html
@@ -54,9 +54,8 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
 
   /**
    * Used to initialize information about the current user.
-   *
-   * @todo test this
    */
+  // TODO: add integration-test coverage for the admin-flag fetch
   public async initIsAdmin(requestId?: string): Promise<void> {
     const method = 'profile'
 

@@ -4,6 +4,7 @@ import type { AjaxResult } from '../core/http/ajax-result'
 import type { PayloadTime } from './payloads'
 import type { RestrictionParams, RestrictionManagerStats } from './limiters'
 import type { ApiVersion } from './b24'
+import type { FilterV3Group } from '../tools/filter-v3'
 import type { AxiosInstance } from 'axios'
 
 /**
@@ -20,9 +21,10 @@ export type TypeFilterV2 = Record<string, unknown>
 /**
  * `restApi:v3` filter — an array of `[field, operator, value]` triples (joined
  * with AND at the top level), e.g. `[['id', '>', 100], ['stageId', '=', 'NEW']]`.
- * Build it ergonomically with {@link FilterV3}.
+ * Nested AND/OR/NOT groups are allowed too, so the output of the `FilterV3`
+ * builder (`FilterV3.build(...)`) assigns directly.
  */
-export type TypeFilterV3 = Array<[string, string, unknown]>
+export type TypeFilterV3 = Array<[string, string, unknown] | FilterV3Group>
 
 export type TypeCallParams = {
   order?: Record<string, 'ASC' | 'DESC' | 'asc' | 'desc' | string>
@@ -74,12 +76,14 @@ export type TypeCallParamsV2 = Omit<TypeCallParams, 'filter' | 'pagination' | 'c
 
 /**
  * Per-version specialisation of {@link TypeCallParams} that types the request-side
- * `filter` for `restApi:v3` (array of triples) and drops the v2-only `start`
- * field. The permissive `[key: string]: any` index signature is retained, so
- * existing call sites keep compiling.
+ * `filter` for `restApi:v3` and drops the v2-only `start` field. The preferred
+ * v3 shape is the array of triples / groups ({@link TypeFilterV3}); the v2-style
+ * object ({@link TypeFilterV2}) is still accepted for backward compatibility.
+ * The permissive `[key: string]: any` index signature is retained, so existing
+ * call sites keep compiling.
  */
 export type TypeCallParamsV3 = Omit<TypeCallParams, 'filter' | 'start'> & {
-  filter?: TypeFilterV3
+  filter?: TypeFilterV3 | TypeFilterV2
 }
 
 // region Batch interface ////

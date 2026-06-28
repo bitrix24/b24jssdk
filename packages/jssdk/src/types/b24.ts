@@ -1,3 +1,9 @@
+/**
+ * Core types for the Bitrix24 REST API client: API version enumeration, batch call options,
+ * and the main B24 client interface exposing HTTP, auth, tools, and actions managers.
+ *
+ * @module
+ */
 import type { LoggerInterface } from './logger'
 import type { AjaxResult } from '../core/http/ajax-result'
 import type { Result } from '../core/result'
@@ -6,10 +12,6 @@ import type { AuthActions } from './auth'
 import type { RestrictionParams } from './limiters'
 import type { ActionsManager } from '../core/actions/manager'
 import type { ToolsManager } from '../core/tools/manager'
-
-/**
- * @todo docs
- */
 
 export enum ApiVersion {
   v3 = 'v3',

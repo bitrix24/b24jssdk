@@ -14,7 +14,10 @@ import { ActionsManager } from './actions/manager'
 import { ToolsManager } from './tools/manager'
 
 /**
- * @todo docs
+ * Abstract base class for all SDK entry points (B24Frame, B24Hook, etc.).
+ * Owns the HTTP clients for REST API v2 and v3, the actions surface via {@link ActionsManager},
+ * and built-in tools via {@link ToolsManager}.
+ * Concrete subclasses must implement authentication and HTTP transport initialization.
  */
 export abstract class AbstractB24 implements TypeB24 {
   /**

@@ -16,9 +16,13 @@ interface OperatingStats {
 }
 
 /**
- * Operating limiting
+ * Enforces the Bitrix24 per-method operating-time budget.
  *
- * @todo docs
+ * Bitrix24 charges each REST call against a rolling 10-minute CPU-time
+ * quota (`operating` field in the response). This limiter tracks that
+ * quota per method and blocks further calls (via {@link ILimiter.canProceed})
+ * until the reset timestamp has passed, preventing `QUERY_LIMIT_EXCEEDED`
+ * errors caused by heavy requests exhausting the portal's operating budget.
  */
 export class OperatingLimiter implements ILimiter {
   #config: OperatingLimitConfig

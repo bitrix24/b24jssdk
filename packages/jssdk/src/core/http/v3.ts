@@ -17,12 +17,16 @@ import { ProcessingAsArrayV3 } from '../interaction/batch/processing/v3/as-array
 import { ProcessingAsObjectV3 } from '../interaction/batch/processing/v3/as-object'
 
 /**
- * Class for working with RestApi v3 requests via http
+ * HTTP transport for Bitrix24 REST API v3.
+ *
+ * Extends {@link AbstractHttp} with v3-specific batch execution: dispatches
+ * `batch` calls through {@link InteractionBatchV3} and selects either
+ * {@link ProcessingAsArrayV3} or {@link ProcessingAsObjectV3} depending on
+ * the shape of the commands argument. Use this transport when the target
+ * Bitrix24 portal supports the REST v3 protocol.
  *
  * @link https://bitrix24.github.io/b24jssdk/
  * @link https://apidocs.bitrix24.com/api-reference/rest-v3/index.html
- *
- * @todo docs
  */
 export class HttpV3 extends AbstractHttp implements TypeHttp {
   constructor(

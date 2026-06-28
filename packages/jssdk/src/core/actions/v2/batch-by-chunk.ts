@@ -16,7 +16,10 @@ export type ActionBatchByChunkV2 = ActionOptions & {
 /**
  * Executes a batch request with automatic chunking for any number of commands. `restApi:v2`
  *
- * @todo add docs
+ * Splits an arbitrarily large command list into sequential chunks of up to 50 and sends each
+ * chunk as a separate v2 batch call, merging successful results into a flat array. Unlike
+ * `BatchV2`, there is no 50-command ceiling for the caller, but named commands are not supported
+ * because they cannot be reliably merged across chunk boundaries.
  */
 export class BatchByChunkV2 extends AbstractBatch {
   /**

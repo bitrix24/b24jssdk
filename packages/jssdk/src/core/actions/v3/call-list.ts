@@ -1,12 +1,12 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
 import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionCallListV3 = ActionOptions & {
   method: string
-  params?: Omit<TypeCallParams, 'pagination' | 'order'>
+  params?: Omit<TypeCallParamsV3, 'pagination' | 'order'>
   idKey?: string
   cursorIdKey?: string
   customKeyForResult: string
@@ -17,7 +17,11 @@ export type ActionCallListV3 = ActionOptions & {
 /**
  * Fast data retrieval without counting the total number of records. `restApi:v3`
  *
- * @todo add docs
+ * Iterates through all pages of a v3 list method using keyset (cursor) pagination and collects
+ * every item into a single array returned as a `Result`. Unlike the v2 counterpart `CallListV2`,
+ * it uses v3-style array filter syntax and supports the `limit` option (the server enforces its own per-method maximum, commonly 1000).
+ * Unlike `FetchListV3`, which streams pages via an async generator, this class returns the
+ * complete dataset in one awaited call.
  */
 export class CallListV3 extends AbstractAction {
   /**
@@ -27,7 +31,7 @@ export class CallListV3 extends AbstractAction {
    *
    * @param {ActionCallListV3} options - parameters for executing the request.
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
-   *     - `params?: Omit<TypeCallParams, 'pagination' | 'order'>` - Request parameters, excluding the `pagination` and `order` parameters,
+   *     - `params?: Omit<TypeCallParamsV3, 'pagination' | 'order'>` - Request parameters, excluding the `pagination` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter`, `order`, and `select` to control the selection.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value

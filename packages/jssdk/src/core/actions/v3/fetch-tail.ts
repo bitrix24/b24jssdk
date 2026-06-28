@@ -1,12 +1,12 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionFetchTailV3 = ActionOptions & {
   method: string
-  params?: Omit<TypeCallParams, 'pagination' | 'order' | 'cursor'>
+  params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'cursor'>
   cursorField?: string
   order?: 'ASC' | 'DESC' | 'asc' | 'desc' | string
   customKeyForResult?: string
@@ -36,7 +36,7 @@ export class FetchTailV3 extends AbstractAction {
    *
    * @param {ActionFetchTailV3} options - parameters for executing the request.
    *     - `method: string` - A REST API `tail` method name (for example: `main.eventlog.tail`).
-   *     - `params?: Omit<TypeCallParams, 'pagination' | 'order' | 'cursor'>` - Request parameters.
+   *     - `params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'cursor'>` - Request parameters.
    *         Use `filter` and `select` to control the selection. `pagination`, `order` and `cursor`
    *         are managed by this helper and must not be passed. The cursor field must NOT be used in `filter`.
    *     - `cursorField?: string` - The DTO field that drives the cursor. Must be monotonic and

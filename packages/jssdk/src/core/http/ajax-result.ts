@@ -28,9 +28,13 @@ type ErrorData = {
 }
 
 /**
- * Result of request to Rest Api
+ * Typed result wrapper for a single Bitrix24 REST API response.
  *
- * @todo docs
+ * Extends {@link Result} with the raw HTTP status, the originating query
+ * (method, params, requestId), and the deserialized payload. On construction
+ * it inspects the payload for API-level error fields and populates the
+ * inherited error collection, so callers can branch on {@link isSuccess}
+ * without inspecting raw HTTP status codes.
  */
 export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResult<Payload<T>> {
   private readonly _status: number

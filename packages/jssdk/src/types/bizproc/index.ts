@@ -1,8 +1,9 @@
 /**
- * Data Types and Object Structure in the REST API bizproc
+ * Data Types and Object Structure in the REST API bizproc.
+ * Provides enumerations for Bitrix24 edition variants, bizproc document base types, and CRM
+ * document types used when registering activities/robots or starting business-process workflows.
  * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-activity/bizproc-activity-add.html
  * @link https://apidocs.bitrix24.com/api-reference/bizproc/bizproc-robot/bizproc-robot-add.html
- * @todo add docs
  */
 import { EnumCrmEntityTypeId } from '../crm'
 

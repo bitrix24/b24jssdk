@@ -10,7 +10,7 @@ import { SdkError } from '../../sdk-error'
  */
 
 /**
- * @todo waite docs apiVer3
+ * Maximum number of commands allowed in a single batch request when using `restApi:v3`.
  */
 export const MAX_BATCH_COMMANDS_V3 = 50
 

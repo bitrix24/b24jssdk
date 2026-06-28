@@ -6,9 +6,14 @@ import { OperatingLimiter } from './operating-limiter'
 import { AdaptiveDelayer } from './adaptive-delayer'
 
 /**
- * Delay Management Manager
+ * Central coordinator for all outbound request throttling.
  *
- * @todo docs
+ * Composes a {@link RateLimiter} (requests-per-second cap), an
+ * {@link OperatingLimiter} (Bitrix24 operating-time budget), and an
+ * {@link AdaptiveDelayer} (back-off based on observed server load) into a
+ * single façade consumed by {@link AbstractHttp}. Tracks aggregate stats
+ * (retries, consecutive errors, limit hits) and propagates a shared logger
+ * to all three sub-limiters.
  */
 export class RestrictionManager {
   #rateLimiter: RateLimiter

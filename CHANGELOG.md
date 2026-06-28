@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+* **types:** new exported request-side filter/params types — `TypeFilterV2` (the `restApi:v2` prefix-operator object), `TypeFilterV3` (the `restApi:v3` array of triples / `FilterV3` builder groups), and the per-version `TypeCallParamsV2` / `TypeCallParamsV3`. The v2/v3 `call` / `callList` / `fetchList` / `callTail` / `fetchTail` / `aggregate` action options now type their `filter`, so a wrong-dialect filter is flagged in the IDE. Backward compatible — the permissive index signature is retained and v3 still accepts a v2-style object filter (#153).
+
+### Changed
+
+* **types:** `TypeHttp.ajaxClient` is now `AxiosInstance` instead of `AxiosInstance | any` (the union erased the type) (#153).
+
+### Docs
+
+* Filled the `@todo docs` JSDoc placeholders across the public surface — actions (v2/v3), the HTTP transports, `AjaxResult`, the limiter stack, the `B24Hook` / `B24Frame` / `B24OAuth` entry points, tools, and public types (#154).
+
 ### Deprecations
 
 * The legacy REST surface — the `AbstractB24` shortcuts (`callMethod`, `callListMethod`, `fetchListMethod`, `callBatch`, `callBatchByChunk`) and the `batchSize` const, the `AjaxResult` paging helpers (`isMore` / `hasMore` / `getNext` / `fetchNext` / `getTotal`), and `LoggerBrowser` / `LoggerType` — remains available in `2.x` (it works and emits a runtime deprecation warning) and is **scheduled for removal in `3.0.0`** (was previously mislabelled for `2.0.0`). Migrate to `b24.actions.v{2,3}.*.make(...)`, the list helpers, and `LoggerFactory` — see the [v2 → v3 migration guide](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/). Tracked in #277.

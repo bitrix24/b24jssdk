@@ -8,12 +8,21 @@ import { AuthOAuthManager } from './auth'
 import { versionManager } from '../core/version-manager'
 
 /**
- * B24.OAuth Manager
+ * Server-side Bitrix24 client for OAuth 2.0 applications (local and distributed).
+ *
+ * Manages access- and refresh-token lifecycle: the underlying `AuthOAuthManager`
+ * automatically refreshes the access token when it expires, using the supplied
+ * `oAuthSecret` (client ID + client secret). Like `B24Hook`, this class is
+ * **server-side only** — OAuth secrets must not be exposed in browser code.
+ *
+ * @example
+ * ```ts
+ * const b24 = new B24OAuth(authOptions, { clientId: '...', clientSecret: '...' })
+ * const result = await b24.actions.v2.call.make({ method: 'crm.lead.list' })
+ * ```
  *
  * @link https://apidocs.bitrix24.com/settings/oauth/index.html
  * @link https://bitrix24.github.io/b24jssdk/docs/oauth/
- *
- * @todo add docs
  */
 export class B24OAuth extends AbstractB24 implements TypeB24 {
   readonly #authOAuthManager: AuthOAuthManager
@@ -45,9 +54,8 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
 
   /**
    * Used to initialize information about the current user.
-   *
-   * @todo test this
    */
+  // TODO: add integration-test coverage for the admin-flag fetch
   public async initIsAdmin(requestId?: string): Promise<void> {
     const method = 'profile'
 

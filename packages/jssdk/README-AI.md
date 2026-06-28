@@ -34,6 +34,7 @@ Note: the package ships ESM, CommonJS, and UMD builds. ESM is the recommended en
 The following surface is `@deprecated` and **scheduled for removal in `2.1.0`**.
 Many examples in this document still reference it because it remains the most
 widely-used path today, but new code should target the `actions.v{2,3}.*` API.
+Full removal checklist: [Migration to v2.1](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v2/).
 
 | Deprecated | Replacement |
 |---|---|

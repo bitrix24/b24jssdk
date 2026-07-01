@@ -17,7 +17,11 @@ export type ActionBatchV3 = ActionOptions & {
  * Executes a batch request to the Bitrix24 REST API with a maximum number of commands of no more than 50. `restApi:v3`
  * Allows you to execute multiple requests in a single API call, significantly improving performance.
  *
- * @todo add docs
+ * Sends up to 50 commands in a single v3 batch HTTP call and returns their results together.
+ * Supports array, object, and named-command formats. Unlike `BatchByChunkV3`, it does not split
+ * large command sets automatically — callers must keep the command count within the 50-command
+ * limit. Compared to `BatchV2`, it routes through the v3 endpoint without a client-side method
+ * allowlist.
  */
 export class BatchV3 extends AbstractBatch {
   /**

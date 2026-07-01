@@ -1,10 +1,10 @@
-import { B24Hook, Logger, LogLevel, ConsoleV2Handler, ParamsFactory, SdkError, Result, Text } from '@bitrix24/b24jssdk'
+import { SdkError, Result, Text } from '@bitrix24/b24jssdk'
 import type { GetPayload } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 import 'dotenv/config'
 import type { Language, TaskTemplatesByLanguage, TaskFields, TaskAddResult } from '../../types'
-import { LANGUAGES, PRIORITY_VALUES, STATUS_VALUES } from '../../constants'
-import { pickRandom, randomInt, showProgress } from '../../utils'
+import { LANGUAGES, PRIORITY_VALUES, STATUS_VALUES, CHECKLIST_PROBABILITY, CHECKLIST_MIN_ITEMS, CHECKLIST_MAX_ITEMS, CLIENT_ERROR_STATUS } from '../../constants'
+import { pickRandom, randomInt, showProgress, createB24Client, icon } from '../../utils'
 
 /**
  * CLI Command to populate Bitrix24 with randomized tasks.
@@ -14,10 +14,6 @@ import { pickRandom, randomInt, showProgress } from '../../utils'
  *
  * @usage pnpm --filter @bitrix24/b24jssdk-cli dev make tasks --total=10 --creatorId=1 --responsibleId=5
  */
-
-const CHECKLIST_PROBABILITY = 0.4
-const CHECKLIST_MIN_ITEMS = 2
-const CHECKLIST_MAX_ITEMS = 6
 
 // Arrays for generating realistic task titles
 const taskTemplates: Record<Language, TaskTemplatesByLanguage> = {
@@ -117,35 +113,35 @@ export default defineCommand({
     responsibleId: { description: 'Responsible user ID', default: '1' }
   },
   async setup({ args }) {
-    const params = {
-      total: Number(args.total),
-      creatorId: Number(args.creatorId),
-      responsibleId: Number(args.responsibleId)
+    const total = Number.parseInt(args.total, 10)
+    if (Number.isNaN(total) || total < 1) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--total must be a positive integer (>= 1), got: ${args.total}`,
+        status: CLIENT_ERROR_STATUS
+      })
+    }
+    const creatorId = Number.parseInt(args.creatorId, 10)
+    if (Number.isNaN(creatorId)) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--creatorId must be a valid integer, got: ${args.creatorId}`,
+        status: CLIENT_ERROR_STATUS
+      })
+    }
+    const responsibleId = Number.parseInt(args.responsibleId, 10)
+    if (Number.isNaN(responsibleId)) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--responsibleId must be a valid integer, got: ${args.responsibleId}`,
+        status: CLIENT_ERROR_STATUS
+      })
     }
 
+    const params = { total, creatorId, responsibleId }
     let createdCount = 0
 
-    // region Logger ////
-    const logger = Logger.create('tasks')
-    const handler = new ConsoleV2Handler(LogLevel.DEBUG, { useStyles: false })
-    logger.pushHandler(handler)
-    // endregion Logger ////
-
-    // Initialize Bitrix24 connection
-    const hookPath = process.env.B24_HOOK ?? ''
-    if (!hookPath) {
-      logger.emergency('🚨 B24_HOOK environment variable is not set! Please configure it in your .env file')
-      process.exit(1)
-    }
-
-    const b24 = B24Hook.fromWebhookUrl(hookPath, { restrictionParams: ParamsFactory.getBatchProcessing() })
-    logger.info('Connected to Bitrix24', { target: b24.getTargetOrigin() })
-
-    const loggerForDebugB24 = Logger.create('b24')
-    const handlerForDebugB24 = new ConsoleV2Handler(LogLevel.ERROR, { useStyles: false })
-    loggerForDebugB24.pushHandler(handlerForDebugB24)
-
-    b24.setLogger(loggerForDebugB24)
+    const { b24, logger } = createB24Client('tasks')
 
     /**
      * Generates a future deadline in Bitrix24 compatible ISO-like format.
@@ -191,7 +187,7 @@ export default defineCommand({
      */
     async function addChecklistItems(taskId: number, language: Language): Promise<Result> {
       const result = new Result()
-      const count = Math.min(randomInt(Math.max(CHECKLIST_MIN_ITEMS, 1), CHECKLIST_MAX_ITEMS), 50)
+      const count = randomInt(CHECKLIST_MIN_ITEMS, CHECKLIST_MAX_ITEMS)
       const labelFn = checklistLabels[language]
 
       const calls = []
@@ -219,7 +215,7 @@ export default defineCommand({
         return result.addError(new SdkError({
           code: 'PLAYGROUND_CLI_ERROR',
           description: `Error adding checklist item to task ${taskId}: ${response.getErrorMessages().join('; ')}`,
-          status: 404
+          status: CLIENT_ERROR_STATUS
         }))
       }
 
@@ -250,7 +246,7 @@ export default defineCommand({
           responsibleId: params.responsibleId,
           deadline: generateDeadline(),
           priority: pickRandom(PRIORITY_VALUES),
-          status: STATUS_VALUES[0]
+          status: STATUS_VALUES[0] ?? 'pending'
         }
 
         const response = await b24.actions.v3.call.make<TaskAddResult>({
@@ -264,7 +260,7 @@ export default defineCommand({
           return result.addError(new SdkError({
             code: 'PLAYGROUND_CLI_ERROR',
             description: response.getErrorMessages().join(';'),
-            status: 404
+            status: CLIENT_ERROR_STATUS
           }))
         }
 
@@ -275,7 +271,7 @@ export default defineCommand({
           return result.addError(new SdkError({
             code: 'PLAYGROUND_CLI_ERROR',
             description: 'No task ID returned from API',
-            status: 404
+            status: CLIENT_ERROR_STATUS
           }))
         }
 
@@ -286,7 +282,7 @@ export default defineCommand({
             return result.addError(new SdkError({
               code: 'PLAYGROUND_CLI_ERROR',
               description: checklistResponse.getErrorMessages().join(';'),
-              status: 404
+              status: CLIENT_ERROR_STATUS
             }))
           }
         }
@@ -296,7 +292,7 @@ export default defineCommand({
       } catch (error) {
         return result.addError(SdkError.fromException(
           `Error creating task ${taskNumber}: ${error instanceof Error ? error.message : error}`,
-          { code: 'PLAYGROUND_CLI_ERROR', status: 404 }
+          { code: 'PLAYGROUND_CLI_ERROR', status: CLIENT_ERROR_STATUS }
         ))
       }
     }
@@ -310,10 +306,10 @@ export default defineCommand({
      * @returns {Promise<void>}
      */
     async function createRandomTasks(): Promise<void> {
-      logger.notice('🚀 Starting creation of random tasks in Bitrix24')
-      logger.notice(`📊 Planned to create: ${params.total} tasks`)
-      logger.notice(`👤 Creator: user ID ${params.creatorId}`)
-      logger.notice(`👤 Responsible: user ID ${params.responsibleId}`)
+      logger.notice(`${icon('🚀 ')}Starting creation of random tasks in Bitrix24`)
+      logger.notice(`${icon('📊 ')}Planned to create: ${params.total} tasks`)
+      logger.notice(`${icon('👤 ')}Creator: user ID ${params.creatorId}`)
+      logger.notice(`${icon('👤 ')}Responsible: user ID ${params.responsibleId}`)
       logger.notice('─'.repeat(50))
 
       const healthCheckData = await b24.tools.healthCheck.make({ requestId: 'healthCheck' })
@@ -337,19 +333,19 @@ export default defineCommand({
 
       logger.notice('\n')
       logger.notice('─'.repeat(50))
-      logger.notice('✅ Completed!')
-      logger.notice(`📈 Successfully created: ${createdCount} tasks`)
-      logger.notice(`⏱️ Total execution time: ${duration} seconds`)
-      logger.notice(`📊 Average time per task: ${(Number(duration) / params.total).toFixed(2)} seconds`)
+      logger.notice(`${icon('✅ ')}Completed!`)
+      logger.notice(`${icon('📈 ')}Successfully created: ${createdCount} tasks`)
+      logger.notice(`${icon('⏱️ ')}Total execution time: ${duration} seconds`)
+      logger.notice(`${icon('📊 ')}Average time per task: ${(Number(duration) / params.total).toFixed(2)} seconds`)
 
       if (errors.length > 0) {
-        logger.notice(`❌ Errors encountered: ${errors.length}`)
-        logger.notice('❌ Errors', {
+        logger.notice(`${icon('❌ ')}Errors encountered: ${errors.length}`)
+        logger.notice(`${icon('❌ ')}Errors`, {
           encountered: errors.length,
           first10: errors.slice(0, 10).map((error, index) => `${index + 1}. ${error}`)
         })
       } else {
-        logger.notice('🎉 No errors encountered during creation process!')
+        logger.notice(`${icon('🎉 ')}No errors encountered during creation process!`)
       }
     }
 

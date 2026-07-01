@@ -1,19 +1,22 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParamsV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { ApiVersion } from '../../../types/b24'
 
 export type ActionCallV3 = ActionOptions & {
   method: string
-  params?: TypeCallParams
+  params?: TypeCallParamsV3
   requestId?: string
 }
 
 /**
  * Calls the Bitrix24 REST API method `restApi:v3`
  *
- * @todo add docs
+ * Executes a single REST API request against the v3 HTTP client and returns the raw response.
+ * Unlike its v2 counterpart `CallV2`, it routes through the v3 endpoint without a client-side
+ * method allowlist — the server validates the method and returns `METHODNOTFOUNDEXCEPTION` for
+ * unknown ones. Like `CallV2`, it makes exactly one HTTP call with no pagination or batching.
  */
 export class CallV3 extends AbstractAction {
   /**
@@ -23,7 +26,7 @@ export class CallV3 extends AbstractAction {
    *
    * @param {ActionCallV3} options - parameters for executing the request.
    *     - `method: string` - REST API method name (eg: `crm.item.get`)
-   *     - `params?: TypeCallParams` - Parameters for calling the method.
+   *     - `params?: TypeCallParamsV3` - Parameters for calling the method.
    *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
    *
    * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an REST API call.

@@ -4,13 +4,13 @@ import { defineCommand } from 'citty'
 import 'dotenv/config'
 import {
   ApiVersion,
-  B24Hook,
-  ConsoleV2Handler,
-  Logger,
   LogLevel,
   MemoryHandler,
+  SdkError,
   StreamHandler
 } from '@bitrix24/b24jssdk'
+import { CLIENT_ERROR_STATUS } from '../constants'
+import { createB24Client } from '../utils'
 
 /**
  * CLI command — manual smoke tests for the retry-policy fix
@@ -62,40 +62,38 @@ export default defineCommand({
     type ScenarioKey = typeof SCENARIO_KEYS[number]
     const scenario = String(args.scenario).toUpperCase()
     if (!(SCENARIO_KEYS as readonly string[]).includes(scenario)) {
-      console.error(
-        `Unknown --scenario=${args.scenario}. Allowed: ${SCENARIO_KEYS.join(' | ')} (Latin letters, case-insensitive).`
-      )
-      process.exit(2)
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_UNKNOWN_SCENARIO',
+        description: `Unknown --scenario=${args.scenario}. Allowed: ${SCENARIO_KEYS.join(' | ')} (Latin letters, case-insensitive).`,
+        status: CLIENT_ERROR_STATUS
+      })
     }
     const want = (key: Exclude<ScenarioKey, 'ALL'>): boolean =>
       scenario === key || scenario === 'ALL'
-    const taskIdArg = Number(args.taskId)
-    const totalArg = Number(args.total)
+
+    const taskIdArg = Number.parseInt(args.taskId, 10)
+    const totalArg = Number.parseInt(args.total, 10)
+    if (Number.isNaN(totalArg)) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--total must be a valid integer, got: ${args.total}`,
+        status: CLIENT_ERROR_STATUS
+      })
+    }
+
     const logPath = resolve(process.cwd(), String(args.logFile))
 
     // region Loggers ////
     const fileStream = createWriteStream(logPath, { flags: 'w' })
     const memHandler = new MemoryHandler(LogLevel.DEBUG, { limit: 50_000 })
+    const streamHandler = new StreamHandler(LogLevel.DEBUG, { stream: fileStream })
 
-    const logger = Logger.create('smoke-retry')
-    logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
-    logger.pushHandler(new StreamHandler(LogLevel.DEBUG, { stream: fileStream }))
-    logger.pushHandler(memHandler)
-
-    const loggerForDebugB24 = Logger.create('b24')
-    loggerForDebugB24.pushHandler(new ConsoleV2Handler(LogLevel.ERROR, { useStyles: false }))
-    loggerForDebugB24.pushHandler(new StreamHandler(LogLevel.DEBUG, { stream: fileStream }))
-    loggerForDebugB24.pushHandler(memHandler)
+    const { b24, logger } = createB24Client('smoke-retry', {
+      consoleLevel: LogLevel.INFO,
+      restrictionParams: null,
+      extraHandlers: [streamHandler, memHandler]
+    })
     // endregion Loggers ////
-
-    const hookPath = process.env.B24_HOOK ?? ''
-    if (!hookPath.trim()) {
-      logger.emergency('B24_HOOK environment variable is not set. Configure it in playgrounds/cli/.env')
-      process.exit(1)
-    }
-
-    const b24 = B24Hook.fromWebhookUrl(hookPath)
-    b24.setLogger(loggerForDebugB24)
 
     logger.notice(`Connected to Bitrix24: ${b24.getTargetOrigin()}`)
     logger.notice(`Scenario: ${scenario} | log file: ${logPath}`)
@@ -114,7 +112,13 @@ export default defineCommand({
       return n
     }
 
-    async function run(label: string, fn: () => Promise<unknown>): Promise<void> {
+    async function run(label: string, fn: () => Promise<unknown>): Promise<{
+      outcome: 'OK' | 'THROWN'
+      attempts: number
+      notRetryable: number
+      exhausted: number
+      elapsed: number
+    }> {
       memHandler.clear()
       const t0 = Date.now()
       logger.notice(`===== ${label} =====`)
@@ -122,12 +126,15 @@ export default defineCommand({
       let summary = ''
       try {
         const res = await fn()
-        summary = (res && typeof res === 'object' && '_status' in (res as any))
-          ? `status=${(res as any)._status}`
+        summary = (res && typeof res === 'object' && '_status' in res)
+          ? `status=${(res as { _status: unknown })._status}`
           : String(res ?? '')
-      } catch (e: any) {
+      } catch (e: unknown) {
         outcome = 'THROWN'
-        summary = `code=${e?.code} status=${e?.status} msg=${e?.message}`
+        const err = e instanceof SdkError ? e : (e instanceof Error ? e : null)
+        summary = err instanceof SdkError
+          ? `code=${err.code} status=${err.status} msg=${err.message}`
+          : `msg=${err?.message ?? String(e)}`
       }
       const elapsed = Date.now() - t0
       const attempts = countInMemory('http request attempt')
@@ -137,7 +144,13 @@ export default defineCommand({
         `[${outcome}] ${elapsed}ms | attempts=${attempts} | not-retryable=${notRetryable} | exhausted=${exhausted}`
       )
       if (summary) logger.notice(`       ${summary}`)
+      return { outcome, attempts, notRetryable, exhausted, elapsed }
     }
+
+    // Definitive PR #45 regressions that should turn a nightly run red (via
+    // process.exitCode below). Kept narrow + transient-noise-robust — only
+    // invariants that portal flakiness can't plausibly explain.
+    const regressions: string[] = []
 
     // region A. issue #44 — v3 validation 400 ////
     /**
@@ -159,12 +172,16 @@ export default defineCommand({
      * **FAIL markers:** `attempts=3`, `exhausted=1`, elapsed `> 5_000`ms.
      */
     if (want('A')) {
-      await run('A. issue #44 — v3 validation 400 (bad payload)', () =>
+      const a = await run('A. issue #44 — v3 validation 400 (bad payload)', () =>
         b24.actions.v3.call.make({
           method: 'tasks.task.update',
           params: { wrong: 'shape' }
         })
       )
+      // A 400 validation error must fast-fail: classified non-retryable, no retry
+      // exhaustion. A clean 400 never exhausts, so this is robust to transient noise.
+      if (a.exhausted > 0) regressions.push('A: a v3 validation 400 exhausted retries — the 4xx fast-fail (PR #45) regressed')
+      if (a.notRetryable < 1) regressions.push('A: a v3 validation 400 was not classified non-retryable (PR #45)')
     }
     // endregion ////
 
@@ -189,7 +206,7 @@ export default defineCommand({
      * If `--taskId` is unset (default `0`), the scenario is skipped.
      */
     if (want('B')) {
-      if (taskIdArg > 0) {
+      if (!Number.isNaN(taskIdArg) && taskIdArg > 0) {
         await run('B1. issue #46 — pause once', () =>
           b24.actions.v2.call.make({ method: 'tasks.task.pause', params: { taskId: taskIdArg } })
         )
@@ -224,13 +241,18 @@ export default defineCommand({
       const v2 = b24.getHttpClient(ApiVersion.v2).ajaxClient
       const restore = v2.defaults.timeout
       v2.defaults.timeout = 1
+      let d: Awaited<ReturnType<typeof run>> | null = null
       try {
-        await run('D. transient — timeout still retries (axios timeout=1ms)', () =>
+        d = await run('D. transient — timeout still retries (axios timeout=1ms)', () =>
           b24.actions.v2.call.make({ method: 'user.current' })
         )
       } finally {
         v2.defaults.timeout = restore
       }
+      // A 1ms timeout (HTTP 408) must keep retrying, not fast-fail. Deterministic:
+      // every attempt times out, so a healthy SDK records more than one attempt.
+      if (d && d.attempts < 2) regressions.push('D: a client timeout (408) did not retry — it was wrongly fast-failed (PR #45)')
+      if (d && d.notRetryable > 0) regressions.push('D: a client timeout (408) was classified non-retryable (PR #45)')
     }
     // endregion ////
 
@@ -270,7 +292,7 @@ export default defineCommand({
       const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[]
       const byCode: Record<string, number> = {}
       for (const f of failed) {
-        const c = (f.reason as any)?.code ?? 'unknown'
+        const c = f.reason instanceof SdkError ? f.reason.code : (f.reason instanceof Error ? f.reason.message : 'unknown')
         byCode[c] = (byCode[c] ?? 0) + 1
       }
       const attempts = countInMemory('http request attempt')
@@ -289,8 +311,17 @@ export default defineCommand({
       if (failed.length > 0) {
         logger.notice('       failures by code:', byCode)
       }
+      // Rate-limit / transient signals must never be classified non-retryable.
+      if (notRetryable > 0) regressions.push('E: a rate-limit / transient signal was classified non-retryable (PR #45)')
     }
     // endregion ////
+
+    if (regressions.length > 0) {
+      await logger.error('SMOKE REGRESSION(S) DETECTED — see the scenario markers above', { regressions })
+      // Non-zero exit turns the nightly workflow red. Use process.exitCode (not
+      // process.exit) so the trailing log flush below still completes.
+      process.exitCode = 1
+    }
 
     // Trailing summary MUST run before fileStream.end(): logger.notice
     // fans out to the StreamHandler too, and writing after end() crashes

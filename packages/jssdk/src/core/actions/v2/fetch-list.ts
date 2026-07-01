@@ -1,12 +1,12 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 
 export type ActionFetchListV2 = ActionOptions & {
   method: string
-  params?: Omit<TypeCallParams, 'start' | 'order'>
+  params?: Omit<TypeCallParamsV2, 'start' | 'order'>
   idKey?: string
   cursorIdKey?: string
   customKeyForResult?: string
@@ -16,7 +16,10 @@ export type ActionFetchListV2 = ActionOptions & {
 /**
  * Calls a REST API list method and returns an async generator for efficient large data retrieval. `restApi:v2`
  *
- * @todo add docs
+ * Iterates through all pages of a v2 list method using cursor-based pagination and yields each
+ * page as an array, allowing callers to process records incrementally without holding the entire
+ * dataset in memory. Unlike `CallListV2`, which accumulates all pages before returning, this
+ * class exposes an `AsyncGenerator` so processing can begin as soon as the first page arrives.
  */
 export class FetchListV2 extends AbstractAction {
   /**
@@ -27,7 +30,7 @@ export class FetchListV2 extends AbstractAction {
    *
    * @param {ActionFetchListV2} options - parameters for executing the request.
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
-   *     - `params?: Omit<TypeCallParams, 'start' | 'order'>` - Request parameters, excluding the `start` and `order` parameters,
+   *     - `params?: Omit<TypeCallParamsV2, 'start' | 'order'>` - Request parameters, excluding the `start` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter`, `order`, and `select` to control the selection.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value

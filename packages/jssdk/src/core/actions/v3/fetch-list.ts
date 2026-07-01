@@ -1,12 +1,12 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionFetchListV3 = ActionOptions & {
   method: string
-  params?: Omit<TypeCallParams, 'pagination' | 'order'>
+  params?: Omit<TypeCallParamsV3, 'pagination' | 'order'>
   idKey?: string
   cursorIdKey?: string
   customKeyForResult: string
@@ -17,7 +17,12 @@ export type ActionFetchListV3 = ActionOptions & {
 /**
  * Calls a REST API list method and returns an async generator for efficient large data retrieval. `restApi:v3`
  *
- * @todo add docs
+ * Iterates through all pages of a v3 list method using keyset (cursor) pagination and yields
+ * each page as an array, allowing callers to process records incrementally without holding the
+ * entire dataset in memory. Unlike `CallListV3`, which accumulates all pages before returning,
+ * this class exposes an `AsyncGenerator` so processing can begin as soon as the first page
+ * arrives. Compared to `FetchListV2`, it uses v3-style array filter syntax and supports the
+ * `limit` option (up to 1000 per page).
  */
 export class FetchListV3 extends AbstractAction {
   /**
@@ -28,7 +33,7 @@ export class FetchListV3 extends AbstractAction {
    *
    * @param {ActionFetchListV3} options - parameters for executing the request.
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
-   *     - `params?: Omit<TypeCallParams, 'pagination' | 'order'>` - Request parameters, excluding the `pagination` and `order` parameters,
+   *     - `params?: Omit<TypeCallParamsV3, 'pagination' | 'order'>` - Request parameters, excluding the `pagination` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter`, `order`, and `select` to control the selection.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value

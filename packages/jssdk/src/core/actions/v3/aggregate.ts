@@ -1,5 +1,5 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
@@ -31,7 +31,7 @@ export type AggregateResultV3 = Partial<Record<AggregateFunctionV3, Record<strin
 export type ActionAggregateV3 = ActionOptions & {
   method: string
   select: AggregateSelectV3
-  params?: Pick<TypeCallParams, 'filter'>
+  params?: Pick<TypeCallParamsV3, 'filter'>
   requestId?: string
 }
 

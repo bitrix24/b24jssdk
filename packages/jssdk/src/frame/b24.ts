@@ -16,13 +16,21 @@ import { SliderManager } from './slider'
 import { PlacementManager } from './placement'
 
 /**
- * B24 Manager. Replacement api.bitrix24.com
+ * Bitrix24 client for applications embedded in an iframe (frame placement).
+ *
+ * Replaces the legacy `api.bitrix24.com` JS library. Initialise via the
+ * `initializeB24Frame()` factory, which performs the postMessage handshake
+ * with the parent Bitrix24 page and resolves once the app frame is ready.
+ *
+ * Key capabilities:
+ * - REST API calls (v2 & v3) with automatic token refresh on 401 responses.
+ * - Access to install/first-run flags (`isInstallMode`, `isFirstRun`).
+ * - UI helpers via `parent`, `dialog`, `slider`, and `placement` managers.
+ * - Per-app option storage through `options` manager.
  *
  * @link https://api.bitrix24.com/api/v1/
  * @link https://bitrix24.github.io/b24jssdk/docs/frame/
  * @see /bitrix/js/rest/applayout.js
- *
- * @todo add docs
  */
 export class B24Frame extends AbstractB24 implements TypeB24 {
   #isInstallMode: boolean = false

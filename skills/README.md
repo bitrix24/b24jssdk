@@ -26,7 +26,7 @@ Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
 
 - TypeScript / ESM. Bare imports from `@bitrix24/b24jssdk`.
 - The active client is always `$b24` and is treated as `TypeB24` — every example works for `B24Hook`, `B24Frame`, and `B24OAuth` because the actions surface lives on `AbstractB24`.
-- Always use **`$b24.actions.v{2,3}.*.make()`** — the legacy `callMethod`/`callBatch`/`callListMethod`/`fetchListMethod` is `@deprecated` for 2.0.0.
+- Always use **`$b24.actions.v{2,3}.*.make()`** — the legacy `callMethod`/`callBatch`/`callListMethod`/`fetchListMethod` is `@deprecated` for 3.0.0.
 - The SDK has no hardcoded v3 allowlist any more — `actions.v3.*` sends any method to the v3 endpoint and the server validates it (unknown → `METHODNOTFOUNDEXCEPTION`). Default to `v2`; use `v3` when you want a method's v3 representation (`tasks.task.*`, `main.eventlog.*`, `note.*`, `rest.application.*`, …).
 - v3 entities (`crm.item.*`) on v2 still need `idKey: 'id'` (lowercase) and `customKeyForResult: 'items'` for list helpers; classic methods (`crm.deal.*`) use default `idKey: 'ID'`. `tasks.task.list` differs by endpoint: on **v2** it sorts / filters by `ID` but returns lowercase `id`, so it needs `idKey: 'id', cursorIdKey: 'ID'` (and `customKeyForResult: 'tasks'`); on **v3** it is all-lowercase — `idKey: 'id'` (default), no `cursorIdKey`, `customKeyForResult: 'items'`.
 - Filters: v2 = prefix-keyed object; v3 = array of `[field, op, value]` triples. Never mix.

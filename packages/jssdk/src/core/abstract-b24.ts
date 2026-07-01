@@ -14,14 +14,17 @@ import { ActionsManager } from './actions/manager'
 import { ToolsManager } from './tools/manager'
 
 /**
- * @todo docs
+ * Abstract base class for all SDK entry points (B24Frame, B24Hook, etc.).
+ * Owns the HTTP clients for REST API v2 and v3, the actions surface via {@link ActionsManager},
+ * and built-in tools via {@link ToolsManager}.
+ * Concrete subclasses must implement authentication and HTTP transport initialization.
  */
 export abstract class AbstractB24 implements TypeB24 {
   /**
    * Maximum length for batch response.
    *
-   * @deprecated This const is deprecated and will be removed in version `2.0.0`
-   * @removed 2.0.0
+   * @deprecated This const is deprecated and will be removed in version `3.0.0`
+   * @removed 3.0.0
    */
   static readonly batchSize = 50
 
@@ -83,23 +86,23 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * Calls the Bitrix24 REST API method.
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `3.0.0`
    *   - for `restApi:v3` use {@link CallV3.make `b24.actions.v3.call.make(options)`}
    *   - for `restApi:v2` use {@link CallV2.make `b24.actions.v2.call.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 3.0.0
    * @memo Only for `restApi:v2`
    */
   public async callMethod(method: string, params?: object, start?: number): Promise<AjaxResult> {
     LoggerFactory.forcedLog(
       this._logger,
       'warning',
-      `The AbstractB24.callMethod() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.call.make(options) or b24.actions.v2.call.make(options)`,
+      `The AbstractB24.callMethod() method is deprecated and will be removed in version 3.0.0. Use b24.actions.v3.call.make(options) or b24.actions.v2.call.make(options)`,
       {
         class: 'AbstractB24',
         method: 'callMethod',
         replacement: 'b24.actions.v3.call.make(options) | b24.actions.v2.call.make(options)',
-        removalVersion: '2.0.0',
+        removalVersion: '3.0.0',
         code: 'JSSDK_CORE_DEPRECATED_METHOD'
       }
     )
@@ -128,23 +131,23 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * Calls a Bitrix24 REST API list method to retrieve all data.
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `3.0.0`
    *   - for `restApi:v3` use {@link CallListV3.make `b24.actions.v3.callList.make(options)`}
    *   - for `restApi:v2` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 3.0.0
    * @memo Only for `restApi:v2`
    */
   public async callListMethod(method: string, params?: object, progress?: null | ((progress: number) => void), customKeyForResult?: string | null): Promise<Result> {
     LoggerFactory.forcedLog(
       this._logger,
       'warning',
-      `The AbstractB24.callListMethod() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.callList.make(options) or b24.actions.v2.callList.make(options)`,
+      `The AbstractB24.callListMethod() method is deprecated and will be removed in version 3.0.0. Use b24.actions.v3.callList.make(options) or b24.actions.v2.callList.make(options)`,
       {
         class: 'AbstractB24',
         method: 'callListMethod',
         replacement: 'b24.actions.v3.callList.make(options) | b24.actions.v2.callList.make(options)',
-        removalVersion: '2.0.0',
+        removalVersion: '3.0.0',
         code: 'JSSDK_CORE_DEPRECATED_METHOD'
       }
     )
@@ -210,23 +213,23 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * Calls a Bitrix24 REST API list method and returns an async generator.
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `3.0.0`
    *   - for `restApi:v3` use {@link FetchListV3.make `b24.actions.v3.fetchList.make(options)`}
    *   - for `restApi:v2` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 3.0.0
    * @memo Only for `restApi:v2`
    */
   public async* fetchListMethod(method: string, params?: any, idKey?: string, customKeyForResult?: string | null): AsyncGenerator<any[]> {
     LoggerFactory.forcedLog(
       this._logger,
       'warning',
-      `The AbstractB24.fetchListMethod() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.fetchList.make(options) or b24.actions.v2.fetchList.make(options)`,
+      `The AbstractB24.fetchListMethod() method is deprecated and will be removed in version 3.0.0. Use b24.actions.v3.fetchList.make(options) or b24.actions.v2.fetchList.make(options)`,
       {
         class: 'AbstractB24',
         method: 'fetchListMethod',
         replacement: 'b24.actions.v3.fetchList.make(options) | b24.actions.v2.fetchList.make(options)',
-        removalVersion: '2.0.0',
+        removalVersion: '3.0.0',
         code: 'JSSDK_CORE_DEPRECATED_METHOD'
       }
     )
@@ -242,23 +245,23 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * Executes a batch request to the Bitrix24 REST API.
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `3.0.0`
    *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}
    *   - for `restApi:v2` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 3.0.0
    * @memo Only for `restApi:v2`
    */
   public async callBatch(calls: Array<any> | object, isHaltOnError?: boolean, returnAjaxResult?: boolean): Promise<Result> {
     LoggerFactory.forcedLog(
       this._logger,
       'warning',
-      `The AbstractB24.callBatch() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.batch.make(options) or b24.actions.v2.batch.make(options)`,
+      `The AbstractB24.callBatch() method is deprecated and will be removed in version 3.0.0. Use b24.actions.v3.batch.make(options) or b24.actions.v2.batch.make(options)`,
       {
         class: 'AbstractB24',
         method: 'callBatch',
         replacement: 'b24.actions.v3.batch.make(options) | b24.actions.v2.batch.make(options)',
-        removalVersion: '2.0.0',
+        removalVersion: '3.0.0',
         code: 'JSSDK_CORE_DEPRECATED_METHOD'
       }
     )
@@ -288,23 +291,23 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * Executes a batch request to the Bitrix24 REST API with automatic chunking for any number of commands.
    *
-   * @deprecated This method is deprecated and will be removed in version `2.0.0`
+   * @deprecated This method is deprecated and will be removed in version `3.0.0`
    *   - for `restApi:v3` use {@link BatchByChunkV3.make `b24.actions.v3.batchByChunk.make(options)`}
    *   - for `restApi:v2` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
    *
-   * @removed 2.0.0
+   * @removed 3.0.0
    * @memo Only for `restApi:v2`
    */
   public async callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result> {
     LoggerFactory.forcedLog(
       this._logger,
       'warning',
-      `The AbstractB24.callBatchByChunk() method is deprecated and will be removed in version 2.0.0. Use b24.actions.v3.batchByChunk.make(options) or b24.actions.v2.batchByChunk.make(options)`,
+      `The AbstractB24.callBatchByChunk() method is deprecated and will be removed in version 3.0.0. Use b24.actions.v3.batchByChunk.make(options) or b24.actions.v2.batchByChunk.make(options)`,
       {
         class: 'AbstractB24',
         method: 'callBatchByChunk',
         replacement: 'b24.actions.v3.batchByChunk.make(options) | b24.actions.v2.batchByChunk.make(options)',
-        removalVersion: '2.0.0',
+        removalVersion: '3.0.0',
         code: 'JSSDK_CORE_DEPRECATED_METHOD'
       }
     )

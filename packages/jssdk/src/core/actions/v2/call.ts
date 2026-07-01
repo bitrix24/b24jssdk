@@ -1,19 +1,21 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParamsV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { ApiVersion } from '../../../types/b24'
 
 export type ActionCallV2 = ActionOptions & {
   method: string
-  params?: TypeCallParams
+  params?: TypeCallParamsV2
   requestId?: string
 }
 
 /**
  * Calls the Bitrix24 REST API method `restApi:v2`
  *
- * @todo add docs
+ * Executes a single REST API request against the v2 HTTP client and returns the raw response.
+ * Unlike `CallListV2`, `FetchListV2`, `BatchV2`, or `BatchByChunkV2`, this class makes exactly
+ * one HTTP call and returns the result without any pagination or batching logic.
  */
 export class CallV2 extends AbstractAction {
   /**
@@ -23,7 +25,7 @@ export class CallV2 extends AbstractAction {
    *
    * @param {ActionCallV2} options - parameters for executing the request.
    *     - `method: string` - REST API method name (eg: `crm.item.get`)
-   *     - `params?: TypeCallParams` - Parameters for calling the method.
+   *     - `params?: TypeCallParamsV2` - Parameters for calling the method.
    *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
    *
    * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an REST API call.

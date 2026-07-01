@@ -1,10 +1,10 @@
-import { B24Hook, EnumCrmEntityTypeId, Logger, LogLevel, ConsoleV2Handler, ParamsFactory, SdkError, Result } from '@bitrix24/b24jssdk'
+import { EnumCrmEntityTypeId, SdkError, Result } from '@bitrix24/b24jssdk'
 import type { GetPayload } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 import 'dotenv/config'
 import type { FmField, CompanyFields, CrmItemAddResult } from '../../types'
-import { LANGUAGES, EMAIL_DOMAINS } from '../../constants'
-import { pickRandom, generatePhoneNumber, showProgress } from '../../utils'
+import { LANGUAGES, EMAIL_DOMAINS, CLIENT_ERROR_STATUS } from '../../constants'
+import { pickRandom, generatePhoneNumber, showProgress, createB24Client, icon } from '../../utils'
 
 /**
  * Command for generating random companies in Bitrix24.
@@ -44,34 +44,27 @@ export default defineCommand({
     assignedById: { description: 'Assigned user ID', default: '1' }
   },
   async setup({ args }) {
-    const params = {
-      total: Number.parseInt(args.total),
-      assignedById: Number.parseInt(args.assignedById)
+    const total = Number.parseInt(args.total, 10)
+    if (Number.isNaN(total) || total < 1) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--total must be a positive integer (>= 1), got: ${args.total}`,
+        status: CLIENT_ERROR_STATUS
+      })
+    }
+    const assignedById = Number.parseInt(args.assignedById, 10)
+    if (Number.isNaN(assignedById)) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--assignedById must be a valid integer, got: ${args.assignedById}`,
+        status: CLIENT_ERROR_STATUS
+      })
     }
 
+    const params = { total, assignedById }
     let createdCount = 0
 
-    // region Logger ////
-    const logger = Logger.create('companies')
-    const handler = new ConsoleV2Handler(LogLevel.DEBUG, { useStyles: false })
-    logger.pushHandler(handler)
-    // endregion Logger ////
-
-    // Initialize Bitrix24 connection
-    const hookPath = process.env.B24_HOOK ?? ''
-    if (!hookPath) {
-      logger.emergency('🚨 B24_HOOK environment variable is not set! Please configure it in your .env file')
-      process.exit(1)
-    }
-
-    const b24 = B24Hook.fromWebhookUrl(hookPath, { restrictionParams: ParamsFactory.getBatchProcessing() })
-    logger.info('Connected to Bitrix24', { target: b24.getTargetOrigin() })
-
-    const loggerForDebugB24 = Logger.create('b24')
-    const handlerForDebugB24 = new ConsoleV2Handler(LogLevel.ERROR, { useStyles: false })
-    loggerForDebugB24.pushHandler(handlerForDebugB24)
-
-    b24.setLogger(loggerForDebugB24)
+    const { b24, logger } = createB24Client('companies')
 
     /**
      * Generates a corporate email address based on the company name.
@@ -169,7 +162,7 @@ export default defineCommand({
           return result.addError(new SdkError({
             code: 'PLAYGROUND_CLI_ERROR',
             description: response.getErrorMessages().join(';'),
-            status: 404
+            status: CLIENT_ERROR_STATUS
           }))
         }
 
@@ -180,7 +173,7 @@ export default defineCommand({
           return result.addError(new SdkError({
             code: 'PLAYGROUND_CLI_ERROR',
             description: 'No company ID returned from API',
-            status: 404
+            status: CLIENT_ERROR_STATUS
           }))
         }
 
@@ -190,7 +183,7 @@ export default defineCommand({
         return result.addError(SdkError.fromException(
           `Error creating company ${companyNumber}: ${error instanceof Error ? error.message : error}`, {
             code: 'PLAYGROUND_CLI_ERROR',
-            status: 404
+            status: CLIENT_ERROR_STATUS
           }))
       }
     }
@@ -204,9 +197,9 @@ export default defineCommand({
      * @returns {Promise<void>}
      */
     async function createRandomCompanies(): Promise<void> {
-      logger.notice('🚀 Starting creation of random companies in Bitrix24')
-      logger.notice(`📊 Planned to create: ${params.total} companies`)
-      logger.notice(`👤 Responsible: user ID ${params.assignedById}`)
+      logger.notice(`${icon('🚀 ')}Starting creation of random companies in Bitrix24`)
+      logger.notice(`${icon('📊 ')}Planned to create: ${params.total} companies`)
+      logger.notice(`${icon('👤 ')}Responsible: user ID ${params.assignedById}`)
       logger.notice('─'.repeat(50))
 
       const healthCheckData = await b24.tools.healthCheck.make({ requestId: 'healthCheck' })
@@ -230,19 +223,19 @@ export default defineCommand({
 
       logger.notice('\n')
       logger.notice('─'.repeat(50))
-      logger.notice('✅ Completed!')
-      logger.notice(`📈 Successfully created: ${createdCount} companies`)
-      logger.notice(`⏱️ Total execution time: ${duration} seconds`)
-      logger.notice(`📊 Average time per company: ${(Number(duration) / params.total).toFixed(2)} seconds`)
+      logger.notice(`${icon('✅ ')}Completed!`)
+      logger.notice(`${icon('📈 ')}Successfully created: ${createdCount} companies`)
+      logger.notice(`${icon('⏱️ ')}Total execution time: ${duration} seconds`)
+      logger.notice(`${icon('📊 ')}Average time per company: ${(Number(duration) / params.total).toFixed(2)} seconds`)
 
       if (errors.length > 0) {
-        logger.notice(`❌ Errors encountered: ${errors.length}`)
-        logger.notice('❌ Errors', {
+        logger.notice(`${icon('❌ ')}Errors encountered: ${errors.length}`)
+        logger.notice(`${icon('❌ ')}Errors`, {
           encountered: errors.length,
           first10: errors.slice(0, 10).map((error, index) => `${index + 1}. ${error}`)
         })
       } else {
-        logger.notice('🎉 No errors encountered during creation process!')
+        logger.notice(`${icon('🎉 ')}No errors encountered during creation process!`)
       }
     }
 

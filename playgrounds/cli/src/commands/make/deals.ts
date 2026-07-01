@@ -1,9 +1,10 @@
-import { B24Hook, Logger, LogLevel, ConsoleV2Handler, ParamsFactory, EnumCrmEntityTypeId, EnumCrmEntityTypeShort } from '@bitrix24/b24jssdk'
+import { SdkError, EnumCrmEntityTypeId, EnumCrmEntityTypeShort } from '@bitrix24/b24jssdk'
+import type { CommandObject } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 import 'dotenv/config'
-import type { CatalogProduct, CrmCompany, CrmContact } from '../../types'
-import { THEMES_PRODUCTS } from '../../constants'
-import { pickRandom, showProgress, randomInt } from '../../utils'
+import type { CatalogProduct, CrmCompany, CrmContact, CatalogCatalogItem, CatalogVatItem, CrmCurrency, DealStage, CrmSource } from '../../types'
+import { THEMES_PRODUCTS, CLIENT_ERROR_STATUS } from '../../constants'
+import { pickRandom, showProgress, randomInt, createB24Client, icon } from '../../utils'
 
 /**
  * CLI command to mass generate deals in Bitrix24.
@@ -21,6 +22,35 @@ import { pickRandom, showProgress, randomInt } from '../../utils'
  *
  * @usage pnpm --filter @bitrix24/b24jssdk-cli dev make deals --total=150
  */
+
+interface CatalogsListResult {
+  result: { catalogs: CatalogCatalogItem[] }
+}
+
+interface VatListResult {
+  result: { vats: CatalogVatItem[] }
+}
+
+interface CurrenciesListResult {
+  result: CrmCurrency[]
+}
+
+interface StagesListResult {
+  result: DealStage[]
+}
+
+interface SourcesListResult {
+  result: CrmSource[]
+}
+
+interface CrmItemListResult {
+  result: { items: Array<{ id: number, title?: string, name?: string, lastName?: string }> }
+}
+
+interface ProductsListResult {
+  result: { products: Array<{ id: number, name: string, measure?: number, vatId?: number }> }
+}
+
 export default defineCommand({
   meta: {
     name: 'deals',
@@ -33,39 +63,52 @@ export default defineCommand({
     maxProducts: { description: 'Maximum products per deal', default: '4' }
   },
   async setup({ args }) {
+    const total = Number.parseInt(args.total, 10)
+    if (Number.isNaN(total) || total < 1) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--total must be a positive integer (>= 1), got: ${args.total}`,
+        status: CLIENT_ERROR_STATUS
+      })
+    }
+    const assignedById = Number.parseInt(args.assignedById, 10)
+    if (Number.isNaN(assignedById)) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--assignedById must be a valid integer, got: ${args.assignedById}`,
+        status: CLIENT_ERROR_STATUS
+      })
+    }
+    const categoryId = Number.parseInt(args.categoryId, 10)
+    if (Number.isNaN(categoryId)) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--categoryId must be a valid integer, got: ${args.categoryId}`,
+        status: CLIENT_ERROR_STATUS
+      })
+    }
+    const maxProductsRaw = Number.parseInt(args.maxProducts, 10)
+    if (Number.isNaN(maxProductsRaw)) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_INVALID_ARG',
+        description: `--maxProducts must be a valid integer, got: ${args.maxProducts}`,
+        status: CLIENT_ERROR_STATUS
+      })
+    }
+
     const params = {
-      total: Number.parseInt(args.total),
-      assignedById: Number.parseInt(args.assignedById),
-      categoryId: Number.parseInt(args.categoryId),
-      maxProducts: Math.min(Number.parseInt(args.maxProducts), 5)
+      total,
+      assignedById,
+      categoryId,
+      maxProducts: Math.min(maxProductsRaw, 5)
     }
 
     let createdCount = 0
 
-    // region Logger ////
-    const logger = Logger.create('deals')
-    const handler = new ConsoleV2Handler(LogLevel.DEBUG, { useStyles: false })
-    logger.pushHandler(handler)
-    // endregion Logger ////
-
-    // Initialize Bitrix24 connection
-    const hookPath = process.env.B24_HOOK ?? ''
-    if (!hookPath) {
-      logger.emergency('🚨 B24_HOOK environment variable is not set! Please configure it in your .env file')
-      process.exit(1)
-    }
-
-    const b24 = B24Hook.fromWebhookUrl(hookPath, { restrictionParams: ParamsFactory.getBatchProcessing() })
-    logger.info('Connected to Bitrix24', { target: b24.getTargetOrigin() })
-
-    const loggerForDebugB24 = Logger.create('b24')
-    const handlerForDebugB24 = new ConsoleV2Handler(LogLevel.ERROR, { useStyles: false })
-    loggerForDebugB24.pushHandler(handlerForDebugB24)
-
-    b24.setLogger(loggerForDebugB24)
+    const { b24, logger } = createB24Client('deals')
 
     async function fetchDictionaries() {
-      logger.info('🔍 Loading reference data: currencies, stages, sources, companies, contacts, products...')
+      logger.info(`${icon('🔍 ')}Loading reference data: currencies, stages, sources, companies, contacts, products...`)
 
       // Parallel requests for speed
       const [
@@ -80,94 +123,137 @@ export default defineCommand({
         b24.actions.v2.call.make({ method: 'catalog.catalog.list' }),
         b24.actions.v2.call.make({ method: 'catalog.vat.list' }),
         b24.actions.v2.call.make({ method: 'crm.currency.list' }),
-        b24.actions.v2.call.make({ method: 'crm.status.list', params: { filter: { ENTITY_ID: params.categoryId > 0 ? `DEAL_STAGE_${params.categoryId}` : 'DEAL_STAGE' } } }),
+        b24.actions.v2.call.make({ method: 'crm.status.list', params: { filter: { ENTITY_ID: categoryId > 0 ? `DEAL_STAGE_${categoryId}` : 'DEAL_STAGE' } } }),
         b24.actions.v2.call.make({ method: 'crm.status.list', params: { filter: { ENTITY_ID: 'SOURCE' } } }),
         b24.actions.v2.call.make({ method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id', 'title'], order: { ID: 'desc' } } }),
         b24.actions.v2.call.make({ method: 'crm.item.list', params: { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id', 'name', 'lastName'], order: { ID: 'desc' } } })
       ])
 
-      const catalogs = ((catResponse.getData() || {}).result as any)?.catalogs || []
-      if (!catalogs || !Array.isArray(catalogs) || catalogs.length === 0) {
-        logger.error('No catalogs found in Bitrix24. Please ensure a product catalog exists.', {
-          responseData: ((catResponse.getData() || {})?.result as any)?.catalogs
+      const catData = catResponse.getData() as CatalogsListResult | null
+      const catalogs: CatalogCatalogItem[] = catData?.result?.catalogs ?? []
+      if (!Array.isArray(catalogs) || catalogs.length === 0) {
+        throw new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: 'No catalogs found in Bitrix24. Please ensure a product catalog exists.',
+          status: CLIENT_ERROR_STATUS
         })
-        process.exit(1)
       }
 
-      const mainCatalog = catalogs.find((c: any) => c.productIblockId === null)
+      const mainCatalog = catalogs.find(c => c.productIblockId === null)
       if (!mainCatalog || !mainCatalog.iblockId) {
-        logger.error('Unable to determine main catalog IBlock ID.', {
-          catalogs
+        throw new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: 'Unable to determine main catalog IBlock ID.',
+          status: CLIENT_ERROR_STATUS
         })
-        process.exit(1)
       }
-      const productIblockId = Number.parseInt(mainCatalog.iblockId)
+      const productIblockId = Number.parseInt(String(mainCatalog.iblockId), 10)
 
-      const skuCatalog = catalogs.find((c: any) => c.productIblockId === productIblockId)
+      const skuCatalog = catalogs.find(c => c.productIblockId === productIblockId || String(c.productIblockId) === String(productIblockId))
       if (!skuCatalog || !skuCatalog.iblockId) {
-        logger.error('Unable to determine sku catalog IBlock ID.', {
-          catalogs
+        throw new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: 'Unable to determine sku catalog IBlock ID.',
+          status: CLIENT_ERROR_STATUS
         })
-        process.exit(1)
       }
-      const skuIblockId = Number.parseInt(skuCatalog.iblockId)
+      const skuIblockId = Number.parseInt(String(skuCatalog.iblockId), 10)
 
       // vat
-      const listTax = (((vatResponse.getData() || {}).result as any)?.vats || []).map((m: any) => m.rate)
-      if (!listTax || listTax.length < 1) {
-        logger.error('Empty tax list', {})
-        process.exit(1)
+      const vatData = vatResponse.getData() as VatListResult | null
+      const listTax: number[] = (vatData?.result?.vats ?? []).map(m => m.rate)
+      if (listTax.length < 1) {
+        throw new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: 'Empty tax list',
+          status: CLIENT_ERROR_STATUS
+        })
       }
 
       // --- Currencies ---
-      const currenciesData = (currenciesResponse.getData() as any)?.result || []
-      if (!Array.isArray(currenciesData) || currenciesData.length === 0) {
-        logger.error('No currencies found. Make sure currencies exist in CRM.', {})
-        process.exit(1)
+      const currenciesData = currenciesResponse.getData() as CurrenciesListResult | null
+      const currenciesRaw: CrmCurrency[] = currenciesData?.result ?? []
+      if (!Array.isArray(currenciesRaw) || currenciesRaw.length === 0) {
+        throw new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: 'No currencies found. Make sure currencies exist in CRM.',
+          status: CLIENT_ERROR_STATUS
+        })
       }
-      const currencies: string[] = currenciesData.map((c: any) => c.CURRENCY)
+      const currencies: string[] = currenciesRaw.map(c => c.CURRENCY)
 
       // --- Deal stages ---
-      const stagesData = (stagesResponse.getData() as any)?.result || []
-      if (!Array.isArray(stagesData) || stagesData.length === 0) {
-        logger.error('No deal stages found. Check your sales funnel.', {})
-        process.exit(1)
+      const stagesData = stagesResponse.getData() as StagesListResult | null
+      const stagesRaw: DealStage[] = stagesData?.result ?? []
+      if (!Array.isArray(stagesRaw) || stagesRaw.length === 0) {
+        throw new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: 'No deal stages found. Check your sales funnel.',
+          status: CLIENT_ERROR_STATUS
+        })
       }
-      const stages: string[] = stagesData.map((s: any) => s.STATUS_ID)
+      const stages: string[] = stagesRaw.map(s => s.STATUS_ID)
+      const firstStage = stages[0] ?? ''
 
-      // Determine which stages are considered successful/unsuccessful.
-      // Default Bitrix24: 'WON' – success, 'LOSE' – failure. Everything else – in progress.
-      const wonStage = stages.find(s => s === 'WON') || stages[0]
-      const loseStage = stages.find(s => s === 'LOSE') || stages[stages.length - 1]
-      const firstStage = stages[0]
+      // Won/lose stages are identified by the canonical EXTRA.SEMANTICS
+      // ('success' / 'failure'), falling back to the deprecated top-level
+      // SEMANTICS ('S' / 'F') on older portals. Funnel-agnostic: custom funnels
+      // use STATUS_IDs like 'C1:WON' that a literal 'WON'/'LOSE' match would miss
+      // (false-warning and picking the wrong stage on every non-default funnel).
+      const wonStageId = (
+        stagesRaw.find(s => s.EXTRA?.SEMANTICS === 'success')
+        ?? stagesRaw.find(s => s.SEMANTICS === 'S')
+      )?.STATUS_ID
+      if (!wonStageId) {
+        logger.warning('No success stage found in this funnel; won deals will use the first stage.')
+      }
+      const wonStage = wonStageId ?? firstStage
+
+      const loseStageId = (
+        stagesRaw.find(s => s.EXTRA?.SEMANTICS === 'failure')
+        ?? stagesRaw.find(s => s.SEMANTICS === 'F')
+      )?.STATUS_ID
+      if (!loseStageId) {
+        logger.warning('No failure stage found in this funnel; lost deals will use the last stage.')
+      }
+      const loseStage = loseStageId ?? (stages[stages.length - 1] ?? '')
 
       // --- Deal sources ---
-      const sourcesData = (sourcesResponse.getData() as any)?.result || []
+      const sourcesData = sourcesResponse.getData() as SourcesListResult | null
+      const sourcesRaw: CrmSource[] = sourcesData?.result ?? []
       let sources: string[] = []
-      if (Array.isArray(sourcesData) && sourcesData.length > 0) {
-        sources = sourcesData.map((s: any) => s.STATUS_ID)
+      if (Array.isArray(sourcesRaw) && sourcesRaw.length > 0) {
+        sources = sourcesRaw.map(s => s.STATUS_ID)
       } else {
         logger.warning('No deal sources found, SOURCE_ID field will be empty', {})
       }
 
       // --- Companies ---
-      const companiesData = (companiesResponse.getData() as any)?.result?.items || []
-      if (!Array.isArray(companiesData) || companiesData.length === 0) {
-        logger.error('No companies found. Create at least one company.', {})
-        process.exit(1)
+      const companiesData = companiesResponse.getData() as CrmItemListResult | null
+      const companiesRaw = companiesData?.result?.items ?? []
+      if (!Array.isArray(companiesRaw) || companiesRaw.length === 0) {
+        throw new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: 'No companies found. Create at least one company.',
+          status: CLIENT_ERROR_STATUS
+        })
       }
-      const companies: CrmCompany[] = companiesData.map((c: any) => ({
+      const companies: CrmCompany[] = companiesRaw.map(c => ({
         id: c.id,
-        title: c.title || 'Untitled'
+        title: c.title ?? 'Untitled'
       }))
 
       // --- Contacts ---
-      const contactsData = (contactsResponse.getData() as any)?.result?.items || []
-      if (!Array.isArray(contactsData) || contactsData.length === 0) {
-        logger.error('No contacts found. Create at least one contact.', {})
-        process.exit(1)
+      const contactsData = contactsResponse.getData() as CrmItemListResult | null
+      const contactsRaw = contactsData?.result?.items ?? []
+      if (!Array.isArray(contactsRaw) || contactsRaw.length === 0) {
+        throw new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: 'No contacts found. Create at least one contact.',
+          status: CLIENT_ERROR_STATUS
+        })
       }
-      const contacts: CrmContact[] = contactsData.map((c: any) => ({
+      const contacts: CrmContact[] = contactsRaw.map(c => ({
         id: c.id,
         name: c.name,
         lastName: c.lastName
@@ -180,20 +266,25 @@ export default defineCommand({
           filter: { iblockId: skuIblockId, active: 'Y', available: 'Y' },
           select: ['iblockId', 'id', 'name', 'measure', 'vatId'],
           order: { ID: 'desc' }
-        } })
-      const productsData = (productsResponse.getData() as any)?.result?.products || []
-      if (!Array.isArray(productsData) || productsData.length === 0) {
-        logger.error('No products (SKU) found. Create at least one product in the catalog.', {})
-        process.exit(1)
+        }
+      })
+      const productsData = productsResponse.getData() as ProductsListResult | null
+      const productsRaw = productsData?.result?.products ?? []
+      if (!Array.isArray(productsRaw) || productsRaw.length === 0) {
+        throw new SdkError({
+          code: 'PLAYGROUND_CLI_ERROR',
+          description: 'No products (SKU) found. Create at least one product in the catalog.',
+          status: CLIENT_ERROR_STATUS
+        })
       }
-      const products: CatalogProduct[] = productsData.map((p: any) => ({
+      const products: CatalogProduct[] = productsRaw.map(p => ({
         id: p.id,
         name: p.name,
         measure: p.measure,
         vatId: p.vatId
       }))
 
-      logger.info('✅ Reference data loaded', {
+      logger.info(`${icon('✅ ')}Reference data loaded`, {
         currencies: currencies.length,
         stages: stages.length,
         sources: sources.length,
@@ -240,10 +331,10 @@ export default defineCommand({
 
     // --- Main deal creation function ---
     async function createRandomDeals() {
-      logger.notice('🚀 Starting random deal generation')
-      logger.notice(`📊 Planned: ${params.total} deals`)
-      logger.notice(`👤 Responsible: user ID ${params.assignedById}`)
-      logger.notice(`⚙  Funnel ID: ${params.categoryId}`)
+      logger.notice(`${icon('🚀 ')}Starting random deal generation`)
+      logger.notice(`${icon('📊 ')}Planned: ${params.total} deals`)
+      logger.notice(`${icon('👤 ')}Responsible: user ID ${params.assignedById}`)
+      logger.notice(`${icon('⚙  ')}Funnel ID: ${params.categoryId}`)
       logger.notice('─'.repeat(50))
 
       const healthCheckData = await b24.tools.healthCheck.make({ requestId: 'healthCheck' })
@@ -260,8 +351,9 @@ export default defineCommand({
 
       // Batch parameters
       const MAX_BATCH_SIZE = 50
-      let batchCommands: Record<string, any> = {}
+      let batchCommands: Record<string, CommandObject> = {}
       let commandsCount = 0
+      let batchDealCount = 0 // deals added to current batch (for naming)
 
       // Helper to execute a batch
       async function flushBatch() {
@@ -270,16 +362,27 @@ export default defineCommand({
         try {
           const response = await b24.actions.v2.batch.make({
             calls: batchCommands,
-            options: { isHaltOnError: true, returnAjaxResult: false }
+            // isHaltOnError:false so one invalid deal doesn't abort the rest. With
+            // returnAjaxResult:false, getData() holds ONLY the successful commands
+            // (abstract-batch _extractBatchSimpleData), so counting the deal_* keys is
+            // exactly the deals created — no over-count on an envelope failure (empty
+            // data) and no under-count on a partial failure (#47 item 11).
+            options: { isHaltOnError: false, returnAjaxResult: false }
           })
+          const data = response.getData() as Record<string, unknown> | null | undefined
+          const createdInBatch = data && typeof data === 'object'
+            ? Object.keys(data).filter(key => key.startsWith('deal_')).length
+            : 0
+          createdCount += createdInBatch
           if (!response.isSuccess) {
             errors.push(...response.getErrorMessages())
           }
         } catch (e) {
           errors.push(`Batch execution error: ${e}`)
         }
+        showProgress(createdCount, params.total)
         // Reset
-        batchCommands = {}
+        batchCommands = {} as Record<string, CommandObject>
         commandsCount = 0
       }
 
@@ -322,7 +425,7 @@ export default defineCommand({
         const closeDate = new Date(beginDate)
         closeDate.setDate(beginDate.getDate() + randomInt(5, 120))
 
-        const formatDate = (d: Date) => d.toISOString().split('T')[0]
+        const formatDate = (d: Date) => d.toISOString().split('T')[0] ?? d.toISOString()
 
         // 6. Generate title
         const title = generateDealTitle()
@@ -341,8 +444,8 @@ export default defineCommand({
 
         // --- Build batch commands ---
         // Deal creation command
-        const dealCmdId = `deal_${createdCount}`
-        const dealParams: any = {
+        const dealCmdId = `deal_${batchDealCount}`
+        const dealParams = {
           entityTypeId: EnumCrmEntityTypeId.deal,
           fields: {
             title,
@@ -365,7 +468,7 @@ export default defineCommand({
 
         // Product rows commands
         selectedProducts.forEach((product, idx) => {
-          const productCmdId = `prod_${createdCount}_${idx}`
+          const productCmdId = `prod_${batchDealCount}_${idx}`
           batchCommands[productCmdId] = {
             method: 'crm.item.productrow.add',
             params: {
@@ -384,13 +487,12 @@ export default defineCommand({
           commandsCount++
         })
 
-        createdCount++
-
-        showProgress(createdCount, params.total)
+        batchDealCount++
 
         // If batch limit reached or all deals created, execute
-        if (commandsCount >= (MAX_BATCH_SIZE - 10) || createdCount >= params.total) {
+        if (commandsCount >= (MAX_BATCH_SIZE - 10) || i === params.total - 1) {
           await flushBatch()
+          batchDealCount = 0
         }
       }
 
@@ -402,19 +504,19 @@ export default defineCommand({
 
       logger.notice('\n')
       logger.notice('─'.repeat(50))
-      logger.notice('✅ Completed!')
-      logger.notice(`📈 Deals created: ${createdCount}`)
-      logger.notice(`⏱️ Total execution time: ${duration} seconds`)
-      logger.notice(`📊 Average time per deal: ${(Number(duration) / params.total).toFixed(2)} seconds`)
+      logger.notice(`${icon('✅ ')}Completed!`)
+      logger.notice(`${icon('📈 ')}Deals created: ${createdCount}`)
+      logger.notice(`${icon('⏱️ ')}Total execution time: ${duration} seconds`)
+      logger.notice(`${icon('📊 ')}Average time per deal: ${(Number(duration) / params.total).toFixed(2)} seconds`)
 
       if (errors.length > 0) {
-        logger.notice(`❌ Errors encountered: ${errors.length}`)
-        logger.notice('❌ Errors', {
+        logger.notice(`${icon('❌ ')}Errors encountered: ${errors.length}`)
+        logger.notice(`${icon('❌ ')}Errors`, {
           encountered: errors.length,
           first10: errors.slice(0, 10).map((error, index) => `${index + 1}. ${error}`)
         })
       } else {
-        logger.notice('🎉 No errors encountered during creation process!')
+        logger.notice(`${icon('🎉 ')}No errors encountered during creation process!`)
       }
     }
 

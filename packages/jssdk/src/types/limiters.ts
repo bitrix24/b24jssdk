@@ -1,6 +1,7 @@
 import type { LoggerInterface } from './logger'
 /**
- * @todo docs
+ * Types and interfaces for configuring rate-limiting and adaptive throttling of REST API requests.
+ * These settings control the operating time window, per-window limits, and adaptive pause behaviour.
  */
 
 /**

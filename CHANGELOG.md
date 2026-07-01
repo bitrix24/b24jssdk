@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Added
+
+* **types:** new exported request-side filter/params types — `TypeFilterV2` (the `restApi:v2` prefix-operator object), `TypeFilterV3` (the `restApi:v3` array of triples / `FilterV3` builder groups), and the per-version `TypeCallParamsV2` / `TypeCallParamsV3`. The v2/v3 `call` / `callList` / `fetchList` / `callTail` / `fetchTail` / `aggregate` action options now type their `filter`, so a wrong-dialect filter is flagged in the IDE. Backward compatible — the permissive index signature is retained and v3 still accepts a v2-style object filter (#153).
+
+### Changed
+
+* **types:** `TypeHttp.ajaxClient` is now `AxiosInstance` instead of `AxiosInstance | any` (the union erased the type) (#153).
+
+### Docs
+
+* Filled the `@todo docs` JSDoc placeholders across the public surface — actions (v2/v3), the HTTP transports, `AjaxResult`, the limiter stack, the `B24Hook` / `B24Frame` / `B24OAuth` entry points, tools, and public types (#154).
+
+### Deprecations
+
+* The legacy REST surface — the `AbstractB24` shortcuts (`callMethod`, `callListMethod`, `fetchListMethod`, `callBatch`, `callBatchByChunk`) and the `batchSize` const, the `AjaxResult` paging helpers (`isMore` / `hasMore` / `getNext` / `fetchNext` / `getTotal`), and `LoggerBrowser` / `LoggerType` — remains available in `2.x` (it works and emits a runtime deprecation warning) and is **scheduled for removal in `3.0.0`** (was previously mislabelled for `2.0.0`). Migrate to `b24.actions.v{2,3}.*.make(...)`, the list helpers, and `LoggerFactory` — see the [v2 → v3 migration guide](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/). Tracked in #277.
+
+## [2.0.0](https://github.com/bitrix24/b24jssdk/compare/v1.3.0...v2.0.0) (2026-06-27)
+
 ### ⚠ BREAKING CHANGES
 
 * **v3:** `actions.v3.call` / `actions.v3.batch` no longer pre-flight-throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` for methods that were not on the (now-removed) hardcoded v3 allowlist. An unknown v3 method now comes back as a `METHODNOTFOUNDEXCEPTION` **soft error** on the `AjaxResult` (`response.isSuccess === false`) instead of a thrown `SdkError`. Code that caught that `SdkError` must switch to checking `response.isSuccess` / `response.getErrorMessages()`.
@@ -63,6 +81,9 @@
 * **docs:** fix a double-hash in-page anchor (`](##…)` → `](#…)`) that silently broke the "Additional options" link on the batch-by-chunk `restApi:v2`/`v3` pages (#131)
 * **docs:** remove the "We are still updating this page" WIP banner from the 23 `audited:` pages it contradicted (kept on the 6 genuinely in-progress, non-audited pages), per the `documentation.md` "remove the banner when the page is complete" rule (#170)
 * **ci(deps):** add the `npm` ecosystem to Dependabot — minor + patch updates grouped into a single weekly PR so direct dependencies stay current — and document the transitive-override retirement process in `pnpm-workspace.yaml` (#175)
+* **chore(playgrounds/cli):** housekeeping + bug-fix pass on the example CLI (playground-only — `packages/jssdk` untouched): dedup the logger + `B24Hook` init into a shared `createB24Client()` helper, replace deep `process.exit(1)` with a typed `SdkError` caught at `runMain`, drop `as any` in favour of typed `GetPayload<…>` / `instanceof` narrowing, enable `noUncheckedIndexedAccess`, fix a `deals.ts` count-before-flush bug and a silent WON/LOSE stage fallback, and gate emoji log prefixes behind a TTY check so CI logs stay clean (PR-1 of #47) (#273)
+* **ci(playgrounds/cli):** nightly `smoke-retry` regression workflow (manual dispatch + schedule, gated on a webhook secret, never runs on PRs) for the #45/#44/#46 retry-policy scenarios, plus `cli-utils.unit.spec.ts` so the existing portal-free `jsSdk:unit` gate covers the playground's pure utils (PR-2 of #47, closes it) (#274)
+* **ci(playgrounds/cli):** point the `smoke-retry` nightly at the already-configured `NUXT_BITRIX24_TEST_WEBHOOK_URL` secret (mapped onto the `B24_HOOK` env the CLI reads) instead of an unconfigured `B24_HOOK` secret that would have always skipped (#276)
 
 ## [1.3.0](https://github.com/bitrix24/b24jssdk/compare/v1.2.0...v1.3.0) (2026-06-16)
 

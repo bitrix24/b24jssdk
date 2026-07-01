@@ -1,7 +1,8 @@
 /**
- * Data Types and Object Structure in the REST API event handler
+ * Data Types and Object Structure in the REST API event handler.
+ * Defines parameter shapes for incoming Bitrix24 event notifications, including
+ * app-install events and auth payloads delivered to registered event handler endpoints.
  * @link https://apidocs.bitrix24.com/api-reference/events/index.html
- * @todo add docs
  */
 import type { BoolString } from '../common'
 import type { HandlerAuthParams } from '../handler'

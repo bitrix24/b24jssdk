@@ -1,12 +1,12 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
 
 export type ActionCallListV2 = ActionOptions & {
   method: string
-  params?: Omit<TypeCallParams, 'start' | 'order'>
+  params?: Omit<TypeCallParamsV2, 'start' | 'order'>
   idKey?: string
   cursorIdKey?: string
   customKeyForResult?: string
@@ -16,7 +16,10 @@ export type ActionCallListV2 = ActionOptions & {
 /**
  * Fast data retrieval without counting the total number of records. `restApi:v2`
  *
- * @todo add docs
+ * Iterates through all pages of a v2 list method using cursor-based pagination (ordering and
+ * filtering by the item id) and collects every item into a single array returned as a `Result`.
+ * Unlike `FetchListV2`, which yields pages one by one via an async generator, this class waits
+ * for all pages to finish and returns the complete dataset in one call.
  */
 export class CallListV2 extends AbstractAction {
   /**
@@ -26,7 +29,7 @@ export class CallListV2 extends AbstractAction {
    *
    * @param {ActionCallListV2} options - parameters for executing the request.
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
-   *     - `params?: Omit<TypeCallParams, 'start' | 'order'>` - Request parameters, excluding the `start` and `order` parameters,
+   *     - `params?: Omit<TypeCallParamsV2, 'start' | 'order'>` - Request parameters, excluding the `start` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter`, `order`, and `select` to control the selection.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value

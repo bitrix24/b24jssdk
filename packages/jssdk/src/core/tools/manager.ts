@@ -8,8 +8,9 @@ import { HealthCheck } from './healthcheck'
 const pingName = Symbol('ping')
 const healthCheckName = Symbol('healthCheck')
 /**
- * Some tools for TypeB24
- * @todo add docs
+ * Manages built-in diagnostic tools available on a {@link TypeB24} instance.
+ * Provides lazy-initialized access to {@link Ping} and {@link HealthCheck} tools,
+ * each identified by a unique symbol key stored in an internal map.
  */
 export class ToolsManager {
   protected _b24: TypeB24

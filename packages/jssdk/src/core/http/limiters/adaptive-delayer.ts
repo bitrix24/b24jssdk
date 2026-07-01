@@ -4,9 +4,14 @@ import type { LoggerInterface } from '../../../types/logger'
 import { LoggerFactory } from '../../../logger'
 
 /**
- * Adaptive delayer
+ * Inserts proactive delays based on observed server load.
  *
- * @todo docs
+ * Unlike hard limiters, `AdaptiveDelayer` never blocks a request outright —
+ * {@link canProceed} always returns `true`. Instead, {@link waitIfNeeded}
+ * calculates a back-off delay derived from the current operating-time
+ * consumption reported by {@link OperatingLimiter} and the configured
+ * {@link AdaptiveConfig}, smoothing request throughput before quota limits
+ * are actually hit.
  */
 export class AdaptiveDelayer implements ILimiter {
   #config: AdaptiveConfig

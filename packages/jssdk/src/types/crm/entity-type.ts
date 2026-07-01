@@ -42,7 +42,8 @@ export enum EnumCrmEntityTypeShort {
 }
 
 /**
- * @todo add docs
+ * Converts a numeric CRM entity type ID to its corresponding short string code.
+ * Returns `EnumCrmEntityTypeShort.undefined` when the ID has no matching entry.
  */
 export function getEnumCrmEntityTypeShort(id: EnumCrmEntityTypeId): EnumCrmEntityTypeShort {
   const key = EnumCrmEntityTypeId[id] as keyof typeof EnumCrmEntityTypeShort

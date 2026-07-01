@@ -4,11 +4,27 @@ import type { AjaxResult } from '../core/http/ajax-result'
 import type { PayloadTime } from './payloads'
 import type { RestrictionParams, RestrictionManagerStats } from './limiters'
 import type { ApiVersion } from './b24'
+import type { FilterV3Group } from '../tools/filter-v3'
 import type { AxiosInstance } from 'axios'
 
 /**
- * @todo fix docs
+ * Types for HTTP communication with the Bitrix24 REST API: call parameters (filtering, ordering,
+ * pagination for both v2 and v3), batch command formats, and the core `TypeHttp` client interface.
  */
+
+/**
+ * `restApi:v2` filter — a prefix-operator dialect keyed by field, where the
+ * operator is encoded in the key, e.g. `{ '>id': 100, '%NAME': 'Iv' }`.
+ */
+export type TypeFilterV2 = Record<string, unknown>
+
+/**
+ * `restApi:v3` filter — an array of `[field, operator, value]` triples (joined
+ * with AND at the top level), e.g. `[['id', '>', 100], ['stageId', '=', 'NEW']]`.
+ * Nested AND/OR/NOT groups are allowed too, so the output of the `FilterV3`
+ * builder (`FilterV3.build(...)`) assigns directly.
+ */
+export type TypeFilterV3 = Array<[string, string, unknown] | FilterV3Group>
 
 export type TypeCallParams = {
   order?: Record<string, 'ASC' | 'DESC' | 'asc' | 'desc' | string>
@@ -48,6 +64,28 @@ export type TypeCallParams = {
   [key: string]: any
 }
 
+/**
+ * Per-version specialisation of {@link TypeCallParams} that types the request-side
+ * `filter` for `restApi:v2` (prefix-operator object) and drops the v3-only
+ * `pagination` / `cursor` fields. The permissive `[key: string]: any` index
+ * signature is retained, so existing call sites keep compiling.
+ */
+export type TypeCallParamsV2 = Omit<TypeCallParams, 'filter' | 'pagination' | 'cursor'> & {
+  filter?: TypeFilterV2
+}
+
+/**
+ * Per-version specialisation of {@link TypeCallParams} that types the request-side
+ * `filter` for `restApi:v3` and drops the v2-only `start` field. The preferred
+ * v3 shape is the array of triples / groups ({@link TypeFilterV3}); the v2-style
+ * object ({@link TypeFilterV2}) is still accepted for backward compatibility.
+ * The permissive `[key: string]: any` index signature is retained, so existing
+ * call sites keep compiling.
+ */
+export type TypeCallParamsV3 = Omit<TypeCallParams, 'filter' | 'start'> & {
+  filter?: TypeFilterV3 | TypeFilterV2
+}
+
 // region Batch interface ////
 /**
  * Options for batch calls
@@ -81,7 +119,8 @@ export type BatchCommandV3 = {
 
 export type CommandTuple<M extends string = string, P = undefined | TypeCallParams> = [M, P?]
 /**
- * @todo add docs - api v3 only use this ??
+ * Object form of a batch command. The `as`, `parallel`, and `params.cursor` / `params.pagination`
+ * fields are supported in API v3 only; `params.start` is the v2 equivalent for offset pagination.
  */
 export interface CommandObject<M extends string = string, P = undefined | TypeCallParams> { method: M, params?: P, as?: string, parallel?: boolean }
 export type CommandUniversal<M extends string = string, P = undefined | TypeCallParams>
@@ -120,7 +159,7 @@ export interface IRequestIdGenerator {
  */
 export type TypeHttp = {
   apiVersion: ApiVersion
-  ajaxClient: AxiosInstance | any
+  ajaxClient: AxiosInstance
 
   setLogger(logger: LoggerInterface): void
   getLogger(): LoggerInterface

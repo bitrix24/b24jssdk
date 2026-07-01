@@ -47,11 +47,15 @@ export type TypePrepareParams = TypeCallParams & {
 }
 
 /**
- * Abstract Class for working with RestApi requests via http
+ * Abstract base class for all Bitrix24 REST API HTTP transports.
+ *
+ * Provides shared infrastructure used by {@link HttpV2} and {@link HttpV3}: Axios instance
+ * lifecycle, auth token management (including coalesced refresh on 401), rate/operating/adaptive
+ * limiting via {@link RestrictionManager}, request-id generation, structured logging with
+ * payload truncation, and request metrics. Concrete subclasses implement version-specific
+ * batch strategies.
  *
  * @link https://bitrix24.github.io/b24jssdk/
- *
- * @todo docs
  */
 export abstract class AbstractHttp implements TypeHttp {
   protected _clientAxios: AxiosInstance

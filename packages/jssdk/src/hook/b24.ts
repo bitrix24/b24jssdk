@@ -8,11 +8,20 @@ import { AuthHookManager } from './auth'
 import { versionManager } from '../core/version-manager'
 
 /**
- * B24.Hook Manager.
+ * Server-side Bitrix24 client based on an inbound webhook URL.
+ *
+ * Use this class to make REST API calls from a backend service using a
+ * pre-configured webhook. The webhook URL embeds a secret access key and
+ * therefore **must never be used in browser or mobile code** — instantiating
+ * `B24Hook` automatically enables a client-side warning for every HTTP call.
+ *
+ * @example
+ * ```ts
+ * const b24 = B24Hook.fromWebhookUrl('https://your_domain.bitrix24.com/rest/1/abc123xyz/')
+ * const result = await b24.actions.v2.call.make({ method: 'user.current' })
+ * ```
  *
  * @link https://bitrix24.github.io/b24jssdk/docs/hook/
- *
- * @todo docs
  */
 export class B24Hook extends AbstractB24 implements TypeB24 {
   readonly #authHookManager: AuthHookManager
@@ -78,11 +87,20 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
 
   // region Tools ////
   /**
-   * Init Webhook from url
-   *   - ver2 `https://your_domain.bitrix24.com/rest/{id}/{webhook}`
-   *   - ver3 `https://your_domain.bitrix24.com/rest/api/{id}/{webhook}`
+   * Creates a `B24Hook` instance from a webhook URL.
    *
-   * @todo docs
+   * Accepts both REST API v2 and v3 webhook formats:
+   *   - v2: `https://your_domain.bitrix24.com/rest/{userId}/{secret}`
+   *   - v3: `https://your_domain.bitrix24.com/rest/api/{userId}/{secret}`
+   *
+   * Validates that the URL uses HTTPS, has the correct path structure, and
+   * contains a numeric user ID. Throws a descriptive `Error` on any violation
+   * without echoing the URL (which contains the secret).
+   *
+   * @param url - Full webhook URL as shown in the Bitrix24 admin panel.
+   * @param options - Optional restriction parameters (rate limits, etc.).
+   * @returns A ready-to-use `B24Hook` instance.
+   * @throws {Error} If the URL is empty, not HTTPS, or has an invalid format.
    */
   public static fromWebhookUrl(
     url: string,

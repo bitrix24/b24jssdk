@@ -1,7 +1,9 @@
-import { B24Hook, Logger, LogLevel, ConsoleV2Handler, ParamsFactory } from '@bitrix24/b24jssdk'
+import { SdkError } from '@bitrix24/b24jssdk'
 import { defineCommand } from 'citty'
 import 'dotenv/config'
 import type { TaskListItem } from '../../types'
+import { createB24Client, icon } from '../../utils'
+import { CLIENT_ERROR_STATUS } from '../../constants'
 
 /**
  * CLI Command to read tasks from Bitrix24 through the **REST API v3**
@@ -33,25 +35,16 @@ export default defineCommand({
     limit: { description: 'Page size per request (server caps tasks.task.list at 50)', default: '50' }
   },
   async setup({ args }) {
-    const limit = Number(args.limit)
-
-    // region Logger ////
-    const logger = Logger.create('list-tasks')
-    logger.pushHandler(new ConsoleV2Handler(LogLevel.DEBUG, { useStyles: false }))
-
-    const loggerForDebugB24 = Logger.create('b24')
-    loggerForDebugB24.pushHandler(new ConsoleV2Handler(LogLevel.ERROR, { useStyles: false }))
-    // endregion Logger ////
-
-    const hookPath = process.env.B24_HOOK ?? ''
-    if (!hookPath.trim()) {
-      logger.emergency('🚨 B24_HOOK environment variable is not set! Please configure it in your .env file')
-      process.exit(1)
+    const limit = Number.parseInt(args.limit, 10)
+    if (Number.isNaN(limit)) {
+      throw new SdkError({
+        code: 'PLAYGROUND_CLI_ERROR',
+        description: `Invalid --limit: ${args.limit}. Expected an integer.`,
+        status: CLIENT_ERROR_STATUS
+      })
     }
 
-    const b24 = B24Hook.fromWebhookUrl(hookPath, { restrictionParams: ParamsFactory.getBatchProcessing() })
-    b24.setLogger(loggerForDebugB24)
-    logger.info('Connected to Bitrix24', { target: b24.getTargetOrigin() })
+    const { b24, logger } = createB24Client('list-tasks')
 
     const generator = b24.actions.v3.fetchList.make<TaskListItem>({
       method: 'tasks.task.list',
@@ -78,6 +71,6 @@ export default defineCommand({
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2)
     logger.notice('─'.repeat(50))
-    logger.notice(`✅ Done. Loaded ${total} tasks in ${page} page(s), ${duration}s`)
+    logger.notice(`${icon('✅ ')}Done. Loaded ${total} tasks in ${page} page(s), ${duration}s`)
   }
 })

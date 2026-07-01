@@ -35,28 +35,48 @@ useSeoMeta({
   ogDescription: page.value.description
 })
 
-const cookbookCards = [
-  { title: 'Webhook CLI smoke test', to: '/docs/examples/webhook-cli-node', description: 'Verify a freshly created inbound webhook in 30 lines. Always start here.' },
-  { title: 'Export deals to CSV', to: '/docs/examples/dashboard-deals-csv', description: 'Stream every deal in a date window into a CSV using FetchListV2.make(). Memory stays flat regardless of result size.' },
-  { title: 'Bulk update deals', to: '/docs/examples/bulk-update-deals', description: 'Migrate thousands of deals to a new stage using BatchByChunkV2.make() with partial-error handling.' },
-  { title: 'Frame app skeleton', to: '/docs/examples/frame-app-skeleton', description: 'A minimum viable Vue 3 iframe app: handshake, parent title, persisted options, slider open/close.' },
-  { title: 'Subscribe to Pull events', to: '/docs/examples/pull-subscribe-frame', description: 'Live events in a frame app via useB24Helper and the Pull client (WebSocket + long-polling).' }
-]
+// Numeric-prefix ordering: recipe files are named "<n>.slug.md" so their stem
+// ("…/99.examples/10.error-handling") must be sorted by that leading number,
+// not lexicographically ("10" would otherwise sort before "2").
+const stemOrder = (stem?: string) => {
+  const seg = (stem ?? '').split('/').pop() ?? ''
+  const n = Number.parseInt(seg, 10)
+  return Number.isNaN(n) ? Number.MAX_SAFE_INTEGER : n
+}
 
-const catalogueRecipes = [
-  { title: 'CRM analytics — sales funnel', to: '/docs/examples/crm-analytics', stack: 'Node', scopes: 'crm' },
-  { title: 'Mass messaging', to: '/docs/examples/mass-messaging', stack: 'Node', scopes: 'crm, im' },
-  { title: 'Task automation on stage transitions', to: '/docs/examples/task-automation', stack: 'Node', scopes: 'crm, task' },
-  { title: 'ERP / 1C contact sync', to: '/docs/examples/erp-sync', stack: 'Node, node-cron', scopes: 'crm' },
-  { title: 'Disk — storages, folders, files', to: '/docs/examples/disk-files', stack: 'Node', scopes: 'disk' },
-  { title: 'Telegram bot for new deals', to: '/docs/examples/telegram-bot', stack: 'Node, grammy, node-cron', scopes: 'crm' },
-  { title: 'Outbound webhook handler', to: '/docs/examples/webhook-handler', stack: 'Node, express', scopes: 'crm' },
-  { title: 'AI assistant — analyse a deal, create a task', to: '/docs/examples/ai-assistant', stack: 'Node, openai', scopes: 'crm, task' },
-  { title: 'Web search + LLM with timeline write-back', to: '/docs/examples/web-search-llm', stack: 'Node, BYOC', scopes: 'crm' },
-  { title: 'Error-handling cookbook', to: '/docs/examples/error-handling', stack: 'Node', scopes: 'any' },
-  { title: 'Outbound event registration', to: '/docs/examples/event-registration', stack: 'Node', scopes: 'crm' },
-  { title: 'OAuth install handshake', to: '/docs/examples/oauth-install', stack: 'Node, express', scopes: 'OAuth app' }
-]
+// Card titles drop the "Recipe: " prefix the recipe pages carry — the homepage
+// grid reads cleaner without it.
+const cardTitle = (title?: string) => (title ?? '').replace(/^Recipe:\s*/, '')
+
+// Cookbook — recipes flagged `featured: true`, ordered by the frontmatter-driven
+// `cookbookOrder` (lower first; unset sorts to the end). No index.vue edit needed
+// when a featured recipe is added.
+const { data: cookbookRecipes } = await useAsyncData('index-cookbook', () =>
+  queryCollection('docs')
+    .where('category', '=', 'examples')
+    .where('featured', '=', true)
+    .select('title', 'description', 'path', 'stem', 'cookbookOrder')
+    .all()
+)
+const cookbookCards = computed(() =>
+  [...(cookbookRecipes.value ?? [])].sort(
+    (a, b) => (a.cookbookOrder ?? Number.MAX_SAFE_INTEGER) - (b.cookbookOrder ?? Number.MAX_SAFE_INTEGER)
+  )
+)
+
+// Extended catalogue — every non-featured `category: examples` recipe that
+// declares `stack`/`scopes`, in file (numeric-prefix) order.
+const { data: catalogueData } = await useAsyncData('index-catalogue', () =>
+  queryCollection('docs')
+    .where('category', '=', 'examples')
+    .select('title', 'description', 'path', 'stem', 'stack', 'scopes', 'featured')
+    .all()
+)
+const catalogueRecipes = computed(() =>
+  [...(catalogueData.value ?? [])]
+    .filter(recipe => !recipe.featured && (recipe.stack || recipe.scopes))
+    .sort((a, b) => stemOrder(a.stem) - stemOrder(b.stem))
+)
 
 const iconFromIconName = (iconName?: string) => {
   if (!iconName) {
@@ -109,8 +129,8 @@ const iconFromIconName = (iconName?: string) => {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <NuxtLink
             v-for="card in cookbookCards"
-            :key="card.to"
-            :to="card.to"
+            :key="card.path"
+            :to="card.path"
             class="group block"
           >
             <B24Card
@@ -120,7 +140,7 @@ const iconFromIconName = (iconName?: string) => {
               }"
             >
               <p class="font-semibold text-label mb-1">
-                {{ card.title }}
+                {{ cardTitle(card.title) }}
               </p>
               <p class="text-sm text-muted">
                 {{ card.description }}
@@ -168,15 +188,15 @@ const iconFromIconName = (iconName?: string) => {
               <tbody>
                 <tr
                   v-for="(recipe, i) in catalogueRecipes"
-                  :key="recipe.to"
+                  :key="recipe.path"
                   class="border-b border-(--ui-color-design-outline-content-divider) last:border-0 hover:bg-(--ui-color-accent-soft-element-violet)/30 transition-colors"
                 >
                   <td class="py-2.5 px-4">
                     {{ i + 1 }}
                   </td>
                   <td class="py-2.5 px-4">
-                    <NuxtLink :to="recipe.to" class="text-primary hover:underline font-medium">
-                      {{ recipe.title }}
+                    <NuxtLink :to="recipe.path" class="text-primary hover:underline font-medium">
+                      {{ cardTitle(recipe.title) }}
                     </NuxtLink>
                   </td>
                   <td class="py-2.5 px-4 hidden sm:table-cell">

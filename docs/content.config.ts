@@ -64,6 +64,14 @@ export const collections = {
       restApiVersion: z.enum(['rest-api-ver2', 'rest-api-ver3']).optional(),
       badge: z.string().optional(),
       audited: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      // Homepage Cookbook / Extended catalogue (see docs/app/pages/index.vue)
+      featured: z.boolean().optional(),
+      // Cookbook card display order (lower first); featured recipes without it
+      // sort to the end. Keeps the homepage order frontmatter-driven — no edit
+      // to index.vue when a featured recipe is added.
+      cookbookOrder: z.number().optional(),
+      stack: z.string().optional(),
+      scopes: z.string().optional(),
       navigation: z.object({
         title: z.string().optional(),
         badge: z.string().optional()

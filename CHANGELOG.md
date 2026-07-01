@@ -10,9 +10,15 @@
 
 * **types:** `TypeHttp.ajaxClient` is now `AxiosInstance` instead of `AxiosInstance | any` (the union erased the type) (#153).
 
+### Fixed
+
+* **tools:** `Text.getUniqId()` now returns a well-formed UUID v4. The id template contained a literal `xlsx` segment (`xxxxxxxx-xlsx-4xxx-…`) that the `[xy]` replacer left untouched, so the second group leaked the characters `l`/`s` instead of random hex. Callers that relied on the previous malformed output will now receive a valid UUID v4 shape (#291).
+* **tools:** `Type.isTypedArray()` now detects typed arrays. Its tag regex checked for `[object Int8]`-style tags, but the real `Object.prototype.toString` tag carries an `Array` suffix (`[object Int8Array]`), so the guard previously returned `false` for every typed array. `DataView` is still excluded, as documented (#291).
+
 ### Docs
 
 * Filled the `@todo docs` JSDoc placeholders across the public surface — actions (v2/v3), the HTTP transports, `AjaxResult`, the limiter stack, the `B24Hook` / `B24Frame` / `B24OAuth` entry points, tools, and public types (#154).
+* **tools:** expanded the `Text`, `Type`, `Browser`, and `useFormatter` documentation pages to the full tools skeleton and added complete JSDoc to `packages/jssdk/src/tools/text.ts`. `Text.getDateForLog()` now uses the `yyyy` year token (was `y`) to match its documented `yyyy-MM-dd HH:mm:ss` format — output is unchanged for four-digit years (#291).
 
 ### Deprecations
 

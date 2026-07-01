@@ -9,9 +9,10 @@ packages:
 # (`>=fixed-version`) held until the dependency tree resolves that version on its
 # own. RETIREMENT (#175): when `pnpm why <pkg>` shows every path already resolves
 # at or above the floor — i.e. the pin no longer changes resolution — drop the
-# line, run `pnpm install`, and confirm `pnpm audit --prod --audit-level=high`
-# stays clean. Re-evaluate on each dependency bump (the weekly Dependabot npm PR
-# is a natural trigger).
+# line, run `pnpm install`, and confirm `pnpm audit --audit-level=moderate`
+# (the command CI runs — prod + dev deps, moderate threshold) stays clean.
+# Re-evaluate on each dependency bump (the weekly Dependabot npm PR is a
+# natural trigger).
 overrides:
   fast-uri: '>=3.1.2'
   hono: '>=4.12.25'
@@ -24,6 +25,14 @@ overrides:
   form-data: '>=4.0.6'
   vite: '>=7.3.5 <8'
   nuxt: '>=4.4.7'
+  # GHSA-vmf3-w455-68vh — tar parser interpretation differential (file smuggling)
+  tar: '>=7.5.16'
+  # GHSA-v6wh-96g9-6wx3 — launch-editor NTLMv2 hash disclosure via UNC path (Windows)
+  launch-editor: '>=2.14.1'
+  # GHSA-6v5v-wf23-fmfq — markdown-it quadratic-complexity DoS in smartquotes
+  markdown-it: '>=14.1.2'
+  # GHSA-h67p-54hq-rp68 — js-yaml quadratic-complexity DoS in merge-key aliases
+  js-yaml: '>=4.1.2'
 
 allowBuilds:
   '@parcel/watcher': false

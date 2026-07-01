@@ -11,7 +11,7 @@ Tests use Vitest and run against a **real Bitrix24 portal**. The suite validates
 Defined in [vitest.config.ts](../../vitest.config.ts):
 
 | Project | Location | Timeouts | Mode |
-|---------|----------|----------|------|
+| --- | --- | --- | --- |
 | `jsSdk:integration` | `test/integration/**/*.spec.ts` | 30s test / 30s hook | parallel |
 | `jsSdk:underLoad` | `test/under-load/**.spec.ts` | 40 min test / 40 min hook | sequential, no file parallelism |
 
@@ -46,7 +46,7 @@ The integration test client uses `ParamsFactory.getDefault()`. The under-load se
 ## File Location
 
 | Suite | Location |
-|-------|----------|
+| --- | --- |
 | Integration | `test/integration/<area>/*.spec.ts` (e.g. `core/actions-v3-batch.spec.ts`) |
 | Integration — unit exception | `test/integration/<area>/*.unit.spec.ts` (e.g. `core/http-logger-redaction.unit.spec.ts`) |
 | Under-load | `test/under-load/load-testing-<scenario>.spec.ts` |
@@ -154,7 +154,7 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 ## What Tests Validate
 
 | Layer | Validate |
-|-------|----------|
+| --- | --- |
 | Transport | `isSuccess`, returned shape, `requestId` round-trip |
 | Paging | `isMore()`, `getNext()`, accumulated record count |
 | Errors | `SdkError` thrown for invariant violations, `AjaxError` surfaced via `Result.getErrors()` |

@@ -1,13 +1,14 @@
 # b24jssdk skills
 
 Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
+
 - `packages/jssdk/README-AI.md` — API-guide for callers
 - `test/integration/js-docs/actions-v{2,3}.spec.ts` — canonical surface examples
 
 ## Skills
 
 | Skill | When to use |
-|---|---|
+| --- | --- |
 | **b24jssdk-core** | First skill to load. Picks the right entry point (B24Hook / B24Frame / B24OAuth), shows boot/teardown, error handling, hardErrorCodes/softErrorCodes/retryOnNetworkError tuning. |
 | **b24jssdk-rest** | The canonical REST surface: `actions.v{2,3}.{call,batch,callList,fetchList,batchByChunk}.make()`. Picking between v2 and v3, AjaxResult shape, batch semantics. |
 | **b24jssdk-filtering** | Two filter dialects — v2 prefix-keyed objects (`'>=createdTime'`) and v3 array-of-triples (`[['fld', '>=', v]]`). NOT, IN, dates via `Text.toB24Format`, the `order`-stripping rule of `callList`. |

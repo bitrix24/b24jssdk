@@ -87,7 +87,7 @@ The Nuxt module ([packages/jssdk-nuxt/src/module.ts](packages/jssdk-nuxt/src/mod
 For AI coding agents, the canonical task-focused skills live under `skills/`. Load them by topic — **do not load everything at once**, the skill descriptions are designed for selective consumption.
 
 | Skill | When to use |
-|---|---|
+| --- | --- |
 | `b24jssdk-core` | First skill to load — entry point pick (`B24Hook` / `B24Frame` / `B24OAuth`), boot/teardown, error taxonomy, `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` tuning |
 | `b24jssdk-rest` | `actions.v{2,3}.*.make()` — `call` / `batch` / `callList` / `fetchList` / `callTail` / `fetchTail` / `batchByChunk`; `AjaxResult` shape; v2/v3 routing (no v3 allowlist — the server validates) |
 | `b24jssdk-filtering` | v2 prefix-keyed filter (`'>=createdTime'`) vs v3 array-of-triples (`[['fld','>=',v]]`); operators; dates via `Text.toB24Format`; `order`-stripping rule of `callList` |
@@ -191,7 +191,7 @@ The references and code conventions below apply specifically when working on fil
 Load these based on your task. **Do not load all files at once** — only load what's relevant.
 
 | File | Topics |
-|------|--------|
+| --- | --- |
 | **[.github/contributing/package-structure.md](.github/contributing/package-structure.md)** | File layout in `packages/jssdk/src/`, AbstractB24-derived classes, managers, public-export rules |
 | **[.github/contributing/transports-and-results.md](.github/contributing/transports-and-results.md)** | `AbstractHttp` v2 / v3 transports, `Result` / `AjaxResult` / `AjaxError` / `SdkError`, the limiter stack, `ParamsFactory` presets, paging, batch semantics, log redaction |
 | **[.github/contributing/testing.md](.github/contributing/testing.md)** | Vitest projects (integration + under-load), `.env.test`, `setupB24Tests()`, naming filters, no-mock policy + `*.unit.spec.ts` exception |
@@ -201,7 +201,7 @@ Load these based on your task. **Do not load all files at once** — only load w
 ### Code Conventions
 
 | Convention | Description |
-|------------|-------------|
+| --- | --- |
 | Named exports only | No `export default` in `src/`; keeps the package tree-shakeable |
 | Type imports | Always separate: `import type { X } from '…'` |
 | Public surface | Every type / symbol meant for callers must re-export from [packages/jssdk/src/index.ts](packages/jssdk/src/index.ts) |

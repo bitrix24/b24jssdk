@@ -144,6 +144,10 @@ Choosing a transport when adding actions:
 
 The base `AbstractHttp` class (`packages/jssdk/src/core/http/abstract-http.ts`, implements `TypeHttp`) owns retries, batching, and limiter integration — extend it rather than duplicating those concerns inside actions.
 
+### Telemetry Query Params
+
+`_prepareMethod` (in `abstract-http.ts`) appends `bx24_request_id` / `bx24_sdk_ver` / `bx24_sdk_type` to every request URL for tracing. The one exception: legacy positional `task.*` methods (`task.commentitem.*`, `task.checklistitem.*`, …) read the query string **positionally**, so the appended params shift `Param #0` and the server rejects the call (`WRONG_ARGUMENTS: Param #0`). Telemetry is therefore suppressed for methods matching the anchored `^task\.` only. Do NOT broaden this to a substring match — that also strips telemetry from modern named-param `tasks.task.*` / `bizproc.task.*`, which are telemetry-safe and should stay traceable (#272).
+
 ### Batch Semantics
 
 The two batch transports differ in how they surface per-command failures. Authors of new batch-aware actions must respect this:

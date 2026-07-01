@@ -16,6 +16,10 @@
  * `AbstractHttp`; this test pins that BOTH transports suppress telemetry for
  * `task.` methods, keep it for everything else, and build identical URLs — so the
  * two paths can't drift apart again. Pure logic, no portal — jsSdk:unit.
+ *
+ * The carve-out is anchored to `^task\.` (#272): only legacy positional `task.*`
+ * methods are suppressed; modern named-param `tasks.task.*` / `bizproc.task.*`
+ * do not start with `task.`, so they keep telemetry and stay traceable.
  */
 import { describe, it, expect } from 'vitest'
 import { HttpV2 } from '../../../packages/jssdk/src/core/http/v2'
@@ -37,19 +41,30 @@ function prep(http: HttpV2 | HttpV3, method: string): string {
     ._prepareMethod(RID, method, BASE)
 }
 
-// Any method whose name contains `task.` → telemetry suppressed. The match is a
-// deliberate over-approximation: it also covers modern `tasks.task.*` /
-// `bizproc.task.*` (telemetry-safe, they just lose the optional tracing param).
+// Only methods whose name STARTS WITH `task.` (anchored `^task\.`) → telemetry
+// suppressed. These are the legacy positional methods that read the query string
+// positionally and break when telemetry shifts `Param #0`.
 const SUPPRESSED = [
   'task.commentitem.getlist', // verified live: breaks with telemetry
   'task.checklistitem.getlist', // verified live: breaks with telemetry
   'task.commentitem.add',
   'task.elapseditem.getlist',
-  'tasks.task.list', // modern named-param method — matched only by the broad substring; would NOT break with telemetry, just loses the optional param
-  'bizproc.task.list'
+  'task.checklistitem.add',
+  'task.item.list'
 ]
-// No `task.` substring → telemetry appended.
-const WITH_TELEMETRY = ['crm.item.list', 'user.current', 'crm.deal.get', 'profile']
+// Does NOT start with `task.` → telemetry appended (kept traceable). Includes
+// modern named-param `tasks.task.*` / `bizproc.task.*` which are telemetry-safe
+// and were previously over-suppressed by the old broad substring match.
+const WITH_TELEMETRY = [
+  'crm.item.list',
+  'user.current',
+  'crm.deal.get',
+  'profile',
+  'tasks.task.list', // modern named-param method — keeps telemetry after #272
+  'bizproc.task.list', // modern named-param method — keeps telemetry after #272
+  'tasks.task.get', // sibling of tasks.task.list — same non-match path
+  'taskish.list' // starts with "task" but no dot after it — anchor must NOT match
+]
 
 describe('_prepareMethod task.* telemetry carve-out (#207)', () => {
   for (const [label, make] of [['v2', makeV2], ['v3', makeV3]] as const) {

@@ -218,5 +218,9 @@ describe('js-docs.actions @apiV2', () => {
     })
 
     expect(response.isSuccess).toBe(true)
+    expect(items.length).toBeGreaterThan(0)
+    const chunkRow = data[0]!
+    expect(chunkRow).toHaveProperty('item')
+    expect(typeof chunkRow.item.id).toBe('number')
   })
 })

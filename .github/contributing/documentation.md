@@ -63,7 +63,7 @@ links:
 ```
 
 | Field | Required | Notes |
-|-------|----------|-------|
+| --- | --- | --- |
 | `title` | yes | Used as the page heading |
 | `description` | yes | One sentence; appears under the title and in OG meta |
 | `navigation.title` | optional | Short label for the sidebar; falls back to `title` |
@@ -206,7 +206,7 @@ When the implementation changes:
 ## Categories
 
 | Category | Used for |
-|----------|----------|
+| --- | --- |
 | `actions` | Transport-level actions (`call`, `call-list`, `fetch-list`, `batch`) |
 | `frame` | `B24Frame` and iframe-only managers (slider, dialog, placement, …) |
 | `helper` | `B24HelperManager` and its sub-managers |

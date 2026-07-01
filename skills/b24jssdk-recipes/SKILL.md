@@ -10,7 +10,7 @@ Twelve end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each f
 All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The legacy `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` is `@deprecated` for 3.0.0 — do not generate code against it.
 
 | # | File | Stack | Scopes | What it does |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1 | `examples/01-crm-analytics.ts` | Node | `crm` | Stream all deals via `actions.v2.fetchList.make`, group by stage, print a funnel report (counts, conversion %, avg ticket, win rate) |
 | 2 | `examples/02-mass-messaging.ts` | Node | `crm`, `im` | Filter contacts via `actions.v2.call.make`, send `im.notify` to assigned managers |
 | 3 | `examples/03-task-automation.ts` | Node, `setInterval` | `crm`, `task` | Poll deal stages with `actions.v2.fetchList.make`; on watched transition create a task via `actions.v3.call.make('tasks.task.add', …)` |
@@ -29,7 +29,7 @@ All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The le
 Pure, I/O-free helpers extracted from recipes so they can be unit-tested without a live portal.
 
 | File | Exports | Used by |
-|---|---|---|
+| --- | --- | --- |
 | `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipe 01 |
 
 `baseStage(s)` strips the multi-funnel category prefix (`"C2:WON"` → `"WON"`).  
@@ -58,7 +58,7 @@ The snippet is inlined into each recipe file for copy-paste convenience.
 Inside the recipes the split is:
 
 | Method | Action surface | Why |
-|---|---|---|
+| --- | --- | --- |
 | `crm.item.{get,list,add,update,delete}` | `actions.v2.*` | Classic API used via v2 here |
 | `crm.activity.list`, `crm.timeline.comment.add` | `actions.v2.*` | Classic API, v2 only |
 | `tasks.task.{add,get,update,delete,list}` | **`actions.v3.*`** | Used via v3 (camelCase, `result.items`) |

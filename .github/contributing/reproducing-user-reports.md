@@ -83,7 +83,7 @@ response:
 ## Deciding the outcome
 
 | Finding | Action |
-|----|----|
+| --- | --- |
 | The chain works in the app context | Answer the reporter with the working chain; the difference is their context/scope/method. Not an SDK bug. |
 | The chain fails the same way | Compare against the report — narrow to context, scope, or method, then advise. |
 | The SDK transforms/sends something wrong | That's a real SDK bug — fix it with a test in the same PR. |

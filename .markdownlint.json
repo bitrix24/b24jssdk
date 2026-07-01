@@ -1,7 +1,7 @@
 {
-  "$comment": "markdownlint over AGENTS.md + .github/contributing/**/*.md (baseline #54 / PR #211; one-time formatting sweep in #214 / PR #265). Off BY CHOICE: MD013 (line length — long lines are fine in these guides), MD033 (inline HTML — <sub>, <details>, etc. are used on purpose), MD060 (table-column-style — 110 hits across the report/maintenance tables; a cosmetic reflow not worth the churn, tracked separately). Everything else runs on default and now passes: the sweep reflowed whitespace (MD022/031/032/012), and the bare ASCII-tree / template / diagram fences are tagged `text` (MD040). One justified MD038 exception is inline-disabled in maintenance.md. Run `pnpm run lint:md-fix` to re-sweep.",
+  "$comment": "markdownlint over AGENTS.md + .github/contributing/**/*.md + skills/**/*.md + root README.md/CLAUDE.md/RELEASING.md (baseline #54 / PR #211; one-time formatting sweep in #214 / PR #265; MD060 enabled + glob extended in #266). Off BY CHOICE: MD013 (line length — long lines are fine in these guides), MD033 (inline HTML — <sub>, <details>, etc. are used on purpose), MD041 (first-line H1 — README.md leads with badge shields and CLAUDE.md is a one-line redirect stub). Everything else runs on default and passes: the sweep reflowed whitespace (MD022/031/032/012), MD060 table columns were reflowed to compact style (single space around each pipe — required for the emoji tables where visual alignment is impossible), and the bare ASCII-tree / template / diagram fences are tagged `text` (MD040). One justified MD038 exception is inline-disabled in maintenance.md. Run `pnpm run lint:md-fix` to re-sweep.",
   "default": true,
   "MD013": false,
   "MD033": false,
-  "MD060": false
+  "MD041": false
 }

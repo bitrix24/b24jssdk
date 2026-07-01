@@ -8,7 +8,7 @@ description: Pick and initialize the right b24jssdk entry point (B24Hook for bac
 Three entry points share the same REST surface, exposed via `$b24.actions.v{2,3}.*`. Pick by **where the code runs**:
 
 | Entry point | Where | Auth source |
-|---|---|---|
+| --- | --- | --- |
 | `B24Hook` | Node.js / scripts / serverless | inbound webhook URL (`/rest/<userId>/<secret>`) |
 | `B24Frame` | Browser, **inside** a Bitrix24 placement iframe | `postMessage` handshake with the parent window |
 | `B24OAuth` | Server side of an OAuth-installed Bitrix24 app | `accessToken` + `refreshToken` from Bitrix24 install events |
@@ -48,6 +48,7 @@ const $b24 = new B24Hook({
 ```
 
 Notes:
+
 - Keep `B24Hook` server-side only. The webhook URL contains a long-lived secret.
 - Supported Node: `^18`, `^20`, `>=22`.
 
@@ -140,12 +141,14 @@ try {
 ```
 
 Common AjaxError codes worth handling:
+
 - `ERROR_NOT_FOUND` — id does not exist (404)
 - `INVALID_CREDENTIALS` / `EXPIRED_TOKEN` (401) — the SDK auto-refreshes the token and retries once on every entry point; for `B24Hook` the refresh is a no-op, so a wrong webhook still fails
 - `QUERY_LIMIT_EXCEEDED` — rate limit. The SDK already throttles, but you may need `batchByChunk` instead of a tight loop.
 - `INTERNAL_SERVER_ERROR` (50x) — transient. The SDK retries automatically up to `maxRetries`.
 
 Common SdkError codes:
+
 - `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — thrown only by the deprecated `AjaxResult.getNext()` against a v3 client. `actions.v3.*.make` no longer throws it: the SDK dropped its v3 method allowlist, so an unknown v3 method comes back as a `METHODNOTFOUNDEXCEPTION` soft error on the result instead.
 
 ## Tuning retry / throw behaviour
@@ -220,7 +223,7 @@ When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth in
 ## Picking method names
 
 | Need | Method | API version |
-|---|---|---|
+| --- | --- | --- |
 | CRM entities (deals, contacts, companies, leads, smart processes) | `crm.item.{list,get,add,update,delete}` with `entityTypeId` from `EnumCrmEntityTypeId` | v2 |
 | Tasks read/write/list | `tasks.task.{add,get,update,delete,list}` | **v3** |
 | Tasks extras | `tasks.task.checklistitem.*`, … | v2 |

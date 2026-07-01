@@ -16,6 +16,7 @@ The SDK exposes both `v2` and `v3` under `$b24.actions`. **The SDK no longer kee
 Method families that are known to exist on v3 today (non-exhaustive): `tasks.task.*` (incl. `list`), `mail.*`, `humanresources.*`, `timeman.record.*` (read-only), `main.eventlog.*` (incl. native `tail`), `note.*`, `rest.application.*`, `rest.incomingwebhook.*`, plus infrastructure (`batch`, `scopes`, `rest.scope.list`, `rest.documentation.openapi`).
 
 Rule of thumb:
+
 - Default to `$b24.actions.v2.*` — it works for every classic method.
 - Use `$b24.actions.v3.*` when you specifically want the v3 representation of a method (camelCase fields, the unified `{result}` envelope, native `tail`/cursor, dotted relation select). Confirm a method exists on this portal's v3 via `rest.documentation.openapi` if unsure.
 - Version auto-detection (the deprecated legacy `callMethod`/`callBatch` shims) defaults to v2; v3 is opt-in only via the explicit `actions.v3.*` surface.
@@ -23,7 +24,7 @@ Rule of thumb:
 ## Decision tree
 
 | Goal | Use |
-|---|---|
+| --- | --- |
 | Single REST call | `actions.v{2,3}.call.make` |
 | 2–50 related calls in one HTTP round-trip | `actions.v{2,3}.batch.make` |
 | Many independent calls (>50) | `actions.v{2,3}.batchByChunk.make` |
@@ -238,7 +239,7 @@ const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
 `idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method sorts/filters by one name but returns another — most notably `tasks.task.list` **on v2** (request `ID`, response `id`). On the **v3** endpoint `tasks.task.list` is all-lowercase (`id` for both request and response, rows under `result.items`), so no `cursorIdKey` override is needed.
 
 | Method | `idKey` (response) | `cursorIdKey` (request) | `customKeyForResult` |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `crm.item.list` (v2) | `'id'` | — (= `idKey`) | `'items'` |
 | `crm.deal.list`, `crm.contact.list`, … (classic v2) | `'ID'` (default) | — (= `idKey`) | omit (default `result`) |
 | `tasks.task.list` (v2) | `'id'` | `'ID'` | `'tasks'` |
@@ -268,6 +269,7 @@ res.getQuery()              // { method, params, requestId }
 > `getData()` returns `undefined` when the call did not succeed — the new typing forces you to either check `isSuccess` first, or assert with `!`. Both patterns appear in the canonical SDK tests (`test/integration/js-docs/actions-v{2,3}.spec.ts`).
 
 Removed from the public surface for `3.0.0`:
+
 - `isMore()`, `hasMore()` — was tied to v2 envelope `next`
 - `getTotal()` — was tied to v2 envelope `total`. v3 has no `total` in the envelope; for a count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action (most don't yet — otherwise reduce a `callList` client-side).
 - `getNext()`, `fetchNext()` — replaced by `callList.make` / `fetchList.make`

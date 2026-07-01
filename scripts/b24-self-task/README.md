@@ -43,8 +43,8 @@ python scripts/b24-self-task/make.py 2026
 6. **Marks checklist item** `[AI-agent] Execute` as completed
 
 > **Note:** the git steps (create branch / commit / push) are **disabled**.
-> The agent runs **read-only** and returns a report; it does not modify or
-> push the repository. The `create_git_branch` / `commit_changes` /
+> The agent runs with **no tools** and returns a report; it does not modify
+> or push the repository. The `create_git_branch` / `commit_changes` /
 > `push_changes` helpers remain in the source for reference but are not
 > called by `run()`.
 

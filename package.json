@@ -85,6 +85,7 @@
     "eslint": "^10.3.0",
     "express": "^5.2.1",
     "grammy": "^1.42.0",
+    "js-yaml": "^4.2.0",
     "markdownlint-cli2": "^0.22.1",
     "node-cron": "^4.2.1",
     "nuxt": "^4.4.6",

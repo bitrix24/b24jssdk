@@ -306,6 +306,8 @@ Every action / tools page should carry an `audited: YYYY-MM-DD` field stating th
 
 `pnpm run docs:lint-links` is the companion check — validates every internal `](/docs/...)` and frontmatter `to: /docs/...` against the actual file tree, and validates `#fragment` parts against actual page headings (slugified the way Nuxt Content does at runtime, including the `-1` / `-2` suffixes github-slugger emits on duplicate headings).
 
+Frontmatter parsing (`scripts/_docs-utils.mjs` → `parseFrontmatter`) is a thin wrapper around `js-yaml` (root `devDependency`), which replaced a hand-rolled mini-parser. The wrapper still owns the boundary concerns: BOM strip, CRLF→LF, a `__proto__`/`constructor`/`prototype` guard, and `Object.create(null)` return. Two deliberate choices keep behaviour identical to the old parser: `yaml.load` runs with `JSON_SCHEMA` so `audited: YYYY-MM-DD` stays a string (the default schema's YAML timestamp type coerces it to a JS `Date`, breaking the `audited + 'T…'` concat); and each `links:` array item (an object under `js-yaml`) is re-serialised to the legacy `label: …\nto: …` multi-line-string form the link extractors consume.
+
 ## Git Workflow
 
 - Branch from `main` before code changes. Naming: `ai/<description>` (lowercase, hyphens) — e.g. `ai/add-auth-helper`, `ai/fix-validation`. Branches created automatically by Claude Code on the web carry a `claude/<description>` prefix instead — both prefixes are acceptable.

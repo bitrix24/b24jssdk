@@ -553,7 +553,15 @@ export abstract class AbstractHttp implements TypeHttp {
 
     const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted)
 
-    const resultFormattedForLog = JSON.stringify(response.data.result, null, 0)
+    // Redact the log-bound copy only; callers still receive the untouched
+    // `response.data` below. First-party success bodies don't embed credentials
+    // today, but an OAuth-relay method (or a future method returning a canonical
+    // key) would otherwise leak `access_token` / `refresh_token` / etc. into any
+    // wired logger sink — mirror the `post/send` redaction on the success path. (#69)
+    // `JSON.stringify(undefined)` returns `undefined` (not a string), so a
+    // v3 method whose success body carries `result: undefined` would otherwise
+    // hand `truncateForLog` a non-string and crash it — coerce to a literal. (#69)
+    const resultFormattedForLog = JSON.stringify(redactSensitiveParams(response.data.result), null, 0) ?? 'undefined'
     this.getLogger().info(
       `post/response`, {
         requestId,

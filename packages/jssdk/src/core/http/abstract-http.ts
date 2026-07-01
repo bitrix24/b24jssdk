@@ -640,26 +640,27 @@ export abstract class AbstractHttp implements TypeHttp {
    * something else`. Verified live against a portal: the same
    * `task.commentitem.getlist` / `task.checklistitem.getlist` call succeeds
    * without the telemetry params and fails with them; modern `tasks.task.*`
-   * (named params) is unaffected. So telemetry is omitted for any method whose
-   * name contains `task.`.
+   * (named params) is unaffected. So telemetry is omitted only for methods whose
+   * name STARTS WITH `task.`.
    *
    * Shared by v2 and v3 (rather than per-transport): once the v3 method
    * allowlist was dropped (#259) a positional `task.*` method can be routed via
    * `actions.v3.*` too, so v3 needs the same suppression — keeping the rule in
    * one place stops the two transports drifting apart again (#207).
    *
-   * `includes('task.')` is a deliberate over-approximation: it also drops the
-   * (optional, telemetry-safe) params for modern `tasks.task.*` / `bizproc.task.*`.
-   * Narrowing to an anchored `^task\.` is possible but unverified across the
-   * whole task surface, so the broad, safe match is kept. Bitrix24 method names
-   * are lowercase by convention, so the case-sensitive match is sufficient.
+   * The match is anchored (`^task\.`): only legacy positional `task.*` methods
+   * are suppressed. Modern named-param methods `tasks.task.*` / `bizproc.task.*`
+   * do NOT start with `task.`, so they KEEP telemetry and stay traceable — the
+   * boundary was pinned live in #271/#272 (`tasks.task.list` works WITH
+   * telemetry; legacy `task.*` breaks WITH it). Bitrix24 method names are
+   * lowercase by convention, so the case-sensitive match is sufficient.
    *
    * @see https://apidocs.bitrix24.com/settings/how-to-call-rest-api/data-encoding.html#order-of-parameters
    */
   protected _prepareMethod(requestId: string, method: string, baseUrl: string): string {
     const methodUrl = `/${encodeURIComponent(method)}`
 
-    if (method.includes('task.')) {
+    if (/^task\./.test(method)) {
       return `${baseUrl}${methodUrl}`
     }
 

@@ -12,6 +12,15 @@ export class SdkError extends Error {
   public readonly code: string
   protected _status: number
   public readonly timestamp: Date
+  /**
+   * Redaction contract: opaque, un-scrubbed payload. Outside the redaction
+   * contract — it may carry transport-layer detail (e.g. `AxiosError.config.url`
+   * / request headers) that logger-side redaction does NOT scrub. This class's
+   * own `toJSON()` / `toString()` already omit it — the risk is only if you
+   * access `err.originalError` directly, so do NOT blanket-stringify it into a
+   * log/error sink; surface `code` / `status` / `message` (and
+   * `AjaxError.requestInfo`, which IS redacted) instead. (#73)
+   */
   public readonly originalError?: unknown
 
   constructor(params: SdkErrorDetails) {

@@ -721,10 +721,21 @@ export abstract class AbstractHttp implements TypeHttp {
   // endregion ////
 
   // region Log ////
+  /**
+   * Redaction contract: runs caller params through {@link redactSensitiveParams}
+   * (see `redact.ts`) so credential-bearing keys are masked before they reach any
+   * logger context. (#39, #73)
+   * @see redactSensitiveParams
+   */
   protected _sanitizeParams(params: TypeCallParams): Record<string, unknown> {
     return redactSensitiveParams(params)
   }
 
+  /**
+   * Redaction contract: params are redacted via {@link _sanitizeParams} →
+   * {@link redactSensitiveParams} before logging. (#73)
+   * @see redactSensitiveParams
+   */
   protected _logRequest(requestId: string, method: string, params: TypeCallParams): void {
     this.getLogger().debug(`http request starting`, {
       requestId,

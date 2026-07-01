@@ -236,6 +236,118 @@ describe('core.http logger redaction @issue-39', () => {
     expect(serialized).toContain('***REDACTED***')
   })
 
+  it('post/response redacts credential-bearing keys in the success `result` (#69)', async () => {
+    b24 = buildClient('v2')
+    const httpClient = b24.getHttpClient(ApiVersion.v2)
+    // A success body that legitimately (OAuth-relay) or accidentally carries a
+    // canonical credential key in `result`, at depth 1 and nested at depth 2.
+    vi.spyOn(httpClient.ajaxClient, 'post').mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as never,
+      data: {
+        result: {
+          access_token: 'RESULT_ACCESS_TOKEN_LEAK_PROBE_ddd',
+          nested: { refresh_token: 'RESULT_REFRESH_TOKEN_LEAK_PROBE_eee' },
+          id: 42
+        },
+        time: {
+          start: 0,
+          finish: 0,
+          duration: 0,
+          processing: 0,
+          date_start: '1970-01-01T00:00:00+00:00',
+          date_finish: '1970-01-01T00:00:00+00:00',
+          operating_reset_at: 1,
+          operating: 0
+        }
+      }
+    })
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    await b24.actions.v2.call.make({ method: 'some.oauth.relay', params: {} })
+
+    const postResponse = captured.find(e => e.message === 'post/response')
+    expect(postResponse, 'post/response must fire on a successful call').toBeDefined()
+    const result = String(postResponse!.context!.result)
+    expect(result).not.toContain('RESULT_ACCESS_TOKEN_LEAK_PROBE_ddd')
+    expect(result).not.toContain('RESULT_REFRESH_TOKEN_LEAK_PROBE_eee')
+    expect(result).toContain('***REDACTED***')
+    // Non-sensitive payload survives so the log stays diagnosable.
+    expect(result).toContain('"id":42')
+  })
+
+  it('v3 post/response redacts credential-bearing keys in the success `result` (#69)', async () => {
+    b24 = buildClient('v3')
+    const httpClient = b24.getHttpClient(ApiVersion.v3)
+    vi.spyOn(httpClient.ajaxClient, 'post').mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as never,
+      data: {
+        result: {
+          access_token: 'V3_RESULT_ACCESS_TOKEN_LEAK_PROBE_fff',
+          nested: { refresh_token: 'V3_RESULT_REFRESH_TOKEN_LEAK_PROBE_ggg' },
+          id: 7
+        },
+        time: {
+          start: 0, finish: 0, duration: 0, processing: 0,
+          date_start: '1970-01-01T00:00:00+00:00',
+          date_finish: '1970-01-01T00:00:00+00:00',
+          operating_reset_at: 1, operating: 0
+        }
+      }
+    })
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    await b24.actions.v3.call.make({ method: 'some.oauth.relay', params: {} })
+
+    assertNoSecretLeak(captured, V3_PATH_FRAGMENT)
+    const postResponse = captured.find(e => e.message === 'post/response')
+    expect(postResponse, 'post/response must fire on a successful v3 call').toBeDefined()
+    const result = String(postResponse!.context!.result)
+    expect(result).not.toContain('V3_RESULT_ACCESS_TOKEN_LEAK_PROBE_fff')
+    expect(result).not.toContain('V3_RESULT_REFRESH_TOKEN_LEAK_PROBE_ggg')
+    expect(result).toContain('***REDACTED***')
+    expect(result).toContain('"id":7')
+  })
+
+  it('post/response survives a `result: undefined` success body without crashing (#69)', async () => {
+    b24 = buildClient('v2')
+    const httpClient = b24.getHttpClient(ApiVersion.v2)
+    // `JSON.stringify(undefined) === undefined` (not a string); the log path
+    // must coerce it to a literal so `truncateForLog` never gets a non-string.
+    vi.spyOn(httpClient.ajaxClient, 'post').mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as never,
+      data: {
+        result: undefined,
+        time: {
+          start: 0, finish: 0, duration: 0, processing: 0,
+          date_start: '1970-01-01T00:00:00+00:00',
+          date_finish: '1970-01-01T00:00:00+00:00',
+          operating_reset_at: 1, operating: 0
+        }
+      }
+    })
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    await expect(
+      b24.actions.v2.call.make({ method: 'some.void.method', params: {} })
+    ).resolves.toBeDefined()
+
+    const postResponse = captured.find(e => e.message === 'post/response')
+    expect(postResponse, 'post/response must still fire').toBeDefined()
+    expect(String(postResponse!.context!.result)).toBe('undefined')
+  })
+
   it('AjaxError.toJSON()/toString() redacts credential-bearing keys in requestInfo.params', () => {
     const err = new AjaxError({
       code: 'JSSDK_INTERNAL_AJAX_ERROR',

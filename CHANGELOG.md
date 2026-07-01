@@ -13,6 +13,7 @@
 ### Fixed
 
 * **tools:** `Text.getUniqId()` now returns a well-formed UUID v4. The id template contained a literal `xlsx` segment (`xxxxxxxx-xlsx-4xxx-…`) that the `[xy]` replacer left untouched, so the second group leaked the characters `l`/`s` instead of random hex. Callers that relied on the previous malformed output will now receive a valid UUID v4 shape (#291).
+* **tools:** `Type.isTypedArray()` now detects typed arrays. Its tag regex checked for `[object Int8]`-style tags, but the real `Object.prototype.toString` tag carries an `Array` suffix (`[object Int8Array]`), so the guard previously returned `false` for every typed array. `DataView` is still excluded, as documented (#291).
 
 ### Docs
 

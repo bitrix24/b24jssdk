@@ -336,4 +336,25 @@ describe('tools Type Manager', () => {
       expect(Type.isFormData(null)).toBe(false)
     })
   })
+
+  describe('isTypedArray()', () => {
+    it('should return true for every typed-array view', () => {
+      expect(Type.isTypedArray(new Int8Array())).toBe(true)
+      expect(Type.isTypedArray(new Uint8Array())).toBe(true)
+      expect(Type.isTypedArray(new Uint8ClampedArray())).toBe(true)
+      expect(Type.isTypedArray(new Int16Array())).toBe(true)
+      expect(Type.isTypedArray(new Uint16Array())).toBe(true)
+      expect(Type.isTypedArray(new Int32Array())).toBe(true)
+      expect(Type.isTypedArray(new Uint32Array())).toBe(true)
+      expect(Type.isTypedArray(new Float32Array())).toBe(true)
+      expect(Type.isTypedArray(new Float64Array())).toBe(true)
+    })
+
+    it('should return false for plain arrays, DataView, and other values', () => {
+      expect(Type.isTypedArray([])).toBe(false)
+      expect(Type.isTypedArray(new DataView(new ArrayBuffer(8)))).toBe(false)
+      expect(Type.isTypedArray({})).toBe(false)
+      expect(Type.isTypedArray(null)).toBe(false)
+    })
+  })
 })

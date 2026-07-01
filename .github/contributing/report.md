@@ -39,14 +39,14 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 ### Live-portal verification log
 
 | Recipe | Status | Date | Portal | Notes |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1 — CRM analytics | ✅ verified | 2026-05-28 | bitrix24.ru | 3013 deals loaded in ~30s (~100 deals/s, normal SDK rate-limit). Funnel printed correctly: NEW 895, WON 1205 (40%), LOSE 912, win rate 56.9%, total revenue 169M. |
 | 5 — Disk files | ✅ verified | 2026-05-28 | bitrix24.ru | 5 storages listed (1 common + 4 user). Root folder read for storage 3. Subfolder #288 created (`Project_1779973933442`). Batch round-trip: 5 storages + 1 root item. Runtime sub-second. Note: disk scope must be enabled on the webhook. |
 | 10 — Error handling | ✅ verified | 2026-05-28 | bitrix24.ru | All error paths exercised. `NOT_FOUND` (from `crm.item.get`) caught correctly after fix; `ERROR_NOT_FOUND` fallthrough kept for `crm.deal.get` compat. `SdkError JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` triggered as expected. Runtime sub-second. Bug found and fixed: recipe originally used `ERROR_NOT_FOUND` but `crm.item.get` returns `NOT_FOUND`. |
 | 11 — Event registration | ⛔ blocked | 2026-05-28 | bitrix24.ru | `WRONG_AUTH_TYPE` (HTTP 403) on `event.get`. Bitrix24 blocks `event.get/bind/unbind` for incoming-webhook auth — these methods are only callable as an **OAuth app**. Recipe is architecturally correct but cannot be tested with just a `B24_HOOK`. Needs a live OAuth app (recipe 12). |
 
 | Fact | Source |
-|---|---|
+| --- | --- |
 | Which methods exist on v3 (the SDK no longer keeps a `#supportMethods` allowlist — removed; the server validates) | The portal's OpenAPI (`rest.documentation.openapi`) or [apidocs rest-v3](https://apidocs.bitrix24.com/api-reference/rest-v3/index.html) |
 | `actions.v{2,3}.call.make` returns `Promise<AjaxResult<T>>`; access with `res.getData()!.result.<key>` | `core/actions/v{2,3}/call.ts`, `test/integration/js-docs/actions-v{2,3}.spec.ts` |
 | `actions.v{2,3}.callList.make` strips user-supplied `order` and forces `{ [idKey]: 'ASC' }` | `core/actions/v2/call-list.ts:77-87`, v3 equivalent at `core/actions/v3/call-list.ts:77-87` |

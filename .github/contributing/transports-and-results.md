@@ -87,7 +87,7 @@ if (result.isMore()) {
 Two error classes, two purposes:
 
 | Class | Purpose | How it surfaces |
-|-------|---------|-----------------|
+| --- | --- | --- |
 | `SdkError` | SDK-level invariant violations (bad arguments, illegal state, missing config) | Thrown from public methods |
 | `AjaxError` | HTTP / REST API errors (4xx, 5xx, malformed payloads) | Returned via `Result.getErrors()` |
 
@@ -129,7 +129,7 @@ Rules:
 Two transports, one shared base. Both are owned by `AbstractB24` and accessed via `b24.getHttpClient(ApiVersion.v2)` / `b24.getHttpClient(ApiVersion.v3)`. There is **no `b24.http` field** — always go through `getHttpClient(version)` so the right transport / limiter stack is picked.
 
 | Transport | File | Endpoint shape |
-|-----------|------|----------------|
+| --- | --- | --- |
 | v2 | `packages/jssdk/src/core/http/v2.ts` | `https://<portal>/rest/<method>.json` (legacy, deprecation in progress) |
 | v3 | `packages/jssdk/src/core/http/v3.ts` | `https://<portal>/rest/v3/<method>` (newer routes, rollout in progress — see [apidocs.bitrix24.com/api-reference/rest-v3](https://apidocs.bitrix24.com/api-reference/rest-v3/index.html)) |
 
@@ -149,7 +149,7 @@ The base `AbstractHttp` class (`packages/jssdk/src/core/http/abstract-http.ts`, 
 The two batch transports differ in how they surface per-command failures. Authors of new batch-aware actions must respect this:
 
 | Transport | Failure model | Per-command result |
-|-----------|---------------|--------------------|
+| --- | --- | --- |
 | v2 batch (`packages/jssdk/src/core/interaction/batch/processing/v2/abstract-processing.ts`) | Per-command — successful entries return data, failed entries surface their own error in `AjaxResult.getErrors()` | Each entry is an `AjaxResult` |
 | v3 batch (`packages/jssdk/src/core/interaction/batch/processing/v3/abstract-processing.ts`) | **All-or-nothing** — if any command fails, the whole batch fails. `getData()` returns an empty map; the top-level `response.getErrorMessages()` contains the error(s) | Each entry is an `AjaxResult` (only on full success) |
 
@@ -172,7 +172,7 @@ caller
 ```
 
 | Limiter | File | Responsibility |
-|---------|------|----------------|
+| --- | --- | --- |
 | `RateLimiter` | `src/core/http/limiters/rate-limiter.ts` | Caps requests-per-second on the client side |
 | `OperatingLimiter` | `src/core/http/limiters/operating-limiter.ts` | Pauses on the server's "operating reset" signal |
 | `AdaptiveDelayer` | `src/core/http/limiters/adaptive-delayer.ts` | Dynamic backoff in response to transient failures |
@@ -188,7 +188,7 @@ Rules:
 `ParamsFactory` (in `src/core/http/limiters/params-factory.ts`) bundles limiter parameters into named presets. Pick a preset; don't construct ad-hoc params at call sites.
 
 | Preset | When to use | Profile shape (actual numbers in [params-factory.ts](../../packages/jssdk/src/core/http/limiters/params-factory.ts)) |
-|--------|-------------|--------|
+| --- | --- | --- |
 | `getDefault()` | `B24Frame`, `B24Hook`, `B24OAuth` unless overridden | Standard QPS + adaptive backoff + `retryOnNetworkError: true` |
 | `getEnterprise()` | Enterprise plans (auto-selected via `LicenseManager`) | Higher burst + higher drain rate on top of `getDefault()` |
 | `getBatchProcessing()` | Bulk imports / migrations | Lower QPS, lower heavy-request threshold, longer backoff, more retries — used by the under-load test suite |
@@ -202,7 +202,7 @@ When introducing a new tuning profile, add it as a `ParamsFactory.getX()` static
 Beyond the preset, `RestrictionParams` exposes per-call switches that callers can layer on top of any preset (`{ ...ParamsFactory.getDefault(), <overrides> }`). When you add a new option, document it in [docs/content/docs/2.working-with-the-rest-api/77.limiters.md](../../docs/content/docs/2.working-with-the-rest-api/77.limiters.md) — that page is the canonical reference.
 
 | Field | Purpose |
-|-------|---------|
+| --- | --- |
 | `maxRetries`, `retryDelay` | Retry budget for soft errors |
 | `retryOnNetworkError` | Default `true`. Set `false` for **non-idempotent** calls (any `*.add`, file uploads, document generation) — a client-side timeout may have succeeded server-side, so retrying creates duplicates. With `false` the SDK throws `NETWORK_ERROR` / `REQUEST_TIMEOUT` immediately. For long-running heavy ops also raise the axios timeout via `b24.getHttpClient(ApiVersion.vX).ajaxClient.defaults.timeout`. |
 | `hardErrorCodes` | **Add** custom REST error codes that must be thrown immediately, no retry. Use for **HTTP 2xx responses with a domain-level REST error code** that the SDK doesn't recognise as terminal (otherwise the SDK treats unknown codes as transient and retries them). HTTP 4xx is already classified as non-retryable automatically inside `RestrictionManager` in [packages/jssdk/src/core/http/limiters/manager.ts](../../packages/jssdk/src/core/http/limiters/manager.ts) (private method `#isNonRetryableClientError`) — you don't need to list 4xx codes here. The list is additive (auth / fatal codes are always hard; you cannot remove built-ins). |
@@ -222,7 +222,7 @@ before consulting the error-code lists
 `#isNonRetryableClientError` defined at [line 192](../../packages/jssdk/src/core/http/limiters/manager.ts#L192)):
 
 | HTTP status | Retry behaviour |
-|-------------|-----------------|
+| --- | --- |
 | `4xx` (except `408` / `429`) | **No retry.** Deterministic client error — fails fast on the first attempt. |
 | `429` | Retried as operating limit — matched by `#isOperatingLimitError` (`status === 429` or `code === 'OPERATION_TIME_LIMIT'`), which is evaluated before `#isNonRetryableClientError`, so `429` never reaches the fail-fast gate. (`503` / `QUERY_LIMIT_EXCEEDED` is handled separately by `#isRateLimitError`.) |
 | `408` (request timeout) | Transient — retried when `retryOnNetworkError` is `true` (default); fast-fails when `false`. |
@@ -293,7 +293,7 @@ See also the [Adding a REST Method to an Existing Action](../../AGENTS.md#adding
 ## Quick Reference
 
 | Task | Use |
-|------|-----|
+| --- | --- |
 | Return data from a domain method | `Result` |
 | Return data from a transport call | `AjaxResult` |
 | Iterate over a paged list (v2) | `result.isMore()` + `result.getNext(b24.getHttpClient(ApiVersion.v2))` |

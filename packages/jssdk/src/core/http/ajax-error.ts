@@ -22,6 +22,12 @@ type AjaxErrorDetails = SdkErrorDetails & {
  * Error requesting RestApi
  */
 export class AjaxError extends SdkError {
+  /**
+   * Redaction contract: `requestInfo.params` has already been run through
+   * {@link redactSensitiveParams} in the constructor, so credential-bearing
+   * keys are stored as `***REDACTED***` and are safe to surface via
+   * `toJSON()` / `toString()`. (#39, #73)
+   */
   public readonly requestInfo?: AjaxErrorDetails['requestInfo']
 
   constructor(params: AjaxErrorDetails) {

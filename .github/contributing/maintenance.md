@@ -99,7 +99,7 @@ Always separately scan for `## Breaking Changes` and `## Deprecations` sections 
 ## 3. Translation rules — VibeCode → b24jssdk (current as of 2026-05)
 
 | VibeCode (HTTP, with `X-Api-Key`) | b24jssdk (`actions.v{2,3}.*.make`) |
-|---|---|
+| --- | --- |
 | `GET /v1/{entity}/:id` | `actions.v2.call.make({ method: 'crm.item.get', params: { entityTypeId, id } })` for CRM, `actions.v3.call.make({ method: 'tasks.task.get', params: { id, select } })` for tasks |
 | `GET /v1/{entity}` (list) | `actions.v2.callList.make({ method: 'crm.item.list', params, idKey: 'id', customKeyForResult: 'items' })` |
 | `POST /v1/{entity}/search` | same as list — Bitrix24 REST has no separate search endpoint |
@@ -207,7 +207,7 @@ That's all — no PR, no lecture, just the summary.
 Before propagating a new operator / endpoint / pattern from VibeCode docs into a skill, verify it against the SDK:
 
 | Check | Source of truth |
-|---|---|
+| --- | --- |
 | Does this method exist on v3? | The portal's own OpenAPI (`rest.documentation.openapi`) or [apidocs rest-v3](https://apidocs.bitrix24.com/api-reference/rest-v3/index.html) — the SDK no longer keeps a `version-manager` allowlist; the server validates v3 methods |
 | What's the v3 filter syntax? | `skills/b24jssdk-filtering/SKILL.md` (the v3 section) |
 | What's the v2 filter syntax / prefix list? | `skills/b24jssdk-filtering/SKILL.md` (the v2 table) |

@@ -81,33 +81,41 @@ fires both publish workflows — each runs CI, then publishes its package.
 ## Step by step
 
 1. **Start clean.**
+
    ```bash
    git switch main && git pull origin main
    ```
+
    Make sure `## [Unreleased]` in `CHANGELOG.md` reflects everything merged since
    the last tag (each PR should have added its own entry).
 
 2. **Bump the version.**
+
    ```bash
    pnpm run release:bump <version>
    ```
+
    This rewrites the `version` field in all three `package.json` files and runs
    `pnpm install --lockfile-only` to refresh `pnpm-lock.yaml`. Review the diff.
 
 3. **Finalise the changelog.** In `CHANGELOG.md`, rename the `## [Unreleased]`
    heading to the released version with a compare link and the date, e.g.:
+
    ```md
    ## [1.3.0](https://github.com/bitrix24/b24jssdk/compare/v1.2.0...v1.3.0) (2026-06-15)
    ```
+
    Then add a new empty `## [Unreleased]` section above it for the next cycle.
    Keep the `Features` / `Bug Fixes` / `Security` / `Chore` grouping.
 
 4. **Commit and push to `main`.**
+
    ```bash
    git add package.json packages/jssdk/package.json packages/jssdk-nuxt/package.json pnpm-lock.yaml CHANGELOG.md
    git commit -m "chore(release): v<version>"
    git push origin main
    ```
+
    The version-bump commit **must** land on `main` before the release — the
    workflow verifies that `package.json` matches the tag.
 
@@ -124,10 +132,12 @@ fires both publish workflows — each runs CI, then publishes its package.
    [If something goes wrong](#if-something-goes-wrong)).
 
 7. **Verify on npm.**
+
    ```bash
    npm view @bitrix24/b24jssdk version
    npm view @bitrix24/b24jssdk-nuxt version
    ```
+
    Both should report `<version>`. (For a pre-release, `version` shows only the
    `latest` tag — use `npm dist-tag ls <pkg>` instead.)
 
@@ -143,7 +153,7 @@ Each is triggered by a **published GitHub Release**, or by a manual
 **workflow_dispatch on `main`** (for a re-run). In order, per workflow:
 
 | Job | What it does |
-|-----|--------------|
+| --- | --- |
 | `ci` | Reuses [`ci.yml`](.github/workflows/ci.yml) — one full CI pass. A red CI stops the publish. |
 | `publish` | Publishes the package (`@bitrix24/b24jssdk` or `@bitrix24/b24jssdk-nuxt`) via OIDC, after the guards below. |
 

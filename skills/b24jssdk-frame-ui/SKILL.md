@@ -70,6 +70,7 @@ for (const deal of picked.deal ?? []) {
 ```
 
 The id format is per entity:
+
 - lead → `L_<n>`
 - contact → `C_<n>`
 - company → `CO_<n>`

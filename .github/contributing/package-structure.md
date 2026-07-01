@@ -11,7 +11,7 @@ How to author code inside `packages/jssdk/src/`. This is the published `@bitrix2
 Source files live in `packages/jssdk/src/` and are grouped by responsibility, not by class hierarchy. Pick the directory that matches what the code *does*, not what it *extends*:
 
 | Directory | Owns |
-|-----------|------|
+| --- | --- |
 | `src/core/` | `AbstractB24`, `Result`, `SdkError`, request-id generation, version manager |
 | `src/core/actions/` | Public action surface, split into `v2/` and `v3/`. File names are kebab-case (`call.ts`, `batch.ts`, `batch-by-chunk.ts`, `call-list.ts`, `fetch-list.ts`); API names are camelCase (`b24.actions.vX.call.make`, `…batch.make`, `…batchByChunk.make`, `…callList.make`, `…fetchList.make`) |
 | `src/core/http/` | `Http` transports (`v2.ts`, `v3.ts`), `AjaxResult`, `AjaxError`, `abstract-http.ts` |
@@ -208,7 +208,7 @@ Use the placeholders directly — never read `package.json` at runtime, never ha
 ## Key Patterns
 
 | Pattern | Usage |
-|---------|-------|
+| --- | --- |
 | Named exports only | `export class Foo`, `export function bar` — no `export default` |
 | Constructor takes `TypeB24` | Helper-style managers accept `b24: TypeB24` — no module-level singletons |
 | Logger via setter | `LoggerFactory.createNullLogger()` by default; replace via `setLogger(logger)` |

@@ -12,7 +12,7 @@ VibeCode (`https://vibecode.bitrix24.tech`) is a **separate HTTP service** built
 ## Decision matrix
 
 | You want to… | Use |
-|---|---|
+| --- | --- |
 | Read/write Bitrix24 entities (CRM, tasks, disk, IM) from a server or in-frame app | **b24jssdk** (`B24Hook`/`B24Frame`/`B24OAuth`) |
 | Have an LLM bootstrap an app on top of Bitrix24 with its own keys (`vibe_api_…`/`vibe_app_…`) | **VibeCode** directly (no SDK) |
 | Use Bitrix24's hosted AI Router or web-search proxy | **VibeCode** directly |
@@ -25,7 +25,7 @@ Default to b24jssdk for anything Bitrix24-shaped. Reach for VibeCode only when y
 The Entity API field names and filter dialect differ from Bitrix24 REST:
 
 | Bitrix24 (b24jssdk) | VibeCode |
-|---|---|
+| --- | --- |
 | `actions.v2.callList.make({ method: 'crm.item.list', params: { filter: { '>=opportunity': 50000 } } })` | `POST /v1/deals/search` body `{ "amount": { "$gte": 50000 } }` |
 | Filter operators: `>=`, `<=`, `!`, `%`, `=%` (v2) or `[['fld','>=','v']]` (v3) | MongoDB-style: `$gte`, `$lte`, `$ne`, `$contains`, `$in` |
 | `phone: [{ VALUE, VALUE_TYPE }]` (multi-value) | `phone: "+7..."` (often single string) |

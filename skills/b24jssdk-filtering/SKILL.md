@@ -23,15 +23,15 @@ filter: {
 ### v2 operators
 
 | Prefix | Meaning | Example |
-|---|---|---|
+| --- | --- | --- |
 | (none) | exact match | `{ stageId: 'NEW' }` |
 | `>=` | greater or equal | `{ '>=opportunity': 50000 }` |
-| `>`  | greater | `{ '>id': 100 }` |
+| `>` | greater | `{ '>id': 100 }` |
 | `<=` | less or equal | `{ '<=opportunity': 200000 }` |
-| `<`  | less | `{ '<closeDate': '2026-01-01' }` |
-| `!`  | not equal | `{ '!stageId': 'LOST' }` |
+| `<` | less | `{ '<closeDate': '2026-01-01' }` |
+| `!` | not equal | `{ '!stageId': 'LOST' }` |
 | `!=` | not equal (alternate) | `{ '!=stageId': 'LOST' }` |
-| `%`  | LIKE (substring, case-insensitive) | `{ '%title': 'поставка' }` |
+| `%` | LIKE (substring, case-insensitive) | `{ '%title': 'поставка' }` |
 | `=%` | LIKE with explicit pattern (`%`/`_`) | `{ '=%title': 'A%' }` |
 | `!%` | NOT LIKE | `{ '!%title': 'тест' }` |
 
@@ -65,7 +65,7 @@ filter: [
 
 ### v3 operators — exhaustive list (only these 8)
 
-```
+```text
 =   !=   >   >=   <   <=   in   between
 ```
 
@@ -159,7 +159,7 @@ filter: [['createdTime', '>=', Text.toB24Format(sixMonthsAgo)]]
 The same logical field has different names depending on the method:
 
 | Logical | Classic methods (`crm.deal.list`, …) | v3-style methods (`crm.item.list`) |
-|---|---|---|
+| --- | --- | --- |
 | ID | `ID` | `id` |
 | Title | `TITLE` | `title` |
 | Stage | `STAGE_ID` | `stageId` |

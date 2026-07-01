@@ -227,7 +227,8 @@ export default defineCommand({
      * gate, still governed by `retryOnNetworkError` (default `true`).
      *
      * **What it does:** Lowers the underlying axios timeout to **1 ms**
-     * on the v2 HTTP client, then makes a normal `user.current` call.
+     * on the v2 HTTP client, then makes a normal `server.time` call. `server.time`
+     * needs no scope, so the probe works whatever scopes the webhook holds.
      * Every attempt aborts before any response can arrive, so the SDK
      * enters the retry loop and burns all `maxRetries` (3) attempts.
      *
@@ -244,7 +245,7 @@ export default defineCommand({
       let d: Awaited<ReturnType<typeof run>> | null = null
       try {
         d = await run('D. transient — timeout still retries (axios timeout=1ms)', () =>
-          b24.actions.v2.call.make({ method: 'user.current' })
+          b24.actions.v2.call.make({ method: 'server.time' })
         )
       } finally {
         v2.defaults.timeout = restore
@@ -264,7 +265,8 @@ export default defineCommand({
      * bypass these.
      *
      * **What it does:** Fires `--total` (default 500) parallel
-     * `user.current` calls. The SDK's `RateLimiter` / `AdaptiveDelayer`
+     * `server.time` calls (a scope-free method — works whatever scopes the
+     * webhook holds). The SDK's `RateLimiter` / `AdaptiveDelayer`
      * should pre-throttle (`blocked method`), and on `503` / `429` the
      * `RestrictionManager.handleError()` should issue retries with
      * backoff.
@@ -281,10 +283,10 @@ export default defineCommand({
     if (want('E')) {
       memHandler.clear()
       const t0 = Date.now()
-      logger.notice(`===== E. rate-limit — ${totalArg} parallel user.current =====`)
+      logger.notice(`===== E. rate-limit — ${totalArg} parallel server.time =====`)
       const results = await Promise.allSettled(
         Array.from({ length: totalArg }, () =>
-          b24.actions.v2.call.make({ method: 'user.current' })
+          b24.actions.v2.call.make({ method: 'server.time' })
         )
       )
       const elapsed = Date.now() - t0

@@ -13,7 +13,7 @@
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.32",
     "@ai-sdk/mcp": "^1.0.39",
-    "@ai-sdk/vue": "^3.0.174",
+    "@ai-sdk/vue": "^4.0.4",
     "@comark/vue": "^0.3.1",
     "@nuxt/a11y": "1.0.0-alpha.1",
     "@nuxt/content": "^3.13.0",

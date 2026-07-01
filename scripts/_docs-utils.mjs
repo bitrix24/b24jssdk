@@ -1,10 +1,12 @@
 // Shared helpers for scripts/docs-lint.mjs and scripts/docs-link-check.mjs.
 //
-// Kept tiny and dependency-free on purpose: both scripts run in CI and we
-// don't want to introduce a runtime dep just for a markdown walker.
+// Kept tiny on purpose: both scripts run in CI. The only third-party dep is
+// `js-yaml` (a root devDependency) for frontmatter parsing — see
+// `parseFrontmatter`.
 
 import { readdirSync, lstatSync } from 'node:fs'
 import { join } from 'node:path'
+import yaml from 'js-yaml'
 
 /**
  * Recursively collect every `.md` file under `dir`.
@@ -39,19 +41,46 @@ function stripBom(text) {
   return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text
 }
 
+// Keys that must never reach `Object.prototype`.
+const POLLUTION_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
 /**
- * Minimal YAML parser sufficient for our frontmatter shape: scalar
- * `key: value`, dotted keys (`navigation.title`), arrays opened by `key:`
- * followed by `  - item` lines, and continuation lines indented under an
- * array item. Does NOT cover flow-style YAML, anchors, multi-doc separators,
- * or block scalars (`|` / `>`). If frontmatter ever needs any of that, swap
- * in `js-yaml`.
+ * Convert a value parsed by js-yaml into the shape the docs-lint callers
+ * expect. The hand-rolled parser this replaced represented each `links:` array
+ * item as a raw multi-line STRING (`"label: Foo\niconName: …\nto: …"`), and
+ * both `extractGithubLinkPaths` (docs-lint.mjs) and
+ * `extractInternalLinksFromLinksArray` (docs-link-check.mjs) split on `\n` and
+ * look for a `to:` line. js-yaml instead yields an array of plain OBJECTS
+ * (`{ label, iconName, to }`). To keep observable behaviour identical without
+ * touching those consumers, we re-serialise each object array item back into
+ * the `key: value` line form. Scalar array items pass through unchanged.
+ */
+function toLegacyArrayItems(arr) {
+  return arr.map((item) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      return Object.entries(item)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join('\n')
+    }
+    return item
+  })
+}
+
+/**
+ * Thin wrapper around `js-yaml` for our Markdown frontmatter.
  *
- * Defensive against three real-world edge cases:
- * - UTF-8 BOM at the start of the file (Windows editors).
- * - `\r\n` line endings (Windows checkouts).
- * - Frontmatter keys that would otherwise reach `Object.prototype`
- *   (`__proto__`, `constructor`, `prototype`) — silently dropped.
+ * The heavy lifting (scalar `key: value`, dotted keys like `navigation.title`,
+ * `links:` arrays with per-item fields) is delegated to `yaml.load`. This file
+ * only owns the boundary concerns the loader doesn't:
+ *
+ * - UTF-8 BOM at the start of the file (Windows editors) is stripped.
+ * - `\r\n` line endings (Windows checkouts) are collapsed to `\n`.
+ * - Prototype-pollution-shaped top-level keys (`__proto__`, `constructor`,
+ *   `prototype`) are dropped, and the returned object is built with
+ *   `Object.create(null)` for defence-in-depth.
+ * - `links:` array items are re-serialised to the legacy multi-line-string
+ *   shape the consumers in docs-lint.mjs / docs-link-check.mjs expect (see
+ *   `toLegacyArrayItems`).
  *
  * @param {string} text Raw file contents.
  * @returns {{ frontmatter: Record<string, unknown>, body: string }}
@@ -64,38 +93,27 @@ export function parseFrontmatter(text) {
   if (end === -1) return { frontmatter: {}, body: normalized }
   const fm = normalized.slice(3, end).trim()
   const body = normalized.slice(end + 4).replace(/^\n/, '')
+
+  let parsed
+  try {
+    // JSON_SCHEMA (not the default schema) so the legacy string-parser's
+    // observable output doesn't change: `audited: 2026-05-26` stays a string
+    // (the default schema's YAML timestamp type coerces it to a JS Date,
+    // breaking the `frontmatter.audited + 'T…'` concat in docs-lint.mjs).
+    parsed = yaml.load(fm, { schema: yaml.JSON_SCHEMA })
+  } catch {
+    return { frontmatter: {}, body }
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { frontmatter: {}, body }
+  }
+
   const frontmatter = Object.create(null)
-  let currentKey = null
-  let currentArray = null
-  for (const rawLine of fm.split('\n')) {
-    const line = rawLine.replace(/\s+$/, '')
-    if (!line.trim()) continue
-    if (/^\s+- /.test(line) && currentArray) {
-      currentArray.push(line.replace(/^\s+- /, '').trim())
-      continue
-    }
-    if (/^\s{2,}/.test(line) && currentKey && currentArray) {
-      const last = currentArray[currentArray.length - 1]
-      currentArray[currentArray.length - 1] = last + '\n' + line.trim()
-      continue
-    }
-    const colonIdx = line.indexOf(':')
-    if (colonIdx === -1) continue
-    const key = line.slice(0, colonIdx)
-    if (!/^[\w.-]+$/.test(key)) continue
-    // Guard against prototype-pollution-shaped keys. The frontmatter object
-    // is also created with `Object.create(null)` above for defence-in-depth.
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
-    const val = line.slice(colonIdx + 1).trim()
-    if (val === '') {
-      frontmatter[key] = []
-      currentKey = key
-      currentArray = frontmatter[key]
-      continue
-    }
-    frontmatter[key] = val.replace(/^['"]|['"]$/g, '')
-    currentKey = key
-    currentArray = null
+  for (const [key, value] of Object.entries(parsed)) {
+    // Guard against prototype-pollution-shaped keys. The frontmatter object is
+    // also created with `Object.create(null)` for defence-in-depth.
+    if (POLLUTION_KEYS.has(key)) continue
+    frontmatter[key] = Array.isArray(value) ? toLegacyArrayItems(value) : value
   }
   return { frontmatter, body }
 }

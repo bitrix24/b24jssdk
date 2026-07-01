@@ -44,6 +44,15 @@ test('parseFrontmatter: CRLF line endings are normalised', () => {
   assert.equal(body, 'hi\n')
 })
 
+test('parseFrontmatter: `audited:` date stays a string (JSON_SCHEMA, no Date coercion)', () => {
+  // The default js-yaml schema would parse this as a JS Date via the YAML
+  // timestamp type, breaking the `frontmatter.audited + 'T…'` concat in
+  // docs-lint.mjs. JSON_SCHEMA keeps it a plain string — pin that.
+  const { frontmatter } = parseFrontmatter('---\naudited: 2026-05-26\n---\n')
+  assert.equal(typeof frontmatter.audited, 'string')
+  assert.equal(frontmatter.audited, '2026-05-26')
+})
+
 test('parseFrontmatter: UTF-8 BOM is stripped before structural match', () => {
   const raw = '﻿---\ntitle: Bar\n---\n\nbody\n'
   const { frontmatter } = parseFrontmatter(raw)

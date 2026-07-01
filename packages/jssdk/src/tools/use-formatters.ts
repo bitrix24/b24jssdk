@@ -1,6 +1,41 @@
 import FormatterNumbers from './formatters/numbers'
 import { IbanSpecification, FormatterIban } from './formatters/iban'
 
+/**
+ * Composable that exposes the shared number and IBAN formatters used across the SDK.
+ *
+ * Both formatters are singletons (`FormatterNumbers.getInstance()` / `FormatterIban.getInstance()`),
+ * so calling `useFormatter()` multiple times always returns the same underlying instances.
+ *
+ * On every call, the returned `formatterIban` is (re-)populated with the full list of IBAN
+ * country specifications (all countries from the official IBAN registry, several non-official
+ * countries that follow the IBAN structure, and the French regional/administrative subdivisions
+ * GF, GP, MQ, RE, PF, TF, YT, NC, BL, MF, PM). Because `formatterIban` is a singleton and
+ * `addSpecification` simply overwrites the entry for a given country code, re-registering the
+ * same specifications on subsequent calls is a cheap no-op.
+ *
+ * `formatterNumber` is a `FormatterNumbers` instance that wraps `Intl.NumberFormat` for
+ * locale-aware number formatting (see `FormatterNumbers.format`).
+ *
+ * `formatterIban` is a `FormatterIban` instance used to validate and pretty-print IBANs, and to
+ * convert between IBAN and BBAN representations (see `FormatterIban.isValid`,
+ * `FormatterIban.printFormat`, `FormatterIban.electronicFormat`, `FormatterIban.toBBAN`,
+ * `FormatterIban.fromBBAN`, `FormatterIban.isValidBBAN`, `FormatterIban.addSpecification`).
+ *
+ * @returns An object with `formatterNumber` (`FormatterNumbers` singleton) and `formatterIban`
+ * (`FormatterIban` singleton, pre-loaded with IBAN country specifications).
+ *
+ * @example
+ * ```ts
+ * import { useFormatter } from '@bitrix24/b24jssdk'
+ *
+ * const { formatterNumber, formatterIban } = useFormatter()
+ *
+ * formatterIban.printFormat('GB29NWBK60161331926819') // 'GB29 NWBK 6016 1331 9268 19'
+ * formatterIban.isValid('DE89370400440532013000') // true
+ * formatterNumber.format(1234.567) // '1,234.57'
+ * ```
+ */
 export const useFormatter = () => {
   const formatterNumber = FormatterNumbers.getInstance()
 

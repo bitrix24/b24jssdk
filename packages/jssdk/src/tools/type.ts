@@ -13,11 +13,40 @@ interface FileLike extends BlobLike {
 }
 
 /**
- * The `Type` class is designed to check and determine data types
+ * A collection of runtime type guards used across the SDK.
+ *
+ * Every method (other than `getTag` and `clone`) is a TypeScript type guard
+ * (`value is X`), so it can be used directly in `if` chains and have the
+ * compiler narrow the value's type. It groups together checks for:
+ * - primitives (strings, numbers, booleans, `null` / `undefined`),
+ * - objects (plain objects, functions, `Map` / `Set` / `WeakMap` / `WeakSet`, `RegExp`, prototypes),
+ * - arrays and array-like values (including typed arrays and `ArrayBuffer`),
+ * - DOM nodes (elements, text nodes),
+ * - file-like values (`Blob`, `File`, `FormData`),
+ * - JSON-RPC message shapes.
+ *
+ * The class is exported as the `Type` singleton — you never instantiate it yourself.
+ *
+ * @example
+ * ```ts
+ * import { Type } from '@bitrix24/b24jssdk'
+ *
+ * function process(value: unknown) {
+ *   if (Type.isStringFilled(value)) {
+ *     // value: string
+ *     return value.trim()
+ *   }
+ * }
+ * ```
  *
  * @see bitrix/js/main/core/src/lib/type.js
  */
 class TypeManager {
+  /**
+   * Returns the internal `[[Class]]` tag of a value.
+   * @param value - The value to inspect.
+   * @returns The result of `Object.prototype.toString.call(value)`, e.g. `'[object Array]'`.
+   */
   getTag(value: any): string {
     return Object.prototype.toString.call(value)
   }
@@ -98,6 +127,11 @@ class TypeManager {
     )
   }
 
+  /**
+   * Checks that value looks like a JSON-RPC request object.
+   * @param value - The value to check.
+   * @returns True when `value` has a non-empty `jsonrpc` string and a non-empty `method` string.
+   */
   isJsonRpcRequest(value: any): boolean {
     return (
       typeof value === 'object'
@@ -109,6 +143,11 @@ class TypeManager {
     )
   }
 
+  /**
+   * Checks that value looks like a JSON-RPC response object.
+   * @param value - The value to check.
+   * @returns True when `value` has a non-empty `jsonrpc` string, an `id`, and either a `result` or an `error` property.
+   */
   isJsonRpcResponse(value: any): boolean {
     return (
       typeof value === 'object'
@@ -345,7 +384,7 @@ class TypeManager {
   | Float32Array
   | Float64Array {
     const regExpTypedTag
-      = /^\[object (?:Float(?:32|64)|(?:Int|Uint)(?:8|16|32)|Uint8Clamped)\]$/
+      = /^\[object (?:Float(?:32|64)|(?:Int|Uint)(?:8|16|32)|Uint8Clamped)Array\]$/
     return this.isObjectLike(value) && regExpTypedTag.test(this.getTag(value))
   }
 
@@ -389,6 +428,17 @@ class TypeManager {
     return this.isObjectLike(value) && this.getTag(value) === '[object FormData]'
   }
 
+  /**
+   * Deep-clones a value, with support for DOM nodes.
+   *
+   * Primitives and `null` / `undefined` are returned unchanged. `Date` instances
+   * are cloned via `new Date(obj)`, DOM nodes via `Node.cloneNode`, and plain
+   * objects/arrays are copied property by property (recursively, when `bCopyObj` is true).
+   *
+   * @param obj - The value to clone.
+   * @param bCopyObj - When true (default), nested objects/arrays are cloned recursively; when false, they are copied by reference.
+   * @returns A clone of `obj` (or `obj` itself for primitives).
+   */
   clone(obj: any, bCopyObj: boolean = true): any {
     let _obj, i, l
 

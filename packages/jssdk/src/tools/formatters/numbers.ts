@@ -1,5 +1,12 @@
 import { Type } from '../type'
 
+/**
+ * Locale-aware number formatter built on `Intl.NumberFormat`.
+ *
+ * A singleton — obtain it through `useFormatter()` rather than constructing
+ * it directly (the constructor is guarded and throws `TypeError`). Integers
+ * are formatted with no fraction digits and non-integers with exactly two.
+ */
 export default class FormatterNumbers {
   private static isInternalConstructing: boolean = false
   private static instance: FormatterNumbers | null = null
@@ -12,7 +19,9 @@ export default class FormatterNumbers {
   }
 
   /**
-   * @return FormatterNumbers
+   * Returns the shared `FormatterNumbers` singleton, creating it on first use.
+   *
+   * @returns The shared instance.
    */
   static getInstance(): FormatterNumbers {
     if (!FormatterNumbers.instance) {
@@ -22,10 +31,34 @@ export default class FormatterNumbers {
     return FormatterNumbers.instance
   }
 
+  /**
+   * Sets the default locale used by {@link format} when no explicit locale is
+   * passed. Affects every consumer of the shared instance.
+   *
+   * @param locale - A BCP 47 locale tag (e.g. `'de'`, `'ru'`).
+   */
   setDefLocale(locale: string) {
     this._defLocale = locale
   }
 
+  /**
+   * Formats a number for the given (or default) locale.
+   *
+   * The locale falls back to the value set via {@link setDefLocale}, then to
+   * `navigator.language`, then to `'en'`. Integers get no fraction digits and
+   * non-integers exactly two. For `ru`-based locales the decimal comma is
+   * normalised to a dot.
+   *
+   * @param value - The number to format.
+   * @param locale - Optional BCP 47 locale tag overriding the default.
+   * @returns The formatted number.
+   *
+   * @example
+   * ```ts
+   * formatterNumber.format(1234.5)        // '1,234.50'
+   * formatterNumber.format(1234.5, 'de')  // '1.234,50'
+   * ```
+   */
   format(value: number, locale?: string): string {
     let formatter
     if (typeof locale === 'undefined' || !Type.isStringFilled(locale)) {

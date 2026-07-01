@@ -121,6 +121,12 @@ class TextManager {
    * deliberately omitted (`&amp` instead of `&amp;`). Non-string values are
    * returned untouched.
    *
+   * This is **not** a general-purpose HTML sanitizer: it only escapes those
+   * five characters and is not context-aware (it does not neutralise
+   * attribute-breakout, `javascript:` URLs, or markup outside the escaped set).
+   * Do not rely on it as the sole XSS defence for untrusted input rendered as
+   * HTML.
+   *
    * @param value - The string to encode.
    * @returns The encoded string, or the original value when it is not a string.
    *
@@ -142,8 +148,9 @@ class TextManager {
    * characters.
    *
    * Both the named entities (`&amp`, `&lt`, …) and their numeric equivalents
-   * (`&#38`, `&#60`, …), with or without the trailing `;`, are recognised.
-   * Non-string values are returned untouched.
+   * (`&#38`, `&#60`, …) are recognised. Like {@link encode}, the tokens carry
+   * no trailing `;`, so a `;` that follows an entity in the input is left in
+   * place (`&amp;` decodes to `&;`). Non-string values are returned untouched.
    *
    * @param value - The string to decode.
    * @returns The decoded string, or the original value when it is not a string.
@@ -290,16 +297,19 @@ class TextManager {
    * Converts a string to `kebab-case`.
    *
    * Splits on uppercase-letter boundaries as well as existing separators, so
-   * both `camelCase` and acronym-heavy names are handled. An empty or
-   * non-filled string is returned untouched.
+   * both `camelCase` and mixed-case acronyms are handled. An uppercase run that
+   * is immediately followed by a digit is split into single letters
+   * (`parseHTML5` → `parse-h-t-m-l-5`), because there is no word boundary
+   * between the acronym and the digit. An empty or non-filled string is
+   * returned untouched.
    *
    * @param str - The string to convert.
    * @returns The `kebab-case` string.
    *
    * @example
    * ```ts
-   * Text.toKebabCase('getUserId')  // 'get-user-id'
-   * Text.toKebabCase('parseHTML5') // 'parse-html-5'
+   * Text.toKebabCase('getUserId')      // 'get-user-id'
+   * Text.toKebabCase('XMLHttpRequest') // 'xml-http-request'
    * ```
    */
   toKebabCase(str: string): string {
@@ -469,7 +479,8 @@ class TextManager {
    * Keys and values are percent-encoded. Array values are expanded into
    * indexed pairs (`key[0]=a&key[1]=b`). The leading `?` is **not** included.
    *
-   * @param params - The object to serialise.
+   * @param params - The object to serialise. A `null` / `undefined` value
+   *   yields an empty string.
    * @returns The encoded query string (without a leading `?`).
    *
    * @example
@@ -479,6 +490,10 @@ class TextManager {
    * ```
    */
   buildQueryString(params: any): string {
+    if (Type.isNil(params)) {
+      return ''
+    }
+
     const pairs: string[] = []
 
     for (const [key, value] of Object.entries(params)) {

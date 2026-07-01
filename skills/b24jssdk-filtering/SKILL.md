@@ -139,7 +139,7 @@ If you need a specific sort order, drop down to `call.make` and page manually �
 
 ## Dates
 
-Use the SDK helper `Text.toB24Format(date)` — it produces the Bitrix24 format `yyyy-MM-dd'T'HH:mm:ssZZ` and handles `Date | DateTime | string` inputs (per `packages/jssdk/src/tools/text.ts:213-226`).
+Use the SDK helper `Text.toB24Format(date)` — it produces the Bitrix24 format `yyyy-MM-dd'T'HH:mm:ssZZ` and handles `Date | DateTime | string` inputs (see `Text.toB24Format` in `packages/jssdk/src/tools/text.ts`).
 
 ```ts
 import { Text } from '@bitrix24/b24jssdk'

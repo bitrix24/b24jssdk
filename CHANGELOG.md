@@ -152,7 +152,7 @@
 * **README:** full rewrite — badges, three entry points (`B24Hook` / `B24Frame` / `B24OAuth`), Quick Start (#114)
 * **cookbook:** 5 cookbook recipes + REST page lint + `audited:` freshness contract (#36)
 * **examples landing:** refresh `/docs/examples` to list all 20 recipes — Cookbook (5) / Extended catalogue (12) / UI showcases (3) (#116)
-* **logging:** document credential redaction in HTTP layer (#67), log-archive audit patterns + logging hygiene cross-link (#75)
+* **logging:** document credential redaction in HTTP layer (#67), log-archive audit patterns + logging hygiene cross-link (#75) — see [/docs/working-with-the-rest-api/logging/](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/logging/) (#52)
 * **examples (code align):** align inline TS examples with v1.1.0 / v1.1.1 type changes (#37)
 * **homepage:** examples nav cleanup, top-nav entry, cookbook + extended-catalogue sections (#104), card hover polish (#107), vite optimizeDeps + homepage improvements (#115)
 * **prerender / 404:** register 12 recipe pages in prerender list (#95), resolve remaining `docs:generate` failures (#99), absolute paths in examples index (#101), GitHub Pages 404 for trailing-slash URLs (#100)

@@ -24,6 +24,7 @@ import {
   ParamsFactory
 } from '../../../packages/jssdk/src/'
 import { AjaxError } from '../../../packages/jssdk/src/core/http/ajax-error'
+import { SdkError } from '../../../packages/jssdk/src/core/sdk-error'
 import { redactSensitiveParams, redactSensitiveUrl } from '../../../packages/jssdk/src/core/http/redact'
 import type { LoggerInterface } from '../../../packages/jssdk/src/types/logger'
 
@@ -373,6 +374,51 @@ describe('core.http logger redaction @issue-39', () => {
     const stringBlob = err.toString()
     expect(stringBlob).not.toContain('OAUTH_TOKEN_PROBE_xxx')
     expect(stringBlob).not.toContain('USER_PASSWORD_PROBE_yyy')
+  })
+
+  it('#189 AjaxError.originalError is non-enumerable — property-walking serializers cannot leak the raw AxiosError', () => {
+    // The raw AxiosError carries `config` (URL with the webhook secret, and
+    // auth headers). #39 redaction covers requestInfo/toJSON/toString, but the
+    // raw error is stashed on `originalError`. It must be non-enumerable so a
+    // spread `{...err}`, `Object.keys`, `Object.assign`, or a Sentry-style
+    // capture skips it — while staying readable for local debugging.
+    const fakeAxiosError = {
+      name: 'AxiosError',
+      message: 'Request failed with status code 401',
+      config: {
+        url: `https://example.bitrix24.com/rest/1/${FAKE_SECRET}/crm.deal.add`,
+        headers: { Authorization: `Bearer ${FAKE_SECRET}` }
+      }
+    }
+    const err = AjaxError.fromException(fakeAxiosError, { code: 'AUTHORIZE_ERROR', status: 401 })
+
+    // Still accessible for debugging.
+    expect(err.originalError).toBe(fakeAxiosError)
+    // But non-enumerable — invisible to property-walking serializers.
+    expect(Object.getOwnPropertyDescriptor(err, 'originalError')?.enumerable).toBe(false)
+    expect(Object.keys(err)).not.toContain('originalError')
+
+    // None of the common serialize paths leak the secret:
+    expect(JSON.stringify({ ...err })).not.toContain(FAKE_SECRET) // spread
+    expect(JSON.stringify(Object.assign({}, err))).not.toContain(FAKE_SECRET) // Sentry-style copy
+    expect(JSON.stringify(err)).not.toContain(FAKE_SECRET) // toJSON path (already safe)
+    expect(JSON.stringify(err.toJSON())).not.toContain(FAKE_SECRET)
+  })
+
+  it('#189 SdkError.originalError is non-enumerable too (fix lives in the base constructor)', () => {
+    // The guarantee is implemented in SdkError's constructor, so assert it
+    // directly on the base class — not only via the AjaxError subclass.
+    const err = new SdkError({
+      code: 'JSSDK_INTERNAL_ERROR',
+      status: 500,
+      description: 'boom',
+      originalError: { config: { url: `https://x.bitrix24.com/rest/1/${FAKE_SECRET}/` } }
+    })
+    expect(err.originalError).toBeDefined() // still readable for debugging
+    expect(Object.getOwnPropertyDescriptor(err, 'originalError')?.enumerable).toBe(false)
+    expect(Object.keys(err)).not.toContain('originalError')
+    expect(JSON.stringify({ ...err })).not.toContain(FAKE_SECRET)
+    expect(JSON.stringify(err)).not.toContain(FAKE_SECRET)
   })
 
   it('retry path does not leak the secret across multiple attempts', async () => {

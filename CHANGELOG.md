@@ -19,6 +19,8 @@
 
 * Filled the `@todo docs` JSDoc placeholders across the public surface — actions (v2/v3), the HTTP transports, `AjaxResult`, the limiter stack, the `B24Hook` / `B24Frame` / `B24OAuth` entry points, tools, and public types (#154).
 * **tools:** expanded the `Text`, `Type`, `Browser`, and `useFormatter` documentation pages to the full tools skeleton and added complete JSDoc to `packages/jssdk/src/tools/text.ts`. `Text.getDateForLog()` now uses the `yyyy` year token (was `y`) to match its documented `yyyy-MM-dd HH:mm:ss` format — output is unchanged for four-digit years (#291).
+* **security:** new [Security patterns](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/security/) page for event-receiver / OAuth apps — reply-`2xx`-first ordering and constant-time `application_token` verification, with a checklist (#84).
+* **skills:** document the skill installation paths on the AI Skills page — project / personal install, the published `/.well-known/skills/` URL, and vendor-in for non-Claude tools (#124).
 
 ### Deprecations
 

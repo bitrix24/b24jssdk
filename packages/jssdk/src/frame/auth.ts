@@ -3,6 +3,13 @@ import type { MessageManager } from './message'
 import type { AuthActions, AuthData, RefreshAuthData, MessageInitData } from '../types/auth'
 import type { ApiVersion } from '../types/b24'
 import { MessageCommands } from './message'
+import { SdkError } from '../core/sdk-error'
+
+// How long to wait for the parent window to answer a `refreshAuth` postMessage
+// before giving up. Without this the promise never settles if the parent is
+// slow / navigated away / blocked — and since #182 every 401 refreshes, so a
+// hung parent would hang the request. (#189)
+const REFRESH_AUTH_TIMEOUT = 10_000
 
 /**
  * Authorization Manager
@@ -69,15 +76,40 @@ export class AuthManager implements AuthActions {
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-functions/bx24-refresh-auth.html
    */
   public async refreshAuth(): Promise<AuthData> {
-    return this.#messageManager
-      .send(MessageCommands.refreshAuth, {})
-      .then((data: RefreshAuthData) => {
-        this.#accessToken = data.AUTH_ID
-        this.#refreshId = data.REFRESH_ID
-        this.#authExpires = Date.now() + Number.parseInt(data.AUTH_EXPIRES) * 1_000
+    // Bound the wait: `MessageManager.send` has no timeout of its own here, and
+    // its `isSafely` mode auto-*resolves* with `{ isSafely: true }` — which is
+    // NOT valid `AuthData`. So race the send against a timer that *rejects*, so
+    // a hung parent surfaces a clean error instead of never settling. (#189)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(
+        () => reject(new SdkError({
+          code: 'JSSDK_FRAME_REFRESH_AUTH_TIMEOUT',
+          status: 408,
+          description: `refreshAuth: the parent window did not answer within ${REFRESH_AUTH_TIMEOUT}ms`
+        })),
+        REFRESH_AUTH_TIMEOUT
+      )
+    })
 
-        return Promise.resolve(this.getAuthData() as AuthData)
-      })
+    try {
+      const data = await Promise.race([
+        this.#messageManager.send(MessageCommands.refreshAuth, {}) as Promise<RefreshAuthData>,
+        timeout
+      ])
+
+      this.#accessToken = data.AUTH_ID
+      this.#refreshId = data.REFRESH_ID
+      this.#authExpires = Date.now() + Number.parseInt(data.AUTH_EXPIRES) * 1_000
+
+      return this.getAuthData() as AuthData
+    } finally {
+      // Clear the timer on either outcome so a resolved refresh doesn't leave a
+      // pending reject-timer running (and keep the event loop clean).
+      if (timer) {
+        clearTimeout(timer)
+      }
+    }
   }
 
   public getUniq(prefix: string): string {

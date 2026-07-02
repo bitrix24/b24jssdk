@@ -13,15 +13,17 @@ export class SdkError extends Error {
   protected _status: number
   public readonly timestamp: Date
   /**
-   * Redaction contract: opaque, un-scrubbed payload. Outside the redaction
-   * contract — it may carry transport-layer detail (e.g. `AxiosError.config.url`
-   * / request headers) that logger-side redaction does NOT scrub. This class's
-   * own `toJSON()` / `toString()` already omit it — the risk is only if you
-   * access `err.originalError` directly, so do NOT blanket-stringify it into a
-   * log/error sink; surface `code` / `status` / `message` (and
-   * `AjaxError.requestInfo`, which IS redacted) instead. (#73)
+   * Opaque, un-scrubbed payload — may carry transport-layer detail
+   * (e.g. `AxiosError.config.url` / request headers) with credentials that the
+   * logger-side redaction does NOT scrub. It is defined **non-enumerable**
+   * (see the constructor) so property-walking serializers — a spread
+   * `{ ...err }`, `Object.keys(err)`, `Object.assign({}, err)`, or a
+   * Sentry-style capture — skip it and can't leak the secret. `toJSON()` /
+   * `toString()` already omit it too. It stays readable as `err.originalError`
+   * for local debugging; prefer `code` / `status` / `message` (and
+   * `AjaxError.requestInfo`, which IS redacted) for anything you log. (#73, #189)
    */
-  public readonly originalError?: unknown
+  declare public readonly originalError?: unknown
 
   constructor(params: SdkErrorDetails) {
     const message = SdkError.formatErrorMessage(params)
@@ -31,7 +33,15 @@ export class SdkError extends Error {
     this.code = params.code
 
     this._status = params.status
-    this.originalError = params.originalError
+    // Non-enumerable so a serializer that walks own-enumerable properties
+    // (Sentry, `{ ...err }`, `Object.keys`) never sees the raw error and its
+    // credential-bearing `config`; still accessible via `err.originalError`. (#189)
+    Object.defineProperty(this, 'originalError', {
+      value: params.originalError,
+      enumerable: false,
+      writable: false,
+      configurable: true
+    })
     this.timestamp = new Date()
 
     this.cleanErrorStack()

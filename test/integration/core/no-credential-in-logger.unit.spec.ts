@@ -10,8 +10,9 @@
  *
  * This test runs the REAL rule module through ESLint's `Linter` on known-bad /
  * known-good snippets, AND separately asserts `eslint.config.mjs` actually wires
- * the rule over a scope wider than `core/http` — so either a broken matcher or an
- * unwired/narrowed rule turns CI red. Pure logic, no portal — jsSdk:unit.
+ * the rule over a scope wider than `core/http` — the whole SDK source AND the
+ * Nuxt module (#262) — so either a broken matcher or an unwired/narrowed rule
+ * turns CI red. Pure logic, no portal — jsSdk:unit.
  */
 import { describe, it, expect } from 'vitest'
 import { Linter } from 'eslint'
@@ -115,7 +116,9 @@ describe('no-credential-in-logger rule (#226, guards #39/#40)', () => {
     // must actually register that rule in the SAME entry, else ESLint throws
     // "definition for rule … was not found" at load. Lock the plugin block too.
     expect(entry!.plugins?.local?.rules?.['no-credential-in-logger']).toBeTruthy()
-    // widened from core/http to the whole SDK source (#226)
+    // widened from core/http to the whole SDK source (#226) and to the Nuxt
+    // module source (#262) so a #39-class leak is caught in both packages.
     expect(entry!.files).toContain('packages/jssdk/src/**/*.ts')
+    expect(entry!.files).toContain('packages/jssdk-nuxt/src/**/*.ts')
   })
 })

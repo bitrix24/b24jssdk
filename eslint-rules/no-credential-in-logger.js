@@ -7,6 +7,9 @@
  * #212) into one named rule with explicit AST logic, a single credential
  * vocabulary, and contextual messages that name the offending key (#226).
  *
+ * Report-only for now; IDE quick-fix suggestions (`hasSuggestions`) are a
+ * deferred follow-up (#308) — there is no single mechanical fix per shape.
+ *
  * Covered (a Property / SpreadElement anywhere inside a `logger.<level>(…)` call):
  *   1. credential-shaped VALUE as a bare identifier — `{ url }`, `{ method: methodFormatted }`
  *   2. credential-shaped VALUE via member access      — `{ foo: err.config.url }`
@@ -19,9 +22,13 @@
  *     rule spans the whole SDK, reviewers in pull / frame / hook / oauth (not just
  *     the HTTP layer) must reject these by hand: log the bare method name.
  *   • Vocabulary: `auth` and `sessid` are deliberately NOT in CREDENTIAL_KEY —
- *     `auth` is too common a word (false-positive risk) and both are already
- *     masked at runtime by redactSensitiveParams(). The lint layer stays narrow
- *     on purpose; the runtime redactor is the broader net.
+ *     `auth` is too common a word (false-positive risk: `authorized`, `author`,
+ *     `authManager`, `isAdminAuth`…) and both are already masked at runtime by
+ *     redactSensitiveParams(). Decision (#262): the lint layer intentionally does
+ *     NOT mirror the runtime redactor vocabulary — it stays narrow on high-signal
+ *     credential words to avoid false positives, and the runtime redactor is the
+ *     broader net. If `auth`/`sessid` are ever added, add matching shouldFire
+ *     test cases in the lock spec.
  */
 
 // Logger methods whose context object must stay credential-free.

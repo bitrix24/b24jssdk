@@ -43,15 +43,20 @@ export default createConfigForNuxt({
   // the local `no-credential-in-logger` rule (one credential vocabulary, explicit
   // AST logic, contextual messages — see `eslint-rules/no-credential-in-logger.js`),
   // and widened from `core/http/**` to the whole SDK source so a #39-class leak
-  // outside the HTTP layer (pull / frame / hook / oauth) is caught too. The
+  // outside the HTTP layer (pull / frame / hook / oauth) is caught too. Also
+  // covers the Nuxt module source (`packages/jssdk-nuxt/src/**`) so the same
+  // leak class is caught there as the SDK re-exports flow through it. The
   // runtime `redactSensitiveParams()` is the other half; this is the lint layer.
-  // (#226 — promotes #42 / #212)
+  // (#226 — promotes #42 / #212; Nuxt scope added in #262)
   //
   // NOT covered — the linter can't see the value through string interpolation:
   // template literals like `logger.debug(`GET ${url}`)` and `'…' + url`
   // concatenation. Reviewers must still reject those by hand: log the bare
   // method name, never the formatted URL.
-  files: ['packages/jssdk/src/**/*.ts'],
+  files: [
+    'packages/jssdk/src/**/*.ts',
+    'packages/jssdk-nuxt/src/**/*.ts'
+  ],
   plugins: {
     local: { rules: { 'no-credential-in-logger': noCredentialInLogger } }
   },

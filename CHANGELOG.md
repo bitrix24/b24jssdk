@@ -21,6 +21,7 @@
 * **tools:** expanded the `Text`, `Type`, `Browser`, and `useFormatter` documentation pages to the full tools skeleton and added complete JSDoc to `packages/jssdk/src/tools/text.ts`. `Text.getDateForLog()` now uses the `yyyy` year token (was `y`) to match its documented `yyyy-MM-dd HH:mm:ss` format — output is unchanged for four-digit years (#291).
 * **security:** new [Security patterns](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/security/) page for event-receiver / OAuth apps — reply-`2xx`-first ordering and constant-time `application_token` verification, with a checklist (#84).
 * **skills:** document the skill installation paths on the AI Skills page — project / personal install, the published `/.well-known/skills/` URL, and vendor-in for non-Claude tools (#124).
+* **docs:** corrected the `AGENTS.md` claim that the CHANGELOG is auto-generated — it is hand-maintained (keep-a-changelog style, finalised at release per `RELEASING.md`); and fixed the `v1.0.2` CHANGELOG date `2026-03-17` → `2026-02-17` to match the actual GitHub release (#178).
 
 ### Deprecations
 
@@ -260,7 +261,7 @@
 
 * **ListPayload**: remove any from the union 
 
-## [1.0.2](https://github.com/bitrix24/b24jssdk/compare/v1.0.1...v1.0.2) (2026-03-17)
+## [1.0.2](https://github.com/bitrix24/b24jssdk/compare/v1.0.1...v1.0.2) (2026-02-17)
 
 ### Bug Fixes
 
@@ -308,7 +309,12 @@ Please see the full [SDK v1 migration guide](https://bitrix24.github.io/b24jssdk
 * **Http.#prepareMethod:** telemetry transfer to task methods
 
 ## [0.4.9] (2025-09-12)
+
+_No user-facing changes (empty release)._
+
 ## [0.4.8] (2025-09-12)
+
+_No user-facing changes (empty release)._
 
 ## [0.4.7](https://github.com/bitrix24/b24jssdk/compare/v0.4.6...v0.4.7) (2025-09-12)
 

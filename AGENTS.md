@@ -171,7 +171,7 @@ Cutting a release (bump → changelog → tag → publish) is documented in **[R
 
 ## Key Conventions
 
-- **Conventional Commits**: `feat`/`fix` for behaviour, `docs`/`chore` otherwise (e.g. `feat(http): add adaptive delayer`, `fix(frame): refresh auth on 401`). The CHANGELOG is generated from these.
+- **Conventional Commits**: `feat`/`fix` for behaviour, `docs`/`chore` otherwise (e.g. `feat(http): add adaptive delayer`, `fix(frame): refresh auth on 401`). These prefixes guide which section a change lands in, but the CHANGELOG is **hand-maintained** — not auto-generated: add your entry under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) (keep-a-changelog style: Added / Changed / Fixed / Docs), and it is finalised into a versioned section at release time (see [RELEASING.md](RELEASING.md)). Adopting changelog tooling is tracked separately (#310).
 - **No default exports**: every export is named so consumers stay tree-shakeable (`sideEffects: false`).
 - **TypeScript strict**: `tsc` for the core SDK; `vue-tsc` for the Nuxt / docs / playground projects.
 - **Public contract**: exports from [packages/jssdk/src/index.ts](packages/jssdk/src/index.ts) are a public API. Any breaking change needs a deprecation cycle, not a silent rename.

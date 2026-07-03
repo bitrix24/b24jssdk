@@ -106,7 +106,10 @@ fires both publish workflows — each runs CI, then publishes its package.
    ```
 
    Then add a new empty `## [Unreleased]` section above it for the next cycle.
-   Keep the `Features` / `Bug Fixes` / `Security` / `Chore` grouping.
+   Keep the keep-a-changelog grouping the `[Unreleased]` buffer uses —
+   `Added` / `Changed` / `Fixed` / `Docs` / `Deprecations`. (Released sections
+   from the `1.x` era used the older `Features` / `Bug Fixes` / `Security` /
+   `Chore` grouping; don't reintroduce it for new sections.)
 
 4. **Commit and push to `main`.**
 

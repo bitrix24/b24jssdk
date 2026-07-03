@@ -11,7 +11,12 @@ export class LongPollingConnector extends AbstractConnector {
 
   private _requestTimeout: ReturnType<typeof setTimeout> | null
   private _failureTimeout: ReturnType<typeof setTimeout> | null
-  private readonly _xhr: XMLHttpRequest
+  // Created lazily on the first connect() rather than in the constructor: the
+  // connector is built eagerly by PullClient.init() (which runs inside start())
+  // regardless of the chosen transport, and `new XMLHttpRequest()` throws a
+  // ReferenceError under SSR/Node where the global is absent. Deferring it keeps
+  // construct + init + start SSR-safe; connect() degrades gracefully instead. (#222)
+  private _xhr: XMLHttpRequest | null
   private _requestAborted: boolean
 
   constructor(config: ConnectorConfig) {
@@ -22,7 +27,7 @@ export class LongPollingConnector extends AbstractConnector {
 
     this._requestTimeout = null
     this._failureTimeout = null
-    this._xhr = this.createXhr()
+    this._xhr = null
     this._requestAborted = false
   }
 
@@ -30,6 +35,21 @@ export class LongPollingConnector extends AbstractConnector {
    * @inheritDoc
    */
   override connect(): void {
+    if (!this._xhr) {
+      // No XMLHttpRequest under SSR/Node: a long-polling connection needs a
+      // browser. Surface a clean error instead of a raw ReferenceError. (#222)
+      if (typeof XMLHttpRequest === 'undefined') {
+        this._callbacks.onError(
+          new Error(
+            'LongPollingConnector: XMLHttpRequest is not available in this'
+            + ' environment (SSR/Node); a long-polling connection requires a browser'
+          )
+        )
+        return
+      }
+      this._xhr = this.createXhr()
+    }
+
     this._active = true
     this.performRequest()
   }
@@ -63,7 +83,12 @@ export class LongPollingConnector extends AbstractConnector {
       throw new Error('Long polling connection path is not defined')
     }
 
-    if (this._xhr.readyState !== 0 && this._xhr.readyState !== 4) {
+    const xhr = this._xhr
+    if (!xhr) {
+      return
+    }
+
+    if (xhr.readyState !== 0 && xhr.readyState !== 4) {
       return
     }
 
@@ -78,20 +103,25 @@ export class LongPollingConnector extends AbstractConnector {
       LONG_POLLING_TIMEOUT * 1_000
     )
 
-    this._xhr.open('GET', this.connectionPath)
-    this._xhr.send()
+    xhr.open('GET', this.connectionPath)
+    xhr.send()
   }
 
   private onRequestTimeout() {
     this._requestAborted = true
-    this._xhr.abort()
+    this._xhr?.abort()
     this.performRequest()
   }
 
   private onXhrReadyStateChange(): void {
-    if (this._xhr.readyState === 4) {
-      if (!this._requestAborted || this._xhr.status == 200) {
-        this.onResponse(this._xhr.response)
+    const xhr = this._xhr
+    if (!xhr) {
+      return
+    }
+
+    if (xhr.readyState === 4) {
+      if (!this._requestAborted || xhr.status == 200) {
+        this.onResponse(xhr.response)
       }
 
       this._requestAborted = false
@@ -109,6 +139,13 @@ export class LongPollingConnector extends AbstractConnector {
       return false
     }
 
+    if (typeof XMLHttpRequest === 'undefined') {
+      this.getLogger().error(
+        `${Text.getDateForLog()}: Pull: XMLHttpRequest is not available; cannot publish`
+      )
+      return false
+    }
+
     const xhr = new XMLHttpRequest()
     xhr.open('POST', path)
     xhr.send(buffer)
@@ -119,7 +156,12 @@ export class LongPollingConnector extends AbstractConnector {
   private onResponse(response: any): void {
     this.clearTimeOut()
 
-    if (this._xhr.status === 200) {
+    const xhr = this._xhr
+    if (!xhr) {
+      return
+    }
+
+    if (xhr.status === 200) {
       this.connected = true
       if (Type.isStringFilled(response) || response instanceof ArrayBuffer) {
         this._callbacks.onMessage(response)
@@ -127,13 +169,13 @@ export class LongPollingConnector extends AbstractConnector {
         this._parent.session.mid = null
       }
       this.performRequest()
-    } else if (this._xhr.status === 304) {
+    } else if (xhr.status === 304) {
       this.connected = true
       if (
-        this._xhr.getResponseHeader('Expires')
+        xhr.getResponseHeader('Expires')
         === 'Thu, 01 Jan 1973 11:11:01 GMT'
       ) {
-        const lastMessageId = this._xhr.getResponseHeader('Last-Message-Id')
+        const lastMessageId = xhr.getResponseHeader('Last-Message-Id')
         if (Type.isStringFilled(lastMessageId)) {
           this._parent.setLastMessageId(lastMessageId || '')
         }

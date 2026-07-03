@@ -23,7 +23,9 @@ export class SharedConfig {
         : () => {}
     } as SharedConfigCallbacks
 
-    if (this._storage) {
+    // Guard `window`: under SSR/Node it is undefined and referencing it throws
+    // a ReferenceError. Skip the cross-tab storage listener there (#222).
+    if (this._storage && typeof window !== 'undefined') {
       window.addEventListener('storage', this.onLocalStorageSet.bind(this))
     }
   }

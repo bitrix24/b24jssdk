@@ -109,6 +109,25 @@ export class PullClient implements ConnectorParent {
   private _watchUpdateTimeout: ReturnType<typeof setTimeout> | null = null
   private _pingWaitTimeout: ReturnType<typeof setTimeout> | null = null
 
+  // Single source of truth for every tracked timer field. armTimeout()/
+  // clearAllTimers() route through this list so a future timer cannot be added
+  // without a matching teardown — the leak class behind #141 (#222). Individual
+  // fields are kept because call-sites read their identity (e.g. `if
+  // (this._reconnectTimeout)`), but clearAllTimers() is the one teardown path.
+  private readonly _timerFields = [
+    '_reconnectTimeout',
+    '_restartTimeout',
+    '_restoreWebSocketTimeout',
+    '_checkInterval',
+    '_offlineTimeout',
+    '_watchUpdateTimeout',
+    '_pingWaitTimeout'
+  ] as const
+
+  // Records every window listener init() registered so removeAllWindowListeners()
+  // can drop exactly what was added, keeping arm/teardown symmetric (#222).
+  private _windowListeners: Array<{ type: string, handler: () => void }> = []
+
   // manual stop workaround ////
   private _isManualDisconnect: boolean = false
 
@@ -133,6 +152,16 @@ export class PullClient implements ConnectorParent {
   } = null
 
   private _startingPromise: null | Promise<boolean> = null
+
+  // Monotonic token bumped on every start() and on destroy(). start()'s
+  // loadConfig()/connect() continuations capture the value at kick-off and bail
+  // if it no longer matches — deterministically neutralising an in-flight start()
+  // when destroy() (or a fresh start()) supersedes it, even for overlapping
+  // start/destroy/start. The underlying rest transport
+  // (this._restClient.actions.v2.call.make) does not accept an AbortSignal, so
+  // this generation-token approach is used instead of an AbortController; the
+  // network round-trip itself is not cancelled (remaining follow-up). (#222)
+  private _startGeneration: number = 0
   // endregion ////
 
   // region Init ////
@@ -201,7 +230,10 @@ export class PullClient implements ConnectorParent {
     }
     // endregion ////
 
-    this._isSecure = document?.location.href.indexOf('https') === 0
+    // Guard the `document` global: under SSR/Node it is undefined and even
+    // `document?.` throws a ReferenceError on an undeclared identifier (#222).
+    this._isSecure = typeof document !== 'undefined'
+      && document?.location.href.indexOf('https') === 0
 
     if (this._userId && !this._skipStorageInit) {
       this._storage = new StorageManager({
@@ -253,13 +285,12 @@ export class PullClient implements ConnectorParent {
   destroy(): void {
     this._disposed = true
 
+    // Invalidate any in-flight start() continuation (#222).
+    this._startGeneration++
+
     this.stop(CloseReasons.NORMAL_CLOSURE, 'manual stop')
 
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('beforeunload', this._onBeforeUnloadHandler)
-      window.removeEventListener('offline', this._onOfflineHandler)
-      window.removeEventListener('online', this._onOnlineHandler)
-    }
+    this.removeAllWindowListeners()
 
     // Drop the cached pull config on teardown: it holds the push `jwt` and the
     // channel signatures, which must not linger in localStorage after the client
@@ -300,11 +331,9 @@ export class PullClient implements ConnectorParent {
       ? ConnectionType.WebSocket
       : ConnectionType.LongPolling
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', this._onBeforeUnloadHandler)
-      window.addEventListener('offline', this._onOfflineHandler)
-      window.addEventListener('online', this._onOnlineHandler)
-    }
+    this.addWindowListener('beforeunload', this._onBeforeUnloadHandler)
+    this.addWindowListener('offline', this._onOfflineHandler)
+    this.addWindowListener('online', this._onOnlineHandler)
 
     /**
      * @memo Not use under Node.js
@@ -632,9 +661,27 @@ export class PullClient implements ConnectorParent {
     }
 
     this._starting = true
+    // Capture the current generation; a destroy() or a newer start() bumps
+    // _startGeneration and the continuation below bails (#222).
+    const startGeneration = ++this._startGeneration
     return (this._startingPromise = new Promise((resolve, reject) => {
       this.loadConfig('client_start')
         .then((config) => {
+          // Abort the continuation if the client was destroyed or superseded
+          // while loadConfig()'s network round-trip was in flight. The
+          // _disposed guards inside setConfig/init/connect are a second line of
+          // defence; this bails deterministically and rejects the start (#222).
+          if (this._disposed || this._startGeneration !== startGeneration) {
+            this._starting = false
+            reject({
+              ex: {
+                error: 'PULL_DISPOSED',
+                error_description: 'PullClient has been destroyed; create a new instance'
+              }
+            })
+            return
+          }
+
           this.setConfig(config as TypePullClientConfig, allowConfigCaching)
           this.init()
           this.updateWatch(true)
@@ -732,28 +779,51 @@ export class PullClient implements ConnectorParent {
   // running. Previously only _checkInterval was cleared, so the other six timers
   // (including the self-rescheduling watch-extend) survived teardown (#141).
   private clearAllTimers(): void {
-    for (const timer of [
-      this._reconnectTimeout,
-      this._restartTimeout,
-      this._restoreWebSocketTimeout,
-      this._offlineTimeout,
-      this._watchUpdateTimeout,
-      this._pingWaitTimeout
-    ]) {
+    for (const field of this._timerFields) {
+      const timer = this[field]
       if (timer) {
-        clearTimeout(timer)
+        if (field === '_checkInterval') {
+          clearInterval(timer)
+        } else {
+          clearTimeout(timer)
+        }
+      }
+      this[field] = null
+    }
+  }
+
+  // Arm a tracked setTimeout: clears any existing id for the field first (same
+  // clear-before-set the call-sites did by hand), then stores the new id. The
+  // interval-backed _checkInterval keeps its own setInterval path. (#222)
+  private armTimeout(
+    field: Exclude<(typeof this._timerFields)[number], '_checkInterval'>,
+    fn: () => void,
+    ms: number
+  ): void {
+    const existing = this[field]
+    if (existing) {
+      clearTimeout(existing)
+    }
+    this[field] = setTimeout(fn, ms)
+  }
+
+  // Window-listener registry: init() adds through here, destroy() drops through
+  // removeAllWindowListeners(), so a listener can't be added without teardown. (#222)
+  private addWindowListener(type: string, handler: () => void): void {
+    if (typeof window === 'undefined') {
+      return
+    }
+    window.addEventListener(type, handler)
+    this._windowListeners.push({ type, handler })
+  }
+
+  private removeAllWindowListeners(): void {
+    if (typeof window !== 'undefined') {
+      for (const { type, handler } of this._windowListeners) {
+        window.removeEventListener(type, handler)
       }
     }
-    if (this._checkInterval) {
-      clearInterval(this._checkInterval)
-    }
-    this._reconnectTimeout = null
-    this._restartTimeout = null
-    this._restoreWebSocketTimeout = null
-    this._offlineTimeout = null
-    this._watchUpdateTimeout = null
-    this._pingWaitTimeout = null
-    this._checkInterval = null
+    this._windowListeners = []
   }
 
   public reconnect(
@@ -1083,7 +1153,7 @@ export class PullClient implements ConnectorParent {
       'UserId': this._userId + (this._userId > 0 ? '' : '(guest)'),
       'Guest userId':
         this._guestMode && this._guestUserId !== 0 ? this._guestUserId : '-',
-      'Browser online': navigator.onLine ? 'Y' : 'N',
+      'Browser online': (typeof navigator !== 'undefined' && navigator.onLine) ? 'Y' : 'N',
       'Connect': this.isConnected() ? 'Y' : 'N',
       'Server type': this.isSharedMode() ? 'cloud' : 'local',
       'WebSocket supported': this.isWebSocketSupported() ? 'Y' : 'N',
@@ -1225,7 +1295,7 @@ export class PullClient implements ConnectorParent {
   }
 
   public isWebSocketSupported(): boolean {
-    return typeof window.WebSocket !== 'undefined'
+    return typeof window !== 'undefined' && typeof window.WebSocket !== 'undefined'
   }
 
   public isWebSocketAllowed(): boolean {
@@ -1852,7 +1922,7 @@ export class PullClient implements ConnectorParent {
          * @memotry to delete the key "history"
          * (landing site change history, see http://jabber.bx/view.php?id=136492)
          */
-        if (localStorage && localStorage.removeItem) {
+        if (typeof localStorage !== 'undefined' && localStorage.removeItem) {
           localStorage.removeItem('history')
         }
         this.getLogger().error(
@@ -1952,16 +2022,11 @@ export class PullClient implements ConnectorParent {
         )
       }
     }
-    if (this._reconnectTimeout) {
-      clearTimeout(this._reconnectTimeout)
-      this._reconnectTimeout = null
-    }
-
     this.logToConsole(
       `Pull: scheduling reconnection in ${connectionDelay} seconds; attempt # ${this._connectionAttempt}`
     )
 
-    this._reconnectTimeout = setTimeout(() => {
+    this.armTimeout('_reconnectTimeout', () => {
       this.connect().catch((error) => {
         this.getLogger().error('scheduleReconnect', { error })
       })
@@ -1981,7 +2046,7 @@ export class PullClient implements ConnectorParent {
       return
     }
 
-    this._restoreWebSocketTimeout = setTimeout(() => {
+    this.armTimeout('_restoreWebSocketTimeout', () => {
       this._restoreWebSocketTimeout = null
       this.restoreWebSocketConnection()
     }, RESTORE_WEBSOCKET_TIMEOUT * 1_000)
@@ -2028,16 +2093,12 @@ export class PullClient implements ConnectorParent {
       return
     }
 
-    if (this._restartTimeout) {
-      clearTimeout(this._restartTimeout)
-      this._restartTimeout = null
-    }
-
     if (restartDelay < 1) {
       restartDelay = Math.ceil(Math.random() * 30) + 5
     }
 
-    this._restartTimeout = setTimeout(
+    this.armTimeout(
+      '_restartTimeout',
       () => this.restart(disconnectCode, disconnectReason),
       restartDelay * 1_000
     )
@@ -2581,12 +2642,7 @@ export class PullClient implements ConnectorParent {
       return
     }
 
-    if (this._offlineTimeout) {
-      clearTimeout(this._offlineTimeout)
-      this._offlineTimeout = null
-    }
-
-    this._offlineTimeout = setTimeout(() => {
+    this.armTimeout('_offlineTimeout', () => {
       this._offlineTimeout = null
       this.sendPullStatus(status)
     }, delay)
@@ -2638,12 +2694,8 @@ export class PullClient implements ConnectorParent {
       return
     }
 
-    if (this._watchUpdateTimeout) {
-      clearTimeout(this._watchUpdateTimeout)
-      this._watchUpdateTimeout = null
-    }
-
-    this._watchUpdateTimeout = setTimeout(
+    this.armTimeout(
+      '_watchUpdateTimeout',
       () => {
         /**
          * @memo test this
@@ -2699,12 +2751,8 @@ export class PullClient implements ConnectorParent {
       return
     }
 
-    if (this._pingWaitTimeout) {
-      clearTimeout(this._pingWaitTimeout)
-      this._pingWaitTimeout = null
-    }
-
-    this._pingWaitTimeout = setTimeout(
+    this.armTimeout(
+      '_pingWaitTimeout',
       this._onPingTimeoutHandler,
       PING_TIMEOUT * 2 * 1_000
     )

@@ -188,6 +188,15 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Test on every supported non-EOL Node line so the runtimes the SDK
+    # advertises in `engines` are actually exercised (#174). 22 = the line the
+    # publish workflows build the artifact on (lowest supported + validated);
+    # 24 = newest active LTS. (Node 20 is still in `engines` but EOL and slated
+    # for removal in #312, so it is intentionally not in the matrix.)
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -198,7 +207,7 @@ jobs:
       - name: Install node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: pnpm
 
       - name: Install dependencies
@@ -218,7 +227,9 @@ jobs:
         # Audit prod + dev dependencies at the `moderate` threshold. Dev deps
         # execute during lint/typecheck/docs builds in CI, so a vulnerable one
         # is in-scope. Known transitive advisories are pinned to patched
-        # versions via `overrides` in pnpm-workspace.yaml (#110).
+        # versions via `overrides` in pnpm-workspace.yaml (#110). Node-agnostic,
+        # so run it once (on the baseline leg), not per matrix entry.
+        if: matrix.node == 22
         run: pnpm audit --audit-level=moderate
 
   build:

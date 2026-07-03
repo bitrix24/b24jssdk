@@ -1,14 +1,18 @@
+# Local cross-runtime smoke: mirrors the CI `test` job's Node matrix (22 + 24),
+# the supported+validated lines. EOL Node 18 was removed with the `engines`
+# drop in #174; Node 20 stays in `engines` for now but is EOL and slated for
+# removal in #312, so it is not exercised here.
 services:
-  test-node18:
-    image: node:18-alpine
+  test-node22:
+    image: node:22-alpine
     volumes:
       - .:/app
       - /app/node_modules
     working_dir: /app
     command: sh -c "npm install --no-audit && npm run build && npm test"
 
-  test-node20:
-    image: node:20-alpine
+  test-node24:
+    image: node:24-alpine
     volumes:
       - .:/app
       - /app/node_modules

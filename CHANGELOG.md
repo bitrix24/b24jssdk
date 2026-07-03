@@ -9,6 +9,7 @@
 ### Changed
 
 * **types:** `TypeHttp.ajaxClient` is now `AxiosInstance` instead of `AxiosInstance | any` (the union erased the type) (#153).
+* **build:** dropped end-of-life Node.js 18 from `engines` — the supported range is now `^20.0.0 || >=22.0.0`, and `@bitrix24/b24jssdk-nuxt` now declares the same range (it previously had none). Node 20 is retained for now; its removal is a breaking change deferred to the next major (#312). CI now runs the unit tests on a Node `22 + 24` matrix, and both npm-publish workflows build the artifact on a pinned, CI-validated Node 22 instead of the floating `lts/*` (#174).
 
 ### Fixed
 

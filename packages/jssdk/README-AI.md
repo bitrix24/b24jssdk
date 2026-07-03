@@ -231,7 +231,7 @@ for await (const chunk of $b24.fetchListMethod('crm.item.list', { entityTypeId: 
 
 Notes
 
-- Supported Node versions: ^18, ^20, or >=22.
+- Supported Node versions: ^20 or >=22.
 - B24Hook warns if used on the client; keep it server-side.
 
 

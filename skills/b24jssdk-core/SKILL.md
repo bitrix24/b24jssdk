@@ -50,7 +50,7 @@ const $b24 = new B24Hook({
 Notes:
 
 - Keep `B24Hook` server-side only. The webhook URL contains a long-lived secret.
-- Supported Node: `^18`, `^20`, `>=22`.
+- Supported Node: `^20`, `>=22`.
 
 ## B24Frame (in-iframe app)
 

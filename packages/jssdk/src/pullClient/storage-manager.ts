@@ -24,7 +24,7 @@ export class StorageManager implements TypeStorageManager {
   }
 
   set(name: string, value: any): void {
-    if (typeof window.localStorage === 'undefined') {
+    if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
       this.getLogger().error('localStorage undefined', {
         error: new Error('undefined window.localStorage')
       })
@@ -39,7 +39,7 @@ export class StorageManager implements TypeStorageManager {
   }
 
   get(name: string, defaultValue: any): any {
-    if (typeof window.localStorage === 'undefined') {
+    if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
       return defaultValue || null
     }
 
@@ -52,7 +52,7 @@ export class StorageManager implements TypeStorageManager {
   }
 
   remove(name: string): void {
-    if (typeof window.localStorage === 'undefined') {
+    if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
       this.getLogger().error('localStorage undefined', {
         error: new Error('undefined window.localStorage')
       })

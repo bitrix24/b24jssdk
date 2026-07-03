@@ -16,6 +16,13 @@ export default defineConfig({
           name: 'jsSdk:unit',
           environment: 'node',
           testTimeout: 10_000,
+          // Some unit specs (the PullClient SSR/lifecycle suites) mutate shared
+          // browser globals — `globalThis.window` / `document` / `navigator` /
+          // `XMLHttpRequest` — to simulate Node/SSR. Running files in parallel
+          // let one file's global teardown race another's assertions, producing
+          // flaky `window is not defined` failures. Serialise the files so the
+          // global mutations can't interleave. (#222)
+          fileParallelism: false,
           include: ['./test/integration/**/*.unit.spec.ts']
         }
       },

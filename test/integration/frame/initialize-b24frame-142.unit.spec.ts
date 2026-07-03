@@ -148,11 +148,10 @@ describe('#142 initializeB24Frame() failure handling', () => {
     expect(frameConstructCount).toBe(2)
   })
 
-  it('a caller that QUEUES via startWatch during a retry resolves (not poisoned by the old connectError)', async () => {
-    // Pins the entry-time `connectError = null` reset: the retry keeps its init
-    // pending so a second retry caller goes through the isMakeFirstCall/startWatch
-    // queue path (not a direct resolve). A stale connectError would make the
-    // watch reject this queued caller.
+  it('concurrent callers during a retry share ONE init and both resolve (not poisoned by the prior failure)', async () => {
+    // After a failure, a retry must succeed for every caller — the earlier
+    // error must not leak into the new attempt. Two callers issued while the
+    // retry's init is pending share the single cached promise and both resolve.
     setWindow(VALID_NAME)
     let rejectFirst!: (error: any) => void
     initBehavior = () => new Promise<void>((_resolve, reject) => {
@@ -165,26 +164,27 @@ describe('#142 initializeB24Frame() failure handling', () => {
     rejectFirst(new Error('first boom'))
     await expect(failing).rejects.toThrow('first boom')
 
-    // Retry: keep init pending so the second caller queues via startWatch.
+    // Retry: keep init pending so the second caller joins the same in-flight init.
     let resolveRetry!: () => void
     initBehavior = () => new Promise<void>((resolve) => {
       resolveRetry = resolve
     })
-    const retryA = mod.initializeB24Frame() // fresh first-call, init pending
-    const retryB = mod.initializeB24Frame() // queued via startWatch
+    const retryA = mod.initializeB24Frame() // fresh attempt, init pending
+    const retryB = mod.initializeB24Frame() // shares retryA's cached promise
     retryA.catch(() => {})
     retryB.catch(() => {})
 
     resolveRetry()
 
     await expect(retryA).resolves.toBeTruthy()
-    await expect(retryB).resolves.toBeTruthy() // must NOT be rejected with 'first boom'
+    await expect(retryB).resolves.toBeTruthy() // must NOT reject with 'first boom'
+    expect(frameConstructCount).toBe(2) // one failed attempt + one successful retry
   })
 
-  it('stops the watch loop after a failure — no infinite 50ms polling', async () => {
-    // Pins startWatch's `connectError === null` termination guard. A queued
-    // caller arms the watch; once init fails the loop must stop, leaving no
-    // pending timer. Without the guard the watch re-arms itself forever.
+  it('never schedules a background timer — no busy-poll while init is pending or after failure', async () => {
+    // Regression guard for the refactor: initialization is a single shared
+    // promise, so it must not arm any setTimeout (the former startWatch armed a
+    // self-rescheduling 50ms poll). No timers before, during, or after a failure.
     vi.useFakeTimers()
     try {
       setWindow(VALID_NAME)
@@ -194,19 +194,21 @@ describe('#142 initializeB24Frame() failure handling', () => {
       })
       const { initializeB24Frame } = await loadLoader()
 
-      const pA = initializeB24Frame() // first call, init pending
-      const pB = initializeB24Frame() // queued → arms startWatch
+      const pA = initializeB24Frame()
+      const pB = initializeB24Frame()
       pA.catch(() => {})
       pB.catch(() => {})
 
-      expect(vi.getTimerCount()).toBeGreaterThanOrEqual(1)
+      // No poll timer while init is in flight.
+      expect(vi.getTimerCount()).toBe(0)
 
       rejectInit(new Error('boom'))
-      // Flush the .catch/failInit microtasks and run the armed watch timer.
       await vi.advanceTimersByTimeAsync(50 * 4)
 
-      // The watch must have terminated: nothing left polling.
+      // And none left after a terminal failure.
       expect(vi.getTimerCount()).toBe(0)
+      await expect(pA).rejects.toThrow('boom')
+      await expect(pB).rejects.toThrow('boom')
     } finally {
       vi.useRealTimers()
     }

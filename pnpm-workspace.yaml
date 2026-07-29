@@ -13,26 +13,53 @@ packages:
 # (the command CI runs — prod + dev deps, moderate threshold) stays clean.
 # Re-evaluate on each dependency bump (the weekly Dependabot npm PR is a
 # natural trigger).
+#
+# UPPER BOUND: every floor also carries a `<next-major` ceiling. An override wins
+# over the range every dependent declares, so an unbounded floor silently pulls a
+# new major into the whole tree the moment one is published — `pnpm update` moved
+# `js-yaml` 4 → 5 (pure ESM, no default export: it broke `scripts/_docs-utils.mjs`)
+# and `fast-uri` 3 → 4 (past the `^3.0.1` that `ajv` declares) in exactly this way.
+# A major crossing must be a deliberate edit here, not a side effect of a bump.
 overrides:
-  fast-uri: '>=3.1.2'
-  hono: '>=4.12.25'
-  ip-address: '>=10.1.1'
-  brace-expansion: '>=5.0.6'
-  ws: '>=8.20.1'
-  qs: '>=6.15.2'
-  devalue: '>=5.8.1'
-  esbuild: '>=0.28.1'
-  form-data: '>=4.0.6'
+  fast-uri: '>=3.1.2 <4'
+  hono: '>=4.12.25 <5'
+  ip-address: '>=10.1.1 <11'
+  brace-expansion: '>=5.0.6 <6'
+  ws: '>=8.20.1 <9'
+  qs: '>=6.15.2 <7'
+  devalue: '>=5.8.1 <6'
+  # esbuild is 0.x — every minor is a breaking release, so the ceiling is the minor
+  esbuild: '>=0.28.1 <0.29'
+  form-data: '>=4.0.6 <5'
   vite: '>=7.3.5 <8'
-  nuxt: '>=4.4.7'
+  nuxt: '>=4.4.7 <5'
   # GHSA-vmf3-w455-68vh — tar parser interpretation differential (file smuggling)
-  tar: '>=7.5.16'
+  tar: '>=7.5.16 <8'
   # GHSA-v6wh-96g9-6wx3 — launch-editor NTLMv2 hash disclosure via UNC path (Windows)
-  launch-editor: '>=2.14.1'
+  launch-editor: '>=2.14.1 <3'
   # GHSA-6v5v-wf23-fmfq — markdown-it quadratic-complexity DoS in smartquotes
-  markdown-it: '>=14.1.2'
+  markdown-it: '>=14.1.2 <15'
   # GHSA-h67p-54hq-rp68 — js-yaml quadratic-complexity DoS in merge-key aliases
-  js-yaml: '>=4.1.2'
+  js-yaml: '>=4.1.2 <5'
+  # GHSA-f88m-g3jw-g9cj — sharp; reached via docs>@nuxt/image>ipx and
+  # docs>nuxt-og-image. sharp is 0.x, so the ceiling is the minor.
+  sharp: '>=0.35.3 <0.36'
+  # Not security pins — a dedupe pin, mirroring the same block in the sibling
+  # `bitrix24/b24ui` repo. `nuxt-og-image` / `nuxt-schema-org` pull `nuxtseo-shared`
+  # → `@unhead/vue` → `@vitejs/devtools-kit` → `devframe`, which depends on the h3
+  # v2 release candidate. h3 v2 in the tree makes `@nuxtjs/mcp-toolkit` resolve its
+  # h3 *peer* to v2 while Nitro still hands docs' server routes an h3 v1 `H3Event` —
+  # two structurally different `H3Event` types in one `nuxt typecheck`. A range
+  # override does not settle a peer; an exact version does.
+  # Drop once @nuxtjs/mcp-toolkit and Nitro agree on one h3 major.
+  h3: 1.15.11
+  # Also a dedupe pin. `shiki-transformer-color-highlight@1.1.0` (latest) still asks
+  # for `@shikijs/core`/`@shikijs/types` ^3, while docs, `@nuxtjs/mdc` and
+  # `@nuxt/content` are on shiki 4 — so the transformer it returns is a nominally
+  # different `ShikiTransformer` than the array in `docs/app/mdc.config.ts` accepts.
+  # Drop once the transformer package ships shiki 4 support.
+  '@shikijs/core': '>=4.3.1 <5'
+  '@shikijs/types': '>=4.3.1 <5'
 
 allowBuilds:
   '@parcel/watcher': false

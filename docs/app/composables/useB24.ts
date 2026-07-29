@@ -175,7 +175,6 @@ export const useB24 = () => {
       }
 
       if (trimmedLine.includes('endregion: start')) {
-        inStartRegion = false
         break
       }
 

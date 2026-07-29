@@ -123,7 +123,7 @@ export default defineCommand({
       const t0 = Date.now()
       logger.notice(`===== ${label} =====`)
       let outcome: 'OK' | 'THROWN' = 'OK'
-      let summary = ''
+      let summary: string
       try {
         const res = await fn()
         summary = (res && typeof res === 'object' && '_status' in res)
@@ -242,7 +242,9 @@ export default defineCommand({
       const v2 = b24.getHttpClient(ApiVersion.v2).ajaxClient
       const restore = v2.defaults.timeout
       v2.defaults.timeout = 1
-      let d: Awaited<ReturnType<typeof run>> | null = null
+      // `run()` swallows the request error, so a throw here would be a bug in the
+      // harness itself — let it propagate and leave `d` definitely assigned after.
+      let d: Awaited<ReturnType<typeof run>>
       try {
         d = await run('D. transient — timeout still retries (axios timeout=1ms)', () =>
           b24.actions.v2.call.make({ method: 'server.time' })
@@ -252,8 +254,8 @@ export default defineCommand({
       }
       // A 1ms timeout (HTTP 408) must keep retrying, not fast-fail. Deterministic:
       // every attempt times out, so a healthy SDK records more than one attempt.
-      if (d && d.attempts < 2) regressions.push('D: a client timeout (408) did not retry — it was wrongly fast-failed (PR #45)')
-      if (d && d.notRetryable > 0) regressions.push('D: a client timeout (408) was classified non-retryable (PR #45)')
+      if (d.attempts < 2) regressions.push('D: a client timeout (408) did not retry — it was wrongly fast-failed (PR #45)')
+      if (d.notRetryable > 0) regressions.push('D: a client timeout (408) was classified non-retryable (PR #45)')
     }
     // endregion ////
 

@@ -185,12 +185,9 @@ export abstract class AbstractB24 implements TypeB24 {
             break
           }
 
-          let resultData = undefined
-          if (customKeyForResult) {
-            resultData = (responseLoop.getData() as any).result[customKeyForResult] as []
-          } else {
-            resultData = (responseLoop.getData() as any).result as []
-          }
+          const resultData: [] = customKeyForResult
+            ? (responseLoop.getData() as any).result[customKeyForResult] as []
+            : (responseLoop.getData() as any).result as []
 
           list = [...list, ...resultData]
 

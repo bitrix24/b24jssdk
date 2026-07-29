@@ -232,7 +232,7 @@ onMounted(() => {
               :icon="CrossMIcon"
               color="air-tertiary"
               size="sm"
-              @click="isOpen = false"
+              @click="() => { isOpen = false }"
             />
           </B24Tooltip>
         </div>

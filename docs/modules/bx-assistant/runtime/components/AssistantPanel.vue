@@ -19,7 +19,7 @@ const components: Record<string, any> = {
 
 const [DefineChatContent, ReuseChatContent] = createReusableTemplate<{ showExpandButton?: boolean }>()
 
-const { isOpen, isExpanded, isMobile, panelWidth, toggleExpanded, messages, pendingMessage, clearPending, faqQuestions } = useAssistant()
+const { isOpen, isExpanded, isMobile, panelWidth, toggleExpanded, close, messages, pendingMessage, clearPending, faqQuestions } = useAssistant()
 const config = useRuntimeConfig()
 const appLocale = useLocale()
 const toast = useToast()
@@ -232,7 +232,7 @@ onMounted(() => {
               :icon="CrossMIcon"
               color="air-tertiary"
               size="sm"
-              @click="isOpen = false"
+              @click="close"
             />
           </B24Tooltip>
         </div>

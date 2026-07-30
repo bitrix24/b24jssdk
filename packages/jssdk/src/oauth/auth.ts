@@ -185,10 +185,9 @@ export class AuthOAuthManager implements AuthActions {
         throw error
       }
 
-      throw new Error(
-        `Strange error: ${error instanceof Error ? error.message : error}`,
-        { cause: error instanceof Error ? error : undefined }
-      )
+      // Both `instanceof Error` branches above have already rethrown, so `error`
+      // here is always a non-Error value — carry it as the cause verbatim.
+      throw new Error(`Strange error: ${String(error)}`, { cause: error })
     }
   }
 

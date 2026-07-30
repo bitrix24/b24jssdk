@@ -135,7 +135,7 @@ Reply as JSON:
   try {
     return JSON.parse(raw) as Recommendation
   } catch (e) {
-    throw new Error(`GPT returned invalid JSON (${(e as Error).message}): ${raw.slice(0, 200)}`)
+    throw new Error(`GPT returned invalid JSON (${(e as Error).message}): ${raw.slice(0, 200)}`, { cause: e })
   }
 }
 

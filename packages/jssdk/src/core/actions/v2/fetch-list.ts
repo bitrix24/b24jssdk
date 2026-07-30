@@ -99,9 +99,7 @@ export class FetchListV2 extends AbstractAction {
       start: -1
     }
 
-    let isContinue = true
-
-    do {
+    while (true) {
       const response: AjaxResult<T> = await this._b24.actions.v2.call.make<T>({
         method: options.method,
         params: requestParams,
@@ -122,26 +120,20 @@ export class FetchListV2 extends AbstractAction {
       }
       const responseData = response.getData()
       if (!responseData) {
-        isContinue = false
         break
       }
 
-      let resultData: T[] = []
-      if (null === customKeyForResult) {
-        resultData = responseData.result as T[]
-      } else {
-        resultData = (responseData.result as any)[customKeyForResult] as T[]
-      }
+      const resultData: T[] = null === customKeyForResult
+        ? responseData.result as T[]
+        : (responseData.result as any)[customKeyForResult] as T[]
 
       if (resultData.length === 0) {
-        isContinue = false
         break
       }
 
       yield resultData
 
       if (resultData.length < batchSize) {
-        isContinue = false
         break
       }
 
@@ -157,9 +149,8 @@ export class FetchListV2 extends AbstractAction {
         // carries a lowercase `id`). Without a cursor we can't advance, so stop and
         // tell the caller how to fix it instead of silently truncating.
         this._logger.warning(`fetchList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`)
-        isContinue = false
         break
       }
-    } while (isContinue)
+    }
   }
 }

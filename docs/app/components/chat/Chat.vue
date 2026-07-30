@@ -191,6 +191,10 @@ defineShortcuts({
     usingInput: true
   }
 })
+
+function closeChat() {
+  open.value = false
+}
 </script>
 
 <template>
@@ -232,7 +236,7 @@ defineShortcuts({
           size="sm"
           color="air-tertiary"
           :b24ui="{ baseLine: '[--ui-btn-icon-size:26px]' }"
-          @click="open = false"
+          @click="closeChat"
         />
       </B24Tooltip>
     </template>

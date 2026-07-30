@@ -14,12 +14,22 @@ packages:
 # Re-evaluate on each dependency bump (the weekly Dependabot npm PR is a
 # natural trigger).
 #
-# UPPER BOUND: every floor also carries a `<next-major` ceiling. An override wins
-# over the range every dependent declares, so an unbounded floor silently pulls a
-# new major into the whole tree the moment one is published — `pnpm update` moved
-# `js-yaml` 4 → 5 (pure ESM, no default export: it broke `scripts/_docs-utils.mjs`)
-# and `fast-uri` 3 → 4 (past the `^3.0.1` that `ajv` declares) in exactly this way.
-# A major crossing must be a deliberate edit here, not a side effect of a bump.
+# UPPER BOUND: every *range* floor below also carries a `<next-major` ceiling (the
+# dedupe pins at the end of the block are exact versions instead, so they need no
+# ceiling). An override wins over the range every dependent declares, so an
+# unbounded floor silently pulls a new major into the whole tree the moment one is
+# published — `pnpm update` moved `js-yaml` 4 → 5 (pure ESM, no default export: it
+# broke `scripts/_docs-utils.mjs`) and `fast-uri` 3 → 4 (past the `^3.0.1` that
+# `ajv` declares) in exactly this way. A major crossing must be a deliberate edit
+# here, not a side effect of a bump.
+#
+# LOWER BOUND: keep each floor at or above what the manifests declare. Because the
+# override replaces the declared range AND is what pnpm records as the lockfile
+# specifier, a floor that lags a manifest holds an older version that
+# `pnpm install --frozen-lockfile` still accepts — there is no gate that catches
+# it. That is what happened to `nuxt` here: the manifests moved to `^4.5.1` while
+# this floor still read `>=4.4.7`, so the tree stayed on 4.4.8 and carried
+# duplicate `@nuxt/kit` / `@nuxt/schema` trees.
 overrides:
   fast-uri: '>=3.1.2 <4'
   hono: '>=4.12.25 <5'
@@ -32,7 +42,9 @@ overrides:
   esbuild: '>=0.28.1 <0.29'
   form-data: '>=4.0.6 <5'
   vite: '>=7.3.5 <8'
-  nuxt: '>=4.4.7 <5'
+  # Bump this floor in lockstep with the `nuxt` range in the four manifests — see
+  # the LOWER BOUND note above for why a lagging floor is silent.
+  nuxt: '>=4.5.1 <5'
   # GHSA-vmf3-w455-68vh — tar parser interpretation differential (file smuggling)
   tar: '>=7.5.16 <8'
   # GHSA-v6wh-96g9-6wx3 — launch-editor NTLMv2 hash disclosure via UNC path (Windows)
@@ -52,11 +64,25 @@ overrides:
   # two structurally different `H3Event` types in one `nuxt typecheck`. A range
   # override does not settle a peer; an exact version does.
   # Drop once @nuxtjs/mcp-toolkit and Nitro agree on one h3 major.
+  # SHARP EDGE: devframe's h3-touching modules (`utils/serve-static`, `node/index`)
+  # import `H3` / `defineHandler` / `toNodeHandler`, which exist only in h3 v2 — under
+  # this pin they throw `SyntaxError: The requested module 'h3' does not provide an
+  # export named 'H3'` at ESM link time. Nothing reaches them today: the only importer
+  # is `@vitejs/devtools-kit/node`, and nothing in this repo imports that subpath
+  # (`@unhead/bundler` takes `defineRpcFunction` from the package root instead). If a
+  # future devtools-kit / @unhead/bundler release starts using the `/node` subpath,
+  # that link-time SyntaxError — not a resolution error — is what you will see.
+  # EXEMPT FROM THE FLOOR MECHANISM: this is the one exact pin in the block, so unlike
+  # the `>=fixed` security floors it cannot pick up an h3 1.15.x patch on its own. A
+  # future h3 v1 advisory needs this line edited by hand — `pnpm audit` will report
+  # the finding, but nothing signals that this entry is different in kind.
   h3: 1.15.11
   # Also a dedupe pin. `shiki-transformer-color-highlight@1.1.0` (latest) still asks
   # for `@shikijs/core`/`@shikijs/types` ^3, while docs, `@nuxtjs/mdc` and
   # `@nuxt/content` are on shiki 4 — so the transformer it returns is a nominally
   # different `ShikiTransformer` than the array in `docs/app/mdc.config.ts` accepts.
+  # The transformer's whole runtime surface from `@shikijs/core` is `splitToken`, which
+  # shiki 4 still exports unchanged — that one symbol is what to re-check on a bump.
   # Drop once the transformer package ships shiki 4 support.
   '@shikijs/core': '>=4.3.1 <5'
   '@shikijs/types': '>=4.3.1 <5'

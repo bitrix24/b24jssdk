@@ -168,12 +168,9 @@ export abstract class AbstractB24 implements TypeB24 {
     }).then(async (response) => {
       let list: any[] = []
 
-      let resultData
-      if (customKeyForResult) {
-        resultData = (response.getData() as any).result[customKeyForResult] as []
-      } else {
-        resultData = (response.getData() as any).result as []
-      }
+      const resultData: [] = customKeyForResult
+        ? (response.getData() as any).result[customKeyForResult] as []
+        : (response.getData() as any).result as []
 
       list = [...list, ...resultData]
       if (response.isMore()) {

@@ -41,7 +41,16 @@ overrides:
   # esbuild is 0.x — every minor is a breaking release, so the ceiling is the minor
   esbuild: '>=0.28.1 <0.29'
   form-data: '>=4.0.6 <5'
-  vite: '>=7.3.5 <8'
+  # nuxt 4.5.1's `@nuxt/vite-builder` declares `vite: ^8.1.5` and imports
+  # `transformWithOxc`, which only vite 8 exports — on vite 7 the builder fails to
+  # load with `SyntaxError: The requested module 'vite' does not provide an export
+  # named 'transformWithOxc'`. Note this only surfaces in `nuxt build`; `nuxt
+  # typecheck` never loads the builder, so the typecheck gate cannot catch it.
+  vite: '>=8.1.5 <9'
+  # vite 8 pins rolldown ~1.1.5 while `unplugin` accepts any version, so pnpm
+  # otherwise also installs 1.2.x and the two native ABIs collide inside one worker
+  # process. Same pin as the sibling `bitrix24/b24ui` repo.
+  rolldown: '~1.1.5'
   # Bump this floor in lockstep with the `nuxt` range in the four manifests — see
   # the LOWER BOUND note above for why a lagging floor is silent.
   nuxt: '>=4.5.1 <5'

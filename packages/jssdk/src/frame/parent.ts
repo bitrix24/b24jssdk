@@ -202,7 +202,14 @@ export class ParentManager {
   }
 
   /**
-   * Initiates a call via internal communication
+   * Initiates a call via internal communication.
+   *
+   * In-frame bridge: this posts a command to the parent portal window, which
+   * runs the actual call. The classic `BX24.im.callTo` docs mark the method
+   * deprecated in favour of `Messenger.startVideoCall`, but that is a
+   * top-window method and is not directly callable from an app placement
+   * iframe — this SDK method is the way to start an internal call from a
+   * placement.
    *
    * @param {number} userId The identifier of the account user
    * @param {boolean} isVideo true - video call, false - audio call. Optional parameter.
@@ -220,7 +227,14 @@ export class ParentManager {
   }
 
   /**
-   * Makes a call to the phone number
+   * Makes a call to the phone number.
+   *
+   * In-frame bridge: this posts a command to the parent portal window, which
+   * runs the actual call. The classic `BX24.im.phoneTo` docs mark the method
+   * deprecated in favour of `Messenger.startPhoneCall`, but that is a
+   * top-window method and is not directly callable from an app placement
+   * iframe — this SDK method is the way to trigger a phone call from a
+   * placement.
    *
    * @param {string} phone Phone number. The number can be in the format: `+44 20 1234 5678` or `x (xxx) xxx-xx-xx`
    *

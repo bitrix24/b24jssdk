@@ -79,7 +79,13 @@ overrides:
   rolldown: '~1.1.5'
   # Bump this floor in lockstep with the `nuxt` range in the four manifests — see
   # the LOWER BOUND note above for why a lagging floor is silent.
-  nuxt: '>=4.5.1 <5'
+  nuxt: '>=4.5.2 <5'
+  # `nuxt-schema-org` imports `hasOwn` from `unhead/utils`, which only exists from
+  # unhead 3.3.0 on. Without this floor the tree carries both 3.2.x and 3.3.x and
+  # `nuxt-schema-org` resolves against the older copy, so `nuxt typecheck` dies at
+  # module setup with `The requested module 'unhead/utils' does not provide an
+  # export named 'hasOwn'`. Pinning the floor collapses the tree onto one copy.
+  unhead: '>=3.3.2 <4'
   # GHSA-vmf3-w455-68vh — tar parser interpretation differential (file smuggling)
   tar: '>=7.5.16 <8'
   # GHSA-v6wh-96g9-6wx3 — launch-editor NTLMv2 hash disclosure via UNC path (Windows)

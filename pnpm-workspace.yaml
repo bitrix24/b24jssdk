@@ -14,6 +14,14 @@ packages:
 # Re-evaluate on each dependency bump (the weekly Dependabot npm PR is a
 # natural trigger).
 #
+# FLOORS GO STALE. A floor pins the version that was patched *at the time it was
+# written*; a later advisory against the same package moves the patched version
+# up and leaves the floor holding a now-vulnerable version. Nothing re-checks
+# this on its own — CI runs `pnpm audit` only on pushes and pull requests, so the
+# first symptom is an unrelated PR going red (that is how the five floors below
+# were found lagging). When audit regresses, raise the floor to the version the
+# advisory names rather than assuming the pin is still doing its job.
+#
 # UPPER BOUND: every *range* floor below also carries a `<next-major` ceiling (the
 # dedupe pins at the end of the block are exact versions instead, so they need no
 # ceiling). An override wins over the range every dependent declares, so an
@@ -34,12 +42,22 @@ overrides:
   # GHSA-7p8r-x3mc-p8w7 — fast-uri host confusion via backslash authority introducer
   fast-uri: '>=3.1.5 <4'
   # GHSA-8j4g-w8fx-2239 — ReDoS in CORS middleware; GHSA-f23p-vx2j-j53r — `memo()`
-  # retains SSR output across requests; GHSA-54fx-42gc-7vw4 — DoS in Language middleware
+  # retains SSR output across requests; GHSA-54fx-42gc-7vw4 — DoS in Language
+  # middleware; GHSA-79qm-7rj5-m7r9 — Proxy Helper leaves `Connection`-listed
+  # response headers in place. All four are fixed in 4.12.34.
   hono: '>=4.12.34 <5'
   ip-address: '>=10.1.1 <11'
   # GHSA-rgw5-rvv9-x895 — DoS via unbounded intermediate arrays (bypasses the
   # CVE-2026-14257 mitigation)
   brace-expansion: '>=5.0.9 <6'
+  # …but v5 dropped the callable default export, and `minimatch` below v10 still
+  # declares `^2.0.x` and calls it that way — under the tree-wide v5 above, every
+  # brace pattern throws (`expand is not a function` on minimatch 5.x,
+  # `brace_expansion_1.default is not a function` on 9.x; plain patterns are
+  # unaffected, which is why nothing caught it). `minimatch@10` legitimately wants
+  # v5, so the exemption is scoped by version. 2.1.4 is the patched 2.x line for
+  # the same advisory chain, so this stays audit-clean.
+  'minimatch@<10>brace-expansion': '>=2.1.4 <3'
   # GHSA-2v37-7h3g-55p8 — custom generators can loop indefinitely when size is zero.
   # The tree carries only the 3.x line, so the ceiling is that major.
   nanoid: '>=3.3.18 <4'

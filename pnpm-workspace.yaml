@@ -80,12 +80,25 @@ overrides:
   # Bump this floor in lockstep with the `nuxt` range in the four manifests — see
   # the LOWER BOUND note above for why a lagging floor is silent.
   nuxt: '>=4.5.2 <5'
+  # Dedupe pins, not security floors. `nuxt` alone is not enough: `@nuxt/kit` and
+  # `@nuxt/schema` are separate packages that the `nuxt` override does not reach, and
+  # dependents declaring `^4.5.1` (`@bitrix24/b24ui-nuxt`, `@nuxt/content`, `@nuxt/image`,
+  # `@nuxtjs/mdc`) otherwise keep a second 4.5.1 copy alive next to nuxt's own 4.5.2 —
+  # two `Nuxt`/`NuxtConfig` types in one `nuxt typecheck`. Move all three in lockstep.
+  '@nuxt/kit': '>=4.5.2 <5'
+  '@nuxt/schema': '>=4.5.2 <5'
   # `nuxt-schema-org` imports `hasOwn` from `unhead/utils`, which only exists from
   # unhead 3.3.0 on. Without this floor the tree carries both 3.2.x and 3.3.x and
   # `nuxt-schema-org` resolves against the older copy, so `nuxt typecheck` dies at
   # module setup with `The requested module 'unhead/utils' does not provide an
   # export named 'hasOwn'`. Pinning the floor collapses the tree onto one copy.
+  # The floor sits at 3.3.2 rather than the 3.3.0 that added `hasOwn` simply because
+  # that is the current 3.x tip — there is no separate reason to require the patches.
+  # `@unhead/vue` is a distinct package this does not reach, so it needs its own pin
+  # below; without it the vue facade splits 3.2.x/3.3.x and can reintroduce the same
+  # class of failure through a different import path.
   unhead: '>=3.3.2 <4'
+  '@unhead/vue': '>=3.3.2 <4'
   # GHSA-vmf3-w455-68vh — tar parser interpretation differential (file smuggling)
   tar: '>=7.5.16 <8'
   # GHSA-v6wh-96g9-6wx3 — launch-editor NTLMv2 hash disclosure via UNC path (Windows)
@@ -127,8 +140,23 @@ overrides:
   # The transformer's whole runtime surface from `@shikijs/core` is `splitToken`, which
   # shiki 4 still exports unchanged — that one symbol is what to re-check on a bump.
   # Drop once the transformer package ships shiki 4 support.
-  '@shikijs/core': '>=4.3.1 <5'
-  '@shikijs/types': '>=4.3.1 <5'
+  # Dedupe pin. `@nuxt/content` declares `@nuxtjs/mdc` `^0.22.2` while docs is on `^0.23.0`;
+  # 0.23.x satisfies both, and without this the older copy stays and drags a second `shiki`
+  # (4.3.1) in with it — which would then resolve against the 4.4.x core pinned below.
+  '@nuxtjs/mdc': '>=0.23.0 <1'
+  # Keep these three at or above the `@shikijs/*` range in `docs/package.json`. Because the
+  # override replaces the declared range, a lagging floor silently pins docs BELOW what it
+  # asks for. `shiki` needs the same treatment and for a sharper reason: each `shiki` release
+  # depends on its own exact `@shikijs/core`/`@shikijs/types`, so pinning the two scoped
+  # packages without `shiki` itself just moves the mismatch — a leftover `shiki@4.3.1`
+  # (held by `@nuxt/content`, which asks for a satisfiable `^4.3.1`) would load a 4.4.x core
+  # against its own 4.3.x engine and themes. All three move together or none do.
+  shiki: '>=4.4.2 <5'
+  '@shikijs/core': '>=4.4.2 <5'
+  '@shikijs/types': '>=4.4.2 <5'
+  # `@nuxt/content` also depends on `@shikijs/langs` directly (`^4.3.1`), so without this
+  # a 4.3.1 grammar set lingers beside the 4.4.x core above. Same lockstep rule.
+  '@shikijs/langs': '>=4.4.2 <5'
 
 allowBuilds:
   '@parcel/watcher': false

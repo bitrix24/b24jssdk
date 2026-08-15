@@ -72,13 +72,13 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
-    "@types/luxon": "^3.7.2",
-    "axios": "^1.18.1",
+    "@types/luxon": "^3.7.4",
+    "axios": "^1.19.0",
     "luxon": "^3.7.2",
     "qs-esm": "^8.0.1"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
     "unbuild": "^3.6.1"

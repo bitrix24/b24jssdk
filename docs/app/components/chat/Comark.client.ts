@@ -1,7 +1,7 @@
-import { defineComarkComponent } from '@comark/vue'
+import { defineMarkdownComponent } from '@comark/vue'
 import highlight from '@comark/vue/plugins/highlight'
 
-export default defineComarkComponent({
+export default defineMarkdownComponent({
   name: 'ChatComark',
   plugins: [
     highlight()

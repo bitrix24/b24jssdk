@@ -22,6 +22,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { AxiosError } from 'axios'
 import { HttpV2 } from '../../../packages/jssdk/src/core/http/v2'
+import { AjaxError } from '../../../packages/jssdk/src/core/http/ajax-error'
 import { truncateForLog } from '../../../packages/jssdk/src/core/http/abstract-http'
 import { ApiVersion } from '../../../packages/jssdk/src/types/b24'
 import type { AuthActions, AuthData } from '../../../packages/jssdk/src/types/auth'
@@ -84,7 +85,12 @@ describe('#338 a success body with no `result` key reaches the caller intact', (
 })
 
 describe('#338 a network error keeps its own identity through the catchError log', () => {
-  it('rethrows the AxiosError, not a TypeError raised while logging it', async () => {
+  // The rethrown value is the *converted* AjaxError, not the raw AxiosError —
+  // `_makeRequestWithAuthRetry` normalises first so the 401 check can run (#182).
+  // The point of this test is that the conversion happens at all: the log call
+  // sits above it in the same catch block, so a throw there escaped with the
+  // transport error never converted and never seen.
+  it('rethrows the converted AjaxError, not a TypeError raised while logging it', async () => {
     const http = makeHttp()
     // A transport failure: axios populates no `response`, so the callsite's
     // `error?.response?.data` is `undefined`.
@@ -102,5 +108,9 @@ describe('#338 a network error keeps its own identity through the catchError log
     // the transport failure the caller needed to see.
     expect(caught).not.toBeInstanceOf(TypeError)
     expect((caught as Error)?.message).not.toContain('reading \'length\'')
+    // Assert positively too, so the check can't pass by the call simply not
+    // throwing: the original transport error survives on the converted error.
+    expect(caught).toBeInstanceOf(AjaxError)
+    expect((caught as AjaxError).originalError).toBe(networkError)
   })
 })

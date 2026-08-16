@@ -45,6 +45,14 @@ updates:
     # NOTE: no `labels:` here — the previous `dependencies` label does not exist
     # in this repo, which made Dependabot log a config error on every npm PR.
     # Re-add a `labels:` block once the label is created in the repo settings.
+    # `reka-ui` is not ours to bump independently: `@bitrix24/b24ui-nuxt` depends on
+    # an EXACT `reka-ui` version, so any range docs declares that resolves higher puts
+    # a second copy of the component library in the same Vue app — two provide/inject
+    # registries, which typecheck and the build both pass without noticing. docs imports
+    # `Slot` from it directly, so the dependency has to stay declared; it just has to
+    # match whatever `@bitrix24/b24ui-nuxt` pins. Bump it only when b24ui-nuxt does.
+    ignore:
+      - dependency-name: "reka-ui"
     groups:
       npm-minor-patch:
         update-types:

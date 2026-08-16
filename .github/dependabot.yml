@@ -51,8 +51,23 @@ updates:
     # registries, which typecheck and the build both pass without noticing. docs imports
     # `Slot` from it directly, so the dependency has to stay declared; it just has to
     # match whatever `@bitrix24/b24ui-nuxt` pins. Bump it only when b24ui-nuxt does.
+    # The three below are blocked by a peer range in a dependency we do not
+    # control, so the major lands as a PR that can never go green. Only the
+    # majors are ignored — minor/patch still flow through the group. Drop the
+    # entry once the named upstream widens its range.
+    #   typescript 7        — rollup-plugin-dts (via unbuild, which builds the
+    #                         published .d.ts) declares ^4.5 || ^5.0 || ^6.0.
+    #   better-sqlite3 13   — @nuxt/content pins ^12.5.0.
+    #   @takumi-rs/core 2   — nuxt-og-image ships @takumi-rs/helpers 1.8.7, and
+    #                         core/helpers have to stay on one major together.
     ignore:
       - dependency-name: "reka-ui"
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "better-sqlite3"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@takumi-rs/core"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         update-types:

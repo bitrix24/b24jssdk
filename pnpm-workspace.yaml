@@ -26,10 +26,12 @@ packages:
 # dedupe pins at the end of the block are exact versions instead, so they need no
 # ceiling). An override wins over the range every dependent declares, so an
 # unbounded floor silently pulls a new major into the whole tree the moment one is
-# published — `pnpm update` moved `js-yaml` 4 → 5 (pure ESM, no default export: it
-# broke `scripts/_docs-utils.mjs`) and `fast-uri` 3 → 4 (past the `^3.0.1` that
-# `ajv` declares) in exactly this way. A major crossing must be a deliberate edit
-# here, not a side effect of a bump.
+# published — `pnpm update` once moved `js-yaml` 4 → 5 (pure ESM, no default
+# export: it broke `scripts/_docs-utils.mjs`) and `fast-uri` 3 → 4 (past the
+# `^3.0.1` that `ajv` declares) in exactly this way. A major crossing must be a
+# deliberate edit here, not a side effect of a bump — js-yaml 5 is on the floor
+# below only because that edit was later made on purpose, with the named-import
+# migration `scripts/_docs-utils.mjs` needed to go with it.
 #
 # LOWER BOUND: keep each floor at or above what the manifests declare. Because the
 # override replaces the declared range AND is what pnpm records as the lockfile
@@ -107,8 +109,9 @@ overrides:
   markdown-it: '>=14.1.2 <15'
   # GHSA-h67p-54hq-rp68 — js-yaml quadratic-complexity DoS in merge-key aliases;
   # GHSA-5p4m-2wfm-xmqj — quadratic CPU consumption in `!!omap` resolution
-  # (CVE-2026-59870 fix not backported below 4.3.1)
-  js-yaml: '>=4.3.1 <5'
+  # (CVE-2026-59870 fix not backported below 4.3.1; the 5.x line carries both
+  # fixes, and 5 is what the root manifest now declares)
+  js-yaml: '>=5.3.0 <6'
   # GHSA-f88m-g3jw-g9cj — sharp; reached via docs>@nuxt/image>ipx and
   # docs>nuxt-og-image. sharp is 0.x, so the ceiling is the minor.
   sharp: '>=0.35.3 <0.36'

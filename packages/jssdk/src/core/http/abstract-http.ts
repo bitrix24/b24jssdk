@@ -28,12 +28,22 @@ import { ApiVersion } from '../../types/b24'
 // Logger payloads are truncated so a large params / result / error body can't
 // flood a wired logger sink. Shared by the post/send, post/response, and
 // post/catchError log callsites (#236).
+// `value` is deliberately `unknown` rather than `string`: every callsite feeds it
+// `JSON.stringify(...)`, whose return type is a lying `string` — it actually
+// returns the VALUE `undefined` for `undefined`, a function, or a symbol. A
+// success body with no `result` key (`rest.documentation.openapi`) and an
+// AxiosError with no `response` (network failure, timeout, CORS) both hit that
+// case, and reading `.length` off it threw a `TypeError` from inside the logging
+// call — which the request path then re-wrapped as `JSSDK_UNKNOWN_ERROR` /
+// status 0, destroying the real error. Coercing here keeps the guarantee at the
+// one place all three callsites share, so a new callsite can't reintroduce it. (#338)
 const LOG_MAX_LENGTH = 300
 const LOG_SLICE_LENGTH = 100
-export function truncateForLog(value: string): string {
-  return value.length > LOG_MAX_LENGTH
-    ? value.slice(0, LOG_SLICE_LENGTH) + '...'
-    : value
+export function truncateForLog(value: unknown): string {
+  const text = typeof value === 'string' ? value : String(value)
+  return text.length > LOG_MAX_LENGTH
+    ? text.slice(0, LOG_SLICE_LENGTH) + '...'
+    : text
 }
 
 export type AjaxResponse<T = unknown> = {
@@ -558,10 +568,9 @@ export abstract class AbstractHttp implements TypeHttp {
     // today, but an OAuth-relay method (or a future method returning a canonical
     // key) would otherwise leak `access_token` / `refresh_token` / etc. into any
     // wired logger sink — mirror the `post/send` redaction on the success path. (#69)
-    // `JSON.stringify(undefined)` returns `undefined` (not a string), so a
-    // v3 method whose success body carries `result: undefined` would otherwise
-    // hand `truncateForLog` a non-string and crash it — coerce to a literal. (#69)
-    const resultFormattedForLog = JSON.stringify(redactSensitiveParams(response.data.result), null, 0) ?? 'undefined'
+    // A v3 method outside the `result` envelope (e.g. `rest.documentation.openapi`)
+    // makes this `undefined` rather than a string; `truncateForLog` coerces it. (#338)
+    const resultFormattedForLog = JSON.stringify(redactSensitiveParams(response.data.result), null, 0)
     this.getLogger().info(
       `post/response`, {
         requestId,

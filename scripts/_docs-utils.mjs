@@ -6,7 +6,9 @@
 
 import { readdirSync, lstatSync } from 'node:fs'
 import { join } from 'node:path'
-import yaml from 'js-yaml'
+// js-yaml 5 is pure ESM and dropped the default export, so the two symbols we
+// use are imported by name.
+import { load as yamlLoad, JSON_SCHEMA } from 'js-yaml'
 
 /**
  * Recursively collect every `.md` file under `dir`.
@@ -100,7 +102,7 @@ export function parseFrontmatter(text) {
     // observable output doesn't change: `audited: 2026-05-26` stays a string
     // (the default schema's YAML timestamp type coerces it to a JS Date,
     // breaking the `frontmatter.audited + 'T…'` concat in docs-lint.mjs).
-    parsed = yaml.load(fm, { schema: yaml.JSON_SCHEMA })
+    parsed = yamlLoad(fm, { schema: JSON_SCHEMA })
   } catch {
     return { frontmatter: {}, body }
   }

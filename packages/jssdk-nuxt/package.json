@@ -61,7 +61,7 @@
     "@nuxt/schema": "^4.5.2",
     "@types/node": "^26.2.0",
     "nuxt": "^4.5.2",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "unbuild": "^3.6.1",
     "vue-tsc": "^3.3.9"
   }

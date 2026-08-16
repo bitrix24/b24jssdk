@@ -36,7 +36,7 @@
     "@vueuse/core": "^14.4.0",
     "@vueuse/integrations": "^14.4.0",
     "ai": "^7.0.56",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^13.0.3",
     "joi": "^18.2.3",
     "minimark": "^1.0.0",
     "motion-v": "^2.3.0",

@@ -27,7 +27,7 @@ class TestHandler implements Handler {
   public readonly received: LogRecord[] = []
 
   constructor(
-    private readonly behaviour: 'ok' | 'reject' | 'throw' = 'ok',
+    private readonly behaviour: 'ok' | 'reject' | 'throw' | 'throwIsHandling' | 'throwShouldBubble' = 'ok',
     private readonly bubble: boolean = true
   ) {}
 
@@ -45,10 +45,16 @@ class TestHandler implements Handler {
   }
 
   isHandling(): boolean {
+    if (this.behaviour === 'throwIsHandling') {
+      throw new Error('isHandling exploded')
+    }
     return true
   }
 
   shouldBubble(): boolean {
+    if (this.behaviour === 'throwShouldBubble') {
+      throw new Error('shouldBubble exploded')
+    }
     return this.bubble
   }
 
@@ -108,6 +114,36 @@ describe('#346 a failing handler cannot escape Logger.log()', () => {
     // the console at the rate of the traffic being logged.
     expect(warnSpy).toHaveBeenCalledTimes(1)
     expect(String(warnSpy.mock.calls[0]?.[0])).toContain('TestHandler')
+  })
+
+  // `handle()` is the method that fails in practice, but `isHandling()` and
+  // `shouldBubble()` are interface methods a third party implements too, and the
+  // guarantee on `log()` is unconditional — so the whole interaction with a
+  // handler is isolated, not just the one method that does I/O.
+  it('does not throw when isHandling() throws, and still reaches later handlers', async () => {
+    const healthy = new TestHandler('ok')
+    const logger = Logger.create('test')
+      .pushHandler(new TestHandler('throwIsHandling'))
+      .pushHandler(healthy)
+
+    await expect(logger.info('past a broken predicate')).resolves.toBeUndefined()
+
+    expect(healthy.received).toHaveLength(1)
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not throw when shouldBubble() throws after a successful handle()', async () => {
+    const healthy = new TestHandler('ok')
+    const logger = Logger.create('test')
+      .pushHandler(new TestHandler('throwShouldBubble'))
+      .pushHandler(healthy)
+
+    await expect(logger.info('past a broken bubble check')).resolves.toBeUndefined()
+
+    // The record was delivered to the broken handler before its bubble check
+    // failed; the chain then continues rather than stopping on the exception.
+    expect(healthy.received).toHaveLength(1)
+    expect(warnSpy).toHaveBeenCalledTimes(1)
   })
 
   it('warns separately for a second, distinct broken handler', async () => {

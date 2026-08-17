@@ -97,26 +97,34 @@ export class Logger extends AbstractLogger implements LoggerInterface {
       }
     }
 
-    // Pass the record to the handlers
+    // Pass the record to the handlers. The whole interaction with a handler is
+    // inside the `try`, not just `handle()`: `isHandling()` and `shouldBubble()`
+    // are trivial predicates in every handler the SDK ships (`AbstractHandler`
+    // compares two numbers), but they are interface methods a third party
+    // implements, and the guarantee on `log()` is unconditional. Guarding only
+    // the method that happens to fail today would make that guarantee depend on
+    // which part of someone else's handler misbehaves.
     for (const handler of this.handlers) {
-      if (handler.isHandling(level)) {
-        try {
-          // The handler returns a boolean indicating whether it was processed successfully.
-          // `await` covers both a synchronous throw and a rejected promise — a
-          // handler doing real I/O (Telegram, a stream, a third-party adapter)
-          // fails for ordinary operational reasons, and neither form may escape.
-          const handled = await handler.handle(processedRecord)
-
-          // If the handler has processed the record and should NOT proceed further (bubble: false)
-          // break the chain of handlers
-          if (handled && !handler.shouldBubble()) {
-            break
-          }
-        } catch (error) {
-          // Isolate this handler only: a broken sink must not stop the ones
-          // after it from receiving the record.
-          this.reportLoggingFailure(handler, error)
+      try {
+        if (!handler.isHandling(level)) {
+          continue
         }
+
+        // The handler returns a boolean indicating whether it was processed successfully.
+        // `await` covers both a synchronous throw and a rejected promise — a
+        // handler doing real I/O (Telegram, a stream, a third-party adapter)
+        // fails for ordinary operational reasons, and neither form may escape.
+        const handled = await handler.handle(processedRecord)
+
+        // If the handler has processed the record and should NOT proceed further (bubble: false)
+        // break the chain of handlers
+        if (handled && !handler.shouldBubble()) {
+          break
+        }
+      } catch (error) {
+        // Isolate this handler only: a broken sink must not stop the ones
+        // after it from receiving the record.
+        this.reportLoggingFailure(handler, error)
       }
     }
   }

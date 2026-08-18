@@ -9,7 +9,10 @@ import { Result } from './result'
 import { SdkError } from './sdk-error'
 import { ApiVersion } from '../types/b24'
 import { versionManager } from './version-manager'
-import { LoggerFactory, warnOnNonPromiseLogger } from '../logger'
+import { LoggerFactory } from '../logger'
+// Internal diagnostic — imported from the module directly so it stays off the
+// package's public surface (`logger/index.ts` is re-exported from `src/index.ts`).
+import { warnOnNonPromiseLogger } from '../logger/assert-logger-shape'
 import { ActionsManager } from './actions/manager'
 import { ToolsManager } from './tools/manager'
 

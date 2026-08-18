@@ -12,14 +12,6 @@ export class Logger extends AbstractLogger implements LoggerInterface {
   private handlers: Handler[] = []
   private processors: Processor[] = []
 
-  /**
-   * Processors/handlers already reported as broken, so each is warned about once
-   * rather than on every log call. Identity-keyed, so replacing a handler with a
-   * fresh instance gets a fresh warning. `WeakSet` keeps this from pinning a
-   * discarded handler in memory (`popHandler` / `setHandlers` can drop one).
-   */
-  private readonly failedSources = new WeakSet<object>()
-
   constructor(channel: string) {
     super()
     this.channel = channel
@@ -62,7 +54,7 @@ export class Logger extends AbstractLogger implements LoggerInterface {
    * ordinary operational reasons, so that path is reachable in normal operation,
    * not just in principle (#346).
    *
-   * A processor or handler that fails is skipped and reported once via
+   * A processor or handler that fails is skipped and reported via
    * {@link reportLoggingFailure}; the remaining handlers still receive the
    * record.
    *
@@ -130,30 +122,22 @@ export class Logger extends AbstractLogger implements LoggerInterface {
   }
 
   /**
-   * Report a processor/handler that threw, exactly once per offender.
+   * Report a processor/handler that threw.
    *
-   * Swallowing silently would trade one trap for another — a sink that stopped
-   * working with no indication anywhere. Reporting on every call is not an
-   * option either: the failure is usually persistent (an unreachable endpoint, a
-   * closed stream), so an unthrottled warning would itself flood the console at
-   * the rate of the traffic being logged. One warning per offender is the
-   * middle: the problem is visible, and it stays visible without drowning the
-   * output it is warning about.
+   * Reported on every failure, deliberately: suppressing repeats would hide how
+   * often a sink is failing, and a sink that has been broken for an hour looks
+   * identical to one that failed once. The volume is the signal — if it is
+   * noisy, the sink is failing that often. Filtering belongs to whoever reads
+   * the output, not to the SDK.
    *
-   * `console` is used deliberately rather than the logger — routing a logging
-   * failure back through the logger that just failed is how this turns into
-   * recursion.
+   * `console` is used rather than the logger — routing a logging failure back
+   * through the logger that just failed is how this turns into recursion.
    */
   private reportLoggingFailure(source: Processor | Handler, error: unknown): void {
-    if (this.failedSources.has(source)) {
-      return
-    }
-    this.failedSources.add(source)
-
     const name = (source as { constructor?: { name?: string } })?.constructor?.name ?? 'processor'
     console.warn(
-      `[b24jssdk] logger channel "${this.channel}": ${name} failed and is being ignored for the rest of this session's reports. `
-      + `Logging continues through the remaining handlers; the request itself is unaffected.`,
+      `[b24jssdk] logger channel "${this.channel}": ${name} failed; the record was skipped. `
+      + `Logging continues through the remaining handlers, and the operation being logged is unaffected.`,
       error
     )
   }

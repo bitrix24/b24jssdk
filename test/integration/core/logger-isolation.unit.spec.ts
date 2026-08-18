@@ -10,7 +10,8 @@
  * `EPIPE` on a closed stream would have taken the process down.
  *
  * `log()` now isolates each processor and handler: a failure is skipped and
- * reported once, and the remaining handlers still receive the record.
+ * reported to `console.warn`, and the remaining handlers still receive the
+ * record.
  *
  * Pure logic — no portal — so this runs in the jsSdk:unit project.
  */
@@ -103,16 +104,16 @@ describe('#346 a failing handler cannot escape Logger.log()', () => {
     expect(healthy.received[0]?.message).toBe('still gets through')
   })
 
-  it('warns once per broken handler, not once per call', async () => {
+  it('warns on every failure, so the rate of failure stays visible', async () => {
     const logger = Logger.create('test').pushHandler(new TestHandler('reject'))
 
     await logger.info('one')
     await logger.info('two')
     await logger.info('three')
 
-    // The failure is usually persistent, so an unthrottled warning would flood
-    // the console at the rate of the traffic being logged.
-    expect(warnSpy).toHaveBeenCalledTimes(1)
+    // Deliberately not deduplicated: a sink broken for an hour must not look
+    // like one that failed once. Filtering is the reader's job, not the SDK's.
+    expect(warnSpy).toHaveBeenCalledTimes(3)
     expect(String(warnSpy.mock.calls[0]?.[0])).toContain('TestHandler')
   })
 
@@ -146,15 +147,14 @@ describe('#346 a failing handler cannot escape Logger.log()', () => {
     expect(warnSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('warns separately for a second, distinct broken handler', async () => {
+  it('reports each broken handler separately within one call', async () => {
     const logger = Logger.create('test')
       .pushHandler(new TestHandler('reject'))
       .pushHandler(new TestHandler('throw'))
 
     await logger.info('one')
-    await logger.info('two')
 
-    // Keyed by identity, so each offender is reported on its own.
+    // Two offenders, two reports — one call does not mask the second failure.
     expect(warnSpy).toHaveBeenCalledTimes(2)
   })
 })

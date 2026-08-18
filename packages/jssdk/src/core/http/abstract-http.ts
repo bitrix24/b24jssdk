@@ -515,7 +515,7 @@ export abstract class AbstractHttp implements TypeHttp {
             // and cap the length so a large error body can't flood the sink (#236).
             responseData: truncateForLog(JSON.stringify(redactSensitiveParams(error?.response?.data), null, 0))
           }
-        )
+        ).catch(() => {})
       }
 
       // Normalize to AjaxError first: axios throws a raw AxiosError here, whose
@@ -559,7 +559,7 @@ export abstract class AbstractHttp implements TypeHttp {
         method,
         params: truncateForLog(paramsFormattedForLog)
       }
-    )
+    ).catch(() => {})
 
     const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted)
 
@@ -578,7 +578,7 @@ export abstract class AbstractHttp implements TypeHttp {
         result: truncateForLog(resultFormattedForLog),
         time: JSON.stringify(response.data.time, null, 0)
       }
-    )
+    ).catch(() => {})
 
     return {
       status: response.status,
@@ -753,7 +753,7 @@ export abstract class AbstractHttp implements TypeHttp {
       params: this._sanitizeParams(params),
       api: this.apiVersion,
       timestamp: Date.now()
-    })
+    }).catch(() => {})
   }
 
   protected _logAttempt(requestId: string, method: string, attempt: number, maxRetries: number): void {
@@ -765,21 +765,21 @@ export abstract class AbstractHttp implements TypeHttp {
         current: attempt,
         max: maxRetries
       }
-    })
+    }).catch(() => {})
   }
 
   protected _logRefreshingAuthToken(requestId: string): void {
     this.getLogger().info(`http refreshing auth token`, {
       requestId,
       api: this.apiVersion
-    })
+    }).catch(() => {})
   }
 
   protected _logAuthErrorDetected(requestId: string): void {
     this.getLogger().info(`http auth error detected`, {
       requestId,
       api: this.apiVersion
-    })
+    }).catch(() => {})
   }
 
   protected _logSuccessfulRequest(requestId: string, method: string, duration: number): void {
@@ -791,7 +791,7 @@ export abstract class AbstractHttp implements TypeHttp {
         ms: duration,
         sec: Number.parseFloat((duration / 1000).toFixed(2))
       }
-    })
+    }).catch(() => {})
   }
 
   protected _logFailedRequest(
@@ -814,7 +814,7 @@ export abstract class AbstractHttp implements TypeHttp {
         message: error.message,
         status: error.status
       }
-    })
+    }).catch(() => {})
   }
 
   protected _logAttemptRetryWaiteDelay(
@@ -836,7 +836,7 @@ export abstract class AbstractHttp implements TypeHttp {
           max: maxRetries
         }
       }
-    )
+    ).catch(() => {})
   }
 
   protected _logAllAttemptsExhausted(requestId: string, method: string, attempt: number, maxRetries: number): void {
@@ -848,7 +848,7 @@ export abstract class AbstractHttp implements TypeHttp {
         current: attempt,
         max: maxRetries
       }
-    })
+    }).catch(() => {})
   }
 
   protected _logBatchStart(
@@ -866,7 +866,7 @@ export abstract class AbstractHttp implements TypeHttp {
       api: this.apiVersion,
       isHaltOnError: options.isHaltOnError,
       timestamp: Date.now()
-    })
+    }).catch(() => {})
   }
 
   protected _logBatchCompletion(requestId: string, total: number, errors: number): void {
@@ -877,7 +877,7 @@ export abstract class AbstractHttp implements TypeHttp {
       successful: total - errors,
       failed: errors,
       successRate: total > 0 ? ((total - errors) / (total) * 100).toFixed(1) + '%' : '??'
-    })
+    }).catch(() => {})
   }
 
   // Check client-side warnings

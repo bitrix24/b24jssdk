@@ -84,7 +84,7 @@ export class CallListV2 extends AbstractAction {
 
     // Warn and strip user-provided `order` — cursor pagination requires ordering by cursorIdKey only
     if ('order' in params && params['order']) {
-      this._logger.warning('callList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by cursorIdKey. Use `filter` to narrow results instead.')
+      this._logger.warning('callList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by cursorIdKey. Use `filter` to narrow results instead.').catch(() => {})
     }
 
     const moreIdKey = `>${cursorIdKey}`
@@ -110,7 +110,7 @@ export class CallListV2 extends AbstractAction {
           method: options.method,
           requestId: options.requestId,
           messages: response.getErrorMessages()
-        })
+        }).catch(() => {})
         for (const [index, error] of response.errors) {
           result.addError(error, index)
         }
@@ -146,7 +146,7 @@ export class CallListV2 extends AbstractAction {
         // response field (e.g. a request that sorts by `ID` while the response
         // carries a lowercase `id`). Without a cursor we can't advance, so stop and
         // tell the caller how to fix it instead of silently truncating.
-        this._logger.warning(`callList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`)
+        this._logger.warning(`callList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`).catch(() => {})
         break
       }
     }

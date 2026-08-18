@@ -105,7 +105,7 @@ export class AggregateV3 extends AbstractAction {
         method: options.method,
         requestId: options.requestId,
         messages: response.getErrorMessages()
-      })
+      }).catch(() => {})
       for (const [index, error] of response.errors) {
         result.addError(error, index)
       }
@@ -122,7 +122,7 @@ export class AggregateV3 extends AbstractAction {
     if (payload && typeof payload === 'object' && 'result' in payload) {
       buckets = (payload.result ?? {}) as AggregateResultV3
     } else if (payload && typeof payload === 'object') {
-      this._logger.warning(`aggregate.make: response has no nested 'result.result' envelope (the v3 reference §7 specifies double nesting); falling back to the top-level 'result'. method=${options.method}`)
+      this._logger.warning(`aggregate.make: response has no nested 'result.result' envelope (the v3 reference §7 specifies double nesting); falling back to the top-level 'result'. method=${options.method}`).catch(() => {})
       buckets = payload as AggregateResultV3
     } else {
       buckets = {}

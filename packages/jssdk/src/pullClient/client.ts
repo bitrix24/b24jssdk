@@ -530,7 +530,7 @@ export class PullClient implements ConnectorParent {
       typeof handler.getModuleId !== 'function'
       || typeof handler.getModuleId() !== 'string'
     ) {
-      this.getLogger().error(`${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string.`)
+      this.getLogger().error(`${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string.`).catch(() => {})
       return () => {}
     }
 
@@ -576,7 +576,7 @@ export class PullClient implements ConnectorParent {
               `${Text.getDateForLog()}: Pull.attachCommandHandler: result of handler.getModuleId() is not a string`,
               // data.params / data.extra are app-defined and may carry a credential key (#43)
               redactSensitiveParams({ data } as unknown as Record<string, unknown>)
-            )
+            ).catch(() => {})
           }
 
           method(data.params, data.extra, data.command)
@@ -699,7 +699,7 @@ export class PullClient implements ConnectorParent {
           this.getLogger().error(
             `${Text.getDateForLog()}: Pull: could not read push-server config`,
             { error }
-          )
+          ).catch(() => {})
           reject(error)
         })
     }))
@@ -724,7 +724,7 @@ export class PullClient implements ConnectorParent {
 
     this.getLogger().debug(
       `${Text.getDateForLog()}: Pull: restarting with code ${disconnectCode}`
-    )
+    ).catch(() => {})
 
     this.disconnect(disconnectCode, disconnectReason)
 
@@ -741,14 +741,14 @@ export class PullClient implements ConnectorParent {
         this.updateWatch()
         this.startCheckConfig()
         this.connect().catch((error) => {
-          this.getLogger().error('restart error', { error })
+          this.getLogger().error('restart error', { error }).catch(() => {})
         })
       },
       (error) => {
         this.getLogger().error(
           `${Text.getDateForLog()}: Pull: could not read push-server config `,
           { error }
-        )
+        ).catch(() => {})
 
         this.status = PullStatus.Offline
         if (this._reconnectTimeout) {
@@ -1005,12 +1005,12 @@ export class PullClient implements ConnectorParent {
               return resolve(result)
             })
             .catch((error) => {
-              this.getLogger().error('getUsersLastSeen', { error })
+              this.getLogger().error('getUsersLastSeen', { error }).catch(() => {})
               reject(error)
             })
         })
         .catch((error) => {
-          this.getLogger().error('getUsersLastSeen', { error })
+          this.getLogger().error('getUsersLastSeen', { error }).catch(() => {})
           reject(error)
         })
     })
@@ -1542,7 +1542,7 @@ export class PullClient implements ConnectorParent {
         errorEvent: error,
         // app-defined message.params / extra may carry a credential key (#43)
         message: redactSensitiveParams(message as unknown as Record<string, unknown>)
-      })
+      }).catch(() => {})
     }
 
     if (message.extra && message.extra.revision_web) {
@@ -1574,7 +1574,7 @@ export class PullClient implements ConnectorParent {
     messageBatchList: TypePullClientMessageBatch[]
   ): Promise<any> {
     if (!this.isPublishingEnabled()) {
-      this.getLogger().error(`Client publishing is not supported or is disabled`)
+      this.getLogger().error(`Client publishing is not supported or is disabled`).catch(() => {})
       return Promise.reject(
         new Error(`Client publishing is not supported or is disabled`)
       )
@@ -1928,7 +1928,7 @@ export class PullClient implements ConnectorParent {
         this.getLogger().error(
           `${Text.getDateForLog()}: Pull: Could not cache config in local storage.`,
           { error }
-        )
+        ).catch(() => {})
       }
     }
   }
@@ -2028,7 +2028,7 @@ export class PullClient implements ConnectorParent {
 
     this.armTimeout('_reconnectTimeout', () => {
       this.connect().catch((error) => {
-        this.getLogger().error('scheduleReconnect', { error })
+        this.getLogger().error('scheduleReconnect', { error }).catch(() => {})
       })
     }, connectionDelay * 1_000)
   }
@@ -2295,7 +2295,7 @@ export class PullClient implements ConnectorParent {
     this.getLogger().error(
       `${Text.getDateForLog()}: Pull: Long polling connection error`,
       { error }
-    )
+    ).catch(() => {})
 
     this.scheduleReconnect()
     if (this._connectPromise) {
@@ -2424,7 +2424,7 @@ export class PullClient implements ConnectorParent {
     this.getLogger().error(
       `${Text.getDateForLog()}: Pull: WebSocket connection error`,
       { error }
-    )
+    ).catch(() => {})
     this.scheduleReconnect()
     if (this._connectPromise) {
       this._connectPromise.reject(error)
@@ -2475,7 +2475,7 @@ export class PullClient implements ConnectorParent {
             this.getLogger().error(
               `${Text.getDateForLog()}: Pull: Could not parse message body`,
               { error }
-            )
+            ).catch(() => {})
             continue
           }
 
@@ -2502,7 +2502,7 @@ export class PullClient implements ConnectorParent {
       this.getLogger().error(
         `${Text.getDateForLog()}: Pull: Could not parse message`,
         { error }
-      )
+      ).catch(() => {})
     }
 
     return result
@@ -2522,7 +2522,7 @@ export class PullClient implements ConnectorParent {
         // unparseable anyway and could carry a credential (e.g. a channel
         // `signature`); log only its size, never the bytes (#43).
         byteLength: pullEvent.length
-      })
+      }).catch(() => {})
 
       return []
     }
@@ -2596,7 +2596,7 @@ export class PullClient implements ConnectorParent {
       return
     }
     this.connect().catch((error) => {
-      this.getLogger().error('onOnline', { error })
+      this.getLogger().error('onOnline', { error }).catch(() => {})
     })
   }
 
@@ -2625,7 +2625,7 @@ export class PullClient implements ConnectorParent {
         this.getLogger().error(
           `${Text.getDateForLog()}: Pull: Could not save session info in local storage. Error: `,
           { error }
-        )
+        ).catch(() => {})
       }
     }
   }
@@ -2772,7 +2772,7 @@ export class PullClient implements ConnectorParent {
       return
     }
 
-    this.getLogger().warning(`No pings are received in ${PING_TIMEOUT * 2} seconds. Reconnecting`)
+    this.getLogger().warning(`No pings are received in ${PING_TIMEOUT * 2} seconds. Reconnecting`).catch(() => {})
     this.disconnect(CloseReasons.STUCK, 'connection stuck')
 
     this.scheduleReconnect()
@@ -2812,7 +2812,7 @@ export class PullClient implements ConnectorParent {
    */
   private checkDuplicate(mid: string): boolean {
     if (this._session.lastMessageIds.includes(mid)) {
-      this.getLogger().warning(`Duplicate message ${mid} skipped`)
+      this.getLogger().warning(`Duplicate message ${mid} skipped`).catch(() => {})
       return false
     } else {
       this._session.lastMessageIds.push(mid)
@@ -2848,7 +2848,7 @@ export class PullClient implements ConnectorParent {
           params: message.params,
           extra: message.extra
         })
-      )
+      ).catch(() => {})
     } else if (message.module_id == 'online') {
       this.getLogger().info(
         `onPullOnlineEvent`, redactSensitiveParams({
@@ -2856,7 +2856,7 @@ export class PullClient implements ConnectorParent {
           params: message.params,
           extra: message.extra
         })
-      )
+      ).catch(() => {})
     } else {
       this.getLogger().info(
         `onPullEvent`,
@@ -2866,7 +2866,7 @@ export class PullClient implements ConnectorParent {
           params: message.params,
           extra: message.extra
         })
-      )
+      ).catch(() => {})
     }
   }
 
@@ -2876,7 +2876,7 @@ export class PullClient implements ConnectorParent {
    */
   private logToConsole(message: string, force: boolean = false): void {
     if (this._loggingEnabled || force) {
-      this.getLogger().debug(`${Text.getDateForLog()}: ${message}`)
+      this.getLogger().debug(`${Text.getDateForLog()}: ${message}`).catch(() => {})
     }
   }
 
@@ -2903,7 +2903,7 @@ export class PullClient implements ConnectorParent {
    * @param text
    */
   private showNotification(text: string): void {
-    this.getLogger().notice(text)
+    this.getLogger().notice(text).catch(() => {})
 
     /* /
     if(this._notificationPopup || typeof BX.PopupWindow === 'undefined')

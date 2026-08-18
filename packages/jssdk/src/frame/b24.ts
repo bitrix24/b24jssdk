@@ -138,7 +138,7 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
       INSTALL: data.INSTALL,
       IS_ADMIN: data.IS_ADMIN,
       FIRST_RUN: data.FIRST_RUN
-    })
+    }).catch(() => {})
 
     this.#appFrame.initData(data)
     this.#authManager.initData(data)

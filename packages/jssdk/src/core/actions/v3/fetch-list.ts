@@ -87,7 +87,7 @@ export class FetchListV3 extends AbstractAction {
 
     // Warn and strip user-provided `order` — cursor pagination requires ordering by cursorIdKey only
     if ('order' in params && params['order']) {
-      this._logger.warning('fetchList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by cursorIdKey. Use `filter` to narrow results instead.')
+      this._logger.warning('fetchList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by cursorIdKey. Use `filter` to narrow results instead.').catch(() => {})
     }
 
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams

@@ -22,12 +22,12 @@ type Item = Record<string, unknown>
 function makeLogger() {
   const warnings: string[] = []
   const logger = {
-    warning: (m: string) => warnings.push(m),
-    error: () => {},
-    info: () => {},
-    log: () => {},
-    debug: () => {},
-    trace: () => {}
+    warning: async (m: string) => warnings.push(m),
+    error: async () => {},
+    info: async () => {},
+    log: async () => {},
+    debug: async () => {},
+    trace: async () => {}
   }
   return { logger: logger as never, warnings }
 }

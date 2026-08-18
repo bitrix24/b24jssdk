@@ -11,7 +11,7 @@ import { ApiVersion } from '../../../packages/jssdk/src/types/b24'
 import { Result } from '../../../packages/jssdk/src/core/result'
 
 function makeLogger() {
-  return { warning: () => {}, error: () => {}, info: () => {}, log: () => {}, debug: () => {}, trace: () => {} } as never
+  return { warning: async () => {}, error: async () => {}, info: async () => {}, log: async () => {}, debug: async () => {}, trace: async () => {} } as never
 }
 
 describe('actions.v3 no longer gates on a method allowlist', () => {

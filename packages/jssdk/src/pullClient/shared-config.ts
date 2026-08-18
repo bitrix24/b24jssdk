@@ -74,7 +74,7 @@ export class SharedConfig {
       this.getLogger().error(
         `${Text.getDateForLog()}: Pull: Could not save WS_blocked flag in local storage`,
         { error }
-      )
+      ).catch(() => {})
 
       return false
     }
@@ -104,7 +104,7 @@ export class SharedConfig {
       this.getLogger().error(
         `${Text.getDateForLog()}: Pull: Could not save LP_blocked flag in local storage.`,
         { error }
-      )
+      ).catch(() => {})
 
       return false
     }
@@ -134,7 +134,7 @@ export class SharedConfig {
       this.getLogger().error(
         `${Text.getDateForLog()}: LocalStorage error.`,
         { error }
-      )
+      ).catch(() => {})
 
       return false
     }

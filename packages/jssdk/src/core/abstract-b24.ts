@@ -10,6 +10,9 @@ import { SdkError } from './sdk-error'
 import { ApiVersion } from '../types/b24'
 import { versionManager } from './version-manager'
 import { LoggerFactory } from '../logger'
+// Internal diagnostic — imported from the module directly so it stays off the
+// package's public surface (`logger/index.ts` is re-exported from `src/index.ts`).
+import { warnOnNonPromiseLogger } from '../logger/assert-logger-shape'
 import { ActionsManager } from './actions/manager'
 import { ToolsManager } from './tools/manager'
 
@@ -382,6 +385,10 @@ export abstract class AbstractB24 implements TypeB24 {
   }
 
   public setLogger(logger: LoggerInterface): void {
+    // Checked here, at the entry point callers actually use, rather than in each
+    // of the internal `setLogger` methods below — those receive `this._logger`,
+    // which has already been through this. (#346)
+    warnOnNonPromiseLogger(logger, 'B24 client')
     this._logger = logger
 
     this._actionsManager.setLogger(this._logger)

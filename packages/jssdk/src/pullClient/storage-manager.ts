@@ -27,7 +27,7 @@ export class StorageManager implements TypeStorageManager {
     if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
       this.getLogger().error('localStorage undefined', {
         error: new Error('undefined window.localStorage')
-      })
+      }).catch(() => {})
       return
     }
 
@@ -55,7 +55,7 @@ export class StorageManager implements TypeStorageManager {
     if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
       this.getLogger().error('localStorage undefined', {
         error: new Error('undefined window.localStorage')
-      })
+      }).catch(() => {})
       return
     }
 

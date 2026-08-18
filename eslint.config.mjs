@@ -1,5 +1,6 @@
 import { createConfigForNuxt } from '@nuxt/eslint-config/flat'
 import noCredentialInLogger from './eslint-rules/no-credential-in-logger.js'
+import requireCatchOnLoggerCall from './eslint-rules/require-catch-on-logger-call.js'
 
 export default createConfigForNuxt({
   features: {
@@ -57,10 +58,25 @@ export default createConfigForNuxt({
     'packages/jssdk/src/**/*.ts',
     'packages/jssdk-nuxt/src/**/*.ts'
   ],
+  //
+  // `require-catch-on-logger-call` guards a different failure in the same area
+  // (#346): logger methods return a promise and the SDK calls them as bare
+  // statements, so a rejecting sink becomes an unhandled rejection — fatal by
+  // default in Node. Every such callsite must end in `.catch(() => {})`, which
+  // states the fire-and-forget intent and also covers a custom LoggerInterface
+  // installed via `setLogger(...)`, which the isolation inside our own
+  // `Logger.log()` cannot reach. Syntax-only, so no type-aware linting needed;
+  // auto-fixable.
   plugins: {
-    local: { rules: { 'no-credential-in-logger': noCredentialInLogger } }
+    local: {
+      rules: {
+        'no-credential-in-logger': noCredentialInLogger,
+        'require-catch-on-logger-call': requireCatchOnLoggerCall
+      }
+    }
   },
   rules: {
-    'local/no-credential-in-logger': 'error'
+    'local/no-credential-in-logger': 'error',
+    'local/require-catch-on-logger-call': 'error'
   }
 })

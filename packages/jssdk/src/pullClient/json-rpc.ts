@@ -132,7 +132,7 @@ export class JsonRpc {
     }
 
     // Redact: an unknown/error server frame is opaque and could carry a credential key (#43).
-    this.getLogger().error(`${Text.getDateForLog()}: Pull: Received rpc response with unknown id`, redactSensitiveParams({ response }))
+    this.getLogger().error(`${Text.getDateForLog()}: Pull: Received rpc response with unknown id`, redactSensitiveParams({ response })).catch(() => {})
   }
 
   parseJsonRpcMessage(
@@ -145,7 +145,7 @@ export class JsonRpc {
       this.getLogger().error(
         `${Text.getDateForLog()}: Pull: Could not decode json rpc message`,
         { error }
-      )
+      ).catch(() => {})
 
       return []
     }
@@ -161,7 +161,7 @@ export class JsonRpc {
       this.getLogger().error(
         `${Text.getDateForLog()}: Pull: unknown rpc packet`,
         redactSensitiveParams({ decoded })
-      )
+      ).catch(() => {})
     }
 
     return []
@@ -208,7 +208,7 @@ export class JsonRpc {
         this.getLogger().error(
           `${Text.getDateForLog()}: Pull: unknown rpc command in batch`,
           redactSensitiveParams({ command })
-        )
+        ).catch(() => {})
 
         result.push({
           jsonrpc: JSON_RPC_VERSION,

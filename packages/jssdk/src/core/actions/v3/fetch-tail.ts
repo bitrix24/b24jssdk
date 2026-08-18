@@ -85,7 +85,7 @@ export class FetchTailV3 extends AbstractAction {
     // INVALIDFILTEREXCEPTION. Warn instead of letting the server 400. (Detection
     // covers only the short-form `[field, op, value]` triples the SDK emits.)
     if (Array.isArray(params['filter']) && params['filter'].some((c: any) => Array.isArray(c) && c[0] === cursorField)) {
-      this._logger.warning(`fetchTail.make: the cursor field "${cursorField}" must not appear in \`filter\` — the server orders and pages by it and will reject a filter on the same field (INVALIDFILTEREXCEPTION). Remove it from \`filter\`.`)
+      this._logger.warning(`fetchTail.make: the cursor field "${cursorField}" must not appear in \`filter\` — the server orders and pages by it and will reject a filter on the same field (INVALIDFILTEREXCEPTION). Remove it from \`filter\`.`).catch(() => {})
     }
 
     // The cursor field must be readable in the response to advance. Append it to
@@ -98,7 +98,7 @@ export class FetchTailV3 extends AbstractAction {
         select = [...select, cursorField]
       }
     } else if (cursorField !== 'id') {
-      this._logger.warning(`fetchTail.make: no \`select\` provided with a non-default cursorField "${cursorField}" — make sure it is in the server's default field set, otherwise pass \`select\` including "${cursorField}" so the cursor can advance.`)
+      this._logger.warning(`fetchTail.make: no \`select\` provided with a non-default cursorField "${cursorField}" — make sure it is in the server's default field set, otherwise pass \`select\` including "${cursorField}" so the cursor can advance.`).catch(() => {})
     }
 
     const { select: _ignoredSelect, ...restParams } = params as TypeCallParams

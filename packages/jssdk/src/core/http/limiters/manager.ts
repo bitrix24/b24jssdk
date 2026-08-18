@@ -383,7 +383,7 @@ export class RestrictionManager {
       method,
       wait,
       limiter
-    })
+    }).catch(() => {})
   }
 
   #logMethodBlockedWithTimes(limiter: string, requestId: string, method: string, wait: number, times: number) {
@@ -393,7 +393,7 @@ export class RestrictionManager {
       times,
       wait,
       limiter
-    })
+    }).catch(() => {})
   }
 
   #logError(limiter: string, requestId: string, code: string, message: string, method: string, wait: number) {
@@ -406,7 +406,7 @@ export class RestrictionManager {
         code,
         message
       }
-    })
+    }).catch(() => {})
   }
 
   #logSomeError(requestId: string, code: string, message: string, method: string, wait: number) {
@@ -418,7 +418,7 @@ export class RestrictionManager {
         code,
         message
       }
-    })
+    }).catch(() => {})
   }
 
   #logNonRetryableClientError(requestId: string, code: string, message: string, method: string, status: number) {
@@ -430,7 +430,7 @@ export class RestrictionManager {
         code,
         message
       }
-    })
+    }).catch(() => {})
   }
   // endregion ////
 }

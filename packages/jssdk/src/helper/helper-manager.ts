@@ -172,7 +172,7 @@ export class B24HelperManager {
         throw error
       }
 
-      this.getLogger().error('Failed to load data', { error })
+      this.getLogger().error('Failed to load data', { error }).catch(() => {})
       throw new Error('Failed to load data', { cause: error })
     }
   }
@@ -461,7 +461,7 @@ export class B24HelperManager {
     }
 
     this._b24PullClient.start().catch((error) => {
-      this.getLogger().error(`${Text.getDateForLog()}: Pull not running`, { error })
+      this.getLogger().error(`${Text.getDateForLog()}: Pull not running`, { error }).catch(() => {})
     })
   }
 

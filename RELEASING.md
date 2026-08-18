@@ -59,8 +59,35 @@ release PR itself**, before merging it:
    release that adds public API will still be proposed as a patch. Raise it with
    a `Release-As: 2.1.0` footer, or edit the PR directly.
 
-Both are edits to a normal PR; the bot does not overwrite them unless it
-re-runs after a new push to `main`.
+#### The order matters, because the bot force-pushes
+
+`updatePullRequest` in release-please rebuilds the whole changeset from the
+commits and pushes it with `force: true`. It is not a merge — **every manual edit
+to the release branch is discarded**, and it re-runs on *every* push to `main`.
+
+So the two steps above are not interchangeable, and the fold-in is not something
+to do early:
+
+1. **Set the version first.** `Release-As:` lives in a commit on `main`, which
+   means using it is itself a push to `main` and therefore triggers a re-run.
+   Doing it after the fold-in destroys the fold-in.
+2. **Fold in last**, as the final action before clicking merge, with no push to
+   `main` in between. If someone merges anything while the release PR is open,
+   redo the fold — the previous attempt is recoverable from the branch's
+   reflog/history on GitHub, but it will not be in the PR any more.
+
+This is also why the hand-written `## [Unreleased]` block stays in
+[CHANGELOG.md](CHANGELOG.md) on `main` until that moment: it is the only copy of
+those entries, and deleting it before the fold-in survives would lose them.
+
+> **Observed vs projected.** Verified on the first run (PR #353): the release PR
+> is opened, all three `package.json` files and the manifest are bumped together
+> via `extra-files`, the `security:` / `deps:` sections appear, the generated
+> section is prepended above `## [Unreleased]`, and the proposed bump is a patch.
+> Read from the release-please source rather than observed: the `force: true`
+> overwrite above. **Not yet observed at all:** what the next run does once a
+> release has actually been cut, and whether `Release-As:` behaves as documented
+> here — nothing in this repo has exercised either.
 
 How to cut a release of the two published packages — `@bitrix24/b24jssdk` (core
 SDK) and `@bitrix24/b24jssdk-nuxt` (Nuxt module). They ship **in lockstep at one

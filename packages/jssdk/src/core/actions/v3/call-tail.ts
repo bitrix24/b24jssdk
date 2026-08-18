@@ -82,7 +82,7 @@ export class CallTailV3 extends AbstractAction {
     // Cursor field must not also live in `filter` (server rejects with
     // INVALIDFILTEREXCEPTION). Detection covers only the short-form triples.
     if (Array.isArray(params['filter']) && params['filter'].some((c: any) => Array.isArray(c) && c[0] === cursorField)) {
-      this._logger.warning(`callTail.make: the cursor field "${cursorField}" must not appear in \`filter\` — the server orders and pages by it and will reject a filter on the same field (INVALIDFILTEREXCEPTION). Remove it from \`filter\`.`)
+      this._logger.warning(`callTail.make: the cursor field "${cursorField}" must not appear in \`filter\` — the server orders and pages by it and will reject a filter on the same field (INVALIDFILTEREXCEPTION). Remove it from \`filter\`.`).catch(() => {})
     }
 
     // Cursor field must be readable to advance. Append it to an explicit
@@ -93,7 +93,7 @@ export class CallTailV3 extends AbstractAction {
         select = [...select, cursorField]
       }
     } else if (cursorField !== 'id') {
-      this._logger.warning(`callTail.make: no \`select\` provided with a non-default cursorField "${cursorField}" — make sure it is in the server's default field set, otherwise pass \`select\` including "${cursorField}" so the cursor can advance.`)
+      this._logger.warning(`callTail.make: no \`select\` provided with a non-default cursorField "${cursorField}" — make sure it is in the server's default field set, otherwise pass \`select\` including "${cursorField}" so the cursor can advance.`).catch(() => {})
     }
 
     const { select: _ignoredSelect, ...restParams } = params as TypeCallParams

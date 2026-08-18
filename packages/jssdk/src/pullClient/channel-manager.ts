@@ -77,7 +77,7 @@ export class ChannelManager {
           resolve(result)
         })
         .catch((error: Error | string) => {
-          this.getLogger().error('some error in getPublicIds', { error })
+          this.getLogger().error('some error in getPublicIds', { error }).catch(() => {})
           return resolve({})
         })
     })

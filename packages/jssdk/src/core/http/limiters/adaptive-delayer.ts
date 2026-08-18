@@ -166,7 +166,7 @@ export class AdaptiveDelayer implements ILimiter {
         calculated: adaptiveDelay,
         actual: waitDelay
       }
-    })
+    }).catch(() => {})
   }
   // endregion ////
 }

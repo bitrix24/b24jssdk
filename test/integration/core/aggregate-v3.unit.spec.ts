@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest'
 import { AggregateV3 } from '../../../packages/jssdk/src/core/actions/v3/aggregate'
 
 function makeLogger() {
-  return { warning: () => {}, error: () => {}, info: () => {}, log: () => {}, debug: () => {}, trace: () => {} } as never
+  return { warning: async () => {}, error: async () => {}, info: async () => {}, log: async () => {}, debug: async () => {}, trace: async () => {} } as never
 }
 
 /**
@@ -50,7 +50,7 @@ describe('AggregateV3', () => {
 
   it('falls back to single-level result and warns if the envelope is not double-nested', async () => {
     const warnings: string[] = []
-    const logger = { warning: (m: string) => warnings.push(m), error: () => {}, info: () => {}, log: () => {}, debug: () => {}, trace: () => {} } as never
+    const logger = { warning: async (m: string) => warnings.push(m), error: async () => {}, info: async () => {}, log: async () => {}, debug: async () => {}, trace: async () => {} } as never
     // server returns buckets directly under `result`, not `result.result`
     const make = async () => ({
       isSuccess: true,

@@ -399,7 +399,7 @@ export class RateLimiter implements ILimiter {
           formatted: `(${currentBurstLimit} < ${originalBurstLimit}) ${burstLimitCondition}`
         }
       }
-    )
+    ).catch(() => {})
   }
 
   #logRestoreLimits(requestId: string, currentDrainRate: number, currentBurstLimit: number) {
@@ -425,14 +425,14 @@ export class RateLimiter implements ILimiter {
           formatted: `(${currentBurstLimit} < ${originalBurstLimit}) ${burstLimitCondition}`
         }
       }
-    )
+    ).catch(() => {})
   }
 
   #logAcquireQueue(requestId: string, queueLength: number) {
     this.getLogger().debug(`${this.getTitle()} request in queue`, {
       requestId,
       queueLength
-    })
+    }).catch(() => {})
   }
 
   #logStat(
@@ -480,7 +480,7 @@ export class RateLimiter implements ILimiter {
         condition: burstLimitCondition,
         formatted: `(${currentBurstLimit} < ${originalBurstLimit}) ${burstLimitCondition}`
       }
-    })
+    }).catch(() => {})
   }
   // endregion ////
 }

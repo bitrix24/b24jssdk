@@ -85,7 +85,7 @@ export async function* keysetPaginate<T = unknown>(
         method: strategy.method,
         requestId: strategy.requestId,
         messages: response.getErrorMessages()
-      })
+      }).catch(() => {})
       throw new KeysetPaginationError(response.errors, response.getErrorMessages())
     }
 
@@ -111,7 +111,7 @@ export async function* keysetPaginate<T = unknown>(
     const lastItem = resultData[resultData.length - 1] as Record<string, any>
     const next = lastItem ? strategy.readNextCursor(lastItem) : null
     if (next === null || next === undefined) {
-      logger.warning(strategy.noCursorWarning)
+      logger.warning(strategy.noCursorWarning).catch(() => {})
       break
     }
     cursor = next

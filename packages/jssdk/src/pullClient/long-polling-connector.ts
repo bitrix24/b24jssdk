@@ -135,14 +135,14 @@ export class LongPollingConnector extends AbstractConnector {
   override send(buffer: ArrayBuffer | string): boolean {
     const path = this._parent.getPublicationPath()
     if (!path) {
-      this.getLogger().error(`${Text.getDateForLog()}: Pull: publication path is empty`)
+      this.getLogger().error(`${Text.getDateForLog()}: Pull: publication path is empty`).catch(() => {})
       return false
     }
 
     if (typeof XMLHttpRequest === 'undefined') {
       this.getLogger().error(
         `${Text.getDateForLog()}: Pull: XMLHttpRequest is not available; cannot publish`
-      )
+      ).catch(() => {})
       return false
     }
 

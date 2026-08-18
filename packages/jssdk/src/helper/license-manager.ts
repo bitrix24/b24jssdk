@@ -35,7 +35,7 @@ export class LicenseManager extends AbstractHelper {
     this.getLogger().debug('set restriction manager params', {
       license: this.data.license,
       restrictionParams
-    })
+    }).catch(() => {})
 
     await this._b24.setRestrictionManagerParams(restrictionParams)
   }

@@ -156,7 +156,7 @@ export class MessageManager {
         command: command.toString(),
         callbackKey: keyPromise,
         origin: this.#appFrame.getTargetOrigin()
-      })
+      }).catch(() => {})
 
       parent.postMessage(cmd, this.#appFrame.getTargetOrigin())
 
@@ -168,7 +168,7 @@ export class MessageManager {
               this.getLogger().warning(`action ${command.toString()} stop by timeout`, {
                 command: command.toString(),
                 safelyTime
-              })
+              }).catch(() => {})
 
               this.#callbackPromises.delete(keyPromise)
               resolve({ isSafely: true })
@@ -197,7 +197,7 @@ export class MessageManager {
         this.getLogger().warning('message rejected: unexpected origin', {
           origin: event.origin,
           expected: this.#appFrame.getTargetOrigin()
-        })
+        }).catch(() => {})
       }
 
       return
@@ -218,7 +218,7 @@ export class MessageManager {
       this.getLogger().debug(`get from ${event.origin}`, {
         id: cmd.id,
         origin: event.origin
-      })
+      }).catch(() => {})
 
       if (cmd.args) {
         cmd.args = JSON.parse(cmd.args)

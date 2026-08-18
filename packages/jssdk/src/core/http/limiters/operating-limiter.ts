@@ -223,7 +223,7 @@ export class OperatingLimiter implements ILimiter {
         current: Number.parseFloat((operating / 1000).toFixed(0)),
         max: Number.parseFloat((this.#config.limitMs / 1000).toFixed(0))
       }
-    })
+    }).catch(() => {})
   }
   // endregion ////
 }

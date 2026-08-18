@@ -80,7 +80,7 @@ export class WebSocketConnector extends AbstractConnector {
    */
   override send(buffer: ArrayBuffer | string): boolean {
     if (!this._socket || this._socket.readyState !== 1) {
-      this.getLogger().error(`${Text.getDateForLog()}: Pull: WebSocket is not connected`)
+      this.getLogger().error(`${Text.getDateForLog()}: Pull: WebSocket is not connected`).catch(() => {})
 
       return false
     }

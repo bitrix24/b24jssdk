@@ -17,8 +17,9 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Logger } from '../../../packages/jssdk/src/logger/logger'
+import { warnOnNonPromiseLogger } from '../../../packages/jssdk/src/logger/assert-logger-shape'
 import { LogLevel } from '../../../packages/jssdk/src/types/logger'
-import type { Formatter, Handler, LogRecord } from '../../../packages/jssdk/src/types/logger'
+import type { Formatter, Handler, LogRecord, LoggerInterface } from '../../../packages/jssdk/src/types/logger'
 
 /**
  * Minimal Handler. `behaviour` decides how this one fails (or doesn't); every
@@ -208,5 +209,38 @@ describe('#346 the isolation does not change successful logging', () => {
       message: 'boom',
       context: { requestId: 'r1' }
     })
+  })
+})
+
+describe('#346 setLogger warns about a logger that cannot be called fire-and-forget', () => {
+  it('warns when a logging method is missing', () => {
+    // A partial stub — easy to write in plain JavaScript, where nothing checks
+    // the interface. The SDK appends `.catch()` to every log call, so a missing
+    // method is a TypeError at the callsite rather than a quiet no-op.
+    warnOnNonPromiseLogger({ info: async () => {} } as unknown as LoggerInterface, 'test')
+
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    const text = String(warnSpy.mock.calls[0]?.[0])
+    expect(text).toContain('missing')
+    expect(text).toContain('warning')
+  })
+
+  it('warns when the value is not an object at all', () => {
+    warnOnNonPromiseLogger(null as unknown as LoggerInterface, 'test')
+
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(String(warnSpy.mock.calls[0]?.[0])).toContain('not an object')
+  })
+
+  it('stays quiet for a complete implementation', () => {
+    const complete = {
+      log: async () => {}, debug: async () => {}, info: async () => {},
+      notice: async () => {}, warning: async () => {}, error: async () => {},
+      critical: async () => {}, alert: async () => {}, emergency: async () => {}
+    } as unknown as LoggerInterface
+
+    warnOnNonPromiseLogger(complete, 'test')
+
+    expect(warnSpy).not.toHaveBeenCalled()
   })
 })

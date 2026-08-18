@@ -37,21 +37,57 @@ What this changes for everyday work:
 - **`[Unreleased]` is no longer hand-maintained.** Write the explanation in the
   commit subject and body of the PR that makes the change.
 
-### Handover — do this once, before the first automated release
+### Handover — one-time, on the first release PR
 
-`bootstrap-sha` in the config points at the pnpm bump (`ff7007d`), so
-release-please starts from a clean slate and will not re-describe the 36 commits
-already summarised by hand under `## [Unreleased]`. Those entries still need to
-ship, so the switch is:
+**`bootstrap-sha` does not limit the scan when a previous release exists.** The
+config carries one, but the first run showed it is only consulted when
+release-please finds no prior release; here it found the `v2.0.0` tag and scanned
+from there. So the first release PR describes **every** commit since `v2.0.0`,
+not just those after the bootstrap commit.
 
-1. Cut **one final manual release** by the *Step by step* path below, carrying
-   the current hand-written `## [Unreleased]` block as its section.
-2. Set `.release-please-manifest.json` to that version, so the bot's idea of
-   "where we are" matches `package.json`.
-3. From the next change onward, the bot writes the changelog.
+That is the better outcome — no final manual release is needed, because the
+generated section already covers the work. Two things do need doing **on the
+release PR itself**, before merging it:
 
-Doing it in the other order leaves a generated section sitting above a stale
-`## [Unreleased]` heading that nothing will ever clear.
+1. **Fold in or drop the hand-written `## [Unreleased]` block.** The generated
+   section is prepended *above* it, so that block is now stranded below a
+   released version and nothing will ever clear it. Its entries explain causes
+   and consequences the commit subjects do not, so folding the ones worth keeping
+   into the generated section is usually better than deleting them.
+2. **Check the version.** The bot proposes a patch unless it sees a `feat:` or a
+   breaking marker, and this repo has merged neither for a long time — so a
+   release that adds public API will still be proposed as a patch. Raise it with
+   a `Release-As: 2.1.0` footer, or edit the PR directly.
+
+#### The order matters, because the bot force-pushes
+
+`updatePullRequest` in release-please rebuilds the whole changeset from the
+commits and pushes it with `force: true`. It is not a merge — **every manual edit
+to the release branch is discarded**, and it re-runs on *every* push to `main`.
+
+So the two steps above are not interchangeable, and the fold-in is not something
+to do early:
+
+1. **Set the version first.** `Release-As:` lives in a commit on `main`, which
+   means using it is itself a push to `main` and therefore triggers a re-run.
+   Doing it after the fold-in destroys the fold-in.
+2. **Fold in last**, as the final action before clicking merge, with no push to
+   `main` in between. If someone merges anything while the release PR is open,
+   redo the fold — the previous attempt is recoverable from the branch's
+   reflog/history on GitHub, but it will not be in the PR any more.
+
+This is also why the hand-written `## [Unreleased]` block stays in
+[CHANGELOG.md](CHANGELOG.md) on `main` until that moment: it is the only copy of
+those entries, and deleting it before the fold-in survives would lose them.
+
+> **Observed vs projected.** Verified on the first run (PR #353): the release PR
+> is opened, all three `package.json` files and the manifest are bumped together
+> via `extra-files`, the `security:` / `deps:` sections appear, the generated
+> section is prepended above `## [Unreleased]`, and the proposed bump is a patch.
+> Read from the release-please source rather than observed: the `force: true`
+> overwrite above. **Not yet observed at all:** what the next run does once a
+> release has actually been cut, and whether `Release-As:` behaves as documented
+> here — nothing in this repo has exercised either.
 
 How to cut a release of the two published packages — `@bitrix24/b24jssdk` (core
 SDK) and `@bitrix24/b24jssdk-nuxt` (Nuxt module). They ship **in lockstep at one

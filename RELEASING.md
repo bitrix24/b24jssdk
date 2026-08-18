@@ -1,6 +1,57 @@
 # Releasing `@bitrix24/b24jssdk`
 
-<sub>Last reviewed: 2026-06-17.</sub>
+<sub>Last reviewed: 2026-08-18.</sub>
+
+> **Releases are moving to release-please (#347).** Once the handover below is
+> done, the routine release is: review the standing release PR, approve its held
+> CI run, merge. Everything in *Step by step* stays valid as the fallback path
+> and as the description of what the automation does on your behalf.
+
+## The release PR flow
+
+[`release-please.yml`](.github/workflows/release-please.yml) keeps **one** open
+PR titled `chore(main): release X.Y.Z` up to date on every push to `main`. It
+carries the version bump across all three `package.json` files plus
+`.release-please-manifest.json`, and the `CHANGELOG.md` section assembled from
+the conventional-commit subjects merged since the last tag. Fifteen merged fixes
+update that one PR fifteen times; they do not cut fifteen releases.
+
+Merging it tags `vX.Y.Z` and publishes a GitHub Release — which is the same
+`release: published` event the two `npm-publish-*.yml` workflows already listen
+for. **No npm-side change is needed**: their Trusted Publisher entries stay
+keyed to their own filenames, untouched.
+
+What this changes for everyday work:
+
+- **Commit subjects are the changelog.** `feat:` and a `BREAKING CHANGE:` footer
+  (or `!`) are the only things that raise the version above a patch — verified
+  in release-please's own `determineReleaseType`. Every other type, known or
+  not, contributes a patch. Force a specific version with a `Release-As: 2.1.0`
+  footer in the commit body.
+- **Use a type the config maps.** `changelog-sections` in
+  [release-please-config.json](release-please-config.json) **replaces** the
+  preset's list rather than extending it, so a type missing from that list is
+  invisible in the changelog. `deps` and `security` are mapped there because
+  this repo uses them; the one-off types this repo has also used (`platform`,
+  `dx`, `http`) are not — pick from the mapped list instead.
+- **`[Unreleased]` is no longer hand-maintained.** Write the explanation in the
+  commit subject and body of the PR that makes the change.
+
+### Handover — do this once, before the first automated release
+
+`bootstrap-sha` in the config points at the pnpm bump (`ff7007d`), so
+release-please starts from a clean slate and will not re-describe the 36 commits
+already summarised by hand under `## [Unreleased]`. Those entries still need to
+ship, so the switch is:
+
+1. Cut **one final manual release** by the *Step by step* path below, carrying
+   the current hand-written `## [Unreleased]` block as its section.
+2. Set `.release-please-manifest.json` to that version, so the bot's idea of
+   "where we are" matches `package.json`.
+3. From the next change onward, the bot writes the changelog.
+
+Doing it in the other order leaves a generated section sitting above a stale
+`## [Unreleased]` heading that nothing will ever clear.
 
 How to cut a release of the two published packages — `@bitrix24/b24jssdk` (core
 SDK) and `@bitrix24/b24jssdk-nuxt` (Nuxt module). They ship **in lockstep at one

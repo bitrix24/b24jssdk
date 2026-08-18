@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "ff7007d17b934c585dccf0da65a5eee99092a0d8",
+  "include-component-in-tag": false,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "extra-files": [
+        { "type": "json", "path": "packages/jssdk/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "packages/jssdk-nuxt/package.json", "jsonpath": "$.version" }
+      ],
+      "changelog-sections": [
+        { "type": "feat", "section": "Added" },
+        { "type": "feature", "section": "Added" },
+        { "type": "fix", "section": "Fixed" },
+        { "type": "perf", "section": "Performance" },
+        { "type": "revert", "section": "Reverts" },
+        { "type": "security", "section": "Security" },
+        { "type": "deps", "section": "Dependencies" },
+        { "type": "refactor", "section": "Changed" },
+        { "type": "build", "section": "Changed" },
+        { "type": "docs", "section": "Docs" },
+        { "type": "test", "section": "Tests" },
+        { "type": "ci", "section": "CI" },
+        { "type": "chore", "section": "Chore" },
+        { "type": "style", "section": "Chore" }
+      ]
+    }
+  }
+}

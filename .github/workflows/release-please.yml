@@ -1,0 +1,40 @@
+# Keeps a single open release PR up to date with the next version bump and the
+# changelog assembled from conventional-commit subjects. Merging that PR is the
+# release: it tags, publishes a GitHub Release, and the two npm-publish
+# workflows fire on that `release: published` event exactly as they do today.
+#
+# Deliberately NOT wired to publish directly. npm's Trusted Publisher entries
+# are keyed to the two exact filenames `npm-publish-js-sdk.yml` and
+# `npm-publish-js-sdk-nuxt.yml`; a publish reached from any other workflow file
+# fails the OIDC token exchange. Leaving the release event as the trigger keeps
+# that contract untouched — no npm-side change is needed to adopt this. (#347)
+name: Release Please
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Never cancel: a burst of merges otherwise starts a full history scan per push,
+# all racing for the same PR, and cancelling one can kill a run that is midway
+# through cutting a release.
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Propose or cut the release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

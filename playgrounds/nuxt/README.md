@@ -77,3 +77,11 @@ probe is broken and the candidate rows mean nothing.
 The candidate list is a guess informed by the SDK's own naming (`imPhoneTo` is a
 bare camelCase command), not a published vocabulary. A silent result is evidence
 about those names, not proof that no name exists.
+
+### Handing the result to a browser assistant
+
+The transcript answers what an app can see. The other half — what the portal's
+top window actually contains, and what its app-message handler accepts — is only
+visible from the browser. [MESSENGER-PROBE-BRIEF.md](MESSENGER-PROBE-BRIEF.md) is
+the brief for that: what to establish, what to conclude, and how to write it up
+for the Bitrix24 developers.

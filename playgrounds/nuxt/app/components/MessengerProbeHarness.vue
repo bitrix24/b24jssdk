@@ -1,32 +1,27 @@
 <script setup lang="ts">
 /**
- * Messenger / call probe harness — for #331.
+ * Deprecation trigger for #331.
  *
- * Every messenger method this SDK exposes is deprecated upstream, and every
- * recommended replacement is a TOP-WINDOW global (`BX.Messenger.Public.*`) that
- * an app placement iframe cannot reach. This harness answers, from inside a real
- * placement, the three questions the issue asks:
+ * The job here is narrow on purpose: fire ONE deprecated messenger method at a
+ * time so the portal prints its own deprecation notice, and make that notice
+ * attributable. The portal already tells us what to use instead — calling
+ * `imOpenMessenger` produces:
  *
- *   A. do the deprecated `im*` bridges still work?
- *   B. is any top-window Messenger object reachable from the iframe at all?
- *   C. does the parent frame handler already accept an undocumented command for
- *      the new methods — the way it accepts `imPhoneTo` today?
+ *   Developer: method BXIM.openMessenger is deprecated. Use method
+ *   'Messenger.openChat' from 'im.public' or 'im.public.iframe' extension.
  *
- * (C) is the one that decides the issue. `imPhoneTo` works because the app posts
- * the literal string `imPhoneTo:…` to the parent window and a handler there runs
- * the real call. If the parent also answers `startPhoneCall` or `openChat`, the
- * migration path already exists and only needs documenting. If it answers none
- * of them, apps have no path and Bitrix24 has to add one.
+ * So the harness does not need to guess command names. It needs to produce that
+ * line, cleanly, for each of the four deprecated methods. Working out how to
+ * reach the replacement is the browser assistant's job, from the top window
+ * (see MESSENGER-PROBE-BRIEF.md).
  *
- * The probe posts the SAME wire format the SDK uses, built only from public API
- * (`getAppSid()` / `getTargetOrigin()`), and listens for a reply keyed to its own
- * callback id. It deliberately does NOT use the SDK's `isSafely` auto-resolve:
- * that resolves on a timer whether or not anyone answered, which would make
- * "handled" and "ignored" look identical — exactly the distinction we need.
+ * An earlier version of this file guessed at undocumented command names and
+ * probed them in a batch. That was wrong twice over: the `im*` commands are
+ * fire-and-forget, so silence proved nothing, and batching made side effects
+ * unattributable. Both are gone.
  *
- * Nothing here changes portal data. The call/chat probes DO open a real UI on
- * the portal (that is the observable being measured), so run them on a test
- * portal with a number and dialog you are happy to poke.
+ * Every button here opens real UI on the portal. There is no safe mode, and
+ * pretending otherwise is what broke the first run.
  */
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import type { B24Frame } from '@bitrix24/b24jssdk'
@@ -35,290 +30,77 @@ import { LoggerFactory } from '@bitrix24/b24jssdk'
 const { $initializeB24Frame } = useNuxtApp()
 const $logger = LoggerFactory.createForBrowserDevelopment('[playground] MessengerProbe')
 
-type Tone = 'info' | 'ok' | 'err' | 'warn'
-type Row = {
-  n: number
-  group: string
-  label: string
-  detail: string
-  outcome: string
-  tone: Tone
-  ms: number
-}
+type Row = { n: number, label: string, detail: string, outcome: string, tone: 'ok' | 'err' | 'warn' | 'info', ms: number }
 
 let $b24: B24Frame
 const isInit = ref(false)
 const rows = ref<Row[]>([])
-const transcript = ref('')
 let counter = 0
 
-// Inputs — defaults are obviously-fake placeholders; set them for your portal.
 const phone = ref('+70000000000')
 const userId = ref('1')
 const dialogId = ref('1')
-const chatId = ref('chat1')
 const withVideo = ref(false)
 
-/** How long to wait for a reply before calling a command unanswered. */
-const PROBE_TIMEOUT_MS = 2500
+/** Marker printed to the console so the portal's own notice can be attributed. */
+const MARK = '#331 ▸'
 
-function record(group: string, label: string, detail: string, outcome: string, tone: Tone, ms: number): void {
-  rows.value.push({ n: ++counter, group, label, detail, outcome, tone, ms })
+function record(label: string, detail: string, outcome: string, tone: Row['tone'], ms: number): void {
+  rows.value.push({ n: ++counter, label, detail, outcome, tone, ms })
 }
 
-// ===================== A · the deprecated bridges we ship =====================
-
-async function runDeprecated(label: string, detail: string, fn: () => Promise<unknown>): Promise<void> {
+/**
+ * Fire one deprecated method and record what came back.
+ *
+ * `isSafely` is on inside the SDK for all four, so a resolve of
+ * `{ isSafely: true }` means the parent never answered and a timer fired — not
+ * success. That distinction is why the outcome column exists.
+ */
+async function trigger(label: string, detail: string, fn: () => Promise<unknown>): Promise<void> {
+  console.info(`${MARK} calling ${label} — the next portal notice belongs to this call`)
   const startedAt = Date.now()
   try {
     const result = await fn()
     const ms = Date.now() - startedAt
-    // `isSafely` is on inside the SDK for these, so a resolve of
-    // `{ isSafely: true }` means "nobody answered, the timer fired" — not success.
     const viaTimer = !!result && typeof result === 'object' && 'isSafely' in (result as object)
-    record(
-      'A · deprecated im* bridge',
-      label,
-      detail,
-      viaTimer
-        ? `resolved by the SDK safety timer after ${ms}ms — no reply from the parent`
-        : `answered: ${JSON.stringify(result)}`,
-      viaTimer ? 'warn' : 'ok',
-      ms
-    )
+    record(label, detail,
+      viaTimer ? `no reply; SDK safety timer resolved after ${ms}ms` : `answered: ${JSON.stringify(result)}`,
+      viaTimer ? 'warn' : 'ok', ms)
   } catch (error) {
-    record('A · deprecated im* bridge', label, detail,
-      'threw: ' + (error instanceof Error ? error.message : String(error)),
-      'err', Date.now() - startedAt)
+    record(label, detail, 'threw: ' + (error instanceof Error ? error.message : String(error)), 'err', Date.now() - startedAt)
   }
+  console.info(`${MARK} done ${label}`)
 }
 
-// ===================== B · can we see the top window at all? =====================
-
-function probeGlobals(): void {
-  const checks: Array<[string, () => string]> = [
-    ['window.BX', () => typeof (window as any).BX],
-    ['window.BX.Messenger', () => String(typeof (window as any).BX?.Messenger)],
-    ['window.BX.Messenger.Public', () => String(typeof (window as any).BX?.Messenger?.Public)],
-    ['window.parent === window', () => String(window.parent === window)],
-    ['window.parent.BX (cross-origin read)', () => typeof (window.parent as any).BX],
-    ['window.top.location.href (cross-origin read)', () => String((window.top as any).location.href)]
-  ]
-  for (const [label, read] of checks) {
-    const startedAt = Date.now()
-    try {
-      const value = read()
-      record('B · top-window reachability', label, 'direct property read',
-        `readable → ${value}`,
-        value === 'undefined' ? 'warn' : 'ok', Date.now() - startedAt)
-    } catch (error) {
-      // A SecurityError here is the POINT: it is the evidence that the
-      // documented `BX.Messenger.Public.*` example cannot run from an app.
-      record('B · top-window reachability', label, 'direct property read',
-        'blocked: ' + (error instanceof Error ? `${error.name}: ${error.message}` : String(error)),
-        'err', Date.now() - startedAt)
-    }
-  }
-}
-
-// ============ C · does the parent already accept a newer command name? ============
+const callPhoneTo = () => trigger('im.phoneTo', `phone=${phone.value}`, () => $b24.parent.imPhoneTo(phone.value))
+const callCallTo = () => trigger('im.callTo', `userId=${userId.value} video=${withVideo.value}`,
+  () => $b24.parent.imCallTo(Number(userId.value), withVideo.value))
+const callOpenMessenger = () => trigger('im.openMessenger', `dialogId=${dialogId.value}`,
+  () => $b24.parent.imOpenMessenger(Number(dialogId.value)))
+const callOpenHistory = () => trigger('im.openHistory', `dialogId=${dialogId.value}`,
+  () => $b24.parent.imOpenHistory(Number(dialogId.value)))
 
 /**
- * Post one raw command in the SDK's own wire format and wait for a reply.
- *
- * Format, from MessageManager.send: a command with no `:` is sent as the string
- * `command:params:callbackKey:appSid`, where empty parts are dropped. The reply
- * arrives as a message whose data starts with the callback key.
+ * Context worth having in the report: proof that the recommended replacements
+ * are unreachable from here. Cheap, reads nothing sensitive, opens nothing.
  */
-function probeCommand(command: string, params: Record<string, unknown> | null): Promise<{ answered: boolean, data?: string, ms: number }> {
-  return new Promise((resolve) => {
-    const startedAt = Date.now()
-    const callbackKey = `probe_${Date.now()}_${Math.floor(performance.now() * 1000)}`
-    const targetOrigin = $b24.getTargetOrigin()
-    const appSid = $b24.getAppSid()
-
-    const onMessage = (event: MessageEvent): void => {
-      if (event.origin !== targetOrigin) return
-      if (typeof event.data !== 'string') return
-      if (!event.data.startsWith(callbackKey)) return
-      window.removeEventListener('message', onMessage)
-      window.clearTimeout(timeoutId)
-      resolve({ answered: true, data: event.data, ms: Date.now() - startedAt })
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      window.removeEventListener('message', onMessage)
-      resolve({ answered: false, ms: Date.now() - startedAt })
-    }, PROBE_TIMEOUT_MS)
-
-    window.addEventListener('message', onMessage)
-
-    const parts = [params ? JSON.stringify(params) : '', callbackKey, appSid].filter(Boolean)
-    const wire = `${command}:${parts.join(':')}`
-    $logger.info('probe →', { command, targetOrigin }).catch(() => {})
-    window.parent.postMessage(wire, targetOrigin)
-  })
-}
-
-/**
- * Command names worth trying, and why each is plausible.
- *
- * The SDK's own commands are bare camelCase (`imPhoneTo`), so the first guesses
- * mirror the new public method names in that style. The dotted/namespaced forms
- * are included because `MessageManager.send` has a separate object-shaped branch
- * for commands containing `:`, which suggests the parent understands some
- * namespaced vocabulary too.
- */
-const CANDIDATES: Array<{ command: string, params: Record<string, unknown> | null, why: string }> = [
-  { command: 'startPhoneCall', params: { number: '' }, why: 'new public name, SDK-style bare camelCase' },
-  { command: 'imStartPhoneCall', params: { number: '' }, why: 'new name under the existing im* prefix' },
-  { command: 'messengerStartPhoneCall', params: { number: '' }, why: 'new name under a messenger* prefix' },
-  { command: 'startVideoCall', params: { dialogId: '', withVideo: false }, why: 'new public name for the video call' },
-  { command: 'openChat', params: { dialogId: '' }, why: 'new public name replacing openMessenger + openHistory' },
-  { command: 'imOpenChat', params: { dialogId: '' }, why: 'openChat under the existing im* prefix' }
-]
-
-async function probeCandidates(): Promise<void> {
-  for (const candidate of CANDIDATES) {
-    // Probe with EMPTY payloads: we are asking "does a handler exist", not
-    // trying to place a call. Note the limit the first run proved — an `im*`
-    // command is fire-and-forget, so silence here is not evidence either way.
-    const outcome = await probeCommand(candidate.command, candidate.params)
-    record(
-      'C · undocumented command probe',
-      candidate.command,
-      candidate.why,
-      outcome.answered
-        ? `ANSWERED in ${outcome.ms}ms → ${(outcome.data ?? '').slice(0, 200)}`
-        : `no reply in ${PROBE_TIMEOUT_MS}ms — inconclusive for a fire-and-forget command`,
-      outcome.answered ? 'ok' : 'info',
-      outcome.ms
-    )
-  }
-}
-
-/**
- * Control probe: a command that REPLIES, to prove the reply channel works.
- *
- * The first version used `imOpenMessenger` as the control and drew the wrong
- * conclusion from its silence. That command is fire-and-forget: the parent runs
- * it and never answers — which is why the SDK sends it with `isSafely`, an
- * auto-resolve on a timer. The messenger visibly opened while the probe called
- * it "no handler".
- */
-async function probeControl(): Promise<void> {
-  const outcome = await probeCommand('getInterface', null)
-  record(
-    'C · reply-channel control',
-    'getInterface (CONTROL)',
-    'a command the parent ANSWERS — proves replies can reach us at all',
-    outcome.answered
-      ? `ANSWERED in ${outcome.ms}ms → ${(outcome.data ?? '').slice(0, 400)}`
-      : `silent for ${PROBE_TIMEOUT_MS}ms — the reply channel itself is broken; section C proves nothing`,
-    outcome.answered ? 'ok' : 'err',
-    outcome.ms
-  )
-}
-
-/**
- * Ask the placement what its JS interface supports.
- *
- * Documented as "information about the JS interface of the current embedding
- * location". If it returns a command list, that is the supported vocabulary —
- * read from inside the iframe, without inspecting the parent's source.
- */
-async function dumpInterface(): Promise<void> {
-  const startedAt = Date.now()
-  try {
-    const result = await $b24.placement.getInterface()
-    const viaTimer = !!result && typeof result === 'object' && 'isSafely' in (result as object)
-    record(
-      'D · placement interface',
-      'placement.getInterface()',
-      'documented as the JS interface of this embedding location',
-      viaTimer ? 'resolved by the SDK safety timer — the parent did not answer' : JSON.stringify(result),
-      viaTimer ? 'warn' : 'ok',
-      Date.now() - startedAt
-    )
-  } catch (error) {
-    record('D · placement interface', 'placement.getInterface()', '',
-      'threw: ' + (error instanceof Error ? error.message : String(error)), 'err', Date.now() - startedAt)
-  }
-}
-
-async function probeOne(command: string, params: Record<string, unknown> | null): Promise<void> {
-  const outcome = await probeCommand(command, params)
-  record(
-    'C · single command (watch the portal)',
-    command,
-    `params=${JSON.stringify(params)} — close any open slider/messenger BEFORE pressing`,
-    outcome.answered
-      ? `ANSWERED in ${outcome.ms}ms → ${(outcome.data ?? '').slice(0, 200)}`
-      : `no reply in ${PROBE_TIMEOUT_MS}ms — NOT proof of "no handler": look at the portal, a fire-and-forget command runs without answering`,
-    outcome.answered ? 'ok' : 'info',
-    outcome.ms
-  )
-  transcript.value = buildTranscript()
-}
-
-async function runAll(): Promise<void> {
+function recordContext(): void {
   rows.value = []
   counter = 0
-  transcript.value = ''
-
-  record('0 · context', 'targetOrigin', 'from $b24.getTargetOrigin()', $b24.getTargetOrigin(), 'info', 0)
-  record('0 · context', 'appSid', 'from $b24.getAppSid()', $b24.getAppSid() ? 'present' : 'MISSING', 'info', 0)
-  record('0 · context', 'userAgent', 'browser', navigator.userAgent, 'info', 0)
-
-  probeGlobals()
-  await probeControl()
-  await dumpInterface()
-  await probeCandidates()
-
-  transcript.value = buildTranscript()
-}
-
-async function runDeprecatedAll(): Promise<void> {
-  await runDeprecated('imPhoneTo', `phone=${phone.value}`, () => $b24.parent.imPhoneTo(phone.value))
-  await runDeprecated('imCallTo', `userId=${userId.value} video=${withVideo.value}`,
-    () => $b24.parent.imCallTo(Number(userId.value), withVideo.value))
-  await runDeprecated('imOpenMessenger', `dialogId=${dialogId.value}`,
-    () => $b24.parent.imOpenMessenger(Number(dialogId.value)))
-  await runDeprecated('imOpenHistory', `dialogId=${dialogId.value}`,
-    () => $b24.parent.imOpenHistory(Number(dialogId.value)))
-  transcript.value = buildTranscript()
-}
-
-function buildTranscript(): string {
-  const lines: string[] = [
-    '# Messenger / call probe — #331',
-    '',
-    `Portal: ${$b24.getTargetOrigin()}`,
-    `Run at: ${new Date().toISOString()}`,
-    `Probe timeout: ${PROBE_TIMEOUT_MS}ms`,
-    '',
-    '| # | group | what | why / detail | outcome | ms |',
-    '|---|---|---|---|---|---|'
-  ]
-  for (const row of rows.value) {
-    const cell = (text: string) => text.replaceAll('|', '\\|').replaceAll('\n', ' ')
-    lines.push(`| ${row.n} | ${cell(row.group)} | \`${cell(row.label)}\` | ${cell(row.detail)} | ${cell(row.outcome)} | ${row.ms} |`)
-  }
-  lines.push('', '## How to read this', '',
-    '- **Section B** all-blocked is the evidence that `BX.Messenger.Public.*` is unreachable from a placement.',
-    '- **Silence in section C is NOT proof that a handler is missing.** The `im*` bridges are fire-and-forget: the parent runs them and never replies, which is why the SDK sends them with an `isSafely` timer. A command can work perfectly and stay silent here.',
-    '- The CONTROL row uses `getInterface`, which does reply. It proves only that replies can reach us — nothing about the candidates.',
-    '- To judge a fire-and-forget candidate you must watch the PORTAL, not this table: close every slider and messenger window, fire ONE command with the single-command buttons, and see whether anything opens.',
-    '- **Section D** is the strongest evidence available from inside the iframe: if `getInterface` returns a command list, that list is the supported vocabulary.',
-    '')
-  return lines.join('\n')
-}
-
-async function copyTranscript(): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(transcript.value)
-  } catch {
-    // clipboard is best-effort; the textarea below is always selectable
+  record('targetOrigin', 'from $b24.getTargetOrigin()', $b24.getTargetOrigin(), 'info', 0)
+  for (const [label, read] of [
+    ['window.BX', () => String(typeof (window as any).BX)],
+    ['window.parent.BX', () => String(typeof (window.parent as any).BX)],
+    ['window.top.location.href', () => String((window.top as any).location.href)]
+  ] as Array<[string, () => string]>) {
+    try {
+      record(label, 'direct read from the frame', `readable → ${read()}`, 'info', 0)
+    } catch (error) {
+      // The SecurityError is the point: it is why the documented
+      // `BX.Messenger.Public.*` example cannot run inside an app.
+      record(label, 'direct read from the frame',
+        'blocked: ' + (error instanceof Error ? `${error.name}: ${error.message}` : String(error)), 'err', 0)
+    }
   }
 }
 
@@ -338,64 +120,56 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="probe">
-    <h2>Messenger / call probe — issue #331</h2>
+    <h2>Deprecation trigger — issue #331</h2>
 
     <p v-if="!isInit">
       Initialising inside the placement…
     </p>
 
     <template v-else>
+      <p class="warn-note">
+        Every button below opens real UI on the portal. Open the console, keep it
+        on the <strong>portal</strong> frame, close any open slider or messenger
+        window, then press <strong>one</strong> button and read the notice that
+        follows the <code>#331 ▸</code> marker.
+      </p>
+
       <fieldset>
-        <legend>Inputs (use values that are safe to poke on a test portal)</legend>
+        <legend>Inputs — use values that are safe to poke on a test portal</legend>
         <label>phone <input v-model="phone" size="18"></label>
         <label>userId <input v-model="userId" size="6"></label>
-        <label>dialogId <input v-model="dialogId" size="10"></label>
-        <label>chatId <input v-model="chatId" size="10"></label>
+        <label>dialogId <input v-model="dialogId" size="8"></label>
         <label>withVideo <input v-model="withVideo" type="checkbox"></label>
       </fieldset>
 
       <div class="actions">
-        <button @click="runAll">
-          Run probe (safe — opens nothing)
-        </button>
-        <button @click="runDeprecatedAll">
-          Run deprecated im* (WILL open call/chat UI)
+        <button @click="recordContext">
+          Show context (opens nothing)
         </button>
       </div>
 
-      <fieldset>
-        <legend>
-          One command at a time — close every slider and messenger window first,
-          press one button, then look at the portal. A fire-and-forget command
-          runs without replying, so the table cannot tell you; your eyes can.
-        </legend>
-        <div class="actions">
-          <button @click="probeOne('openChat', { dialogId: dialogId })">
-            openChat
-          </button>
-          <button @click="probeOne('imOpenChat', { dialogId: dialogId })">
-            imOpenChat
-          </button>
-          <button @click="probeOne('startPhoneCall', { number: phone })">
-            startPhoneCall
-          </button>
-          <button @click="probeOne('startVideoCall', { dialogId: dialogId, withVideo: withVideo })">
-            startVideoCall
-          </button>
-          <button @click="probeOne('imOpenMessenger', { dialogId: dialogId })">
-            imOpenMessenger (known good)
-          </button>
-        </div>
-      </fieldset>
+      <div class="actions">
+        <button @click="callPhoneTo">
+          im.phoneTo → expect: startPhoneCall
+        </button>
+        <button @click="callCallTo">
+          im.callTo → expect: startVideoCall
+        </button>
+        <button @click="callOpenMessenger">
+          im.openMessenger → expect: openChat
+        </button>
+        <button @click="callOpenHistory">
+          im.openHistory → expect: openChat
+        </button>
+      </div>
 
       <table v-if="rows.length">
         <thead>
-          <tr><th>#</th><th>group</th><th>what</th><th>why / detail</th><th>outcome</th><th>ms</th></tr>
+          <tr><th>#</th><th>what</th><th>detail</th><th>outcome</th><th>ms</th></tr>
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.n" :class="row.tone">
             <td>{{ row.n }}</td>
-            <td>{{ row.group }}</td>
             <td><code>{{ row.label }}</code></td>
             <td>{{ row.detail }}</td>
             <td>{{ row.outcome }}</td>
@@ -403,28 +177,20 @@ onBeforeUnmount(() => {
           </tr>
         </tbody>
       </table>
-
-      <template v-if="transcript">
-        <h3>Transcript to hand over</h3>
-        <button @click="copyTranscript">
-          Copy
-        </button>
-        <textarea :value="transcript" rows="14" spellcheck="false" readonly />
-      </template>
     </template>
   </div>
 </template>
 
 <style scoped>
 .probe { font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+.warn-note { background: #fff8e5; padding: 8px; border-radius: 4px; }
 fieldset { margin-block: 8px; }
 label { margin-right: 12px; }
-.actions { display: flex; gap: 8px; margin-block: 8px; }
+.actions { display: flex; gap: 8px; margin-block: 8px; flex-wrap: wrap; }
 table { border-collapse: collapse; width: 100%; margin-top: 12px; }
 th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
 tr.ok td { background: #eefaee; }
 tr.err td { background: #fdeeee; }
 tr.warn td { background: #fff8e5; }
 tr.info td { background: #f4f4f4; }
-textarea { width: 100%; margin-top: 8px; font: inherit; }
 </style>

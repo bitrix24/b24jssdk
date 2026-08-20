@@ -3,6 +3,18 @@
 Hand this file to the in-browser assistant **after** running the probe harness
 (see [README](README.md)) and having its transcript to hand.
 
+## The flow you are part of
+
+1. The app calls a deprecated method from inside the placement iframe.
+2. The portal prints its own deprecation notice naming the replacement — e.g.
+   *"method BXIM.openMessenger is deprecated. Use method 'Messenger.openChat'
+   from 'im.public' or 'im.public.iframe' extension."*
+3. **You work out how that replacement can actually be called** — and whether an
+   app can reach it at all.
+
+Step 1 and 2 are already done by the harness; its output comes to you. Step 3 is
+the whole of your job, and it cannot be done from the frame.
+
 ## Why you, and not the harness
 
 The harness runs inside the app placement iframe. That is where the problem
@@ -31,7 +43,7 @@ This matters because the published docs give
 replaces takes a numeric `userId`. If the real signature disagrees with the
 documented one, that is a documentation defect worth reporting on its own.
 
-### 1b. Find `im.public.iframe`
+### 1a. Find `im.public.iframe` — start here
 
 The first probe run surfaced this console warning from the portal when the
 deprecated bridge is called:

@@ -192,7 +192,9 @@ const OPEN_PATH_CANDIDATES: Array<{ path: string, why: string }> = [
   { path: '/online/chat1/', why: 'chat by dialog id, path form' }
 ]
 
+/** DESTRUCTIVE: opens real sliders, and may navigate the portal away. */
 async function probeOpenPath(): Promise<void> {
+  rows.value = rows.value.filter(row => !row.group.startsWith('E ·'))
   for (const candidate of OPEN_PATH_CANDIDATES) {
     const outcome = await probeCommand('openPath', { path: candidate.path })
     record(
@@ -320,8 +322,15 @@ async function runAll(): Promise<void> {
   await probeControl()
   await dumpInterface()
   await probeCandidates()
-  await probeOpenPath()
+  // NOT here: probeOpenPath() opens real sliders and can navigate the portal.
+  // It has its own button, because this one is labelled "opens nothing" and has
+  // to stay true. The first run opened two sliders and ended on a redirect. (#331)
 
+  transcript.value = buildTranscript()
+}
+
+async function runOpenPath(): Promise<void> {
+  await probeOpenPath()
   transcript.value = buildTranscript()
 }
 
@@ -407,6 +416,9 @@ onBeforeUnmount(() => {
         </button>
         <button @click="runDeprecatedAll">
           Run deprecated im* (WILL open call/chat UI)
+        </button>
+        <button @click="runOpenPath">
+          Run openPath (WILL open sliders — may redirect the portal)
         </button>
       </div>
 

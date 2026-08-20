@@ -84,25 +84,6 @@ exists. Searching the published apidocs for it returns nothing — so if it is t
 intended migration path, it is undocumented, and that alone answers question 1 of
 the issue.
 
-### openPath is not a workaround — tested, and it fails
-
-`openPath('/online/')` and `openPath('/online/?IM_DIALOG=chat1')` both open a
-slider, so the command reaches the portal. But the messenger page inside that
-slider dies immediately:
-
-```
-Uncaught ReferenceError: BX is not defined
-    at online/?from=rest_pl…TYPE=SIDE_SLIDER:8
-```
-
-The run ended on an unrelated redirect. So `openPath` opens *something*, but the
-messenger does not survive being loaded that way, and this is not a substitute
-for `openChat`.
-
-It also stopped being part of the safe probe: it has its own button now, because
-it opens sliders and can navigate the portal away, and the safe button is
-labelled "opens nothing".
-
 ### Reading the result
 
 **Section B** — top-window reachability. Every row blocked (a `SecurityError` on

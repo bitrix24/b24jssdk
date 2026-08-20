@@ -178,52 +178,20 @@ const CANDIDATES: Array<{ command: string, params: Record<string, unknown> | nul
   { command: 'imOpenChat', params: { dialogId: '' }, why: 'openChat under the existing im* prefix' }
 ]
 
-/**
- * `openPath` is a documented, iframe-reachable command that opens a standard
- * Bitrix24 page in a slider — and unlike the `im*` bridges it takes a callback,
- * so it answers. If a messenger URL opens a chat this way, apps have a supported
- * workaround for `openChat` today, with no upstream change needed.
- *
- * This does NOT help the two call methods: there is no URL that places a call.
- */
-const OPEN_PATH_CANDIDATES: Array<{ path: string, why: string }> = [
-  { path: '/online/', why: 'messenger root — should at least open the chat list' },
-  { path: '/online/?IM_DIALOG=chat1', why: 'chat by dialog id, query form' },
-  { path: '/online/chat1/', why: 'chat by dialog id, path form' }
-]
-
-/** DESTRUCTIVE: opens real sliders, and may navigate the portal away. */
-async function probeOpenPath(): Promise<void> {
-  rows.value = rows.value.filter(row => !row.group.startsWith('E ·'))
-  for (const candidate of OPEN_PATH_CANDIDATES) {
-    const outcome = await probeCommand('openPath', { path: candidate.path })
-    record(
-      'E · openPath workaround',
-      candidate.path,
-      candidate.why,
-      outcome.answered
-        ? `ANSWERED in ${outcome.ms}ms → ${(outcome.data ?? '').slice(0, 200)}`
-        : `silent for ${PROBE_TIMEOUT_MS}ms (openPath answers on slider CLOSE — close it, then re-read)`,
-      outcome.answered ? 'ok' : 'warn',
-      outcome.ms
-    )
-  }
-}
-
 async function probeCandidates(): Promise<void> {
   for (const candidate of CANDIDATES) {
     // Probe with EMPTY payloads: we are asking "does a handler exist", not
-    // trying to place a call. A handler that exists should still answer (even
-    // if only to reject the empty argument); no handler answers nothing.
+    // trying to place a call. Note the limit the first run proved — an `im*`
+    // command is fire-and-forget, so silence here is not evidence either way.
     const outcome = await probeCommand(candidate.command, candidate.params)
     record(
       'C · undocumented command probe',
       candidate.command,
       candidate.why,
       outcome.answered
-        ? `ANSWERED in ${outcome.ms}ms → ${outcome.data}`
-        : `silent for ${PROBE_TIMEOUT_MS}ms — no handler`,
-      outcome.answered ? 'ok' : 'warn',
+        ? `ANSWERED in ${outcome.ms}ms → ${(outcome.data ?? '').slice(0, 200)}`
+        : `no reply in ${PROBE_TIMEOUT_MS}ms — inconclusive for a fire-and-forget command`,
+      outcome.answered ? 'ok' : 'info',
       outcome.ms
     )
   }
@@ -232,15 +200,11 @@ async function probeCandidates(): Promise<void> {
 /**
  * Control probe: a command that REPLIES, to prove the reply channel works.
  *
- * The first version of this harness used `imOpenMessenger` as the control and
- * drew the wrong conclusion from its silence. That command is fire-and-forget:
- * the parent runs it and never answers — which is precisely why the SDK sends it
- * with `isSafely`, an auto-resolve on a timer. Silence there says nothing about
- * whether a handler exists; the messenger visibly opened while the probe called
+ * The first version used `imOpenMessenger` as the control and drew the wrong
+ * conclusion from its silence. That command is fire-and-forget: the parent runs
+ * it and never answers — which is why the SDK sends it with `isSafely`, an
+ * auto-resolve on a timer. The messenger visibly opened while the probe called
  * it "no handler".
- *
- * `getInterface` is a command the parent answers, so it separates "the reply
- * channel works" from "this particular command is fire-and-forget".
  */
 async function probeControl(): Promise<void> {
   const outcome = await probeCommand('getInterface', null)
@@ -259,10 +223,9 @@ async function probeControl(): Promise<void> {
 /**
  * Ask the placement what its JS interface supports.
  *
- * `getInterface` is documented as "information about the JS interface of the
- * current embedding location". If it returns a command list, that is the
- * supported vocabulary — read from inside the iframe, without needing to inspect
- * the parent's source at all.
+ * Documented as "information about the JS interface of the current embedding
+ * location". If it returns a command list, that is the supported vocabulary —
+ * read from inside the iframe, without inspecting the parent's source.
  */
 async function dumpInterface(): Promise<void> {
   const startedAt = Date.now()
@@ -273,9 +236,7 @@ async function dumpInterface(): Promise<void> {
       'D · placement interface',
       'placement.getInterface()',
       'documented as the JS interface of this embedding location',
-      viaTimer
-        ? 'resolved by the SDK safety timer — the parent did not answer'
-        : JSON.stringify(result),
+      viaTimer ? 'resolved by the SDK safety timer — the parent did not answer' : JSON.stringify(result),
       viaTimer ? 'warn' : 'ok',
       Date.now() - startedAt
     )
@@ -285,15 +246,6 @@ async function dumpInterface(): Promise<void> {
   }
 }
 
-// ================================ runners ================================
-
-/**
- * Fire ONE command and stop, so its side effect is attributable.
- *
- * The batch run cannot tell you whether `openChat` opened the messenger if
- * `imOpenMessenger` already opened it two rows earlier — that is exactly what
- * happened on the first real run. Close the messenger, fire one command, look.
- */
 async function probeOne(command: string, params: Record<string, unknown> | null): Promise<void> {
   const outcome = await probeCommand(command, params)
   record(
@@ -322,15 +274,7 @@ async function runAll(): Promise<void> {
   await probeControl()
   await dumpInterface()
   await probeCandidates()
-  // NOT here: probeOpenPath() opens real sliders and can navigate the portal.
-  // It has its own button, because this one is labelled "opens nothing" and has
-  // to stay true. The first run opened two sliders and ended on a redirect. (#331)
 
-  transcript.value = buildTranscript()
-}
-
-async function runOpenPath(): Promise<void> {
-  await probeOpenPath()
   transcript.value = buildTranscript()
 }
 
@@ -366,7 +310,7 @@ function buildTranscript(): string {
     '- The CONTROL row uses `getInterface`, which does reply. It proves only that replies can reach us — nothing about the candidates.',
     '- To judge a fire-and-forget candidate you must watch the PORTAL, not this table: close every slider and messenger window, fire ONE command with the single-command buttons, and see whether anything opens.',
     '- **Section D** is the strongest evidence available from inside the iframe: if `getInterface` returns a command list, that list is the supported vocabulary.',
-    '- **Section E** tests whether the documented `openPath` can open a chat, which would be a supported workaround for `openChat` today. It cannot help the two call methods — no URL places a call.')
+    '')
   return lines.join('\n')
 }
 
@@ -416,9 +360,6 @@ onBeforeUnmount(() => {
         </button>
         <button @click="runDeprecatedAll">
           Run deprecated im* (WILL open call/chat UI)
-        </button>
-        <button @click="runOpenPath">
-          Run openPath (WILL open sliders — may redirect the portal)
         </button>
       </div>
 

@@ -31,14 +31,34 @@ This matters because the published docs give
 replaces takes a numeric `userId`. If the real signature disagrees with the
 documented one, that is a documentation defect worth reporting on its own.
 
+### 1b. Find `im.public.iframe`
+
+The first probe run surfaced this console warning from the portal when the
+deprecated bridge is called:
+
+> `Developer: method BXIM.openMessenger is deprecated. Use method
+> 'Messenger.openChat' from 'im.public' or 'im.public.iframe' extension.`
+
+**`im.public.iframe` is the highest-value lead in this whole investigation**, and
+it is absent from the published apidocs. An extension named for the iframe case
+implies the migration path apps need may already exist.
+
+Find it in the loaded sources. Establish: what it exports, whether it is loaded
+on the portal page, whether it registers a postMessage handler, and — decisively
+— whether an app placement can reach it and how. If it exposes `openChat` /
+`startPhoneCall` / `startVideoCall` for frames, that is the answer, and the
+upstream fix is documentation.
+
 ### 2. What command vocabulary does the parent's app-message handler accept?
 
 The bridge works by the app posting a string `imPhoneTo:<params>:<cb>:<appSid>`
 to the parent window, where a handler dispatches on the command name. Find that
 handler and extract the set of command names it dispatches on.
 
-This is the decisive artefact. The harness could only probe a handful of guessed
-names and observe silence; you can read the actual list. If a name for the new
+This is the decisive artefact. The harness cannot settle it: the `im*` commands
+are fire-and-forget, so an unsupported name and a working one both stay silent —
+the first run proved that by reporting "no handler" for a command that visibly
+worked. You can read the actual list instead of inferring from silence. If a name for the new
 methods is already there, the migration path exists and was never documented.
 
 Report the full vocabulary, not just the messenger entries — the difference

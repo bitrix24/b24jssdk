@@ -54,6 +54,36 @@ answers whether a path exists anyway.
    open on the portal.
 6. Copy the transcript.
 
+### What the first real run found (2026-08-20)
+
+Run on `b24-kacdup.bitrix24.by`, and it changed the harness.
+
+**Section B behaved as predicted.** `window.BX` is `undefined` inside the frame,
+and both cross-origin reads fail with `SecurityError`. That is the artefact: the
+documented `BX.Messenger.Public.startPhoneCall('8800…')` example cannot execute
+where apps execute.
+
+**The first version of section C drew the wrong conclusion, and the run caught
+it.** Every candidate came back "silent — no handler", *including the control* —
+while the messenger visibly opened on screen. The control was `imOpenMessenger`,
+which is **fire-and-forget**: the parent runs it and never replies. That is
+exactly why the SDK sends the `im*` bridges with an `isSafely` timer. Silence
+proves nothing for that class of command, and the harness said it did.
+
+Fixed: the control is now `getInterface`, which does reply, so it tests the reply
+channel and nothing more. Judging a fire-and-forget candidate needs the
+single-command buttons and your eyes on the portal.
+
+**The console gave up the real lead.** Calling the deprecated bridge logs:
+
+> `Developer: method BXIM.openMessenger is deprecated. Use method
+> 'Messenger.openChat' from 'im.public' or 'im.public.iframe' extension.`
+
+An extension named **`im.public.iframe`** implies an iframe-facing messenger API
+exists. Searching the published apidocs for it returns nothing — so if it is the
+intended migration path, it is undocumented, and that alone answers question 1 of
+the issue.
+
 ### Reading the result
 
 **Section B** — top-window reachability. Every row blocked (a `SecurityError` on

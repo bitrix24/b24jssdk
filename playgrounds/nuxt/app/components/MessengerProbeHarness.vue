@@ -178,6 +178,36 @@ const CANDIDATES: Array<{ command: string, params: Record<string, unknown> | nul
   { command: 'imOpenChat', params: { dialogId: '' }, why: 'openChat under the existing im* prefix' }
 ]
 
+/**
+ * `openPath` is a documented, iframe-reachable command that opens a standard
+ * Bitrix24 page in a slider — and unlike the `im*` bridges it takes a callback,
+ * so it answers. If a messenger URL opens a chat this way, apps have a supported
+ * workaround for `openChat` today, with no upstream change needed.
+ *
+ * This does NOT help the two call methods: there is no URL that places a call.
+ */
+const OPEN_PATH_CANDIDATES: Array<{ path: string, why: string }> = [
+  { path: '/online/', why: 'messenger root — should at least open the chat list' },
+  { path: '/online/?IM_DIALOG=chat1', why: 'chat by dialog id, query form' },
+  { path: '/online/chat1/', why: 'chat by dialog id, path form' }
+]
+
+async function probeOpenPath(): Promise<void> {
+  for (const candidate of OPEN_PATH_CANDIDATES) {
+    const outcome = await probeCommand('openPath', { path: candidate.path })
+    record(
+      'E · openPath workaround',
+      candidate.path,
+      candidate.why,
+      outcome.answered
+        ? `ANSWERED in ${outcome.ms}ms → ${(outcome.data ?? '').slice(0, 200)}`
+        : `silent for ${PROBE_TIMEOUT_MS}ms (openPath answers on slider CLOSE — close it, then re-read)`,
+      outcome.answered ? 'ok' : 'warn',
+      outcome.ms
+    )
+  }
+}
+
 async function probeCandidates(): Promise<void> {
   for (const candidate of CANDIDATES) {
     // Probe with EMPTY payloads: we are asking "does a handler exist", not
@@ -197,22 +227,85 @@ async function probeCandidates(): Promise<void> {
   }
 }
 
-/** Control probe: a command we KNOW the parent handles, to prove the probe works. */
+/**
+ * Control probe: a command that REPLIES, to prove the reply channel works.
+ *
+ * The first version of this harness used `imOpenMessenger` as the control and
+ * drew the wrong conclusion from its silence. That command is fire-and-forget:
+ * the parent runs it and never answers — which is precisely why the SDK sends it
+ * with `isSafely`, an auto-resolve on a timer. Silence there says nothing about
+ * whether a handler exists; the messenger visibly opened while the probe called
+ * it "no handler".
+ *
+ * `getInterface` is a command the parent answers, so it separates "the reply
+ * channel works" from "this particular command is fire-and-forget".
+ */
 async function probeControl(): Promise<void> {
-  const outcome = await probeCommand('imOpenMessenger', { dialogId: dialogId.value })
+  const outcome = await probeCommand('getInterface', null)
   record(
-    'C · undocumented command probe',
-    'imOpenMessenger (CONTROL)',
-    'known-good command — if this is silent, the probe itself is wrong, not the parent',
+    'C · reply-channel control',
+    'getInterface (CONTROL)',
+    'a command the parent ANSWERS — proves replies can reach us at all',
     outcome.answered
-      ? `ANSWERED in ${outcome.ms}ms → ${outcome.data}`
-      : `silent for ${PROBE_TIMEOUT_MS}ms — probe is NOT trustworthy, do not read section C`,
+      ? `ANSWERED in ${outcome.ms}ms → ${(outcome.data ?? '').slice(0, 400)}`
+      : `silent for ${PROBE_TIMEOUT_MS}ms — the reply channel itself is broken; section C proves nothing`,
     outcome.answered ? 'ok' : 'err',
     outcome.ms
   )
 }
 
+/**
+ * Ask the placement what its JS interface supports.
+ *
+ * `getInterface` is documented as "information about the JS interface of the
+ * current embedding location". If it returns a command list, that is the
+ * supported vocabulary — read from inside the iframe, without needing to inspect
+ * the parent's source at all.
+ */
+async function dumpInterface(): Promise<void> {
+  const startedAt = Date.now()
+  try {
+    const result = await $b24.placement.getInterface()
+    const viaTimer = !!result && typeof result === 'object' && 'isSafely' in (result as object)
+    record(
+      'D · placement interface',
+      'placement.getInterface()',
+      'documented as the JS interface of this embedding location',
+      viaTimer
+        ? 'resolved by the SDK safety timer — the parent did not answer'
+        : JSON.stringify(result),
+      viaTimer ? 'warn' : 'ok',
+      Date.now() - startedAt
+    )
+  } catch (error) {
+    record('D · placement interface', 'placement.getInterface()', '',
+      'threw: ' + (error instanceof Error ? error.message : String(error)), 'err', Date.now() - startedAt)
+  }
+}
+
 // ================================ runners ================================
+
+/**
+ * Fire ONE command and stop, so its side effect is attributable.
+ *
+ * The batch run cannot tell you whether `openChat` opened the messenger if
+ * `imOpenMessenger` already opened it two rows earlier — that is exactly what
+ * happened on the first real run. Close the messenger, fire one command, look.
+ */
+async function probeOne(command: string, params: Record<string, unknown> | null): Promise<void> {
+  const outcome = await probeCommand(command, params)
+  record(
+    'C · single command (watch the portal)',
+    command,
+    `params=${JSON.stringify(params)} — close any open slider/messenger BEFORE pressing`,
+    outcome.answered
+      ? `ANSWERED in ${outcome.ms}ms → ${(outcome.data ?? '').slice(0, 200)}`
+      : `no reply in ${PROBE_TIMEOUT_MS}ms — NOT proof of "no handler": look at the portal, a fire-and-forget command runs without answering`,
+    outcome.answered ? 'ok' : 'info',
+    outcome.ms
+  )
+  transcript.value = buildTranscript()
+}
 
 async function runAll(): Promise<void> {
   rows.value = []
@@ -225,7 +318,9 @@ async function runAll(): Promise<void> {
 
   probeGlobals()
   await probeControl()
+  await dumpInterface()
   await probeCandidates()
+  await probeOpenPath()
 
   transcript.value = buildTranscript()
 }
@@ -258,9 +353,11 @@ function buildTranscript(): string {
   }
   lines.push('', '## How to read this', '',
     '- **Section B** all-blocked is the evidence that `BX.Messenger.Public.*` is unreachable from a placement.',
-    '- **Section C** is decisive only if the CONTROL row answered. If the control is silent, the probe is broken and section C says nothing.',
-    '- A candidate that ANSWERED is an existing, undocumented migration path — it needs documenting, not building.',
-    '- All candidates silent means apps currently have no path, and one has to be added upstream.')
+    '- **Silence in section C is NOT proof that a handler is missing.** The `im*` bridges are fire-and-forget: the parent runs them and never replies, which is why the SDK sends them with an `isSafely` timer. A command can work perfectly and stay silent here.',
+    '- The CONTROL row uses `getInterface`, which does reply. It proves only that replies can reach us — nothing about the candidates.',
+    '- To judge a fire-and-forget candidate you must watch the PORTAL, not this table: close every slider and messenger window, fire ONE command with the single-command buttons, and see whether anything opens.',
+    '- **Section D** is the strongest evidence available from inside the iframe: if `getInterface` returns a command list, that list is the supported vocabulary.',
+    '- **Section E** tests whether the documented `openPath` can open a chat, which would be a supported workaround for `openChat` today. It cannot help the two call methods — no URL places a call.')
   return lines.join('\n')
 }
 
@@ -312,6 +409,31 @@ onBeforeUnmount(() => {
           Run deprecated im* (WILL open call/chat UI)
         </button>
       </div>
+
+      <fieldset>
+        <legend>
+          One command at a time — close every slider and messenger window first,
+          press one button, then look at the portal. A fire-and-forget command
+          runs without replying, so the table cannot tell you; your eyes can.
+        </legend>
+        <div class="actions">
+          <button @click="probeOne('openChat', { dialogId: dialogId })">
+            openChat
+          </button>
+          <button @click="probeOne('imOpenChat', { dialogId: dialogId })">
+            imOpenChat
+          </button>
+          <button @click="probeOne('startPhoneCall', { number: phone })">
+            startPhoneCall
+          </button>
+          <button @click="probeOne('startVideoCall', { dialogId: dialogId, withVideo: withVideo })">
+            startVideoCall
+          </button>
+          <button @click="probeOne('imOpenMessenger', { dialogId: dialogId })">
+            imOpenMessenger (known good)
+          </button>
+        </div>
+      </fieldset>
 
       <table v-if="rows.length">
         <thead>

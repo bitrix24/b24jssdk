@@ -65,7 +65,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
       if (!isSamePath(router.currentRoute.value.path, to.path)) return
       // router.replace, not navigateTo: navigateTo RETURNS a route object when it
       // catches another navigation in progress, and nobody would apply it.
-      await router.replace(dest)
+      // Check the result — a failed navigation resolves, it does not throw.
+      const failure = await router.replace(dest)
+      if (failure) console.warn('slider redirect failed', failure.type)
     })
   })
 })

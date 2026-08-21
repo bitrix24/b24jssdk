@@ -158,7 +158,12 @@ export function checkFrontmatterLinkTargets(file, frontmatter, deps = {}) {
 // Threshold above which the number of @check-ignore markers triggers a warning.
 // The current baseline is 38 (as of v1.1.3). Raise deliberately when new
 // opt-outs are added; do not let this number creep up silently.
-const CHECK_IGNORE_WARN_THRESHOLD = 50
+//
+// 50 -> 51 (#356): the Nuxt slider-routing middleware on the frame-slider page.
+// It is built from Nuxt auto-imports and two app-level helpers, none of which
+// exist in the isolated context this check compiles in — un-checkable rather
+// than unfixed, which is what the marker is for.
+const CHECK_IGNORE_WARN_THRESHOLD = 51
 
 function countCheckIgnoreMarkers(files) {
   let total = 0

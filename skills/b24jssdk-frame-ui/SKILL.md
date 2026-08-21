@@ -32,6 +32,49 @@ await $b24.slider.closeSliderAppPage()
 
 `openPath` returns when the slider closes (or the popup is closed on mobile). Always check `isOpenAtNewWindow` if you depend on close-detection.
 
+`openPath` opens a **portal** path; `openSliderAppPage` re-opens **your own registered handler URL**. Pointing `openPath` at an application page yields a 404 on the portal side.
+
+Everything you pass to `openSliderAppPage` is forwarded to the new frame as `PLACEMENT_OPTIONS`, so `place` is an ordinary call parameter — **not** a registered placement, and no `placement.bind` is needed. `bx24_width` below your own mobile breakpoint silently renders the mobile layout.
+
+### Routing the opened slider to the right screen (Nuxt)
+
+The SDK's job ends when the parameter is delivered; routing is yours. In Nuxt, **do not just return `navigateTo()` from route middleware** — that redirect is silently discarded when the entry route is prerendered, which `nuxt build` does for anything in `nitro.prerender.routes` (and, with `crawlLinks`, anything reachable by link). The portal opens the frame with a query string, and for a prerendered page Nuxt hydrates on the bare path and then restores the original URL on `app:suspense:resolve`, bypassing guards. Nothing reports an error; the slider just shows your main page.
+
+```ts
+export default defineNuxtRouteMiddleware(async (to) => {
+  if (import.meta.server) return
+
+  const { $initializeB24Frame } = useNuxtApp()
+  const $b24 = await $initializeB24Frame()
+
+  const target = routeForPlace($b24.placement.options?.place)
+  // isSamePath must tolerate a trailing slash: a static server serves `/app/`
+  // while the router resolves `/app`, and a strict !== cancels every redirect.
+  if (!target || isSamePath(to.path, target)) return
+
+  // Query from the ADDRESS BAR, not `to.query` — a prerendered page hydrates on
+  // the bare path, so `to` has no query and the target would lose `place`.
+  const dest = { path: target, query: Object.fromEntries(new URLSearchParams(location.search)) }
+
+  const nuxtApp = useNuxtApp()
+  if (!nuxtApp.isHydrating) return navigateTo(dest, { replace: true })
+
+  onNuxtReady(() => {
+    void nuxtApp.runWithContext(async () => {
+      const router = useRouter()
+      if (!isSamePath(router.currentRoute.value.path, to.path)) return
+      // router.replace, not navigateTo: navigateTo RETURNS a route object when it
+      // catches another navigation in progress, and nobody would apply it.
+      // Check the result — a failed navigation resolves, it does not throw.
+      const failure = await router.replace(dest)
+      if (failure) console.warn('slider redirect failed', failure.type)
+    })
+  })
+})
+```
+
+`onNuxtReady` works because it hooks the same `app:suspense:resolve` but subscribes later and defers to `requestIdleCallback`, running after the restore. `app:mounted` is too early — it fails with `NavigationFailure: aborted`. `redirectCode` is server-only, `abortNavigation` cannot redirect, and `external: true` means a full reload.
+
 ## Dialog — pick users
 
 ```ts
@@ -224,3 +267,6 @@ onBeforeUnmount(() => {
 - ❌ Storing secrets in `options.appSet` — placement options are visible to everyone with access to the placement.
 - ❌ Treating a resolved `parent.im*` promise as proof the call started or the chat opened — nothing answers those commands; the promise only means the message was posted.
 - ❌ Treating an absent `selectCRM` bucket as an empty array — they are `undefined`. Use `picked.deal ?? []`.
+- ❌ `return navigateTo(target)` from Nuxt route middleware to route an opened slider — discarded without error on a prerendered entry route. Navigate from `onNuxtReady` while hydrating.
+- ❌ Reading `$b24.placement.options?.place` without allowing for a JSON string — `PLACEMENT_OPTIONS` is not always an object, and key case is not guaranteed across entry points. On a string this yields `undefined` silently.
+- ❌ Gating slider diagnostics on `placement.isSliderMode` — it is derived from `PLACEMENT_OPTIONS.IFRAME`, so it goes quiet exactly when the placement data you are diagnosing is missing.

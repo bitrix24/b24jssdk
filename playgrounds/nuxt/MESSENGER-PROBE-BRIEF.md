@@ -3,6 +3,54 @@
 Hand this file to the in-browser assistant **after** running the probe harness
 (see [README](README.md)) and having its transcript to hand.
 
+> **⚠ This investigation is finished.** The trace was completed on a live portal
+> and handed to Bitrix24; the findings are below, and the brief that follows is
+> kept only as the method that produced them. Do not re-run it expecting open
+> questions.
+
+## What the trace established
+
+Every step below was observed by wrapping each layer in a logging shim on a live
+portal (`v2enabled === true`, `DEFAULT` placement) and stopping the last call so
+no real call was placed.
+
+**The bridge vocabulary is closed.** The parent accepts 22 commands from
+`BX.rest.AppLayout.MessageInterface.prototype`. Exactly four concern the
+messenger — `imCallTo`, `imPhoneTo`, `imOpenMessenger`, `imOpenHistory`. **None
+of the newer names exist**: not `openChat`, not `startPhoneCall`, not
+`startVideoCall`, not `startCallList`. So the probe's silence was telling the
+truth, for the wrong reason — it could not have distinguished this from a
+fire-and-forget handler.
+
+**The old bridge already reaches the new API.** `imPhoneTo` →
+`BXIM.phoneTo` → `legacyMessenger.phoneTo` (which logs the deprecation) →
+`Messenger.Public.startPhoneCall` → `Opener.startPhoneCall` →
+`PhoneManager.startCall`. The warning an application sees is emitted by the
+portal's own compatibility layer calling `top.BXIM.*`; **an application cannot
+avoid it**, because the names it recommends are not in the vocabulary.
+
+**`im.public.iframe` is not the answer.** It is six lines, 471 bytes, reading
+`top.BX.Messenger.Public`; `postMessage` does not appear in it at all. It is for
+an iframe **on the portal's own domain**, not for an application frame on a
+foreign origin. Earlier drafts of this brief called it the strongest lead — it
+was, and it turned out to be a dead end.
+
+**`getInterface` cannot help.** Its filter is
+`!BX.rest.AppLayout.MessageInterfacePlacement.prototype[s]`, and
+`MessageInterfacePlacement` inherits from `MessageInterface` — so all 22 commands
+are filtered out and a `DEFAULT` placement gets `{ command: [], event: [] }`.
+Capability detection is unavailable until that is fixed.
+
+**Nothing can answer an application.** All four handlers are declared
+`function(params)`; the callback the message layer offers as the second argument
+is never accepted and never called. The mechanism exists and works elsewhere —
+`getInitData` uses it — which is why the SDK has to close these calls on its own
+timer.
+
+**Parameters are lost on the way.** `messageId` for `openChat` and `params` for
+`startPhoneCall` are documented arguments that the handler never forwards,
+because it enumerates fields by hand.
+
 ## The flow you are part of
 
 1. The app calls a deprecated method from inside the placement iframe.

@@ -56,8 +56,15 @@ Developer: method BXIM.openMessenger is deprecated. Use method
 'Messenger.openChat' from 'im.public' or 'im.public.iframe' extension.
 ```
 
-`im.public.iframe` — an extension named for the iframe case — does not appear
-anywhere in the published apidocs. That is the lead.
+`im.public.iframe` looked like the lead. It is not: tracing it on a live portal
+showed six lines and 471 bytes that read `top.BX.Messenger.Public`, with no
+`postMessage` anywhere — an extension for an iframe on the portal's own domain,
+not for an app frame on a foreign origin.
+
+The trace settled the rest too: the placement's command vocabulary is 22 names,
+of which exactly four are messenger ones, and none of the newer names is among
+them. The full findings are at the top of
+[MESSENGER-PROBE-BRIEF.md](MESSENGER-PROBE-BRIEF.md).
 
 ### Running it
 

@@ -202,12 +202,26 @@ export class ParentManager {
   }
 
   /**
-   * Initiates a call via internal communication
+   * Initiates a call via internal communication.
+   *
+   * **Fire-and-forget.** The portal's bridge handler is declared as
+   * `function(params)` — it does not accept the callback argument the message
+   * layer offers, so it never reports back. The returned promise means "the
+   * command was posted", not "the call started"; it resolves on the SDK's own
+   * `isSafely` timer, and the accompanying `stop by timeout` log line is the
+   * normal outcome rather than a fault. See {@link ParentManager} — the same
+   * holds for every `im*` method here. (#331)
+   *
+   * The portal reaches the current API underneath: `BXIM.callTo` →
+   * `Messenger.Public.startVideoCall`. The deprecation warning in the portal
+   * console is emitted by the portal's own compatibility layer, not by this
+   * call, and an application cannot avoid it — the newer names are not part of
+   * the placement's command vocabulary.
    *
    * @param {number} userId The identifier of the account user
    * @param {boolean} isVideo true - video call, false - audio call. Optional parameter.
    *
-   * @return {Promise<void>}
+   * @return {Promise<void>} resolves once the command has been posted.
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-im-call-to.html
    */
@@ -220,17 +234,29 @@ export class ParentManager {
   }
 
   /**
-   * Makes a call to the phone number
+   * Makes a call to the phone number.
+   *
+   * **Fire-and-forget** — see {@link imCallTo} for what the returned promise
+   * does and does not mean.
+   *
+   * `params` is forwarded for the phone manager, matching the second argument of
+   * the portal's `Messenger.startPhoneCall(number, params)`. The portal's bridge
+   * handler currently enumerates fields by hand and reads only `phone`, so this
+   * is dropped on the way today; sending it costs nothing (an unknown field is
+   * ignored) and starts working without an application change once the portal
+   * forwards it. (#331)
    *
    * @param {string} phone Phone number. The number can be in the format: `+44 20 1234 5678` or `x (xxx) xxx-xx-xx`
+   * @param {Record<string, unknown>} [params] Extra call parameters for the phone manager.
    *
-   * @return {Promise<void>}
+   * @return {Promise<void>} resolves once the command has been posted.
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-im-phone-to.html
    */
-  async imPhoneTo(phone: string): Promise<void> {
+  async imPhoneTo(phone: string, params?: Record<string, unknown>): Promise<void> {
     return this.#messageManager.send(MessageCommands.imPhoneTo, {
       phone,
+      ...(params === undefined ? {} : { params }),
       isSafely: true
     })
   }
@@ -244,9 +270,19 @@ export class ParentManager {
    *
    * If nothing is passed, the chat interface will open with the last opened dialog.
    *
-   * @param {number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined} dialogId
+   * **Fire-and-forget** — see {@link imCallTo} for what the returned promise
+   * does and does not mean.
    *
-   * @return {Promise<void>}
+   * `messageId` matches the second argument of the portal's
+   * `Messenger.openChat(dialogId, messageId)`, which focuses a specific message.
+   * The portal's bridge handler reads only `dialogId` today, so it is dropped on
+   * the way; sending it is free and starts working without an application change
+   * once the portal forwards it. (#331)
+   *
+   * @param {number|`chat${number}`|`sg${number}`|`imol|${number}`|undefined} dialogId
+   * @param {number} [messageId] Message to focus once the chat opens.
+   *
+   * @return {Promise<void>} resolves once the command has been posted.
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-im-open-messenger.html
    * @link https://dev.1c-bitrix.ru/learning/course/index.php?COURSE_ID=93&LESSON_ID=20152&LESSON_PATH=7657.7883.8025.20150.20152
@@ -258,10 +294,12 @@ export class ParentManager {
       | `chat${number}`
       | `sg${number}`
       | `imol|${number}`
-      | undefined
+      | undefined,
+    messageId?: number
   ): Promise<void> {
     return this.#messageManager.send(MessageCommands.imOpenMessenger, {
       dialogId: dialogId,
+      ...(messageId === undefined ? {} : { messageId }),
       isSafely: true
     })
   }
@@ -273,9 +311,19 @@ export class ParentManager {
    * userId or chatXXX - chat, where XXX is the chat identifier, which can simply be a number.
    * imol|XXXX - open line, where XXX is the session number of the open line.
    *
+   * **Fire-and-forget** — see {@link imCallTo} for what the returned promise
+   * does and does not mean.
+   *
+   * Note the portal routes this differently from the other three: its
+   * compatibility layer calls the opener directly, bypassing
+   * `Messenger.Public`. For an ordinary `dialogId` it lands in `openChat`, which
+   * is what the deprecation notice recommends; for an open-line id
+   * (`imol|…`) it takes a separate branch whose public equivalent is
+   * `openLinesHistory`, not `openChat`. (#331)
+   *
    * @param {number|`chat${number}`|`imol|${number}`} dialogId
    *
-   * @return {Promise<void>}
+   * @return {Promise<void>} resolves once the command has been posted.
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-im-open-history.html
    */

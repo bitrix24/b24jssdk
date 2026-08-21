@@ -89,9 +89,9 @@
     "markdownlint-cli2": "^0.23.2",
     "node-cron": "^4.6.0",
     "nuxt": "^4.5.2",
-    "openai": "^7.4.0",
+    "openai": "^7.5.0",
     "vitest": "^4.1.10",
-    "vue-tsc": "^3.3.9"
+    "vue-tsc": "^3.3.10"
   },
   "peerDependencies": {
     "typescript": "^5.6.3 || ^6.0.0"

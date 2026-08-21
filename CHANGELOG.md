@@ -1,5 +1,63 @@
 # Changelog
 
+## [2.1.0](https://github.com/bitrix24/b24jssdk/compare/v2.0.0...v2.1.0) (2026-08-21)
+
+
+### Features
+
+* **frame:** forward the second im* parameter, and document fire-and-forget ([#355](https://github.com/bitrix24/b24jssdk/issues/355)) ([7eaa0ee](https://github.com/bitrix24/b24jssdk/commit/7eaa0ee4131afbdc9c2576b9da195c1b64a58ad0)), closes [#331](https://github.com/bitrix24/b24jssdk/issues/331)
+
+
+### Bug Fixes
+
+* **deps:** raise stale security override floors and unbreak minimatch brace expansion ([#333](https://github.com/bitrix24/b24jssdk/issues/333)) ([2894b7c](https://github.com/bitrix24/b24jssdk/commit/2894b7c2e5b0676b6264784668514594b14e76da))
+* **deps:** repo-wide dependency refresh, bound override floors both ways, carry `cause` on rethrown errors ([#320](https://github.com/bitrix24/b24jssdk/issues/320)) ([dde9a9d](https://github.com/bitrix24/b24jssdk/commit/dde9a9d0a3d7cbbaff3026716bfbce3ebcbe5a26))
+* **frame:** initializeB24Frame() no longer strands callers or leaks a frame on failed init ([#142](https://github.com/bitrix24/b24jssdk/issues/142)) ([#306](https://github.com/bitrix24/b24jssdk/issues/306)) ([530fcf6](https://github.com/bitrix24/b24jssdk/commit/530fcf69e1c5e8204a4e9df0327d95cfff407fc6))
+* **http:** stop a logging TypeError from destroying the request outcome ([#345](https://github.com/bitrix24/b24jssdk/issues/345)) ([5980797](https://github.com/bitrix24/b24jssdk/commit/5980797bd72ef0c59dd0d08ccc089e4fead52da2))
+* **logger:** isolate logging failures from the operation being logged ([#348](https://github.com/bitrix24/b24jssdk/issues/348)) ([f2b5bcd](https://github.com/bitrix24/b24jssdk/commit/f2b5bcd14f957117386244869f838e09528dccf1)), closes [#346](https://github.com/bitrix24/b24jssdk/issues/346)
+* **playground/cli:** smoke-retry probes server.time, not user.current ([#286](https://github.com/bitrix24/b24jssdk/issues/286)) ([000fb6d](https://github.com/bitrix24/b24jssdk/commit/000fb6d6a0d46171caa0f4c3fbdd6594d621d8ab))
+* **pull:** harden PullClient lifecycle — SSR safety, unified teardown, in-flight start() abort ([#222](https://github.com/bitrix24/b24jssdk/issues/222)) ([#305](https://github.com/bitrix24/b24jssdk/issues/305)) ([087d962](https://github.com/bitrix24/b24jssdk/commit/087d962f57abde1842a8755971f866f45866ea7f))
+
+
+### Security
+
+* **auth:** timeout-bounded frame refreshAuth + non-enumerable SdkError.originalError ([#189](https://github.com/bitrix24/b24jssdk/issues/189)) ([#304](https://github.com/bitrix24/b24jssdk/issues/304)) ([8f2b79b](https://github.com/bitrix24/b24jssdk/commit/8f2b79b0bc7de8332137d393280a9ddf21386dd4))
+* **http:** redact credentials in the post/response success log ([#69](https://github.com/bitrix24/b24jssdk/issues/69)) ([#287](https://github.com/bitrix24/b24jssdk/issues/287)) ([93170e6](https://github.com/bitrix24/b24jssdk/commit/93170e629a56a3f093300e5ba56daa510fe24666))
+* **scripts:** harden b24-self-task agent against prompt injection ([#179](https://github.com/bitrix24/b24jssdk/issues/179)) ([#289](https://github.com/bitrix24/b24jssdk/issues/289)) ([f4fe592](https://github.com/bitrix24/b24jssdk/commit/f4fe59218836ff375ebd9966fddb45fc71e3ea49))
+
+
+### Dependencies
+
+* bump the npm-minor-patch group across 1 directory with 2 updates ([#321](https://github.com/bitrix24/b24jssdk/issues/321)) ([32c5256](https://github.com/bitrix24/b24jssdk/commit/32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2))
+* minor/patch refresh across 28 packages, with the three fixes it needs ([#335](https://github.com/bitrix24/b24jssdk/issues/335)) ([fc9a63e](https://github.com/bitrix24/b24jssdk/commit/fc9a63e47680c51345a2ca8b8a840ca3808fc39f))
+* minor/patch refresh, with reka-ui left to follow @bitrix24/b24ui-nuxt ([#339](https://github.com/bitrix24/b24jssdk/issues/339)) ([b5cb45b](https://github.com/bitrix24/b24jssdk/commit/b5cb45bbcd1f8167b0c7a7a481857b39d3c69a4f))
+* take js-yaml 5, with the named-import migration it requires ([#344](https://github.com/bitrix24/b24jssdk/issues/344)) ([222856e](https://github.com/bitrix24/b24jssdk/commit/222856e2b11eb9ed9042e12ed7fbcfc16fd66528))
+
+
+### Changed
+
+* **frame:** collapse initializeB24Frame() poll+booleans into one shared init promise ([#142](https://github.com/bitrix24/b24jssdk/issues/142) follow-up) ([#307](https://github.com/bitrix24/b24jssdk/issues/307)) ([881a168](https://github.com/bitrix24/b24jssdk/commit/881a168025d67ff87752cd60c8060a8c9fb199fa))
+* **tools:** document Text/Type/Browser/useFormatter, fix getUniqId & isTypedArray ([#292](https://github.com/bitrix24/b24jssdk/issues/292)) ([09439dc](https://github.com/bitrix24/b24jssdk/commit/09439dc1247c5982ee4e0f6e23b0f25800f65b39))
+
+
+### Docs
+
+* @comark/vue ^0.3.1 -&gt; ^0.5.1 and @nuxtjs/mcp-toolkit ^0.16.1 -&gt; ^0.18.0. ([32c5256](https://github.com/bitrix24/b24jssdk/commit/32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2))
+* align `audited` with the [#320](https://github.com/bitrix24/b24jssdk/issues/320) commit date on 5 pages so docs-lint --strict is green ([#322](https://github.com/bitrix24/b24jssdk/issues/322)) ([5ffbd9e](https://github.com/bitrix24/b24jssdk/commit/5ffbd9e96f40d1b438fccb574de2400f9f9a08d3))
+* **contributing:** add Telegram release-post guide ([#359](https://github.com/bitrix24/b24jssdk/issues/359)) ([de7d806](https://github.com/bitrix24/b24jssdk/commit/de7d806b1597088d25451cc78005ffefb212176d))
+* correct the hand-maintained-CHANGELOG truth + fix v1.0.2 date ([#178](https://github.com/bitrix24/b24jssdk/issues/178)) ([#311](https://github.com/bitrix24/b24jssdk/issues/311)) ([502c53e](https://github.com/bitrix24/b24jssdk/commit/502c53ef0611c90330754eaed77cd9905f2078ee))
+* defer legacy REST surface removal to 3.0.0 + migration guide ([#278](https://github.com/bitrix24/b24jssdk/issues/278)) ([66cb378](https://github.com/bitrix24/b24jssdk/commit/66cb378c1eed8e16c19ffffee67cabaf0c7ceda3))
+* drive homepage Cookbook + catalogue from the content collection ([#105](https://github.com/bitrix24/b24jssdk/issues/105)) ([#298](https://github.com/bitrix24/b24jssdk/issues/298)) ([9924322](https://github.com/bitrix24/b24jssdk/commit/992432290e5a5d782c43fa77805271cdea7f4309))
+* filtering reference ([#77](https://github.com/bitrix24/b24jssdk/issues/77)), setRestrictionManagerParams scope gotcha ([#82](https://github.com/bitrix24/b24jssdk/issues/82)), redaction-contract jsdoc ([#73](https://github.com/bitrix24/b24jssdk/issues/73)) ([#294](https://github.com/bitrix24/b24jssdk/issues/294)) ([9de8255](https://github.com/bitrix24/b24jssdk/commit/9de825575ba202e36a1be35b805a7ea5b97230fd))
+* **frame:** re-audit frame/pull pages — fix 4 drifts + refresh audited ([#299](https://github.com/bitrix24/b24jssdk/issues/299)) ([#301](https://github.com/bitrix24/b24jssdk/issues/301)) ([28ac84f](https://github.com/bitrix24/b24jssdk/commit/28ac84f55f64a74bba31535994f5aae65971bc95))
+* lint and `pnpm audit --audit-level=moderate` all pass. ([222856e](https://github.com/bitrix24/b24jssdk/commit/222856e2b11eb9ed9042e12ed7fbcfc16fd66528))
+* pin-b24sdk-examples-to-tags convention ([#120](https://github.com/bitrix24/b24jssdk/issues/120)) + cross-link logging page in CHANGELOG ([#72](https://github.com/bitrix24/b24jssdk/issues/72)) ([#300](https://github.com/bitrix24/b24jssdk/issues/300)) ([a0e01a6](https://github.com/bitrix24/b24jssdk/commit/a0e01a6b3a5874d3d23160fcf47b703df10e37bc))
+* **reference:** document public tools/ + types/ — common, payloads, object helpers, environment ([#125](https://github.com/bitrix24/b24jssdk/issues/125)) ([#303](https://github.com/bitrix24/b24jssdk/issues/303)) ([421fb2c](https://github.com/bitrix24/b24jssdk/commit/421fb2cfc2f9f18d5c5bf154765bdac177697644))
+* **releasing:** correct the handover — bootstrap-sha does not limit the scan ([#354](https://github.com/bitrix24/b24jssdk/issues/354)) ([91e9e7f](https://github.com/bitrix24/b24jssdk/commit/91e9e7f7fc07b600443eb1ca2ef974ffdc75cf7c)), closes [#347](https://github.com/bitrix24/b24jssdk/issues/347)
+* **scripts:** replace hand-rolled frontmatter parser with js-yaml ([#63](https://github.com/bitrix24/b24jssdk/issues/63)) ([#297](https://github.com/bitrix24/b24jssdk/issues/297)) ([34736f6](https://github.com/bitrix24/b24jssdk/commit/34736f6857d3d391637e29df24668b02740bba99))
+* security patterns page for event receivers ([#84](https://github.com/bitrix24/b24jssdk/issues/84)) + skill install methods ([#124](https://github.com/bitrix24/b24jssdk/issues/124)) ([#302](https://github.com/bitrix24/b24jssdk/issues/302)) ([7166c0c](https://github.com/bitrix24/b24jssdk/commit/7166c0c348345d3ee692a75deed46887d1ab0496))
+* **slider:** how to open your own app page and route to it in Nuxt ([#357](https://github.com/bitrix24/b24jssdk/issues/357)) ([76b007b](https://github.com/bitrix24/b24jssdk/commit/76b007bc63b9e9cce1a6c2a31e5c3a976a8f7da1)), closes [#356](https://github.com/bitrix24/b24jssdk/issues/356)
+
 ## [Unreleased]
 
 ### Added

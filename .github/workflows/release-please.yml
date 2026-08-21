@@ -1,12 +1,20 @@
 # Keeps a single open release PR up to date with the next version bump and the
-# changelog assembled from conventional-commit subjects. Merging that PR is the
-# release: it tags, publishes a GitHub Release, and the two npm-publish
-# workflows fire on that `release: published` event exactly as they do today.
+# changelog assembled from conventional-commit subjects. Merging that PR tags the
+# version and publishes a GitHub Release.
+#
+# It does NOT reach npm. GitHub does not start workflows from events raised with
+# the built-in GITHUB_TOKEN, which is what this job runs as, so the
+# `release: published` event the two npm-publish workflows listen for never
+# reaches them. Observed on the 2.1.0 release: tag and Release created, neither
+# publish workflow started. The two are dispatched by hand from `main` as the
+# last step of a release — see "The last step is manual" in RELEASING.md.
+# Automating it would mean giving this job a GitHub App token or a PAT, so the
+# release is raised by an identity that is not GITHUB_TOKEN.
 #
 # Deliberately NOT wired to publish directly. npm's Trusted Publisher entries
 # are keyed to the two exact filenames `npm-publish-js-sdk.yml` and
 # `npm-publish-js-sdk-nuxt.yml`; a publish reached from any other workflow file
-# fails the OIDC token exchange. Leaving the release event as the trigger keeps
+# fails the OIDC token exchange. Keeping the publish in those two files keeps
 # that contract untouched — no npm-side change is needed to adopt this. (#347)
 name: Release Please
 

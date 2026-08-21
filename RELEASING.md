@@ -2,10 +2,12 @@
 
 <sub>Last reviewed: 2026-08-21.</sub>
 
-> **Releases are moving to release-please (#347).** Once the handover below is
-> done, the routine release is: review the standing release PR, approve its held
-> CI run, merge. Everything in *Step by step* stays valid as the fallback path
-> and as the description of what the automation does on your behalf.
+> **Releases are moving to release-please (#347).** The routine release is:
+> review the standing release PR, merge it, then **start the two publish
+> workflows by hand** — merging does not start them (see
+> [The last step is manual](#the-last-step-is-manual)). Everything in *Step by
+> step* stays valid as the fallback path and as the description of what the
+> automation does on your behalf.
 
 ## The release PR flow
 
@@ -16,10 +18,45 @@ carries the version bump across all three `package.json` files plus
 the conventional-commit subjects merged since the last tag. Fifteen merged fixes
 update that one PR fifteen times; they do not cut fifteen releases.
 
-Merging it tags `vX.Y.Z` and publishes a GitHub Release — which is the same
-`release: published` event the two `npm-publish-*.yml` workflows already listen
-for. **No npm-side change is needed**: their Trusted Publisher entries stay
-keyed to their own filenames, untouched.
+Merging it tags `vX.Y.Z` and publishes a GitHub Release. **No npm-side change is
+needed**: the Trusted Publisher entries stay keyed to their own filenames,
+untouched. What merging does *not* do is publish to npm — see below.
+
+### The last step is manual
+
+The two `npm-publish-*.yml` workflows listen for `release: published`, and
+release-please does publish a release. They still do not start, and this is not a
+misconfiguration that can be tuned away: **GitHub does not start workflows from
+events raised with the built-in `GITHUB_TOKEN`.** release-please runs with that
+token, so the release it publishes reaches no workflow. Observed on the 2.1.0
+release: the tag and the GitHub Release appeared, and neither publish workflow
+ran until dispatched by hand.
+
+So after merging the release PR, start both, in this order:
+
+1. Actions → **NPM publish JS SDK 🚀** → *Run workflow* on `main`
+2. wait for it to finish, then Actions → **NPM publish JS SDK Nuxt 🚀** → *Run
+   workflow* on `main`
+
+Both accept `workflow_dispatch` from `main` by design, `main` already carries the
+released version, and every guard still applies — version lockstep, the
+already-published check, and a full CI run before the publish step. Only the
+`Verify package version matches release tag` step is skipped, since a dispatch
+has no release tag to compare against; the lockstep check covers the same ground.
+
+Switching a tag push in for the release event does **not** help — the tag is
+created by the same token, so it is suppressed for the same reason. The only way
+to automate this step is to give release-please a GitHub App token or a PAT, so
+the release is raised by an identity that is not `GITHUB_TOKEN`. That is a
+deliberate trade: a stored credential in exchange for two clicks per release.
+
+### The release notes are not the changelog
+
+The GitHub Release body is rendered by release-please from its own changeset, not
+read from `CHANGELOG.md`. An edit made to `CHANGELOG.md` on the release branch
+therefore lands in the repository but **not** in the release notes — the two
+diverge silently. If the release page should match the file, paste the section in
+by hand after publishing.
 
 What this changes for everyday work:
 
@@ -112,12 +149,14 @@ How to cut a release of the two published packages — `@bitrix24/b24jssdk` (cor
 SDK) and `@bitrix24/b24jssdk-nuxt` (Nuxt module). They ship **in lockstep at one
 shared version**; there is no independent release of either package.
 
-Publishing is automated by two sibling workflows —
+Publishing is done by two sibling workflows —
 [`npm-publish-js-sdk.yml`](.github/workflows/npm-publish-js-sdk.yml) (core) and
 [`npm-publish-js-sdk-nuxt.yml`](.github/workflows/npm-publish-js-sdk-nuxt.yml)
-(Nuxt) — both triggered by a published GitHub Release. The human steps are: bump
-the version, finalise the changelog, tag, and publish a GitHub Release. The
-workflows do the rest.
+(Nuxt). Both start on a published GitHub Release **when a person publishes it**,
+and both also accept a manual `workflow_dispatch` from `main`. The human steps
+are: bump the version, finalise the changelog, tag, and publish a GitHub Release.
+A release published by automation reaches neither workflow — see
+[The last step is manual](#the-last-step-is-manual).
 
 > **Why two workflows, not one `release.yml`?** npm OIDC trusted publishing keys
 > each package's Trusted Publisher entry to **one exact workflow filename**. The two

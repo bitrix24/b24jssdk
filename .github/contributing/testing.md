@@ -39,6 +39,13 @@ Both projects load `.env.test` (gitignored) via `dotenv`.
 
 The webhook must have at minimum the `crm`, `tasks`, `user`, `im`, and `main` scopes. The `im` scope is required by the issue-23 regression spec (`im.chat.get` inside a batch); `main` is **not exposed in the standard webhook scope picker** in the Bitrix24 UI and must be added manually — it is required by the v3 batch-ref spec that calls `main.eventlog.list`.
 
+`actions-v3-modules.spec.ts` additionally needs `mail`, `humanresources` and
+`timeman`. Unlike the ones above, these depend on the portal's plan and may not
+be available at all — a portal without them is a reason to skip that spec, not a
+failure to chase. Its assertions carry the portal's own error text so the three
+causes stay apart: `insufficient_scope` is a webhook fix, `METHODNOTFOUND` means
+the module is absent, anything else is a real shape problem.
+
 ### Limiter preset
 
 The integration test client uses `ParamsFactory.getDefault()`. The under-load setup ([test/0_setup/setup-under-load-jssdk.ts](../../test/0_setup/setup-under-load-jssdk.ts)) uses `ParamsFactory.getBatchProcessing()` — when authoring a new under-load test, do not switch back to `getDefault()` or the load profile will be wrong. To use any other preset locally, pass `restrictionParams` explicitly.

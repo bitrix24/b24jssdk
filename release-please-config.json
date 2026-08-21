@@ -10,9 +10,9 @@
         { "type": "json", "path": "packages/jssdk-nuxt/package.json", "jsonpath": "$.version" }
       ],
       "changelog-sections": [
-        { "type": "feat", "section": "Added" },
-        { "type": "feature", "section": "Added" },
-        { "type": "fix", "section": "Fixed" },
+        { "type": "feat", "section": "Features" },
+        { "type": "feature", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" },
         { "type": "perf", "section": "Performance" },
         { "type": "revert", "section": "Reverts" },
         { "type": "security", "section": "Security" },
@@ -20,10 +20,10 @@
         { "type": "refactor", "section": "Changed" },
         { "type": "build", "section": "Changed" },
         { "type": "docs", "section": "Docs" },
-        { "type": "test", "section": "Tests" },
-        { "type": "ci", "section": "CI" },
-        { "type": "chore", "section": "Chore" },
-        { "type": "style", "section": "Chore" }
+        { "type": "test", "section": "Tests", "hidden": true },
+        { "type": "ci", "section": "CI", "hidden": true },
+        { "type": "chore", "section": "Chore", "hidden": true },
+        { "type": "style", "section": "Chore", "hidden": true }
       ]
     }
   }

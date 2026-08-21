@@ -1,6 +1,6 @@
 # Releasing `@bitrix24/b24jssdk`
 
-<sub>Last reviewed: 2026-08-18.</sub>
+<sub>Last reviewed: 2026-08-21.</sub>
 
 > **Releases are moving to release-please (#347).** Once the handover below is
 > done, the routine release is: review the standing release PR, approve its held
@@ -34,8 +34,27 @@ What this changes for everyday work:
   invisible in the changelog. `deps` and `security` are mapped there because
   this repo uses them; the one-off types this repo has also used (`platform`,
   `dx`, `http`) are not — pick from the mapped list instead.
+- **Never start a line of the commit body with `word:`.** release-please parses
+  the body line by line, and any line shaped like a conventional commit becomes
+  its **own changelog entry**. This is not hypothetical — 2.1.0 shipped with two
+  of them. A body line reading `docs: @comark/vue ^0.3.1 -> ^0.5.1` turned into a
+  changelog bullet, and so did a line opening with `docs:lint`, where that was
+  meant as the name of the pnpm script and got read as type `docs` plus a
+  description. Put a script name mid-sentence — `run docs:lint` — or reword the
+  line so it does not begin with a bare word and a colon.
+- **`ci`, `chore`, `test` and `style` are mapped but hidden.** They keep the
+  commit history honest without filling a consumer-facing changelog with runner
+  bumps and lockfile churn. They still count toward the release (a patch), they
+  just do not print. Anything a consumer of the SDK should read about belongs
+  under a visible type.
 - **`[Unreleased]` is no longer hand-maintained.** Write the explanation in the
   commit subject and body of the PR that makes the change.
+
+  The subject is now the whole entry: the body does not reach the changelog at
+  all. Where a change genuinely needs a paragraph — a migration, a behaviour
+  change, a "verified live against a portal" note — add that paragraph to the
+  release PR's `CHANGELOG.md` by hand before merging it. That is a deliberate
+  edit on the release branch, not a return to maintaining `[Unreleased]`.
 
 ### Handover — one-time, on the first release PR
 

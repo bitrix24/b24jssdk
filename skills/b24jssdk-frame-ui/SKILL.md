@@ -145,7 +145,27 @@ For IM:
 ```ts
 await $b24.parent.imCallTo(/* userId */ 5, /* video */ true)
 await $b24.parent.imOpenMessenger('chat12')
+await $b24.parent.imPhoneTo('+70000000000')
+await $b24.parent.imOpenHistory('chat12')
 ```
+
+**All four are fire-and-forget.** The portal's handlers take no callback, so
+nothing ever answers: the promise resolves on the SDK's own short timer and means
+*the command was posted*, not that the call started or the chat opened. Never
+branch on it as a success signal, and do not treat the `action im… stop by
+timeout` log line that follows as a fault — it is the normal outcome.
+
+Calling any of them prints a deprecation notice in the **portal's** console
+recommending `Messenger.startPhoneCall` / `startVideoCall` / `openChat`. Those are
+top-window methods and are **not reachable from an application** — they are not
+part of a placement's command vocabulary. The notice comes from the portal's own
+compatibility layer, which these methods reach anyway; it cannot be avoided, and
+there is nothing to migrate to. See [#331](https://github.com/bitrix24/b24jssdk/issues/331).
+
+`imPhoneTo` accepts a second `params` argument and `imOpenMessenger` a second
+`messageId`, mirroring the portal's own `startPhoneCall(number, params)` and
+`openChat(dialogId, messageId)`. **The portal does not forward either today**, so
+they have no effect yet — send them only so that no change is needed when it does.
 
 ## Placement — context the user opened your app from
 
@@ -243,6 +263,7 @@ onBeforeUnmount(() => {
 - ❌ Calling slider / dialog APIs before `await initializeB24Frame()` resolves.
 - ❌ `$b24.placement.call('setValue', { value: { id: 1 } })` — throws because `value` is not a string. Use `$b24.placement.setValue({ id: 1 })` or stringify yourself.
 - ❌ Storing secrets in `options.appSet` — placement options are visible to everyone with access to the placement.
+- ❌ Treating a resolved `parent.im*` promise as proof the call started or the chat opened — nothing answers those commands; the promise only means the message was posted.
 - ❌ Treating an absent `selectCRM` bucket as an empty array — they are `undefined`. Use `picked.deal ?? []`.
 - ❌ `return navigateTo(target)` from Nuxt route middleware to route an opened slider — discarded without error on a prerendered entry route. Navigate from `onNuxtReady` while hydrating.
 - ❌ Reading `$b24.placement.options?.place` without allowing for a JSON string — `PLACEMENT_OPTIONS` is not always an object, and key case is not guaranteed across entry points. On a string this yields `undefined` silently.

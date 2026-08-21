@@ -5,6 +5,7 @@ import { B24LangList, LoadDataType, LoggerFactory, useB24Helper, SdkError, AjaxE
 import SimpleProfile from '~/components/SimpleProfile.vue'
 import SimpleAppInfo from '~/components/SimpleAppInfo.vue'
 import IssueReproHarness from '~/components/IssueReproHarness.vue'
+import MessengerProbeHarness from '~/components/MessengerProbeHarness.vue'
 
 const { $initializeB24Frame } = useNuxtApp()
 
@@ -568,6 +569,14 @@ async function checkUserPassHistoryStorage(arStoragesList: StorageInfoV2[]) {
           <ProseCode>scenario</ProseCode>
         </ProseH3>
         <IssueReproHarness />
+      </div>
+
+      <div class="mt-6">
+        <ProseH3 class="mb-2">
+          Messenger / call probe
+          <ProseCode>#331</ProseCode>
+        </ProseH3>
+        <MessengerProbeHarness />
       </div>
     </template>
   </ClientOnly>

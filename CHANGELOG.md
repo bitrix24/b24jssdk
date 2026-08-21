@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.1.1) (2026-08-21)
+
+
+### Docs
+
+* **releasing:** merging the release PR does not publish to npm ([#362](https://github.com/bitrix24/b24jssdk/issues/362)) ([b6861d7](https://github.com/bitrix24/b24jssdk/commit/b6861d7242e1f44d3ecb474db3b2500e365b91c1))
+
 ## [2.1.0](https://github.com/bitrix24/b24jssdk/compare/v2.0.0...v2.1.0) (2026-08-21)
 
 ### Features

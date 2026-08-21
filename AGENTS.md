@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-06-17.</sub>
+<sub>Last reviewed: 2026-06-27.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -199,6 +199,7 @@ Load these based on your task. **Do not load all files at once** — only load w
 | **[.github/contributing/testing.md](.github/contributing/testing.md)** | Vitest projects (integration + under-load), `.env.test`, `setupB24Tests()`, naming filters, no-mock policy + `*.unit.spec.ts` exception |
 | **[.github/contributing/documentation.md](.github/contributing/documentation.md)** | `docs/content/docs/` Markdown structure, frontmatter (`links`, `category`, `restApiVersion`), MDC blocks (`::warning`, `::caution`, `::rest-api-version-only`), examples |
 | **[.github/contributing/reproducing-user-reports.md](.github/contributing/reproducing-user-reports.md)** | Turning a user report into a runnable REST chain via the nuxt playground `IssueReproHarness.vue`, running it in the app OAuth context, reading the request/response transcript, and deciding SDK-bug vs caller-context vs platform |
+| **[.github/contributing/telegram-release-post.md](.github/contributing/telegram-release-post.md)** | Drafting the Russian Telegram release announcement for the community: single paste-ready block, structure, verified + compiling code examples, soft breaking-change framing, tone/safety rules, the base64 docs cipher |
 
 ### Code Conventions
 

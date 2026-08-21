@@ -20,7 +20,14 @@ import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
  * .github/contributing/testing.md). The webhook needs the `mail`,
  * `humanresources` and `timeman` scopes on top of the usual set; `mail` and
  * `humanresources` in particular depend on the portal's plan and may simply not
- * be available, which is a legitimate reason to skip rather than to fail.
+ * be available.
+ *
+ * There is no automatic skip for that case, and deliberately so: the SDK cannot
+ * tell "this portal has no mail module" from "v3 routing for mail is broken"
+ * without asking the portal, which is the call being made. So a portal without
+ * the module reports red, and the assertion message below is what tells you it
+ * is an absent module rather than a regression — at which point excluding this
+ * spec locally is the right response, not chasing the failure.
  *
  * On failure the assertion message carries the portal's own error text, because
  * the three causes need different actions and are otherwise indistinguishable:
@@ -28,12 +35,6 @@ import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
  * the module is absent or the method is not on v3 after all, and anything else is
  * a real shape problem worth reporting.
  */
-
-/** Field shape the limiter reads off every v3 response. */
-type V3Time = {
-  operating: number
-  operating_reset_at: number
-}
 
 async function smokeList(
   b24: ReturnType<ReturnType<typeof setupB24Tests>['getB24Client']>,
@@ -50,9 +51,14 @@ async function smokeList(
   ).toBe(true)
 
   const data = response.getData()!
-  expect(data.result, `${method} returned no result envelope`).toBeDefined()
 
-  const time = data.time as unknown as V3Time
+  // A `.list` method's payload shape differs per module, so this asserts only
+  // that an envelope came back — not its keys. It still separates a real
+  // round-trip from `result: null`, which is what a broken route looks like.
+  expect(data.result, `${method} returned no result envelope`).toBeDefined()
+  expect(data.result, `${method} returned an empty result envelope`).not.toBeNull()
+
+  const time = data.time
   expect(time).toHaveProperty('operating')
   expect(time.operating).toBeGreaterThanOrEqual(0)
   expect(time.operating_reset_at).toBeGreaterThan(0)

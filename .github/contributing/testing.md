@@ -40,9 +40,10 @@ Both projects load `.env.test` (gitignored) via `dotenv`.
 The webhook must have at minimum the `crm`, `tasks`, `user`, `im`, and `main` scopes. The `im` scope is required by the issue-23 regression spec (`im.chat.get` inside a batch); `main` is **not exposed in the standard webhook scope picker** in the Bitrix24 UI and must be added manually — it is required by the v3 batch-ref spec that calls `main.eventlog.list`.
 
 `actions-v3-modules.spec.ts` additionally needs `mail`, `humanresources` and
-`timeman`. Unlike the ones above, these depend on the portal's plan and may not
-be available at all — a portal without them is a reason to skip that spec, not a
-failure to chase. Its assertions carry the portal's own error text so the three
+`timeman`. Unlike the ones above, `mail` and `humanresources` depend on the
+portal's plan and may not be available at all. The spec does not skip itself in
+that case — it reports red — so a portal without those modules is a reason to
+exclude that spec locally, not a failure to chase. Its assertions carry the portal's own error text so the three
 causes stay apart: `insufficient_scope` is a webhook fix, `METHODNOTFOUND` means
 the module is absent, anything else is a real shape problem.
 

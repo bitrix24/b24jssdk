@@ -62,6 +62,35 @@ export class Logger extends AbstractLogger implements LoggerInterface {
    * raised while a caller builds its log arguments — those are evaluated eagerly
    * at the callsite, before `log()` is reached (see `truncateForLog`, #338).
    *
+   * ### Deliberately outside this guarantee
+   *
+   * Three gaps sit outside `log()` and were each weighed and left open on
+   * purpose (#346). They are recorded here so they are not re-opened as
+   * oversights:
+   *
+   * 1. **A third-party `LoggerInterface` is not isolated.** This guarantee
+   *    belongs to this class, not to the interface. Every SDK callsite is
+   *    written `…info(…).catch(() => {})`, which absorbs a *rejected promise*;
+   *    an implementation that throws *synchronously*, before returning one,
+   *    escapes into the caller. `setLogger(...)` warns about the shape it can
+   *    check without calling anything (see `warnOnNonPromiseLogger`); returning
+   *    promises is the implementor's side of the contract. Wrapping every
+   *    installed logger defensively was considered and rejected: it would make
+   *    the SDK responsible for code it does not own, on every one of ~94
+   *    callsites, to cover a case TypeScript already rejects at compile time.
+   *
+   * 2. **A handler that fails forever is never detached.** Each failure is
+   *    reported, every time — see {@link reportLoggingFailure}. Auto-detaching
+   *    after N failures was considered and rejected: it silently changes a
+   *    configuration the application made, and "N failures" is a policy the SDK
+   *    has no basis to pick on the application's behalf.
+   *
+   * 3. **The synchronous half — argument construction — stays the caller's.**
+   *    Making it total would mean wrapping the argument list at every callsite,
+   *    which trades a narrow, findable failure (#338 was one expression in one
+   *    helper) for noise at every call. Individual helpers on the hot path are
+   *    made total instead, as `truncateForLog` was.
+   *
    * @inheritDoc
    */
   public async log(level: LogLevel, message: string, context?: Record<string, any>): Promise<void> {
@@ -132,6 +161,12 @@ export class Logger extends AbstractLogger implements LoggerInterface {
    *
    * `console` is used rather than the logger — routing a logging failure back
    * through the logger that just failed is how this turns into recursion.
+   *
+   * The handler is **not** detached, however many times it fails. Doing so would
+   * silently discard part of a configuration the application built, and the
+   * threshold that would trigger it is a policy call the SDK cannot make for the
+   * application. A sink that is broken stays wired and stays loud; whoever reads
+   * the output decides what to do about it (#346).
    */
   private reportLoggingFailure(source: Processor | Handler, error: unknown): void {
     const name = (source as { constructor?: { name?: string } })?.constructor?.name ?? 'processor'

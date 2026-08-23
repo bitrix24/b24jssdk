@@ -5,6 +5,28 @@ packages:
   - playgrounds/nuxt
   - playgrounds/cli
 
+# Single source of truth for dependencies declared in more than one manifest.
+#
+# `axios` is both a runtime dependency of `@bitrix24/b24jssdk` and a devDependency
+# of the workspace root (the root is where the unit specs live, and several of
+# them construct or match an `AxiosError`). Declared separately, the two ranges
+# can drift — a bump to one manifest and not the other resolves two copies of
+# axios, and `instanceof AxiosError` then fails across the boundary: the error the
+# SDK throws is built from its copy and tested against the root's. Nothing catches
+# that at install or type-check time; it surfaces as a test asserting on an error
+# class that suddenly does not match.
+#
+# The catalog removes the second copy of the version rather than guarding it. Both
+# manifests say `catalog:`, and this is the only place the range is written.
+#
+# NOTE: `catalog:` is a pnpm protocol — it is resolved to the concrete range when
+# the package is packed, so the published manifest carries `^1.19.0`, not
+# `catalog:`. That resolution is `pnpm publish`'s doing (which is what
+# npm-publish-js-sdk.yml runs). Publishing this package with plain `npm publish`
+# would ship the literal `catalog:` string and break every consumer's install.
+catalog:
+  axios: ^1.19.0
+
 # Security/audit override pins for transitive dependencies. Each is a floor
 # (`>=fixed-version`) held until the dependency tree resolves that version on its
 # own. RETIREMENT (#175): when `pnpm why <pkg>` shows every path already resolves

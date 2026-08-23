@@ -250,7 +250,6 @@ async function clientForMember(memberId: string): Promise<B24OAuth> {
     })
   })
 
-  $b24.offClientSideWarning()
   return $b24
 }
 

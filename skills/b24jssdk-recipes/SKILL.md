@@ -44,7 +44,6 @@ export function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required (incoming webhook URL)')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 

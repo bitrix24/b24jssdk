@@ -27,9 +27,6 @@ const $b24 = B24Hook.fromWebhookUrl(
   process.env.B24_HOOK!
 )
 
-// Server-side only — silence the warning that B24Hook leaks the secret in browser bundles.
-$b24.offClientSideWarning()
-
 const me = await $b24.actions.v2.call.make<{ NAME: string; ID: number }>({
   method: 'profile',
   requestId: 'profile-1'
@@ -86,8 +83,6 @@ const $b24 = new B24OAuth(b24OAuthParams, { clientId, clientSecret })
 $b24.setCallbackRefreshAuth(async ({ authData, b24OAuthParams }) => {
   await db.appCredentials.upsert(b24OAuthParams)
 })
-
-$b24.offClientSideWarning()
 
 await $b24.initIsAdmin() // populates auth.isAdmin
 ```
@@ -217,7 +212,7 @@ When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth in
 - [ ] **Verify `application_token` for outbound webhooks.** Compare `payload.auth?.application_token` against the value from your Bitrix24 dev console (typically supplied via env var). On mismatch — log and ignore. Without this, any caller that knows the URL can replay arbitrary events.
 - [ ] **Verify `application_token` against persisted credentials on uninstall.** On `ONAPPUNINSTALL`, look up the stored creds for the incoming `member_id`, compare `application_token`, and only delete on match. Without this, anyone who reaches `/uninstall` can erase credentials for any portal whose `member_id` they guess.
 - [ ] **Persist refreshed OAuth tokens.** Always call `setCallbackRefreshAuth` on every `B24OAuth` instance to write fresh tokens back to your store. The next cold start expects them.
-- [ ] **Keep `B24Hook` server-side.** It bundles a long-lived secret. `offClientSideWarning()` silences the warning only on Node; the SDK refuses to silence it in the browser entry points.
+- [ ] **Keep `B24Hook` server-side.** It bundles a long-lived secret, and nothing in the SDK stops that secret reaching a browser bundle — keeping it out is the application's job. The client-side warning is a smoke alarm, not a guard: it fires only in a browser (`_checkClientSideWarning` returns early when `isServerSide()`), so on Node there is nothing to silence, and `offClientSideWarning()` there is a no-op. Do not call it in application code — per [AGENTS.md](https://github.com/bitrix24/b24jssdk/blob/main/AGENTS.md), suppressing warnings is for testing only. Calling it in a server template is worse than pointless: it silences nothing where it sits, and travels with the code if that code is ever copied into a browser, taking the one signal about the leaked secret with it.
 - [ ] **HTML-escape user input before posting to chat / IM.** When sending CRM text through `parse_mode: 'HTML'` (Telegram) or `im.message.add` HTML, escape `<` / `>` / `&` in the payload.
 
 ## Picking method names

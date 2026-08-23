@@ -195,8 +195,6 @@ const $b24 = B24Hook.fromWebhookUrl(
   'https://your_domain.bitrix24.com/rest/1/k32t88gf3azpmwv3'
 )
 
-// Optional: silence client-side warning (Node is server-side)
-$b24.offClientSideWarning?.()
 
 // Single method
 const res = await $b24.callMethod('crm.item.list', {

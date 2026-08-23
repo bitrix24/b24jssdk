@@ -5,6 +5,13 @@ import { LoggerFactory } from '../../logger'
 import { Type } from '../../tools/type'
 import { Text } from '../../tools/text'
 import { omit } from '../../tools'
+import { SdkError } from '../../core/sdk-error'
+
+/**
+ * Ceiling on {@link MessageManager.#rejectedOrigins}. The key is chosen by the
+ * sender, so the set is only bounded if we bound it (#146).
+ */
+const MAX_REJECTED_ORIGINS = 50
 
 interface PromiseHandlers {
   resolve: (value: any) => void
@@ -39,7 +46,12 @@ export class MessageManager {
   #callbackPromises: Map<string, PromiseHandlers>
   #callbackSingletone: Map<string, (...args: any[]) => void>
   // origins already warned about (#244) — dedup so a peer spamming postMessage
-  // from a foreign origin can't flood a wired logger sink
+  // from a foreign origin can't flood a wired logger sink. Capped, because the
+  // dedup key is attacker-chosen: a peer can post from an unbounded supply of
+  // distinct origins (`a.evil.test`, `b.evil.test`, …) and every unseen one adds
+  // an entry. Past the cap the set stops growing and later origins are simply
+  // not warned about — losing a log line is the right trade against unbounded
+  // memory in a long-lived frame (#146).
   #rejectedOrigins: Set<string> = new Set()
 
   protected _logger: LoggerInterface
@@ -73,10 +85,47 @@ export class MessageManager {
   }
 
   /**
-   * Unsubscribe from the onMessage event of the parent window
+   * Unsubscribe from the onMessage event of the parent window, and tear the
+   * manager down.
+   *
+   * Removing the listener is not enough. Every in-flight `send()` is waiting on
+   * a promise that only the listener could settle, so dropping the listener
+   * alone strands each of them **forever** — with its `isSafely` timer still
+   * armed and its entry still in the callback map. `B24Frame.destroy()` calls
+   * this, so an SPA that mounts and unmounts the frame accumulated one such set
+   * per cycle (#146; the same class of leak as #222 in `PullClient`).
+   *
+   * Pending sends are therefore **rejected**, not left hanging, with
+   * `JSSDK_FRAME_DISPOSED` — mirroring how a disposed `PullClient` rejects
+   * `start()` with `PULL_DISPOSED`. A caller awaiting a command that can no
+   * longer be answered should learn that; silence is the one outcome it cannot
+   * act on.
+   *
+   * Note the consequence: a `send()` whose result was discarded without a
+   * `.catch()` turns into an unhandled rejection at teardown. Every such
+   * fire-and-forget path in the SDK passes `isSafely`, which settles on its own
+   * timer and so is normally already gone by the time this runs.
    */
   unsubscribe(): void {
     window.removeEventListener('message', this.runCallbackHandler)
+
+    for (const [key, promise] of this.#callbackPromises) {
+      if (promise.timeoutId) {
+        clearTimeout(promise.timeoutId)
+      }
+
+      this.#callbackPromises.delete(key)
+      promise.reject(new SdkError({
+        code: 'JSSDK_FRAME_DISPOSED',
+        description: 'The B24Frame was destroyed before the parent window answered this command.',
+        status: 0
+      }))
+    }
+
+    // Placement event handlers are registered for the lifetime of the frame and
+    // are never fired again once the listener is gone.
+    this.#callbackSingletone.clear()
+    this.#rejectedOrigins.clear()
   }
 
   // endregion ////
@@ -192,7 +241,7 @@ export class MessageManager {
       // parent) — log the origins only, never event.data, which may carry the
       // AUTH_ID / REFRESH_ID a foreign sender must not have echoed back (#244).
       // Log once per distinct origin so a spamming peer can't flood the sink.
-      if (!this.#rejectedOrigins.has(event.origin)) {
+      if (!this.#rejectedOrigins.has(event.origin) && this.#rejectedOrigins.size < MAX_REJECTED_ORIGINS) {
         this.#rejectedOrigins.add(event.origin)
         this.getLogger().warning('message rejected: unexpected origin', {
           origin: event.origin,
@@ -203,12 +252,22 @@ export class MessageManager {
       return
     }
 
-    if (event.data) {
-      const tmp = event.data.split(':')
+    // The wire format is a colon-joined string. Anything else on this origin is
+    // not ours: `postMessage` is a shared channel, and a page hosting the frame
+    // may carry other libraries (or a browser extension) posting objects on it.
+    // `event.data.split` on such a message threw a TypeError out of a window
+    // event listener — an uncaught error, on traffic the SDK simply should have
+    // ignored (#146).
+    if (typeof event.data === 'string' && event.data.length > 0) {
+      // Narrowing `event.data` to `string` above also made this indexing
+      // checked — it used to sit behind `any`. `split` on a non-empty string
+      // always yields at least one element, so the fallback is unreachable, but
+      // it keeps the type honest rather than asserting it away.
+      const [id = '', ...rest] = event.data.split(':')
 
       const cmd: { id: string, args: any } = {
-        id: tmp[0],
-        args: tmp.slice(1).join(':')
+        id,
+        args: rest.join(':')
       }
 
       // Log only the callback id and origin — never `event.data` / `cmd.args`.
@@ -221,7 +280,32 @@ export class MessageManager {
       }).catch(() => {})
 
       if (cmd.args) {
-        cmd.args = JSON.parse(cmd.args)
+        try {
+          cmd.args = JSON.parse(cmd.args)
+        } catch {
+          // A payload we cannot read is not a payload we may guess at. Before
+          // this, the throw escaped the listener and left the waiting promise
+          // pending forever — the caller was told nothing, and waited for an
+          // answer that had in fact already arrived, broken (#146).
+          //
+          // The caught error is deliberately not logged and not attached as
+          // `cause`. V8 quotes the offending input in its message — `Unexpected
+          // token 'a', "auth=..." is not valid JSON` — and this payload is the
+          // one that carries AUTH_ID / REFRESH_ID (#43). The id and origin below
+          // say which command failed, which is what a reader needs.
+          this.getLogger().warning('message dropped: payload is not valid JSON', {
+            id: cmd.id,
+            origin: event.origin
+          }).catch(() => {})
+
+          this.#rejectPromise(cmd.id, new SdkError({
+            code: 'JSSDK_FRAME_BAD_PAYLOAD',
+            description: `The parent window answered command "${cmd.id}" with a payload that is not valid JSON.`,
+            status: 0
+          }))
+
+          return
+        }
       }
 
       if (this.#callbackPromises.has(cmd.id)) {
@@ -241,6 +325,26 @@ export class MessageManager {
         }
       }
     }
+  }
+
+  /**
+   * Settle a waiting promise with a rejection, if one is still waiting.
+   *
+   * Silent when the key is unknown: a payload can arrive for a command that
+   * already timed out under `isSafely`, and there is nothing left to reject.
+   */
+  #rejectPromise(key: string, error: SdkError): void {
+    const promise = this.#callbackPromises.get(key)
+    if (!promise) {
+      return
+    }
+
+    if (promise.timeoutId) {
+      clearTimeout(promise.timeoutId)
+    }
+
+    this.#callbackPromises.delete(key)
+    promise.reject(error)
   }
 
   /**

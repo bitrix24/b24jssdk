@@ -39,6 +39,15 @@ const LOG_METHODS = [
  * callable, and does not invoke anything. Calling the methods to inspect their
  * return value would emit spurious log records as a side effect of installation.
  *
+ * A warning is as far as the SDK goes here, by decision rather than by omission
+ * (#346). It does **not** wrap the installed logger to isolate it the way
+ * `Logger.log()` isolates its handlers, so an implementation that throws
+ * synchronously — before the promise the callsite's `.catch(() => {})` expects —
+ * still reaches the caller. Wrapping would put the SDK in charge of code it
+ * does not own, at all ~94 callsites, to guard a case the compiler already
+ * rejects; the contract is that your methods return promises, and this check is
+ * the reminder, not the enforcement.
+ *
  * @param logger The logger about to be installed.
  * @param source Where it is being installed, used in the warning text.
  */

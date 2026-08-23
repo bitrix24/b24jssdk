@@ -77,7 +77,7 @@
   },
   "dependencies": {
     "@types/luxon": "^3.7.3",
-    "axios": "^1.19.0",
+    "axios": "catalog:",
     "luxon": "^3.7.2",
     "qs-esm": "^8.0.1"
   },

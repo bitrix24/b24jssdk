@@ -125,4 +125,9 @@ jobs:
           else
             echo "Stable $VER → dist-tag 'latest'"
           fi
+          # `pnpm publish`, not `npm publish`: axios is declared as `catalog:`
+          # (#332) and only pnpm resolves that protocol when packing. npm would
+          # ship the literal string and break every consumer's install. CI
+          # asserts on the packed manifest, but the constraint belongs here too,
+          # where someone would edit this line.
           pnpm --filter ./packages/jssdk publish --no-git-checks "${TAG_ARGS[@]}"

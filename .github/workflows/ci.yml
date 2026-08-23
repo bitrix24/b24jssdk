@@ -277,6 +277,15 @@ jobs:
           # (require('axios') etc.), not inline them like the UMD bundle. A flip
           # of inlineDependencies in build.config.ts would silently regress this.
           node -e "const fs=require('fs'); const g=require('child_process').execSync('grep -rl \"require(.axios.)\" dist/cjs',{encoding:'utf8'}).trim(); if(!g){console.error('axios is not externalized in dist/cjs — check inlineDependencies'); process.exit(1)} console.log('CJS deps external OK')"
+          # Guard the #332 contract: axios' version lives in the workspace
+          # catalog, and `catalog:` is a pnpm protocol that MUST be resolved
+          # before the manifest reaches npm. `pnpm pack` resolves it; plain
+          # `npm publish` would ship the literal string and break every install.
+          # Assert on the packed tarball rather than trusting the publish step to
+          # stay `pnpm publish` forever.
+          pnpm pack --pack-destination "$RUNNER_TEMP" >/dev/null
+          tar -xzOf "$RUNNER_TEMP"/bitrix24-b24jssdk-*.tgz package/package.json > "$RUNNER_TEMP/packed.json"
+          node -e "const p=require(process.env.RUNNER_TEMP+'/packed.json'); for (const [name, range] of Object.entries(p.dependencies||{})) { if (String(range).startsWith('catalog:') || String(range).startsWith('workspace:')) { console.error('::error::packed manifest ships an unresolved specifier: '+name+'@'+range); process.exit(1) } } console.log('packed manifest specifiers resolved OK')"
 
       - name: Build (jssdk-nuxt)
         # Requires packages/jssdk-nuxt/.nuxt/tsconfig.json (from artifact) to resolve

@@ -79,7 +79,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.2.0",
     "@types/node-cron": "^3.0.11",
-    "@vitest/ui": "^4.1.10",
+    "@vitest/ui": "^4.1.11",
     "axios": "catalog:",
     "dotenv": "^17.4.2",
     "eslint": "^10.8.1",
@@ -89,9 +89,9 @@
     "markdownlint-cli2": "^0.23.2",
     "node-cron": "^4.6.0",
     "nuxt": "^4.5.2",
-    "openai": "^7.4.0",
-    "vitest": "^4.1.10",
-    "vue-tsc": "^3.3.9"
+    "openai": "^7.5.0",
+    "vitest": "^4.1.11",
+    "vue-tsc": "^3.3.10"
   },
   "peerDependencies": {
     "typescript": "^5.6.3 || ^6.0.0"

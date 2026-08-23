@@ -18,7 +18,7 @@
  * `parent` are stubbed here — `send()` uses `window.setTimeout` and posts to
  * `parent`, and `unsubscribe()` touches `window.removeEventListener`.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { MessageManager } from '../../../packages/jssdk/src/frame/message/controller'
 import { SdkError } from '../../../packages/jssdk/src/core/sdk-error'
 import type { LoggerInterface } from '../../../packages/jssdk/src/types/logger'
@@ -159,19 +159,60 @@ describe('#146 unsubscribe() tears the manager down instead of stranding it', ()
     await expect(pending).rejects.toMatchObject({ code: 'JSSDK_FRAME_DISPOSED' })
   })
 
-  it('clears the isSafely timer, so nothing fires after teardown', async () => {
+  it('clears the isSafely timer rather than leaving it to no-op', async () => {
+    vi.useFakeTimers()
+    try {
+      const mgr = manager()
+
+      const pending = mgr.send('someCommand', { isSafely: true, safelyTime: 10 })
+      pending.catch(() => {})
+
+      expect(vi.getTimerCount()).toBe(1)
+      mgr.unsubscribe()
+
+      // Asserting on the timer itself, not on the outcome. The send() timeout
+      // callback re-checks the callback map before resolving, so a timer left
+      // armed would fire, find nothing, and do nothing — the promise would still
+      // be rejected and an outcome-based assertion would pass with the
+      // clearTimeout deleted. What must hold is that no timer survives teardown:
+      // a destroyed frame should leave nothing on the event loop.
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('rejects a send that deliberately opted out of isSafely', async () => {
     const mgr = manager()
 
-    const pending = mgr.send('someCommand', { isSafely: true, safelyTime: 10 })
-    const settled = pending.then(() => 'resolved', () => 'rejected')
-
+    // closeApplication() / closeSliderAppPage() pass isSafely: false on purpose
+    // — "everything will be closed, and timeout will not be able to do
+    // anything". They are also the calls an app makes while tearing itself
+    // down, so racing them against destroy() is the realistic case, and the one
+    // that surfaces as an unhandled rejection if the caller discarded the
+    // promise.
+    const pending = mgr.send('closeApplication', { isSafely: false })
     mgr.unsubscribe()
 
-    // The isSafely timer would have resolved this at +10ms. Teardown got there
-    // first, and the timer must not fire afterwards.
-    await expect(settled).resolves.toBe('rejected')
-    await new Promise(resolve => setTimeout(resolve, 40))
-    await expect(settled).resolves.toBe('rejected')
+    await expect(pending).rejects.toMatchObject({ code: 'JSSDK_FRAME_DISPOSED' })
+  })
+
+  it('resets the foreign-origin dedup set, so a reused origin warns again', () => {
+    const captured: string[] = []
+    const mgr = new MessageManager({ getTargetOrigin: () => ORIGIN } as never)
+    mgr.setLogger({
+      ...silentLogger(),
+      warning: async (message: string) => { captured.push(message) }
+    } as unknown as LoggerInterface)
+
+    const foreign = { origin: 'https://peer.example', data: 'x:{}' } as MessageEvent
+    mgr._runCallback(foreign)
+    mgr._runCallback(foreign)
+    expect(captured).toHaveLength(1) // deduped
+
+    mgr.unsubscribe()
+    mgr._runCallback(foreign)
+    expect(captured).toHaveLength(2) // set was cleared at teardown
   })
 
   it('drops placement callbacks, which cannot fire once the listener is gone', () => {

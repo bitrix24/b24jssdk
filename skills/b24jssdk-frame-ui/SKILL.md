@@ -266,6 +266,7 @@ onBeforeUnmount(() => {
 - ❌ `$b24.placement.call('setValue', { value: { id: 1 } })` — throws because `value` is not a string. Use `$b24.placement.setValue({ id: 1 })` or stringify yourself.
 - ❌ Storing secrets in `options.appSet` — placement options are visible to everyone with access to the placement.
 - ❌ Treating a resolved `parent.im*` promise as proof the call started or the chat opened — nothing answers those commands; the promise only means the message was posted.
+- ❌ Firing `parent.closeApplication()` without `.catch(() => {})` and calling `$b24.destroy()` in the same breath — `destroy()` rejects every in-flight command with `JSSDK_FRAME_DISPOSED`, and a discarded promise becomes an unhandled rejection. Either `await` the close or attach a `.catch`.
 - ❌ Treating an absent `selectCRM` bucket as an empty array — they are `undefined`. Use `picked.deal ?? []`.
 - ❌ `return navigateTo(target)` from Nuxt route middleware to route an opened slider — discarded without error on a prerendered entry route. Navigate from `onNuxtReady` while hydrating.
 - ❌ Reading `$b24.placement.options?.place` without allowing for a JSON string — `PLACEMENT_OPTIONS` is not always an object, and key case is not guaranteed across entry points. On a string this yields `undefined` silently.

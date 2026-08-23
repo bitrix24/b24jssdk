@@ -13,6 +13,12 @@ import { SdkError } from '../../core/sdk-error'
  */
 const MAX_REJECTED_ORIGINS = 50
 
+/**
+ * How much of an inbound callback id may appear in an error message. The id is
+ * sender-chosen, and error messages reach logs (#146).
+ */
+const MAX_CALLBACK_ID_IN_ERROR = 64
+
 interface PromiseHandlers {
   resolve: (value: any) => void
   reject: (reason?: any) => void
@@ -102,9 +108,19 @@ export class MessageManager {
    * act on.
    *
    * Note the consequence: a `send()` whose result was discarded without a
-   * `.catch()` turns into an unhandled rejection at teardown. Every such
-   * fire-and-forget path in the SDK passes `isSafely`, which settles on its own
-   * timer and so is normally already gone by the time this runs.
+   * `.catch()` turns into an unhandled rejection at teardown. Most SDK commands
+   * pass `isSafely`, which settles them on their own timer, so they are normally
+   * already gone by the time this runs — but **not all of them do**.
+   * `ParentManager.closeApplication()` and `SliderManager.closeSliderAppPage()`
+   * deliberately pass `isSafely: false` ("everything will be closed, and timeout
+   * will not be able to do anything"), and those are exactly the calls made as
+   * an app tears itself down — the likeliest race with this method. The awaited
+   * commands (`getInitData`, `refreshAuth`, the dialog selectors) send without
+   * `isSafely` too, but their callers await them, so the rejection surfaces
+   * where it can be handled.
+   *
+   * A caller that fires `closeApplication()` without awaiting it should attach
+   * `.catch(() => {})` if it also tears the frame down in the same breath.
    */
   unsubscribe(): void {
     window.removeEventListener('message', this.runCallbackHandler)
@@ -298,9 +314,14 @@ export class MessageManager {
             origin: event.origin
           }).catch(() => {})
 
+          // `cmd.id` is the first colon-segment of an inbound message, so its
+          // content and length are chosen by the sender. It is a callback key,
+          // not a credential — but unlike the payload it DOES reach logs, via
+          // SdkError's enumerable `message`. Truncated so a sender cannot use
+          // this description as an amplifier.
           this.#rejectPromise(cmd.id, new SdkError({
             code: 'JSSDK_FRAME_BAD_PAYLOAD',
-            description: `The parent window answered command "${cmd.id}" with a payload that is not valid JSON.`,
+            description: `The parent window answered command "${cmd.id.slice(0, MAX_CALLBACK_ID_IN_ERROR)}" with a payload that is not valid JSON.`,
             status: 0
           }))
 

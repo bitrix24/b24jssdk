@@ -37,21 +37,10 @@ import {
 import express, { type Request, type Response } from 'express'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { timingSafeEqual } from 'node:crypto'
+import { safeEqual } from '../lib/crypto'
 
 const logger = Logger.create('OAuthInstall')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
-
-/**
- * Constant-time string compare. Use for any token comparison so an attacker
- * can't recover the secret by measuring response latency.
- */
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a, 'utf8')
-  const bb = Buffer.from(b, 'utf8')
-  if (ab.length !== bb.length) return false
-  return timingSafeEqual(ab, bb)
-}
 
 const SECRET: B24OAuthSecret = {
   clientId: process.env.B24_CLIENT_ID ?? '',

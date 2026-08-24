@@ -17,6 +17,7 @@ import {
   Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
+import { baseStage } from '../lib/funnel'
 
 const logger = Logger.create('TaskAuto')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
@@ -55,8 +56,6 @@ const STAGE_TASKS: Record<string, TaskTemplate> = {
     priority: 1
   }
 }
-
-const baseStage = (s: string) => (s.includes(':') ? s.split(':')[1] : s)
 
 interface DealRow {
   id: number

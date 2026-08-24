@@ -21,6 +21,7 @@ import {
   Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
+import { baseStage } from '../lib/funnel'
 import { Bot } from 'grammy'
 import cron from 'node-cron'
 
@@ -49,8 +50,6 @@ interface DealRow {
 // deployment seed this from persistent storage (file / Redis) or initialise
 // it with the current max(id) on first run to skip historical deals.
 let lastSeenDealId = 0
-
-const baseStage = (s: string) => (s.includes(':') ? s.split(':')[1] : s)
 
 async function fetchNewDeals($b24: TypeB24): Promise<DealRow[]> {
   const res = await $b24.actions.v2.call.make<{ items: DealRow[] }>({

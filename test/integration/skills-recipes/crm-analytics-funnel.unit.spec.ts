@@ -25,6 +25,13 @@ describe('baseStage', () => {
     expect(baseStage('C1:EXECUTING')).toBe('EXECUTING')
   })
 
+  it('keeps only the first segment when the id carries a second colon', () => {
+    // `split(':')[1]` takes one segment, so anything past a second colon is
+    // dropped. Bitrix24 stage ids are `C{n}:{STATUS}` with no further colons,
+    // so this pins the truncation as known and accepted, not as a surprise.
+    expect(baseStage('C2:WON:EXTRA')).toBe('WON')
+  })
+
   it('falls back to the original string when the suffix is empty ("C2:")', () => {
     // Bitrix24 should never send this, but the guard prevents a silent empty-string key.
     expect(baseStage('C2:')).toBe('C2:')

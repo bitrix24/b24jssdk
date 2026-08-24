@@ -7,8 +7,13 @@
  * #212) into one named rule with explicit AST logic, a single credential
  * vocabulary, and contextual messages that name the offending key (#226).
  *
- * Report-only for now; IDE quick-fix suggestions (`hasSuggestions`) are a
- * deferred follow-up (#308) — there is no single mechanical fix per shape.
+ * Offers an IDE quick-fix suggestion (`hasSuggestions`, #308). There is no single
+ * mechanical *replacement* — the author must pick a safe field to log, and a wrong
+ * autofix on a security rule is worse than none (#308) — so the suggestion is the
+ * one edit that is safe for every shape: **remove the offending entry** from the
+ * context object. Dropping data cannot leak; the author then adds back only the
+ * specific non-credential fields they need. Suggestions are opt-in (never applied
+ * by `--fix`), so this stays a starting point, not an automatic rewrite.
  *
  * Covered (a Property / SpreadElement anywhere inside a `logger.<level>(…)` call):
  *   1. credential-shaped VALUE as a bare identifier — `{ url }`, `{ method: methodFormatted }`
@@ -72,6 +77,7 @@ function insideLoggerCall(node) {
 export default {
   meta: {
     type: 'problem',
+    hasSuggestions: true,
     docs: {
       description:
         'forbid passing a URL/credential-shaped value into a logger context object (#39/#40 webhook-secret leak)'
@@ -85,10 +91,44 @@ export default {
       axiosSpread:
         'Do not spread an axios `{{name}}` object into a logger context — it carries the full request URL incl. the webhook secret (#39/#40). Pick the specific safe fields you need. Add `// eslint-disable-next-line local/no-credential-in-logger` with a reason for a genuine false positive.',
       credentialKey:
-        'Do not log a value under the URL/credential-shaped key `{{name}}` (e.g. `{ apiUrl: someVar }`) — the value may carry the webhook secret regardless of its own name (#39/#40). Log the bare REST method name; let redactSensitiveParams() handle params. Add `// eslint-disable-next-line local/no-credential-in-logger` with a reason for a genuine false positive.'
+        'Do not log a value under the URL/credential-shaped key `{{name}}` (e.g. `{ apiUrl: someVar }`) — the value may carry the webhook secret regardless of its own name (#39/#40). Log the bare REST method name; let redactSensitiveParams() handle params. Add `// eslint-disable-next-line local/no-credential-in-logger` with a reason for a genuine false positive.',
+      // Suggestion (opt-in quick-fix), shared by every shape. Deliberately NOT a
+      // targeted replacement: the rule cannot know a safe field name to log
+      // (`method` may not be in scope), and a wrong fix on a security rule is
+      // worse than none (#308). Removal always drops the leak and never invents
+      // an unsafe substitute.
+      removeEntry:
+        'Remove this entry from the logger context (safe — dropping data cannot leak). Then add back only the specific non-credential fields you need.'
     }
   },
   create(context) {
+    const sourceCode = context.sourceCode ?? context.getSourceCode()
+
+    // Fixer for the `removeEntry` suggestion: delete `node` and one adjacent
+    // comma so the surrounding object stays valid whether the entry is first,
+    // middle, last, or the only one.
+    function removeEntryFix(node) {
+      return (fixer) => {
+        const after = sourceCode.getTokenAfter(node)
+        if (after && after.value === ',') {
+          // Consume the comma and the whitespace up to the next token, so a
+          // removed leading/middle entry does not leave a double space behind.
+          const next = sourceCode.getTokenAfter(after)
+          const end = next ? next.range[0] : after.range[1]
+          return fixer.removeRange([node.range[0], end])
+        }
+        const before = sourceCode.getTokenBefore(node)
+        if (before && before.value === ',') {
+          return fixer.removeRange([before.range[0], node.range[1]])
+        }
+        return fixer.remove(node)
+      }
+    }
+
+    function suggestRemoval(node) {
+      return [{ messageId: 'removeEntry', fix: removeEntryFix(node) }]
+    }
+
     return {
       Property(node) {
         if (!insideLoggerCall(node)) {
@@ -105,7 +145,7 @@ export default {
         // selector 1 — VALUE is a credential-shaped bare identifier
         // (shorthand `{ url }` or `{ method: methodFormatted }`).
         if (node.value.type === 'Identifier' && CREDENTIAL_VALUE.test(node.value.name)) {
-          context.report({ node, messageId: 'bareValue', data: { name: node.value.name } })
+          context.report({ node, messageId: 'bareValue', data: { name: node.value.name }, suggest: suggestRemoval(node) })
           return
         }
 
@@ -115,7 +155,7 @@ export default {
           && node.value.property.type === 'Identifier'
           && CREDENTIAL_KEY.test(node.value.property.name)
         ) {
-          context.report({ node, messageId: 'memberValue', data: { name: node.value.property.name } })
+          context.report({ node, messageId: 'memberValue', data: { name: node.value.property.name }, suggest: suggestRemoval(node) })
           return
         }
 
@@ -127,7 +167,7 @@ export default {
           && CREDENTIAL_KEY.test(node.key.name)
           && (node.value.type === 'Identifier' || node.value.type === 'MemberExpression')
         ) {
-          context.report({ node, messageId: 'credentialKey', data: { name: node.key.name } })
+          context.report({ node, messageId: 'credentialKey', data: { name: node.key.name }, suggest: suggestRemoval(node) })
         }
       },
 
@@ -141,7 +181,7 @@ export default {
           && node.argument.property.type === 'Identifier'
           && AXIOS_SPREAD.test(node.argument.property.name)
         ) {
-          context.report({ node, messageId: 'axiosSpread', data: { name: node.argument.property.name } })
+          context.report({ node, messageId: 'axiosSpread', data: { name: node.argument.property.name }, suggest: suggestRemoval(node) })
         }
       }
     }

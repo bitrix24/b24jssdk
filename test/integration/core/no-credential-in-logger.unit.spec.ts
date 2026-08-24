@@ -101,6 +101,51 @@ describe('no-credential-in-logger rule (#226, guards #39/#40)', () => {
     expect(messages[0]?.messageId).toBe('memberValue')
   })
 
+  // #308 — every report offers exactly one opt-in `removeEntry` suggestion, and
+  // that suggestion's fix produces code the rule no longer flags. The fix is a
+  // pure removal (never a guessed replacement), so applying it can never
+  // introduce a new leak — the property below asserts the result is clean.
+  describe('#308 removeEntry suggestion', () => {
+    // One case per shape, covering the entry being the only, first, middle and
+    // last property — the four positions removeEntryFix's comma handling must get
+    // right.
+    const suggestionCases: Array<[string, string, string]> = [
+      ['sole property (shorthand)', 'logger.debug(\'m\', { url })', 'logger.debug(\'m\', {  })'],
+      ['first of many', 'logger.debug(\'m\', { url, requestId })', 'logger.debug(\'m\', { requestId })'],
+      ['last of many', 'logger.debug(\'m\', { requestId, url })', 'logger.debug(\'m\', { requestId })'],
+      ['middle of many', 'logger.debug(\'m\', { a, url, b })', 'logger.debug(\'m\', { a, b })'],
+      ['member-access value', 'logger.error(\'m\', { foo: err.config.url })', 'logger.error(\'m\', {  })'],
+      ['credential key', 'logger.debug(\'m\', { apiUrl: someVar })', 'logger.debug(\'m\', {  })'],
+      ['axios spread', 'logger.warning(\'m\', { ...error.config })', 'logger.warning(\'m\', {  })']
+    ]
+
+    it.each(suggestionCases)('offers one removal suggestion on %s', (_label, code) => {
+      const [message] = verify(code)
+      expect(message?.suggestions).toHaveLength(1)
+      expect(message?.suggestions?.[0]?.messageId).toBe('removeEntry')
+    })
+
+    it.each(suggestionCases)('the removal fix on %s yields code the rule no longer flags', (_label, code, expected) => {
+      const [message] = verify(code)
+      const fix = message?.suggestions?.[0]?.fix
+      expect(fix).toBeTruthy()
+      // Apply the fix's single text edit to the source.
+      const { range, text } = fix as { range: [number, number], text: string }
+      const fixed = code.slice(0, range[0]) + text + code.slice(range[1])
+      expect(fixed).toBe(expected)
+      // The whole point: the fixed code is clean.
+      expect(guardHits(fixed)).toBe(0)
+    })
+
+    it('is declared fixable-by-suggestion, not by --fix', () => {
+      // hasSuggestions lets an IDE offer the fix; the rule sets no `fixable`, so
+      // `eslint --fix` never applies it automatically (a security rule must not
+      // silently rewrite code).
+      expect(rule.meta?.hasSuggestions).toBe(true)
+      expect(rule.meta?.fixable).toBeUndefined()
+    })
+  })
+
   it('is wired into eslint.config.mjs over a scope wider than core/http', async () => {
     const configs = (await composer) as Array<{
       files?: string[]

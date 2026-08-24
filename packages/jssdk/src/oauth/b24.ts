@@ -2,6 +2,7 @@ import type { AuthActions, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, 
 import type { RestrictionParams } from '../types/limiters'
 import type { TypeB24, ApiVersion } from '../types/b24'
 import { AbstractB24 } from '../core/abstract-b24'
+import { SdkError } from '../core/sdk-error'
 import { HttpV2 } from '../core/http/v2'
 import { HttpV3 } from '../core/http/v3'
 import { AuthOAuthManager } from './auth'
@@ -63,8 +64,21 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     try {
       const version = versionManager.automaticallyObtainApiVersion(method)
       const client = this.getHttpClient(version)
+      // Deliberately NOT awaited inside the try: the async half — the `profile`
+      // request itself — has always propagated its rejection to the caller
+      // (now as JSSDK_OAUTH_PROFILE_FAILED), and awaiting here would silently
+      // widen this catch to swallow it, making failures LESS visible — the
+      // opposite of #155's intent.
       return this.#authOAuthManager.initIsAdmin(client, requestId)
-    } catch {
+    } catch (error) {
+      // This catch therefore covers only the synchronous setup (version
+      // resolution, client lookup). It used to be `catch { return }`, which hid
+      // even that; the failure is now surfaced to the logger before returning.
+      // Fail closed: the admin flag defaults to `false` (least privilege), so
+      // returning leaves the safe value (#155).
+      this.getLogger().error('initIsAdmin: setup failed before the profile call; treating the user as non-admin', {
+        code: error instanceof SdkError ? error.code : 'JSSDK_OAUTH_IS_ADMIN_LOOKUP_FAILED'
+      }).catch(() => {})
       return
     }
   }

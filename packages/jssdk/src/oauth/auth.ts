@@ -1,3 +1,4 @@
+import { SdkError } from '../core/sdk-error'
 import type { AxiosInstance } from 'axios'
 import type { AuthActions, AuthData, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth, HandlerRefreshAuth, TypeDescriptionError, TypeDescriptionErrorV3 } from '../types/auth'
 import type { TypeHttp } from '../types/http'
@@ -110,10 +111,10 @@ export class AuthOAuthManager implements AuthActions {
         )
 
         if (response.data.error) {
-          throw new Error(`Token update error: ${response.data.error}`)
+          throw new SdkError({ code: 'JSSDK_OAUTH_TOKEN_REFRESH_FAILED', description: `Token update error: ${response.data.error}`, status: 0 })
         }
         if (response.status !== 200) {
-          throw new Error(`Token update error status code: ${response.status}`)
+          throw new SdkError({ code: 'JSSDK_OAUTH_TOKEN_REFRESH_BAD_STATUS', description: `Token update error status code: ${response.status}`, status: response.status })
         }
 
         /**
@@ -123,7 +124,7 @@ export class AuthOAuthManager implements AuthActions {
       }
 
       if (!payload) {
-        throw new Error('Unable to obtain authorization update data')
+        throw new SdkError({ code: 'JSSDK_OAUTH_TOKEN_REFRESH_NO_DATA', description: 'Unable to obtain authorization update data', status: 0 })
       }
 
       this.#authOptions.accessToken = payload.access_token
@@ -187,6 +188,18 @@ export class AuthOAuthManager implements AuthActions {
 
       // Both `instanceof Error` branches above have already rethrown, so `error`
       // here is always a non-Error value — carry it as the cause verbatim.
+      // Deliberately a bare Error, not SdkError: this is the last-resort catch for a
+      // NON-Error thrown value, and its job is to carry that value through
+      // transparently as the standard `.cause` (#320, regression-tested in
+      // error-cause.unit.spec.ts). SdkError exposes the original via the
+      // non-enumerable `originalError`, not `.cause`, so wrapping here would drop
+      // the tested `.cause` contract for no gain — a stable `.code` adds nothing
+      // to a "something non-Error was thrown" fallback (#155 reasoned exception).
+      // Trade-off, stated plainly: unlike SdkError.originalError, `.cause` is
+      // ENUMERABLE — a property-walking serializer (Sentry et al.) WILL see the
+      // carried value. This is the one throw site where the #189 non-enumerability
+      // guarantee does not apply, reachable only when third-party code threw a
+      // non-Error value.
       throw new Error(`Strange error: ${String(error)}`, { cause: error })
     }
   }
@@ -231,7 +244,7 @@ export class AuthOAuthManager implements AuthActions {
    */
   get isAdmin(): boolean {
     if (null === this.#isAdmin) {
-      throw new Error('isAdmin not init. You need call B24OAuth::initIsAdmin().')
+      throw new SdkError({ code: 'JSSDK_OAUTH_IS_ADMIN_NOT_INIT', description: 'isAdmin not init. You need call B24OAuth::initIsAdmin().', status: 0 })
     }
 
     return this.#isAdmin
@@ -249,7 +262,7 @@ export class AuthOAuthManager implements AuthActions {
     if (http.apiVersion === ApiVersion.v3) {
       const response = await http.call('profile', {}, requestId)
       if (!response.isSuccess) {
-        throw new Error(response.getErrorMessages().join(';'))
+        throw new SdkError({ code: 'JSSDK_OAUTH_PROFILE_FAILED', description: response.getErrorMessages().join(';'), status: 0 })
       }
 
       const data: { profile: { id: number, admin: boolean } } = response.getData()!.result as any
@@ -265,7 +278,7 @@ export class AuthOAuthManager implements AuthActions {
     // region ver2 ////
     const response = await http.call('profile', {}, requestId)
     if (!response.isSuccess) {
-      throw new Error(response.getErrorMessages().join(';'))
+      throw new SdkError({ code: 'JSSDK_OAUTH_PROFILE_FAILED', description: response.getErrorMessages().join(';'), status: 0 })
     }
 
     const data: { ID: number, ADMIN: boolean } = response.getData()!.result as any

@@ -1,3 +1,4 @@
+import { SdkError } from '../core/sdk-error'
 import type { LoggerInterface } from '../logger'
 import type { B24LangList } from '../core/language/list'
 import type { AuthActions, MessageInitData, B24FrameQueryParams } from '../types/auth'
@@ -181,7 +182,7 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
    */
   public async installFinish(): Promise<any> {
     if (!this.isInstallMode) {
-      return Promise.reject(new Error('Application was previously installed. You cannot call installFinish'))
+      return Promise.reject(new SdkError({ code: 'JSSDK_FRAME_INSTALL_ALREADY_FINISHED', description: 'Application was previously installed. You cannot call installFinish', status: 0 }))
     }
 
     return this.#messageManager.send(MessageCommands.setInstallFinish, {})

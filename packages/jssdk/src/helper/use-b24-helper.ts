@@ -1,3 +1,4 @@
+import { SdkError } from '../core/sdk-error'
 import { B24HelperManager } from './helper-manager'
 import { LoadDataType } from '../types/b24-helper'
 import type { TypeB24 } from '../types/b24'
@@ -41,9 +42,11 @@ export const useB24Helper = () => {
 
   const getB24Helper = (): B24HelperManager => {
     if (null === $b24Helper) {
-      throw new Error(
-        'B24HelperManager is not initialized. You need to call initB24Helper first.'
-      )
+      throw new SdkError({
+        code: 'JSSDK_HELPER_NOT_INIT',
+        description: 'B24HelperManager is not initialized. You need to call initB24Helper first.',
+        status: 0
+      })
     }
 
     return $b24Helper
@@ -51,9 +54,11 @@ export const useB24Helper = () => {
 
   const usePullClient = () => {
     if (null === $b24Helper) {
-      throw new Error(
-        'B24HelperManager is not initialized. You need to call initB24Helper first.'
-      )
+      throw new SdkError({
+        code: 'JSSDK_HELPER_NOT_INIT',
+        description: 'B24HelperManager is not initialized. You need to call initB24Helper first.',
+        status: 0
+      })
     }
 
     $b24Helper.usePullClient()
@@ -65,9 +70,11 @@ export const useB24Helper = () => {
     moduleId: string = 'application'
   ) => {
     if (!$isInitPullClient) {
-      throw new Error(
-        'PullClient is not initialized. You need to call usePullClient first.'
-      )
+      throw new SdkError({
+        code: 'JSSDK_HELPER_PULL_CLIENT_NOT_INIT',
+        description: 'PullClient is not initialized. You need to call usePullClient first.',
+        status: 0
+      })
     }
 
     $b24Helper?.subscribePullClient(callback, moduleId)
@@ -75,9 +82,11 @@ export const useB24Helper = () => {
 
   const startPullClient = () => {
     if (!$isInitPullClient) {
-      throw new Error(
-        'PullClient is not initialized. You need to call usePullClient first.'
-      )
+      throw new SdkError({
+        code: 'JSSDK_HELPER_PULL_CLIENT_NOT_INIT',
+        description: 'PullClient is not initialized. You need to call usePullClient first.',
+        status: 0
+      })
     }
 
     $b24Helper?.startPullClient()

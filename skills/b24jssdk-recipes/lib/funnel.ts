@@ -17,7 +17,13 @@ export interface StageStat {
 
 /**
  * Strip multi-funnel prefix: "C2:WON" → "WON", "WON" → "WON".
- * Falls back to the original string if the part after the colon is empty.
+ *
+ * Falls back to the original string if the part after the colon is empty, so a
+ * malformed "C2:" stays "C2:" rather than collapsing to "". Keep that fallback:
+ * an empty key silently merges every unparseable stage into one bucket and can
+ * collide with a real empty-string key, whereas the original value fails a
+ * lookup visibly. Bitrix24 does not emit a prefix with an empty status, so this
+ * guards a malformed input rather than a live API shape.
  */
 export const baseStage = (s: string): string => {
   if (!s.includes(':')) return s

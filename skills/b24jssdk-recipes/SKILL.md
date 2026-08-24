@@ -1,6 +1,6 @@
 ---
 name: b24jssdk-recipes
-description: End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling cookbook, event registration, OAuth install handshake. Each recipe is a self-contained TypeScript program using B24Hook on the server side. Load when the user asks for a working example or a starting template.
+description: End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling cookbook, event registration, OAuth install handshake. Each recipe is a single TypeScript program using B24Hook on the server side. Load when the user asks for a working example or a starting template.
 ---
 
 # b24jssdk recipes
@@ -31,13 +31,20 @@ Pure, I/O-free helpers extracted from recipes so they can be unit-tested without
 | File | Exports | Used by |
 | --- | --- | --- |
 | `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipes 01, 03, 06 |
+| `lib/crypto.ts` | `safeEqual` | recipes 07, 12 |
 
 `baseStage(s)` strips the multi-funnel category prefix (`"C2:WON"` → `"WON"`), falling
 back to the original string when the part after the colon is empty (`"C2:"` → `"C2:"`).
-Import it from `lib/funnel` rather than re-declaring it in a recipe — recipes 03 and 06
-used to carry their own copy that returned `""` for that case, so the behaviour under
-test was not the behaviour they ran.  
+Import it from `lib/funnel` rather than re-declaring it in a recipe: 03 and 06 each
+carried their own copy that returned `""` for that case. No recipe's control flow
+actually differed — neither `""` nor `"C2:"` matches a stage key — but the copies had
+drifted from the tested one unnoticed, and the next divergence might not be harmless.  
 `analyseFunnel(deals)` groups deals by raw `stageId` key, summing counts and opportunity amounts.
+
+`safeEqual(a, b)` is a constant-time compare for secrets and tokens. It had the same
+two-copy problem as `baseStage`, in recipes 07 and 12. Never re-declare this one: a
+constant-time compare that drifts in one of two forks is a vulnerability that reads
+like a refactor, and `===` on a token is the bug it exists to prevent.
 
 ## Boot snippet (shared by all recipes)
 
@@ -79,6 +86,11 @@ CRM v3-style methods (`crm.item.list`) use camelCase fields: `stageId`, `assigne
 ```bash
 # 1. Install: at the repo root or in a fresh project
 pnpm add @bitrix24/b24jssdk
+# Copying a single recipe out of this repo? Some recipes import a shared
+# helper and need it copied alongside, keeping the ../lib/ path:
+#   recipes 1, 3, 6:  lib/funnel.ts  (baseStage)
+#   recipes 7, 12:    lib/crypto.ts  (safeEqual)
+# Every other recipe is standalone.
 # Recipe-specific deps as needed:
 #   recipe 4: pnpm add node-cron
 #   recipe 6: pnpm add grammy node-cron

@@ -32,22 +32,10 @@ import {
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import express, { type Request, type Response } from 'express'
-import { timingSafeEqual } from 'node:crypto'
+import { safeEqual } from '../lib/crypto'
 
 const logger = Logger.create('Webhook')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
-
-/**
- * Constant-time string compare. Use for any secret / token comparison so
- * an attacker can't recover the value by measuring response latency.
- * Returns false when lengths differ (does not leak length either).
- */
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a, 'utf8')
-  const bb = Buffer.from(b, 'utf8')
-  if (ab.length !== bb.length) return false
-  return timingSafeEqual(ab, bb)
-}
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK

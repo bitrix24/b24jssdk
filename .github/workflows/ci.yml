@@ -54,6 +54,9 @@ jobs:
       - name: Check guide internal links (AGENTS.md + .github/contributing)
         run: node scripts/md-internal-links.mjs
 
+      - name: Check the API Reference index covers every public export
+        run: node scripts/check-api-reference-index.mjs
+
       - name: Test docs-lint scripts
         run: node --test "scripts/__tests__/**/*.test.mjs"
 

@@ -33,6 +33,11 @@ primitive, or logic with edge cases a test pins. It is not for shared plumbing: 
 are recipes, and every extraction costs a reader the ability to lift one file and run
 it. When in doubt, leave the code in the recipe.
 
+Worked example of the rule: `bootB24()` is byte-identical in eleven of the twelve
+recipes and stays that way on purpose. It has no edge cases to pin and no security
+weight, and it is the first thing a reader needs to see when they open a recipe —
+hiding it behind an import would cost more than the duplication does.
+
 | File | Exports | Used by |
 | --- | --- | --- |
 | `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipes 01, 03, 06 |

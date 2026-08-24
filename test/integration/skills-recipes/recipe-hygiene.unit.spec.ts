@@ -48,6 +48,12 @@ const escapeRegExp = (literal: string) => literal.replaceAll(/[.*+?^${}()|[\]\\]
  * One row per helper that recipes must import rather than re-declare.
  * `bodyShape` is what every copy seen in the wild has looked like — matching it
  * is what stops a rename from walking straight past the name check.
+ *
+ * `safeEqual`'s shape probe is deliberately the broad `timingSafeEqual(`, which
+ * also fires on a recipe calling that primitive directly for some other reason.
+ * That is intended, not a false positive: a recipe needing a constant-time
+ * compare should get it from `lib/crypto`, so being stopped here is the right
+ * outcome — and the failure points at the module to use.
  */
 const SHARED_HELPERS = [
   {
@@ -85,6 +91,11 @@ describe('#64a — recipes use the tested helpers, not private copies', () => {
 
     it.each(exampleFiles)(`%s imports ${name} from ${module} if it uses it`, (file) => {
       const code = readCode(file)
+      // Keyed on the literal call-site name, so an aliased import
+      // (`import { safeEqual as safeEq }`) makes this a no-op rather than a
+      // failure. That is fine — an alias still resolves to the shared copy, so
+      // there is nothing to catch — but do not read a pass here as proof the
+      // file was checked. The two guards above are the ones that bite.
       if (!new RegExp(String.raw`\b${name}\s*\(`).test(code)) {
         return
       }

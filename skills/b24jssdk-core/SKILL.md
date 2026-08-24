@@ -82,7 +82,9 @@ if ($b24.isInstallMode) {
 }
 ```
 
-See the `b24jssdk-frame-ui` skill for the full rule.
+See the `b24jssdk-frame-ui` skill for the full rule. Note this is a **lifecycle**
+step, not a security one — an OAuth install/uninstall endpoint still verifies
+`application_token` (see the security checklist below).
 
 ## B24OAuth (server side of an OAuth app)
 

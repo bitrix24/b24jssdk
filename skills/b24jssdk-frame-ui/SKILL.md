@@ -289,6 +289,11 @@ The opposite holds for an **API-only app with no installation interface**: it mu
 method works only inside a browser interface frame — so gate the call on
 `isInstallMode`, which is only ever true inside that frame.
 
+Finishing the installation is a **lifecycle** step, not a security one. An app that
+also runs an OAuth install/uninstall endpoint still has to verify `application_token`
+on `ONAPPINSTALL` / `ONAPPUNINSTALL` — see the [Security patterns](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/security/)
+page. Doing one does not cover the other.
+
 To check an app the portal is ignoring, ask whether it considers it installed:
 `app.info` returns `INSTALLED`, and `false` means `installFinish()` never landed.
 

@@ -121,15 +121,97 @@ test('throws — rather than silently under-collecting — on an unresolvable ba
   })
 })
 
-test('scrapes both backticked and linked names off a page', () => {
+test('rejects `export * as ns` rather than silently skipping it', () => {
+  // The form binds a namespace object instead of re-exporting names, so a
+  // permissive parser would under-collect and quietly weaken the gate.
+  withFixture({
+    'index.ts': 'export * as tools from \'./impl\'\n',
+    'impl.ts': 'export const inner = 1\n'
+  }, (root) => {
+    assert.throws(
+      () => collectValueExports(join(root, 'index.ts')),
+      /export \* as tools/
+    )
+  })
+})
+
+test('ignores `export default` — a default is not re-exported by `export *`', () => {
+  withFixture({
+    'index.ts': 'export * from \'./impl\'\n',
+    'impl.ts': 'export default class FormatterNumbers {}\nexport const named = 1\n'
+  }, (root) => {
+    const names = collectValueExports(join(root, 'index.ts'))
+    assert.deepEqual([...names], ['named'])
+  })
+})
+
+test('reads names from table rows and flat lists, not from prose', () => {
   const names = collectPageNames([
     '| [`Linked`](https://github.com/bitrix24/b24jssdk/blob/main/x.ts) | what | — |',
     '| [Bare](https://github.com/bitrix24/b24jssdk/blob/main/y.ts) | what | — |',
-    'Prose mentioning `Backticked` and `$b24`.'
+    '',
+    '`FlatOne` `FlatTwo`',
+    '',
+    'Prose mentioning `NotAClaim` and the `isSuccess` flag.'
   ].join('\n'))
-  assert.ok(names.has('Linked'))
-  assert.ok(names.has('Bare'))
-  assert.ok(names.has('Backticked'))
+  assert.deepEqual([...names].sort(), ['Bare', 'FlatOne', 'FlatTwo', 'Linked'])
+  // The point of the restriction: prose backticks are not claims, so a future
+  // export named `isSuccess` cannot pass the gate unlisted.
+  assert.ok(!names.has('isSuccess'))
+  assert.ok(!names.has('NotAClaim'))
+})
+
+function runAgainst(root) {
+  return spawnSync(process.execPath, [SCRIPT], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      API_REFERENCE_INDEX_ENTRY: join(root, 'index.ts'),
+      API_REFERENCE_INDEX_PAGE: join(root, 'page.md')
+    }
+  })
+}
+
+test('fails, naming the export, when the page omits one', () => {
+  withFixture({
+    'index.ts': 'export class Listed {}\nexport class Forgotten {}\n',
+    'page.md': '| [`Listed`](https://github.com/x) | what | — |\n'
+  }, (root) => {
+    const run = runAgainst(root)
+    assert.equal(run.status, 1)
+    assert.match(run.stderr, /does not list/)
+    assert.match(run.stderr, /- Forgotten/)
+  })
+})
+
+test('fails, naming the row, when the page lists something no longer exported', () => {
+  // The direction a one-way check misses: rename an export and the old row
+  // survives beside the new one, with every gate green.
+  withFixture({
+    'index.ts': 'export class RenamedTo {}\n',
+    'page.md': [
+      '| [`RenamedTo`](https://github.com/x) | what | — |',
+      '| [`RenamedFrom`](https://github.com/x) | stale | — |'
+    ].join('\n')
+  }, (root) => {
+    const run = runAgainst(root)
+    assert.equal(run.status, 1)
+    assert.match(run.stderr, /not public exports/)
+    assert.match(run.stderr, /- RenamedFrom/)
+  })
+})
+
+test('reports both directions at once', () => {
+  withFixture({
+    'index.ts': 'export class Added {}\n',
+    'page.md': '| [`Removed`](https://github.com/x) | stale | — |\n'
+  }, (root) => {
+    const run = runAgainst(root)
+    assert.equal(run.status, 1)
+    assert.match(run.stderr, /- Added/)
+    assert.match(run.stderr, /- Removed/)
+  })
 })
 
 test('the real repo passes, and reports the export count', () => {

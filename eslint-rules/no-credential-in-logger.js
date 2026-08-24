@@ -106,20 +106,31 @@ export default {
 
     // Fixer for the `removeEntry` suggestion: delete `node` and one adjacent
     // comma so the surrounding object stays valid whether the entry is first,
-    // middle, last, or the only one.
+    // middle, last, or the only one. Comment-safe: the whitespace-consuming
+    // ranges stop AT a comment (`includeComments`), never through it — a fixer
+    // on a security rule must not silently delete an author's note, least of all
+    // an `// eslint-disable-next-line` sitting between entries.
     function removeEntryFix(node) {
       return (fixer) => {
         const after = sourceCode.getTokenAfter(node)
         if (after && after.value === ',') {
-          // Consume the comma and the whitespace up to the next token, so a
-          // removed leading/middle entry does not leave a double space behind.
-          const next = sourceCode.getTokenAfter(after)
+          // Extend across whitespace up to the next token OR comment, so a
+          // removed leading/middle entry leaves no double space AND a trailing
+          // comment on that entry survives.
+          const next = sourceCode.getTokenAfter(after, { includeComments: true })
           const end = next ? next.range[0] : after.range[1]
           return fixer.removeRange([node.range[0], end])
         }
         const before = sourceCode.getTokenBefore(node)
         if (before && before.value === ',') {
-          return fixer.removeRange([before.range[0], node.range[1]])
+          // Entry is last. Remove the preceding comma too — unless a comment
+          // sits between it and the node, in which case start after the comment
+          // so it is preserved (leaves a valid trailing comma).
+          const beforeInclComments = sourceCode.getTokenBefore(node, { includeComments: true })
+          const start = beforeInclComments && beforeInclComments !== before
+            ? beforeInclComments.range[1]
+            : before.range[0]
+          return fixer.removeRange([start, node.range[1]])
         }
         return fixer.remove(node)
       }

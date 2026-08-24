@@ -116,7 +116,13 @@ describe('no-credential-in-logger rule (#226, guards #39/#40)', () => {
       ['middle of many', 'logger.debug(\'m\', { a, url, b })', 'logger.debug(\'m\', { a, b })'],
       ['member-access value', 'logger.error(\'m\', { foo: err.config.url })', 'logger.error(\'m\', {  })'],
       ['credential key', 'logger.debug(\'m\', { apiUrl: someVar })', 'logger.debug(\'m\', {  })'],
-      ['axios spread', 'logger.warning(\'m\', { ...error.config })', 'logger.warning(\'m\', {  })']
+      ['axios spread', 'logger.warning(\'m\', { ...error.config })', 'logger.warning(\'m\', {  })'],
+      // trailing comma — the removed entry's comma is the last before `}`.
+      ['trailing comma', 'logger.debug(\'m\', { url, })', 'logger.debug(\'m\', { })'],
+      // a comment on a LATER entry must survive removal of an earlier one — the
+      // ironic worst case is an eslint-disable comment; a security fixer must
+      // never eat it (#308 review).
+      ['comment on a following entry', 'logger.debug(\'m\', { url, /* keep me */ requestId })', 'logger.debug(\'m\', { /* keep me */ requestId })']
     ]
 
     it.each(suggestionCases)('offers one removal suggestion on %s', (_label, code) => {
@@ -135,6 +141,22 @@ describe('no-credential-in-logger rule (#226, guards #39/#40)', () => {
       expect(fixed).toBe(expected)
       // The whole point: the fixed code is clean.
       expect(guardHits(fixed)).toBe(0)
+    })
+
+    it('flags two credential entries in one object independently, each with its own removal', () => {
+      // Removing one must not silence the other — ESLint visits each Property
+      // node separately, so both fire up front and each carries its own fix
+      // scoped to its own range (#308 review). Applying one leaves the other lit.
+      const messages = verify('logger.debug(\'m\', { url, secret })')
+      expect(messages).toHaveLength(2)
+      for (const message of messages) {
+        expect(message.suggestions).toHaveLength(1)
+        expect(message.suggestions?.[0]?.messageId).toBe('removeEntry')
+      }
+      // Apply the first entry's removal; the second is still flagged.
+      const first = messages[0]!.suggestions![0]!.fix as { range: [number, number], text: string }
+      const afterFirst = 'logger.debug(\'m\', { url, secret })'.slice(0, first.range[0]) + first.text + 'logger.debug(\'m\', { url, secret })'.slice(first.range[1])
+      expect(guardHits(afterFirst)).toBe(1)
     })
 
     it('is declared fixable-by-suggestion, not by --fix', () => {

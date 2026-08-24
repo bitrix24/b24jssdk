@@ -2,6 +2,7 @@ import type { AuthActions, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, 
 import type { RestrictionParams } from '../types/limiters'
 import type { TypeB24, ApiVersion } from '../types/b24'
 import { AbstractB24 } from '../core/abstract-b24'
+import { SdkError } from '../core/sdk-error'
 import { HttpV2 } from '../core/http/v2'
 import { HttpV3 } from '../core/http/v3'
 import { AuthOAuthManager } from './auth'
@@ -63,8 +64,18 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     try {
       const version = versionManager.automaticallyObtainApiVersion(method)
       const client = this.getHttpClient(version)
-      return this.#authOAuthManager.initIsAdmin(client, requestId)
-    } catch {
+      return await this.#authOAuthManager.initIsAdmin(client, requestId)
+    } catch (error) {
+      // Fail closed, but not silently. The admin flag defaults to `false`
+      // (`AuthOAuthManager.initIsAdmin` sets it before the call), so a failed
+      // `profile` request leaves the safe least-privilege value — this method
+      // deliberately does not throw, so wiring it into init cannot take the app
+      // down. But swallowing the error entirely made "not an admin" and
+      // "the profile call failed" indistinguishable (#155); the failure is now
+      // surfaced to the logger so it is at least visible.
+      this.getLogger().error('initIsAdmin: profile lookup failed; treating the user as non-admin', {
+        code: error instanceof SdkError ? error.code : 'JSSDK_OAUTH_IS_ADMIN_LOOKUP_FAILED'
+      }).catch(() => {})
       return
     }
   }

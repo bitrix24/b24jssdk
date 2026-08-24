@@ -1,3 +1,4 @@
+import { SdkError } from '../core/sdk-error'
 import type { B24FrameQueryParams, MessageInitData } from '../types/auth'
 import { B24LangList } from '../core/language/list'
 import { ApiVersion } from '../types/b24'
@@ -76,7 +77,7 @@ export class AppFrame {
    */
   getAppSid(): string {
     if (null === this.#appSid) {
-      throw new Error(`Not init appSid`)
+      throw new SdkError({ code: 'JSSDK_FRAME_APP_SID_NOT_INIT', description: 'Not init appSid', status: 0 })
     }
 
     return this.#appSid

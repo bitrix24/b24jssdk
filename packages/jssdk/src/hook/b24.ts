@@ -1,3 +1,4 @@
+import { SdkError } from '../core/sdk-error'
 import type { AuthActions, B24HookParams } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
 import type { TypeB24, ApiVersion } from '../types/b24'
@@ -107,7 +108,7 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     options?: { restrictionParams?: Partial<RestrictionParams> }
   ): B24Hook {
     if (!url.trim()) {
-      throw new Error('Webhook URL cannot be empty')
+      throw new SdkError({ code: 'JSSDK_HOOK_URL_EMPTY', description: 'Webhook URL cannot be empty', status: 0 })
     }
 
     let parsedUrl: URL
@@ -116,11 +117,11 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
       parsedUrl = new URL(url.replace('/rest/api', '/rest'))
     } catch {
       // Don't echo the URL — it carries the webhook secret in its path (#43).
-      throw new Error('Invalid webhook URL format')
+      throw new SdkError({ code: 'JSSDK_HOOK_URL_INVALID', description: 'Invalid webhook URL format', status: 0 })
     }
 
     if (parsedUrl.protocol !== 'https:') {
-      throw new Error('Webhook requires HTTPS protocol')
+      throw new SdkError({ code: 'JSSDK_HOOK_URL_NOT_HTTPS', description: 'Webhook requires HTTPS protocol', status: 0 })
     }
 
     const pathParts = parsedUrl.pathname.split('/').filter(Boolean)
@@ -132,7 +133,7 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     )
 
     if (!isValidFormat) {
-      throw new Error('Webhook URL must follow format: /rest/<userId>/<secret> or /rest/api/<userId>/<secret>')
+      throw new SdkError({ code: 'JSSDK_HOOK_URL_MALFORMED', description: 'Webhook URL must follow format: /rest/<userId>/<secret> or /rest/api/<userId>/<secret>', status: 0 })
     }
 
     // Determine the position of userId and secret depending on the format
@@ -144,7 +145,7 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
 
     if (!/^\d+$/.test(userIdStr)) {
       // Don't echo the segment — in a transposed URL it could be the secret (#43).
-      throw new Error('User ID must be numeric in webhook URL')
+      throw new SdkError({ code: 'JSSDK_HOOK_URL_USER_ID_NOT_NUMERIC', description: 'User ID must be numeric in webhook URL', status: 0 })
     }
     const userId = Number.parseInt(userIdStr, 10)
 

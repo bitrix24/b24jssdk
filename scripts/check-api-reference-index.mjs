@@ -52,17 +52,37 @@ function resolveSpecifier(fromFile, specifier) {
 }
 
 /**
+ * Blank out comments and template-literal bodies before matching.
+ *
+ * Every pattern below is line-anchored text matching, so an example line inside
+ * a JSDoc block — `export const foo = …` at column zero, which is exactly how
+ * this codebase writes doc examples — would otherwise be collected as a real
+ * export and the page failed for not listing it. Same for a snippet inside a
+ * template literal.
+ *
+ * Newlines are preserved so line numbers and line-start anchors still line up;
+ * only the content is replaced with spaces.
+ */
+function stripCommentsAndStrings(source) {
+  const blank = text => text.replaceAll(/[^\n]/g, ' ')
+  return source
+    .replaceAll(/\/\*[\s\S]*?\*\//g, blank)
+    .replaceAll(/\/\/[^\n]*/g, blank)
+    .replaceAll(/`(?:[^`\\]|\\[\s\S])*`/g, blank)
+}
+
+/**
  * Collect the value exports a single file contributes, recursing through
  * `export * from` barrels. `seen` guards against a cyclic barrel graph.
  */
-export function collectValueExports(entry, seen = new Set(), read = readFileSync) {
+export function collectValueExports(entry, seen = new Set()) {
   if (seen.has(entry)) {
     return new Set()
   }
   seen.add(entry)
 
   const names = new Set()
-  const source = String(read(entry, 'utf8'))
+  const source = stripCommentsAndStrings(readFileSync(entry, 'utf8'))
 
   // `export * as ns from './x'` binds one namespace object rather than
   // re-exporting names, so the walk below would silently skip it and
@@ -82,17 +102,35 @@ export function collectValueExports(entry, seen = new Set(), read = readFileSync
     if (!target) {
       throw new Error(`${entry}: cannot resolve \`export * from '${match[1]}'\``)
     }
-    for (const name of collectValueExports(target, seen, read)) {
+    for (const name of collectValueExports(target, seen)) {
       names.add(name)
     }
   }
 
   // `export { A, B as C }` — with or without `from`. `export type { … }` is a
   // pure type re-export and is skipped wholesale.
-  for (const match of source.matchAll(/^\s*export\s+(type\s+)?\{([^}]*)\}/gm)) {
+  const REEXPORTS = /^\s*export\s+(type\s+)?\{([^}]*)\}\s*(?:from\s+['"]([^'"]+)['"])?/gm
+  for (const match of source.matchAll(REEXPORTS)) {
     if (match[1]) {
       continue
     }
+
+    // With a `from`, the `type` keyword at THIS site says nothing about what the
+    // target actually declares: `export { Foo } from './impl'` re-exports a
+    // type-only `Foo` without any marker. Resolving the target and keeping only
+    // the names it exports as values is what stops the gate demanding a page row
+    // for something no consumer can import at runtime.
+    let targetValues = null
+    if (match[3]) {
+      const target = resolveSpecifier(entry, match[3])
+      if (!target) {
+        throw new Error(`${entry}: cannot resolve \`export { … } from '${match[3]}'\``)
+      }
+      // A fresh `seen` — the target's own exports are needed here even if the
+      // barrel walk already visited it for its side of the surface.
+      targetValues = collectValueExports(target, new Set())
+    }
+
     for (const rawEntry of match[2].split(',')) {
       const spec = rawEntry.trim()
       if (spec === '') {
@@ -102,10 +140,15 @@ export function collectValueExports(entry, seen = new Set(), read = readFileSync
       if (/^type\s/.test(spec)) {
         continue
       }
-      const exported = spec.includes(' as ') ? spec.split(/\s+as\s+/)[1] : spec
-      if (exported && exported !== 'default') {
-        names.add(exported.trim())
+      const [local, aliased] = spec.split(/\s+as\s+/)
+      const exported = (aliased ?? local).trim()
+      if (exported === '' || exported === 'default') {
+        continue
       }
+      if (targetValues && !targetValues.has(local.trim())) {
+        continue
+      }
+      names.add(exported)
     }
   }
 
@@ -119,7 +162,51 @@ export function collectValueExports(entry, seen = new Set(), read = readFileSync
     names.add(match[1])
   }
 
+  assertNoMultiDeclarator(entry, source)
+
   return names
+}
+
+/**
+ * `export const a = 1, b = 2` binds two names; DECLARATIONS above captures only
+ * the first, so the second would go missing from the surface without anything
+ * saying so. The SDK has no such statement today, and rather than grow a
+ * bracket-aware declarator splitter for a form nobody uses, this refuses it —
+ * matching how the walk treats `export * as ns`. Silent under-collection is the
+ * one failure mode a completeness gate must not have.
+ *
+ * Detection scans a single line for a comma at bracket depth zero. A multi-line
+ * initializer (an object or array literal) cannot produce one, since the line
+ * ends before the depth returns to zero, so it raises no false alarm.
+ *
+ * Angle brackets count as nesting so a generic type annotation — the real
+ * `export const StatusDescriptions: Record<Status, string> = {` in
+ * `types/b24-helper.ts` — is not mistaken for a second declarator. The cost is
+ * that a bare `>` (a comparison, an arrow) drives the depth negative and stops
+ * detection for the rest of that line. That is the safe direction to err: this
+ * guard failing to fire merely restores the old behaviour, while a false alarm
+ * would redden CI over correct code.
+ */
+function assertNoMultiDeclarator(entry, source) {
+  for (const line of source.split('\n')) {
+    if (!/^\s*export\s+(?:declare\s+)?(?:const|let|var)\s/.test(line)) {
+      continue
+    }
+    let depth = 0
+    for (const char of line) {
+      if ('([{<'.includes(char)) {
+        depth += 1
+      } else if (')]}>'.includes(char)) {
+        depth -= 1
+      } else if (char === ',' && depth === 0) {
+        throw new Error(
+          `${entry}: multi-declarator export is not supported by this checker:\n  ${line.trim()}\n`
+          + 'Split it into one `export const` per name, or teach collectValueExports '
+          + 'to read every declarator.'
+        )
+      }
+    }
+  }
 }
 
 /**

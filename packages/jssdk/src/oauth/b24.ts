@@ -64,16 +64,19 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     try {
       const version = versionManager.automaticallyObtainApiVersion(method)
       const client = this.getHttpClient(version)
-      return await this.#authOAuthManager.initIsAdmin(client, requestId)
+      // Deliberately NOT awaited inside the try: the async half — the `profile`
+      // request itself — has always propagated its rejection to the caller
+      // (now as JSSDK_OAUTH_PROFILE_FAILED), and awaiting here would silently
+      // widen this catch to swallow it, making failures LESS visible — the
+      // opposite of #155's intent.
+      return this.#authOAuthManager.initIsAdmin(client, requestId)
     } catch (error) {
-      // Fail closed, but not silently. The admin flag defaults to `false`
-      // (`AuthOAuthManager.initIsAdmin` sets it before the call), so a failed
-      // `profile` request leaves the safe least-privilege value — this method
-      // deliberately does not throw, so wiring it into init cannot take the app
-      // down. But swallowing the error entirely made "not an admin" and
-      // "the profile call failed" indistinguishable (#155); the failure is now
-      // surfaced to the logger so it is at least visible.
-      this.getLogger().error('initIsAdmin: profile lookup failed; treating the user as non-admin', {
+      // This catch therefore covers only the synchronous setup (version
+      // resolution, client lookup). It used to be `catch { return }`, which hid
+      // even that; the failure is now surfaced to the logger before returning.
+      // Fail closed: the admin flag defaults to `false` (least privilege), so
+      // returning leaves the safe value (#155).
+      this.getLogger().error('initIsAdmin: setup failed before the profile call; treating the user as non-admin', {
         code: error instanceof SdkError ? error.code : 'JSSDK_OAUTH_IS_ADMIN_LOOKUP_FAILED'
       }).catch(() => {})
       return

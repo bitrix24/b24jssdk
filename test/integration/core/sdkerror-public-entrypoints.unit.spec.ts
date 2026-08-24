@@ -49,3 +49,38 @@ describe('#155 B24Hook.fromWebhookUrl throws SdkError with a stable code', () =>
     expect(error.message).toBe('Webhook URL cannot be empty')
   })
 })
+
+describe('#155 the other converted entry points carry stable codes too', () => {
+  it('useB24Helper.getB24Helper() before init → JSSDK_HELPER_NOT_INIT', async () => {
+    const { useB24Helper } = await import('../../../packages/jssdk/src/helper/use-b24-helper')
+    const { getB24Helper } = useB24Helper()
+    const error = caught(() => getB24Helper())
+    expect(error).toBeInstanceOf(SdkError)
+    expect((error as SdkError).code).toBe('JSSDK_HELPER_NOT_INIT')
+    // message parity with the pre-conversion bare Error
+    expect((error as SdkError).message).toBe('B24HelperManager is not initialized. You need to call initB24Helper first.')
+  })
+
+  it('useB24Helper.useSubscribePullClient() before usePullClient → JSSDK_HELPER_PULL_CLIENT_NOT_INIT', async () => {
+    const { useB24Helper } = await import('../../../packages/jssdk/src/helper/use-b24-helper')
+    const { useSubscribePullClient } = useB24Helper()
+    const error = caught(() => useSubscribePullClient(() => {}))
+    expect(error).toBeInstanceOf(SdkError)
+    expect((error as SdkError).code).toBe('JSSDK_HELPER_PULL_CLIENT_NOT_INIT')
+  })
+
+  it('AuthOAuthManager.isAdmin before initIsAdmin → JSSDK_OAUTH_IS_ADMIN_NOT_INIT', async () => {
+    const { AuthOAuthManager } = await import('../../../packages/jssdk/src/oauth/auth')
+    const mgr = new AuthOAuthManager({
+      domain: 'https://portal.bitrix24.com',
+      clientEndpoint: 'https://portal.bitrix24.com/rest/',
+      serverEndpoint: 'https://oauth.bitrix24.tech/rest/',
+      expires: 0, expiresIn: 3600,
+      accessToken: 'A', refreshToken: 'R',
+      memberId: 'm', scope: 's', status: 'L'
+    } as never, { clientId: 'id', clientSecret: 'secret' } as never)
+    const error = caught(() => mgr.isAdmin)
+    expect(error).toBeInstanceOf(SdkError)
+    expect((error as SdkError).code).toBe('JSSDK_OAUTH_IS_ADMIN_NOT_INIT')
+  })
+})

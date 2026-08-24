@@ -270,6 +270,8 @@ The failure is silent: registration succeeds, `imbot.register` returns a `botId`
 the handlers are listed when queried, and no traffic arrives. Generated code must
 therefore always finish the install flow.
 
+<!-- Keep in sync: docs 30.frame.md (installFinish), docs 99.examples/20.app-installation-wizard.md, skills/b24jssdk-core/SKILL.md. -->
+
 ```ts
 const $b24 = await initializeB24Frame()
 

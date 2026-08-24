@@ -259,10 +259,41 @@ onBeforeUnmount(() => {
 })
 ```
 
+## Install mode — finish it, or the portal sends you nothing
+
+An application is "installing" from the moment the user accepts the install dialog
+until it calls `installFinish()`. Until that call lands, the portal treats the app
+as half-installed and **delivers no events to it** — bot handlers, handlers
+registered with `event.bind`, and other outgoing calls never reach your endpoints.
+
+The failure is silent: registration succeeds, `imbot.register` returns a `botId`,
+the handlers are listed when queried, and no traffic arrives. Generated code must
+therefore always finish the install flow.
+
+```ts
+const $b24 = await initializeB24Frame()
+
+if ($b24.isInstallMode) {
+  // provision fields, register placements, seed options...
+
+  // Last statement of the flow: the portal reloads the page in response,
+  // so anything after this may never run.
+  await $b24.installFinish()
+}
+```
+
+This applies to an application with **no install UI** as well — the install page is
+opened either way, and that iframe is the only place the call can be made from.
+
+To check an app the portal is ignoring, ask whether it considers it installed:
+`app.info` returns `INSTALLED`, and `false` means `installFinish()` never landed.
+
 ## Anti-patterns
 
 - ❌ Using `B24Frame` outside a Bitrix24 placement — `initializeB24Frame()` will hang waiting for the parent handshake. Use `B24Hook` for non-frame contexts.
 - ❌ Calling slider / dialog APIs before `await initializeB24Frame()` resolves.
+- ❌ Provisioning an app in install mode and never calling `installFinish()` — the app stays half-installed and the portal delivers no events to it, with nothing failing loudly to say so.
+- ❌ Putting work after `await installFinish()` — the portal reloads the page in response, so it may never run.
 - ❌ `$b24.placement.call('setValue', { value: { id: 1 } })` — throws because `value` is not a string. Use `$b24.placement.setValue({ id: 1 })` or stringify yourself.
 - ❌ Storing secrets in `options.appSet` — placement options are visible to everyone with access to the placement.
 - ❌ Treating a resolved `parent.im*` promise as proof the call started or the chat opened — nothing answers those commands; the promise only means the message was posted.

@@ -69,6 +69,21 @@ function teardown() {
 
 `initializeB24Frame()` deduplicates concurrent calls — safe to await it from multiple places.
 
+**If the app is in install mode, finish the installation.** Until `installFinish()`
+is called the portal treats the app as half-installed and delivers **no events** to
+it — bot handlers, `event.bind` handlers and other outgoing calls never arrive, with
+nothing failing loudly to say so:
+
+```ts
+if ($b24.isInstallMode) {
+  // provision whatever the app needs, then finish — the portal reloads the page
+  // in response, so this is the last statement of the flow.
+  await $b24.installFinish()
+}
+```
+
+See the `b24jssdk-frame-ui` skill for the full rule.
+
 ## B24OAuth (server side of an OAuth app)
 
 ```ts

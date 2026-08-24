@@ -38,6 +38,13 @@ const stripComments = (source: string) => source
 const readCode = (name: string) => stripComments(readFileSync(join(examplesDir, name), 'utf8'))
 
 /**
+ * Escape a literal for embedding in a RegExp. The module paths below contain
+ * `.` and `/`; escaping only the leading `../` would rely on the rest never
+ * gaining a metacharacter, which is an invariant nothing enforces.
+ */
+const escapeRegExp = (literal: string) => literal.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
+
+/**
  * One row per helper that recipes must import rather than re-declare.
  * `bodyShape` is what every copy seen in the wild has looked like — matching it
  * is what stops a rename from walking straight past the name check.
@@ -65,7 +72,7 @@ describe('#64a — recipes use the tested helpers, not private copies', () => {
     // Tolerant of quote style and an explicit `.js` extension — both are
     // correct, and a guard that rejected them would be a false alarm.
     const importOf = new RegExp(
-      String.raw`import\s*\{[^}]*\b${name}\b[^}]*\}\s*from\s*['"]${module.replace('../', String.raw`\.\./`)}(?:\.js)?['"]`
+      String.raw`import\s*\{[^}]*\b${name}\b[^}]*\}\s*from\s*['"]${escapeRegExp(module)}(?:\.js)?['"]`
     )
 
     it.each(exampleFiles)(`%s declares no ${name} of its own`, (file) => {

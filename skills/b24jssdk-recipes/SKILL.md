@@ -28,6 +28,11 @@ All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The le
 
 Pure, I/O-free helpers extracted from recipes so they can be unit-tested without a live portal.
 
+`lib/` is for helpers where a second hand-written copy is a *defect* — a security
+primitive, or logic with edge cases a test pins. It is not for shared plumbing: these
+are recipes, and every extraction costs a reader the ability to lift one file and run
+it. When in doubt, leave the code in the recipe.
+
 | File | Exports | Used by |
 | --- | --- | --- |
 | `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipes 01, 03, 06 |

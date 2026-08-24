@@ -195,6 +195,11 @@ export class AuthOAuthManager implements AuthActions {
       // non-enumerable `originalError`, not `.cause`, so wrapping here would drop
       // the tested `.cause` contract for no gain — a stable `.code` adds nothing
       // to a "something non-Error was thrown" fallback (#155 reasoned exception).
+      // Trade-off, stated plainly: unlike SdkError.originalError, `.cause` is
+      // ENUMERABLE — a property-walking serializer (Sentry et al.) WILL see the
+      // carried value. This is the one throw site where the #189 non-enumerability
+      // guarantee does not apply, reachable only when third-party code threw a
+      // non-Error value.
       throw new Error(`Strange error: ${String(error)}`, { cause: error })
     }
   }

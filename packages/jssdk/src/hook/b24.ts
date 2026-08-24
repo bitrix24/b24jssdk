@@ -101,7 +101,10 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
    * @param url - Full webhook URL as shown in the Bitrix24 admin panel.
    * @param options - Optional restriction parameters (rate limits, etc.).
    * @returns A ready-to-use `B24Hook` instance.
-   * @throws {Error} If the URL is empty, not HTTPS, or has an invalid format.
+   * @throws {SdkError} If the URL is empty (`JSSDK_HOOK_URL_EMPTY`), unparseable
+   *     (`JSSDK_HOOK_URL_INVALID`), not HTTPS (`JSSDK_HOOK_URL_NOT_HTTPS`),
+   *     malformed (`JSSDK_HOOK_URL_MALFORMED`), or the userId segment is not
+   *     numeric (`JSSDK_HOOK_URL_USER_ID_NOT_NUMERIC`).
    */
   public static fromWebhookUrl(
     url: string,

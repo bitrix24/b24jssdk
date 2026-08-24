@@ -84,3 +84,60 @@ describe('#155 the other converted entry points carry stable codes too', () => {
     expect((error as SdkError).code).toBe('JSSDK_OAUTH_IS_ADMIN_NOT_INIT')
   })
 })
+
+describe('#155 frame and remaining helper/oauth codes', () => {
+  it('AppFrame.getAppSid() before the handshake → JSSDK_FRAME_APP_SID_NOT_INIT', async () => {
+    const { AppFrame } = await import('../../../packages/jssdk/src/frame/frame')
+    // No APP_SID in the query params — the parent never delivered one.
+    const frame = new AppFrame({ DOMAIN: 'portal.bitrix24.com', PROTOCOL: true, LANG: 'en', APP_SID: null } as never)
+    const error = caught(() => frame.getAppSid())
+    expect(error).toBeInstanceOf(SdkError)
+    expect((error as SdkError).code).toBe('JSSDK_FRAME_APP_SID_NOT_INIT')
+    expect((error as SdkError).message).toBe('Not init appSid')
+  })
+
+  it('usePullClient() before initB24Helper → JSSDK_HELPER_NOT_INIT', async () => {
+    const { useB24Helper } = await import('../../../packages/jssdk/src/helper/use-b24-helper')
+    const { usePullClient } = useB24Helper()
+    const error = caught(() => usePullClient())
+    expect(error).toBeInstanceOf(SdkError)
+    expect((error as SdkError).code).toBe('JSSDK_HELPER_NOT_INIT')
+  })
+
+  it('startPullClient() before usePullClient → JSSDK_HELPER_PULL_CLIENT_NOT_INIT', async () => {
+    const { useB24Helper } = await import('../../../packages/jssdk/src/helper/use-b24-helper')
+    const { startPullClient } = useB24Helper()
+    const error = caught(() => startPullClient())
+    expect(error).toBeInstanceOf(SdkError)
+    expect((error as SdkError).code).toBe('JSSDK_HELPER_PULL_CLIENT_NOT_INIT')
+  })
+
+  it('initIsAdmin() with a failing profile call rejects with JSSDK_OAUTH_PROFILE_FAILED', async () => {
+    const { AuthOAuthManager } = await import('../../../packages/jssdk/src/oauth/auth')
+    const { ApiVersion } = await import('../../../packages/jssdk/src/types/b24')
+    const mgr = new AuthOAuthManager({
+      domain: 'https://portal.bitrix24.com',
+      clientEndpoint: 'https://portal.bitrix24.com/rest/',
+      serverEndpoint: 'https://oauth.bitrix24.tech/rest/',
+      expires: 0, expiresIn: 3600,
+      accessToken: 'A', refreshToken: 'R',
+      memberId: 'm', scope: 's', status: 'L'
+    } as never, { clientId: 'id', clientSecret: 'secret' } as never)
+
+    // A TypeHttp stub whose profile call soft-fails with the portal's own text.
+    const http = {
+      apiVersion: ApiVersion.v2,
+      call: async () => ({
+        isSuccess: false,
+        getErrorMessages: () => ['insufficient_scope', 'profile denied']
+      })
+    } as never
+
+    const error = await mgr.initIsAdmin(http).then(() => null, (e: unknown) => e)
+    expect(error).toBeInstanceOf(SdkError)
+    expect((error as SdkError).code).toBe('JSSDK_OAUTH_PROFILE_FAILED')
+    // description carries the portal's own error text, joined — the caller can
+    // still read why.
+    expect((error as SdkError).message).toBe('insufficient_scope;profile denied')
+  })
+})

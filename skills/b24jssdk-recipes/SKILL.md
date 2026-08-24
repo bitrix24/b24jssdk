@@ -30,9 +30,13 @@ Pure, I/O-free helpers extracted from recipes so they can be unit-tested without
 
 | File | Exports | Used by |
 | --- | --- | --- |
-| `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipe 01 |
+| `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipes 01, 03, 06 |
 
-`baseStage(s)` strips the multi-funnel category prefix (`"C2:WON"` → `"WON"`).  
+`baseStage(s)` strips the multi-funnel category prefix (`"C2:WON"` → `"WON"`), falling
+back to the original string when the part after the colon is empty (`"C2:"` → `"C2:"`).
+Import it from `lib/funnel` rather than re-declaring it in a recipe — recipes 03 and 06
+used to carry their own copy that returned `""` for that case, so the behaviour under
+test was not the behaviour they ran.  
 `analyseFunnel(deals)` groups deals by raw `stageId` key, summing counts and opportunity amounts.
 
 ## Boot snippet (shared by all recipes)

@@ -3,6 +3,8 @@
  * No Bitrix24 portal required — these are pure functions with no I/O.
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import {
   baseStage,
   analyseFunnel,
@@ -100,5 +102,40 @@ describe('analyseFunnel', () => {
     ]
     const result = analyseFunnel(deals)
     expect(result.get('WON')).toEqual({ count: 2, total: 4500 })
+  })
+})
+
+/**
+ * #64a — the helpers above are only worth testing if they are the ones the
+ * recipes actually run.
+ *
+ * Recipes 03 and 06 each carried their own inline `baseStage`, written as
+ * `s.includes(':') ? s.split(':')[1] : s`. That copy returns `''` for `'C2:'`,
+ * where the tested copy in `lib/funnel.ts` returns `'C2:'` — so the case pinned
+ * at line 30 above was pinning behaviour no shipped recipe had. Nothing caught
+ * it, because a duplicate is invisible to a test that imports the original.
+ *
+ * These guards keep the collapse from silently coming undone.
+ */
+describe('#64a — recipes use the tested helper, not a private copy', () => {
+  const examplesDir = resolve(__dirname, '../../../skills/b24jssdk-recipes/examples')
+  const exampleFiles = readdirSync(examplesDir).filter(name => name.endsWith('.ts'))
+
+  it('finds the recipe files (guards against an empty sweep passing vacuously)', () => {
+    expect(exampleFiles.length).toBeGreaterThan(0)
+  })
+
+  it.each(exampleFiles)('%s declares no baseStage of its own', (name) => {
+    const source = readFileSync(join(examplesDir, name), 'utf8')
+    // Any local binding of the name — `const`/`let`/`function` — is a second copy.
+    expect(source).not.toMatch(/(?:const|let|var|function)\s+baseStage\b/)
+  })
+
+  it.each(exampleFiles)('%s imports baseStage from lib/funnel if it uses it', (name) => {
+    const source = readFileSync(join(examplesDir, name), 'utf8')
+    if (!/\bbaseStage\s*\(/.test(source)) {
+      return
+    }
+    expect(source).toMatch(/import\s*\{[^}]*\bbaseStage\b[^}]*\}\s*from\s*'\.\.\/lib\/funnel'/)
   })
 })

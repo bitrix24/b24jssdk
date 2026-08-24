@@ -284,8 +284,10 @@ if ($b24.isInstallMode) {
 }
 ```
 
-This applies to an application with **no install UI** as well — the install page is
-opened either way, and that iframe is the only place the call can be made from.
+The opposite holds for an **API-only app with no installation interface**: it must
+*not* call `installFinish()`. Its installation completes automatically, and the
+method works only inside a browser interface frame — so gate the call on
+`isInstallMode`, which is only ever true inside that frame.
 
 To check an app the portal is ignoring, ask whether it considers it installed:
 `app.info` returns `INSTALLED`, and `false` means `installFinish()` never landed.

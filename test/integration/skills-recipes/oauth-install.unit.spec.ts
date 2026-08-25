@@ -196,6 +196,26 @@ describe('handleUninstall (recipe 12)', () => {
     expect(readStore()['member-abc']).toBeTruthy()
   })
 
+  it('ignores a payload carrying only one of member_id / token', async () => {
+    // The bail is `!memberId || !receivedToken`. With both absent, `||` and
+    // `&&` agree, so only an asymmetric payload can tell them apart — and an
+    // `&&` here would fall through to the token check with an undefined token.
+    const { handleUninstall } = await loadRecipe()
+    writeStore({ 'member-abc': { applicationToken: 'app-token-secret' } })
+
+    await handleUninstall(
+      { body: { event: 'ONAPPUNINSTALL', auth: { member_id: 'member-abc' } } } as never,
+      fakeRes().res as never
+    )
+    expect(readStore()['member-abc']).toBeTruthy()
+
+    await handleUninstall(
+      { body: { event: 'ONAPPUNINSTALL', auth: { application_token: 'app-token-secret' } } } as never,
+      fakeRes().res as never
+    )
+    expect(readStore()['member-abc']).toBeTruthy()
+  })
+
   it('ignores a payload with no member_id or token, without writing the store', async () => {
     const { handleUninstall } = await loadRecipe()
     const { res, state } = fakeRes()

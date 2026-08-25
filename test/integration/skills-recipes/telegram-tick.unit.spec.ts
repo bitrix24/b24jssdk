@@ -44,7 +44,7 @@ const deal = (id: number, stageId = 'NEW'): FakeDeal => ({
  * fixed contact. Records the `>id` filter of every list call so the cursor can
  * be observed from outside without the recipe exporting it.
  */
-function fakeB24(batches: FakeDeal[][], opts: { listFails?: boolean } = {}) {
+function fakeB24(batches: FakeDeal[][], opts: { listFails?: boolean, contactFails?: boolean } = {}) {
   const cursors: number[] = []
   let batch = 0
   const $b24 = {
@@ -67,6 +67,9 @@ function fakeB24(batches: FakeDeal[][], opts: { listFails?: boolean } = {}) {
               return { isSuccess: true, getErrorMessages: () => [], getData: () => ({ result: { items } }) }
             }
             // crm.item.get — contact lookup
+            if (opts.contactFails) {
+              return { isSuccess: false, getErrorMessages: () => ['no such contact'], getData: () => null }
+            }
             return {
               isSuccess: true,
               getErrorMessages: () => [],
@@ -183,6 +186,37 @@ describe('tick (recipe 06) — cursor advances as a contiguous prefix', () => {
     await tick($b24 as never, bot as never, 'chat')
 
     expect(idsOf(sent)).toEqual([1, 3])
+  })
+
+  it('keeps the highest id when a batch is not ascending', async () => {
+    // The cursor is `Math.max(lastSeenDealId, d.id)`, not a plain assignment.
+    // The API is asked for `order: { id: 'asc' }`, so in practice ids arrive
+    // ascending and the two are indistinguishable — which is exactly why the
+    // guard would be droppable without a test that breaks the ordering.
+    const { tick } = await loadRecipe()
+    const { $b24, cursors } = fakeB24([[deal(3), deal(1)], []])
+    const { bot } = fakeBot()
+
+    await tick($b24 as never, bot as never, 'chat')
+    await tick($b24 as never, bot as never, 'chat')
+
+    // Plain assignment would leave the cursor at 1 and re-deliver deal 3.
+    expect(cursors).toEqual([0, 3])
+  })
+
+  it('still notifies when the contact lookup fails', async () => {
+    // A failed `crm.item.get` must degrade to a placeholder name, not abort the
+    // notification — the deal is the thing worth telling someone about.
+    const { tick } = await loadRecipe()
+    // contactId must be set, or fetchContactName short-circuits to 'Not set'
+    // and never reaches the failing lookup.
+    const { $b24 } = fakeB24([[{ ...deal(1), contactId: 55 }], []], { contactFails: true })
+    const { bot, sent } = fakeBot()
+
+    await tick($b24 as never, bot as never, 'chat')
+
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toContain('Failed to load')
   })
 
   it('advances past a filtered-out deal without re-fetching it', async () => {

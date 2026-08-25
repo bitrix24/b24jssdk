@@ -161,6 +161,49 @@ console.log(result.getData().result)
 >
 > **CI guard:** the `docs-lint` job runs [`scripts/check-v3-method-refs.mjs`](../../scripts/check-v3-method-refs.mjs), which blocks examples that call a non-existent `actions.v3.*` action (real actions: `call` / `callList` / `fetchList` / `callTail` / `fetchTail` / `batch` / `batchByChunk`). It no longer validates v3 *method* names against a whitelist — the SDK dropped its hardcoded v3 allowlist, so any method may be called on v3 and the server validates it. (Separate from `// @check-ignore`, which skips the `docs:typecheck-blocks` TypeScript pass.)
 
+#### Runnable examples (`<CodeExample>`)
+
+The inline form above is a plain fenced block. Most pages instead pull a real,
+type-checked file so the snippet can be run against a live portal from the page:
+
+```md
+::code-example{name="call-rest-api-ver2" lang="ts"}
+::
+```
+
+The file lives at `docs/app/examples/<name>.ts` and looks like this:
+
+```ts
+import { B24Hook } from '@bitrix24/b24jssdk'
+
+export async function Action_callRestApiVer2() {
+  // region: start ////
+  const $b24 = useB24().get() as B24Hook || B24Hook.fromWebhookUrl('…')
+  // …the code the page shows…
+  // endregion: start ////
+}
+```
+
+Only the imports and the span between the two markers are published. The
+wrapper function, the markers themselves and anything after `endregion: start`
+are stripped by [`docs/app/utils/codeTransform.ts`](../../docs/app/utils/codeTransform.ts),
+which also rewrites the `useB24()` live-portal override out of the published
+snippet. Body lines are dedented by exactly two spaces, so keep the wrapper at
+one level of indentation.
+
+**Names must be unique by basename across the whole tree.** Examples are
+addressed by basename — that is what `name=` takes and what
+`/api/code-examples/:name?` serves, and that route is a single segment — so two
+files called `foo.ts` in different subdirectories would overwrite each other and
+a page would show the wrong code. The build fails on a duplicate rather than
+letting that happen:
+
+```text
+[code-example] duplicate example name "tools-ping":
+  …/examples/subdir/tools-ping.ts
+  …/examples/tools-ping.ts
+```
+
 ### Steps
 
 ```md

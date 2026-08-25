@@ -43,7 +43,15 @@ export async function fetchCodeExample(name: string): Promise<CodeExample> {
 
   const pending = inFlight.get(name)
   if (pending) {
-    return await pending
+    // The in-flight promise's `.then` closes over the FIRST caller's `state`,
+    // and `useState` is per-request on the server. So a second SSR request that
+    // joins here gets the right value back but never fills its own cache — its
+    // payload would omit the example and the client would re-fetch after
+    // hydration, and a second `<CodeExample>` in the same render would miss
+    // both the state and the (by then deleted) in-flight entry. Write it here.
+    const joined = await pending
+    state.value[name] = joined
+    return joined
   }
 
   // Add to nitro prerender

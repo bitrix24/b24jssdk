@@ -1,14 +1,10 @@
 /**
  * Turns an `app/examples/*.ts` file into the snippet shown on a docs page.
  *
- * Deliberately free of Vue, Nuxt and SDK imports (#139). This runs during SSR
- * and prerender — `server/utils/transformMDC.ts` calls it to build `/raw/*.md`
- * and `llms-full.txt` — and it used to be reached through the `useB24`
- * composable, which constructs `B24Hook` / `B24Frame` and reads
- * `useRuntimeConfig()`. That worked only because the transform never touched
- * those paths: a property of the current call graph, not of the design. Keeping
- * the transform here makes the browser-free guarantee structural, and lets it
- * be unit-tested without a Nuxt app.
+ * Must stay free of Vue, Nuxt and SDK imports (#139): `server/utils/transformMDC.ts`
+ * calls it during SSR and prerender to build `/raw/*.md` and `llms-full.txt`, so
+ * anything that constructs a client or reads runtime config would break that
+ * path. Keeping it here also lets it be unit-tested without a Nuxt app.
  */
 
 /** Prefix the examples use so a live portal hook can override the placeholder. */
@@ -41,6 +37,10 @@ const BUNDLED_IMPORT_META_ENV = 'globalThis._importMeta_.env'
  * the `_devMode` / `$logger` / `$b24` rewrites below silently stopped being
  * applied to the rest of the snippet. The markers are already in every example
  * and say exactly what the previous code was trying to infer.
+ *
+ * Nested regions are not supported: the first `endregion: start` ends the
+ * snippet, so anything after it is dropped. No example nests them, and the
+ * markers exist to delimit one span rather than a tree.
  *
  * `endregion: start` is tested BEFORE `region: start`, because
  * `// endregion: start ////` contains `region: start` as a substring. In the
@@ -102,8 +102,7 @@ function rewriteExampleLine(line: string, trimmedLine: string): string {
     // `import.meta.dev` is folded to a literal. The previous version matched
     // only the `(true || …)` and `(false || …)` forms, so the SSR build's
     // `(import.meta?.dev || globalThis._importMeta_.env?.DEV)` fell through all
-    // three and shipped `globalThis._importMeta_` onto the published page —
-    // visible today at /raw/docs/working-with-the-rest-api/call-rest-api-ver2.md.
+    // three and shipped `globalThis._importMeta_` onto the published page.
     return line
       .replace('const _devMode =', 'const devMode =')
       .replace(BUNDLED_IMPORT_META_ENV, `${IMPORT_META}.env`)

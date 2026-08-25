@@ -26,11 +26,33 @@ const example = (body: string) => [
 
 describe('transformCodeForDocumentationSafe (#139)', () => {
   it('keeps imports and the region body, dropping the wrapper', () => {
-    const out = transformCodeForDocumentationSafe(example('  const a = 1'))
-    expect(out).toContain('import { B24Hook }')
-    expect(out).toContain('const a = 1')
-    expect(out).not.toContain('Action_demo')
-    expect(out).not.toContain('region: start')
+    // Exact, not `toContain`. Absence assertions alone let two regressions
+    // through: dropping the blank line that stands in for the signature, and
+    // not dedenting at all — the trailing `trim()` hides missing indentation on
+    // the first line, so only a later line reveals it.
+    const out = transformCodeForDocumentationSafe(example([
+      '  const a = 1',
+      '  const b = 2'
+    ].join('\n')))
+    expect(out).toBe([
+      'import { B24Hook } from \'@bitrix24/b24jssdk\'',
+      '',
+      'const a = 1',
+      'const b = 2'
+    ].join('\n'))
+  })
+
+  it('dedents every line, not just the first', () => {
+    // `.slice(0)` — no dedent at all — survives any check that only looks at
+    // line 0, because `trim()` strips that one's leading whitespace anyway.
+    const out = transformCodeForDocumentationSafe(example([
+      '  const first = 1',
+      '  const second = 2',
+      '  const third = 3'
+    ].join('\n')))
+    for (const bodyLine of out.split('\n').slice(2)) {
+      expect(bodyLine).not.toMatch(/^\s/)
+    }
   })
 
   it('stops at the end marker', () => {
@@ -124,5 +146,12 @@ describe('the real examples still transform exactly as before (#139)', () => {
     // Dedent removed exactly the wrapper's two spaces, so nothing starts at a
     // deeper level than the snippet's own nesting.
     expect(out.split('\n')[0]?.startsWith(' ')).toBe(false)
+
+    // Presence, not just absence. Asserting only that scaffolding is gone lets
+    // a transform that returns nothing but the import lines pass every check
+    // above — which would ship blank examples on every page.
+    const bodyLines = out.split('\n').filter(l => l.trim() !== '' && !l.startsWith('import'))
+    expect(bodyLines.length).toBeGreaterThan(1)
+    expect(out).toContain('$b24')
   })
 })

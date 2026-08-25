@@ -24,8 +24,9 @@
  * Pure text inspection, no portal — jsSdk:unit.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { load } from 'js-yaml'
 
 const examplesDir = resolve(__dirname, '../../../skills/b24jssdk-recipes/examples')
 const exampleFiles = readdirSync(examplesDir).filter(name => name.endsWith('.ts'))
@@ -101,5 +102,97 @@ describe('#64a — recipes use the tested helpers, not private copies', () => {
       }
       expect(code).toMatch(importOf)
     })
+  })
+})
+
+/**
+ * #65 — the recipes' opt-in dependencies stay out of the workspace root.
+ *
+ * `express`, `grammy`, `node-cron` and `openai` are imported by recipes and by
+ * nothing in the SDK. Declared at the root they made every contributor install
+ * them, put findings against them into the repository's `pnpm audit`, and read
+ * as intent — `openai` in the root manifest suggests the SDK integrates with
+ * OpenAI, which it does not.
+ *
+ * The fix only holds while `skills/b24jssdk-recipes` stays OUTSIDE the pnpm
+ * workspace: a workspace has one lockfile, so a member's dependencies land in
+ * the root lock and a root install still installs them. Both halves are checked
+ * here, because adding one line to `pnpm-workspace.yaml` would silently undo the
+ * whole thing. See `skills/b24jssdk-recipes/README-DEPS.md`.
+ */
+describe('#65 — recipe dependencies are isolated from the workspace root', () => {
+  const repoRoot = resolve(__dirname, '../../..')
+  const readJson = (rel: string) => JSON.parse(readFileSync(join(repoRoot, rel), 'utf8'))
+
+  const RECIPE_ONLY = ['express', 'grammy', 'node-cron', 'openai']
+
+  it.each(RECIPE_ONLY)('%s is not a root dependency', (name) => {
+    const root = readJson('package.json')
+    expect(Object.keys(root.dependencies ?? {})).not.toContain(name)
+    expect(Object.keys(root.devDependencies ?? {})).not.toContain(name)
+  })
+
+  it.each(RECIPE_ONLY)('%s is declared by the recipes package', (name) => {
+    const recipes = readJson('skills/b24jssdk-recipes/package.json')
+    expect(Object.keys(recipes.dependencies ?? {})).toContain(name)
+  })
+
+  it('keeps @types/express at the root, where the docs blocks need it', () => {
+    // 79.security.md documents Express handler patterns, and
+    // `docs:typecheck-blocks` compiles those fences at the repository root — so
+    // the types are a root-level need. Only the types stayed; express did not.
+    const root = readJson('package.json')
+    expect(Object.keys(root.devDependencies ?? {})).toContain('@types/express')
+  })
+
+  it('is not a member of the pnpm workspace', () => {
+    // The isolation depends on this. A workspace member's dependencies go into
+    // the root lockfile and a root install pulls them in, which would restore
+    // every problem #65 removed while looking tidy.
+    //
+    // Parsed, not pattern-matched. A regex over the `packages:` block missed two
+    // realistic edits: flow style (`packages: [docs, skills/b24jssdk-recipes]`)
+    // matched nothing and passed vacuously, and a comment line anywhere inside
+    // the block truncated the match, hiding every entry after it. Both are
+    // ordinary YAML, and this file already carries long prose comments.
+    const workspace = load(readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8')) as {
+      packages?: string[]
+    }
+    expect(Array.isArray(workspace.packages)).toBe(true)
+    for (const entry of workspace.packages ?? []) {
+      expect(entry).not.toMatch(/skills/)
+    }
+  })
+
+  it('is covered by Dependabot, since the root entry cannot see this lockfile', () => {
+    // The real hazard in standing outside the workspace: `directory: "/"` does
+    // not reach this tree, so without a second entry these four packages would
+    // get no update coverage at all. Isolating them was meant to stop them being
+    // every contributor's install problem, not to stop anyone watching them.
+    const dependabot = readFileSync(join(repoRoot, '.github/dependabot.yml'), 'utf8')
+    expect(dependabot).toMatch(/directory:\s*["']\/skills\/b24jssdk-recipes["']/)
+  })
+
+  it('has its own audit step in CI, for the same reason', () => {
+    const workflow = readFileSync(join(repoRoot, '.github/workflows/ci.yml'), 'utf8')
+    expect(workflow).toMatch(/pnpm --dir skills\/b24jssdk-recipes audit/)
+  })
+
+  it('is kept out of the published docs site', () => {
+    // `docs/nuxt.config.ts` serves the whole skills tree at /.well-known/skills,
+    // so this package's node_modules — ~130 MB — would otherwise be copied into
+    // the Pages artifact and deployed. The pattern has to sit on `nitro.ignore`:
+    // `PublicAssetDir` has no `ignore` key, and one written there type-checks
+    // and does nothing. Asserting the config rather than a built site, because
+    // running a docs build from a unit test is not worth the minutes.
+    const nuxtConfig = readFileSync(join(repoRoot, 'docs/nuxt.config.ts'), 'utf8')
+    expect(nuxtConfig).toMatch(/ignore:\s*\['\*\*\/node_modules\/\*\*'\]/)
+  })
+
+  it('is its own pnpm root, so a plain install there does not reach the repo root', () => {
+    // Without this file, `pnpm install` inside the directory walks up, finds the
+    // repository workspace and installs into it instead.
+    expect(existsSync(join(repoRoot, 'skills/b24jssdk-recipes/pnpm-workspace.yaml'))).toBe(true)
+    expect(existsSync(join(repoRoot, 'skills/b24jssdk-recipes/pnpm-lock.yaml'))).toBe(true)
   })
 })

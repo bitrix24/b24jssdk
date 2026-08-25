@@ -93,7 +93,7 @@ For AI coding agents, the canonical task-focused skills live under `skills/`. Lo
 | `b24jssdk-filtering` | v2 prefix-keyed filter (`'>=createdTime'`) vs v3 array-of-triples (`[['fld','>=',v]]`); operators; dates via `Text.toB24Format`; `order`-stripping rule of `callList` |
 | `b24jssdk-frame-ui` | iframe-only managers: slider / dialog (`selectUser/Users/CRM/Access`) / parent / placement (with `setValue`) / options / auth |
 | `b24jssdk-helpers` | `useB24Helper`, `B24HelperManager`, Pull client, currency formatting, app/user options |
-| `b24jssdk-recipes` | 12 end-to-end TypeScript mini-apps, type-checked in CI via `pnpm run skills:typecheck` |
+| `b24jssdk-recipes` | 12 end-to-end TypeScript mini-apps, type-checked in CI via `pnpm run skills:typecheck` and unit-tested via `pnpm run skills:test`. Both install this directory's own dependencies first — it is deliberately not a workspace member, so a root `pnpm install` does not provide them (see [README-DEPS.md](skills/b24jssdk-recipes/README-DEPS.md)) |
 | `b24jssdk-vibecode` | When to combine the SDK with the VibeCode HTTP API (rarely — keeps them apart by default) |
 
 Maintenance / audit docs sit alongside in `.github/contributing/maintenance.md` (weekly `docs/llms-full.txt` review playbook), `.github/contributing/report.md` (anchor-facts citing `packages/jssdk/src/...` lines), and `.github/contributing/suggested-examples.md` (prioritised gaps).

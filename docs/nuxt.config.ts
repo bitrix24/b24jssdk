@@ -178,6 +178,18 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-01-14',
 
   nitro: {
+    // `publicAssets` copies the skills tree verbatim, so anything sitting in it
+    // gets deployed. `skills/b24jssdk-recipes` is its own npm package (#65) and
+    // its `node_modules` is ~130 MB of dependency trees — publish the recipes,
+    // not the machinery that installs them.
+    //
+    // This has to go on `nitro.ignore`, not on the publicAssets entry:
+    // `PublicAssetDir` accepts only `dir` / `baseURL` / `maxAge` / `fallthrough`,
+    // so an `ignore` key there is silently dropped (it type-checks, because
+    // NitroConfig carries an index signature). Nitro turns each `ignore` entry
+    // into a negated globby pattern in `getIncludePatterns`, and leaves patterns
+    // starting with `*` unrewritten — which is why this one is written that way.
+    ignore: ['**/node_modules/**'],
     publicAssets: [{
       dir: resolve('../skills'),
       baseURL: '/.well-known/skills',

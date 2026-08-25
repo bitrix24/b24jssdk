@@ -1,0 +1,23 @@
+{
+  "name": "@bitrix24/b24jssdk-recipes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Opt-in dependencies for the b24jssdk skill recipes. Deliberately NOT a workspace member — see README-DEPS.md.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@bitrix24/b24jssdk": "link:../../packages/jssdk",
+    "express": "^5.2.1",
+    "grammy": "^1.45.1",
+    "node-cron": "^4.6.0",
+    "openai": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.10.4",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5.6.3 || ^6.0.0"
+  }
+}

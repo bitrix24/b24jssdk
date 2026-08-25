@@ -2,7 +2,7 @@
 
 <sub>Last reviewed: 2026-06-18.</sub>
 
-> **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
+> **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types, and their internals by `pnpm run skills:test`. Both install the recipes' own dependencies first — that directory is not a workspace member, so `express` / `grammy` / `node-cron` / `openai` live there rather than in the root manifest; see [README-DEPS.md](../../skills/b24jssdk-recipes/README-DEPS.md) for why. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
 
 Tests use Vitest and run against a **real Bitrix24 portal**. The suite validates REST API contracts — a passing mocked test would defeat its purpose. **Never mock REST responses** (with one narrow exception, see [No-mock policy](#what-tests-do-not-do)).
 

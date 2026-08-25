@@ -73,3 +73,24 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # npm: the skill recipes' opt-in dependencies (#65). They live in their own
+  # non-workspace package with its own lockfile, which the `directory: "/"` entry
+  # above cannot see — so without this block `express`, `grammy`, `node-cron` and
+  # `openai` would get no update coverage at all. Isolating them from the root
+  # manifest was meant to stop them being everyone's problem, not to stop anyone
+  # watching them; `express` and `openai` in particular are exactly the kind of
+  # dependency that needs a bot on it. CI audits the same lockfile separately.
+  - package-ecosystem: "npm"
+    directory: "/skills/b24jssdk-recipes"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: "deps"
+    groups:
+      skill-recipes:
+        patterns:
+          - "*"

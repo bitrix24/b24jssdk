@@ -103,6 +103,15 @@ export function format(deal: DealRow, contactName: string): string {
   ].join('\n')
 }
 
+/**
+ * Escape portal text for Telegram's HTML parse mode.
+ *
+ * `<`, `>` and `&` are the full set Telegram requires — in element TEXT. Quotes
+ * are deliberately left alone because `format()` never builds an attribute out
+ * of portal data. If you add one — an `<a href="…">` around a deal title, say —
+ * this must gain `"` and `'` handling first, or the title becomes an injection
+ * point. `telegram-escape.unit.spec.ts` pins that assumption.
+ */
 export function escape(s: string): string {
   return s.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]!))
 }

@@ -13,6 +13,8 @@
  *   PORT=3001 (default)
  *   B24_CLIENT_ID=local.abc123        # from your Bitrix24 dev console
  *   B24_CLIENT_SECRET=...
+ *   B24_OAUTH_STORE=/var/lib/myapp/tokens.json   # optional; default is
+ *                                                # .oauth-store.json in cwd
  * Run:
  *   npx tsx 12-oauth-install.ts
  *

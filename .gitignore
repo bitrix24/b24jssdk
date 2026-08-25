@@ -3,6 +3,7 @@
 /docs/**/node_modules
 /packages/**/node_modules
 /playgrounds/**/node_modules
+/skills/**/node_modules
 
 # testing
 /coverage

@@ -24,7 +24,7 @@
  * Pure text inspection, no portal — jsSdk:unit.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const examplesDir = resolve(__dirname, '../../../skills/b24jssdk-recipes/examples')
@@ -101,5 +101,62 @@ describe('#64a — recipes use the tested helpers, not private copies', () => {
       }
       expect(code).toMatch(importOf)
     })
+  })
+})
+
+/**
+ * #65 — the recipes' opt-in dependencies stay out of the workspace root.
+ *
+ * `express`, `grammy`, `node-cron` and `openai` are imported by recipes and by
+ * nothing in the SDK. Declared at the root they made every contributor install
+ * them, put findings against them into the repository's `pnpm audit`, and read
+ * as intent — `openai` in the root manifest suggests the SDK integrates with
+ * OpenAI, which it does not.
+ *
+ * The fix only holds while `skills/b24jssdk-recipes` stays OUTSIDE the pnpm
+ * workspace: a workspace has one lockfile, so a member's dependencies land in
+ * the root lock and a root install still installs them. Both halves are checked
+ * here, because adding one line to `pnpm-workspace.yaml` would silently undo the
+ * whole thing. See `skills/b24jssdk-recipes/README-DEPS.md`.
+ */
+describe('#65 — recipe dependencies are isolated from the workspace root', () => {
+  const repoRoot = resolve(__dirname, '../../..')
+  const readJson = (rel: string) => JSON.parse(readFileSync(join(repoRoot, rel), 'utf8'))
+
+  const RECIPE_ONLY = ['express', 'grammy', 'node-cron', 'openai']
+
+  it.each(RECIPE_ONLY)('%s is not a root dependency', (name) => {
+    const root = readJson('package.json')
+    expect(Object.keys(root.dependencies ?? {})).not.toContain(name)
+    expect(Object.keys(root.devDependencies ?? {})).not.toContain(name)
+  })
+
+  it.each(RECIPE_ONLY)('%s is declared by the recipes package', (name) => {
+    const recipes = readJson('skills/b24jssdk-recipes/package.json')
+    expect(Object.keys(recipes.dependencies ?? {})).toContain(name)
+  })
+
+  it('keeps @types/express at the root, where the docs blocks need it', () => {
+    // 79.security.md documents Express handler patterns, and
+    // `docs:typecheck-blocks` compiles those fences at the repository root — so
+    // the types are a root-level need. Only the types stayed; express did not.
+    const root = readJson('package.json')
+    expect(Object.keys(root.devDependencies ?? {})).toContain('@types/express')
+  })
+
+  it('is not a member of the pnpm workspace', () => {
+    // The isolation depends on this. A workspace member's dependencies go into
+    // the root lockfile and a root install pulls them in, which would restore
+    // every problem #65 removed while looking tidy.
+    const workspace = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8')
+    const packagesBlock = /^packages:\n((?:\s+-.*\n)+)/m.exec(workspace)?.[1] ?? ''
+    expect(packagesBlock).not.toMatch(/skills/)
+  })
+
+  it('is its own pnpm root, so a plain install there does not reach the repo root', () => {
+    // Without this file, `pnpm install` inside the directory walks up, finds the
+    // repository workspace and installs into it instead.
+    expect(existsSync(join(repoRoot, 'skills/b24jssdk-recipes/pnpm-workspace.yaml'))).toBe(true)
+    expect(existsSync(join(repoRoot, 'skills/b24jssdk-recipes/pnpm-lock.yaml'))).toBe(true)
   })
 })

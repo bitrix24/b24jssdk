@@ -74,19 +74,42 @@ export default defineNuxtModule({
     }
 
     async function addExample(filePath: string, relativePath: string) {
+      // The catch is scoped to the read alone. It used to wrap the whole body,
+      // which would have swallowed the duplicate-name error below and turned a
+      // build failure back into a console line nobody reads.
+      let content: string
       try {
-        const content = await fsp.readFile(filePath, 'utf-8')
-        const parsed = parse(relativePath)
-        const name = parsed.name
-
-        examples[name] = {
-          name,
-          filePath,
-          content,
-          type: getFileType(filePath)
-        }
+        content = await fsp.readFile(filePath, 'utf-8')
       } catch (error) {
         console.error(`Error reading example ${filePath}:`, error)
+        return
+      }
+
+      const name = parse(relativePath).name
+
+      // Examples are keyed by basename because that is what a page writes
+      // (`<CodeExample name="call-rest-api-ver2" />`) and what the API route
+      // serves — `/api/code-examples/:name?` is a single segment, so a key
+      // containing a slash could not be fetched even if it were stored.
+      // `scanDirectory` recurses, though, so two files sharing a basename in
+      // different subdirectories would quietly overwrite each other and a page
+      // would show the wrong example (#139). Fail the build instead: silently
+      // serving the wrong code is worse than not building.
+      const existing = examples[name]
+      if (existing) {
+        throw new Error(
+          `[code-example] duplicate example name "${name}":\n`
+          + `  ${existing.filePath}\n  ${filePath}\n`
+          + 'Examples are addressed by basename, so these would overwrite one '
+          + 'another. Rename one of them.'
+        )
+      }
+
+      examples[name] = {
+        name,
+        filePath,
+        content,
+        type: getFileType(filePath)
       }
     }
 

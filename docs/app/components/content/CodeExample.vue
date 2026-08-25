@@ -86,7 +86,14 @@ const b24Instance = useB24()
 const isLoading = ref(true)
 
 const camelName = prepareTitle(props.name)
-const data = await fetchCodeExample(props.name)
+// `fetchCodeExample` now rejects on failure instead of resolving to a stub
+// (#139). Keep this component's behaviour — an empty example rather than a
+// broken page, since nothing here sits behind an error boundary — but do it
+// where it is visible, and log it.
+const data = await fetchCodeExample(props.name).catch((error: unknown) => {
+  console.error(`Failed to fetch code example ${props.name}:`, error)
+  return { name: props.name, filePath: '', content: '', type: 'other' as const }
+})
 
 const isCanShowAction = computed<boolean>(() => {
   if (!props.preview) {

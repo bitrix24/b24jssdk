@@ -4,7 +4,10 @@ import { queryCollection } from '@nuxt/content/server'
 // import meta from '#nuxt-component-meta'
 // @ts-expect-error - no types available
 import examples from '#code-example/nitro'
-import { useB24 } from '../../app/composables/useB24'
+// Browser-free by construction (#139). This file runs during SSR and prerender;
+// it used to reach `prepareCode` through the `useB24` composable, which builds
+// B24Hook / B24Frame and reads useRuntimeConfig().
+import { prepareCode } from '../../app/utils/codeTransform'
 
 /**
  * @see docs/server/utils/transformMDC.ts
@@ -194,15 +197,13 @@ export async function transformMDC(event: H3Event, doc: Document): Promise<Docum
 
   // visitAndReplace(doc, 'component-slots', () => {})
 
-  const b24Instance = useB24()
-
   visitAndReplace(doc, 'code-example', (node) => {
     // const camelName = camelCase(node[1]['name'])
     const lang = node[1]['lang'] ?? 'ts'
     const name = node[1]['name']
     const propsName = node[1]['filename'] ?? name
     try {
-      const code = b24Instance.prepareCode(examples[name]?.content || '')
+      const code = prepareCode(examples[name]?.content || '')
       replaceNodeWithPre(node, lang, code, `${propsName}.${lang}`)
     } catch (error) {
       console.error(error, { name })

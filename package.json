@@ -48,7 +48,7 @@
     "skills:typecheck": "pnpm run skills:install && tsc -p skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test:run-unit": "vitest run --project jsSdk:unit",
     "skills:test": "pnpm run skills:install && vitest run --project skills:unit",
-    "skills:verify": "vitest run --project jsSdk:integration -t \"skills-live\"",
+    "skills:verify": "vitest run --project skills:live",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration --project jsSdk:contributing-snippets",
     "package-jssdk:test-contributing-snippets": "vitest run --project jsSdk:contributing-snippets",

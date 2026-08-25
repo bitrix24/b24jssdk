@@ -51,7 +51,28 @@ export default defineConfig({
           testTimeout: 30_000,
           hookTimeout: 30_000,
           include: ['./test/integration/**/*.spec.ts'],
-          exclude: ['./test/integration/**/*.unit.spec.ts'],
+          exclude: [
+            './test/integration/**/*.unit.spec.ts',
+            // Own project — see `skills:live`.
+            './test/integration/skills/**'
+          ],
+          setupFiles: ['./test/0_setup/setup-integration-jssdk.ts']
+        }
+      },
+      {
+        extends: true,
+        test: {
+          // Live-portal verification of the skill files (#113). Its own project
+          // rather than a `-t` title filter over jsSdk:integration: the repo
+          // already scopes by `include` for `skills:unit`, and a substring match
+          // is one copied describe title away from silently running the wrong
+          // set — or nothing at all, which in a verification suite reads as
+          // "everything passed".
+          name: 'skills:live',
+          environment: 'node',
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
+          include: ['./test/integration/skills/**/*.spec.ts'],
           setupFiles: ['./test/0_setup/setup-integration-jssdk.ts']
         }
       },

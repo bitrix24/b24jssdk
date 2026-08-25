@@ -62,8 +62,11 @@ one, paste the code and it gets added rather than guessed at.
 
 ### Recording the result
 
+If you paste this into a public issue, replace the domain with a placeholder —
+the plan and the scopes are what matter, and the domain identifies the portal.
+
 ```text
-Portal:            (domain, plan)
+Portal:            (domain or placeholder, plan)
 Webhook scopes:
 Date:
 skills:verify →    N passed, N skipped, N failed
@@ -79,10 +82,21 @@ placement iframe, because the SDK talks to the parent window over `postMessage`.
 
 ### Setup for the placement pass
 
-1. A local application on the portal, with a placement handler pointing at a
-   page you control (a tunnel to localhost is fine).
-2. That page boots with `initializeB24Frame()`.
-3. Open the placement in the portal and work through the list below.
+[`reproducing-user-reports.md`](../.github/contributing/reproducing-user-reports.md#running-it-locally)
+already describes this setup end to end — building the SDK, running the Nuxt
+playground, exposing it with a tunnel via `NUXT_ALLOWED_HOSTS`, and registering
+a local application **with UI** under *Applications → Developer resources →
+Local application*. Follow it; there is no second way to do this.
+
+Two things that pass differs in:
+
+- **Bind a placement**, not just install the app. Rows 8–9 need the app opened
+  *from* a placement, so the handler has to be registered against one — an app
+  that only opens from the left menu has no placement context and
+  `$b24.placement.title` comes back empty.
+- **Scopes.** Grant `crm` (row 5), `user` (row 4), `task` if you want the
+  helper rows to have data, and `placement` (rows 8–9). Missing a scope shows
+  up as the manager rejecting, not as a blank screen.
 
 Each row names the skill file and the section, so a mismatch has a place to be
 fixed. Record **observed**, not "looks fine".
@@ -98,7 +112,7 @@ fixed. Record **observed**, not "looks fine".
 | 5 | `$b24.dialog.selectCRM()` | CRM picker opens; resolved shape matches | ☐ | |
 | 6 | `$b24.parent.fitWindow()` | the iframe resizes to content | ☐ | |
 | 7 | `$b24.parent.setTitle(...)` | the portal's title area changes | ☐ | |
-| 8 | `$b24.placement.getInfo()` | returns the placement code the app was opened from | ☐ | |
+| 8 | `$b24.placement.title` / `.options` / `.isSliderMode` | identify the placement the app was opened from, and the params it was given | ☐ | |
 | 9 | `$b24.placement.setValue(...)` | value persists; re-open the placement to confirm | ☐ | |
 | 10 | `$b24.options` round-trip (app and user) | written value reads back after a reload | ☐ | |
 
@@ -135,5 +149,9 @@ The issue's acceptance criteria, and where each is answered:
       non-exhaustive. Nothing to reconcile.
 - [ ] patterns that changed since the 2026-05 migration updated — whatever Parts
       A and B turn up
-- [ ] `skills/REPORT.md` open questions resolved or deferred with a reason
+- [ ] open questions resolved or deferred with a reason — the issue says
+      `skills/REPORT.md`, which does not exist; the file is
+      [`.github/contributing/report.md`](../.github/contributing/report.md)
+      (same for `skills/SUGGESTED-EXAMPLES.md` →
+      [`suggested-examples.md`](../.github/contributing/suggested-examples.md))
 - [ ] `skills/README.md` migration note updated once the pass is done

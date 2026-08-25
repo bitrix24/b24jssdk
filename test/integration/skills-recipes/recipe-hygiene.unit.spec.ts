@@ -26,6 +26,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { load } from 'js-yaml'
 
 const examplesDir = resolve(__dirname, '../../../skills/b24jssdk-recipes/examples')
 const exampleFiles = readdirSync(examplesDir).filter(name => name.endsWith('.ts'))
@@ -148,9 +149,19 @@ describe('#65 — recipe dependencies are isolated from the workspace root', () 
     // The isolation depends on this. A workspace member's dependencies go into
     // the root lockfile and a root install pulls them in, which would restore
     // every problem #65 removed while looking tidy.
-    const workspace = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8')
-    const packagesBlock = /^packages:\n((?:\s+-.*\n)+)/m.exec(workspace)?.[1] ?? ''
-    expect(packagesBlock).not.toMatch(/skills/)
+    //
+    // Parsed, not pattern-matched. A regex over the `packages:` block missed two
+    // realistic edits: flow style (`packages: [docs, skills/b24jssdk-recipes]`)
+    // matched nothing and passed vacuously, and a comment line anywhere inside
+    // the block truncated the match, hiding every entry after it. Both are
+    // ordinary YAML, and this file already carries long prose comments.
+    const workspace = load(readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8')) as {
+      packages?: string[]
+    }
+    expect(Array.isArray(workspace.packages)).toBe(true)
+    for (const entry of workspace.packages ?? []) {
+      expect(entry).not.toMatch(/skills/)
+    }
   })
 
   it('is covered by Dependabot, since the root entry cannot see this lockfile', () => {

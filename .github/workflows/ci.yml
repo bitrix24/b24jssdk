@@ -242,6 +242,16 @@ jobs:
         if: matrix.node == 22
         run: pnpm audit --audit-level=moderate
 
+      - name: Security audit (skill recipes)
+        # The recipes' dependencies live in their own non-workspace package, so
+        # the root audit above cannot reach them (#65). Isolating them from the
+        # root manifest was meant to stop them being every contributor's install
+        # problem, not to stop anyone watching them — `express` and `openai` are
+        # exactly the kind of dependency that needs an audit on it. Same
+        # threshold, same one-leg-only rule as the root audit.
+        if: matrix.node == 22
+        run: pnpm --dir skills/b24jssdk-recipes audit --audit-level=moderate
+
   build:
     needs: prepare
     runs-on: ubuntu-latest

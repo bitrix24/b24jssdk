@@ -153,6 +153,20 @@ describe('#65 — recipe dependencies are isolated from the workspace root', () 
     expect(packagesBlock).not.toMatch(/skills/)
   })
 
+  it('is covered by Dependabot, since the root entry cannot see this lockfile', () => {
+    // The real hazard in standing outside the workspace: `directory: "/"` does
+    // not reach this tree, so without a second entry these four packages would
+    // get no update coverage at all. Isolating them was meant to stop them being
+    // every contributor's install problem, not to stop anyone watching them.
+    const dependabot = readFileSync(join(repoRoot, '.github/dependabot.yml'), 'utf8')
+    expect(dependabot).toMatch(/directory:\s*["']\/skills\/b24jssdk-recipes["']/)
+  })
+
+  it('has its own audit step in CI, for the same reason', () => {
+    const workflow = readFileSync(join(repoRoot, '.github/workflows/ci.yml'), 'utf8')
+    expect(workflow).toMatch(/pnpm --dir skills\/b24jssdk-recipes audit/)
+  })
+
   it('is its own pnpm root, so a plain install there does not reach the repo root', () => {
     // Without this file, `pnpm install` inside the directory walks up, finds the
     // repository workspace and installs into it instead.

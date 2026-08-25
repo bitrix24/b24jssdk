@@ -39,6 +39,24 @@ documents Express handler patterns, and `pnpm run docs:typecheck-blocks` compile
 those fenced blocks at the repository root — so those types are a root-level need, not
 a recipe one. Only the types stayed; `express` itself did not.
 
+## Isolated is not the same as unwatched
+
+Standing outside the workspace means the root `pnpm audit` and the root Dependabot
+entry (`directory: "/"`) cannot see this lockfile. That was the one real hazard in
+this change: the point was to stop these packages being every contributor's install
+problem, not to stop anyone watching them — and `express` and `openai` are exactly
+the kind of dependency that needs a bot on it.
+
+So both were extended rather than left behind:
+
+- `.github/dependabot.yml` has a second npm entry for `/skills/b24jssdk-recipes`.
+- `.github/workflows/ci.yml` audits this lockfile alongside the root one, same
+  `moderate` threshold.
+
+One consequence worth knowing: the `overrides` block in the root
+`pnpm-workspace.yaml` — the security floors — does **not** reach this tree. If an
+advisory here needs pinning, the pin goes in this package's own manifest.
+
 ## If you add a dependency to a recipe
 
 Add it here, not to the root manifest. `test/integration/skills-recipes/recipe-hygiene.unit.spec.ts`

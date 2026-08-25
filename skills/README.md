@@ -17,6 +17,14 @@ Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
 | **b24jssdk-recipes** | Twelve end-to-end mini-apps (CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling, event registration, OAuth install) — built on `actions.v{2,3}.*`. |
 | **b24jssdk-vibecode** | How to use the SDK alongside the VibeCode HTTP API. Mostly: don't — keep them apart. The "AI add-on" pattern is the only sane mix. |
 
+## Verification status
+
+The snippets in every skill are compile-checked in CI (`pnpm run skills:typecheck`).
+They have **not** yet been verified against a live portal — that is #113, and
+[`VERIFICATION.md`](VERIFICATION.md) is the pass: `pnpm run skills:verify` covers
+everything a webhook can reach, and a manual checklist covers the frame-only
+managers, which need an app open inside a real placement.
+
 ## Top-level docs
 
 - `.github/contributing/maintenance.md` — rules for the weekly `docs/llms-full.txt` review.

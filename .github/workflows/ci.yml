@@ -226,6 +226,13 @@ jobs:
         # dedicated environment with secrets. See .github/contributing/testing.md.
         run: pnpm run package-jssdk:test:run-unit
 
+      - name: Run skill-recipe unit tests
+        # The recipes under skills/b24jssdk-recipes are shipped as guidance an
+        # agent will copy, so their internals get the same treatment as SDK
+        # code (#64). Held in their own vitest project because they are the
+        # only specs importing the recipes' opt-in packages.
+        run: pnpm run skills:test
+
       - name: Security audit
         # Audit prod + dev dependencies at the `moderate` threshold. Dev deps
         # execute during lint/typecheck/docs builds in CI, so a vulnerable one

@@ -38,6 +38,21 @@ recipes and stays that way on purpose. It has no edge cases to pin and no securi
 weight, and it is the first thing a reader needs to see when they open a recipe —
 hiding it behind an import would cost more than the duplication does.
 
+Recipes 06 and 12 end with a guard instead of a bare `main()` call:
+
+```ts
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(...)
+}
+```
+
+`npx tsx 06-telegram-bot.ts` still runs exactly as before — the guard is only false
+when the file is *imported*, which is what the unit tests do to exercise `tick`'s
+cursor logic and the uninstall token check without opening a Telegram connection or
+binding a port. Keep it when copying those two recipes; add it to a recipe you want
+to write tests against. The exported `function`s in those files are exported for the
+same reason, and `export` is inert when the file runs directly.
+
 | File | Exports | Used by |
 | --- | --- | --- |
 | `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipes 01, 03, 06 |

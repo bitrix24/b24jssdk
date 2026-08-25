@@ -46,6 +46,7 @@
     "docs:typecheck-blocks": "node scripts/docs-typecheck.mjs",
     "skills:typecheck": "tsc -p skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test:run-unit": "vitest run --project jsSdk:unit",
+    "skills:test": "vitest run --project skills:unit",
     "package-jssdk:test": "vitest --project jsSdk:integration",
     "package-jssdk:test:run": "vitest run --project jsSdk:integration --project jsSdk:contributing-snippets",
     "package-jssdk:test-contributing-snippets": "vitest run --project jsSdk:contributing-snippets",

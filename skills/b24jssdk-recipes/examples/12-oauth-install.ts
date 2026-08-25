@@ -13,6 +13,8 @@
  *   PORT=3001 (default)
  *   B24_CLIENT_ID=local.abc123        # from your Bitrix24 dev console
  *   B24_CLIENT_SECRET=...
+ *   B24_OAUTH_STORE=/var/lib/myapp/tokens.json   # optional; default is
+ *                                                # .oauth-store.json in cwd
  * Run:
  *   npx tsx 12-oauth-install.ts
  *
@@ -37,6 +39,7 @@ import {
 import express, { type Request, type Response } from 'express'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { safeEqual } from '../lib/crypto'
 
 const logger = Logger.create('OAuthInstall')
@@ -52,7 +55,10 @@ const SECRET: B24OAuthSecret = {
 //  Replace with your real datastore (Postgres, Redis, etc.) in production.
 // ────────────────────────────────────────────────────────────────────────
 
-const STORE_FILE = path.join(process.cwd(), '.oauth-store.json')
+// Overridable so a deployment can put the token store somewhere other than the
+// working directory — and so the unit tests can point it at a temp file instead
+// of writing real-looking credentials into the repo.
+const STORE_FILE = process.env.B24_OAUTH_STORE ?? path.join(process.cwd(), '.oauth-store.json')
 
 // B24OAuthParams already carries applicationToken; aliasing for clarity at storage boundary.
 type StoredCredentials = B24OAuthParams
@@ -132,7 +138,7 @@ interface UninstallEventPayload {
   }
 }
 
-function toOAuthParams(auth: InstallEventPayload['auth']): B24OAuthParams {
+export function toOAuthParams(auth: InstallEventPayload['auth']): B24OAuthParams {
   return {
     applicationToken: auth.application_token,
     userId: Number(auth.user_id),
@@ -171,7 +177,7 @@ async function handleInstall(req: Request, res: Response) {
   logger.info(`[${payload.event}] member=${params.memberId}`)
 }
 
-async function handleUninstall(req: Request, res: Response) {
+export async function handleUninstall(req: Request, res: Response) {
   const payload = req.body as UninstallEventPayload
   // Always 200 — even on bad payloads — so Bitrix24 doesn't retry for 24h.
   res.status(200).send('ok')
@@ -327,9 +333,14 @@ async function main() {
   })
 }
 
-main().catch((e: unknown) => {
-  // Raw console.error so structured-logger formatting can't hide the trace.
-  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
-  if (e instanceof Error && e.stack) console.error(e.stack)
-  process.exit(1)
-})
+// Start the server only when this file IS the program being run. Importing it —
+// which the unit tests do, to exercise the uninstall token check — must not bind
+// a port. `npx tsx 12-oauth-install.ts` still runs normally.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e: unknown) => {
+    // Raw console.error so structured-logger formatting can't hide the trace.
+    console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+    if (e instanceof Error && e.stack) console.error(e.stack)
+    process.exit(1)
+  })
+}

@@ -38,6 +38,30 @@ recipes and stays that way on purpose. It has no edge cases to pin and no securi
 weight, and it is the first thing a reader needs to see when they open a recipe —
 hiding it behind an import would cost more than the duplication does.
 
+Recipes 06 and 12 end with a guard instead of a bare `main()` call:
+
+```ts
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(...)
+}
+```
+
+`npx tsx 06-telegram-bot.ts` still runs exactly as before — the guard is only false
+when the file is *imported*, which is what the unit tests do to exercise `tick`'s
+cursor logic and the uninstall token check without opening a Telegram connection or
+binding a port. Keep it when copying those two recipes. Before adding it to a third, prefer the
+`lib/` route above: extract the logic and test it there. Reach for the guard only when
+the function cannot reasonably leave the recipe — `tick` closes over a live bot and the
+poll cursor, `handleUninstall` is an Express handler — because two shapes of recipe is
+already one more than ideal, and the guard spreading to all twelve would quietly retire
+the `lib/` convention. The exported `function`s in those files are exported for the same
+reason, and `export` is inert when the file runs directly.
+
+One deployment caveat: the guard compares `import.meta.url` against `process.argv[1]`.
+Under an exotic launcher that rewrites either — a wrapper CLI, some loader shims — the
+comparison can come out false, and the process would exit 0 having started nothing.
+Check for the recipe's startup log line rather than trusting the exit code.
+
 | File | Exports | Used by |
 | --- | --- | --- |
 | `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipes 01, 03, 06 |
@@ -108,6 +132,9 @@ pnpm add @bitrix24/b24jssdk
 #   recipe 8: pnpm add openai
 #   recipe 9: pnpm add openai
 #   recipe 12: pnpm add express
+# Recipe 12 also honours B24_OAUTH_STORE — where to write the OAuth token
+# store. Defaults to .oauth-store.json in the working directory, which is
+# rarely where portal credentials should live on a real server.
 
 # 2. Set env
 export B24_HOOK='https://YOUR_PORTAL.bitrix24.com/rest/1/k32t88gf3azpmwv3'

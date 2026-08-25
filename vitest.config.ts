@@ -23,7 +23,24 @@ export default defineConfig({
           // flaky `window is not defined` failures. Serialise the files so the
           // global mutations can't interleave. (#222)
           fileParallelism: false,
-          include: ['./test/integration/**/*.unit.spec.ts']
+          include: ['./test/integration/**/*.unit.spec.ts'],
+          // The recipe specs live in their own project — see `skills:unit`.
+          exclude: ['./test/integration/skills-recipes/**']
+        }
+      },
+      {
+        extends: true,
+        test: {
+          // Unit tests for the skill recipes under `skills/b24jssdk-recipes/`
+          // (#64). Held apart from `jsSdk:unit` because these are the only
+          // specs that import the recipes' opt-in packages (grammy, express)
+          // and the recipe files themselves. Keeping the boundary explicit
+          // means moving those deps out of the workspace root (#65) has one
+          // project to gate rather than a subset of a larger one.
+          name: 'skills:unit',
+          environment: 'node',
+          testTimeout: 10_000,
+          include: ['./test/integration/skills-recipes/**/*.unit.spec.ts']
         }
       },
       {

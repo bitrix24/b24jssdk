@@ -35,6 +35,12 @@ function markdownFiles() {
       for (const entry of readdirSync(current, { withFileTypes: true })) {
         const full = join(current, entry.name)
         if (entry.isDirectory()) {
+          // `skills/b24jssdk-recipes` is its own npm package (#65), so its
+          // node_modules sits inside the tree being walked — thousands of
+          // dependency READMEs that are not ours to check.
+          if (entry.name === 'node_modules') {
+            continue
+          }
           walk(full)
         } else if (entry.name.endsWith('.md')) {
           files.push(full)

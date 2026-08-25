@@ -178,6 +178,17 @@ describe('#65 — recipe dependencies are isolated from the workspace root', () 
     expect(workflow).toMatch(/pnpm --dir skills\/b24jssdk-recipes audit/)
   })
 
+  it('is kept out of the published docs site', () => {
+    // `docs/nuxt.config.ts` serves the whole skills tree at /.well-known/skills,
+    // so this package's node_modules — ~130 MB — would otherwise be copied into
+    // the Pages artifact and deployed. The pattern has to sit on `nitro.ignore`:
+    // `PublicAssetDir` has no `ignore` key, and one written there type-checks
+    // and does nothing. Asserting the config rather than a built site, because
+    // running a docs build from a unit test is not worth the minutes.
+    const nuxtConfig = readFileSync(join(repoRoot, 'docs/nuxt.config.ts'), 'utf8')
+    expect(nuxtConfig).toMatch(/ignore:\s*\['\*\*\/node_modules\/\*\*'\]/)
+  })
+
   it('is its own pnpm root, so a plain install there does not reach the repo root', () => {
     // Without this file, `pnpm install` inside the directory walks up, finds the
     // repository workspace and installs into it instead.

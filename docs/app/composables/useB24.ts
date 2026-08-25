@@ -1,6 +1,9 @@
 import type { B24FrameQueryParams, LoggerInterface } from '@bitrix24/b24jssdk'
 import { ref, nextTick } from 'vue'
 import { B24Hook, B24Frame, LoggerFactory, Result, SdkError } from '@bitrix24/b24jssdk'
+// The transform lives in a browser-free module so SSR/prerender can reach it
+// without constructing this composable (#139).
+import { prepareCode } from '../utils/codeTransform'
 
 const sessionKey = 'b24Hook'
 const isUseB24HookFromEnv = ref(false)
@@ -10,7 +13,6 @@ const type = ref<'undefined' | 'B24Frame' | 'B24Hook'>('undefined')
 
 export const useB24 = () => {
   const HOOK_PLACEHOLDER = 'https://your_domain.bitrix24.com/rest/1/webhook_code/'
-  const HOOK_REPLACE_IN_EXAMPLE = 'useB24().get() as B24Hook || '
 
   const config = useRuntimeConfig()
 
@@ -140,91 +142,6 @@ export const useB24 = () => {
 
   function removeHookFromSessionStorage() {
     set(undefined)
-  }
-
-  function transformCodeForDocumentationSafe(code: string): string {
-    const lines = code.split('\n')
-    let inStartRegion = false
-    let inFunction = false
-    let braceDepth = 0
-    const resultLines: string[] = []
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      if (typeof line === 'undefined') {
-        continue
-      }
-
-      const trimmedLine = line.trim()
-
-      if (trimmedLine.startsWith('import')) {
-        resultLines.push(line)
-        continue
-      }
-
-      if (trimmedLine.includes('export async function Action_')) {
-        resultLines.push('')
-        inFunction = true
-        braceDepth++
-        continue
-      }
-
-      if (trimmedLine.includes('region: start')) {
-        inStartRegion = true
-        continue
-      }
-
-      if (trimmedLine.includes('endregion: start')) {
-        break
-      }
-
-      if (inFunction) {
-        if (line.includes('{')) braceDepth++
-        if (line.includes('}')) braceDepth--
-
-        if (inStartRegion && !trimmedLine.includes('region: start')) {
-          let processedLine = line
-
-          if (trimmedLine.includes('const _devMode')) {
-            processedLine = line.replace(
-              'const _devMode =',
-              'const devMode ='
-            )
-            processedLine = processedLine.replace(
-              'const devMode = typeof import.meta !== \'undefined\' && (true || globalThis._importMeta_.env?.DEV)',
-              'const devMode = typeof import.meta !== \'undefined\' && (import.meta?.dev || import.meta.env?.DEV)'
-            )
-            processedLine = processedLine.replace(
-              'const devMode = typeof import.meta !== \'undefined\' && (false || globalThis._importMeta_.env?.DEV)',
-              'const devMode = typeof import.meta !== \'undefined\' && (import.meta?.dev || import.meta.env?.DEV)'
-            )
-          }
-
-          if (trimmedLine.includes('const $logger')) {
-            processedLine = line.replace(', true)', ', devMode)')
-          }
-
-          if (trimmedLine.includes('const $b24')) {
-            processedLine = line.replace(HOOK_REPLACE_IN_EXAMPLE, '')
-          }
-
-          resultLines.push(processedLine.slice(2))
-        }
-
-        if (braceDepth === 0 && inFunction) {
-          inFunction = false
-        }
-      } else if (inStartRegion) {
-        const processedLine = line
-        resultLines.push(processedLine.slice(2))
-      }
-    }
-
-    return resultLines.join('\n').trim()
-  }
-
-  function prepareCode(code: string): string {
-    return transformCodeForDocumentationSafe(code)
   }
 
   function getRequiredRights(): string[] {

@@ -1,7 +1,51 @@
 import type { TypeB24 } from '../../../types/b24'
 import type { LoggerInterface } from '../../../types/logger'
-import type { TypeCallParams } from '../../../types/http'
+import type { TypeCallParams, TypeFilterV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
+import { SdkError } from '../../sdk-error'
+
+/**
+ * Reject a non-array `filter` for the emulated-keyset list actions.
+ *
+ * `TypeCallParamsV3.filter` accepts the v3 array of triples AND the v2 object
+ * dialect, kept for backward compatibility, and that union is right for a plain
+ * `call`, which forwards the filter untouched. It is wrong for `callList` /
+ * `fetchList`: those append `[cursorIdKey, '>', cursor]` to the same filter on
+ * every page, so an array is not a preference, it is the only shape the
+ * mechanism can extend. Passing the object form used to throw `filter is not
+ * iterable` from a spread, one page into the walk.
+ *
+ * Both action option types already narrow `filter` to {@link TypeFilterV3}, so
+ * for a TypeScript caller the `asserts` signature adds nothing the parameter
+ * type has not already done. It exists for the callers the types cannot reach:
+ * JavaScript, and anyone who wrote `params as any`.
+ *
+ * `callTail` / `fetchTail` do NOT need this. They paginate through the separate
+ * `cursor` parameter and forward `filter` untouched, so the object dialect is
+ * harmless there — which is why the fix stops at two of the four v3 walkers.
+ *
+ * @throws {SdkError} `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`
+ */
+export function assertArrayFilter(
+  filter: unknown,
+  action: string
+): asserts filter is undefined | TypeFilterV3 {
+  if (filter === undefined || Array.isArray(filter)) {
+    return
+  }
+
+  // Static text plus the caller-supplied `action` label only. Never interpolate
+  // the filter, or any other caller value, into an SdkError description: unlike
+  // AjaxError, SdkError does NOT run its message through
+  // `redactSensitiveParams`, and a filter legitimately carries user data — the
+  // email or phone number being searched for.
+  throw new SdkError({
+    code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY',
+    description: `${action}: \`filter\` must be the restApi:v3 array form, e.g. [['id', '>', 100]] or FilterV3.build(...). `
+      + `The restApi:v2 object dialect ({ '>id': 100 }) cannot be used here, because keyset pagination extends the filter with a cursor condition.`,
+    status: 500
+  })
+}
 
 /**
  * Thrown by {@link keysetPaginate} when the underlying v3 `call` reports a soft

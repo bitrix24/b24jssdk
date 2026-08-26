@@ -86,6 +86,30 @@ export type TypeCallParamsV3 = Omit<TypeCallParams, 'filter' | 'start'> & {
   filter?: TypeFilterV3 | TypeFilterV2
 }
 
+/**
+ * What the transport sends for a `batch` CALL — not call params.
+ *
+ * `TypeHttp.call` types its `params` as {@link TypeCallParams}, and the batch
+ * request rides through it: `{ halt, cmd }` is neither a filter nor a select,
+ * and it type-checks today only because of the permissive index signature. This
+ * type names the shape so the intent is visible at the two callsites that build
+ * it (`core/http/v2.ts`, `core/http/v3.ts`), and so the eventual narrowing of
+ * that index signature has something to point at.
+ *
+ * `cmd` is `unknown` because its shape is mode-specific — a string array or a
+ * `Record<string, string>` of `method?query` lines, depending on whether the
+ * caller used array or named commands. `buildCommands` owns that decision.
+ *
+ * `restApi:v3` has no envelope: it sends the commands as the request body, with
+ * no `halt` (per-command `parallel` replaces it), so there is nothing to name on
+ * that side — see the comment at its callsite in `core/http/v3.ts`.
+ */
+export type BatchRequestEnvelopeV2 = {
+  /** `1` stops the batch at the first failing command, `0` runs them all. */
+  halt: 0 | 1
+  cmd: unknown
+}
+
 // region Batch interface ////
 /**
  * Options for batch calls

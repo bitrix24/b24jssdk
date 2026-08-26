@@ -1,5 +1,17 @@
 export type SdkErrorDetails = {
   code: string
+  /**
+   * Human-readable detail. **Never interpolate a caller-supplied value into
+   * this string** — request params, a filter, a URL, a token.
+   *
+   * `AjaxError` runs its `requestInfo` through `redactSensitiveParams` before
+   * storing it; `SdkError` has no equivalent step, because its description is
+   * expected to be written by the SDK rather than assembled from input. That
+   * expectation is the only thing keeping a credential out of it, and error
+   * messages travel — into logs, into failure reports, into Bitrix24 server-side
+   * records. A filter alone legitimately carries user data: the email or phone
+   * number being searched for.
+   */
   description?: string
   status: number
   originalError?: unknown

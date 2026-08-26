@@ -88,6 +88,11 @@ export class HttpV3 extends AbstractHttp implements TypeHttp {
 
     const responseBatch = await this.call<BatchResponsePayload<T>>(
       'batch',
+      // A cast, and an honest one: `restApi:v3` sends the commands AS the request
+      // body — there is no `{ halt, cmd }` envelope to wrap them in — while
+      // `call` types its params as `TypeCallParams`. So the request body is not
+      // call params on this path either, and the cast is what bridges that until
+      // `call` distinguishes the two. See BatchRequestEnvelopeV2 for the v2 side.
       interactionBatch.getCommandsForCall() as TypeCallParams,
       requestId
     )

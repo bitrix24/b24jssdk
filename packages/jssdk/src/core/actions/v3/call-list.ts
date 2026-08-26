@@ -1,12 +1,21 @@
 import type { ActionOptions } from '../abstract-action'
-import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
-import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
+import { assertArrayFilter, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionCallListV3 = ActionOptions & {
   method: string
-  params?: Omit<TypeCallParamsV3, 'pagination' | 'order'>
+  /**
+   * `filter` is narrowed to the v3 array form here, unlike {@link TypeCallParamsV3},
+   * which also accepts the v2 object dialect for backward compatibility.
+   *
+   * Keyset pagination is emulated by appending `[cursorIdKey, '>', cursor]` to
+   * this filter on every page, so an array is not a preference — it is the only
+   * shape the mechanism can extend. The object form used to be accepted here and
+   * then threw `filter is not iterable` at runtime, one page into the walk.
+   */
+  params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'filter'> & { filter?: TypeFilterV3 }
   idKey?: string
   cursorIdKey?: string
   customKeyForResult: string
@@ -88,11 +97,13 @@ export class CallListV3 extends AbstractAction {
       this._logger.warning('callList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by cursorIdKey. Use `filter` to narrow results instead.').catch(() => {})
     }
 
+    assertArrayFilter(params['filter'], 'callList.make')
+
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
     const requestParams: TypeCallParams = {
       ...restParams,
       order: { [cursorIdKey]: 'ASC' },
-      filter: [...(params['filter'] || [])],
+      filter: [...(params['filter'] ?? [])],
       pagination: { page: 0, limit: batchSize }
     }
 

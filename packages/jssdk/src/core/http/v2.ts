@@ -1,7 +1,7 @@
 import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
-  BatchNamedCommandsUniversal, ICallBatchOptions, ICallBatchResult,
+  BatchNamedCommandsUniversal, BatchRequestEnvelopeV2, ICallBatchOptions, ICallBatchResult,
   TypeHttp
 } from '../../types/http'
 import type { AuthActions } from '../../types/auth'
@@ -83,12 +83,17 @@ export class HttpV2 extends AbstractHttp implements TypeHttp {
       })
     }
 
+    // Named rather than inline: this is the batch envelope, not call params —
+    // see BatchRequestEnvelopeV2. It reaches `call` through a parameter typed
+    // `TypeCallParams`, which accepts it only because of the index signature.
+    const envelope: BatchRequestEnvelopeV2 = {
+      halt: opts.isHaltOnError ? 1 : 0,
+      cmd: interactionBatch.getCommandsForCall()
+    }
+
     const responseBatch = await this.call<BatchResponsePayload<T>>(
       'batch',
-      {
-        halt: opts.isHaltOnError ? 1 : 0,
-        cmd: interactionBatch.getCommandsForCall()
-      },
+      envelope,
       requestId
     )
 

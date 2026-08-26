@@ -6,7 +6,7 @@ import type {
   ICallBatchOptions, ICallBatchResult
 } from '../../../types/http'
 import type { RestrictionManager } from '../../http/limiters/manager'
-import type { BatchPayload, PayloadTime } from '../../../types/payloads'
+import type { PayloadTime } from '../../../types/payloads'
 import type { Result } from '../../result'
 import type { AjaxResult } from '../../http/ajax-result'
 import type { NumberString } from '../../../types/common'
@@ -20,6 +20,38 @@ export interface BatchResponseData<T = unknown> {
   readonly result_next?: NumberString[] | Record<string | number, NumberString>
   readonly result_time?: PayloadTime[] | Record<string | number, PayloadTime>
 }
+
+/**
+ * What a `batch` call's `result` field actually holds, i.e. what
+ * `AjaxResult.getData()!.result` returns for a batch response.
+ *
+ * `AjaxResult<X>` already means "the payload is `{ result: X, time }`", so the
+ * type argument is the INNER value, not the whole envelope. This used to be
+ * written `AjaxResult<BatchPayload<T>>`, which described one envelope too many
+ * (`{ result: { result: …, time }, time }`) — every consumer then had to launder
+ * the difference through `as unknown as`, and those casts were load-bearing
+ * rather than cosmetic: they silenced a real mismatch.
+ *
+ * The two arms are the two REST versions, which genuinely differ:
+ * - **v2** splits the response into `result` / `result_error` / `result_time` /
+ *   `result_total` / `result_next` — {@link BatchResponseData}.
+ * - **v3** puts the per-command results directly in `result`, with no
+ *   per-command error or time split.
+ *
+ * Each version's strategy narrows the union with a plain `as`, which is a
+ * narrowing the runtime really does make (the transport knows its own version)
+ * rather than an unchecked reinterpretation.
+ *
+ * The union carries no discriminant, so nothing in the type system enforces
+ * that a v2 strategy only ever sees a v2 response — that coupling is held by
+ * `HttpV2`/`HttpV3` each constructing their own `InteractionBatch`. Do not read
+ * `getData()!.result` generically outside the paired processing strategy: there
+ * is no tag to branch on, and picking the wrong arm compiles.
+ */
+export type BatchResponsePayload<T = unknown>
+  = BatchResponseData<T>
+    | T[]
+    | Record<string | number, T>
 
 export type InteractionBatchOptions = Required<Omit<ICallBatchOptions, 'isHaltOnError' | 'isObjectMode'>> & {
   /**
@@ -103,6 +135,6 @@ export abstract class AbstractInteractionBatch {
   // endregion ////
 
   // region Response ////
-  public abstract prepareResponse<T>(response: AjaxResult<BatchPayload<T>>): Promise<Result<ICallBatchResult<T>>>
+  public abstract prepareResponse<T>(response: AjaxResult<BatchResponsePayload<T>>): Promise<Result<ICallBatchResult<T>>>
   // endregion ////
 }

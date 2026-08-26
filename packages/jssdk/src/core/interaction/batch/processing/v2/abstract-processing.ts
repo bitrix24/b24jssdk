@@ -68,7 +68,10 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
     responseHelper: ResponseHelper<T>,
     results: Map<string | number, AjaxResult<T>>
   ): Promise<void> {
-    const responseResult = responseHelper.response.getData()!.result as unknown as BatchResponseData<T>
+    // A plain narrowing of the version union, not a reinterpretation: this
+    // strategy only ever runs behind the v2 transport, which is the arm that
+    // sends the `result_*` split.
+    const responseResult = responseHelper.response.getData()!.result as BatchResponseData<T>
     const resultData = this._getBatchResultByIndex(responseResult.result, index)
     const resultError = this._getBatchResultByIndex(responseResult.result_error, index)
 

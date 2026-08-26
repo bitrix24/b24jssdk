@@ -1,5 +1,5 @@
 import type { BatchCommandV3, ICallBatchResult } from '../../../../types/http'
-import type { BatchPayload } from '../../../../types/payloads'
+import type { BatchResponsePayload } from '../abstract-interaction-batch'
 import type { AjaxResult } from '../../../http/ajax-result'
 import type { RestrictionManager } from '../../../http/limiters/manager'
 import { Result } from '../../../result'
@@ -13,9 +13,8 @@ export type GetCommandsOptions = {
 export type ResponseHelper<T> = {
   requestId: string
   parallelDefaultValue: boolean
-  response: AjaxResult<BatchPayload<T>>
+  response: AjaxResult<BatchResponsePayload<T>>
   // status: number
-  // data: BatchPayloadResult<T>
   // time: PayloadTime
   restrictionManager: RestrictionManager
 }

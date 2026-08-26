@@ -1,0 +1,29 @@
+{
+  // Extends the package config rather than restating its flags. A hand-copied
+  // strict-flag set drifts silently: `strict` does not imply `noUnusedLocals`,
+  // `noImplicitReturns` or `noPropertyAccessFromIndexSignature`, so a pin file
+  // could have passed here while the real build rejected it — which defeats the
+  // point of a project whose whole job is to catch what the other passes miss.
+  //
+  // Only the emit settings are overridden: this config never emits, it just
+  // type-checks the `*.types.spec.ts` pins for the `jsSdk:types` vitest project.
+  "extends": "../packages/jssdk/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    // The parent emits declarations, so it infers a `rootDir` from the inputs —
+    // here that would be `test/`, and every `import` reaching into
+    // `packages/jssdk/src` would be "not under rootDir". Widened to the
+    // repository root. Nothing is written: `noEmit` is on.
+    "rootDir": "..",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["./**/*.types.spec.ts"],
+  // Not `[]`. An empty list does not mean "nothing to exclude" — it replaces
+  // TypeScript's implicit defaults, so `node_modules` stops being excluded.
+  // Harmless against today's include glob, but it is the kind of thing that
+  // only bites once something generates a matching path.
+  "exclude": ["node_modules"]
+}

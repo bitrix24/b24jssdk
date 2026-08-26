@@ -19,7 +19,7 @@ export interface IResult<T = any> {
    * @param data The data to be stored in the result.
    * @returns The current Result object for chaining methods.
    */
-  setData: (data: T) => IResult<T>
+  setData: (data: T | null | undefined) => IResult<T>
   /**
    * Retrieves the data associated with the result.
    *
@@ -31,16 +31,16 @@ export interface IResult<T = any> {
    * Adds an error message or Error object to the result.
    * @param error The error message or Error object to be added.
    * @param key Error key. You can leave it blank. Then it will be generated automatically.
-   * @returns {IResult} The current Result object for chaining methods.
+   * @returns {IResult<T>} The current Result object for chaining methods.
    */
-  addError: (error: Error | string, key?: string) => IResult
+  addError: (error: Error | string, key?: string) => IResult<T>
   /**
    * Adds multiple errors to the result in a single call.
    *
    * @param errors An array of errors or strings that will be converted to errors.
-   * @returns {IResult} The current Result object for chaining methods.
+   * @returns {IResult<T>} The current Result object for chaining methods.
    */
-  addErrors: (errors: (Error | string)[]) => IResult
+  addErrors: (errors: (Error | string)[]) => IResult<T>
   /**
    * Retrieves an iterator for the errors collected in the result.
    *
@@ -108,7 +108,7 @@ export class Result<T = any> implements IResult<T> {
     return this._errors
   }
 
-  setData(data: T | null | undefined): Result<T> {
+  setData(data: T | null | undefined): this {
     this._data = data
 
     return this
@@ -118,7 +118,7 @@ export class Result<T = any> implements IResult<T> {
     return this._data
   }
 
-  addError(error: Error | string, key?: string): Result<T> {
+  addError(error: Error | string, key?: string): this {
     const errorKey = key ?? Text.getUuidRfc4122()
     const errorObj = typeof error === 'string' ? new Error(error) : error
 
@@ -127,7 +127,7 @@ export class Result<T = any> implements IResult<T> {
     return this
   }
 
-  addErrors(errors: (Error | string)[]): Result<T> {
+  addErrors(errors: (Error | string)[]): this {
     for (const error of errors) {
       this.addError(error)
     }

@@ -1,4 +1,13 @@
 {
+  // NOTE: this config has a second consumer. `test/tsconfig.json` extends it so
+  // the type-level pins in `test/**/*.types.spec.ts` are checked under exactly
+  // the flags the build uses — a hand-copied subset drifted, and a pin that
+  // passes where the build fails is worse than no pin.
+  //
+  // So a change here motivated purely by build concerns (`paths`,
+  // `moduleResolution`, `lib`, `target`, whether declarations are emitted) also
+  // changes what that gate checks. See bitrix24/b24jssdk#396 for the proposal
+  // to invert this into a shared base config.
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",

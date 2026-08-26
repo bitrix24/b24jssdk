@@ -179,6 +179,14 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 
 A small number of regression specs live inside `test/integration/<area>/` but are named `*.unit.spec.ts` (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`). They exercise pure-logic invariants — batch response parsing, log-context redaction, retry decision — that have nothing to verify against a live portal. They use `vi.spyOn(...).mockResolvedValue(...)` / `mockRejectedValue(...)` on the axios client, run without `.env.test` / `B24_HOOK`, and run in the `jsSdk:unit` project — the `*.unit.spec.ts` suffix routes them there, not to `jsSdk:integration`, even though they sit under `test/integration/`.
 
+### Narrow exception: `*.types.spec.ts`
+
+Type-level pins written with Vitest's `expectTypeOf` — `test/integration/core/result-chaining.types.spec.ts`, `call-params.types.spec.ts`. They run in their own `jsSdk:types` project, which is the only one with `typecheck` enabled.
+
+That project is not a stylistic choice. `expectTypeOf` compiles to nothing: under a plain `vitest run` a type assertion **cannot fail**, so a file full of them reports as passing while checking nothing — and `test/` is excluded from every `tsc` pass in the repo, so no other gate covered it either. The project's `typecheck.include` is what makes the assertions real, against [`test/tsconfig.json`](../../test/tsconfig.json); its `include` runs the same files normally so any ordinary `expect()` in them still executes.
+
+If you add type-level assertions, use this suffix — a `*.unit.spec.ts` file's `expectTypeOf` calls are decorative.
+
 Use this naming when the test is about the **SDK's internal behaviour**, not about a REST request/response shape. Document the reason in a JSDoc header at the top of the file — see [`test/integration/core/http-logger-redaction.unit.spec.ts`](../../test/integration/core/http-logger-redaction.unit.spec.ts) (lines 1–19) for the reference shape. For anything that touches a real REST method's request or response shape — no mocks.
 
 ## Before Pushing
@@ -191,6 +199,6 @@ pnpm run package-jssdk:test:run    # integration project, against a real portal
 
 If you touched the limiter stack or transport layer, also run the relevant under-load scenario.
 
-> **CI does not run Vitest.** The CI workflow (`.github/workflows/`) only runs `lint`, `typecheck`, and `build` — integration tests need `B24_HOOK` and are your **local-only** responsibility. A green CI on a PR does not mean the test suite passed; the reviewer expects you to confirm a local run in the PR description.
+> **CI runs only the portal-free Vitest projects.** The `test` job runs `jsSdk:unit`, `jsSdk:types` and `skills:unit`. Everything that needs `B24_HOOK` — `jsSdk:integration`, `jsSdk:underLoad`, `skills:live` — is your **local-only** responsibility, so a green CI on a PR does not mean the whole suite passed; the reviewer expects you to confirm a local integration run in the PR description.
 
 See also the [Before Submitting](../../AGENTS.md#before-submitting) checklist in `AGENTS.md` for the full per-PR checklist (lint, typecheck, docs sync, contributing-guide sync, commit-message format).

@@ -45,9 +45,22 @@ export function createPrettierWorkerApi(worker: WorkerLike): SimplePrettier {
 
     if (error) {
       reject(error)
-    } else {
-      resolve(message as string)
+      return
     }
+
+    // Checked, not cast. `handleMessage` in the worker returns `undefined` for
+    // any `type` it does not recognise, and the reply is posted regardless — so
+    // an unknown type arrives as `{ uid, message: undefined, error: undefined }`
+    // and, resolved blindly, would hand `CodeExample.vue` an `undefined` that
+    // the types call a string. Unreachable while `format` is the only message
+    // type; writing `as string` is what would make the next one a silent
+    // landmine instead of a visible failure.
+    if (typeof message !== 'string') {
+      reject(new Error(`prettier worker returned no message for uid ${uid}`))
+      return
+    }
+
+    resolve(message)
   })
 
   function postMessage(message: unknown) {

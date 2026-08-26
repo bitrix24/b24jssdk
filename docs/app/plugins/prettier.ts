@@ -6,8 +6,6 @@ import PrettierWorker from '@/workers/prettier.js?worker&inline'
 import { createPrettierWorkerApi } from '../utils/prettierWorkerApi'
 import type { SimplePrettier } from '../utils/prettierWorkerApi'
 
-export type { SimplePrettier }
-
 export default defineNuxtPlugin(async () => {
   let prettier: SimplePrettier
   if (import.meta.server) {

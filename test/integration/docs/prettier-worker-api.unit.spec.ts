@@ -102,6 +102,19 @@ describe('#139b createPrettierWorkerApi', () => {
     await expect(second).resolves.toBe('B')
   })
 
+  it('rejects rather than resolving undefined when the reply carries no message', async () => {
+    // The worker's `handleMessage` returns undefined for any type it does not
+    // recognise, and posts the reply anyway. Resolving that would hand
+    // `CodeExample.vue` an `undefined` the types call a string.
+    const { worker, sent, reply } = fakeWorker()
+    const api = createPrettierWorkerApi(worker)
+
+    const pending = api.format('x')
+    reply({ uid: sent[0]!.uid })
+
+    await expect(pending).rejects.toThrow(/returned no message/)
+  })
+
   it('ignores a reply for an unknown uid instead of throwing', () => {
     // A duplicate reply, or one arriving after its entry settled. There is no
     // caller left to tell, and throwing inside the listener would take out the

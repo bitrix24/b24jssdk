@@ -7,7 +7,7 @@ import type {
 import type { AuthActions } from '../../types/auth'
 import type { RestrictionParams } from '../../types/limiters'
 import type { Result } from '../result'
-import type { BatchPayload } from '../../types/payloads'
+import type { BatchResponsePayload } from '../interaction/batch/abstract-interaction-batch'
 import { AbstractHttp } from './abstract-http'
 import { ApiVersion } from '../../types/b24'
 import { InteractionBatchV2 } from '../interaction/batch/v2'
@@ -83,7 +83,7 @@ export class HttpV2 extends AbstractHttp implements TypeHttp {
       })
     }
 
-    const responseBatch = await this.call<BatchPayload<T>>(
+    const responseBatch = await this.call<BatchResponsePayload<T>>(
       'batch',
       {
         halt: opts.isHaltOnError ? 1 : 0,

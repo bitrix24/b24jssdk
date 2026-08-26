@@ -226,6 +226,12 @@ jobs:
         # dedicated environment with secrets. See .github/contributing/testing.md.
         run: pnpm run package-jssdk:test:run-unit
 
+      - name: Type-level tests
+        # `expectTypeOf` assertions are erased at runtime, so these only mean
+        # anything under vitest's typecheck mode — and `test/` is outside every
+        # `tsc` pass in the repo. Without this step the pins pass vacuously.
+        run: pnpm run package-jssdk:test:run-types
+
       - name: Run skill-recipe unit tests
         # The recipes under skills/b24jssdk-recipes are shipped as guidance an
         # agent will copy, so their internals get the same treatment as SDK

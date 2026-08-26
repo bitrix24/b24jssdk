@@ -1,6 +1,6 @@
 import { AbstractInteractionBatch } from './abstract-interaction-batch'
+import type { BatchResponsePayload } from './abstract-interaction-batch'
 import type { AjaxResult } from '../../http/ajax-result'
-import type { BatchPayload } from '../../../types/payloads'
 import type { Result } from '../../result'
 import type { ICallBatchResult } from '../../../types/http'
 import { SdkError } from '../../sdk-error'
@@ -19,7 +19,7 @@ export class InteractionBatchV3 extends AbstractInteractionBatch {
     return MAX_BATCH_COMMANDS_V3
   }
 
-  public override async prepareResponse<T>(response: AjaxResult<BatchPayload<T>>): Promise<Result<ICallBatchResult<T>>> {
+  public override async prepareResponse<T>(response: AjaxResult<BatchResponsePayload<T>>): Promise<Result<ICallBatchResult<T>>> {
     if (!this.processingStrategy) {
       throw new SdkError({
         code: 'JSSDK_INTERACTION_BATCH_EMPTY_PROCESSING_STRATEGY',

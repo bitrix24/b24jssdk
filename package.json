@@ -47,6 +47,7 @@
     "skills:install": "pnpm --dir skills/b24jssdk-recipes install --frozen-lockfile",
     "skills:typecheck": "pnpm run skills:install && tsc -p skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test:run-unit": "vitest run --project jsSdk:unit",
+    "package-jssdk:test:run-types": "vitest run --project jsSdk:types",
     "skills:test": "pnpm run skills:install && vitest run --project skills:unit",
     "skills:verify": "vitest run --project skills:live",
     "package-jssdk:test": "vitest --project jsSdk:integration",

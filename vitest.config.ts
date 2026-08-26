@@ -46,6 +46,29 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          // Type-level pins (`expectTypeOf`) — the ONLY project with
+          // `typecheck` enabled, and it has to be, because `expectTypeOf` is
+          // erased at runtime. Under a plain `vitest run` a type assertion
+          // cannot fail: the file was reported as passing while checking
+          // nothing. `test/` is excluded from every `tsc` pass in the repo, so
+          // nothing else was covering it either.
+          //
+          // `typecheck.include` runs the assertions; `include` runs the same
+          // files normally, so the ordinary `expect()` calls in them still
+          // execute rather than being quietly dropped.
+          name: 'jsSdk:types',
+          environment: 'node',
+          include: ['./test/integration/**/*.types.spec.ts'],
+          typecheck: {
+            enabled: true,
+            include: ['./test/integration/**/*.types.spec.ts'],
+            tsconfig: './test/tsconfig.json'
+          }
+        }
+      },
+      {
+        extends: true,
+        test: {
           name: 'jsSdk:integration',
           environment: 'node',
           testTimeout: 30_000,
@@ -53,6 +76,9 @@ export default defineConfig({
           include: ['./test/integration/**/*.spec.ts'],
           exclude: [
             './test/integration/**/*.unit.spec.ts',
+            // Own project — see `jsSdk:types`. Without this they would be run
+            // here as portal integration tests.
+            './test/integration/**/*.types.spec.ts',
             // Own project — see `skills:live`.
             './test/integration/skills/**'
           ],

@@ -3,6 +3,18 @@ import fsp from 'node:fs/promises'
 import { dirname, join, parse } from 'pathe'
 import { defineNuxtModule, addTemplate, addServerHandler, createResolver } from '@nuxt/kit'
 
+/**
+ * The one field this module reads off Vite's resolved config.
+ *
+ * Not `ResolvedConfig` from `vite`: Vite is not a direct dependency here — it
+ * arrives through Nuxt — so importing its types does not resolve. A structural
+ * type for the single property in use is honest about what is depended on, and
+ * it still catches the typo `any` was letting through.
+ */
+interface ViteConfigSsrFlag {
+  build: { ssr: boolean | string }
+}
+
 interface CodeExample {
   name: string
   filePath: string
@@ -48,7 +60,7 @@ export default defineNuxtModule({
   },
   async setup(_options, nuxt) {
     const resolver = createResolver(import.meta.url)
-    let _configResolved: any
+    let _configResolved: ViteConfigSsrFlag | undefined
     let examples: Record<string, CodeExample>
     const outputPath = join(nuxt.options.buildDir, 'code-example')
 
@@ -166,7 +178,7 @@ export default defineNuxtModule({
           }
           await updateOutput()
         },
-        configResolved(config: any) {
+        configResolved(config: ViteConfigSsrFlag) {
           _configResolved = config
         },
         async handleHotUpdate({ file }: { file: string }) {

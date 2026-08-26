@@ -47,12 +47,22 @@ const BUNDLED_IMPORT_META_ENV = 'globalThis._importMeta_.env'
  * previous version the region branch matched first and `continue`d, so the
  * loop never broke — everything after the end marker went on being processed.
  * It looked correct only because the sole line after it is the function's
- * closing brace, which `.slice(2)` reduces to an empty string and the final
+ * closing brace, which the dedent reduces to an empty string and the final
  * `trim()` removes.
+ *
+ * Indentation is removed by measuring it, not by assuming it. The region lines
+ * sit one level in because they are inside the example's function, and that
+ * level used to be stripped with a hard-coded `.slice(2)` — correct only while
+ * every example is indented with exactly two spaces. An example written with
+ * four spaces or a tab would have had its code mangled rather than dedented.
  */
 export function transformCodeForDocumentationSafe(code: string): string {
   const lines = code.split('\n')
   const resultLines: string[] = []
+  // Which entries of `resultLines` came from inside the region. The import
+  // lines and the blank line standing in for the signature are emitted at
+  // column zero already and must not be dedented with the rest.
+  const regionLineIndexes: number[] = []
   let inStartRegion = false
 
   for (const line of lines) {
@@ -83,10 +93,42 @@ export function transformCodeForDocumentationSafe(code: string): string {
       continue
     }
 
-    resultLines.push(rewriteExampleLine(line, trimmedLine).slice(2))
+    regionLineIndexes.push(resultLines.length)
+    resultLines.push(rewriteExampleLine(line, trimmedLine))
+  }
+
+  // Computed once, before anything is rewritten: recomputing it inside the loop
+  // would measure lines this loop has already dedented, so the minimum would
+  // shrink as it went and later lines would keep part of their indentation.
+  const indent = commonIndent(regionLineIndexes, resultLines)
+  for (const index of regionLineIndexes) {
+    resultLines[index] = resultLines[index]!.slice(indent)
   }
 
   return resultLines.join('\n').trim()
+}
+
+/**
+ * The smallest indentation across the region's non-blank lines, which is the
+ * amount every one of them can lose without changing their relative structure.
+ * Blank lines are skipped: an empty line has no indentation and would drag the
+ * minimum to zero, leaving the snippet indented.
+ */
+function commonIndent(indexes: number[], resultLines: string[]): number {
+  let smallest: number | undefined
+
+  for (const index of indexes) {
+    const value = resultLines[index]!
+    if (value.trim().length === 0) {
+      continue
+    }
+    const indent = value.length - value.trimStart().length
+    if (smallest === undefined || indent < smallest) {
+      smallest = indent
+    }
+  }
+
+  return smallest ?? 0
 }
 
 /**

@@ -134,7 +134,6 @@ function groupChildrenByCategory(items: ContentNavigationItem[], slug: string): 
          * @memo this path
          */
         path: `/docs/${slug}`,
-        class: 'restApiVersion' in category ? [`${category.restApiVersion}-only`] : undefined,
         children: categorized[category.id]
       })
     }

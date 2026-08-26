@@ -12,11 +12,7 @@ let $b24: undefined | B24Hook | B24Frame = undefined
 const type = ref<'undefined' | 'B24Frame' | 'B24Hook'>('undefined')
 
 export const useB24 = () => {
-  const HOOK_PLACEHOLDER = 'https://your_domain.bitrix24.com/rest/1/webhook_code/'
-
   const config = useRuntimeConfig()
-
-  const b24Config = {}
 
   // @memo For Docs use full debug
   function buildLogger(loggerTitle?: string): LoggerInterface {
@@ -44,7 +40,7 @@ export const useB24 = () => {
       ) {
         sessionStorage.setItem(sessionKey, newValue)
         try {
-          $b24 = B24Hook.fromWebhookUrl(newValue, b24Config)
+          $b24 = B24Hook.fromWebhookUrl(newValue)
           // @todo uncomment this
           // $b24.offClientSideWarning()
           nextTick(() => {
@@ -95,7 +91,7 @@ export const useB24 = () => {
 
       // now init b24Frame
       const { $initializeB24Frame } = useNuxtApp()
-      return set(await $initializeB24Frame(b24Config))
+      return set(await $initializeB24Frame())
     } catch {
       // set(undefined)
     }
@@ -154,7 +150,6 @@ export const useB24 = () => {
   }
 
   return {
-    HOOK_PLACEHOLDER,
     buildLogger,
     init,
     get,

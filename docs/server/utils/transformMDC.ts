@@ -120,18 +120,26 @@ function flattenMarkers(node: any): void {
   }
 }
 
+/**
+ * MDC body nodes, which are tuples of `[tag, attrs, ...children]` — not DOM
+ * nodes. This used to be typed as the global DOM `Node`, which type-checked
+ * only because every access below is an index into an `Array.isArray` branch.
+ */
+type MdcNode = unknown[]
+
 function processLinks(
-  nodes: Node[],
+  nodes: MdcNode,
   baseUrl: string
 ) {
   if (!Array.isArray(nodes)) return
 
   for (const node of nodes) {
     if (Array.isArray(node)) {
+      // Only `a` survives to here. The callout tags (`tip`, `note`, …) are
+      // rewritten to blockquotes further up `transformMDC`, before this runs,
+      // so a branch matching `tip` never fired.
       if (node[0] === 'a' && node[1] && node[1].href) {
         node[1].href = prepareHref(node[1].href, baseUrl)
-      } else if (node[0] === 'tip' && node[1] && node[1].to) {
-        node[1].href = prepareHref(node[1].to, baseUrl)
       }
 
       for (let i = 1; i < node.length; i++) {
@@ -153,7 +161,15 @@ function prepareHref(
 
   const processUrlWithAnchor = (url: string, base: string): string => {
     const [path, anchor] = url.split('#')
-    const processedPath = path!.endsWith('/') ? path!.slice(0, -1) + '.md' : path + '.md'
+    // An anchor-only href would otherwise produce `<base>raw/.md#anchor`. No
+    // caller currently reaches this with an empty path — every branch below
+    // requires a `/docs/` segment first — but the guard is what lets the
+    // non-null assertions go away, so the code stops claiming something the
+    // types do not know.
+    if (!path) {
+      return url
+    }
+    const processedPath = path.endsWith('/') ? path.slice(0, -1) + '.md' : path + '.md'
     return anchor ? `${base}raw/${processedPath}#${anchor}` : `${base}raw/${processedPath}`
   }
 
@@ -169,11 +185,12 @@ function prepareHref(
 
   if (href.startsWith('/docs/') && !href.startsWith('http')) {
     const [path, anchor] = href.split('#')
-    let newHref = path!.startsWith('/') ? path!.slice(1) : path
+    // `path` is non-empty here: the branch is guarded on the `/docs/` prefix.
+    let newHref = path!.startsWith('/') ? path!.slice(1) : path!
 
-    if (newHref!.endsWith('/')) {
-      newHref = newHref!.slice(0, -1) + '.md'
-    } else if (!newHref!.endsWith('.md')) {
+    if (newHref.endsWith('/')) {
+      newHref = newHref.slice(0, -1) + '.md'
+    } else if (!newHref.endsWith('.md')) {
       newHref = newHref + '.md'
     }
 

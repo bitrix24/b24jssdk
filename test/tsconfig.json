@@ -21,5 +21,9 @@
     "types": ["node", "vitest/globals"]
   },
   "include": ["./**/*.types.spec.ts"],
-  "exclude": []
+  // Not `[]`. An empty list does not mean "nothing to exclude" — it replaces
+  // TypeScript's implicit defaults, so `node_modules` stops being excluded.
+  // Harmless against today's include glob, but it is the kind of thing that
+  // only bites once something generates a matching path.
+  "exclude": ["node_modules"]
 }

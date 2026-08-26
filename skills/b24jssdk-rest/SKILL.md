@@ -319,6 +319,14 @@ try {
 }
 ```
 
+> **`requestInfo` is safe to log because `AjaxError` redacts it, not because
+> the call site is careful.** Its constructor runs the request params through
+> `redactSensitiveParams`, replacing `auth`, `token`, `secret`, `access_token`,
+> `refresh_token`, `client_secret`, `application_token`, `sessid`, `key` and
+> `signature` with `***REDACTED***`. So do not rebuild that context by hand from
+> the original params — a hand-assembled `{ method, params }` inherits none of
+> that and will put a live credential into the log.
+
 For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` section in the `b24jssdk-core` skill.
 
 ## Discover available v3 methods (OpenAPI)

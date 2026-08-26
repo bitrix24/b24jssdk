@@ -1,6 +1,7 @@
 import { createConfigForNuxt } from '@nuxt/eslint-config/flat'
 import noCredentialInLogger from './eslint-rules/no-credential-in-logger.js'
 import requireCatchOnLoggerCall from './eslint-rules/require-catch-on-logger-call.js'
+import loggerContextMustBeObject from './eslint-rules/logger-context-must-be-object.js'
 
 export default createConfigForNuxt({
   features: {
@@ -78,5 +79,48 @@ export default createConfigForNuxt({
   rules: {
     'local/no-credential-in-logger': 'error',
     'local/require-catch-on-logger-call': 'error'
+  }
+}).append({
+  // `logger-context-must-be-object` guards the third failure in this area
+  // (#277): the removed `LoggerBrowser` took variadic arguments, so
+  // `logger.error('failed', e)` reads naturally — and still compiles against
+  // `LoggerInterface`, because an Error satisfies `Record<string, any>`
+  // structurally. It then serialises to `{}` and the failure vanishes from the
+  // log. Two shipped recipes had exactly that.
+  //
+  // Scoped to the SDK source AND to `skills/b24jssdk-recipes/examples/**`,
+  // which is the point: those files are shipped as guidance an agent copies, so
+  // a defect there is reproduced rather than contained. Syntax-only, like its
+  // two neighbours.
+  //
+  // NOT covered — ESLint does not see inside a Markdown fence, so the same
+  // misuse in a `SKILL.md` code block is caught only by the source-text guards
+  // in `test/integration/skills-recipes/recipe-hygiene.unit.spec.ts`. Making
+  // the fences themselves checkable is tracked separately.
+  // Scoped to the recipes ONLY, and deliberately so. The rule demands an object
+  // literal at the callsite, which is a teaching convention rather than a
+  // correctness rule: `const context = { … }; logger.info('x', context)` is
+  // perfectly correct code, and the SDK's own deprecated `LoggerBrowser`
+  // passthroughs are written that way. In files shipped as guidance an agent
+  // copies, the literal is worth insisting on — it is what makes the parameter's
+  // meaning visible at the point of copying, which is precisely what the
+  // variadic `LoggerBrowser` habit obscured.
+  files: [
+    'skills/b24jssdk-recipes/examples/**/*.ts',
+    'skills/b24jssdk-recipes/lib/**/*.ts'
+  ],
+  // Its own plugin namespace, not `local`: a flat-config plugin object may be
+  // declared once, and this block needs a different `files` set — widening the
+  // block above would also apply `require-catch-on-logger-call` to the recipes,
+  // which is a separate decision.
+  plugins: {
+    logger: {
+      rules: {
+        'context-must-be-object': loggerContextMustBeObject
+      }
+    }
+  },
+  rules: {
+    'logger/context-must-be-object': 'error'
   }
 })

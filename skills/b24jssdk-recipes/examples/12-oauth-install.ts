@@ -281,6 +281,12 @@ async function main() {
       // The second argument is a CONTEXT RECORD, not a second value. Passing the
       // Error itself logs `{}` — an Error's message and stack are not own
       // enumerable properties — so the failure vanished from the log entirely.
+      //
+      // Logging the message and stack is safe HERE because everything this
+      // catch can see throws plain filesystem or validation errors. Keep it
+      // that way: if `saveCredentials`/`getCredentials` ever throw an error
+      // that echoes the credential object, this line publishes an
+      // access_token to the log.
       logger.error('install failed', {
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined

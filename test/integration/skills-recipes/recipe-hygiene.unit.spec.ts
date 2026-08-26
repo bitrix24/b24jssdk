@@ -127,145 +127,45 @@ describe('#64a — recipes use the tested helpers, not private copies', () => {
  *
  * There is also no `warn` on the new interface — it is `warning`.
  *
- * Source-text guards, so the ceiling is the usual one: they catch the shapes
- * that actually occurred. A second argument built in a variable
- * (`const ctx = e; logger.error('x', ctx)`) walks past the context check.
- */
-/**
- * Every logger call's second argument, as written.
+ * What is checked WHERE, since it is split across two mechanisms:
  *
- * Deliberately a scanner and not a regex. The first attempt matched
- * `logger.<level>\(\s*[^,)]+,` to find "a call with a second argument", which
- * treats the first comma it meets as the argument separator — and most of these
- * calls pass a template literal whose text contains commas. Ten files failed on
- * their own log messages. This is the same mistake #139 item 2 reported in the
- * docs code transform: counting delimiters without tracking whether you are
- * inside a string.
+ * - The context-argument shape is enforced by the ESLint rule
+ *   `logger/context-must-be-object` (`eslint-rules/logger-context-must-be-object.js`),
+ *   which works on the AST and so needs no lexing. An earlier version of this
+ *   file hand-rolled a scanner for it; that is the wrong layer, and the repo
+ *   already had two local logger rules to follow. The scanner also had a real
+ *   bug — a regex literal containing a comma or a quote broke argument splitting
+ *   — which an AST cannot have.
+ * - The two guards below stay here because ESLint does not see inside a Markdown
+ *   fence, and `SKILL.md` is exactly where the deprecated logger was being
+ *   taught. They are plain substring checks, so quoting cannot confuse them.
  *
- * Tracks quote state (\', ", `) and nesting depth for (), {}, [] so a comma only
- * separates arguments at depth zero and outside a literal. Escapes are honoured;
- * `${}` inside a template literal nests as a brace, which is enough for the
- * shapes these files contain.
+ * The gap that leaves: a context-argument misuse written inside a `SKILL.md`
+ * fence is caught by neither. Making skill fences type-checkable the way
+ * `docs:typecheck-blocks` handles the docs site would close it — tracked as
+ * bitrix24/b24jssdk#402.
  */
-function secondArgumentsOf(source: string): string[] {
-  const found: string[] = []
-  const call = /\blogger\s*\.\s*(?:debug|info|notice|warning|error|critical)\s*\(/g
-
-  for (let match = call.exec(source); match !== null; match = call.exec(source)) {
-    found.push(...scanArguments(source, match.index + match[0].length).slice(1, 2))
-  }
-
-  return found.filter(arg => arg.length > 0)
-}
-
-/**
- * Split one already-opened argument list into its top-level arguments.
- *
- * A stack, not a single "in a string" flag. These files contain
- * `` `(${it.TYPE}${it.SIZE ? `, ${it.SIZE} bytes` : ''})` `` — a template
- * literal holding an interpolation holding another template literal holding a
- * comma. A flat flag closes the outer template on the inner backtick and then
- * reads the rest of the line as code, which is how the first version reported
- * a bogus second argument here.
- */
-function scanArguments(source: string, from: number): string[] {
-  type Frame = { kind: 'code' | 'template' | 'quote', quote?: string, depth: number }
-  const stack: Frame[] = [{ kind: 'code', depth: 0 }]
-  const args: string[] = []
-  let current = ''
-
-  for (let i = from; i < source.length; i++) {
-    const char = source[i]!
-    const frame = stack.at(-1)!
-
-    if (char === '\\') {
-      current += char + (source[i + 1] ?? '')
-      i++
-      continue
-    }
-
-    if (frame.kind === 'quote') {
-      current += char
-      if (char === frame.quote) stack.pop()
-      continue
-    }
-
-    if (frame.kind === 'template') {
-      current += char
-      if (char === '`') stack.pop()
-      // `${` opens an ordinary expression, which may hold further literals.
-      else if (char === '$' && source[i + 1] === '{') {
-        current += '{'
-        i++
-        stack.push({ kind: 'code', depth: 0 })
-      }
-      continue
-    }
-
-    if (char === '`') {
-      current += char
-      stack.push({ kind: 'template', depth: 0 })
-      continue
-    }
-    if (char === '\'' || char === '"') {
-      current += char
-      stack.push({ kind: 'quote', quote: char, depth: 0 })
-      continue
-    }
-
-    if (char === '(' || char === '{' || char === '[') {
-      frame.depth++
-      current += char
-      continue
-    }
-
-    if (char === ')' || char === ']') {
-      // Depth 0 in the outermost frame is the call's own closing paren.
-      if (frame.depth === 0 && stack.length === 1) break
-      frame.depth--
-      current += char
-      continue
-    }
-
-    if (char === '}') {
-      if (frame.depth === 0 && stack.length > 1) {
-        // Closes the `${` that opened this frame; back into the template.
-        stack.pop()
-        current += char
-        continue
-      }
-      frame.depth--
-      current += char
-      continue
-    }
-
-    if (char === ',' && frame.depth === 0 && stack.length === 1) {
-      args.push(current.trim())
-      current = ''
-      continue
-    }
-
-    current += char
-  }
-
-  args.push(current.trim())
-  return args
-}
-
 describe('skills teach the current logger, not the removed one', () => {
   const repoRoot = resolve(__dirname, '../../..')
-  const skillFiles = [
-    'skills/b24jssdk-core/SKILL.md',
-    'skills/b24jssdk-recipes/SKILL.md',
-    'skills/b24jssdk-rest/SKILL.md'
-  ]
+  const skillsDir = resolve(repoRoot, 'skills')
+
+  // Discovered, not listed. The first version named three files by hand and
+  // silently skipped the other four `SKILL.md` in the tree — a new skill could
+  // have taught `LoggerBrowser` and passed. An "each listed file exists" test
+  // does not catch that: it proves the list points at real files, never that the
+  // list is complete.
+  const skillFiles = readdirSync(skillsDir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => `skills/${entry.name}/SKILL.md`)
+    .filter(rel => existsSync(join(repoRoot, rel)))
+
   const recipeFiles = exampleFiles.map(name => `skills/b24jssdk-recipes/examples/${name}`)
   const allFiles = [...skillFiles, ...recipeFiles]
 
   const read = (rel: string) => stripComments(readFileSync(join(repoRoot, rel), 'utf8'))
 
-  it.each(skillFiles)('%s exists (a missing path would pass vacuously)', (rel) => {
-    expect(existsSync(join(repoRoot, rel))).toBe(true)
+  it('finds every skill file (an empty sweep would pass everything vacuously)', () => {
+    expect(skillFiles.length).toBeGreaterThanOrEqual(7)
   })
 
   it.each(allFiles)('%s does not use the removed LoggerBrowser / LoggerType', (rel) => {
@@ -274,10 +174,6 @@ describe('skills teach the current logger, not the removed one', () => {
 
   it.each(allFiles)('%s calls warning(), not the removed warn()', (rel) => {
     expect(read(rel)).not.toMatch(/\blogger\s*\.\s*warn\s*\(/i)
-  })
-
-  it.each(allFiles)('%s passes a context OBJECT as the logger\'s second argument', (rel) => {
-    expect(secondArgumentsOf(read(rel)).filter(arg => !arg.startsWith('{'))).toEqual([])
   })
 })
 

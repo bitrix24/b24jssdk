@@ -2,30 +2,7 @@ import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
-import { SdkError } from '../../sdk-error'
-import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
-
-/**
- * Reject a non-array `filter` with a message that names the fix.
- *
- * The type above already rules this out, but a JavaScript caller has no types,
- * and `TypeCallParamsV3` deliberately still accepts the v2 object dialect — so
- * a value that is legal one layer up arrives here illegal. Without this the
- * failure is `filter is not iterable`, thrown from a spread inside the paging
- * loop, which says nothing about which argument was wrong.
- */
-function assertArrayFilter(filter: unknown, action: string): asserts filter is undefined | TypeFilterV3 {
-  if (filter === undefined || Array.isArray(filter)) {
-    return
-  }
-
-  throw new SdkError({
-    code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY',
-    description: `${action}: \`filter\` must be the restApi:v3 array form, e.g. [['id', '>', 100]] or FilterV3.build(...). `
-      + `The restApi:v2 object dialect ({ '>id': 100 }) cannot be used here, because keyset pagination extends the filter with a cursor condition.`,
-    status: 500
-  })
-}
+import { assertArrayFilter, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionCallListV3 = ActionOptions & {
   method: string

@@ -66,17 +66,40 @@ describe('#279 v3 list actions reject the v2 object filter', () => {
   it('the message names the code and the fix', async () => {
     const { b24 } = makeB24()
 
-    await new CallListV3(b24, logger).make({
-      method: 'tasks.task.list',
-      customKeyForResult: 'items',
-      params: { filter: V2_OBJECT_FILTER }
-    }).catch((error: unknown) => {
-      expect((error as SdkError).code).toBe('JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY')
-      // The point of the guard: the old failure said nothing about which
-      // argument was wrong, or what to write instead.
-      expect((error as SdkError).message).toContain('FilterV3.build')
-      expect((error as SdkError).message).not.toContain('not iterable')
+    // `rejects.toMatchObject`, not `.catch(err => expect(...))`. The `.catch`
+    // form passes VACUOUSLY when the promise resolves — the callback simply
+    // never runs, no assertion executes, and vitest reports green. Verified:
+    // with the guard neutered AND the spread made object-tolerant, so the call
+    // succeeds, the `.catch` version stayed green while the test above went
+    // red. A test for an error message must fail when there is no error.
+    await expect(
+      new CallListV3(b24, logger).make({
+        method: 'tasks.task.list',
+        customKeyForResult: 'items',
+        params: { filter: V2_OBJECT_FILTER }
+      })
+    ).rejects.toMatchObject({
+      code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY',
+      // The point of the guard: the old failure named neither the argument that
+      // was wrong nor what to write instead.
+      message: expect.stringContaining('FilterV3.build')
     })
+  })
+
+  it('fetchList reports the same code, not just the same class', async () => {
+    // Without the guard this path also throws — but a TypeError, not an
+    // SdkError. Asserting the code as well as the class is what distinguishes
+    // "guarded" from "crashed in a different way".
+    const { b24 } = makeB24()
+
+    await expect((async () => {
+      const pages = new FetchListV3(b24, logger).make({
+        method: 'tasks.task.list',
+        customKeyForResult: 'items',
+        params: { filter: V2_OBJECT_FILTER }
+      })
+      for await (const _page of pages) { /* drained to reach the throw */ }
+    })()).rejects.toMatchObject({ code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY' })
   })
 
   it('fetchList throws the same way — it is generator-based, so it must be drained', async () => {

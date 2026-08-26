@@ -18,9 +18,12 @@ Three entry points share the same REST surface, exposed via `$b24.actions.v{2,3}
 ## B24Hook (backend / scripts)
 
 ```ts
-import { B24Hook, LoggerBrowser } from '@bitrix24/b24jssdk'
+import { B24Hook, ConsoleV2Handler, LogLevel, Logger } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('Srv', process.env.NODE_ENV !== 'production')
+// Node, so the handler is created explicitly with `useStyles: false`; the
+// browser factory below emits CSS styling a terminal prints as literal noise.
+const logger = Logger.create('Srv')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 const $b24 = B24Hook.fromWebhookUrl(
   // Format: https://<portal>.bitrix24.<tld>/rest/<userId>/<secret>
@@ -31,7 +34,7 @@ const me = await $b24.actions.v2.call.make<{ NAME: string; ID: number }>({
   method: 'profile',
   requestId: 'profile-1'
 })
-logger.info('Hello,', me.getData()!.result.NAME)
+logger.info(`Hello, ${me.getData()!.result.NAME}`)
 ```
 
 Alternative constructor (manual parts):
@@ -52,9 +55,9 @@ Notes:
 ## B24Frame (in-iframe app)
 
 ```ts
-import { initializeB24Frame, LoggerBrowser, type B24Frame } from '@bitrix24/b24jssdk'
+import { initializeB24Frame, LoggerFactory, type B24Frame } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('App', import.meta.env?.DEV === true)
+const logger = LoggerFactory.createForBrowser('App', import.meta.env?.DEV === true)
 let $b24: B24Frame
 
 async function boot() {
@@ -108,19 +111,49 @@ await $b24.initIsAdmin() // populates auth.isAdmin
 
 ## Logging
 
-```ts
-import { LoggerBrowser } from '@bitrix24/b24jssdk'
+In the browser, one factory call is enough:
 
-const logger = LoggerBrowser.build('AppName', /* isDev */ true)
-logger.info('starting up')
-logger.warn('something looks off')
-logger.error('failure', new Error('boom'))
+```ts
+import { LoggerFactory } from '@bitrix24/b24jssdk'
+
+const logger = LoggerFactory.createForBrowser('AppName', /* isDev */ true)
 ```
 
-`isDev` toggles verbose output. To get SDK-internal traces:
+Under Node, build it explicitly so the output is not styled for a browser console:
 
 ```ts
-$b24.setLogger?.(logger)
+import { ConsoleV2Handler, LogLevel, Logger } from '@bitrix24/b24jssdk'
+
+const logger = Logger.create('AppName')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
+```
+
+Either way the logging calls are the same. **The second argument is a context
+object, not a second message** — every level takes `(message: string, context?:
+Record<string, any>)`, so interpolate values into the message or pass them as
+named fields:
+
+```ts
+logger.info('starting up')
+logger.warning('something looks off', { retries: 2 })
+
+try {
+  await risky()
+} catch (err) {
+  // Never `logger.error('failure', err)` — an Error's message and stack are not
+  // own enumerable properties, so it serialises to `{}` and the reason is lost.
+  logger.error('failure', {
+    message: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined
+  })
+}
+```
+
+Note `warning`, not `warn`. `isDev` toggles verbose output. To get SDK-internal
+traces:
+
+```ts
+$b24.setLogger(logger)
 ```
 
 ## Error handling
@@ -137,7 +170,7 @@ try {
   })
   if (!res.isSuccess) {
     // Soft errors only (see softErrorCodes below). Most failures throw.
-    logger.warn('non-success result', res.getErrorMessages())
+    logger.warning('non-success result', { errors: res.getErrorMessages() })
     return
   }
   return res.getData()!.result.item
@@ -151,6 +184,14 @@ try {
   }
 }
 ```
+
+> **`requestInfo` is safe to log because `AjaxError` redacts it, not because
+> the call site is careful.** Its constructor runs the request params through
+> `redactSensitiveParams`, replacing `auth`, `token`, `secret`, `access_token`,
+> `refresh_token`, `client_secret`, `application_token`, `password`, `sessid`,
+> `key` and `signature` with `***REDACTED***`. So do not rebuild that context by hand from
+> the original params — a hand-assembled `{ method, params }` inherits none of
+> that and will put a live credential into the log.
 
 Common AjaxError codes worth handling:
 

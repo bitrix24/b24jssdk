@@ -106,6 +106,86 @@ describe('#64a — recipes use the tested helpers, not private copies', () => {
 })
 
 /**
+ * The skills must not teach the deprecated logger, and must call the current one
+ * correctly.
+ *
+ * Two different failures, found together. `skills/b24jssdk-core/SKILL.md` and
+ * `skills/b24jssdk-recipes/SKILL.md` presented `LoggerBrowser.build(...)` as THE
+ * way to get a logger — a class tagged `@removed 3.0.0` (#277). These files are
+ * what an agent reads before writing code, so our own instructions were
+ * producing deprecated calls that will break at the next major.
+ *
+ * Swapping the constructor is not enough, which is why the second guard exists.
+ * `LoggerBrowser` took variadic arguments (`info(...params: any[])`);
+ * `LoggerInterface` takes `(message: string, context?: Record<string, any>)`.
+ * A mechanical rename leaves `logger.info('Hello,', name)` compiling — an array
+ * or an Error passed as `context` satisfies `Record<string, any>` structurally —
+ * while the second value is silently reshaped or dropped. Two shipped recipes
+ * had exactly that: `logger.error('install failed', e)` logged `{}`, because an
+ * Error's message and stack are not own enumerable properties, so the failure
+ * disappeared from the log.
+ *
+ * There is also no `warn` on the new interface — it is `warning`.
+ *
+ * What is checked WHERE, since it is split across two mechanisms:
+ *
+ * - The context-argument shape is enforced by the ESLint rule
+ *   `logger/context-must-be-object` (`eslint-rules/logger-context-must-be-object.js`),
+ *   which works on the AST and so needs no lexing. An earlier version of this
+ *   file hand-rolled a scanner for it; that is the wrong layer, and the repo
+ *   already had two local logger rules to follow. The scanner also had a real
+ *   bug — a regex literal containing a comma or a quote broke argument splitting
+ *   — which an AST cannot have.
+ * - The two guards below stay here because ESLint does not see inside a Markdown
+ *   fence, and `SKILL.md` is exactly where the deprecated logger was being
+ *   taught. They are plain substring checks, so quoting cannot confuse them.
+ *
+ * The gap that leaves: a context-argument misuse written inside a `SKILL.md`
+ * fence is caught by neither. Making skill fences type-checkable the way
+ * `docs:typecheck-blocks` handles the docs site would close it — tracked as
+ * bitrix24/b24jssdk#402.
+ */
+describe('skills teach the current logger, not the removed one', () => {
+  const repoRoot = resolve(__dirname, '../../..')
+  const skillsDir = resolve(repoRoot, 'skills')
+
+  // Discovered, not listed. The first version named three files by hand and
+  // silently skipped the other four `SKILL.md` in the tree — a new skill could
+  // have taught `LoggerBrowser` and passed. An "each listed file exists" test
+  // does not catch that: it proves the list points at real files, never that the
+  // list is complete.
+  const skillFiles = readdirSync(skillsDir, { withFileTypes: true })
+    // `isDirectory()` reports the DIRENT's own type, so it is false for a
+    // symlink even when the link points at a directory — which would silently
+    // skip a symlinked skill and hand back exactly the blind spot this
+    // discovery replaced.
+    .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
+    .map(entry => `skills/${entry.name}/SKILL.md`)
+    .filter(rel => existsSync(join(repoRoot, rel)))
+
+  const recipeFiles = exampleFiles.map(name => `skills/b24jssdk-recipes/examples/${name}`)
+  const allFiles = [...skillFiles, ...recipeFiles]
+
+  const read = (rel: string) => stripComments(readFileSync(join(repoRoot, rel), 'utf8'))
+
+  it('finds the skill files (an empty sweep would pass everything vacuously)', () => {
+    // Not a headcount. Pinning today's number would fail on a legitimate skill
+    // removal for a reason unrelated to what this guards, and discovery already
+    // makes "the list went stale" impossible — this only rules out the sweep
+    // silently finding nothing.
+    expect(skillFiles.length).toBeGreaterThan(0)
+  })
+
+  it.each(allFiles)('%s does not use the removed LoggerBrowser / LoggerType', (rel) => {
+    expect(read(rel)).not.toMatch(/\bLogger(Browser|Type)\b/)
+  })
+
+  it.each(allFiles)('%s calls warning(), not the removed warn()', (rel) => {
+    expect(read(rel)).not.toMatch(/\blogger\s*\.\s*warn\s*\(/i)
+  })
+})
+
+/**
  * #65 — the recipes' opt-in dependencies stay out of the workspace root.
  *
  * `express`, `grammy`, `node-cron` and `openai` are imported by recipes and by

@@ -106,6 +106,182 @@ describe('#64a — recipes use the tested helpers, not private copies', () => {
 })
 
 /**
+ * The skills must not teach the deprecated logger, and must call the current one
+ * correctly.
+ *
+ * Two different failures, found together. `skills/b24jssdk-core/SKILL.md` and
+ * `skills/b24jssdk-recipes/SKILL.md` presented `LoggerBrowser.build(...)` as THE
+ * way to get a logger — a class tagged `@removed 3.0.0` (#277). These files are
+ * what an agent reads before writing code, so our own instructions were
+ * producing deprecated calls that will break at the next major.
+ *
+ * Swapping the constructor is not enough, which is why the second guard exists.
+ * `LoggerBrowser` took variadic arguments (`info(...params: any[])`);
+ * `LoggerInterface` takes `(message: string, context?: Record<string, any>)`.
+ * A mechanical rename leaves `logger.info('Hello,', name)` compiling — an array
+ * or an Error passed as `context` satisfies `Record<string, any>` structurally —
+ * while the second value is silently reshaped or dropped. Two shipped recipes
+ * had exactly that: `logger.error('install failed', e)` logged `{}`, because an
+ * Error's message and stack are not own enumerable properties, so the failure
+ * disappeared from the log.
+ *
+ * There is also no `warn` on the new interface — it is `warning`.
+ *
+ * Source-text guards, so the ceiling is the usual one: they catch the shapes
+ * that actually occurred. A second argument built in a variable
+ * (`const ctx = e; logger.error('x', ctx)`) walks past the context check.
+ */
+/**
+ * Every logger call's second argument, as written.
+ *
+ * Deliberately a scanner and not a regex. The first attempt matched
+ * `logger.<level>\(\s*[^,)]+,` to find "a call with a second argument", which
+ * treats the first comma it meets as the argument separator — and most of these
+ * calls pass a template literal whose text contains commas. Ten files failed on
+ * their own log messages. This is the same mistake #139 item 2 reported in the
+ * docs code transform: counting delimiters without tracking whether you are
+ * inside a string.
+ *
+ * Tracks quote state (\', ", `) and nesting depth for (), {}, [] so a comma only
+ * separates arguments at depth zero and outside a literal. Escapes are honoured;
+ * `${}` inside a template literal nests as a brace, which is enough for the
+ * shapes these files contain.
+ */
+function secondArgumentsOf(source: string): string[] {
+  const found: string[] = []
+  const call = /\blogger\s*\.\s*(?:debug|info|notice|warning|error|critical)\s*\(/g
+
+  for (let match = call.exec(source); match !== null; match = call.exec(source)) {
+    found.push(...scanArguments(source, match.index + match[0].length).slice(1, 2))
+  }
+
+  return found.filter(arg => arg.length > 0)
+}
+
+/**
+ * Split one already-opened argument list into its top-level arguments.
+ *
+ * A stack, not a single "in a string" flag. These files contain
+ * `` `(${it.TYPE}${it.SIZE ? `, ${it.SIZE} bytes` : ''})` `` — a template
+ * literal holding an interpolation holding another template literal holding a
+ * comma. A flat flag closes the outer template on the inner backtick and then
+ * reads the rest of the line as code, which is how the first version reported
+ * a bogus second argument here.
+ */
+function scanArguments(source: string, from: number): string[] {
+  type Frame = { kind: 'code' | 'template' | 'quote', quote?: string, depth: number }
+  const stack: Frame[] = [{ kind: 'code', depth: 0 }]
+  const args: string[] = []
+  let current = ''
+
+  for (let i = from; i < source.length; i++) {
+    const char = source[i]!
+    const frame = stack.at(-1)!
+
+    if (char === '\\') {
+      current += char + (source[i + 1] ?? '')
+      i++
+      continue
+    }
+
+    if (frame.kind === 'quote') {
+      current += char
+      if (char === frame.quote) stack.pop()
+      continue
+    }
+
+    if (frame.kind === 'template') {
+      current += char
+      if (char === '`') stack.pop()
+      // `${` opens an ordinary expression, which may hold further literals.
+      else if (char === '$' && source[i + 1] === '{') {
+        current += '{'
+        i++
+        stack.push({ kind: 'code', depth: 0 })
+      }
+      continue
+    }
+
+    if (char === '`') {
+      current += char
+      stack.push({ kind: 'template', depth: 0 })
+      continue
+    }
+    if (char === '\'' || char === '"') {
+      current += char
+      stack.push({ kind: 'quote', quote: char, depth: 0 })
+      continue
+    }
+
+    if (char === '(' || char === '{' || char === '[') {
+      frame.depth++
+      current += char
+      continue
+    }
+
+    if (char === ')' || char === ']') {
+      // Depth 0 in the outermost frame is the call's own closing paren.
+      if (frame.depth === 0 && stack.length === 1) break
+      frame.depth--
+      current += char
+      continue
+    }
+
+    if (char === '}') {
+      if (frame.depth === 0 && stack.length > 1) {
+        // Closes the `${` that opened this frame; back into the template.
+        stack.pop()
+        current += char
+        continue
+      }
+      frame.depth--
+      current += char
+      continue
+    }
+
+    if (char === ',' && frame.depth === 0 && stack.length === 1) {
+      args.push(current.trim())
+      current = ''
+      continue
+    }
+
+    current += char
+  }
+
+  args.push(current.trim())
+  return args
+}
+
+describe('skills teach the current logger, not the removed one', () => {
+  const repoRoot = resolve(__dirname, '../../..')
+  const skillFiles = [
+    'skills/b24jssdk-core/SKILL.md',
+    'skills/b24jssdk-recipes/SKILL.md',
+    'skills/b24jssdk-rest/SKILL.md'
+  ]
+  const recipeFiles = exampleFiles.map(name => `skills/b24jssdk-recipes/examples/${name}`)
+  const allFiles = [...skillFiles, ...recipeFiles]
+
+  const read = (rel: string) => stripComments(readFileSync(join(repoRoot, rel), 'utf8'))
+
+  it.each(skillFiles)('%s exists (a missing path would pass vacuously)', (rel) => {
+    expect(existsSync(join(repoRoot, rel))).toBe(true)
+  })
+
+  it.each(allFiles)('%s does not use the removed LoggerBrowser / LoggerType', (rel) => {
+    expect(read(rel)).not.toMatch(/\bLogger(Browser|Type)\b/)
+  })
+
+  it.each(allFiles)('%s calls warning(), not the removed warn()', (rel) => {
+    expect(read(rel)).not.toMatch(/\blogger\s*\.\s*warn\s*\(/i)
+  })
+
+  it.each(allFiles)('%s passes a context OBJECT as the logger\'s second argument', (rel) => {
+    expect(secondArgumentsOf(read(rel)).filter(arg => !arg.startsWith('{'))).toEqual([])
+  })
+})
+
+/**
  * #65 — the recipes' opt-in dependencies stay out of the workspace root.
  *
  * `express`, `grammy`, `node-cron` and `openai` are imported by recipes and by

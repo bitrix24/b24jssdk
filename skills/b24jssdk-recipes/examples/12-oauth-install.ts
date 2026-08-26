@@ -277,15 +277,27 @@ async function main() {
   app.use(express.urlencoded({ extended: true }))
 
   app.post('/install', (req: Request, res: Response) => {
-    handleInstall(req, res).catch((e) => {
-      logger.error('install failed', e)
+    handleInstall(req, res).catch((e: unknown) => {
+      // The second argument is a CONTEXT RECORD, not a second value. Passing the
+      // Error itself logs `{}` — an Error's message and stack are not own
+      // enumerable properties — so the failure vanished from the log entirely.
+      logger.error('install failed', {
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined
+      })
       res.status(200).send('ok')
     })
   })
 
   app.post('/uninstall', (req: Request, res: Response) => {
-    handleUninstall(req, res).catch((e) => {
-      logger.error('uninstall failed', e)
+    handleUninstall(req, res).catch((e: unknown) => {
+      // The second argument is a CONTEXT RECORD, not a second value. Passing the
+      // Error itself logs `{}` — an Error's message and stack are not own
+      // enumerable properties — so the failure vanished from the log entirely.
+      logger.error('uninstall failed', {
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined
+      })
       res.status(200).send('ok')
     })
   })

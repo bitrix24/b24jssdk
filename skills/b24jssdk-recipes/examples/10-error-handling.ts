@@ -196,7 +196,9 @@ async function checkSoftError($b24: TypeB24) {
   })
 
   if (!res.isSuccess) {
-    logger.info('Soft-error path worked:', res.getErrorMessages())
+    // Not `logger.info('…', res.getErrorMessages())`: the second argument is a
+    // context record, so an array lands as `{ '0': …, '1': … }`.
+    logger.info('Soft-error path worked', { errors: res.getErrorMessages() })
   } else {
     logger.warning('Expected a validation failure but the call succeeded')
   }

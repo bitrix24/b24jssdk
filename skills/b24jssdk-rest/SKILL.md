@@ -302,7 +302,7 @@ try {
   })
   if (!res.isSuccess) {
     // Soft errors (rare; usually you'll see throws)
-    logger.warn('non-success', res.getErrorMessages())
+    logger.warning('non-success', { errors: res.getErrorMessages() })
     return
   }
   return res.getData()!.result.item

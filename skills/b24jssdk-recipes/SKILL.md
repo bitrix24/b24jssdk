@@ -83,7 +83,7 @@ like a refactor, and `===` on a token is the bug it exists to prevent.
 ## Boot snippet (shared by all recipes)
 
 ```ts
-import { B24Hook, LoggerBrowser, type TypeB24 } from '@bitrix24/b24jssdk'
+import { B24Hook, ConsoleV2Handler, LogLevel, Logger, type TypeB24 } from '@bitrix24/b24jssdk'
 
 export function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
@@ -92,7 +92,14 @@ export function bootB24(): TypeB24 {
   return $b24
 }
 
-export const logger = LoggerBrowser.build('Recipe', process.env.NODE_ENV !== 'production')
+// Recipes run under Node, so the console handler is created explicitly with
+// `useStyles: false` — the browser factory emits ANSI-free CSS styling that a
+// terminal prints as literal noise.
+export const logger = Logger.create('Recipe')
+logger.pushHandler(new ConsoleV2Handler(
+  process.env.NODE_ENV === 'production' ? LogLevel.ERROR : LogLevel.INFO,
+  { useStyles: false }
+))
 ```
 
 The snippet is inlined into each recipe file for copy-paste convenience.

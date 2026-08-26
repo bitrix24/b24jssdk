@@ -5,6 +5,10 @@
  *
  * Shape taken from upstream `nuxt/ui` (`docs/app/workers/prettier.js`), which
  * this file was forked from and which has since fixed what #139 reported here.
+ * Compared against upstream `v4` at commit `b751eae` (2026-08-25) — statements
+ * below about what upstream does are true of that commit and may age, so check
+ * it again before treating them as current.
+ *
  * Two things it gets right and the fork did not:
  *
  * 1. **Every message gets exactly one reply.** `app/plugins/prettier.ts` parks
@@ -20,12 +24,16 @@
  *    worker start and buffered messages behind a flag that was never reset on
  *    failure.
  *
- * The one deliberate divergence: upstream hard-codes the CDN version, and has
- * the same drift this fork had — `3.8.2` in the worker against `^3.9.6` in its
- * package.json. Here `__PRETTIER_VERSION__` is substituted at build time from
- * the resolved `prettier` package (see `nuxt.config.ts`), so the version the
- * browser loads is the version the server prerendered with, and `pnpm up` moves
- * both together.
+ * The one deliberate divergence: upstream hard-codes the CDN version and has
+ * the same drift this fork had. Here it was `3.7.4` in the worker against
+ * `^3.9.6` in package.json; at `b751eae` upstream's own numbers are `3.8.2` and
+ * `^3.9.6`. `__PRETTIER_VERSION__` is substituted at build time from the
+ * resolved `prettier` package (see `nuxt.config.ts`), so the version the browser
+ * loads is the version the server prerendered with, and `pnpm up` moves both
+ * together.
+ *
+ * The CDN import is unpinned beyond its version — no SRI, and the site sets no
+ * CSP. That is unchanged by this file's history and tracked separately.
  */
 
 const CDN = `https://cdn.jsdelivr.net/npm/prettier@${__PRETTIER_VERSION__}`

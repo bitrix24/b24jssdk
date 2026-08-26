@@ -1,47 +1,12 @@
-import type { Options } from 'prettier'
 import { defu } from 'defu'
 import PrettierWorker from '@/workers/prettier.js?worker&inline'
+// Message routing lives in a browser-free module so it can be tested without a
+// Worker (#139) — this file cannot be imported outside Vite, because of the
+// `?worker&inline` specifier above.
+import { createPrettierWorkerApi } from '../utils/prettierWorkerApi'
+import type { SimplePrettier } from '../utils/prettierWorkerApi'
 
-export interface SimplePrettier {
-  format: (source: string, options?: Options) => Promise<string>
-}
-
-function createPrettierWorkerApi(worker: Worker): SimplePrettier {
-  let counter = 0
-  const handlers: any = {}
-
-  worker.addEventListener('message', (event) => {
-    const { uid, message, error } = event.data
-
-    if (!handlers[uid]) {
-      return
-    }
-
-    const [resolve, reject] = handlers[uid]
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete handlers[uid]
-
-    if (error) {
-      reject(error)
-    } else {
-      resolve(message)
-    }
-  })
-
-  function postMessage<T>(message: any) {
-    const uid = ++counter
-    return new Promise<T>((resolve, reject) => {
-      handlers[uid] = [resolve, reject]
-      worker.postMessage({ uid, message })
-    })
-  }
-
-  return {
-    format(source: string, options?: Options) {
-      return postMessage({ type: 'format', source, options })
-    }
-  }
-}
+export type { SimplePrettier }
 
 export default defineNuxtPlugin(async () => {
   let prettier: SimplePrettier

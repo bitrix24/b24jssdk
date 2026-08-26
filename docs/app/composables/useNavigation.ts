@@ -134,6 +134,13 @@ function groupChildrenByCategory(items: ContentNavigationItem[], slug: string): 
          * @memo this path
          */
         path: `/docs/${slug}`,
+        // No `class` here. It used to be
+        // `'restApiVersion' in category ? [`${category.restApiVersion}-only`] : undefined`,
+        // but no entry in the `categories` map above has that field, so the
+        // test was always false and the value always `undefined` — while the
+        // code read as though categories supported a version badge. Per-page
+        // version filtering is real and lives in `filterChildrenByRestapiVersion`
+        // below; it just never applied at the category level. (#139)
         children: categorized[category.id]
       })
     }

@@ -1,6 +1,6 @@
 # Testing
 
-<sub>Last reviewed: 2026-06-18.</sub>
+<sub>Last reviewed: 2026-08-26.</sub>
 
 > **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types, and their internals by `pnpm run skills:test`. Both install the recipes' own dependencies first — that directory is not a workspace member, so `express` / `grammy` / `node-cron` / `openai` live there rather than in the root manifest; see [README-DEPS.md](../../skills/b24jssdk-recipes/README-DEPS.md) for why. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
 
@@ -177,7 +177,7 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 
 ### Narrow exception: `*.unit.spec.ts`
 
-A small number of regression specs live inside `test/integration/<area>/` but are named `*.unit.spec.ts` (`batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`). They exercise pure-logic invariants — batch response parsing, log-context redaction, retry decision — that have nothing to verify against a live portal. They use `vi.spyOn(...).mockResolvedValue(...)` / `mockRejectedValue(...)` on the axios client, run without `.env.test` / `B24_HOOK`, and run in the `jsSdk:unit` project — the `*.unit.spec.ts` suffix routes them there, not to `jsSdk:integration`, even though they sit under `test/integration/`.
+A number of regression specs live inside `test/integration/<area>/` but are named `*.unit.spec.ts` — `batch-null-result.unit.spec.ts`, `http-logger-redaction.unit.spec.ts`, `retry-client-error.unit.spec.ts`, and everything under `test/integration/docs/`, which covers the documentation app rather than the SDK. They exercise pure-logic invariants — batch response parsing, log-context redaction, retry decision, the docs code-example transform, the page↔worker message contract — that have nothing to verify against a live portal. The list is illustrative, not exhaustive: the suffix is the rule. They use `vi.spyOn(...).mockResolvedValue(...)` / `mockRejectedValue(...)` on the axios client, run without `.env.test` / `B24_HOOK`, and run in the `jsSdk:unit` project — the `*.unit.spec.ts` suffix routes them there, not to `jsSdk:integration`, even though they sit under `test/integration/`.
 
 ### Narrow exception: `*.types.spec.ts`
 

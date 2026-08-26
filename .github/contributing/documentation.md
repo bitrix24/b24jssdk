@@ -1,6 +1,6 @@
 # Documentation
 
-<sub>Last reviewed: 2026-06-17.</sub>
+<sub>Last reviewed: 2026-08-26.</sub>
 
 > **Agent-facing mirror:** the same surface, condensed for agents generating usage code, lives in [`skills/`](../../skills/README.md). The skill set has its own maintenance playbook ([`maintenance.md`](../../.github/contributing/maintenance.md)). When the public docs change here, the matching skill files usually need a refresh in the same PR.
 
@@ -188,8 +188,9 @@ Only the imports and the span between the two markers are published. The
 wrapper function, the markers themselves and anything after `endregion: start`
 are stripped by [`docs/app/utils/codeTransform.ts`](../../docs/app/utils/codeTransform.ts),
 which also rewrites the `useB24()` live-portal override out of the published
-snippet. Body lines are dedented by exactly two spaces, so keep the wrapper at
-one level of indentation.
+snippet. Body lines are dedented by the smallest indentation shared by the
+region's non-blank lines, so the wrapper's level is removed whatever it is —
+two spaces, four, or a tab. Relative nesting inside the snippet is preserved.
 
 **Names must be unique by basename across the whole tree.** Examples are
 addressed by basename — that is what `name=` takes and what

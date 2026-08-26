@@ -154,4 +154,52 @@ describe('the real examples still transform exactly as before (#139)', () => {
     expect(bodyLines.length).toBeGreaterThan(1)
     expect(out).toContain('$b24')
   })
+
+  describe('#139b — indentation is measured, not assumed', () => {
+    // The dedent used to be a hard-coded `.slice(2)`, which is right only while
+    // every example is written with two-space indentation. These pin that an
+    // example indented some other way is dedented rather than mangled: the old
+    // implementation would have chopped two characters off each line, leaving a
+    // four-space example still indented and eating half of a tab-indented one.
+    const wrap = (body: string) => [
+      'export async function Action_demo() {',
+      '  // region: start ////',
+      body,
+      '  // endregion: start ////',
+      '}'
+    ].join('\n')
+
+    it('removes four-space indentation completely', () => {
+      const out = prepareCode(wrap(['    const a = 1', '    if (a) {', '      call()', '    }'].join('\n')))
+      expect(out).toBe('const a = 1\nif (a) {\n  call()\n}')
+    })
+
+    it('removes tab indentation completely', () => {
+      const out = prepareCode(wrap(['\tconst a = 1', '\tif (a) {', '\t\tcall()', '\t}'].join('\n')))
+      expect(out).toBe('const a = 1\nif (a) {\n\tcall()\n}')
+    })
+
+    it('takes the minimum from every line, not from the first one', () => {
+      const out = prepareCode(wrap(['  shallow()', '      deep()'].join('\n')))
+      expect(out).toBe('shallow()\n    deep()')
+    })
+
+    it('loses the first line\'s remaining indent to the final trim', () => {
+      // Documented, not desired. The function ends with `.trim()` on the joined
+      // result, so when the FIRST region line is deeper than the minimum its
+      // leading spaces go with it while later lines keep theirs. No example
+      // opens on a nested line — they all start at the region's own level — so
+      // this has no effect on anything shipped. Pinned so that if an example
+      // ever does, the behaviour is a known quirk rather than a mystery.
+      const out = prepareCode(wrap(['      deep()', '  shallow()'].join('\n')))
+      expect(out).toBe('deep()\nshallow()')
+    })
+
+    it('is not dragged to zero by a blank line inside the region', () => {
+      // A blank line has no indentation. Counting it would make the common
+      // indent 0 and leave the whole snippet indented.
+      const out = prepareCode(wrap(['    const a = 1', '', '    const b = 2'].join('\n')))
+      expect(out).toBe('const a = 1\n\nconst b = 2')
+    })
+  })
 })

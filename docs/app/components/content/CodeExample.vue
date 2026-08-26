@@ -77,7 +77,10 @@ const config = useRuntimeConfig()
 const el = ref<HTMLElement | null>(null)
 const wrapperContainer = ref<HTMLElement | null>(null)
 
-const { prepareTitle, isHasAction, runAction } = await useCodeExample()
+// Not awaited: `useCodeExample()` is synchronous, and awaiting it inside
+// `<script setup>` turns this component into an async one, adding a Suspense
+// barrier for nothing.
+const { prepareTitle, isHasAction, runAction } = useCodeExample()
 
 const { $prettier } = useNuxtApp()
 const toast = useToast()

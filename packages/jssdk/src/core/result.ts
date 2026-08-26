@@ -31,14 +31,14 @@ export interface IResult<T = any> {
    * Adds an error message or Error object to the result.
    * @param error The error message or Error object to be added.
    * @param key Error key. You can leave it blank. Then it will be generated automatically.
-   * @returns {IResult} The current Result object for chaining methods.
+   * @returns {IResult<T>} The current Result object for chaining methods.
    */
   addError: (error: Error | string, key?: string) => IResult<T>
   /**
    * Adds multiple errors to the result in a single call.
    *
    * @param errors An array of errors or strings that will be converted to errors.
-   * @returns {IResult} The current Result object for chaining methods.
+   * @returns {IResult<T>} The current Result object for chaining methods.
    */
   addErrors: (errors: (Error | string)[]) => IResult<T>
   /**

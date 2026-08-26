@@ -1,20 +1,21 @@
 {
+  // Extends the package config rather than restating its flags. A hand-copied
+  // strict-flag set drifts silently: `strict` does not imply `noUnusedLocals`,
+  // `noImplicitReturns` or `noPropertyAccessFromIndexSignature`, so a pin file
+  // could have passed here while the real build rejected it — which defeats the
+  // point of a project whose whole job is to catch what the other passes miss.
+  //
+  // Only the emit settings are overridden: this config never emits, it just
+  // type-checks the `*.types.spec.ts` pins for the `jsSdk:types` vitest project.
+  "extends": "../packages/jssdk/tsconfig.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "lib": ["ESNext", "DOM"],
-    "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "skipLibCheck": true,
     "noEmit": true,
-    "useDefineForClassFields": true,
-    "moduleDetection": "force",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "outDir": null,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["./**/*.types.spec.ts"]
+  "include": ["./**/*.types.spec.ts"],
+  "exclude": []
 }

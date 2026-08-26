@@ -136,7 +136,17 @@ named fields:
 ```ts
 logger.info('starting up')
 logger.warning('something looks off', { retries: 2 })
-logger.error('failure', { message: err.message, stack: err.stack })
+
+try {
+  await risky()
+} catch (err) {
+  // Never `logger.error('failure', err)` — an Error's message and stack are not
+  // own enumerable properties, so it serialises to `{}` and the reason is lost.
+  logger.error('failure', {
+    message: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined
+  })
+}
 ```
 
 Note `warning`, not `warn`. `isDev` toggles verbose output. To get SDK-internal
@@ -178,8 +188,8 @@ try {
 > **`requestInfo` is safe to log because `AjaxError` redacts it, not because
 > the call site is careful.** Its constructor runs the request params through
 > `redactSensitiveParams`, replacing `auth`, `token`, `secret`, `access_token`,
-> `refresh_token`, `client_secret`, `application_token`, `sessid`, `key` and
-> `signature` with `***REDACTED***`. So do not rebuild that context by hand from
+> `refresh_token`, `client_secret`, `application_token`, `password`, `sessid`,
+> `key` and `signature` with `***REDACTED***`. So do not rebuild that context by hand from
 > the original params — a hand-assembled `{ method, params }` inherits none of
 > that and will put a live credential into the log.
 

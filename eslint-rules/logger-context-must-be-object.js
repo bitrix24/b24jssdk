@@ -23,8 +23,9 @@
  * at the callsite. `logger.info('x', ctx)` is reported even when `ctx` really
  * does hold a record, because this is a syntax-only rule — it cannot see what a
  * variable holds, and the alternative (allow any identifier) permits exactly the
- * `logger.error('failed', e)` shape that motivated the rule. Spreading is the
- * escape hatch: `logger.info('x', { ...ctx })` states the intent and passes.
+ * `logger.error('failed', e)` shape that motivated the rule. Wrapping is the way
+ * out — `logger.info('x', { ...ctx })` passes, not through any special case but
+ * because it is an object literal like any other.
  *
  * That strictness is why the rule is enabled ONLY for
  * `skills/b24jssdk-recipes/**`. Hoisting the context into a variable is correct
@@ -36,6 +37,12 @@
  * Receiver and method matching mirror `require-catch-on-logger-call.js`, for the
  * same reason given there: syntax-only, so the receiver list is narrow rather
  * than type-derived.
+ *
+ * `logger.info('x', undefined)` is reported too. An earlier draft exempted it as
+ * "deliberately no context", but the rule cannot tell that from a context the
+ * author meant to build and forgot, and `logger.info('x')` already says "no
+ * context" without ambiguity. Exempting it would also be inconsistent with
+ * rejecting a known-good identifier.
  *
  * Not fixable. Wrapping the value automatically would have to guess a key name,
  * and for the `Error` case the correct fix is `{ message, stack }` rather than
@@ -101,12 +108,6 @@ export default {
 
         const second = node.arguments[1]
         if (!second || second.type === 'ObjectExpression') {
-          return
-        }
-
-        // A spread of a known-good record, or an explicit `undefined`, are both
-        // deliberate and readable at the callsite.
-        if (second.type === 'Identifier' && second.name === 'undefined') {
           return
         }
 

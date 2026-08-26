@@ -88,15 +88,10 @@ export default createConfigForNuxt({
   // structurally. It then serialises to `{}` and the failure vanishes from the
   // log. Two shipped recipes had exactly that.
   //
-  // Scoped to the SDK source AND to `skills/b24jssdk-recipes/examples/**`,
-  // which is the point: those files are shipped as guidance an agent copies, so
-  // a defect there is reproduced rather than contained. Syntax-only, like its
-  // two neighbours.
-  //
   // NOT covered — ESLint does not see inside a Markdown fence, so the same
   // misuse in a `SKILL.md` code block is caught only by the source-text guards
-  // in `test/integration/skills-recipes/recipe-hygiene.unit.spec.ts`. Making
-  // the fences themselves checkable is tracked separately.
+  // in `test/integration/skills-recipes/recipe-hygiene.unit.spec.ts`, and a
+  // wrong call SHAPE there is caught by neither (#402).
   // Scoped to the recipes ONLY, and deliberately so. The rule demands an object
   // literal at the callsite, which is a teaching convention rather than a
   // correctness rule: `const context = { … }; logger.info('x', context)` is

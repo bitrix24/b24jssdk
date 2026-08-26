@@ -155,7 +155,11 @@ describe('skills teach the current logger, not the removed one', () => {
   // does not catch that: it proves the list points at real files, never that the
   // list is complete.
   const skillFiles = readdirSync(skillsDir, { withFileTypes: true })
-    .filter(entry => entry.isDirectory())
+    // `isDirectory()` reports the DIRENT's own type, so it is false for a
+    // symlink even when the link points at a directory — which would silently
+    // skip a symlinked skill and hand back exactly the blind spot this
+    // discovery replaced.
+    .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
     .map(entry => `skills/${entry.name}/SKILL.md`)
     .filter(rel => existsSync(join(repoRoot, rel)))
 
@@ -164,8 +168,12 @@ describe('skills teach the current logger, not the removed one', () => {
 
   const read = (rel: string) => stripComments(readFileSync(join(repoRoot, rel), 'utf8'))
 
-  it('finds every skill file (an empty sweep would pass everything vacuously)', () => {
-    expect(skillFiles.length).toBeGreaterThanOrEqual(7)
+  it('finds the skill files (an empty sweep would pass everything vacuously)', () => {
+    // Not a headcount. Pinning today's number would fail on a legitimate skill
+    // removal for a reason unrelated to what this guards, and discovery already
+    // makes "the list went stale" impossible — this only rules out the sweep
+    // silently finding nothing.
+    expect(skillFiles.length).toBeGreaterThan(0)
   })
 
   it.each(allFiles)('%s does not use the removed LoggerBrowser / LoggerType', (rel) => {

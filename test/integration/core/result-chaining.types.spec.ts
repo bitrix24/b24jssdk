@@ -18,7 +18,9 @@
  *     the batch transport passing `BatchPayload<T>` described one envelope too
  *     many. See `BatchResponsePayload`.
  *
- * Portal-free (jsSdk:unit).
+ * Portal-free, and run by the `jsSdk:types` project — the `.types.spec.ts`
+ * suffix is what routes it there, and that project is the only one whose
+ * typecheck mode makes the `expectTypeOf` pins below capable of failing.
  */
 import { describe, it, expect, expectTypeOf } from 'vitest'
 import { Result } from '../../../packages/jssdk/src/core/result'

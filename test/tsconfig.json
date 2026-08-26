@@ -13,7 +13,11 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
-    "outDir": null,
+    // The parent emits declarations, so it infers a `rootDir` from the inputs —
+    // here that would be `test/`, and every `import` reaching into
+    // `packages/jssdk/src` would be "not under rootDir". Widened to the
+    // repository root. Nothing is written: `noEmit` is on.
+    "rootDir": "..",
     "types": ["node", "vitest/globals"]
   },
   "include": ["./**/*.types.spec.ts"],

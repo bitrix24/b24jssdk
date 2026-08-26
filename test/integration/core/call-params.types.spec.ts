@@ -5,7 +5,8 @@
  *  - v3 filter accepts the array of triples AND the `FilterV3` builder output
  *    (which may include AND/OR/NOT groups);
  *  - v3 still accepts a v2-style object for backward compatibility.
- * Portal-free (jsSdk:unit).
+ * Portal-free, and run by the `jsSdk:types` project — the only one whose
+ * typecheck mode makes these `expectTypeOf` pins capable of failing.
  */
 import { describe, it, expectTypeOf } from 'vitest'
 import type { TypeCallParamsV2, TypeCallParamsV3 } from '../../../packages/jssdk/src/types/http'

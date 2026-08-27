@@ -41,8 +41,14 @@ hiding it behind an import would cost more than the duplication does.
 Recipes 06 and 12 end with a guard instead of a bare `main()` call:
 
 ```ts
+import { pathToFileURL } from 'node:url'
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch(...)
+  main().catch((e: unknown) => {
+    // Raw console.error, so structured-logger formatting cannot hide the trace.
+    console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+    process.exitCode = 1
+  })
 }
 ```
 

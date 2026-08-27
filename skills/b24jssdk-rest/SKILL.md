@@ -77,6 +77,7 @@ const task = response.getData()!.result.task
 ## `batch.make` — array form
 
 ```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 import type { AjaxResult } from '@bitrix24/b24jssdk'
 
 interface Contact { id: number; name: string }
@@ -105,6 +106,7 @@ for (const r of results) {
 ## `batch.make` — named object form
 
 ```ts
+import type { AjaxResult } from '@bitrix24/b24jssdk'
 interface Contact { id: number; name: string }
 interface Deal { id: number; title: string }
 
@@ -128,6 +130,7 @@ Set `isHaltOnError: false` to collect per-command failures. **v3 batch is all-or
 To feed one v3 command's output into a later one, give it an `as` alias and reference it with the `BatchRefV3` markers (`import { BatchRefV3 } from '@bitrix24/b24jssdk'`): `BatchRefV3.ref('alias.item.id')` (single value) or `BatchRefV3.refArray('alias.id')` (a field collected across the alias's `items[]`). The server does the substitution.
 
 ```ts
+import type { AjaxResult } from '@bitrix24/b24jssdk'
 const response = await $b24.actions.v2.batch.make<{ item: Contact }>({
   calls: arrayOfCalls,
   options: { isHaltOnError: false, returnAjaxResult: true }
@@ -145,6 +148,7 @@ For **object / named-command** calls (`calls: { name: { method, params } }`), th
 Chunk size is 50 per Bitrix24 batch limit. The action splits and re-aggregates:
 
 ```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
 
 const calls: BatchCommandsArrayUniversal = ids.map((id) =>
@@ -167,6 +171,7 @@ const items = data.map((row) => row.item)
 Loads up to 1000 items into a single array. Internally pages with a keyset cursor on `cursorIdKey` (which defaults to `idKey`).
 
 ```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 import { Text } from '@bitrix24/b24jssdk'
 
 interface CrmItem { id: number; title: string }
@@ -201,6 +206,7 @@ const items = response.getData()! // CrmItem[]
 Async iterator that yields chunks. Same shape as `callList.make` plus an optional `limit` for v3.
 
 ```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 const generator = $b24.actions.v2.fetchList.make<CrmItem>({
   method: 'crm.item.list',
   params: {
@@ -220,6 +226,7 @@ for await (const chunk of generator) {
 For v3:
 
 ```ts
+import { Text } from '@bitrix24/b24jssdk'
 const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
   method: 'main.eventlog.list',
   params: {
@@ -279,6 +286,7 @@ Removed from the public surface for `3.0.0`:
 A per-command `result` inside a batch can legitimately be `null` (e.g. `im.chat.get` with non-matching params — see issue #23). Type the generic as `T | null` and handle the null branch — the SDK no longer coerces to `{}`.
 
 ```ts
+import type { AjaxResult } from '@bitrix24/b24jssdk'
 const response = await $b24.actions.v2.batch.make<{ result: ChatInfo | null }>({
   calls: { Chat: ['im.chat.get', { chat_id: 999999 }] },
   options: { returnAjaxResult: true }
@@ -295,26 +303,28 @@ if (chat === null) {
 ```ts
 import { AjaxError, SdkError } from '@bitrix24/b24jssdk'
 
-try {
-  const res = await $b24.actions.v2.call.make({
-    method: 'crm.item.get',
-    params: { entityTypeId: 2, id: 999_999 }
-  })
-  if (!res.isSuccess) {
-    // Soft errors (rare; usually you'll see throws)
-    logger.warning('non-success', { errors: res.getErrorMessages() })
-    return
-  }
-  return res.getData()!.result.item
-} catch (e) {
-  if (e instanceof AjaxError) {
-    // Bitrix24 REST error
-    logger.error('REST error', { code: e.code, status: e.status, message: e.message, requestInfo: e.requestInfo })
-  } else if (e instanceof SdkError) {
-    // SDK-level error (wrong API version, etc.)
-    logger.error('SDK error', { code: e.code, message: e.message })
-  } else {
-    throw e
+async function loadDeal() {
+  try {
+    const res = await $b24.actions.v2.call.make<{ item: Deal }>({
+      method: 'crm.item.get',
+      params: { entityTypeId: 2, id: 999_999 }
+    })
+    if (!res.isSuccess) {
+      // Soft errors (rare; usually you'll see throws)
+      logger.warning('non-success', { errors: res.getErrorMessages() })
+      return
+    }
+    return res.getData()!.result.item
+  } catch (e) {
+    if (e instanceof AjaxError) {
+      // Bitrix24 REST error
+      logger.error('REST error', { code: e.code, status: e.status, message: e.message, requestInfo: e.requestInfo })
+    } else if (e instanceof SdkError) {
+      // SDK-level error (wrong API version, etc.)
+      logger.error('SDK error', { code: e.code, message: e.message })
+    } else {
+      throw e
+    }
   }
 }
 ```

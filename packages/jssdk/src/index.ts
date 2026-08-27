@@ -48,6 +48,12 @@ export * from './tools/batch-ref-v3'
 export * from './hook/index'
 export * from './frame/index'
 export * from './oauth/index'
+// `B24HelperManager` has its own documentation page and the `b24jssdk-helpers`
+// skill teaches constructing it directly for backend code — but it was never
+// exported, so `import { B24HelperManager } from '@bitrix24/b24jssdk'` resolved
+// to nothing. Found by the skills fence typecheck (#402); additive, so no
+// existing code changes meaning.
+export * from './helper/helper-manager'
 export * from './helper/use-b24-helper'
 export * from './pullClient/index'
 export * from './loader-b24frame'

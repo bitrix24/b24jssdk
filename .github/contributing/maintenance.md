@@ -216,3 +216,43 @@ Before propagating a new operator / endpoint / pattern from VibeCode docs into a
 | Is X deprecated? | `packages/jssdk/README-AI.md` "Deprecation notice" + JSDoc `@deprecated` markers on classes |
 
 If the SDK source disagrees with the VibeCode docs, the SDK source wins.
+
+## 8. The fence typecheck
+
+`pnpm run skills:typecheck-blocks` compiles every ` ```ts ` fence in
+`skills/*/SKILL.md` against the built SDK types, the way `docs:typecheck-blocks`
+has guarded the documentation site since #109. It runs inside `pnpm run
+typecheck`, so the commit protocol in §5 already covers it — but know what it is
+for, because it changes how a skill edit should be written.
+
+**It is the reason the table in §7 is a fallback rather than the first move.** A
+claim you can express as code belongs in a fence, where the compiler checks it
+against the real signatures on every run. The table is for what a compiler
+cannot see: whether a portal supports a method, what a REST field means.
+
+The first run of this gate, on skills that had been reviewed by hand many times,
+found: a class the documentation gives its own page to and the package did not
+export (`B24HelperManager`); `helper.license` / `helper.payment`, which do not
+exist — the properties are `licenseInfo` / `paymentInfo`; `destroyB24Helper`
+imported from the package root when it is a member of `useB24Helper()`;
+`Text.toB24Format(...)` silently resolving to the DOM `Text` because the fence
+never imported the SDK's; `selectAccess({})` where the parameter is a `string[]`;
+and CRM ids written as `'D_42'` where the type is `number[]`.
+
+### Writing a fence that the gate can check
+
+- **Import what you use.** An SDK export is never ambient — see the header of
+  `.skills-typecheck/globals.d.ts` for why. An agent copying the fence needs the
+  import, so the fence must carry it.
+- **Fragments are declarations too.** `filter: { … }` alone is not TypeScript;
+  `const params = { filter: { … } }` is, and it also shows the reader where
+  `filter` actually lives.
+- **Placeholders belong in `globals.d.ts`** — a domain type, a handler the
+  reader writes, an id list they already have.
+- **`// @check-ignore` on the line before the fence** skips it. Use it when
+  making the snippet compile would misrepresent it, and say why in the marker.
+  It is the last resort: every ignored fence is a fence the gate stops checking.
+
+The gate proves a fence type-checks. It does not prove the method exists on a
+portal, or that the field names are right — that is what `skills:verify` (#113)
+is for.

@@ -40,6 +40,7 @@ logger.info(`Hello, ${me.getData()!.result.NAME}`)
 Alternative constructor (manual parts):
 
 ```ts
+import { B24Hook } from '@bitrix24/b24jssdk'
 const $b24 = new B24Hook({
   b24Url: 'https://your_domain.bitrix24.com',
   userId: 1,
@@ -163,24 +164,26 @@ $b24.setLogger(logger)
 ```ts
 import { AjaxError, SdkError } from '@bitrix24/b24jssdk'
 
-try {
-  const res = await $b24.actions.v2.call.make<{ item: Deal }>({
-    method: 'crm.item.get',
-    params: { entityTypeId: 2, id: 999_999 }
-  })
-  if (!res.isSuccess) {
-    // Soft errors only (see softErrorCodes below). Most failures throw.
-    logger.warning('non-success result', { errors: res.getErrorMessages() })
-    return
-  }
-  return res.getData()!.result.item
-} catch (e) {
-  if (e instanceof AjaxError) {
-    logger.error('REST error', { code: e.code, status: e.status, message: e.message, requestInfo: e.requestInfo })
-  } else if (e instanceof SdkError) {
-    logger.error('SDK error', { code: e.code, message: e.message })
-  } else {
-    throw e
+async function loadDeal() {
+  try {
+    const res = await $b24.actions.v2.call.make<{ item: Deal }>({
+      method: 'crm.item.get',
+      params: { entityTypeId: 2, id: 999_999 }
+    })
+    if (!res.isSuccess) {
+      // Soft errors only (see softErrorCodes below). Most failures throw.
+      logger.warning('non-success result', { errors: res.getErrorMessages() })
+      return
+    }
+    return res.getData()!.result.item
+  } catch (e) {
+    if (e instanceof AjaxError) {
+      logger.error('REST error', { code: e.code, status: e.status, message: e.message, requestInfo: e.requestInfo })
+    } else if (e instanceof SdkError) {
+      logger.error('SDK error', { code: e.code, message: e.message })
+    } else {
+      throw e
+    }
   }
 }
 ```
@@ -248,6 +251,7 @@ await $b24.setRestrictionManagerParams({
 For heavy long-running calls, also raise the axios timeout on the underlying HTTP client:
 
 ```ts
+import { ApiVersion } from '@bitrix24/b24jssdk'
 const clientAxios = $b24.getHttpClient(ApiVersion.v2).ajaxClient
 clientAxios.defaults.timeout = 120_000
 ```

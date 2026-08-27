@@ -110,4 +110,5 @@ coverage
 
 # docs-typecheck generated temp files (scripts/docs-typecheck.mjs)
 .docs-typecheck/tmp/
+.skills-typecheck/tmp/
 __pycache__/

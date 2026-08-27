@@ -104,7 +104,8 @@ const contact = single.contact?.[0]
 const picked: SelectedCRM = await $b24.dialog.selectCRM({
   entityType: ['deal', 'company'],
   multiple: true,
-  value: { deal: ['D_42'], company: ['CO_7'] }
+  // Numeric ids, not the prefixed `D_42` / `CO_7` form the dialog returns.
+  value: { deal: [42], company: [7] }
 })
 
 for (const deal of picked.deal ?? []) {
@@ -123,7 +124,8 @@ The id format is per entity:
 ## Dialog — pick access targets (`selectAccess`)
 
 ```ts
-const access = await $b24.dialog.selectAccess({ /* params */ })
+// The argument is a string[] of permission ids to block, not an options object.
+const access = await $b24.dialog.selectAccess([])
 ```
 
 Less commonly used. Returns the parent window's raw access-selection payload — refer to Bitrix24's selectAccess docs for the shape.
@@ -273,6 +275,7 @@ therefore always finish the install flow.
 <!-- Keep in sync: docs 30.frame.md (installFinish), docs 99.examples/20.app-installation-wizard.md, skills/b24jssdk-core/SKILL.md. -->
 
 ```ts
+import { initializeB24Frame } from '@bitrix24/b24jssdk'
 const $b24 = await initializeB24Frame()
 
 if ($b24.isInstallMode) {

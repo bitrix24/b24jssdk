@@ -92,8 +92,10 @@ fixes.
 > **This boundary is a policy, not an enforcement.** The `1.x` releases are still
 > published on npm and are not marked deprecated, so `npm i @bitrix24/b24jssdk@1`
 > installs one today without a warning. Marking them is a registry action rather
-> than a repository change; it is tracked separately. Until it happens, do not
-> read "unsupported" as "unavailable" — check the version you actually resolved.
+> than a repository change, so it cannot land in a pull request; it is tracked in
+> [#406](https://github.com/bitrix24/b24jssdk/issues/406). Until that happens, do
+> not read "unsupported" as "unavailable" — check the version you actually
+> resolved.
 
 A `3.0.0` is in preparation. When it ships, this table changes and the change
 will be announced in the release notes rather than only here.
@@ -109,8 +111,8 @@ wrong once.
   `auth`, `token`, `secret`, `access_token`, `refresh_token`, `client_secret`,
   `application_token`, `password`, `sessid`, `key` and `signature` from request
   params — including inside a query string, and two object levels deep, which is
-  what a batch payload needs — before they can reach a log sink. `AjaxError.requestInfo` carries no request
-  URL at all (#39, #40, #287).
+  what a batch payload needs — before they can reach a log sink.
+  `AjaxError.requestInfo` carries no request URL at all (#39, #40, #287).
 - **`SdkError.originalError` is non-enumerable.** It stays readable for local
   debugging, but a spread, `Object.keys()`, `JSON.stringify()` or a
   Sentry-style capture skips it, so a raw transport error carrying a secret in
@@ -161,10 +163,12 @@ We prefer coordinated disclosure: a fix released, then an advisory. If you plan
 to publish on your own schedule, tell us the date — we would rather work to your
 timeline than be surprised by it.
 
-If a report goes unanswered for two weeks, treat that as a failure on our side
-and escalate through
-[the Bitrix24 developer channels](https://apidocs.bitrix24.com/) rather than
-waiting indefinitely.
+If a report has gone unanswered long enough that you are wondering whether it
+was seen — a fortnight is a reasonable point to stop wondering — escalate
+through [the Bitrix24 developer channels](https://apidocs.bitrix24.com/) rather
+than waiting indefinitely. Read that as permission to stop being patient, not as
+a deadline we are promising to meet; the section above says why we do not commit
+to one, and it would be incoherent to commit to one here.
 
 ---
 

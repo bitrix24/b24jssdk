@@ -3,7 +3,7 @@
 //
 // Run with: node --test scripts/__tests__/md-internal-links.test.mjs
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -135,4 +135,18 @@ test('SECURITY.md is checked, not just AGENTS.md', () => {
     assert.match(result.stdout, /SECURITY\.md/)
     assert.match(result.stdout, /nope\.ts/)
   })
+})
+
+test('SECURITY.md exists in the repository', () => {
+  // Deliberately not a fixture test: this asserts the real file is there.
+  //
+  // Everything else here checks a document's CONTENT once it exists. Nothing
+  // checked that it does. `targetFiles()` skips a missing path with
+  // `existsSync`, `lint:md`'s glob matches nothing, and both exit 0 — so
+  // deleting the security policy is invisible to every gate in the repository,
+  // which for this particular file is worse than any stale link inside it.
+  assert.ok(
+    existsSync(join(REPO_ROOT, 'SECURITY.md')),
+    'SECURITY.md is the only documented route for reporting a vulnerability privately'
+  )
 })

@@ -31,51 +31,18 @@ const INTEGRATION_SKIP = !existsSync(TSC_BIN) || !existsSync(SDK_TYPES)
   ? 'requires pnpm install && pnpm run dev:prepare'
   : false
 
-// Import extractTsBlocks directly for unit testing.
-// The function is not exported, so we test it via a thin inline re-implementation
-// that mirrors the production logic exactly (keeping tests independent of internals).
-function extractTsBlocks(content, filePath = 'test.md') {
-  const fileLines = content.replace(/\r\n/g, '\n').split('\n')
-  const blocks = []
-  let inFence = false
-  let fenceLen = 0
-  let blockLines = []
-  let blockStart = 0
-  let skip = false
+// The REAL extractor, imported from the shared module.
+//
+// Until #402 this file carried an inline re-implementation, with a comment
+// saying it "mirrors the production logic exactly (keeping tests independent of
+// internals)". That is the wrong trade: 16 tests were passing against a copy, so
+// a bug introduced in the production extractor could not fail any of them —
+// which is precisely what a test of it is for. `extractTsBlocks` is exported now
+// that the engine is shared between the docs and skills gates, so the copy is
+// gone and these tests bind to the code that actually runs.
+import { extractTsBlocks as extract } from '../_typecheck-blocks.mjs'
 
-  for (let i = 0; i < fileLines.length; i++) {
-    const line = fileLines[i]
-
-    if (!inFence) {
-      const match = line.match(/^(`{3,})(typescript|ts)(?:\s+\[.*?\])?\s*$/)
-      if (!match) continue
-      fenceLen = match[1].length
-      inFence = true
-      blockLines = []
-      blockStart = i + 2
-
-      let prev = i - 1
-      while (prev >= 0 && fileLines[prev].trim() === '') prev--
-      skip = prev >= 0 && fileLines[prev].trim().startsWith('// @check-ignore')
-      continue
-    }
-
-    const close = line.match(/^(`{3,})\s*$/)
-    if (close && close[1].length >= fenceLen) {
-      if (!skip && blockLines.length > 0) {
-        blocks.push({ lines: [...blockLines], startLine: blockStart, filePath })
-      }
-      inFence = false
-      skip = false
-      blockLines = []
-      continue
-    }
-
-    if (!skip) blockLines.push(line)
-  }
-
-  return blocks
-}
+const extractTsBlocks = (content, filePath = 'test.md') => extract(content, filePath)
 
 // ── extractTsBlocks unit tests ────────────────────────────────────────────
 

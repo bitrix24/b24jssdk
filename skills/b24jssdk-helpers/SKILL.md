@@ -57,8 +57,8 @@ const me = helper.profileInfo.data
 const app = helper.appInfo.data
 const status = helper.appInfo.statusCode  // EnumAppStatus
 
-const license = helper.license  // for enterprise checks
-const payment = helper.payment
+const license = helper.licenseInfo  // for enterprise checks
+const payment = helper.paymentInfo
 
 const baseCurrency = helper.currency.baseCurrency
 ```
@@ -92,7 +92,9 @@ await helper.appOptions.save(
   }
 )
 
-const flags = helper.appOptions.getJsonObject<{ exportCsv: boolean; beta: boolean }>(
+// `getJsonObject` returns `object` — it takes no type argument. Cast at the
+// callsite if you want a shape.
+const flags = helper.appOptions.getJsonObject(
   'featureFlags',
   { exportCsv: false, beta: false }
 )
@@ -103,6 +105,7 @@ const flags = helper.appOptions.getJsonObject<{ exportCsv: boolean; beta: boolea
 ## Pull client (push events)
 
 ```ts
+import type { TypePullMessage } from '@bitrix24/b24jssdk'
 usePullClient()
 
 useSubscribePullClient((m: TypePullMessage) => {
@@ -127,6 +130,9 @@ useSubscribePullClient(handleCrmEvent, 'crm')
 To shut down (also tears the Pull client down):
 
 ```ts
+import { useB24Helper } from '@bitrix24/b24jssdk'
+
+const { destroyB24Helper } = useB24Helper()
 destroyB24Helper()
 ```
 

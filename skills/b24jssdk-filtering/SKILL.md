@@ -12,11 +12,13 @@ Bitrix24 has **two filter dialects**. They are not interchangeable — each API 
 Used by `$b24.actions.v2.{call,callList,fetchList}.make({ params: { filter: ... }})`. The operator is a prefix on the field name.
 
 ```ts
-filter: {
-  '>=opportunity': 50000,
-  '<=opportunity': 200000,
-  '!stageId': 'LOST',
-  '=%title': 'A%'
+const params = {
+  filter: {
+    '>=opportunity': 50000,
+    '<=opportunity': 200000,
+    '!stageId': 'LOST',
+    '=%title': 'A%'
+  }
 }
 ```
 
@@ -42,13 +44,13 @@ Multiple keys are combined with AND. Two operators on the same field need two se
 Plain array means `IN`:
 
 ```ts
-filter: { stageId: ['NEW', 'PREPARATION', 'EXECUTING'] }
+const params = { filter: { stageId: ['NEW', 'PREPARATION', 'EXECUTING'] } }
 ```
 
 For "not in":
 
 ```ts
-filter: { '!stageId': ['LOST', 'WON'] }
+const params = { filter: { '!stageId': ['LOST', 'WON'] } }
 ```
 
 ## v3 — array of triples
@@ -79,8 +81,8 @@ filter: [
 The two-arg form is sugar:
 
 ```ts
-['id', 42]            // same as ['id', '=', 42]
-['stageId', ['A', 'B']] // same as ['stageId', 'in', ['A', 'B']]
+const equals = ['id', 42]              // same as ['id', '=', 42]
+const oneOf = ['stageId', ['A', 'B']]  // same as ['stageId', 'in', ['A', 'B']]
 ```
 
 The long struct form supports nested groups with `or` logic and negation (rarely needed in user code):
@@ -107,6 +109,7 @@ The top-level array is implicitly `logic: 'and'`. The `type: 'filter'` key above
 For anything beyond a flat list of triples, prefer the `FilterV3` builder over hand-writing the structs — it validates operators and `in`/`between` shapes on the client (a typo fails fast instead of as a server `UNKNOWNFILTEROPERATOREXCEPTION`):
 
 ```ts
+import { Text } from '@bitrix24/b24jssdk'
 import { FilterV3 as F } from '@bitrix24/b24jssdk'
 
 // status = NEW  AND  (id in [1,2]  OR  id > 100)
@@ -148,10 +151,10 @@ const sixMonthsAgo = new Date()
 sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
 // v2
-filter: { '>=createdTime': Text.toB24Format(sixMonthsAgo) }
+const paramsV2 = { filter: { '>=createdTime': Text.toB24Format(sixMonthsAgo) } }
 
 // v3
-filter: [['createdTime', '>=', Text.toB24Format(sixMonthsAgo)]]
+const paramsV3 = { filter: [['createdTime', '>=', Text.toB24Format(sixMonthsAgo)]] }
 ```
 
 ## Field naming — v2 (classic vs v3-style)
@@ -192,6 +195,7 @@ select: ['id', 'title', 'responsible.name', 'responsible.email']
 ### v2 — open deals with amount range
 
 ```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 const response = await $b24.actions.v2.callList.make<CrmItem>({
   method: 'crm.item.list',
   params: {
@@ -211,6 +215,7 @@ const response = await $b24.actions.v2.callList.make<CrmItem>({
 ### v2 — contacts by phone substring
 
 ```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 const response = await $b24.actions.v2.callList.make<CrmItem>({
   method: 'crm.item.list',
   params: {
@@ -241,6 +246,7 @@ const response = await $b24.actions.v2.callList.make<TaskItem>({
 ### v3 — eventlog last 6 months
 
 ```ts
+import { Text } from '@bitrix24/b24jssdk'
 const sixMonthsAgo = new Date()
 sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 sixMonthsAgo.setHours(0, 0, 0, 0)
@@ -260,6 +266,7 @@ const response = await $b24.actions.v3.callList.make<EventItem>({
 ### v3 — IN / between
 
 ```ts
+import { Text } from '@bitrix24/b24jssdk'
 filter: [
   ['responsibleId', 'in', [1, 2, 3]],
   ['createdTime', 'between', ['2026-01-01T00:00:00+03:00', '2026-03-31T23:59:59+03:00']]

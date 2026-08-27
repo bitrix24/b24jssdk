@@ -115,3 +115,24 @@ test('md-internal-links: links inside code fences (incl. nested 4-backtick) are 
     assert.match(r.stdout, /1 internal link\(s\) checked/)
   })
 })
+
+test('SECURITY.md is checked, not just AGENTS.md', () => {
+  // The root file list is hand-written, so a new root document is covered only
+  // if someone remembers to add it. SECURITY.md points at `redact.ts` and the
+  // three lint rules as the defences a reporter should probe — a link rotting
+  // there sends someone hunting for a moved file, in the one document that gets
+  // read under time pressure.
+  withFixture((root) => {
+    writeFile(root, 'SECURITY.md', [
+      'See [redact](packages/jssdk/src/core/http/redact.ts).',
+      'And [gone](packages/jssdk/src/core/http/nope.ts).'
+    ])
+    writeFile(root, 'packages/jssdk/src/core/http/redact.ts', ['// x'])
+
+    const result = runCheck(root)
+
+    assert.equal(result.status, 1, 'a broken link in SECURITY.md must fail the check')
+    assert.match(result.stdout, /SECURITY\.md/)
+    assert.match(result.stdout, /nope\.ts/)
+  })
+})

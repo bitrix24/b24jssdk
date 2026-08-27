@@ -89,6 +89,12 @@ Full documentation: [https://bitrix24.github.io/b24jssdk/](https://bitrix24.gith
 
 See [AGENTS.md](./AGENTS.md) for contributor and AI agent guidance.
 
+## Security
+
+Found a vulnerability? Please report it privately —
+[see SECURITY.md](./SECURITY.md), which also explains what belongs here and what
+belongs to Bitrix24 itself.
+
 ## Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md).

@@ -26,9 +26,16 @@ const ROOT = process.env.MD_INTERNAL_LINKS_ROOT
 
 function targetFiles() {
   const files = []
-  const agents = join(ROOT, 'AGENTS.md')
-  if (existsSync(agents)) {
-    files.push(agents)
+  // Root-level docs that link into the tree. SECURITY.md joined the list when
+  // it was written: it points at `redact.ts` and the three lint rules as the
+  // defences a reporter should probe, so a link that rots there sends someone
+  // hunting for a file that moved — in the one document read under time
+  // pressure.
+  for (const name of ['AGENTS.md', 'SECURITY.md']) {
+    const path = join(ROOT, name)
+    if (existsSync(path)) {
+      files.push(path)
+    }
   }
   const contribDir = join(ROOT, '.github', 'contributing')
   if (existsSync(contribDir)) {

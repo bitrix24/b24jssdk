@@ -8,7 +8,7 @@
 //
 // Run with: node --test scripts/__tests__/docs-lint.test.mjs
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -152,6 +152,41 @@ test('checkAuditFreshness: a .md source never ages a page; a .ts source does', (
   assert.equal(warns.length, 1)
   assert.match(warns[0], /result\.ts/)
   assert.doesNotMatch(warns[0], /SKILL\.md/)
+})
+
+test('gitLastCommitDate: an uncommitted edit to a cited source ages the page', () => {
+  // The trap this closes, twice hit in practice: the freshness check read only
+  // committed history, so running it with a cited source modified-but-not-yet-
+  // committed reported on a state that no longer existed — clean locally, red in
+  // CI the moment the commit landed.
+  //
+  // Driven through the real `gitLastCommitDate` (no `getCommitDate` seam) so the
+  // git plumbing itself is exercised: dirty the file, expect a warning; restore
+  // it, expect none.
+  const cited = 'packages/jssdk/src/types/payloads.ts'
+  const abs = join(REPO_ROOT, cited)
+  const original = readFileSync(abs, 'utf8')
+  const frontmatter = {
+    audited: '2020-01-01',
+    links: [`label: Code\nto: https://github.com/bitrix24/b24jssdk/blob/main/${cited}`]
+  }
+
+  const cleanWarns = []
+  checkAuditFreshness('page.md', frontmatter, { warn: (_f, m) => cleanWarns.push(m) })
+  // The audited date is deliberately ancient, so a committed source warns too —
+  // that is the baseline the dirty case has to beat, not a bug.
+  assert.equal(cleanWarns.length, 1)
+
+  try {
+    writeFileSync(abs, original + '\n// probe\n', 'utf8')
+    const dirtyWarns = []
+    checkAuditFreshness('page.md', frontmatter, { warn: (_f, m) => dirtyWarns.push(m) })
+    assert.equal(dirtyWarns.length, 1)
+    // Today's date, not the last commit's — that is the whole point.
+    assert.match(dirtyWarns[0], new RegExp(`modified on ${new Date().toISOString().slice(0, 10)}`))
+  } finally {
+    writeFileSync(abs, original, 'utf8')
+  }
 })
 
 // ── checkFrontmatterLinkTargets (#117) ───────────────────────────────────

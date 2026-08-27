@@ -78,6 +78,25 @@ function gitLastCommitDate(localPath) {
       ['log', '-1', '--format=%cI', '--', localPath],
       { cwd: REPO_ROOT, encoding: 'utf8' }
     ).trim()
+
+    // An uncommitted edit counts as "modified now".
+    //
+    // Without this the check reads only committed history, so running it with a
+    // cited source modified-but-not-yet-committed reports on a state that no
+    // longer exists — it passes locally and then fails in CI the moment the
+    // commit lands. That happened twice in a row, the second time immediately
+    // after the lesson was written down, which is the evidence that "remember to
+    // run it after committing" is not a workable rule. Reading the working tree
+    // makes the local run agree with CI whatever the commit state.
+    const dirty = execFileSync(
+      'git',
+      ['status', '--porcelain', '--', localPath],
+      { cwd: REPO_ROOT, encoding: 'utf8' }
+    ).trim()
+    if (dirty) {
+      return new Date().toISOString()
+    }
+
     return out || null
   } catch {
     return null

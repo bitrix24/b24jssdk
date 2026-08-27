@@ -8,7 +8,7 @@
 //
 // Run with: node --test scripts/__tests__/docs-lint.test.mjs
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseFrontmatter, walkMarkdownFiles, isFreshnessTrackedSource } from '../_docs-utils.mjs'
-import { checkAuditFreshness, checkFrontmatterLinkTargets } from '../docs-lint.mjs'
+import { checkAuditFreshness, checkFrontmatterLinkTargets, parseDirtyPaths, gitLastCommitDate } from '../docs-lint.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..', '..')
@@ -163,29 +163,102 @@ test('gitLastCommitDate: an uncommitted edit to a cited source ages the page', (
   // Driven through the real `gitLastCommitDate` (no `getCommitDate` seam) so the
   // git plumbing itself is exercised: dirty the file, expect a warning; restore
   // it, expect none.
-  const cited = 'packages/jssdk/src/types/payloads.ts'
+  // A throwaway file inside the repo, never a tracked source. An earlier draft
+  // appended a probe line to `packages/jssdk/src/types/payloads.ts` and restored
+  // it in a `finally` — which loses the race if the runner is killed or times
+  // out, leaving a real source file corrupted. `git status` needs the path to be
+  // inside the work tree, but it does not need it to be one that matters.
+  const cited = 'packages/jssdk/src/.docs-lint-freshness-probe.ts'
   const abs = join(REPO_ROOT, cited)
-  const original = readFileSync(abs, 'utf8')
   const frontmatter = {
     audited: '2020-01-01',
     links: [`label: Code\nto: https://github.com/bitrix24/b24jssdk/blob/main/${cited}`]
   }
 
-  const cleanWarns = []
-  checkAuditFreshness('page.md', frontmatter, { warn: (_f, m) => cleanWarns.push(m) })
-  // The audited date is deliberately ancient, so a committed source warns too —
-  // that is the baseline the dirty case has to beat, not a bug.
-  assert.equal(cleanWarns.length, 1)
+  try {
+    writeFileSync(abs, '// probe\n', 'utf8')
+    const warns = []
+    checkAuditFreshness('page.md', frontmatter, { warn: (_f, m) => warns.push(m) })
+
+    assert.equal(warns.length, 1, 'an untracked/dirty cited source must age the page')
+    // Today's date, not a commit's — that is the whole point. The file has no
+    // commit at all, so reading history alone would have skipped it silently.
+    assert.match(warns[0], new RegExp(`modified on ${new Date().toISOString().slice(0, 10)}`))
+  } finally {
+    rmSync(abs, { force: true })
+  }
+})
+
+test('parseDirtyPaths: reads every shape git status --porcelain emits', () => {
+  const paths = parseDirtyPaths([
+    ' M packages/jssdk/src/types/http.ts', // modified, unstaged
+    'M  packages/jssdk/src/index.ts', // staged
+    'MM scripts/docs-lint.mjs', // staged and modified again
+    '?? scripts/new-thing.mjs', // untracked
+    'A  docs/content/docs/new-page.md', // added
+    'R  old/name.ts -> packages/jssdk/src/renamed.ts', // rename: destination wins
+    '?? "docs/content/a file with spaces.md"' // quoted
+  ].join('\n'))
+
+  assert.ok(paths.has('packages/jssdk/src/types/http.ts'))
+  assert.ok(paths.has('packages/jssdk/src/index.ts'))
+  assert.ok(paths.has('scripts/docs-lint.mjs'))
+  assert.ok(paths.has('scripts/new-thing.mjs'))
+  assert.ok(paths.has('docs/content/docs/new-page.md'))
+  // The rename records where the file IS, not where it was.
+  assert.ok(paths.has('packages/jssdk/src/renamed.ts'))
+  assert.ok(!paths.has('old/name.ts'))
+  assert.ok(paths.has('docs/content/a file with spaces.md'))
+  assert.equal(paths.size, 7)
+})
+
+test('gitLastCommitDate: a dirty TRACKED source reports now, not its commit date', () => {
+  // The primary case, and the one neither probe-file test reaches: both exit
+  // through the untracked/ignored fallback, so disabling the dirty branch left
+  // them green. Tested at the function that owns the branch, with `isDirty`
+  // injected — the alternative, dirtying a real tracked source, is the exact
+  // hazard the probe tests were rewritten to avoid.
+  const cited = 'packages/jssdk/src/core/result.ts'
+  const today = new Date().toISOString().slice(0, 10)
+
+  const clean = gitLastCommitDate(cited, () => false)
+  assert.ok(clean, 'a tracked file must have a commit date')
+  assert.notEqual(clean.slice(0, 10), today, 'fixture assumption: result.ts was not committed today')
+
+  const dirty = gitLastCommitDate(cited, () => true)
+  assert.equal(dirty.slice(0, 10), today, 'a dirty source must report as modified now')
+})
+
+test('gitLastCommitDate: a gitignored cited source ages the page too', () => {
+  // The narrower half of the same trap, and the one the test above does NOT
+  // reach: an untracked file shows up in `git status` as `??`, so it exits
+  // through the dirty branch. A GITIGNORED file appears in neither `git status`
+  // nor `git log` — so before this it returned null and the page was skipped in
+  // silence, which is the worst of the three outcomes.
+  //
+  // `.docs-typecheck/tmp/` is ignored by .gitignore:112, which is what makes it
+  // usable here.
+  const dir = join(REPO_ROOT, '.docs-typecheck', 'tmp')
+  const cited = '.docs-typecheck/tmp/freshness-probe.ts'
+  const abs = join(REPO_ROOT, cited)
+  mkdirSync(dir, { recursive: true })
 
   try {
-    writeFileSync(abs, original + '\n// probe\n', 'utf8')
-    const dirtyWarns = []
-    checkAuditFreshness('page.md', frontmatter, { warn: (_f, m) => dirtyWarns.push(m) })
-    assert.equal(dirtyWarns.length, 1)
-    // Today's date, not the last commit's — that is the whole point.
-    assert.match(dirtyWarns[0], new RegExp(`modified on ${new Date().toISOString().slice(0, 10)}`))
+    writeFileSync(abs, '// probe\n', 'utf8')
+    // Precondition, asserted rather than assumed: git must be blind to it both ways.
+    assert.equal(spawnSync('git', ['status', '--porcelain', '--', cited], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.trim(), '')
+    assert.equal(spawnSync('git', ['log', '-1', '--format=%cI', '--', cited], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.trim(), '')
+
+    const warns = []
+    checkAuditFreshness('page.md', {
+      audited: '2020-01-01',
+      links: [`label: Code\nto: https://github.com/bitrix24/b24jssdk/blob/main/${cited}`]
+    }, { warn: (_f, m) => warns.push(m) })
+
+    assert.equal(warns.length, 1, 'a cited source git cannot vouch for must age the page')
+    assert.match(warns[0], new RegExp(`modified on ${new Date().toISOString().slice(0, 10)}`))
   } finally {
-    writeFileSync(abs, original, 'utf8')
+    rmSync(abs, { force: true })
   }
 })
 

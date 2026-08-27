@@ -62,7 +62,53 @@ function extractGithubLinkPaths(arrayItems) {
   return paths
 }
 
-function gitLastCommitDate(localPath) {
+/**
+ * Paths with uncommitted changes, as one lookup for the whole run.
+ *
+ * One `git status` for the repository instead of one per cited link: there are
+ * ~84 audited links, and a spawn each doubled the process count of the script
+ * for information a single call already contains.
+ *
+ * Built lazily, so runs that never reach a freshness check pay nothing.
+ */
+/**
+ * Parse `git status --porcelain` into the set of paths it reports.
+ *
+ * Exported and pure so the parsing is testable without dirtying a real file:
+ * proving the rename and quoting cases by making the repository actually
+ * contain them would be far more hazardous than the bug it guards.
+ *
+ * Each line is `XY path`, or `XY old -> new` for a rename — the destination is
+ * the path that now exists. Paths containing a space or a non-ASCII byte come
+ * back quoted.
+ */
+export function parseDirtyPaths(porcelain) {
+  const paths = new Set()
+  for (const line of porcelain.split('\n')) {
+    if (!line.trim()) continue
+    const parts = line.slice(3).trim().split(' -> ')
+    paths.add(parts[parts.length - 1].replace(/^"|"$/g, ''))
+  }
+  return paths
+}
+
+let dirtyPaths = null
+function isDirty(localPath) {
+  if (dirtyPaths === null) {
+    try {
+      dirtyPaths = parseDirtyPaths(
+        execFileSync('git', ['status', '--porcelain'], { cwd: REPO_ROOT, encoding: 'utf8' })
+      )
+    } catch {
+      // No git, or not a repository. Freshness then rests on `git log` alone,
+      // which is what this check did before.
+      dirtyPaths = new Set()
+    }
+  }
+  return dirtyPaths.has(localPath)
+}
+
+export function gitLastCommitDate(localPath, isDirtyImpl = isDirty) {
   const abs = join(REPO_ROOT, localPath)
   try {
     statSync(abs)
@@ -88,16 +134,16 @@ function gitLastCommitDate(localPath) {
     // after the lesson was written down, which is the evidence that "remember to
     // run it after committing" is not a workable rule. Reading the working tree
     // makes the local run agree with CI whatever the commit state.
-    const dirty = execFileSync(
-      'git',
-      ['status', '--porcelain', '--', localPath],
-      { cwd: REPO_ROOT, encoding: 'utf8' }
-    ).trim()
-    if (dirty) {
+    if (isDirtyImpl(localPath)) {
       return new Date().toISOString()
     }
 
-    return out || null
+    // Exists on disk, yet git knows no commit for it — it is gitignored, and
+    // `git status --porcelain` does not list an ignored path either. Both of
+    // this function's signals are blind to it, so the audit cannot be vouched
+    // for against history at all: warn rather than skip the page in silence,
+    // which was the previous behaviour and the least useful of the three.
+    return out || new Date().toISOString()
   } catch {
     return null
   }
@@ -144,7 +190,7 @@ function checkActionSkeleton(file, body) {
 export function checkAuditFreshness(file, frontmatter, deps = {}) {
   if (!frontmatter.audited) return
   // Dependency seams so tests can exercise the skip logic without a git history.
-  const getCommitDate = deps.getCommitDate || gitLastCommitDate
+  const getCommitDate = deps.getCommitDate || (path => gitLastCommitDate(path, deps.isDirty))
   const warn = deps.warn || ((f, m) => log('warn', f, m))
   const auditedDate = new Date(frontmatter.audited + 'T23:59:59Z')
   const ghPaths = extractGithubLinkPaths(frontmatter.links || [])

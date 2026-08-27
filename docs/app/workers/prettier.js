@@ -1,5 +1,3 @@
-/* global __PRETTIER_VERSION__ */
-
 /**
  * Client-side formatting worker.
  *
@@ -24,19 +22,28 @@
  *    worker start and buffered messages behind a flag that was never reset on
  *    failure.
  *
- * The one deliberate divergence: upstream hard-codes the CDN version and has
- * the same drift this fork had. Here it was `3.7.4` in the worker against
- * `^3.9.6` in package.json; at `b751eae` upstream's own numbers are `3.8.2` and
- * `^3.9.6`. `__PRETTIER_VERSION__` is substituted at build time from the
- * resolved `prettier` package (see `nuxt.config.ts`), so the version the browser
- * loads is the version the server prerendered with, and `pnpm up` moves both
- * together.
+ * The deliberate divergence: upstream loads prettier from jsDelivr. This does
+ * not (#399).
  *
- * The CDN import is unpinned beyond its version — no SRI, and the site sets no
- * CSP. That is unchanged by this file's history and tracked separately.
+ * Fetching it meant the page executed six third-party modules that nothing
+ * verified. A dynamic `import()` cannot carry an `integrity` attribute, so SRI
+ * was not available even in principle, and the site sets no CSP — there was no
+ * second line of defence either. The version was at least pinned, after this
+ * fork and upstream both drifted (`3.7.4`, then `3.8.2` upstream, against
+ * `^3.9.6` in package.json), but a pinned version off a CDN is still a promise
+ * from the CDN.
+ *
+ * `prettier` is already a dependency of this package — the server imports it
+ * directly to prerender the same snippets — so the browser was fetching a copy
+ * of something already on disk. It is bundled now: no third-party origin, no
+ * integrity question, and the version cannot drift from the prerenderer's
+ * because it IS the prerenderer's.
+ *
+ * The imports stay dynamic so the parsers remain a lazy chunk, fetched on the
+ * first format rather than at page load. They are also why this worker is no
+ * longer `?worker&inline`: inlining a base64 copy of the parsers into the entry
+ * bundle would trade a supply-chain problem for a page-weight one.
  */
-
-const CDN = `https://cdn.jsdelivr.net/npm/prettier@${__PRETTIER_VERSION__}`
 
 let _prettier
 let _plugins
@@ -66,13 +73,15 @@ function handleMessage(message) {
 
 async function handleFormatMessage(message) {
   if (!_prettier) {
+    // `markdown` is the parser every callsite asks for; the other four are what
+    // it delegates to for a fenced code block inside the document.
     const [prettierModule, ...plugins] = await Promise.all([
-      import(`${CDN}/standalone.mjs`),
-      import(`${CDN}/plugins/babel.mjs`),
-      import(`${CDN}/plugins/estree.mjs`),
-      import(`${CDN}/plugins/html.mjs`),
-      import(`${CDN}/plugins/markdown.mjs`),
-      import(`${CDN}/plugins/typescript.mjs`)
+      import('prettier/standalone'),
+      import('prettier/plugins/babel'),
+      import('prettier/plugins/estree'),
+      import('prettier/plugins/html'),
+      import('prettier/plugins/markdown'),
+      import('prettier/plugins/typescript')
     ])
     _prettier = prettierModule
     _plugins = plugins

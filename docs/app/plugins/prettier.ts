@@ -1,8 +1,12 @@
 import { defu } from 'defu'
-import PrettierWorker from '@/workers/prettier.js?worker&inline'
+// Not `&inline`: the worker now bundles prettier instead of fetching it from a
+// CDN (#399), and inlining that as a base64 blob would put the parsers in the
+// entry bundle. As a separate chunk they are fetched when a page actually
+// formats something.
+import PrettierWorker from '@/workers/prettier.js?worker'
 // Message routing lives in a browser-free module so it can be tested without a
 // Worker (#139) — this file cannot be imported outside Vite, because of the
-// `?worker&inline` specifier above.
+// `?worker` specifier above.
 import { createPrettierWorkerApi } from '../utils/prettierWorkerApi'
 import type { SimplePrettier } from '../utils/prettierWorkerApi'
 
@@ -18,8 +22,20 @@ export default defineNuxtPlugin(async () => {
       }
     }
   } else {
-    const worker = new PrettierWorker()
-    prettier = createPrettierWorkerApi(worker)
+    // The worker is constructed on the FIRST format, not at plugin setup.
+    //
+    // Since #399 it bundles prettier rather than fetching it from a CDN, so the
+    // worker script is ~500 KB gzipped — building it eagerly would download the
+    // parsers on every page load, including the many pages that never format
+    // anything. Deferring it restores the old timing: nothing is fetched until a
+    // snippet actually needs formatting.
+    let api: SimplePrettier | undefined
+    prettier = {
+      format(source, options) {
+        api ??= createPrettierWorkerApi(new PrettierWorker())
+        return api.format(source, options)
+      }
+    }
   }
 
   return {

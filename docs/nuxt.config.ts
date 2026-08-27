@@ -1,26 +1,10 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { createRequire } from 'node:module'
 import { createResolver } from '@nuxt/kit'
 import pkg from '../package.json'
 import { withoutTrailingSlash } from 'ufo'
 
 const { resolve } = createResolver(import.meta.url)
-
-/**
- * The version of prettier actually installed here, injected into the client
- * worker so it loads the same one from the CDN.
- *
- * Server-side formatting imports `prettier` from node_modules; the worker used
- * to hard-code a CDN version, and the two had drifted (3.7.4 against 3.9.6).
- * That is a silent inconsistency of exactly the kind a docs site should not
- * have: the same snippet came out formatted one way during prerender and
- * another way after hydration. Reading the resolved version means a `pnpm up`
- * moves both sides together.
- */
-const prettierVersion: string = JSON.parse(
-  readFileSync(createRequire(import.meta.url).resolve('prettier/package.json'), 'utf8')
-).version
 
 // Prerender list is derived from the filesystem (#96) so a new page can't be
 // forgotten and silently 404 on the /raw/<page>.md path (crawlLinks only finds
@@ -226,9 +210,13 @@ export default defineNuxtConfig({
   },
 
   vite: {
-    define: {
-      // Consumed by app/workers/prettier.js — see `prettierVersion` above.
-      __PRETTIER_VERSION__: JSON.stringify(prettierVersion)
+    worker: {
+      // Vite builds a worker as an IIFE by default, and an IIFE cannot be code
+      // split — so every dynamic `import()` inside the worker is inlined into
+      // it. That put all of prettier into the worker script itself (#399).
+      // As an ES module the parsers stay a separate chunk, fetched on the first
+      // format rather than with the worker.
+      format: 'es'
     },
     server: {
       // Fix: "Blocked request. This host is not allowed" when using tunnels like ngrok

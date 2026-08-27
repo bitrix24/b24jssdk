@@ -1,5 +1,7 @@
 # Security policy
 
+<sub>Last reviewed: 2026-08-27.</sub>
+
 ## Reporting a vulnerability
 
 **Use GitHub's private vulnerability reporting:**
@@ -106,8 +108,8 @@ wrong once.
   ([`core/http/redact.ts`](packages/jssdk/src/core/http/redact.ts)) strips
   `auth`, `token`, `secret`, `access_token`, `refresh_token`, `client_secret`,
   `application_token`, `password`, `sessid`, `key` and `signature` from request
-  params — including inside a query string and one level into a batch payload —
-  before they can reach a log sink. `AjaxError.requestInfo` carries no request
+  params — including inside a query string, and two object levels deep, which is
+  what a batch payload needs — before they can reach a log sink. `AjaxError.requestInfo` carries no request
   URL at all (#39, #40, #287).
 - **`SdkError.originalError` is non-enumerable.** It stays readable for local
   debugging, but a spread, `Object.keys()`, `JSON.stringify()` or a
@@ -130,13 +132,28 @@ wrong once.
 
 ### Known limits
 
+- **Redaction stops two object levels down.** That depth is chosen to cover a
+  batch payload (`{ cmd: [{ method, params: { … } }] }`); a credential nested
+  deeper is **not** masked. Redact at the callsite for those.
+- **The query-string pass only matches a bare `key=value`.** A bracketed or
+  encoded key — `auth[application_token]=` — is not caught by the string pass,
+  and a credential appearing after a newline inside a multi-line string value is
+  not caught either.
 - The lint rules are syntax-only: they cannot see a credential through string
   interpolation, so `` logger.debug(`GET ${url}`) `` passes them. Log the bare
-  method name.
+  method name. `no-credential-in-logger` also leaves `auth` and `sessid` out of
+  its vocabulary on purpose, to avoid false positives, and relies on the runtime
+  redactor for those two.
 - Redaction applies to `AjaxError`. An `SdkError` you construct yourself is not
   redacted — do not interpolate params, a filter, or a URL into its description.
 - A `filter` legitimately carries user data. It is not treated as a credential,
   and it is not redacted.
+
+The first two are recorded as accepted residual risk in
+[`redact.ts`](packages/jssdk/src/core/http/redact.ts) itself, with the reasoning.
+They are listed here so a report about them arrives knowing that, rather than
+being told afterwards — and so a leak that falls *outside* them is not dismissed
+as already-known.
 
 ## Public disclosure
 
@@ -148,3 +165,11 @@ If a report goes unanswered for two weeks, treat that as a failure on our side
 and escalate through
 [the Bitrix24 developer channels](https://apidocs.bitrix24.com/) rather than
 waiting indefinitely.
+
+---
+
+<sub>This document cites specific internals — the redaction key list, three lint
+rules, an end-of-life date. `docs-lint --strict` does not reach root files, so
+nothing fails when those drift. Re-read it against the source whenever
+`redact.ts`, `eslint-rules/` or the supported-version table changes, and move the
+stamp above.</sub>

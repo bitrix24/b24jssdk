@@ -66,7 +66,17 @@ That makes it the one green line in this suite that proves nothing on its own �
 | `SOFT` | the server rejected it (`METHODNOTFOUNDEXCEPTION` = no `*.aggregate` on that module) | Expected for most modules today. Record it. |
 | `THROW` | the SDK or transport failed | **This is a defect worth reporting** — the SDK should surface a server rejection softly, not throw. |
 
-Paste the whole block into #113. If every line is `SOFT` or `THROW`, the
+::warning
+**An `OK` line prints real numbers off your portal** — `count` buckets are actual
+row counts for that module (deals, leads, contacts). The rest of this document
+already tells you to replace the domain with a placeholder before posting; the
+same applies here, and more so. Run the survey against a **demo or development
+portal**. If you only have a production one, post the *shape* of the buckets and
+the module names, and replace the counts with `<n>` — what #113 needs to know is
+which modules answered, not how many deals you have.
+::
+
+Paste the block into #113, redacted as above. If every line is `SOFT` or `THROW`, the
 conclusion is that `AggregateV3` stays `@experimental`, the docs keep telling
 readers to reduce a `callList` client-side, and `AjaxResult.getTotal()` remains
 the only count available under `restApi:v2` — which is why it was kept out of the

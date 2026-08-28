@@ -154,10 +154,14 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * more rows". Do not branch on it for v3; there is nothing to read.
    *
    * This is a reader for a protocol field, not a deprecated API: it stays for as
-   * long as `restApi:v2` does. For iterating pages, prefer the list helpers,
-   * which hide pagination for both protocol versions:
-   *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
-   *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
+   * long as `restApi:v2` does — but be clear about what it is good for. Its
+   * actionable counterpart, {@link AjaxResult.getNext}, **is** removed in
+   * `3.0.0`, so from that release `isMore()` is a **diagnostic** — it tells you
+   * the portal has more rows, and gives you nothing to do about it. To actually
+   * page, use the list helpers, which hide pagination for both protocol
+   * versions:
+   *   - `restApi:v2`: `b24.actions.v2.callList.make` or `b24.actions.v2.fetchList.make`
+   *   - `restApi:v3`: `b24.actions.v3.callList.make` or `b24.actions.v3.fetchList.make`
    */
   isMore(): boolean {
     if (!this.isSuccess) {
@@ -174,8 +178,8 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    *
    * **`restApi:v2` only.** `restApi:v3` returns no `total`, so this returns `0`
    * on a v3 response — which is not the same statement as "no rows matched".
-   * Do not read it for v3; use {@link AggregateV3.make
-   * `b24.actions.v3.aggregate.make`} with `count` / `countDistinct` instead,
+   * Do not read it for v3; use
+   * `b24.actions.v3.aggregate.make` with `count` / `countDistinct` instead,
    * bearing in mind that action is `@experimental` and unverified against a live
    * portal.
    *
@@ -184,6 +188,14 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * exposing `total`, {@link SuccessPayload} deliberately omits it, and the
    * `aggregate` action exists for `restApi:v3` only. It therefore stays for as
    * long as `restApi:v2` does, and is not part of the `3.0.0` removal set.
+   *
+   * That is a decision with a trigger, not an open-ended promise. Revisit it
+   * when either holds: `b24.actions.v3.aggregate` is verified against a live
+   * portal and loses its `@experimental` tag across the common modules (a v3
+   * count then exists, and `getTotal()` has a replacement for the first time),
+   * or Bitrix24 announces a `restApi:v2` sunset date (the field it reads goes
+   * away regardless). Until one of those happens there is nothing to migrate
+   * callers to, which is the whole reason it is still here.
    */
   getTotal(): number {
     if (!this.isSuccess) {
@@ -210,8 +222,8 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * @deprecated Will be removed in `3.0.0`. `restApi:v3` does not support
    *   `getNext()` (the v2 envelope field `next` does not exist). Use the SDK's
    *   list helpers instead — they hide pagination entirely:
-   *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
-   *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
+   *   - `restApi:v2`: `b24.actions.v2.callList.make` or `b24.actions.v2.fetchList.make`
+   *   - `restApi:v3`: `b24.actions.v3.callList.make` or `b24.actions.v3.fetchList.make`
    *
    * @removed 3.0.0
    */
@@ -228,8 +240,8 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * @deprecated Will be removed in `3.0.0`. Throws on `restApi:v3` because the
    *   v2 envelope field `next` is not part of the v3 protocol. Use the SDK's
    *   list helpers instead — they hide pagination entirely:
-   *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
-   *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
+   *   - `restApi:v2`: `b24.actions.v2.callList.make` or `b24.actions.v2.fetchList.make`
+   *   - `restApi:v3`: `b24.actions.v3.callList.make` or `b24.actions.v3.fetchList.make`
    *
    * @throws {SdkError} `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` when called against a `restApi:v3` HTTP client. This throw is preserved until `3.0.0`.
    * @removed 3.0.0

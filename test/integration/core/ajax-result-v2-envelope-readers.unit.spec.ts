@@ -58,6 +58,20 @@ describe('AjaxResult — restApi:v2 envelope readers', () => {
       expect(response.hasMore()).toBe(true)
     })
 
+    it('is false for a non-numeric next, which is not a page offset', () => {
+      // `Type.isNumber` and not a truthy check: a string `next` is not something
+      // this can hand to a pagination caller as an offset, so it is not "more".
+      // A `Boolean(next)` mutation survives every other case in this file.
+      expect(v2Result({ result: [], next: '50', time: {} }).isMore()).toBe(false)
+    })
+
+    it('is TRUE for next: 0 — a falsy value that is still a real offset', () => {
+      // The case that separates `Type.isNumber(next)` from `Boolean(next)`.
+      // Offset 0 is a legitimate value the portal can send; treating it as "no
+      // more pages" would silently stop an iteration on its first step.
+      expect(v2Result({ result: [], next: 0, time: {} }).isMore()).toBe(true)
+    })
+
     it('is false on the last v2 page, where next is absent', () => {
       expect(v2Result({ result: [{ ID: '1' }], total: 1, time: {} }).isMore()).toBe(false)
     })

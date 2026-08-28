@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Deprecations
+
+* **core:** the `3.0.0` removal set for `AjaxResult` is **narrower** than `2.1.0` announced. `isMore()`, `hasMore()` and `getTotal()` are **no longer scheduled for removal** and are no longer tagged `@deprecated`; only `getNext()` and `fetchNext()` still go in `3.0.0`. If you already migrated away from all five, nothing breaks — but you do not have to, and for a row count under `restApi:v2` you should not, because there is nothing else that answers it. The `2.1.0` entry below batched all five on the formal criterion "reads a `restApi:v2` envelope field", and that put two different things in one list: `getNext` / `fetchNext` *issue a follow-up request*, duplicating `actions.v{2,3}.{callList,fetchList}`, and throw on `restApi:v3`; the other three only *report* what the portal sent, and nothing replaces reading it — `SuccessPayload` omits `total` by design, the list helpers iterate without exposing it, and the `aggregate` action (`count` / `countDistinct`) exists for `restApi:v3` only and is `@experimental`. Removing them would have left a `restApi:v2` consumer with no way to count rows except downloading all of them. The three are now documented as **`restApi:v2`-only envelope readers**: on a `restApi:v3` response `getTotal()` returns `0` and `isMore()` returns `false` **because the field is absent**, not because the count is zero or the pages ran out — do not branch on either under v3. This will be revisited when `actions.v3.aggregate` is verified live and loses `@experimental`, or when a `restApi:v2` sunset date is announced. Note also that the `2.1.0` entry's "emits a runtime deprecation warning" applies to the `AbstractB24` shortcuts and `LoggerBrowser` — the `AjaxResult` methods never emitted one. Tracked in #277.
+
 ## [2.1.0](https://github.com/bitrix24/b24jssdk/compare/v2.0.0...v2.1.0) (2026-08-21)
 
 ### Features

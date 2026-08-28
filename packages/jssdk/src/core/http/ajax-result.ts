@@ -136,28 +136,28 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * Alias for isMore
+   * Alias for {@link AjaxResult.isMore}.
    *
-   * @deprecated Will be removed in `3.0.0`. Tied to the `restApi:v2` envelope
-   *   field `next`, which `restApi:v3` does not return. Use the SDK's list
-   *   helpers — they hide pagination entirely:
-   *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
-   *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
-   *
-   * @removed 3.0.0
+   * `restApi:v2` only — see {@link AjaxResult.isMore} for what this returns on
+   * a `restApi:v3` response.
    */
   hasMore(): boolean {
     return this.isMore()
   }
 
   /**
-   * @deprecated Will be removed in `3.0.0`. Tied to the `restApi:v2` envelope
-   *   field `next`, which `restApi:v3` does not return. Use the SDK's list
-   *   helpers — they hide pagination entirely:
+   * Whether the `restApi:v2` envelope carries a `next` offset — i.e. the portal
+   * has more rows for this query.
+   *
+   * **`restApi:v2` only.** `restApi:v3` returns no `next` field, so this returns
+   * `false` on a v3 response — which is not the same statement as "there are no
+   * more rows". Do not branch on it for v3; there is nothing to read.
+   *
+   * This is a reader for a protocol field, not a deprecated API: it stays for as
+   * long as `restApi:v2` does. For iterating pages, prefer the list helpers,
+   * which hide pagination for both protocol versions:
    *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
    *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
-   *
-   * @removed 3.0.0
    */
   isMore(): boolean {
     if (!this.isSuccess) {
@@ -170,13 +170,20 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * @deprecated Will be removed in `3.0.0`. Tied to the `restApi:v2` envelope
-   *   field `total`, which `restApi:v3` does not return. `restApi:v3` has no
-   *   element-count replacement yet — an `aggregate` action (`count` /
-   *   `countDistinct`) is planned but not exposed in the SDK; for `restApi:v2`
-   *   use the list helpers, which iterate without exposing `total`.
+   * The row count the `restApi:v2` envelope reports in its `total` field.
    *
-   * @removed 3.0.0
+   * **`restApi:v2` only.** `restApi:v3` returns no `total`, so this returns `0`
+   * on a v3 response — which is not the same statement as "no rows matched".
+   * Do not read it for v3; use {@link AggregateV3.make
+   * `b24.actions.v3.aggregate.make`} with `count` / `countDistinct` instead,
+   * bearing in mind that action is `@experimental` and unverified against a live
+   * portal.
+   *
+   * This is a reader for a protocol field, not a deprecated API. It is the only
+   * way to obtain a count under `restApi:v2` — the list helpers iterate without
+   * exposing `total`, {@link SuccessPayload} deliberately omits it, and the
+   * `aggregate` action exists for `restApi:v3` only. It therefore stays for as
+   * long as `restApi:v2` does, and is not part of the `3.0.0` removal set.
    */
   getTotal(): number {
     if (!this.isSuccess) {

@@ -389,30 +389,68 @@ describe('skills-live @skills', () => {
       expect(chunks).toBeGreaterThanOrEqual(0)
     })
 
-    it('actions.v3.aggregate.make — @experimental, records the outcome', async () => {
-      // The skill marks this "unverified live; fall back to callList + reduce".
-      // This case exists to answer that question on a real portal rather than
-      // to gate the suite, so it reports and does not fail.
-      try {
-        // Real `ActionAggregateV3` shape: `select` is top level and is keyed by
-        // aggregate function. An earlier version nested it under `params` with a
-        // `{ field, type }[]` that does not exist in the type, hidden behind an
-        // `as never` — `options.select` came out undefined, the shape validation
-        // iterated zero times, and the call went out empty. It answered nothing
-        // while looking like it did.
-        const response = await getB24Client().actions.v3.aggregate.make({
-          method: 'tasks.task.aggregate',
-          select: { count: ['id'] },
-          requestId: 'skills-live/rest-v3-aggregate'
-        })
-        console.log(
-          `[skills-live] v3 aggregate: isSuccess=${response.isSuccess} `
-          + `${response.isSuccess ? JSON.stringify(response.getData()!.result) : response.getErrorMessages().join('; ')}`
-        )
-      } catch (error) {
-        console.log(`[skills-live] v3 aggregate threw: ${(error as Error).message}`)
+    it('actions.v3.aggregate.make — @experimental, surveys every candidate module', async () => {
+      // The maintainer's position on this action is doubt: `AggregateV3` is
+      // `@experimental` because no module on the reference portal was known to
+      // expose an `*.aggregate` endpoint, and the working assumption is that it
+      // does not work anywhere yet. This case exists to replace that assumption
+      // with an answer, so it **surveys several modules** rather than probing one
+      // and it prints a table ready to paste into #113.
+      //
+      // It reports and never fails: a portal where nothing supports `aggregate`
+      // is a finding about Bitrix24's v3 rollout, not a defect in a skill file.
+      // Whoever runs it must read the output — a green line here proves nothing
+      // on its own, which is the opposite of every other case in this suite.
+      //
+      // An earlier version probed `tasks.task.aggregate` alone and logged
+      // `getData()!.result`. `make()` resolves to `Result<AggregateResultV3>`,
+      // whose data **is** the buckets — there is no `.result` on it, so the log
+      // printed `undefined` for a successful call. It answered nothing while
+      // looking like it did; the whole bucket object is printed now.
+      const candidates: Array<{ method: string }> = [
+        { method: 'tasks.task.aggregate' },
+        { method: 'crm.deal.aggregate' },
+        { method: 'crm.contact.aggregate' },
+        { method: 'crm.company.aggregate' },
+        { method: 'crm.lead.aggregate' },
+        { method: 'main.eventlog.aggregate' }
+      ]
+
+      const outcomes: string[] = []
+      for (const candidate of candidates) {
+        try {
+          // `select` is top level and keyed by aggregate function — NOT nested
+          // under `params` as a `{ field, type }[]`, a shape that does not exist
+          // in `ActionAggregateV3` and only ever type-checked behind an
+          // `as never`: `options.select` came out undefined, the shape
+          // validation iterated zero times, and the request went out empty.
+          const response = await getB24Client().actions.v3.aggregate.make({
+            method: candidate.method,
+            select: { count: ['id'] },
+            requestId: `skills-live/rest-v3-aggregate/${candidate.method}`
+          })
+          outcomes.push(
+            response.isSuccess
+              ? `  OK    ${candidate.method} → ${JSON.stringify(response.getData())}`
+              : `  SOFT  ${candidate.method} → ${response.getErrorMessages().join('; ')}`
+          )
+        } catch (error) {
+          const code = String((error as { code?: unknown }).code ?? '')
+          outcomes.push(`  THROW ${candidate.method} → ${code || '(no code)'} ${(error as Error).message}`)
+        }
       }
-      expect(true).toBe(true)
+
+      console.log(
+        '[skills-live] v3 aggregate survey — paste into #113:\n'
+        + outcomes.join('\n')
+        + '\n  Read: OK = the endpoint exists and answered. SOFT = the server rejected it\n'
+        + '  (METHODNOTFOUNDEXCEPTION here means the module has no *.aggregate yet).\n'
+        + '  THROW = the SDK or transport failed, which IS a defect worth reporting.\n'
+        + '  If every line is SOFT/THROW, `AggregateV3` stays @experimental and the\n'
+        + '  docs must keep telling readers to reduce a callList client-side.'
+      )
+      // Deliberately not asserted: see the comment above. The output is the test.
+      expect(outcomes).toHaveLength(candidates.length)
     })
   })
 

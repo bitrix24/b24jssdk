@@ -90,7 +90,23 @@ describe('#399 the prettier worker uses the bundled dependency', () => {
     // Vite builds a worker as an IIFE by default, and an IIFE cannot be code
     // split — every dynamic import inside it is inlined. Measured: that put all
     // of prettier into the worker script, 1.9 MB, which the plugin constructs.
-    expect(read('docs/nuxt.config.ts')).toMatch(/worker:\s*\{[^}]*format:\s*'es'/)
+    //
+    // A source-text check, with the ceiling that implies: it cannot see that
+    // Vite really emitted a module worker, and it would not notice some other
+    // option disabling code splitting while this one still reads `'es'`. Only a
+    // real build shows that, which is why the measurement lives in the PR and
+    // the commit rather than here — a `docs:build` from a unit spec costs
+    // minutes. Comments are stripped first so the option cannot be matched
+    // inside the prose explaining it, and the search is anchored on the `worker`
+    // block rather than the whole file, so a stray `format: 'es'` elsewhere in
+    // the config does not satisfy it.
+    const config = read('docs/nuxt.config.ts')
+      .replaceAll(/\/\*[\s\S]*?\*\//g, ' ')
+      .replaceAll(/\/\/[^\n]*/g, ' ')
+
+    const workerBlock = /\bworker\s*:\s*\{([\s\S]*?)\n\s{4}\}/.exec(config)
+    expect(workerBlock, 'no `worker` block in the vite config').not.toBeNull()
+    expect(workerBlock![1]).toMatch(/format\s*:\s*'es'/)
   })
 
   it('constructs the worker lazily, not at plugin setup', () => {

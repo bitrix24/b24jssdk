@@ -216,6 +216,15 @@ export default defineNuxtConfig({
       // it. That put all of prettier into the worker script itself (#399).
       // As an ES module the parsers stay a separate chunk, fetched on the first
       // format rather than with the worker.
+      //
+      // The cost, stated here because it is a trade and not a detail: this
+      // emits `new Worker(url, { type: 'module' })`, which needs Chrome/Edge
+      // 80+, Safari 15+ and Firefox 114+. The IIFE it replaces worked
+      // everywhere. The failure is contained — `app/plugins/prettier.ts` builds
+      // the worker lazily, so on an older browser in-page code formatting
+      // simply does not happen and nothing else is affected. The repository
+      // states no browserslist target, so this is the decision rather than a
+      // violation of one.
       format: 'es'
     },
     server: {

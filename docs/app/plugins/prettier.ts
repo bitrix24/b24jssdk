@@ -29,6 +29,9 @@ export default defineNuxtPlugin(async () => {
     // parsers on every page load, including the many pages that never format
     // anything. Deferring it restores the old timing: nothing is fetched until a
     // snippet actually needs formatting.
+    // No race to guard: `??=` and the constructor are synchronous, with no
+    // await between the check and the assignment, so a second `format()` cannot
+    // interleave and build a second worker.
     let api: SimplePrettier | undefined
     prettier = {
       format(source, options) {

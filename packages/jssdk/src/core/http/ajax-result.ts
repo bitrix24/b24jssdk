@@ -216,16 +216,11 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * Alias for getNext
-   * @param http
+   * Alias for {@link AjaxResult.getNext}, returning `null` where that returns
+   * `false`.
    *
-   * @deprecated Will be removed in `3.0.0`. `restApi:v3` does not support
-   *   `getNext()` (the v2 envelope field `next` does not exist). Use the SDK's
-   *   list helpers instead — they hide pagination entirely:
-   *   - `restApi:v2`: `b24.actions.v2.callList.make` or `b24.actions.v2.fetchList.make`
-   *   - `restApi:v3`: `b24.actions.v3.callList.make` or `b24.actions.v3.fetchList.make`
-   *
-   * @removed 3.0.0
+   * **`restApi:v2` only** — see {@link AjaxResult.getNext}, including the throw
+   * on a `restApi:v3` client, which this inherits.
    */
   async fetchNext(http: TypeHttp): Promise<AjaxResult<T> | null> {
     const data = await this.getNext(http)
@@ -237,14 +232,25 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * @deprecated Will be removed in `3.0.0`. Throws on `restApi:v3` because the
-   *   v2 envelope field `next` is not part of the v3 protocol. Use the SDK's
-   *   list helpers instead — they hide pagination entirely:
-   *   - `restApi:v2`: `b24.actions.v2.callList.make` or `b24.actions.v2.fetchList.make`
-   *   - `restApi:v3`: `b24.actions.v3.callList.make` or `b24.actions.v3.fetchList.make`
+   * Re-runs this result's own query with `params.start` set to the `next` offset
+   * the `restApi:v2` envelope reported, and resolves to the following page.
+   * Returns `false` when this result is unsuccessful or has no `next`.
    *
-   * @throws {SdkError} `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` when called against a `restApi:v3` HTTP client. This throw is preserved until `3.0.0`.
-   * @removed 3.0.0
+   * `restApi:v2` only, and permanently so. Unlike the readers above, this one
+   * acts on the envelope, and `restApi:v3` has no `next` to act on — so it
+   * throws rather than silently returning `false`, which would be
+   * indistinguishable from "last page". That throw is not a transitional
+   * measure; it is the honest answer for a protocol that does not have this
+   * operation.
+   *
+   * For new code prefer `b24.actions.v{2,3}.callList.make` (collect everything)
+   * or `b24.actions.v{2,3}.fetchList.make` (async generator, one page per
+   * iteration — the same page-by-page control this gives, without the manual
+   * offset bookkeeping, and it works under both protocol versions). This method
+   * is kept because it works under `restApi:v2` and deleting it would break
+   * running code for no gain, not because it is the better tool.
+   *
+   * @throws {SdkError} `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` when called against a `restApi:v3` HTTP client.
    */
   async getNext(http: TypeHttp): Promise<AjaxResult<T> | false> {
     // @todo ! Correction -> we can use pagination to navigate to the next page

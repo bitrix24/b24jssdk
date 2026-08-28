@@ -205,7 +205,7 @@ Common AjaxError codes worth handling:
 
 Common SdkError codes:
 
-- `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — thrown only by the deprecated `AjaxResult.getNext()` against a v3 client. `actions.v3.*.make` no longer throws it: the SDK dropped its v3 method allowlist, so an unknown v3 method comes back as a `METHODNOTFOUNDEXCEPTION` soft error on the result instead.
+- `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — thrown only by `AjaxResult.getNext()` / `fetchNext()` against a v3 client — they are `restApi:v2`-only (not deprecated), and v3 has no `next` offset to follow. `actions.v3.*.make` no longer throws it: the SDK dropped its v3 method allowlist, so an unknown v3 method comes back as a `METHODNOTFOUNDEXCEPTION` soft error on the result instead.
 
 ## Tuning retry / throw behaviour
 

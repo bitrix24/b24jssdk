@@ -1,21 +1,29 @@
 /**
- * `AjaxResult.getTotal()` / `isMore()` / `hasMore()` are **`restApi:v2` envelope
- * readers**, kept past `3.0.0` rather than removed with the rest of the legacy
- * surface (`getNext` / `fetchNext` do go). See the "AjaxResult paging helpers"
- * table in `docs/content/docs/1.getting-started/3.migration/2.v3.md`.
+ * The five `AjaxResult` paging members — `getTotal()`, `isMore()`, `hasMore()`,
+ * `getNext()`, `fetchNext()` — were scheduled for removal in `3.0.0` and are not
+ * any more. They are **`restApi:v2`-only**, which they always were. See the
+ * "AjaxResult paging helpers" section in
+ * `docs/content/docs/1.getting-started/3.migration/2.v3.md`.
  *
- * The behaviour that decision rests on is their answer to a **`restApi:v3`**
- * response, which carries neither `total` nor `next`. It has to be a defined,
- * documented value rather than a throw or `undefined`, because the documentation
- * now tells readers exactly what they get — and it has to be distinguishable in
- * intent from the same value meaning "zero rows", which is why every assertion
- * here is paired with the v2 case that produces the same shape with real data.
+ * The behaviour that decision rests on is their answer under **`restApi:v3`**,
+ * which sends neither `total` nor `next`, and it is deliberately not uniform:
  *
- * There was no coverage of any of this before: the three methods were slated for
+ *   - the readers answer `0` / `false`, because an absent field has an honest
+ *     empty value and they cannot see the API version anyway;
+ *   - `getNext` / `fetchNext` **throw**, because they can see it (they take an
+ *     http client) and because `false` would be indistinguishable from
+ *     "last page" — a wrong statement rather than an empty one.
+ *
+ * Every reader assertion is paired with the v2 case that produces the same value
+ * with real data, since the whole risk is confusing "no field" with "no rows".
+ *
+ * There was no coverage of any of this before: all five were slated for
  * deletion, so nothing pinned them.
  */
 import { describe, it, expect } from 'vitest'
+import type { TypeHttp } from '../../../packages/jssdk/src/types/http'
 import { AjaxResult } from '../../../packages/jssdk/src/core/http/ajax-result'
+import { ApiVersion } from '../../../packages/jssdk/src/types/b24'
 
 const QUERY = { method: 'crm.deal.list', params: {}, requestId: 'unit/v2-envelope-readers' }
 
@@ -106,12 +114,49 @@ describe('AjaxResult — restApi:v2 envelope readers', () => {
 
   it('none of the three throws under restApi:v3 — unlike getNext, which does', () => {
     // getNext/fetchNext take an http client and throw JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3
-    // on v3. The readers take nothing and cannot know the API version, so they
-    // answer from the payload alone. That difference is the whole reason the two
-    // groups are treated differently in 3.0.0.
+    // on v3 (covered below). The readers take nothing and cannot know the API
+    // version, so they answer from the payload alone. Both behaviours are
+    // deliberate and documented: a reader has an empty value that is honest,
+    // while `false` from getNext would be indistinguishable from "last page".
     const v3 = v2Result({ result: { items: [] }, time: {} })
     expect(() => v3.getTotal()).not.toThrow()
     expect(() => v3.isMore()).not.toThrow()
     expect(() => v3.hasMore()).not.toThrow()
+  })
+
+  describe('getNext / fetchNext — the acting pair', () => {
+    const v3Http = { apiVersion: ApiVersion.v3 } as unknown as TypeHttp
+    const v2Http = { apiVersion: ApiVersion.v2 } as unknown as TypeHttp
+
+    it('throws on a restApi:v3 client rather than answering false', async () => {
+      // The documented reason: `false` here would read as "last page", which is a
+      // different and wrong statement. v3 has no `next` to act on at all.
+      const response = v2Result({ result: [{ ID: '1' }], next: 50, time: {} })
+      await expect(response.getNext(v3Http)).rejects.toMatchObject({
+        code: 'JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3'
+      })
+      await expect(response.fetchNext(v3Http)).rejects.toMatchObject({
+        code: 'JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3'
+      })
+    })
+
+    it('returns false / null on the last v2 page without touching the client', async () => {
+      // No `next`, so there is nothing to fetch — and crucially no request is
+      // issued: a v2 client with no `call` would throw if one were.
+      const response = v2Result({ result: [{ ID: '1' }], total: 1, time: {} })
+      await expect(response.getNext(v2Http)).resolves.toBe(false)
+      await expect(response.fetchNext(v2Http)).resolves.toBe(null)
+    })
+
+    it('fetchNext maps getNext false to null, and passes a page through unchanged', async () => {
+      const nextPage = v2Result({ result: [{ ID: '2' }], time: {} })
+      const http = {
+        apiVersion: ApiVersion.v2,
+        call: async () => nextPage
+      } as unknown as TypeHttp
+      const response = v2Result({ result: [{ ID: '1' }], next: 50, time: {} })
+      await expect(response.getNext(http)).resolves.toBe(nextPage)
+      await expect(response.fetchNext(http)).resolves.toBe(nextPage)
+    })
   })
 })

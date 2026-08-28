@@ -7,9 +7,9 @@ description: Call the Bitrix24 REST API through b24jssdk using the canonical act
 
 Every example uses `$b24` of type `TypeB24`, so the same code runs on `B24Hook`, `B24Frame`, and `B24OAuth`. The actions surface is published per API version under `$b24.actions.v2.*` and `$b24.actions.v3.*`.
 
-> The previous SDK surface — `callMethod`, `callBatch`, `callBatchByChunk`, `callListMethod`, `fetchListMethod`, plus `AjaxResult.getNext() / fetchNext()` — is **`@deprecated`** and scheduled for removal in **`3.0.0`** (see `packages/jssdk/README-AI.md` "Deprecation notice"). Do not generate new code against it.
+> The previous SDK surface — `callMethod`, `callBatch`, `callBatchByChunk`, `callListMethod`, `fetchListMethod` — is **`@deprecated`** and scheduled for removal in **`3.0.0`** (see `packages/jssdk/README-AI.md` "Deprecation notice"). Do not generate new code against it.
 >
-> `AjaxResult.isMore() / hasMore() / getTotal()` are **not** in that set. They read the `restApi:v2` envelope, are `restApi:v2`-only, and stay — see "restApi:v2 envelope readers" below.
+> The `AjaxResult` paging members — `isMore()`, `hasMore()`, `getTotal()`, `getNext()`, `fetchNext()` — are **not** in that set and are not deprecated. They are `restApi:v2`-only; see "restApi:v2 paging members" below.
 
 ## Pick the API version
 
@@ -277,13 +277,9 @@ res.getQuery()              // { method, params, requestId }
 
 > `getData()` returns `undefined` when the call did not succeed — the new typing forces you to either check `isSuccess` first, or assert with `!`. Both patterns appear in the canonical SDK tests (`test/integration/js-docs/actions-v{2,3}.spec.ts`).
 
-Removed from the public surface for `3.0.0`:
+### `restApi:v2` paging members — kept, but v2-only
 
-- `getNext()`, `fetchNext()` — replaced by `callList.make` / `fetchList.make`. They also throw on v3.
-
-### `restApi:v2` envelope readers — kept, but v2-only
-
-`isMore()` / `hasMore()` / `getTotal()` are **not** deprecated and are **not** going away in `3.0.0`. They read the v2 envelope fields `next` / `total` directly.
+`isMore()` / `hasMore()` / `getTotal()` / `getNext()` / `fetchNext()` are **not** deprecated and are **not** going away in `3.0.0`. They work with the v2 envelope fields `next` / `total` directly.
 
 ```ts
 import type { AjaxResult } from '@bitrix24/b24jssdk'
@@ -293,6 +289,8 @@ const more: boolean = response.isMore()     // restApi:v2 only
 ```
 
 On a **`restApi:v3`** response both return their empty value — `0` and `false` — because v3 sends no such field. That is not "no rows matched" or "no more pages"; there is simply nothing to read. Never branch on them under v3.
+
+`getNext(http)` / `fetchNext(http)` re-run the query at the reported `next` offset. Under `restApi:v3` they **throw** `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` rather than returning empty, because a silent `false` would be indistinguishable from "last page". For new paging code still prefer `callList.make` / `fetchList.make` — they hide the offset bookkeeping and work under both versions.
 
 For a v3 count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action. Note that action is `@experimental` and **has not been verified against a live portal** — most modules do not expose `*.aggregate` yet. If it is unavailable, reduce a `callList` client-side.
 
@@ -385,7 +383,7 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 ## Anti-patterns
 
 - ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 3.0.0. Use the actions API.
-- ❌ `res.getNext()` / `res.fetchNext()` — `@deprecated`, removed in 3.0.0, and they throw on v3. Use `callList` / `fetchList` for paging.
+- ❌ `res.getNext()` / `res.fetchNext()` against a **v3** client — they throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`. Under v2 they work and are supported; for new code prefer `callList` / `fetchList`, which work under both versions.
 - ❌ Reading `res.getTotal()` or `res.isMore()` on a **v3** response — not an error, but they always answer `0` / `false` there because v3 sends no `total` / `next`. Under v2 they are correct and supported. For a v3 count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action, and treat it as unverified.
 - ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — `crm.*` is v2-only, so the v3 server returns a `METHODNOTFOUNDEXCEPTION` soft error (`response.isSuccess === false`); use `actions.v2.*` for CRM. (The SDK no longer pre-flight-throws here.)
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.

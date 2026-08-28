@@ -44,15 +44,21 @@ Full removal checklist: [Migration to v3](https://bitrix24.github.io/b24jssdk/do
 | `b24.callListMethod(method, params, progress?, customKey?)` | `b24.actions.v2.callList.make({ method, params, customKeyForResult })` / `b24.actions.v3.callList.make(...)` |
 | `b24.fetchListMethod(method, params, idKey?, customKey?)` | `b24.actions.v2.fetchList.make({ method, params, idKey, customKeyForResult })` / `b24.actions.v3.fetchList.make(...)` |
 | `LoggerBrowser`, `LoggerType` | `LoggerFactory.createForBrowser(title, isDev)` — `LoggerType` has no replacement (drop the import; `LoggerFactory` manages levels). |
-| `AjaxResult#getNext()`, `#fetchNext()` | Manual pagination that duplicates `actions.v{2,3}.{callList,fetchList}`, and throws on `restApi:v3`. Let the list helpers iterate for you. |
+**The `AjaxResult` paging members are NOT deprecated.** `#isMore()`, `#hasMore()`,
+`#getTotal()`, `#getNext()` and `#fetchNext()` were once listed for removal in
+`3.0.0`; that plan was withdrawn. `restApi:v2` is not going away soon, and
+deleting methods that work there would break running code for no gain — while
+`#getTotal()` in particular has no replacement at all, since `SuccessPayload`
+omits `total` by design, the list helpers iterate without exposing it, and the
+`aggregate` action is `restApi:v3`-only.
 
-**Not deprecated, despite reading the same v2 envelope:** `AjaxResult#isMore()`,
-`#hasMore()` and `#getTotal()` stay past `3.0.0`. They only *report* what the
-portal sent, and nothing replaces reading it — `restApi:v2` has no counting
-action, `SuccessPayload` omits `total` by design, and `actions.v3.aggregate.make`
-is `restApi:v3`-only. They are **`restApi:v2`-only** and return `false` / `0` on a
-`restApi:v3` response because the field is absent — not because there are no more
-rows or no matches. For a `restApi:v3` count use `actions.v3.aggregate.make`
+All five are **`restApi:v2`-only**, and that is what to generate against. Under
+`restApi:v3`: `#getTotal()` returns `0` and `#isMore()` returns `false` **because
+the field is absent** (not "no rows" / "no more pages" — do not branch on them),
+and `#getNext()` / `#fetchNext()` **throw**
+`JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`. For new paging code prefer
+`actions.v{2,3}.{callList,fetchList}` — they hide the offset bookkeeping and work
+under both versions. For a `restApi:v3` count use `actions.v3.aggregate.make`
 (`@experimental`, **not verified against a live portal**) with `count` /
 `countDistinct` on a method that exposes an `*.aggregate` action — check
 `rest.documentation.openapi` to confirm the endpoint exists; otherwise reduce a
@@ -449,11 +455,11 @@ async function loadAllDealsStreaming($b24: any) {
 
 #### C) Manual pagination: callMethod + next pages
 
-> **`@deprecated` — slated for removal in `3.0.0`.** `callMethod` and `getNext()`
-> go away in `3.0.0`; `isMore()` stays but is `restApi:v2`-only. All three rely on
-> the `restApi:v2` envelope field `next`, which `restApi:v3` does not return.
-> Prefer `b24.actions.v{2,3}.fetchList.make` for custom-throttled iteration; that
-> helper hides pagination for both API versions.
+> **`callMethod` is `@deprecated` and goes away in `3.0.0`.** `isMore()` and
+> `getNext()` are **not** deprecated, but both are `restApi:v2`-only: they rely on
+> the envelope field `next`, which `restApi:v3` does not return, and `getNext()`
+> throws against a v3 client. Prefer `b24.actions.v{2,3}.fetchList.make` for
+> custom-throttled iteration; that helper hides pagination for both API versions.
 
 Use when you need to control page sizes, pauses, or add custom throttling. Iterate until `isMore()` returns false, using `getNext($b24.getHttpClient())`.
 
@@ -608,7 +614,7 @@ This document is based on the SDK source in packages/jssdk/src and the docs unde
   ```
  
 - Unique ID Generator: request IDs are appended automatically via Http
-- Result / AjaxResult: uniform result objects, error aggregation. (`getNext`/`fetchNext` are `@deprecated` for `3.0.0`; `isMore`/`hasMore`/`getTotal` stay but are `restApi:v2`-only — see Deprecation notice.)
+- Result / AjaxResult: uniform result objects, error aggregation. (The paging members `isMore`/`hasMore`/`getTotal`/`getNext`/`fetchNext` are not deprecated, but are `restApi:v2`-only — see Deprecation notice.)
 - Language List and LoggerBrowser
 
 ### Tools

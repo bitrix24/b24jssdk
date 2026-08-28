@@ -136,28 +136,31 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * Alias for isMore
+   * Alias for {@link AjaxResult.isMore}.
    *
-   * @deprecated Will be removed in `3.0.0`. Tied to the `restApi:v2` envelope
-   *   field `next`, which `restApi:v3` does not return. Use the SDK's list
-   *   helpers — they hide pagination entirely:
-   *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
-   *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
-   *
-   * @removed 3.0.0
+   * `restApi:v2` only — see {@link AjaxResult.isMore} for what this returns on
+   * a `restApi:v3` response.
    */
   hasMore(): boolean {
     return this.isMore()
   }
 
   /**
-   * @deprecated Will be removed in `3.0.0`. Tied to the `restApi:v2` envelope
-   *   field `next`, which `restApi:v3` does not return. Use the SDK's list
-   *   helpers — they hide pagination entirely:
-   *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
-   *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
+   * Whether the `restApi:v2` envelope carries a `next` offset — i.e. the portal
+   * has more rows for this query.
    *
-   * @removed 3.0.0
+   * **`restApi:v2` only.** `restApi:v3` returns no `next` field, so this returns
+   * `false` on a v3 response — which is not the same statement as "there are no
+   * more rows". Do not branch on it for v3; there is nothing to read.
+   *
+   * This is a reader for a protocol field, not a deprecated API: it stays for as
+   * long as `restApi:v2` does, and so does its counterpart
+   * {@link AjaxResult.getNext} — the two together are the manual `restApi:v2`
+   * paging loop, and neither is going away. For new code prefer the list
+   * helpers, which hide the offset bookkeeping and work under both protocol
+   * versions:
+   *   - `restApi:v2`: `b24.actions.v2.callList.make` or `b24.actions.v2.fetchList.make`
+   *   - `restApi:v3`: `b24.actions.v3.callList.make` or `b24.actions.v3.fetchList.make`
    */
   isMore(): boolean {
     if (!this.isSuccess) {
@@ -170,13 +173,33 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * @deprecated Will be removed in `3.0.0`. Tied to the `restApi:v2` envelope
-   *   field `total`, which `restApi:v3` does not return. `restApi:v3` has no
-   *   element-count replacement yet — an `aggregate` action (`count` /
-   *   `countDistinct`) is planned but not exposed in the SDK; for `restApi:v2`
-   *   use the list helpers, which iterate without exposing `total`.
+   * The row count the `restApi:v2` envelope reports in its `total` field.
    *
-   * @removed 3.0.0
+   * **`restApi:v2` only.** `restApi:v3` returns no `total`, so this returns `0`
+   * on a v3 response — which is not the same statement as "no rows matched".
+   * Do not read it for v3; use
+   * `b24.actions.v3.aggregate.make` with `count` / `countDistinct` instead,
+   * bearing in mind that action is `@experimental` and unverified against a live
+   * portal.
+   *
+   * This is a reader for a protocol field, not a deprecated API. It is the only
+   * way to obtain a count under `restApi:v2` — the list helpers iterate without
+   * exposing `total`, {@link SuccessPayload} deliberately omits it, and the
+   * `aggregate` action exists for `restApi:v3` only. It therefore stays for as
+   * long as `restApi:v2` does, and is not part of the `3.0.0` removal set.
+   *
+   * That is a decision with a trigger, not an open-ended promise. Revisit it
+   * when either holds: `b24.actions.v3.aggregate` is verified against a live
+   * portal and loses its `@experimental` tag across the common modules (a v3
+   * count then exists, and `getTotal()` has a replacement for the first time),
+   * or Bitrix24 announces a `restApi:v2` sunset date (the field it reads goes
+   * away regardless). Until one of those happens there is nothing to migrate
+   * callers to, which is the whole reason it is still here.
+   *
+   * Note this trigger is specific to the readers. {@link AjaxResult.getNext} and
+   * {@link AjaxResult.fetchNext} already have a working replacement, so nothing
+   * about `aggregate` maturing changes anything for them — a `restApi:v2` sunset
+   * is their only exit condition.
    */
   getTotal(): number {
     if (!this.isSuccess) {
@@ -197,16 +220,11 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * Alias for getNext
-   * @param http
+   * Alias for {@link AjaxResult.getNext}, returning `null` where that returns
+   * `false`.
    *
-   * @deprecated Will be removed in `3.0.0`. `restApi:v3` does not support
-   *   `getNext()` (the v2 envelope field `next` does not exist). Use the SDK's
-   *   list helpers instead — they hide pagination entirely:
-   *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
-   *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
-   *
-   * @removed 3.0.0
+   * **`restApi:v2` only** — see {@link AjaxResult.getNext}, including the throw
+   * on a `restApi:v3` client, which this inherits.
    */
   async fetchNext(http: TypeHttp): Promise<AjaxResult<T> | null> {
     const data = await this.getNext(http)
@@ -218,17 +236,27 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * @deprecated Will be removed in `3.0.0`. Throws on `restApi:v3` because the
-   *   v2 envelope field `next` is not part of the v3 protocol. Use the SDK's
-   *   list helpers instead — they hide pagination entirely:
-   *   - `restApi:v2`: {@link CallListV2.make `b24.actions.v2.callList.make`} or {@link FetchListV2.make `b24.actions.v2.fetchList.make`}
-   *   - `restApi:v3`: {@link CallListV3.make `b24.actions.v3.callList.make`} or {@link FetchListV3.make `b24.actions.v3.fetchList.make`}
+   * Re-runs this result's own query with `params.start` set to the `next` offset
+   * the `restApi:v2` envelope reported, and resolves to the following page.
+   * Returns `false` when this result is unsuccessful or has no `next`.
    *
-   * @throws {SdkError} `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` when called against a `restApi:v3` HTTP client. This throw is preserved until `3.0.0`.
-   * @removed 3.0.0
+   * `restApi:v2` only, and permanently so. Unlike the readers above, this one
+   * acts on the envelope, and `restApi:v3` has no `next` to act on — so it
+   * throws rather than silently returning `false`, which would be
+   * indistinguishable from "last page". That throw is not a transitional
+   * measure; it is the honest answer for a protocol that does not have this
+   * operation.
+   *
+   * For new code prefer `b24.actions.v{2,3}.callList.make` (collect everything)
+   * or `b24.actions.v{2,3}.fetchList.make` (async generator, one page per
+   * iteration — the same page-by-page control this gives, without the manual
+   * offset bookkeeping, and it works under both protocol versions). This method
+   * is kept because it works under `restApi:v2` and deleting it would break
+   * running code for no gain, not because it is the better tool.
+   *
+   * @throws {SdkError} `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` when called against a `restApi:v3` HTTP client.
    */
   async getNext(http: TypeHttp): Promise<AjaxResult<T> | false> {
-    // @todo ! Correction -> we can use pagination to navigate to the next page
     if (http.apiVersion === ApiVersion.v3) {
       throw new SdkError({
         code: 'JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3',
@@ -244,10 +272,10 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     }
 
     const nextPageQuery = this.#buildNextPageQuery()
-    return http.call(
+    return http.call<T>(
       nextPageQuery.method,
       nextPageQuery.params
-    ) as Promise<AjaxResult<T>>
+    )
   }
 
   #buildNextPageQuery(): AjaxQuery {
@@ -257,6 +285,10 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     // Fresh params object — the previous shallow `{ ...this._query }` shared the
     // params reference and wrote `start` back into the frozen _query, so the
     // previous result's getQuery().params silently changed after getNext() (#144).
+    //
+    // `requestId` comes along with the spread but is never used: getNext() reads
+    // only `.method` and `.params`, and the http client mints a fresh id per
+    // request. Reusing this page's id for the next page would be wrong anyway.
     return {
       ...this._query,
       params: { ...this._query.params, start: Text.toInteger(nextValue) }

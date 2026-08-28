@@ -36,10 +36,51 @@ It is read-only.
 | Skill | Verified |
 | --- | --- |
 | `b24jssdk-core` | boot snippet reaches the portal; an unknown method is a **soft** error on the `Result`, not a throw; the operating-budget fields the skill documents are present |
-| `b24jssdk-rest` | `actions.v2.batch` (one result per command), `v2.callList`, `v2.fetchList` (chunked), `v3.call`, `v3.callList` on `tasks.task.list` **without** a `cursorIdKey` override — the claim in the skill's table; a non-v3 method fails softly rather than throwing; `v3.aggregate` reported (it is `@experimental` and does not gate the run) |
+| `b24jssdk-rest` | `actions.v2.batch` (one result per command), `v2.callList`, `v2.fetchList` (chunked), `v3.call`, `v3.callList` on `tasks.task.list` **without** a `cursorIdKey` override — the claim in the skill's table; a non-v3 method fails softly rather than throwing; **`v3.aggregate` surveyed across six modules** and reported, not asserted — see below |
 | `b24jssdk-filtering` | a v2 prefix-keyed filter actually narrows rows; a v3 array-of-triples filter is accepted; `callList` **strips a caller-supplied `order`** — asks for `DESC`, asserts the rows come back ascending |
 | `b24jssdk-helpers` | `initB24Helper` over a webhook loads Profile + Currency; `currency.format` uses the portal's own rules (the formatted value is printed) |
 | `b24jssdk-vibecode` | the SDK-side calls the skill documents succeed |
+
+### The one question this run is expected to answer: does `v3.aggregate` work at all?
+
+`actions.v3.aggregate.make` is marked `@experimental` in the SDK, and the working
+assumption is **that it does not work on any module yet**. Nobody has run it
+against a portal. That matters beyond the action itself, because two documents
+currently hedge on it — `AjaxResult.getTotal()`'s JSDoc and the `restApi:v3`
+count advice in `b24jssdk-rest/SKILL.md` and `README-AI.md` — and the hedge can
+only be replaced by a real answer.
+
+So the suite **surveys** it rather than probing one method: `tasks.task`,
+`crm.deal`, `crm.contact`, `crm.company`, `crm.lead` and `main.eventlog`, each
+with `select: { count: ['id'] }`. It prints a block headed
+`[skills-live] v3 aggregate survey`, one line per module.
+
+This case **cannot fail the run**, by design: a portal where no module supports
+`aggregate` is a fact about Bitrix24's v3 rollout, not a defect in a skill file.
+That makes it the one green line in this suite that proves nothing on its own —
+**read the output**.
+
+| Line | Means | What to do |
+| --- | --- | --- |
+| `OK` | the endpoint exists and returned buckets | Record the module and the exact bucket shape. If the shape is single-level rather than the reference's `{ result: { result } }`, that is the `AggregateV3` fallback warning firing — say so, the reference §7 is then wrong. |
+| `SOFT` | the server rejected it (`METHODNOTFOUNDEXCEPTION` = no `*.aggregate` on that module) | Expected for most modules today. Record it. |
+| `THROW` | the SDK or transport failed | **This is a defect worth reporting** — the SDK should surface a server rejection softly, not throw. |
+
+::warning
+**An `OK` line prints real numbers off your portal** — `count` buckets are actual
+row counts for that module (deals, leads, contacts). The rest of this document
+already tells you to replace the domain with a placeholder before posting; the
+same applies here, and more so. Run the survey against a **demo or development
+portal**. If you only have a production one, post the *shape* of the buckets and
+the module names, and replace the counts with `<n>` — what #113 needs to know is
+which modules answered, not how many deals you have.
+::
+
+Paste the block into #113, redacted as above. If every line is `SOFT` or `THROW`, the
+conclusion is that `AggregateV3` stays `@experimental`, the docs keep telling
+readers to reduce a `callList` client-side, and `AjaxResult.getTotal()` remains
+the only count available under `restApi:v2` — which is why it was kept out of the
+`3.0.0` removal set.
 
 ### Reading the output
 
@@ -155,3 +196,6 @@ The issue's acceptance criteria, and where each is answered:
       (same for `skills/SUGGESTED-EXAMPLES.md` →
       [`suggested-examples.md`](../.github/contributing/suggested-examples.md))
 - [ ] `skills/README.md` migration note updated once the pass is done
+- [ ] the `v3 aggregate survey` block pasted into the issue, and
+      `AggregateV3`'s `@experimental` tag either removed or re-justified with
+      the module list the survey produced

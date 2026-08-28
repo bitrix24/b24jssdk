@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Deprecations
+
+* **core:** the `AjaxResult` paging members — `isMore()`, `hasMore()`, `getTotal()`, `getNext()`, `fetchNext()` — are **no longer scheduled for removal**, and none of them is `@deprecated` any more. `2.1.0` announced all five as going away in `3.0.0`; that plan is withdrawn.
+
+    **What to do: nothing.** If you already moved to `actions.v{2,3}.{callList,fetchList}`, stay there — those helpers hide the offset bookkeeping and are the only ones that work under `restApi:v3`, so the migration was not wasted. If you have not moved, you no longer have to; and for a row count under `restApi:v2` you should not, because nothing else answers it.
+
+    **Why it was withdrawn.** The removal set was assembled on the criterion "reads a `restApi:v2` envelope field", which describes the protocol rather than the user. `restApi:v2` is where most of the Bitrix24 REST surface still lives and is not going away soon, so deleting methods that work there today breaks running code with no replacement on offer. `getTotal()` is the sharpest case: `SuccessPayload` omits `total` by design, the list helpers iterate without exposing it, and the `aggregate` action (`count` / `countDistinct`) is `restApi:v3`-only *and* `@experimental`, never verified against a live portal — removing it would have left a v2 consumer counting rows by downloading all of them. What remains scheduled for `3.0.0` under #277 is the surface that genuinely duplicates a replacement one-for-one: `callMethod`, `callListMethod`, `fetchListMethod`, `callBatch`, `callBatchByChunk`, `AbstractB24.batchSize`, and `LoggerBrowser` / `LoggerType`.
+
+    **All five are `restApi:v2`-only**, which they always were, and their v3 behaviour is deliberately not uniform. `getTotal()` returns `0` and `isMore()` returns `false` **because the field is absent** — not because the count is zero or the pages ran out, so do not branch on either. `getNext()` / `fetchNext()` throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`, because a silent `false` would be indistinguishable from "last page".
+
+    One correction to the `2.1.0` entry below while it is in view: its "emits a runtime deprecation warning" applies to the `AbstractB24` shortcuts and `LoggerBrowser`. The `AjaxResult` methods never emitted one.
+
 ## [2.1.0](https://github.com/bitrix24/b24jssdk/compare/v2.0.0...v2.1.0) (2026-08-21)
 
 ### Features

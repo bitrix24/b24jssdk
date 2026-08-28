@@ -154,11 +154,10 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * more rows". Do not branch on it for v3; there is nothing to read.
    *
    * This is a reader for a protocol field, not a deprecated API: it stays for as
-   * long as `restApi:v2` does — but be clear about what it is good for. Its
-   * actionable counterpart, {@link AjaxResult.getNext}, **is** removed in
-   * `3.0.0`, so from that release `isMore()` is a **diagnostic** — it tells you
-   * the portal has more rows, and gives you nothing to do about it. To actually
-   * page, use the list helpers, which hide pagination for both protocol
+   * long as `restApi:v2` does, and so does its counterpart
+   * {@link AjaxResult.getNext} — the two together are the manual `restApi:v2`
+   * paging loop, and neither is going away. For new code prefer the list
+   * helpers, which hide the offset bookkeeping and work under both protocol
    * versions:
    *   - `restApi:v2`: `b24.actions.v2.callList.make` or `b24.actions.v2.fetchList.make`
    *   - `restApi:v3`: `b24.actions.v3.callList.make` or `b24.actions.v3.fetchList.make`
@@ -196,6 +195,11 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * or Bitrix24 announces a `restApi:v2` sunset date (the field it reads goes
    * away regardless). Until one of those happens there is nothing to migrate
    * callers to, which is the whole reason it is still here.
+   *
+   * Note this trigger is specific to the readers. {@link AjaxResult.getNext} and
+   * {@link AjaxResult.fetchNext} already have a working replacement, so nothing
+   * about `aggregate` maturing changes anything for them — a `restApi:v2` sunset
+   * is their only exit condition.
    */
   getTotal(): number {
     if (!this.isSuccess) {
@@ -253,7 +257,6 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * @throws {SdkError} `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` when called against a `restApi:v3` HTTP client.
    */
   async getNext(http: TypeHttp): Promise<AjaxResult<T> | false> {
-    // @todo ! Correction -> we can use pagination to navigate to the next page
     if (http.apiVersion === ApiVersion.v3) {
       throw new SdkError({
         code: 'JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3',
@@ -269,10 +272,10 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     }
 
     const nextPageQuery = this.#buildNextPageQuery()
-    return http.call(
+    return http.call<T>(
       nextPageQuery.method,
       nextPageQuery.params
-    ) as Promise<AjaxResult<T>>
+    )
   }
 
   #buildNextPageQuery(): AjaxQuery {
@@ -282,6 +285,10 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     // Fresh params object — the previous shallow `{ ...this._query }` shared the
     // params reference and wrote `start` back into the frozen _query, so the
     // previous result's getQuery().params silently changed after getNext() (#144).
+    //
+    // `requestId` comes along with the spread but is never used: getNext() reads
+    // only `.method` and `.params`, and the http client mints a fresh id per
+    // request. Reusing this page's id for the next page would be wrong anyway.
     return {
       ...this._query,
       params: { ...this._query.params, start: Text.toInteger(nextValue) }

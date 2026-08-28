@@ -148,15 +148,67 @@ describe('AjaxResult — restApi:v2 envelope readers', () => {
       await expect(response.fetchNext(v2Http)).resolves.toBe(null)
     })
 
-    it('fetchNext maps getNext false to null, and passes a page through unchanged', async () => {
+    it('builds the next-page query from the reported offset, without mutating this one', async () => {
+      // The one thing getNext actually does. Asserting only that the page comes
+      // back proves nothing: a version that dropped `#buildNextPageQuery()` and
+      // re-sent the original params unchanged would pass that just as happily.
+      const nextPage = v2Result({ result: [{ ID: '2' }], time: {} })
+      const seen: Array<{ method: string, params: unknown }> = []
+      const http = {
+        apiVersion: ApiVersion.v2,
+        call: async (method: string, params: unknown) => {
+          seen.push({ method, params })
+          return nextPage
+        }
+      } as unknown as TypeHttp
+
+      const response = new AjaxResult<{ ID: string }[]>({
+        answer: { result: [{ ID: '1' }], next: 50, time: {} } as never,
+        query: { method: 'crm.deal.list', params: { select: ['ID'] }, requestId: QUERY.requestId },
+        status: 200
+      })
+
+      await expect(response.getNext(http)).resolves.toBe(nextPage)
+      expect(seen).toHaveLength(1)
+      expect(seen[0]!.method).toBe('crm.deal.list')
+      // The offset the envelope reported, coerced — and the caller's own params
+      // carried forward rather than replaced.
+      expect(seen[0]!.params).toEqual({ select: ['ID'], start: 50 })
+
+      // #144: the previous shallow `{ ...this._query }` shared the params
+      // reference, so `start` was written back into the frozen query and this
+      // result's own getQuery().params silently changed under the caller.
+      expect(response.getQuery().params).toEqual({ select: ['ID'] })
+    })
+
+    it('fetchNext returns the same page getNext does', async () => {
       const nextPage = v2Result({ result: [{ ID: '2' }], time: {} })
       const http = {
         apiVersion: ApiVersion.v2,
         call: async () => nextPage
       } as unknown as TypeHttp
       const response = v2Result({ result: [{ ID: '1' }], next: 50, time: {} })
-      await expect(response.getNext(http)).resolves.toBe(nextPage)
       await expect(response.fetchNext(http)).resolves.toBe(nextPage)
+    })
+
+    it('returns false / null for an unsuccessful result carrying a next', async () => {
+      // The acting pair's counterpart to the readers' unsuccessful-result case:
+      // no request goes out (the fake client has no `call` to reach).
+      //
+      // Note the `!this.isSuccess` half of getNext's guard is redundant and this
+      // case cannot pin it: `isMore()` already returns false for an unsuccessful
+      // result, so deleting `!this.isSuccess ||` leaves every test here green.
+      // Verified by mutation. Left in place as belt and braces — it states the
+      // precondition locally instead of relying on isMore's — but do not read a
+      // passing suite as proof that both halves are load-bearing.
+      const failed = new AjaxResult({
+        answer: { error: 'ERROR_CODE', error_description: 'nope', next: 50 } as never,
+        query: QUERY,
+        status: 400
+      })
+      const v2Http = { apiVersion: ApiVersion.v2 } as unknown as TypeHttp
+      await expect(failed.getNext(v2Http)).resolves.toBe(false)
+      await expect(failed.fetchNext(v2Http)).resolves.toBe(null)
     })
   })
 })

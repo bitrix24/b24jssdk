@@ -508,6 +508,9 @@ try {
 } catch (e) {
   if (e instanceof AjaxError) {
     console.error(e.code, e.description, e.status, e.requestInfo)
+    // restApi:v3 validation failures also name the field that failed:
+    // e.validation?.forEach(d => markInvalid(d.field, d.message))
+    // `field` and `message` are both optional; absent under restApi:v2.
   } else {
     console.error(e)
   }

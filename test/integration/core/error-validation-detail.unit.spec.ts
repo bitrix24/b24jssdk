@@ -91,6 +91,36 @@ describe('parseErrorPayload', () => {
     expect(parseErrorPayload(null, 'F', 'f')).toBeUndefined()
   })
 
+  it('trims trailing whitespace off the portal message before folding rows in', () => {
+    // Otherwise the separator lands next to whatever the portal already put
+    // there — "Bad. \n Field…" instead of "Bad. Field…".
+    const parsed = parseErrorPayload({
+      error: { code: 'X', message: 'Bad.  \n', validation: [{ field: 'f', message: 'Nope.' }] }
+    }, 'F', 'f')
+    expect(parsed?.description).toBe('Bad. Nope.')
+  })
+
+  it('falls back to the row for a message that is present but empty', () => {
+    // `||`, not `??`: an empty message says nothing, and letting it through
+    // would contribute an empty fragment plus a stray separator.
+    const parsed = parseErrorPayload({
+      error: { code: 'X', message: 'Bad.', validation: [{ field: 'filter', message: '' }] }
+    }, 'F', 'f')
+    expect(parsed?.description).toBe('Bad. {"field":"filter","message":""}')
+  })
+
+  it('detaches and freezes the array it hands back', () => {
+    // The caller gets a copy: mutating the body afterwards must not reach the
+    // parsed result, and the array itself must not be reorderable. Both are
+    // shallow — the `readonly` on each entry's own fields is type-level only.
+    const rows = [{ field: 'filter', message: 'Nope.' }]
+    const parsed = parseErrorPayload({ error: { code: 'X', message: 'Bad.', validation: rows } }, 'F', 'f')
+
+    rows.push({ field: 'select', message: 'Also nope.' })
+    expect(parsed?.validation).toHaveLength(1)
+    expect(Object.isFrozen(parsed?.validation)).toBe(true)
+  })
+
   it('survives a validation row that is not the documented shape', () => {
     // `TypeDescriptionErrorV3` permits extra keys and makes both documented ones
     // optional, so a row without a message must not produce "undefined" in the
@@ -186,6 +216,18 @@ describe('the soft-error path, end to end through call()', () => {
 
     const error = [...result.getErrors()][0] as AjaxError
     expect(error.validation).toEqual([{ field: 'filter', message: 'Field value must not be empty.' }])
+  })
+
+  it('keeps originalError non-enumerable on the carried error', async () => {
+    // The soft path now carries the transport's own error rather than rebuilding
+    // one, so `originalError` — the raw `AxiosError`, whose `config.url` holds
+    // the webhook secret — is reachable here as it already was on the throwing
+    // path. What must hold on both is that a serializer cannot walk to it.
+    const result = await httpRejectingWithValidation().call('crm.item.list', {})
+    const error = [...result.getErrors()][0] as AjaxError
+
+    expect(Object.keys(error)).not.toContain('originalError')
+    expect(JSON.stringify({ ...error })).not.toContain('originalError')
   })
 
   it('the message is not doubled by the round trip', async () => {

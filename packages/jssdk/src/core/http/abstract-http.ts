@@ -595,25 +595,31 @@ export abstract class AbstractHttp implements TypeHttp {
    * Turns an error the transport already built into the soft `AjaxResult` a
    * caller receives, for the codes in `RestrictionManager.exceptionCodeForSoft`.
    *
-   * It rebuilds rather than carries the error, and that used to lose things. The
-   * synthetic answer held only `code` and `message`, so the portal's real body
-   * was discarded here — which is why `validation` was unreachable even though
-   * `_convertAxiosErrorToAjaxError` had just parsed it (#423). The array is
-   * threaded through now, and `AjaxResult` re-derives the same `AjaxError` from
-   * it.
+   * It used to rebuild the error from a synthetic answer holding only `code` and
+   * `message`, so the portal's real body was discarded here — which is why
+   * `validation` was unreachable even though `_convertAxiosErrorToAjaxError` had
+   * just parsed it (#423).
    *
-   * The error is now carried rather than re-derived. The synthetic `answer` is
-   * kept so `_data` still describes the failure for anything reading it, but it
-   * is no longer what produces the error — which also means the two can no
-   * longer disagree.
+   * The error is now **carried** rather than re-derived: the synthetic `answer`
+   * is kept so `_data` still describes the failure for anything reading it, but
+   * it is no longer what produces the error — which also means the two can no
+   * longer disagree. `validation` is deliberately not copied into that synthetic
+   * answer: nothing parses it back out, so it would be dead weight that a future
+   * refactor could mistake for the source of truth.
+   *
+   * The carried error keeps its `originalError` — the raw `AxiosError`, whose
+   * `config.url` holds the webhook secret. It is non-enumerable (see
+   * `SdkError`), so spreads and `JSON.stringify` still cannot reach it, but it
+   * is now readable via `result.getErrors()` on this path as well as on the
+   * throwing one. That is deliberate: the two paths differ only in how the error
+   * is delivered, and a caller debugging one should not find less on the other.
    */
   protected _createAjaxResultWithErrorFromResponse<T>(ajaxError: AjaxError, requestId: string, method: string, params: TypeCallParams): AjaxResult<T> {
     return new AjaxResult<T>({
       answer: {
         error: {
           code: ajaxError.code,
-          message: ajaxError.message,
-          ...(ajaxError.validation ? { validation: [...ajaxError.validation] } : {})
+          message: ajaxError.message
         }
       },
       query: { method, params, requestId },

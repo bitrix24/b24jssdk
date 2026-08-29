@@ -78,7 +78,10 @@ export function parseErrorPayload(
 
     if (error.validation && error.validation.length > 0) {
       const messages = error.validation
-        .map(row => row?.message ?? JSON.stringify(row))
+        // `||`, not `??`: a row whose `message` is present but empty says
+        // nothing, so it falls back to the row itself rather than contributing
+        // an empty fragment and a stray separator.
+        .map(row => row?.message || JSON.stringify(row))
         .filter(message => message !== undefined && message !== '')
 
       if (messages.length > 0) {
@@ -96,7 +99,11 @@ export function parseErrorPayload(
       code: error.code,
       description,
       // Kept verbatim rather than reshaped: `field` is what the caller came for,
-      // and the portal is free to add keys the SDK has not seen.
+      // and the portal is free to add keys the SDK has not seen. The copy is
+      // what detaches it from the response body; the freeze stops a caller
+      // reordering or extending the array. Both are **shallow** — the `readonly`
+      // on each entry's fields is a type-level claim only, and nothing stops a
+      // caller writing to `validation[0].field` at runtime.
       ...(error.validation ? { validation: Object.freeze([...error.validation]) } : {})
     }
   }

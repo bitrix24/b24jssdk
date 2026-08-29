@@ -68,6 +68,28 @@ describe('parseErrorPayload', () => {
     )
   })
 
+  it('reads the two-row body a portal actually sends', () => {
+    // Captured live from `note.document.add` with an empty `fields` (#423). A
+    // second validation code — `DTOVALIDATIONEXCEPTION`, not
+    // `REQUESTVALIDATIONEXCEPTION` — and two rows whose messages end in a quote
+    // rather than a period, which is what the separator has to survive.
+    const parsed = parseErrorPayload({
+      error: {
+        code: 'BITRIX_REST_V3_EXCEPTION_VALIDATION_DTOVALIDATIONEXCEPTION',
+        message: 'Ошибка при валидации объекта.',
+        validation: [
+          { message: 'Не заполнено обязательное поле "collectionId"', field: 'collectionId' },
+          { message: 'Не заполнено обязательное поле "title"', field: 'title' }
+        ]
+      }
+    }, 'F', 'f')
+
+    expect(parsed?.description).toBe(
+      'Ошибка при валидации объекта. Не заполнено обязательное поле "collectionId" Не заполнено обязательное поле "title"'
+    )
+    expect(parsed?.validation?.map(row => row.field)).toEqual(['collectionId', 'title'])
+  })
+
   it('reads a restApi:v2 body, which has no validation of any kind', () => {
     const parsed = parseErrorPayload(
       { error: 'ERROR_CODE', error_description: 'nope' },

@@ -9,7 +9,7 @@ import type {
   ICallBatchResult
 } from '../../types/http'
 import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
-import type { AuthActions, AuthData, TypeDescriptionError, TypeDescriptionErrorV3 } from '../../types/auth'
+import type { AuthActions, AuthData } from '../../types/auth'
 import type { AxiosInstance } from 'axios'
 import type { Result } from '../result'
 import type { SuccessPayload } from '../../types/payloads'
@@ -19,6 +19,7 @@ import { RequestIdGenerator } from '../request-id-generator'
 import { ParamsFactory } from './limiters/params-factory'
 import { RestrictionManager } from './limiters/manager'
 import { AjaxError } from './ajax-error'
+import { parseErrorPayload } from './parse-error-payload'
 import { AjaxResult } from './ajax-result'
 import { redactSensitiveParams } from './redact'
 import { Type } from '../../tools/type'
@@ -377,8 +378,8 @@ export abstract class AbstractHttp implements TypeHttp {
   }
 
   protected _convertAxiosErrorToAjaxError(requestId: string, axiosError: AxiosError, method: string, params: TypeCallParams): AjaxError {
-    let errorCode = `${axiosError.code || 'JSSDK_AXIOS_ERROR'}`
-    let errorDescription = axiosError.message
+    const errorCode = `${axiosError.code || 'JSSDK_AXIOS_ERROR'}`
+    const errorDescription = axiosError.message
     const status = axiosError.response?.status || 0
 
     // Handling network errors
@@ -403,40 +404,17 @@ export abstract class AbstractHttp implements TypeHttp {
       })
     }
 
-    /**
-     * @todo make single function
-     * @see AjaxResult.#processErrors()
-     */
-    if (axiosError.response?.data && typeof axiosError.response.data === 'object') {
-      const responseData = axiosError.response.data as TypeDescriptionError | TypeDescriptionErrorV3
-      if (
-        responseData.error
-        && typeof responseData.error === 'object'
-        && 'code' in responseData.error
-      ) {
-        errorCode = responseData.error.code
-        errorDescription = responseData.error.message.trimEnd()
-        if (responseData.error.validation) {
-          if (errorDescription.length > 0) {
-            if (!errorDescription.endsWith('.')) {
-              errorDescription += `.`
-            }
-            errorDescription += ` `
-          }
-          responseData.error.validation.forEach((row) => {
-            errorDescription += `${row?.message || JSON.stringify(row)}`
-          })
-        }
-      } else if (responseData.error && typeof responseData.error === 'string') {
-        errorCode = responseData.error !== '0' ? responseData.error : errorCode
-        errorDescription = (responseData as TypeDescriptionError)?.error_description ?? errorDescription
-      }
-    }
+    // Shared with `AjaxResult.#processErrors()`. Which of the two runs depends on
+    // whether the code is soft or hard — not something a caller controls — so
+    // they have to agree, and when this was written out in both places they did
+    // not: neither read `validation[].field` (#423).
+    const parsed = parseErrorPayload(axiosError.response?.data, errorCode, errorDescription)
 
     return new AjaxError({
-      code: errorCode,
-      description: errorDescription,
+      code: parsed?.code ?? errorCode,
+      description: parsed?.description ?? errorDescription,
       status,
+      validation: parsed?.validation,
       requestInfo: { method, params, requestId },
       originalError: axiosError
     })
@@ -614,23 +592,37 @@ export abstract class AbstractHttp implements TypeHttp {
   }
 
   /**
-   * This works in conjunction with the AbstractHttp._convertAxiosErrorToAjaxError function
+   * Turns an error the transport already built into the soft `AjaxResult` a
+   * caller receives, for the codes in `RestrictionManager.exceptionCodeForSoft`.
+   *
+   * It rebuilds rather than carries the error, and that used to lose things. The
+   * synthetic answer held only `code` and `message`, so the portal's real body
+   * was discarded here — which is why `validation` was unreachable even though
+   * `_convertAxiosErrorToAjaxError` had just parsed it (#423). The array is
+   * threaded through now, and `AjaxResult` re-derives the same `AjaxError` from
+   * it.
+   *
+   * The error is now carried rather than re-derived. The synthetic `answer` is
+   * kept so `_data` still describes the failure for anything reading it, but it
+   * is no longer what produces the error — which also means the two can no
+   * longer disagree.
    */
   protected _createAjaxResultWithErrorFromResponse<T>(ajaxError: AjaxError, requestId: string, method: string, params: TypeCallParams): AjaxResult<T> {
     return new AjaxResult<T>({
       answer: {
         error: {
           code: ajaxError.code,
-          message: ajaxError.message
+          message: ajaxError.message,
+          ...(ajaxError.validation ? { validation: [...ajaxError.validation] } : {})
         }
       },
       query: { method, params, requestId },
-      status: ajaxError.status
+      status: ajaxError.status,
+      // The error itself, not a reconstruction: it was parsed from the portal's
+      // body a moment ago, and re-deriving it here would fold the validation
+      // messages onto a description that already holds them (#423).
+      error: ajaxError
     })
-    //
-    // result.addError(ajaxError)
-    //
-    // return result
   }
   // endregion ////
   // endregion ////

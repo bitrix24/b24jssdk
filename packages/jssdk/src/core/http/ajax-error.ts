@@ -1,4 +1,5 @@
 import type { AjaxQuery } from './ajax-result'
+import type { ValidationDetail } from './parse-error-payload'
 import type { SdkErrorDetails } from '../sdk-error'
 import { SdkError } from '../sdk-error'
 import { redactSensitiveParams } from './redact'
@@ -16,6 +17,7 @@ export type AjaxErrorParams = {
 
 type AjaxErrorDetails = SdkErrorDetails & {
   requestInfo?: Partial<AjaxQuery>
+  validation?: readonly ValidationDetail[]
 }
 
 /**
@@ -30,6 +32,40 @@ export class AjaxError extends SdkError {
    */
   public readonly requestInfo?: AjaxErrorDetails['requestInfo']
 
+  /**
+   * The `restApi:v3` `validation` array, when the portal sent one.
+   *
+   * `description` folds the validation messages into one string for display;
+   * this keeps them apart, **with the `field` each belongs to** — which the
+   * message alone does not carry, and which is what a form needs in order to
+   * mark the offending input rather than show a banner (#423).
+   *
+   * ```ts
+   * if (!response.isSuccess) {
+   *   for (const error of response.getErrors()) {
+   *     if (error instanceof AjaxError) {
+   *       for (const detail of error.validation ?? []) {
+   *         markInvalid(detail.field, detail.message)
+   *       }
+   *     }
+   *   }
+   * }
+   * ```
+   *
+   * Absent under `restApi:v2`, which has no equivalent, and absent when v3
+   * reported an error without one. `field` is optional inside each entry
+   * because the portal's own shape says so.
+   *
+   * **Not added to `toJSON()`**, which enumerates its fields explicitly. That
+   * keeps the serialized shape unchanged for anything already consuming it. It
+   * is not a redaction boundary: the same text is already in `message`, since
+   * the description folds these messages in. The entries carry whatever the
+   * portal chose to say about the request, which can quote a submitted value —
+   * no more and no less than `message` does. A spread or `Object.keys(err)` will
+   * see it, like every other public field.
+   */
+  public readonly validation?: readonly ValidationDetail[]
+
   constructor(params: AjaxErrorDetails) {
     // @todo test this
     // @memo get from PullClient.loadConfig
@@ -41,6 +77,7 @@ export class AjaxError extends SdkError {
     super(params)
 
     this.name = 'AjaxError' as const
+    this.validation = params.validation
     // Redact credential-bearing keys from caller-supplied params so they never
     // leak via `toJSON()` / `toString()` consumers (#39).
     this.requestInfo = params.requestInfo

@@ -1,7 +1,8 @@
 import type { IResult } from '../result'
 import type { Payload, SuccessPayload } from '../../types/payloads'
+import type { ValidationDetail } from './parse-error-payload'
+import { parseErrorPayload } from './parse-error-payload'
 import type { TypeCallParams, TypeHttp } from '../../types/http'
-import type { TypeDescriptionError, TypeDescriptionErrorV3 } from '../../types/auth'
 import { Type } from '../../tools/type'
 import { Text } from '../../tools/text'
 import { Result } from '../result'
@@ -19,12 +20,25 @@ type AjaxResultOptions<T> = Readonly<{
   answer: Payload<T>
   query: AjaxQuery
   status: number
+  /**
+   * An error the caller has already built, used instead of deriving one from
+   * `answer`.
+   *
+   * For the soft-error path in `AbstractHttp`, which has parsed the portal's
+   * body, built an `AjaxError` from it, and then needs a `Result` to hand back.
+   * Re-deriving there parses the same body twice — and the second pass folds the
+   * validation messages onto a description that already contains them, so the
+   * text came out doubled (#423). Carrying the error is also simply more honest:
+   * it is the error, not a reconstruction of one.
+   */
+  error?: AjaxError
 }>
 
 type ErrorData = {
   code: string
   description: string
   status: number
+  validation?: readonly ValidationDetail[]
 }
 
 /**
@@ -48,7 +62,11 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     this._query = Object.freeze(structuredClone(options.query))
     this._status = options.status
 
-    this.#processErrors()
+    if (options.error) {
+      this.addError(options.error, 'base-error')
+    } else {
+      this.#processErrors()
+    }
   }
 
   override get isSuccess(): boolean {
@@ -78,48 +96,23 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   /**
    * If the response contains error data, we'll restore it to an error.
    *
-   * @todo make single function
-   * @see AbstractHttp._convertAxiosErrorToAjaxError()
+   * The parsing lives in {@link parseErrorPayload}, shared with
+   * `AbstractHttp._convertAxiosErrorToAjaxError()`. It used to be written out
+   * here as well, and the two copies had drifted into agreeing on everything
+   * except that neither read `validation[].field` (#423).
    */
   #processErrors(): void {
-    if (this._data && typeof this._data === 'object' && 'error' in this._data) {
-      const responseData = this._data as TypeDescriptionError | TypeDescriptionErrorV3
-
-      if (
-        responseData.error
-        && typeof responseData.error === 'object'
-        && 'code' in responseData.error
-      ) {
-        const errorCode = responseData.error.code
-        let errorDescription = responseData.error.message.trimEnd()
-        if (responseData.error.validation) {
-          if (errorDescription.length > 0) {
-            if (!errorDescription.endsWith('.')) {
-              errorDescription += `.`
-            }
-            errorDescription += ` `
-          }
-          responseData.error.validation.forEach((row) => {
-            errorDescription += `${row?.message || JSON.stringify(row)}`
-          })
-        }
-
-        this.addError(this.#createAjaxError({
-          code: errorCode,
-          description: errorDescription,
-          status: this._status
-        }), 'base-error')
-      } else if (responseData.error && typeof responseData.error === 'string') {
-        const errorCode = responseData.error !== '0' ? responseData.error : 'JSSDK_RESPONSE_ERROR'
-        const errorDescription = (responseData as TypeDescriptionError)?.error_description ?? 'Some error in response'
-
-        this.addError(this.#createAjaxError({
-          code: errorCode,
-          description: errorDescription,
-          status: this._status
-        }), 'base-error')
-      }
+    const parsed = parseErrorPayload(this._data, 'JSSDK_RESPONSE_ERROR', 'Some error in response')
+    if (parsed === undefined) {
+      return
     }
+
+    this.addError(this.#createAjaxError({
+      code: parsed.code,
+      description: parsed.description,
+      status: this._status,
+      validation: parsed.validation
+    }), 'base-error')
   }
 
   #createAjaxError(errorData: ErrorData): AjaxError {
@@ -127,6 +120,7 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
       code: errorData.code,
       description: errorData.description,
       status: errorData.status,
+      validation: errorData.validation,
       requestInfo: {
         method: this._query.method,
         params: this._query.params,

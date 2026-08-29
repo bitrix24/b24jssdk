@@ -28,6 +28,9 @@ export * from './core/language/list'
 export * from './core/result'
 export * from './core/sdk-error'
 export * from './core/http/ajax-error'
+// `ValidationDetail` is the shape of `AjaxError.validation`, so a caller that
+// reads that field needs the type (#423). `parseErrorPayload` itself is internal.
+export type { ValidationDetail } from './core/http/parse-error-payload'
 export * from './core/http/ajax-result'
 export * from './core/http/limiters/params-factory'
 export * from './core/http/limiters/rate-limiter'

@@ -1,4 +1,3 @@
-import type { ActionOptions } from '../abstract-action'
 import type { CallBatchResult, IB24BatchOptions } from '../../../types/b24'
 import type {
   BatchCommandsArrayUniversal,
@@ -8,7 +7,7 @@ import type {
 import { AbstractBatch } from '../abstract-batch'
 import { ApiVersion } from '../../../types/b24'
 
-export type ActionBatchV2 = ActionOptions & {
+export type ActionBatchV2 = {
   calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
   options?: IB24BatchOptions
 }
@@ -121,6 +120,12 @@ export class BatchV2 extends AbstractBatch {
    *     (depending on API settings and options).
    */
   public override async make<T = unknown>(options: ActionBatchV2): Promise<CallBatchResult<T>> {
+    this._warnMisplacedOptions(
+      options,
+      ['isHaltOnError', 'returnAjaxResult', 'requestId'],
+      'options'
+    )
+
     const opts = {
       ...options.options,
       apiVersion: ApiVersion.v2

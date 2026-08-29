@@ -1,4 +1,3 @@
-import type { ActionOptions } from '../abstract-action'
 import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal, BatchCommandsUniversal
@@ -8,7 +7,7 @@ import { AbstractBatch } from '../abstract-batch'
 import { ApiVersion } from '../../../types/b24'
 import { Result } from '../../result'
 
-export type ActionBatchByChunkV3 = ActionOptions & {
+export type ActionBatchByChunkV3 = {
   calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal
   options?: Omit<IB24BatchOptions, 'returnAjaxResult'>
 }
@@ -69,6 +68,12 @@ export class BatchByChunkV3 extends AbstractBatch {
    * @tip For very large command sets, consider using server-side task queues instead of bulk batch requests.
    */
   public override async make<T = unknown>(options: ActionBatchByChunkV3): Promise<Result<T[]>> {
+    this._warnMisplacedOptions(
+      options,
+      ['isHaltOnError', 'returnAjaxResult', 'requestId'],
+      'options'
+    )
+
     const batchSize = 50
 
     const opts = {

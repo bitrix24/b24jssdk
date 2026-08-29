@@ -1,10 +1,9 @@
-import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParams, TypeCallParamsV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 
-export type ActionFetchListV2 = ActionOptions & {
+export type ActionFetchListV2 = {
   method: string
   params?: Omit<TypeCallParamsV2, 'start' | 'order'>
   idKey?: string

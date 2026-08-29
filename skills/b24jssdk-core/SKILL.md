@@ -179,6 +179,11 @@ async function loadDeal() {
   } catch (e) {
     if (e instanceof AjaxError) {
       logger.error('REST error', { code: e.code, status: e.status, message: e.message, requestInfo: e.requestInfo })
+      // restApi:v3 only: `e.validation` names the field that failed, which
+      // `message` does not. Both `field` and `message` are optional.
+      for (const detail of e.validation ?? []) {
+        logger.error('invalid field', { field: detail.field, message: detail.message })
+      }
     } else if (e instanceof SdkError) {
       logger.error('SDK error', { code: e.code, message: e.message })
     } else {

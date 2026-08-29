@@ -1,4 +1,5 @@
 import type { AjaxQuery } from './ajax-result'
+import type { ValidationDetail } from './parse-error-payload'
 import type { SdkErrorDetails } from '../sdk-error'
 import { SdkError } from '../sdk-error'
 import { redactSensitiveParams } from './redact'
@@ -16,6 +17,7 @@ export type AjaxErrorParams = {
 
 type AjaxErrorDetails = SdkErrorDetails & {
   requestInfo?: Partial<AjaxQuery>
+  validation?: readonly ValidationDetail[]
 }
 
 /**
@@ -30,6 +32,55 @@ export class AjaxError extends SdkError {
    */
   public readonly requestInfo?: AjaxErrorDetails['requestInfo']
 
+  /**
+   * The `restApi:v3` `validation` array, when the portal sent one.
+   *
+   * `description` folds the validation messages into one string for display;
+   * this keeps them apart, **with the `field` each belongs to** — which the
+   * message alone does not carry, and which is what a form needs in order to
+   * mark the offending input rather than show a banner (#423).
+   *
+   * ```ts
+   * if (!response.isSuccess) {
+   *   for (const error of response.getErrors()) {
+   *     if (error instanceof AjaxError) {
+   *       for (const detail of error.validation ?? []) {
+   *         markInvalid(detail.field, detail.message)
+   *       }
+   *     }
+   *   }
+   * }
+   * ```
+   *
+   * Absent under `restApi:v2`, which has no equivalent, and absent when v3
+   * reported an error without one. `field` is optional inside each entry
+   * because the portal's own shape says so.
+   *
+   * **Included in `toJSON()`**, but only when present — an error carrying no
+   * validation serializes exactly as it did before. It belongs there because
+   * `toJSON()` is what reaches a log or an error tracker, and that is where the
+   * field name matters most: `message` folds the validation *messages* in, but
+   * not the `field` each came from. A portal often names the field inside its
+   * own wording, as in `` Обязательное поле `id` не указано `` — but that is the
+   * portal's phrasing, not a guarantee, and nothing structured survives without
+   * this.
+   *
+   * **Redaction contract:** each entry has been run through
+   * {@link redactSensitiveParams} in the constructor, on the same terms as
+   * `requestInfo.params`. That matters because the portal's own shape permits
+   * extra keys beyond `field` and `message`, and only `message` is folded into
+   * `description` — so an extra key reaches a serializer without ever passing
+   * through the text. Before this was added, a row carrying `token: '…'` was
+   * masked inside `requestInfo.params` and printed verbatim here, from the same
+   * error object.
+   *
+   * What redaction does *not* cover is portal prose: a message that quotes a
+   * submitted value stays as the portal wrote it, exactly as it already does in
+   * `message`. Contrast `originalError`, which is genuinely hidden: it holds the
+   * raw transport error and its credentials.
+   */
+  public readonly validation?: readonly ValidationDetail[]
+
   constructor(params: AjaxErrorDetails) {
     // @todo test this
     // @memo get from PullClient.loadConfig
@@ -41,6 +92,16 @@ export class AjaxError extends SdkError {
     super(params)
 
     this.name = 'AjaxError' as const
+    // Redacted on the same terms as `requestInfo.params` below: the portal's
+    // shape permits keys the SDK has not seen, and this field is serialized.
+    // An empty array is treated as no validation at all, so a caller
+    // constructing one directly cannot produce a `validation: []` key that the
+    // parser never emits (it guards on `length > 0`).
+    this.validation = params.validation?.length
+      ? Object.freeze(params.validation.map(
+          row => redactSensitiveParams(row) as ValidationDetail
+        ))
+      : undefined
     // Redact credential-bearing keys from caller-supplied params so they never
     // leak via `toJSON()` / `toString()` consumers (#39).
     this.requestInfo = params.requestInfo
@@ -102,6 +163,9 @@ export class AjaxError extends SdkError {
       status: this._status,
       timestamp: this.timestamp.toISOString(),
       requestInfo: this.requestInfo,
+      // Only when present, so an error without validation serializes exactly as
+      // it did before this field existed (#423).
+      ...(this.validation ? { validation: this.validation } : {}),
       stack: this.stack
     }
   }

@@ -205,6 +205,33 @@ describe('AjaxError', () => {
   })
 })
 
+describe('AjaxError.toJSON()', () => {
+  it('carries validation when there is one', () => {
+    // `toJSON()` is what reaches a log or an error tracker, and the field name
+    // is exactly what `message` does not structurally carry (#423).
+    const json = firstError(resultFrom(V3_VALIDATION_BODY)).toJSON()
+    expect(json.validation).toEqual([{ field: 'filter', message: 'Field value must not be empty.' }])
+  })
+
+  it('serializes an error without validation exactly as before', () => {
+    // The addition is conditional, so nothing already consuming this shape sees
+    // a new key on the errors it was already handling.
+    const json = firstError(resultFrom({ error: { code: 'SOME_CODE', message: 'Plain failure.' } })).toJSON()
+    expect(Object.keys(json)).toEqual(['name', 'code', 'message', 'status', 'timestamp', 'requestInfo', 'stack'])
+  })
+
+  it('still keeps originalError out of the serialized shape', () => {
+    const error = new AjaxError({
+      code: 'X',
+      description: 'y',
+      status: 400,
+      validation: [{ field: 'filter' }],
+      originalError: { config: { url: '/rest/1/SECRET/crm.item.list.json' } }
+    })
+    expect(JSON.stringify(error.toJSON())).not.toContain('SECRET')
+  })
+})
+
 describe('the soft-error path, end to end through call()', () => {
   /**
    * The rebuild is where most of #423 happened. On a soft code the transport

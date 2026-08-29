@@ -56,13 +56,20 @@ export class AjaxError extends SdkError {
    * reported an error without one. `field` is optional inside each entry
    * because the portal's own shape says so.
    *
-   * **Not added to `toJSON()`**, which enumerates its fields explicitly. That
-   * keeps the serialized shape unchanged for anything already consuming it. It
-   * is not a redaction boundary: the same text is already in `message`, since
-   * the description folds these messages in. The entries carry whatever the
-   * portal chose to say about the request, which can quote a submitted value —
-   * no more and no less than `message` does. A spread or `Object.keys(err)` will
-   * see it, like every other public field.
+   * **Included in `toJSON()`**, but only when present — an error carrying no
+   * validation serializes exactly as it did before. It belongs there because
+   * `toJSON()` is what reaches a log or an error tracker, and that is where the
+   * field name matters most: `message` folds the validation *messages* in, but
+   * not the `field` each came from. A portal often names the field inside its
+   * own wording, as in `` Обязательное поле `id` не указано `` — but that is the
+   * portal's phrasing, not a guarantee, and nothing structured survives without
+   * this.
+   *
+   * It is not a redaction boundary. The entries say whatever the portal chose to
+   * say about the request, which can quote a submitted value — no more and no
+   * less than `message`, which `toJSON()` already carries. Contrast
+   * `originalError`, which is genuinely hidden: it holds the raw transport error
+   * and its credentials.
    */
   public readonly validation?: readonly ValidationDetail[]
 
@@ -139,6 +146,9 @@ export class AjaxError extends SdkError {
       status: this._status,
       timestamp: this.timestamp.toISOString(),
       requestInfo: this.requestInfo,
+      // Only when present, so an error without validation serializes exactly as
+      // it did before this field existed (#423).
+      ...(this.validation ? { validation: this.validation } : {}),
       stack: this.stack
     }
   }

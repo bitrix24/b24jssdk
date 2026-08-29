@@ -19,8 +19,12 @@ export type ParsedErrorPayload = {
   readonly code: string
   readonly description: string
   /**
-   * The `restApi:v3` `validation` array, verbatim. Absent for `restApi:v2`,
-   * which has no equivalent, and absent when v3 did not send one.
+   * The `restApi:v3` `validation` array, verbatim and **unredacted** — this is
+   * the raw read. `AjaxError` runs each entry through `redactSensitiveParams`
+   * when it stores them, which is the copy a caller sees.
+   *
+   * Absent for `restApi:v2`, which has no equivalent, and absent when v3 did not
+   * send one.
    */
   readonly validation?: readonly ValidationDetail[]
 }

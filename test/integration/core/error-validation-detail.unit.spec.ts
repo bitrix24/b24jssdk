@@ -232,6 +232,49 @@ describe('AjaxError.toJSON()', () => {
   })
 })
 
+describe('AjaxError redacts inside validation', () => {
+  // The portal's shape permits keys beyond `field` and `message`, and only
+  // `message` is folded into the description — so an extra key reaches a
+  // serializer without ever passing through the text. It gets the same
+  // treatment `requestInfo.params` already had.
+  const withSecret = () => new AjaxError({
+    code: 'X',
+    description: 'Bad.',
+    status: 400,
+    validation: [{ field: 'password', message: 'must not be empty', token: 'SUPERSECRET' }]
+  })
+
+  it('masks a credential-bearing key inside an entry', () => {
+    expect(withSecret().validation?.[0]?.token).toBe('***REDACTED***')
+  })
+
+  it('does not leak it through toJSON()', () => {
+    expect(JSON.stringify(withSecret().toJSON())).not.toContain('SUPERSECRET')
+  })
+
+  it('does not leak it through a spread', () => {
+    expect(JSON.stringify({ ...withSecret() })).not.toContain('SUPERSECRET')
+  })
+
+  it('leaves field and message alone', () => {
+    const row = withSecret().validation?.[0]
+    expect(row?.field).toBe('password')
+    expect(row?.message).toBe('must not be empty')
+  })
+
+  it('treats an empty array as no validation at all', () => {
+    // Otherwise a caller building an error by hand could produce a
+    // `validation: []` key that the parser never emits.
+    const error = new AjaxError({ code: 'X', description: 'y', status: 400, validation: [] })
+    expect(error.validation).toBeUndefined()
+    expect('validation' in error.toJSON()).toBe(false)
+  })
+
+  it('keeps validation out of toString(), which is a display surface', () => {
+    expect(withSecret().toString()).not.toContain('password')
+  })
+})
+
 describe('the soft-error path, end to end through call()', () => {
   /**
    * The rebuild is where most of #423 happened. On a soft code the transport

@@ -65,11 +65,19 @@ export class AjaxError extends SdkError {
    * portal's phrasing, not a guarantee, and nothing structured survives without
    * this.
    *
-   * It is not a redaction boundary. The entries say whatever the portal chose to
-   * say about the request, which can quote a submitted value — no more and no
-   * less than `message`, which `toJSON()` already carries. Contrast
-   * `originalError`, which is genuinely hidden: it holds the raw transport error
-   * and its credentials.
+   * **Redaction contract:** each entry has been run through
+   * {@link redactSensitiveParams} in the constructor, on the same terms as
+   * `requestInfo.params`. That matters because the portal's own shape permits
+   * extra keys beyond `field` and `message`, and only `message` is folded into
+   * `description` — so an extra key reaches a serializer without ever passing
+   * through the text. Before this was added, a row carrying `token: '…'` was
+   * masked inside `requestInfo.params` and printed verbatim here, from the same
+   * error object.
+   *
+   * What redaction does *not* cover is portal prose: a message that quotes a
+   * submitted value stays as the portal wrote it, exactly as it already does in
+   * `message`. Contrast `originalError`, which is genuinely hidden: it holds the
+   * raw transport error and its credentials.
    */
   public readonly validation?: readonly ValidationDetail[]
 
@@ -84,7 +92,16 @@ export class AjaxError extends SdkError {
     super(params)
 
     this.name = 'AjaxError' as const
-    this.validation = params.validation
+    // Redacted on the same terms as `requestInfo.params` below: the portal's
+    // shape permits keys the SDK has not seen, and this field is serialized.
+    // An empty array is treated as no validation at all, so a caller
+    // constructing one directly cannot produce a `validation: []` key that the
+    // parser never emits (it guards on `length > 0`).
+    this.validation = params.validation?.length
+      ? Object.freeze(params.validation.map(
+          row => redactSensitiveParams(row) as ValidationDetail
+        ))
+      : undefined
     // Redact credential-bearing keys from caller-supplied params so they never
     // leak via `toJSON()` / `toString()` consumers (#39).
     this.requestInfo = params.requestInfo

@@ -2,9 +2,9 @@
 
 Last reviewed: 2026-08-29.
 
-The policy lives in `app.head.meta` in [`docs/nuxt.config.ts`](../../docs/nuxt.config.ts).
-This page is why it says what it says, and how to change it without breaking the
-site quietly.
+The policy lives in [`docs/server/plugins/csp.ts`](../../docs/server/plugins/csp.ts).
+This page is why it says what it says, why it is emitted from there rather than
+from `nuxt.config.ts`, and how to change it without breaking the site quietly.
 
 ## Why a `<meta>` tag and not a header
 

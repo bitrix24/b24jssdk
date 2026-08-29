@@ -6,7 +6,7 @@
  *
  * **Not wired into CI, and deliberately so.** It needs a full `docs:generate`
  * and a Chromium binary, and `playwright` is not a dependency of this
- * repository. It is here because the CSP in `docs/nuxt.config.ts` was derived by
+ * repository. It is here because the CSP in `docs/server/plugins/csp.ts` was derived by
  * measurement rather than reasoning, and the next person to touch that policy
  * should be able to repeat the measurement instead of re-deriving it — a CSP
  * argued from first principles is wrong roughly every time.
@@ -32,10 +32,12 @@
  *   node scripts/check-docs-csp.mjs                    # a default page sample
  *   node scripts/check-docs-csp.mjs / /docs/api-reference
  *
- * To try a *candidate* policy without rebuilding, pass it in `CSP` — it is
- * injected into every page and overrides the one the build baked in. That is how
- * to check whether a relaxation is still load-bearing: drop it and see whether
- * anything actually breaks.
+ * To try a *candidate* policy without rebuilding, pass it in `CSP`. The built-in
+ * policy is stripped first, so the candidate genuinely replaces it — see the
+ * comment on that in `serveBuiltSite`, because merely adding a second `<meta>`
+ * policy would make the page stricter rather than looser and quietly invert this.
+ * That is how to check whether a relaxation is still load-bearing: drop it and
+ * see whether anything actually breaks.
  *
  *   CSP="default-src 'self'; script-src 'self' 'unsafe-inline'" \
  *   node scripts/check-docs-csp.mjs

@@ -93,7 +93,7 @@ easily drop these two functions on the floor. They are called from
 
 ### 4. A Content Security Policy
 
-**File:** [`../../docs/server/plugins/csp.ts`](../../docs/server/plugins/csp.ts)
+**File:** [`server/plugins/csp.ts`](../../docs/server/plugins/csp.ts)
 **Introduced:** #399
 
 Upstream sets no CSP. This fork does, as a `<meta http-equiv>` tag, because
@@ -108,9 +108,10 @@ load-bearing and one of them fails invisibly — nothing on a statically loaded
 page touches the SQLite search worker, so a policy missing `'wasm-unsafe-eval'`
 looks clean until someone searches.
 
-**A sync will not conflict with this** — upstream has nothing at this position —
-which is precisely why it can be dropped by accident when `app.head` is taken
-wholesale from upstream.
+**A sync will not conflict with this** — upstream has no such plugin — which is
+precisely why it can be dropped by accident: a sync that prunes files absent
+upstream removes it silently, and nothing fails. The static presence check in
+`docs-build` is what catches that.
 
 ### 5. `codeTransform.ts` and `prettierWorkerApi.ts` are extracted modules
 

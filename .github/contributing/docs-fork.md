@@ -91,7 +91,29 @@ nothing to sync here — but the surrounding file *is* upstream's, so a sync can
 easily drop these two functions on the floor. They are called from
 `transformMDC` near the end of the pipeline.
 
-### 4. `codeTransform.ts` and `prettierWorkerApi.ts` are extracted modules
+### 4. A Content Security Policy
+
+**File:** [`server/plugins/csp.ts`](../../docs/server/plugins/csp.ts)
+**Introduced:** #399
+
+Upstream sets no CSP. This fork does, as a `<meta http-equiv>` tag, because
+GitHub Pages cannot set response headers.
+
+It only became worth doing once divergence 1 landed: with prettier bundled the
+site loads nothing from any external origin, so the policy is `'self'`
+throughout rather than a list of CDN exceptions.
+
+**Before changing it, read [`docs-csp.md`](docs-csp.md).** Three relaxations are
+load-bearing and one of them fails invisibly — nothing on a statically loaded
+page touches the SQLite search worker, so a policy missing `'wasm-unsafe-eval'`
+looks clean until someone searches.
+
+**A sync will not conflict with this** — upstream has no such plugin — which is
+precisely why it can be dropped by accident: a sync that prunes files absent
+upstream removes it silently, and nothing fails. The static presence check in
+`docs-build` is what catches that.
+
+### 5. `codeTransform.ts` and `prettierWorkerApi.ts` are extracted modules
 
 **Files:** [`app/utils/codeTransform.ts`](../../docs/app/utils/codeTransform.ts), [`app/utils/prettierWorkerApi.ts`](../../docs/app/utils/prettierWorkerApi.ts)
 **Introduced:** #139

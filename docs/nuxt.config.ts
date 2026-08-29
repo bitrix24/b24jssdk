@@ -59,7 +59,6 @@ const prodUrl = process?.env.NUXT_PUBLIC_SITE_URL ?? ''
 const baseUrl = process?.env.NUXT_PUBLIC_BASE_URL ?? ''
 const canonicalUrl = process?.env.NUXT_PUBLIC_CANONICAL_URL ?? ''
 const gitUrl = process?.env.NUXT_PUBLIC_GIT_URL ?? ''
-
 export default defineNuxtConfig({
   modules: [
     // '@bitrix24/b24jssdk-nuxt',

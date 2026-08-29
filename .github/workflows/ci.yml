@@ -388,6 +388,14 @@ jobs:
       - name: Build docs
         run: pnpm run docs:generate
 
+      - name: Check the CSP survived the build
+        # The browser-based check (scripts/check-docs-csp.mjs) answers "is the
+        # policy too strict?" and needs Playwright, so it stays manual. This one
+        # answers "is it still there, once, and first in <head>?" — the cheaper
+        # failure, and the one an upstream sync or a head-ordering change would
+        # otherwise ship silently. See .github/contributing/docs-csp.md.
+        run: node scripts/check-docs-csp-present.mjs
+
       - name: Create Pages artifact
         if: github.workflow == 'ci' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: |

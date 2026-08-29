@@ -25,8 +25,33 @@ Three directives are header-only and therefore **cannot be expressed at all**:
 | `report-uri` / `report-to` | No violation reporting. A policy that is too strict shows up only in a visitor's console. |
 | `sandbox` | Not applicable here anyway. |
 
-The first is a genuine residual risk, accepted: the site is public documentation
-with no authenticated actions to clickjack.
+The first is a genuine residual risk, accepted — but not because there is
+nothing worth framing. This is an official vendor SDK's documentation: it carries
+install commands, code to copy, and links to GitHub and npm. A framed clone could
+overlay a different package name in an install snippet, or dress a link as a
+sign-in. The honest statement is narrower: **we accept it because GitHub Pages
+leaves no mechanism to set the directive**, and because the site holds no session
+and performs no state-changing action a visitor could be tricked into.
+
+## Why a Nitro plugin, and not `app.head.meta`
+
+A `<meta>` policy governs only what the parser reaches **after** it, so its
+position in `<head>` decides how much of the page it covers at all.
+
+`app.head.meta` cannot get it high enough. Measured: even with
+`tagPriority: 'critical'`, the tag landed **158 tags deep** — below the import
+map, the inline critical CSS, the entry stylesheet and 143 `modulepreload` hints,
+all of which were therefore outside the policy. Unhead does not order those; Nitro
+and Vite emit them directly, so no head configuration moves the tag above them.
+
+A build-time `hooks: { 'render:html' }` in `nuxt.config.ts` does not work either —
+that key takes Nuxt's build hooks, and `render:html` is a Nitro **runtime** hook.
+It has to be a Nitro plugin: [`docs/server/plugins/csp.ts`](../../docs/server/plugins/csp.ts),
+which prepends the tag so it is first in `<head>`, ahead of everything.
+
+Verified on the built output: **151 pages, the tag first on every one, and never
+duplicated.** The last part matters — two `<meta>` policies are both enforced and
+a resource must satisfy the intersection.
 
 ## The policy
 
@@ -61,9 +86,15 @@ Three relaxations, each required by something real:
 
 `'unsafe-inline'` in `script-src` removes most of CSP's XSS protection, and it
 cannot be avoided here: hashes would differ per page, and one static `<meta>` tag
-cannot carry 151 sets of them. Nonces need a per-response server. What the policy
-still buys is that **no external origin can be loaded at all** — which is the
-threat #399 was actually about.
+cannot carry 151 sets of them. Nonces need a per-response server.
+
+**So do not read this policy as XSS mitigation.** An injected `<script>` or an
+`onerror=` payload still runs. What it does buy, and the reason #399 exists, is
+that such a payload cannot **fetch a second stage from, or exfiltrate anything
+to, an attacker-controlled origin** — `script-src`, `connect-src` and `img-src`
+are all `'self'`. That is a defence against a compromised build-time dependency
+far more than against runtime XSS, and it is a narrow win rather than a broad
+one.
 
 `worker-src 'self'` is stated rather than left to fall back to `script-src`,
 because that fallback would carry `'unsafe-inline'` with it. Both workers the
@@ -72,9 +103,17 @@ a module worker since #407 — are same-origin, so `'self'` is enough. Verified:
 constructing the prettier worker with `{ type: 'module' }` under this policy
 succeeds.
 
-`img-src 'self'` carries no `data:`. Measured: the built site uses no `data:`
-image URIs, in HTML or CSS. If you add one, the browser console will say so
-immediately.
+`img-src 'self'` carries no `data:`, and this one has a caveat worth stating
+precisely. **The built CSS does contain a `data:image/svg+xml` URI** — the
+`bg-grid-example` rule in `docs/app/assets/css/main.css`, inherited from upstream
+`nuxt/ui`. No element on the built site carries that class, so nothing ever
+requests it and the policy never fires.
+
+That makes it a latent landmine of exactly the shape this page warns about
+elsewhere: applying `bg-grid-example` to anything, or pasting another upstream
+rule that uses a `data:` background, would break rendering with no build or test
+failure. If you do, either add `data:` to `img-src` or drop the rule — do not
+assume the absence of a violation today means the site is free of `data:` URIs.
 
 ## Changing it
 
@@ -104,7 +143,15 @@ crawls it, and the build fails with a 404 that says nothing about the cause.
 site, loads a sample of pages in Chromium, **opens the search dialog on each**,
 and reports every violation the browser raises. Pass paths to check others. Pass
 a candidate policy in `CSP=` to try one without rebuilding — that is how to check
-whether a relaxation is still load-bearing:
+whether a relaxation is still load-bearing.
+
+The script **strips the built-in policy before injecting the candidate**, so the
+candidate genuinely replaces it. That is not a detail: adding a second `<meta>`
+policy would leave both enforced, a resource would have to satisfy the
+intersection, and dropping a directive from the candidate could never actually
+loosen anything — the check would report "still works" for a relaxation that is
+in fact required. Verified by counting the tags in the served response: one, and
+it is the candidate.
 
 ```bash
 CSP="default-src 'self'; script-src 'self' 'unsafe-inline'" node scripts/check-docs-csp.mjs

@@ -93,7 +93,7 @@ easily drop these two functions on the floor. They are called from
 
 ### 4. A Content Security Policy
 
-**File:** [`../../docs/nuxt.config.ts`](../../docs/nuxt.config.ts) (`app.head.meta`)
+**File:** [`../../docs/server/plugins/csp.ts`](../../docs/server/plugins/csp.ts)
 **Introduced:** #399
 
 Upstream sets no CSP. This fork does, as a `<meta http-equiv>` tag, because

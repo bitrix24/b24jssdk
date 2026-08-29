@@ -43,13 +43,17 @@
 
 import { createServer } from 'node:http'
 import { readFileSync, existsSync, statSync } from 'node:fs'
-import { join, extname, resolve, dirname } from 'node:path'
+import { join, extname, resolve, dirname, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'docs', '.output', 'public')
 
-/** Matches the `NUXT_PUBLIC_BASE_URL` the site is built with. */
-const BASE = '/b24jssdk'
+/**
+ * Must match the `NUXT_PUBLIC_BASE_URL` the site was built with, or every
+ * request 404s with nothing to explain why. Read from the environment so the
+ * two cannot drift.
+ */
+const BASE = process.env.NUXT_PUBLIC_BASE_URL ?? '/b24jssdk'
 
 /**
  * A sample rather than all 151 pages: the home page, a docs page carrying code
@@ -59,6 +63,9 @@ const BASE = '/b24jssdk'
  */
 const DEFAULT_PAGES = [
   '/',
+  // The 404 page renders from `docs/app/error.vue`, a different subtree from
+  // every other page here, and it is what a visitor gets after any broken link.
+  '/404.html',
   '/docs/getting-started/',
   '/docs/working-with-the-rest-api/core-ajax-result/',
   '/docs/api-reference',
@@ -92,7 +99,14 @@ function serveBuiltSite(override) {
     if (path.startsWith(BASE)) {
       path = path.slice(BASE.length)
     }
-    let file = join(ROOT, path)
+    let file = resolve(ROOT, `.${path.startsWith('/') ? path : `/${path}`}`)
+    // Confine to the built site: `join`/`resolve` happily walk out of ROOT via
+    // `..`, and this server has no authentication.
+    if (file !== ROOT && !file.startsWith(ROOT + sep)) {
+      response.writeHead(403)
+      response.end('outside the built site')
+      return
+    }
     if (existsSync(file) && statSync(file).isDirectory()) {
       file = join(file, 'index.html')
     }
@@ -104,11 +118,17 @@ function serveBuiltSite(override) {
     const extension = extname(file)
     let body = readFileSync(file)
     if (extension === '.html' && override) {
+      // Strip the built-in policy first. Two `<meta>` policies are both
+      // enforced and a resource must satisfy the intersection, so *adding* one
+      // can only ever make the page stricter — which would quietly invert the
+      // one thing `CSP=` exists for, namely dropping a directive to find out
+      // whether it is still load-bearing.
+      const stripped = String(body).replace(/<meta[^>]+http-equiv="Content-Security-Policy"[^>]*>/gi, '')
+      if (!stripped.includes('<head>')) {
+        console.warn(`warning: no <head> in ${file}; the CSP override was not applied`)
+      }
       body = Buffer.from(
-        String(body).replace(
-          '<head>',
-          `<head><meta http-equiv="Content-Security-Policy" content="${override}">`
-        )
+        stripped.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${override}">`)
       )
     }
     response.writeHead(200, { 'Content-Type': CONTENT_TYPES[extension] ?? 'application/octet-stream' })
@@ -135,9 +155,11 @@ async function main() {
   const pages = process.argv.slice(2).length > 0 ? process.argv.slice(2) : DEFAULT_PAGES
 
   const server = serveBuiltSite(override)
-  await new Promise(resolveListen => server.listen(0, resolveListen))
+  // Loopback only: Node listens on every interface when no host is given.
+  await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen))
   const { port } = server.address()
 
+  // The console matcher below keys on Chromium's English violation wording.
   const browser = await chromium.launch()
   const violations = new Map()
 

@@ -218,15 +218,29 @@ describe('skills-live @skills', () => {
   })
 
   // ── b24jssdk-rest ──────────────────────────────────────────────────────
+  /**
+   * Two traps this block fell into, both now written up where a reader will
+   * actually meet them — `skills/b24jssdk-rest/SKILL.md`, section
+   * "What `getData()` returns, per action" and the Anti-patterns list:
+   *
+   *   - only `call.make` returns a `{ result, time }` envelope; `batch` and
+   *     `callList` do not, so `getData()!.result` there is `undefined` (#425);
+   *   - batch flags belong under `options` — at the top level they are silently
+   *     ignored, so a case written that way verifies something other than what
+   *     its title claims (#426).
+   *
+   * Six cases here asserted the first and two relied on the second, which is
+   * why this suite was red against a working portal.
+   */
   describe('b24jssdk-rest/SKILL.md', () => {
     portalIt('actions.v2.batch.make returns one result per command', async () => {
       const response = await getB24Client().actions.v2.batch.make({
         calls: { now: ['server.time', {}], me: ['profile', {}] },
-        isHaltOnError: false,
-        requestId: 'skills-live/rest-v2-batch'
+        options: { isHaltOnError: false, requestId: 'skills-live/rest-v2-batch' }
       })
       expect(response.isSuccess).toBe(true)
-      const data = response.getData()!.result as Record<string, unknown>
+      // The keyed map itself — batch has no `result` envelope.
+      const data = response.getData() as Record<string, unknown>
       expect(Object.keys(data)).toEqual(expect.arrayContaining(['now', 'me']))
     })
 
@@ -238,10 +252,19 @@ describe('skills-live @skills', () => {
         requestId: 'skills-live/rest-v2-callList'
       })
       expect(response.isSuccess).toBe(true)
-      expect(Array.isArray(response.getData()!.result)).toBe(true)
+      expect(Array.isArray(response.getData())).toBe(true)
     })
 
-    portalIt('actions.v2.fetchList.make yields chunks', async () => {
+    portalIt('actions.v2.fetchList.make yields chunks', async (ctx) => {
+      // A generator over an empty method yields nothing at all — correctly. That
+      // is a portal with no contacts, not a skill defect, so it skips rather
+      // than failing; asserting "at least one chunk" made an empty portal look
+      // like a broken generator (#425).
+      if (found.contactId === null) {
+        console.warn('[skills-live] SKIP — no contact on this portal to page over')
+        ctx.skip()
+        return
+      }
       const generator = getB24Client().actions.v2.fetchList.make<{ ID: string }>({
         method: 'crm.contact.list',
         params: { select: ['ID'] },
@@ -284,7 +307,7 @@ describe('skills-live @skills', () => {
         requestId: 'skills-live/rest-v3-callList'
       })
       expect(response.isSuccess).toBe(true)
-      expect(Array.isArray(response.getData()!.result)).toBe(true)
+      expect(Array.isArray(response.getData())).toBe(true)
     })
 
     it('a method that is not on v3 fails softly, not by throwing', async () => {
@@ -309,12 +332,11 @@ describe('skills-live @skills', () => {
       // not sink the good ones, and the failures are reachable by key.
       const response = await getB24Client().actions.v2.batch.make({
         calls: { good: ['server.time', {}], bad: ['this.method.does.not.exist', {}] },
-        isHaltOnError: false,
-        requestId: 'skills-live/rest-v2-batch-partial'
+        options: { isHaltOnError: false, requestId: 'skills-live/rest-v2-batch-partial' }
       })
       const errorsByKey = response.getErrorsByKey?.() ?? {}
       expect(Object.keys(errorsByKey)).toContain('bad')
-      const data = response.getData()!.result as Record<string, unknown>
+      const data = response.getData() as Record<string, unknown>
       expect(data.good).toBeDefined()
     })
 
@@ -354,7 +376,7 @@ describe('skills-live @skills', () => {
         requestId: 'skills-live/rest-v2-tasks-cursor'
       })
       expect(response.isSuccess).toBe(true)
-      expect(Array.isArray(response.getData()!.result)).toBe(true)
+      expect(Array.isArray(response.getData())).toBe(true)
     })
 
     portalIt('crm.item.list needs lowercase idKey and customKeyForResult items', async () => {
@@ -368,7 +390,7 @@ describe('skills-live @skills', () => {
         requestId: 'skills-live/rest-crm-item-list'
       })
       expect(response.isSuccess).toBe(true)
-      expect(Array.isArray(response.getData()!.result)).toBe(true)
+      expect(Array.isArray(response.getData())).toBe(true)
     })
 
     portalIt('actions.v3.fetchTail.make drives the native cursor', async () => {
@@ -469,7 +491,7 @@ describe('skills-live @skills', () => {
         requestId: 'skills-live/filtering-v2-prefix'
       })
       expect(response.isSuccess).toBe(true)
-      for (const row of response.getData()!.result) {
+      for (const row of response.getData()!) {
         expect(Number(row.ID)).toBeGreaterThan(found.contactId!)
       }
     })
@@ -512,7 +534,7 @@ describe('skills-live @skills', () => {
         requestId: 'skills-live/filtering-order-stripped'
       })
       expect(response.isSuccess).toBe(true)
-      const ids = response.getData()!.result.map(r => Number(r.ID))
+      const ids = response.getData()!.map(r => Number(r.ID))
       const ascending = [...ids].sort((a, b) => a - b)
       expect(ids).toEqual(ascending)
     })

@@ -25,6 +25,7 @@
     "package-jssdk:build": "pnpm --filter ./packages/jssdk build",
     "package-jssdk:lint": "pnpm --filter ./packages/jssdk lint",
     "package-jssdk:typecheck": "pnpm --filter ./packages/jssdk typecheck",
+    "test:typecheck": "tsc --noEmit -p test/tsconfig.json",
     "package-jssdk-nuxt:prepare": "pnpm --filter ./packages/jssdk-nuxt dev:prepare",
     "package-jssdk-nuxt:build": "pnpm --filter ./packages/jssdk-nuxt build",
     "package-jssdk-nuxt:lint": "pnpm --filter ./packages/jssdk-nuxt lint",
@@ -76,7 +77,7 @@
     "docs:lint-links": "node scripts/docs-link-check.mjs",
     "docs:lint-api-index": "node scripts/check-api-reference-index.mjs",
     "docs:lint:test": "node --test \"scripts/__tests__/**/*.test.mjs\"",
-    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run docs:typecheck-blocks && pnpm run skills:typecheck && pnpm run skills:typecheck-blocks && pnpm run contributing:typecheck",
+    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run test:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run docs:typecheck-blocks && pnpm run skills:typecheck && pnpm run skills:typecheck-blocks && pnpm run contributing:typecheck",
     "release:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {

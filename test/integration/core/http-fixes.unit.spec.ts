@@ -111,6 +111,6 @@ describe('HTTP layer fixes (#143, #144)', () => {
     await result.getNext(mockHttp)
 
     expect(originalParams.start).toBeUndefined() // the previous page's query is untouched
-    expect(capturedParams[0].start).toBe(50) // the next request gets the cursor
+    expect(capturedParams[0]!.start).toBe(50) // the next request gets the cursor
   })
 })

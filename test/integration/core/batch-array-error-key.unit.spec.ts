@@ -13,10 +13,16 @@ import { HttpV2 } from '../../../packages/jssdk/src/core/http/v2'
 import { AjaxResult } from '../../../packages/jssdk/src/core/http/ajax-result'
 import type { AuthActions } from '../../../packages/jssdk/src/types/auth'
 import type { BatchCommandsArrayUniversal } from '../../../packages/jssdk/src/types/http'
+import type { PayloadTime } from '../../../packages/jssdk/src/types/payloads'
 
-const TIME = {
+/**
+ * A complete `PayloadTime`. It used to omit `operating_reset_at` / `operating`,
+ * which nothing noticed because this file was compiled by nobody (#428).
+ */
+const TIME: PayloadTime = {
   start: 0, finish: 1, duration: 1, processing: 0,
-  date_start: '', date_finish: ''
+  date_start: '', date_finish: '',
+  operating_reset_at: 0, operating: 0
 }
 
 /**
@@ -27,6 +33,9 @@ const TIME = {
 function arrayBatchWithErrorAtIndex1(): AjaxResult<any> {
   return new AjaxResult({
     answer: {
+      // The v2 array-mode envelope keys every map by the command's position,
+      // which `SuccessPayload` describes in its named form. The shape is the
+      // portal's; the cast is at the boundary rather than inside the assertions.
       result: {
         result: { 0: { item: { id: 10 } } },
         result_error: { 1: { error: 'INVALID_ARG', error_description: 'bad fields' } },
@@ -35,7 +44,7 @@ function arrayBatchWithErrorAtIndex1(): AjaxResult<any> {
         result_next: {}
       },
       time: TIME
-    },
+    } as never,
     query: { method: 'batch', params: {}, requestId: 'r-255' },
     status: 200
   }) as AjaxResult<any>

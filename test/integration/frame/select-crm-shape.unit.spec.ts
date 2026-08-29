@@ -77,8 +77,8 @@ describe('#57 frame.dialog.selectCRM normalises Record buckets to arrays (v1.1.0
 
     // At least one bucket carries entities with the documented id shape.
     expect(result.lead!.length).toBeGreaterThan(0)
-    expect(result.lead![0].id).toMatch(/^([LCDQ]|CO)_\d+$/)
-    expect(result.contact![0].id).toMatch(/^([LCDQ]|CO)_\d+$/)
+    expect(result.lead![0]!.id).toMatch(/^([LCDQ]|CO)_\d+$/)
+    expect(result.contact![0]!.id).toMatch(/^([LCDQ]|CO)_\d+$/)
   })
 
   it('leaves buckets that were not returned as undefined (not empty arrays)', async () => {
@@ -92,7 +92,7 @@ describe('#57 frame.dialog.selectCRM normalises Record buckets to arrays (v1.1.0
     const result = await dialog.selectCRM({ entityType: ['contact'], multiple: false })
 
     expect(Array.isArray(result.contact)).toBe(true)
-    expect(result.contact![0].id).toMatch(/^([LCDQ]|CO)_\d+$/)
+    expect(result.contact![0]!.id).toMatch(/^([LCDQ]|CO)_\d+$/)
     expect(result.lead).toBeUndefined()
     expect(result.deal).toBeUndefined()
   })

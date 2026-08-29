@@ -47,6 +47,6 @@ describe('actions.v3 no longer gates on a method allowlist', () => {
 
     expect(getHttpClient).toHaveBeenCalledWith(ApiVersion.v3)
     expect(batch).toHaveBeenCalledTimes(1)
-    expect(batch.mock.calls[0][1]).toMatchObject({ apiVersion: ApiVersion.v3 })
+    expect(batch.mock.calls[0]![1]).toMatchObject({ apiVersion: ApiVersion.v3 })
   })
 })

@@ -569,8 +569,8 @@ describe('core.http logger redaction @issue-39', () => {
     expect(out.access_token).toBe('***REDACTED***')
     // Array contents are walked one level.
     const cmd = out.cmd as Array<{ params: Record<string, unknown> }>
-    expect(cmd[0].params.access_token).toBe('***REDACTED***')
-    expect(cmd[1].params.token).toBe('***REDACTED***')
+    expect(cmd[0]!.params.access_token).toBe('***REDACTED***')
+    expect(cmd[1]!.params.token).toBe('***REDACTED***')
     // Nested object one level deep — credential key inside is masked.
     expect((out.top_secret as Record<string, unknown>).token).toBe('***REDACTED***')
   })

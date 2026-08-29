@@ -627,16 +627,16 @@ describe('core callBatch @apiV2', () => {
 
     expect(chatGetRow).toBeInstanceOf(AjaxResult)
 
-    if (chatGetRow.isSuccess) {
+    if (chatGetRow!.isSuccess) {
       // Portal accepted the call and the method returned null — exactly the
       // issue #23 path. The SDK MUST forward null, never {}.
-      expect(chatGetRow.getData()!.result).toBeNull()
+      expect(chatGetRow!.getData()!.result).toBeNull()
     } else {
       // Portal rejected the bogus params with an error. The null-passthrough
       // path can't be exercised on this portal; the unit spec
       // (test/integration/core/batch-null-result.unit.spec.ts) covers it
       // deterministically.
-      expect(chatGetRow.getErrorMessages().length).toBeGreaterThan(0)
+      expect(chatGetRow!.getErrorMessages().length).toBeGreaterThan(0)
     }
   })
 })

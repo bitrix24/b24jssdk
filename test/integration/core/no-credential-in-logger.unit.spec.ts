@@ -164,7 +164,7 @@ describe('no-credential-in-logger rule (#226, guards #39/#40)', () => {
       // `eslint --fix` never applies it automatically (a security rule must not
       // silently rewrite code).
       expect(rule.meta?.hasSuggestions).toBe(true)
-      expect(rule.meta?.fixable).toBeUndefined()
+      expect((rule.meta as { fixable?: unknown })?.fixable).toBeUndefined()
     })
   })
 

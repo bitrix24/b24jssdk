@@ -194,12 +194,18 @@ describe('js-docs.actions @apiV3', () => {
       throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
     }
 
-    const results = response.getData()! as Record<string, AjaxResult<{ item: TaskItem } | { items: MainEventLogItem[] }>>
+    // Keyed per command: the two answer under different keys — `tasks.task.get`
+    // under `item`, `main.eventlog.list` under `items` — so a union over a
+    // `Record` describes neither without narrowing it back (#428).
+    const results = response.getData()! as {
+      Task: AjaxResult<{ item: TaskItem }>
+      MainEventLog: AjaxResult<{ items: MainEventLogItem[] }>
+    }
     b24.getLogger().debug(`Task`, {
-      item: results.Task.getData()!.result.item as TaskItem
+      item: results.Task.getData()!.result.item
     })
     b24.getLogger().debug(`MainEventLog`, {
-      item: results.MainEventLog.getData()!.result.items as MainEventLogItem[]
+      item: results.MainEventLog.getData()!.result.items
     })
 
     expect(response.isSuccess).toBe(true)

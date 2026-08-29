@@ -147,7 +147,7 @@ describe('PullClient SSR safety (#222 D1)', () => {
 
     expect(() => connector.connect()).not.toThrow()
     expect(onError).toHaveBeenCalledTimes(1)
-    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error)
+    expect(onError.mock.calls[0]![0]).toBeInstanceOf(Error)
   })
 })
 // endregion ////

@@ -123,7 +123,7 @@ export const testConfig = {
 
 export abstract class AbstractLoadTester {
   protected _b24: B24Hook
-  protected _apiVersion: ApiVersion
+  protected _apiVersion!: ApiVersion
   protected _stats: {
     total: number
     success: number
@@ -243,7 +243,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
           duration: Date.now() - start,
           operating: 0
         })
-        .addError(error)
+        .addError(error as Error | string)
     }
   }
 
@@ -270,7 +270,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
           requestId,
           apiVersion: this._apiVersion,
           method: this._method,
-          result: resultData.slice(0, 2).map(responseAjax => typeof responseAjax.getData()!.result?.items === 'undefined' ? JSON.stringify(responseAjax.getData()!.result) : responseAjax.getData()!.result.items.map(item => item.id).slice(0, 5).join(', ')),
+          result: resultData.slice(0, 2).map(responseAjax => typeof (responseAjax.getData()!.result as unknown as { items?: Array<{ id: number }> })?.items === 'undefined' ? JSON.stringify(responseAjax.getData()!.result) : (responseAjax.getData()!.result as unknown as { items: Array<{ id: number }> }).items.map(item => item.id).slice(0, 5).join(', ')),
           operating: this._b24.getHttpClient(this._apiVersion).getStats().operatingStats,
           duration: `${(duration / 1000).toFixed(2)} sec`
         })
@@ -288,7 +288,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
           duration: Date.now() - start,
           operating: 0
         })
-        .addError(error)
+        .addError(error as Error | string)
     }
   }
 
@@ -338,7 +338,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
           duration: Date.now() - start,
           operating: 0
         })
-        .addError(error)
+        .addError(error as Error | string)
     }
   }
 }
@@ -392,7 +392,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
           duration: Date.now() - start,
           operating: 0
         })
-        .addError(error)
+        .addError(error as Error | string)
     }
   }
 
@@ -419,7 +419,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
           requestId,
           apiVersion: this._apiVersion,
           method: this._method,
-          result: resultData.slice(0, 2).map(responseAjax => typeof responseAjax.getData()!.result?.items === 'undefined' ? JSON.stringify(responseAjax.getData()!.result) : responseAjax.getData()!.result.items.map(item => item.id).slice(0, 5).join(', ')),
+          result: resultData.slice(0, 2).map(responseAjax => typeof (responseAjax.getData()!.result as unknown as { items?: Array<{ id: number }> })?.items === 'undefined' ? JSON.stringify(responseAjax.getData()!.result) : (responseAjax.getData()!.result as unknown as { items: Array<{ id: number }> }).items.map(item => item.id).slice(0, 5).join(', ')),
           operating: this._b24.getHttpClient(this._apiVersion).getStats().operatingStats,
           duration: `${(duration / 1000).toFixed(2)} sec`
         })
@@ -438,7 +438,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
           duration: Date.now() - start,
           operating: 0
         })
-        .addError(error)
+        .addError(error as Error | string)
     }
   }
 
@@ -488,7 +488,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
           duration: Date.now() - start,
           operating: 0
         })
-        .addError(error)
+        .addError(error as Error | string)
     }
   }
 }

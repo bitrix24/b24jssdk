@@ -183,9 +183,30 @@ A number of regression specs live inside `test/integration/<area>/` but are name
 
 Type-level pins written with Vitest's `expectTypeOf` — `test/integration/core/result-chaining.types.spec.ts`, `call-params.types.spec.ts`. They run in their own `jsSdk:types` project, which is the only one with `typecheck` enabled.
 
-That project is not a stylistic choice. `expectTypeOf` compiles to nothing: under a plain `vitest run` a type assertion **cannot fail**, so a file full of them reports as passing while checking nothing — and `test/` is excluded from every `tsc` pass in the repo, so no other gate covered it either. The project's `typecheck.include` is what makes the assertions real, against [`test/tsconfig.json`](../../test/tsconfig.json); its `include` runs the same files normally so any ordinary `expect()` in them still executes.
+That project is not a stylistic choice. `expectTypeOf` compiles to nothing: under a plain `vitest run` a type assertion **cannot fail**, so a file full of them reports as passing while checking nothing. The project's `typecheck.include` is what makes the assertions real, against [`test/tsconfig.json`](../../test/tsconfig.json); its `include` runs the same files normally so any ordinary `expect()` in them still executes.
 
 If you add type-level assertions, use this suffix — a `*.unit.spec.ts` file's `expectTypeOf` calls are decorative.
+
+**`expectTypeOf` cannot catch a stray property.** What rejects an unknown key is TypeScript's excess property check, which fires only on a fresh object literal — structurally, an object with an extra key is still assignable. For that, assign a literal and mark it `@ts-expect-error`; the directive itself becomes an error the day it stops being needed. [`action-options.types.spec.ts`](../../test/integration/core/action-options.types.spec.ts) is the worked example, and its header records the version of itself that pinned nothing.
+
+## What type-checks what
+
+| Pass | Covers |
+| --- | --- |
+| `pnpm run test:typecheck` | **every `.ts` under `test/`** — `tsc --noEmit` against [`test/tsconfig.json`](../../test/tsconfig.json) |
+| the `jsSdk:types` vitest project | the `*.types.spec.ts` pins, where `expectTypeOf` assertions become real |
+| `pnpm run package-jssdk:typecheck` | the SDK source |
+| `docs:typecheck` / `docs:typecheck-blocks` | the docs app, and the code fences inside the docs pages |
+| `skills:typecheck` / `skills:typecheck-blocks` | the recipe files, and the code fences inside the skill files |
+
+`pnpm run typecheck` runs all of them, and CI runs `pnpm run typecheck`.
+
+Until #428 the first row did not exist: only `*.types.spec.ts` was compiled, and everything else under `test/` was transpiled by esbuild, which strips types without checking them. A spec could assert against a shape the SDK does not have and nothing would say so. That is not hypothetical — six cases in the live skill suite read `getData()!.result` off a `Result<T[]>`, and `.result` on an array went unnoticed until someone ran the suite against a portal by hand (#425).
+
+Two settings in `test/tsconfig.json` are worth knowing about:
+
+- **`noPropertyAccessFromIndexSignature` is off here**, and only here. The flag forbids `obj.foo` when `foo` comes from an index signature — right for library source, wrong for a test reaching into a portal payload or a batch result keyed by command name, which is deliberate and happens some 218 times. Turning it on would trade real type coverage for a bracket-notation rewrite that makes assertions harder to read.
+- **`test/integration/docs/**` is excluded.** Those two specs import the docs Nuxt app, whose modules rely on auto-imports and generated types that resolve under `docs:typecheck` and cannot resolve here. Excluding a spec is a real gap rather than a tidy-up — if a third one appears, widen the pass instead of the exclusion.
 
 Use this naming when the test is about the **SDK's internal behaviour**, not about a REST request/response shape. Document the reason in a JSDoc header at the top of the file — see [`test/integration/core/http-logger-redaction.unit.spec.ts`](../../test/integration/core/http-logger-redaction.unit.spec.ts) (lines 1–19) for the reference shape. For anything that touches a real REST method's request or response shape — no mocks.
 

@@ -31,10 +31,7 @@ function targetFiles() {
   // defences a reporter should probe, so a link that rots there sends someone
   // hunting for a file that moved — in the one document read under time
   // pressure.
-  // docs/FORK.md links to the five source files it makes claims about. Those
-  // links are the document's whole value: a divergence recorded against a path
-  // that has since moved is worse than no record, because it reads as current.
-  for (const name of ['AGENTS.md', 'SECURITY.md', join('docs', 'FORK.md')]) {
+  for (const name of ['AGENTS.md', 'SECURITY.md']) {
     const path = join(ROOT, name)
     if (existsSync(path)) {
       files.push(path)

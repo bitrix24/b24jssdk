@@ -23,8 +23,9 @@
  *    failure.
  *
  * The deliberate divergence: upstream loads prettier from jsDelivr. This does
- * not (#399). Listed with the others in `docs/FORK.md` — add a divergence there
- * as well as here, or the next upstream sync silently reverts it.
+ * not (#399). Listed with the others in
+ * `.github/contributing/docs-fork.md` — add a divergence there as well as here,
+ * or the next upstream sync silently reverts it.
  *
  * Fetching it meant the page executed six third-party modules that nothing
  * verified. A dynamic `import()` cannot carry an `integrity` attribute, so SRI

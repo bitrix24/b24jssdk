@@ -7,7 +7,7 @@
  * path. Keeping it here also lets it be unit-tested without a Nuxt app.
  *
  * That extraction is itself a divergence — upstream `nuxt/ui` keeps this body
- * inline. See `docs/FORK.md`.
+ * inline. See `.github/contributing/docs-fork.md`.
  */
 
 /** Prefix the examples use so a live portal hook can override the placeholder. */

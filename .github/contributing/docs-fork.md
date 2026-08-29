@@ -15,14 +15,17 @@ Two things to know before you start:
   you do — a claim nobody has re-checked in six months is folklore with a commit
   hash attached.
 - **A downstream mirror keeps `docs/` byte-identical.** Deleting or renaming a
-  file here lands on someone else's plate. #139 was filed by that mirror's
-  maintainer; that is how it reaches us.
+  file there lands on someone else's plate. #139 was filed by that mirror's
+  maintainer; that is how it reaches us. It is also why this document lives
+  here and not in `docs/`: it is a record about the fork, not content of the
+  site, and adding a file upstream does not have would put it in the way of
+  both the mirror and the next tree comparison.
 
 ## The divergences
 
 ### 1. Prettier is bundled, not fetched from a CDN
 
-**Files:** [`app/workers/prettier.js`](app/workers/prettier.js), [`app/plugins/prettier.ts`](app/plugins/prettier.ts), [`nuxt.config.ts`](nuxt.config.ts)
+**Files:** [`app/workers/prettier.js`](../../docs/app/workers/prettier.js), [`app/plugins/prettier.ts`](../../docs/app/plugins/prettier.ts), [`nuxt.config.ts`](../../docs/nuxt.config.ts)
 **Introduced:** #407 (#399 is the issue)
 
 Upstream loads prettier and five parser plugins from jsDelivr with dynamic
@@ -62,20 +65,21 @@ on the docs site is acceptable again. #399 is where that argument lives.
 
 ### 2. No wildcard CORS header on the code-examples endpoint
 
-**File:** [`server/api/code-examples.get.ts`](server/api/code-examples.get.ts)
+**File:** [`server/api/code-examples.get.ts`](../../docs/server/api/code-examples.get.ts)
 
 Upstream sets `Access-Control-Allow-Origin: *`. This fork does not.
 
-Every caller here is same-origin — the `fetchCodeExample` composable and the MCP
-`b24-jssdk-get-example` tool — so a wildcard on a read-only endpoint bought
-nothing and widened the surface for no reason.
+The only browser caller is same-origin: the `fetchCodeExample` composable. The
+MCP `b24-jssdk-get-example` tool reaches it server-to-server, where CORS does not
+apply at all. So the wildcard granted cross-origin read access to nobody who
+needed it, on a read-only endpoint, and widened the surface for no reason.
 
 **To change it:** if a cross-origin consumer ever appears, name it and scope the
 header to that origin. Do not restore `*`.
 
 ### 3. `processLinks` / `prepareHref` in the MDC transform
 
-**File:** [`server/utils/transformMDC.ts`](server/utils/transformMDC.ts)
+**File:** [`server/utils/transformMDC.ts`](../../docs/server/utils/transformMDC.ts)
 
 Local additions with no upstream counterpart. They rewrite documentation links
 so that a link to a docs page also resolves under `/raw/*.md` (the plain-text
@@ -89,7 +93,7 @@ easily drop these two functions on the floor. They are called from
 
 ### 4. `codeTransform.ts` and `prettierWorkerApi.ts` are extracted modules
 
-**Files:** [`app/utils/codeTransform.ts`](app/utils/codeTransform.ts), [`app/utils/prettierWorkerApi.ts`](app/utils/prettierWorkerApi.ts)
+**Files:** [`app/utils/codeTransform.ts`](../../docs/app/utils/codeTransform.ts), [`app/utils/prettierWorkerApi.ts`](../../docs/app/utils/prettierWorkerApi.ts)
 **Introduced:** #139
 
 Upstream keeps both bodies inline. This fork extracted them so they can be unit
@@ -116,9 +120,24 @@ reason these files are separate.
   file-level comment is still worth writing — it is what someone editing that
   file sees — but a comment alone does not survive the second sync, because the
   next person has to already know to look for it.
+
+  **Nothing enforces this.** No gate fails when a PR introduces a divergence and
+  skips this file; it is the one rule here that is pure honour system, and it is
+  therefore the one most likely to be skipped under time pressure. Said out loud
+  so nobody mistakes an unchanged file for a verified one.
 - Move the pin at the top whenever you actually compare against upstream, and
   say what you compared. Bumping it without looking is worse than leaving it
-  stale, because it launders a guess into a fact.
+  stale, because it launders a guess into a fact. Also unenforced — but a stale
+  pin fails safe, since every claim below is explicitly scoped to it.
 - If a divergence stops being deliberate — upstream adopts it, or the reason
   expires — delete the entry and sync the file. An entry here is a claim that
   the difference is still earning its keep.
+
+The **links** are enforced: `lint:md-links` checks every path this file cites, so
+an entry recorded against a file that has since moved fails CI rather than
+sending the next reader hunting. That covers where the divergences are, not
+whether the list is complete — see the honour-system note above.
+
+This document records decisions already taken. It does not answer whether
+maintaining a fork of someone else's docs site is the right long-term position;
+that question is #411.

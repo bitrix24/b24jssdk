@@ -18,7 +18,7 @@ import { prepareCode } from '../../app/utils/codeTransform'
  * rewrite links for the `/raw/*.md` mirror and map cross-project links through
  * `B24_DOCS`). Upstream has neither a `/raw` route nor a sibling-project table,
  * so a sync of this file can drop them on the floor. Recorded in
- * `docs/FORK.md`.
+ * `.github/contributing/docs-fork.md`.
  */
 
 type Document = {

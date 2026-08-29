@@ -48,8 +48,8 @@ playgrounds/
 ├── cli/                            # Node smoke
 └── nuxt/                           # Nuxt smoke (live SDK)
 docs/
-├── content/docs/                   # documentation site (English only)
-└── FORK.md                         # where this app deliberately diverges from upstream nuxt/ui — read before syncing
+└── content/docs/                   # documentation site (English only)
+                                    # (fork divergences from upstream nuxt/ui: .github/contributing/docs-fork.md)
 test/
 ├── 0_setup/                        # integration + under-load setup, env loading
 ├── integration/                    # *.spec.ts — 30s timeouts, real portal

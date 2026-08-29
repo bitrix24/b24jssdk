@@ -9,7 +9,7 @@ import examples from '#code-example/nitro'
  * read-only endpoint bought nothing and widened the surface for no reason.
  * Upstream keeps it; if a cross-origin consumer ever appears here, name it and
  * scope the header to that origin rather than restoring `*`. Also recorded in
- * `docs/FORK.md`, with the other deliberate divergences from upstream.
+ * `.github/contributing/docs-fork.md`, with the other divergences from upstream.
  */
 export default defineEventHandler((event) => {
   const exampleName = (event.context.params?.['name?'] || '').replace(/\.json$/, '')

@@ -12,15 +12,23 @@
 // typecheck, test, build and docs-build, produced no `failure` anywhere, and
 // left the gate green having verified nothing.
 //
-// These tests pin the two properties that prevent that recurring:
-//   1. every job in the workflow is named in the gate's `needs`;
-//   2. every job in `needs` is actually checked by the gate's script.
+// These tests work in two layers:
+//
+//   - **structural**, on the parsed YAML: every job in the workflow is named in
+//     the gate's `needs`, the gate is `if: always()`, and it does not glob
+//     `needs.*` (a wildcard silently accepts a job forgotten in the gate);
+//   - **behavioural**: the gate's own `run:` script is extracted from the
+//     workflow and executed under bash with synthetic job results, so what is
+//     asserted is the exit code for a given scenario rather than the wording of
+//     the script. An earlier version matched substrings of the script text and
+//     could be broken by renaming a variable, with no behaviour changed.
 //
 // Run with: node --test scripts/__tests__/ci-gate.test.mjs
 
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
 import { load } from 'js-yaml'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -59,18 +67,15 @@ test('ci gate: every job in the workflow is in its needs', () => {
   )
 })
 
-test('ci gate: every job in its needs is checked by its script', () => {
-  // The failure this catches is a job added to `needs` — so it must finish
-  // before the gate runs — but never compared against `success`, which is a
-  // dependency rather than a check.
-  const script = gateScript()
-  for (const id of gate.needs) {
-    const token = id.replaceAll('-', '_').toUpperCase()
-    assert.ok(
-      script.includes(token),
-      `job "${id}" is in the gate's needs but its result (${token}) is never examined`
-    )
-  }
+test('ci gate: every job in its needs is carried into the script', () => {
+  // A job can be in `needs` — so the gate waits for it — and still never be
+  // examined, which is a dependency rather than a check. Asserted against the
+  // step's `env` map, which is where the results actually enter the script;
+  // whether each one is then judged correctly is covered by the scenarios below.
+  const { envToJob } = gateStep()
+  const carried = new Set(envToJob.values())
+  const unchecked = gate.needs.filter(id => !carried.has(id))
+  assert.deepEqual(unchecked, [], `in the gate's needs but never examined: ${unchecked.join(', ')}`)
 })
 
 test('ci gate: it does not use a needs wildcard', () => {
@@ -83,29 +88,104 @@ test('ci gate: it does not use a needs wildcard', () => {
   )
 })
 
-test('ci gate: a skipped job fails the gate, except deploy', () => {
-  const script = gateScript()
-  // The gate must reason in terms of `success`, never in terms of `failure`:
-  // comparing against `failure` lets `skipped` through, which is the #415 bug
-  // exactly. Asserting the absence of the wrong test rather than the presence
-  // of the right one is deliberate — an earlier version of this test looked for
-  // `!= "success"` anywhere in the script and was satisfied by the deploy line
-  // below, so swapping the loop's comparison to `== "failure"` passed.
-  assert.ok(
-    !/["']?failure["']?/.test(script),
-    'the gate compares against `failure`; it must require `success` instead, '
-    + 'or a job skipped because its dependency failed passes the gate'
-  )
-  assert.ok(
-    script.includes('!= "success"'),
-    'the gate must require `success` explicitly'
-  )
-  // deploy is restricted to a push to main, so it is skipped on every PR by
-  // design. It gets its own rule rather than weakening the one above.
-  assert.ok(
-    script.includes(`RESULT_${MAY_BE_SKIPPED.toUpperCase()}`) && script.includes('skipped'),
-    `${MAY_BE_SKIPPED} must be allowed to be skipped, explicitly`
-  )
+/**
+ * The gate's own step, as the workflow defines it: the bash script plus the map
+ * from environment variable to the job whose result it carries. Both are read
+ * from the YAML rather than restated here, so a rename in the workflow moves
+ * the tests with it instead of breaking them.
+ */
+function gateStep() {
+  const step = gate.steps.find(candidate => typeof candidate.run === 'string')
+  assert.ok(step, 'the gate has no `run` step to execute')
+  const envToJob = new Map()
+  for (const [name, expression] of Object.entries(step.env ?? {})) {
+    // `${{ needs.prepare.result }}` or `${{ needs['docs-lint'].result }}`
+    const match = /needs(?:\.([\w-]+)|\['([^']+)'\])\.result/.exec(String(expression))
+    assert.ok(match, `env ${name} is not a needs.<job>.result expression: ${expression}`)
+    envToJob.set(name, match[1] ?? match[2])
+  }
+  return { script: step.run, envToJob }
+}
+
+/**
+ * Runs the gate exactly as CI would, for one set of job results.
+ * `results` maps job id to the result GitHub would report.
+ */
+function runGate(results) {
+  const { script, envToJob } = gateStep()
+  const env = { PATH: process.env.PATH }
+  for (const [name, job] of envToJob) {
+    assert.ok(job in results, `scenario does not say what "${job}" did`)
+    env[name] = results[job]
+  }
+  return spawnSync('bash', ['-c', script], { env, encoding: 'utf8' })
+}
+
+/** Every job succeeded — the shape of an ordinary green run. */
+function allSuccess(overrides = {}) {
+  const results = Object.fromEntries(gate.needs.map(id => [id, 'success']))
+  return { ...results, ...overrides }
+}
+
+test('ci gate: passes when every job succeeded', () => {
+  const run = runGate(allSuccess())
+  assert.equal(run.status, 0, `stdout:\n${run.stdout}\nstderr:\n${run.stderr}`)
+})
+
+test('ci gate: passes on a pull request, where deploy is skipped by design', () => {
+  // deploy is restricted to a push to main. If this failed, every PR would be
+  // red — which is why the skip exception exists at all.
+  const run = runGate(allSuccess({ deploy: 'skipped' }))
+  assert.equal(run.status, 0, `stdout:\n${run.stdout}\nstderr:\n${run.stderr}`)
+})
+
+test('ci gate: FAILS when prepare failed and everything downstream was skipped', () => {
+  // #415, reproduced end to end. This is the scenario the old gate passed: a
+  // job whose dependency failed reports `skipped`, so there was no `failure`
+  // among the gate's needs and it exited 0 having verified nothing.
+  const run = runGate({
+    'docs-lint': 'success',
+    'prepare': 'failure',
+    'lint': 'skipped',
+    'typecheck': 'skipped',
+    'test': 'skipped',
+    'build': 'skipped',
+    'docs-build': 'skipped',
+    'deploy': 'skipped'
+  })
+  assert.notEqual(run.status, 0, `the gate passed with nothing verified:\n${run.stdout}`)
+  assert.match(run.stdout, /PREPARE/)
+})
+
+test('ci gate: FAILS for a job that is skipped for any other reason', () => {
+  // Not only via prepare: a job skipped by a stray `if:` must not pass either.
+  for (const job of gate.needs.filter(id => id !== 'deploy')) {
+    const run = runGate(allSuccess({ [job]: 'skipped' }))
+    assert.notEqual(run.status, 0, `a skipped "${job}" passed the gate`)
+  }
+})
+
+test('ci gate: FAILS on a failure, and on a cancellation', () => {
+  // `cancelled` is what the old condition caught and this must not lose: a
+  // cancelled job has verified nothing either.
+  for (const result of ['failure', 'cancelled']) {
+    for (const job of gate.needs) {
+      const run = runGate(allSuccess({ [job]: result }))
+      assert.notEqual(run.status, 0, `"${job}" = ${result} passed the gate`)
+    }
+  }
+})
+
+test('ci gate: FAILS when any single result is missing', () => {
+  // An env var the workflow declares but GitHub leaves empty — fail closed.
+  //
+  // One job at a time, deliberately. Blanking every result at once passes for
+  // the wrong reason: the `deploy` branch alone rejects it, so a loop that had
+  // stopped checking empties entirely would still look guarded.
+  for (const job of gate.needs) {
+    const run = runGate(allSuccess({ [job]: '' }))
+    assert.notEqual(run.status, 0, `an empty result for "${job}" passed the gate`)
+  }
 })
 
 test('ci gate: deploy is the only job restricted by an `if`', () => {

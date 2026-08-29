@@ -10,9 +10,15 @@ import examples from '#code-example/nitro'
 import { prepareCode } from '../../app/utils/codeTransform'
 
 /**
- * @see docs/server/utils/transformMDC.ts
  * @see docs/server/plugins/llms.ts
  * @see docs/server/routes/raw/[...slug].md.get.ts
+ *
+ * Forked from upstream `nuxt/ui`, with one deliberate divergence: `processLinks`
+ * and `prepareHref` below are local additions with no upstream counterpart (they
+ * rewrite links for the `/raw/*.md` mirror and map cross-project links through
+ * `B24_DOCS`). Upstream has neither a `/raw` route nor a sibling-project table,
+ * so a sync of this file can drop them on the floor. Recorded in
+ * `.github/contributing/docs-fork.md`.
  */
 
 type Document = {

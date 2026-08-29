@@ -3,6 +3,10 @@ import { defu } from 'defu'
 // CDN (#399), and inlining that as a base64 blob would put the parsers in the
 // entry bundle. As a separate chunk they are fetched when a page actually
 // formats something.
+//
+// Upstream `nuxt/ui` fetches prettier from jsDelivr instead. Both this import
+// and the lazy construction below are part of that deliberate divergence —
+// see `.github/contributing/docs-fork.md` before changing either.
 import PrettierWorker from '@/workers/prettier.js?worker'
 // Message routing lives in a browser-free module so it can be tested without a
 // Worker (#139) — this file cannot be imported outside Vite, because of the

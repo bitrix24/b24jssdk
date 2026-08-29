@@ -211,6 +211,10 @@ export default defineNuxtConfig({
 
   vite: {
     worker: {
+      // Part of a deliberate divergence from upstream `nuxt/ui`, which loads
+      // prettier from a CDN and needs none of this — see
+      // `.github/contributing/docs-fork.md` before removing it.
+      //
       // Vite builds a worker as an IIFE by default, and an IIFE cannot be code
       // split — so every dynamic `import()` inside the worker is inlined into
       // it. That put all of prettier into the worker script itself (#399).

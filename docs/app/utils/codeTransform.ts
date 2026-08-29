@@ -5,6 +5,9 @@
  * calls it during SSR and prerender to build `/raw/*.md` and `llms-full.txt`, so
  * anything that constructs a client or reads runtime config would break that
  * path. Keeping it here also lets it be unit-tested without a Nuxt app.
+ *
+ * That extraction is itself a divergence — upstream `nuxt/ui` keeps this body
+ * inline. See `.github/contributing/docs-fork.md`.
  */
 
 /** Prefix the examples use so a live portal hook can override the placeholder. */

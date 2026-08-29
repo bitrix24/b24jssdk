@@ -426,18 +426,57 @@ jobs:
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
 
   # Gate job: satisfies the "ci" required status check in branch protection.
-  # Fails if any upstream job failed or was cancelled. `deploy` is included so a
-  # broken main deploy reddens the check; it is skipped (a pass) on PRs.
+  #
+  # Every job is named explicitly and must have the result `success`. Two things
+  # this deliberately does NOT do, both of which it used to (#415):
+  #
+  #   - it does not omit `prepare`. Every other job depends on it, and a job whose
+  #     dependency failed is reported `skipped`, not `failure`. With `prepare`
+  #     missing from `needs` and only `failure` tested, a broken `prepare` left
+  #     lint / typecheck / test / build / docs-build all skipped, no `failure`
+  #     anywhere, and this gate green with nothing verified.
+  #   - it does not use `contains(needs.*.result, …)`. A wildcard silently accepts
+  #     a job that is added to this workflow and forgotten here — the same class
+  #     of bug. `scripts/__tests__/ci-gate.test.mjs` fails if a job is missing
+  #     from the list below.
   ci:
-    needs: [docs-lint, lint, typecheck, test, build, docs-build, deploy]
+    needs: [docs-lint, prepare, lint, typecheck, test, build, docs-build, deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
     steps:
       - name: All checks passed
+        shell: bash
+        env:
+          # `needs['docs-lint']` rather than `needs.docs-lint` — a hyphen is not
+          # valid in the property-access form.
+          RESULT_DOCS_LINT: ${{ needs['docs-lint'].result }}
+          RESULT_PREPARE: ${{ needs.prepare.result }}
+          RESULT_LINT: ${{ needs.lint.result }}
+          RESULT_TYPECHECK: ${{ needs.typecheck.result }}
+          RESULT_TEST: ${{ needs.test.result }}
+          RESULT_BUILD: ${{ needs.build.result }}
+          RESULT_DOCS_BUILD: ${{ needs['docs-build'].result }}
+          RESULT_DEPLOY: ${{ needs.deploy.result }}
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "One or more CI jobs failed or were cancelled."
+          failed=0
+          for job in DOCS_LINT PREPARE LINT TYPECHECK TEST BUILD DOCS_BUILD; do
+            var="RESULT_${job}"
+            result="${!var}"
+            if [[ "$result" != "success" ]]; then
+              echo "::error::job ${job} did not succeed (result: ${result:-missing})"
+              failed=1
+            fi
+          done
+          # `deploy` is the one job allowed to be skipped: it is restricted to a
+          # push to main, so on every pull request it is legitimately skipped.
+          # It must still never fail.
+          if [[ "$RESULT_DEPLOY" != "success" && "$RESULT_DEPLOY" != "skipped" ]]; then
+            echo "::error::job DEPLOY did not succeed (result: ${RESULT_DEPLOY:-missing})"
+            failed=1
+          fi
+          if [[ "$failed" != "0" ]]; then
+            echo "CI gate: one or more jobs did not pass."
             exit 1
           fi
           echo "All CI jobs passed."

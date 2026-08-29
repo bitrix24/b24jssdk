@@ -14,6 +14,59 @@
 
     One correction to the `2.1.0` entry below while it is in view: its "emits a runtime deprecation warning" applies to the `AbstractB24` shortcuts and `LoggerBrowser`. The `AjaxResult` methods never emitted one.
 
+## [2.2.0](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.2.0) (2026-08-29)
+
+
+### Features
+
+* **core:** an unknown option on any action is now a compile error ([#429](https://github.com/bitrix24/b24jssdk/issues/429)) ([3e6510b](https://github.com/bitrix24/b24jssdk/commit/3e6510bd25a96d652da1ce920ce1701933ef2ac2)), closes [#426](https://github.com/bitrix24/b24jssdk/issues/426) [#428](https://github.com/bitrix24/b24jssdk/issues/428)
+* **docs:** a Content Security Policy for the documentation site ([#417](https://github.com/bitrix24/b24jssdk/issues/417)) ([a05e356](https://github.com/bitrix24/b24jssdk/commit/a05e3567fc9536c7a1ab1b0527d1ebc7cecfcf53)), closes [#399](https://github.com/bitrix24/b24jssdk/issues/399) [#418](https://github.com/bitrix24/b24jssdk/issues/418)
+* **skills:** typecheck the skill code fences; export the missing B24HelperManager ([#404](https://github.com/bitrix24/b24jssdk/issues/404)) ([2d75bee](https://github.com/bitrix24/b24jssdk/commit/2d75bee9f3161658ed788efa51033727b36ba198)), closes [#402](https://github.com/bitrix24/b24jssdk/issues/402)
+
+
+### Bug Fixes
+
+* **ci:** the gate went green when prepare failed, having run no checks ([#416](https://github.com/bitrix24/b24jssdk/issues/416)) ([fc37774](https://github.com/bitrix24/b24jssdk/commit/fc37774c5a029a59e140fe7017febc64b7d40c2a)), closes [#415](https://github.com/bitrix24/b24jssdk/issues/415)
+* **core:** a documented filter shape crashed the v3 list actions. ([da71a77](https://github.com/bitrix24/b24jssdk/commit/da71a77a4722fa54f207a02f30dfb8836c2d39e5))
+* **core:** honest return types for Result chaining and the batch envelope ([#395](https://github.com/bitrix24/b24jssdk/issues/395)) ([c7783c3](https://github.com/bitrix24/b24jssdk/commit/c7783c3645f6bdcf98b4b4ceb0a213a9741c404b))
+* **core:** reject a non-array filter in v3 callList/fetchList before it crashes mid-page ([#403](https://github.com/bitrix24/b24jssdk/issues/403)) ([da71a77](https://github.com/bitrix24/b24jssdk/commit/da71a77a4722fa54f207a02f30dfb8836c2d39e5))
+* **core:** restApi:v3 validation errors reach the caller with the field name ([#424](https://github.com/bitrix24/b24jssdk/issues/424)) ([9d54855](https://github.com/bitrix24/b24jssdk/commit/9d54855d97eb8abead2acc3e0c427264faf38839)), closes [#423](https://github.com/bitrix24/b24jssdk/issues/423)
+* **core:** the AjaxResult paging surface is no longer scheduled for removal ([#408](https://github.com/bitrix24/b24jssdk/issues/408)) ([923680e](https://github.com/bitrix24/b24jssdk/commit/923680e2cef851c7b9f41e2c29872b167e9ef9ac))
+* **core:** throw SdkError, not bare Error, across the public entry points ([#382](https://github.com/bitrix24/b24jssdk/issues/382)) ([7ccd929](https://github.com/bitrix24/b24jssdk/commit/7ccd929c0431e401cf23bc2966fae7ae98e917df))
+* **deps:** make the workspace catalog the single source of axios' version ([#365](https://github.com/bitrix24/b24jssdk/issues/365)) ([b4907e7](https://github.com/bitrix24/b24jssdk/commit/b4907e7d82197d1202dcdca58658a0852ee8b9e8)), closes [#332](https://github.com/bitrix24/b24jssdk/issues/332)
+* **docs:** bundle prettier instead of executing six modules from a CDN ([#407](https://github.com/bitrix24/b24jssdk/issues/407)) ([2f1a8f9](https://github.com/bitrix24/b24jssdk/commit/2f1a8f966066a20ca3fd2b49b0b9d02982a13b39)), closes [#399](https://github.com/bitrix24/b24jssdk/issues/399)
+* **docs:** code-example indentation was stripped with a hard-coded `.slice(2)`, ([a5b9538](https://github.com/bitrix24/b24jssdk/commit/a5b95382df68a1353b2dd6b3602dcdd5aeac5fcf))
+* **docs:** prettier worker could hang the page, and the dedent assumed two spaces ([#398](https://github.com/bitrix24/b24jssdk/issues/398)) ([a5b9538](https://github.com/bitrix24/b24jssdk/commit/a5b95382df68a1353b2dd6b3602dcdd5aeac5fcf))
+* **docs:** the four correctness items in the code-example subsystem ([#393](https://github.com/bitrix24/b24jssdk/issues/393)) ([2d79b7e](https://github.com/bitrix24/b24jssdk/commit/2d79b7e2eda8b343d17ff0f32d5620501404cf86))
+* **docs:** the prettier worker could leave a page waiting forever. ([a5b9538](https://github.com/bitrix24/b24jssdk/commit/a5b95382df68a1353b2dd6b3602dcdd5aeac5fcf))
+* **docs:** the two prettier versions had drifted. The worker hard-coded `3.7.4` ([a5b9538](https://github.com/bitrix24/b24jssdk/commit/a5b95382df68a1353b2dd6b3602dcdd5aeac5fcf))
+* **frame:** MessageManager no longer throws on foreign traffic or strands sends ([#367](https://github.com/bitrix24/b24jssdk/issues/367)) ([7b13d02](https://github.com/bitrix24/b24jssdk/commit/7b13d026c4d7b55540551bd0de00490e3b9ef739)), closes [#146](https://github.com/bitrix24/b24jssdk/issues/146)
+* **skills:** collapse duplicated recipe helpers and guard against new copies ([#386](https://github.com/bitrix24/b24jssdk/issues/386)) ([e980112](https://github.com/bitrix24/b24jssdk/commit/e98011273c6084a2d57d962342764912b6ef5cc3))
+* **skills:** stop teaching the removed LoggerBrowser, and fix the logger misuse it left behind ([#401](https://github.com/bitrix24/b24jssdk/issues/401)) ([50a0e19](https://github.com/bitrix24/b24jssdk/commit/50a0e19363b4f6f686848caceb9c8c27a8742352))
+* **skills:** the skill files taught a class removed in 3.0.0. ([50a0e19](https://github.com/bitrix24/b24jssdk/commit/50a0e19363b4f6f686848caceb9c8c27a8742352))
+* **skills:** two shipped recipes silently discarded what they logged. ([50a0e19](https://github.com/bitrix24/b24jssdk/commit/50a0e19363b4f6f686848caceb9c8c27a8742352))
+
+
+### Changed
+
+* **docs:** removed dead code and tightened types — four unreferenced files ([a5b9538](https://github.com/bitrix24/b24jssdk/commit/a5b95382df68a1353b2dd6b3602dcdd5aeac5fcf))
+
+
+### Docs
+
+* add a security policy, and put it under the same lint and link checks as the rest ([#405](https://github.com/bitrix24/b24jssdk/issues/405)) ([6e07dbf](https://github.com/bitrix24/b24jssdk/commit/6e07dbf562059f8c4aeada1f3942783e930c75b5))
+* add an API Reference section indexing the public surface ([#383](https://github.com/bitrix24/b24jssdk/issues/383)) ([ce42d77](https://github.com/bitrix24/b24jssdk/commit/ce42d77472700910637a17343c8ac4437fbf4f6d))
+* announce that Node 20 is dropped in 3.0.0, with a site-wide banner ([#380](https://github.com/bitrix24/b24jssdk/issues/380)) ([a266760](https://github.com/bitrix24/b24jssdk/commit/a266760a7ab9e712bf12eebb099d3570e5ebfa0a))
+* ask whether to deprecate, in the places that describe how ([#422](https://github.com/bitrix24/b24jssdk/issues/422)) ([24f4910](https://github.com/bitrix24/b24jssdk/commit/24f4910c36f12d2ad3af11707d4bd562b533a954)), closes [#414](https://github.com/bitrix24/b24jssdk/issues/414)
+* **logger:** record what [#346](https://github.com/bitrix24/b24jssdk/issues/346) deliberately left outside the isolation ([#364](https://github.com/bitrix24/b24jssdk/issues/364)) ([a29efc2](https://github.com/bitrix24/b24jssdk/commit/a29efc2902f85232c82a97a5f83bc165114a5b9f))
+* record where the docs app deliberately diverges from upstream nuxt/ui ([#410](https://github.com/bitrix24/b24jssdk/issues/410)) ([2a8434c](https://github.com/bitrix24/b24jssdk/commit/2a8434c46118e9d9de4a0700f55635910fcd6cff)), closes [#400](https://github.com/bitrix24/b24jssdk/issues/400) [#411](https://github.com/bitrix24/b24jssdk/issues/411)
+* **releasing:** merging the release PR does not publish to npm ([#362](https://github.com/bitrix24/b24jssdk/issues/362)) ([b6861d7](https://github.com/bitrix24/b24jssdk/commit/b6861d7242e1f44d3ecb474db3b2500e365b91c1))
+* **releasing:** the generated section lands below the Unreleased block, not above ([#430](https://github.com/bitrix24/b24jssdk/issues/430)) ([4d566a8](https://github.com/bitrix24/b24jssdk/commit/4d566a8a554a22182d88ac7bcebf05716907ac8b))
+* say how much review a change is worth, and name the signs of process bloat ([#421](https://github.com/bitrix24/b24jssdk/issues/421)) ([b193abb](https://github.com/bitrix24/b24jssdk/commit/b193abbc46fe89f85363fb572c431f11e37e6914))
+* **skills:** stop teaching offClientSideWarning(), and correct what it does ([#366](https://github.com/bitrix24/b24jssdk/issues/366)) ([f1cbf15](https://github.com/bitrix24/b24jssdk/commit/f1cbf15d431ecc2e475bedcaadcccd73f514d2df)), closes [#166](https://github.com/bitrix24/b24jssdk/issues/166)
+* warn that an app which never calls installFinish() receives no events ([#377](https://github.com/bitrix24/b24jssdk/issues/377)) ([fd72e36](https://github.com/bitrix24/b24jssdk/commit/fd72e360fd10c8191d85dbc57effd4023381acd7))
+* write down the test a deprecation has to pass ([#413](https://github.com/bitrix24/b24jssdk/issues/413)) ([c71d524](https://github.com/bitrix24/b24jssdk/commit/c71d524f37148f1dd7a2d8f4f60a3266a04c83cd)), closes [#409](https://github.com/bitrix24/b24jssdk/issues/409)
+
 ## [2.1.0](https://github.com/bitrix24/b24jssdk/compare/v2.0.0...v2.1.0) (2026-08-21)
 
 ### Features

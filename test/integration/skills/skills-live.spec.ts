@@ -219,23 +219,18 @@ describe('skills-live @skills', () => {
 
   // ── b24jssdk-rest ──────────────────────────────────────────────────────
   /**
-   * What `getData()` returns, per action — measured against a live portal, and
-   * the thing this block used to get wrong (#425):
+   * Two traps this block fell into, both now written up where a reader will
+   * actually meet them — `skills/b24jssdk-rest/SKILL.md`, section
+   * "What `getData()` returns, per action" and the Anti-patterns list:
    *
-   * | action            | `getData()`                                  |
-   * | ----------------- | -------------------------------------------- |
-   * | `call.make`       | the envelope: `{ result, time }`             |
-   * | `batch.make`      | the keyed map directly: `{ now: …, me: … }`  |
-   * | `callList.make`   | a flat array                                 |
-   * | `batchByChunk`    | a flat array                                 |
+   *   - only `call.make` returns a `{ result, time }` envelope; `batch` and
+   *     `callList` do not, so `getData()!.result` there is `undefined` (#425);
+   *   - batch flags belong under `options` — at the top level they are silently
+   *     ignored, so a case written that way verifies something other than what
+   *     its title claims (#426).
    *
-   * Only `call` has a `result` property. Reading `getData()!.result` off the
-   * others yields `undefined`, which reads as an SDK or skill defect and is
-   * neither — the skill files document these shapes correctly.
-   *
-   * Batch flags (`isHaltOnError`, `returnAjaxResult`) go under `options`. At the
-   * top level they are silently ignored (#426), so a case written that way
-   * verifies something other than what its title claims.
+   * Six cases here asserted the first and two relied on the second, which is
+   * why this suite was red against a working portal.
    */
   describe('b24jssdk-rest/SKILL.md', () => {
     portalIt('actions.v2.batch.make returns one result per command', async () => {

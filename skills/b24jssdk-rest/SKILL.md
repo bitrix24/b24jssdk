@@ -277,6 +277,20 @@ res.getQuery()              // { method, params, requestId }
 
 > `getData()` returns `undefined` when the call did not succeed — the new typing forces you to either check `isSuccess` first, or assert with `!`. Both patterns appear in the canonical SDK tests (`test/integration/js-docs/actions-v{2,3}.spec.ts`).
 
+### What `getData()` returns, per action
+
+Only `call.make` has a `result` property. Reading `.result` off the others gives `undefined` — no error, no warning, just a value that reads as an empty response (#425).
+
+| Action | `getData()` | Reach a row with |
+| --- | --- | --- |
+| `call.make` | `{ result, time }` | `getData()!.result` |
+| `batch.make` | the keyed map, or an array for the array form | `getData()!.myKey` |
+| `callList.make` | a flat array | `getData()![0]` |
+| `batchByChunk.make` | a flat array | `getData()![0]` |
+| `fetchList.make` | *(async generator)* — yields arrays | `for await (const chunk of …)` |
+
+With `options.returnAjaxResult: true`, each entry of a batch result is an `AjaxResult` rather than the raw payload, so you reach a row with `getData()!.myKey.getData()!.result`.
+
 ### `restApi:v2` paging members — kept, but v2-only
 
 `isMore()` / `hasMore()` / `getTotal()` / `getNext()` / `fetchNext()` are **not** deprecated and are **not** going away in `3.0.0`. They work with the v2 envelope fields `next` / `total` directly.
@@ -397,6 +411,8 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 - ❌ `idKey: 'ID'` alone for `tasks.task.list` — the response id is lowercase `id`, so the cursor can't read it and paging silently stops after 50. Use `idKey: 'id', cursorIdKey: 'ID'`.
 - ❌ `Promise.all` over `callList.make` for parallel paging — internal cursor pagination is sequential by design; you'll get duplicates or skipped rows.
 - ❌ Hand-paging a v3 list method by the `nextCursor` it returns (e.g. `note.*`) — `callList` / `fetchList` page via their own `idKey` cursor and walk every page; `nextCursor` is informational and the SDK ignores it. Just use the list helpers with `idKey` + `customKeyForResult`.
+- ❌ `batch.make({ calls, isHaltOnError: false })` — batch flags at the top level are **silently ignored**: no error, no warning, and the call behaves as if you never set them. `returnAjaxResult` dropped this way is the nastier one, because `entry.isSuccess` is then `undefined` on a plain object, so a batch where everything succeeded reads as a batch where everything failed. They belong under `options: { isHaltOnError, returnAjaxResult, requestId }` (#426).
+- ❌ Reading `getData()!.result` off `batch.make` / `callList.make` / `batchByChunk.make` — only `call.make` returns that envelope. See the table above.
 - ❌ `B24Hook` in a browser bundle — leaks the webhook secret. Use `B24Frame` there.
 
 ## Cross-reference

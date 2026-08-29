@@ -88,6 +88,56 @@ export default defineNuxtConfig({
     baseURL: `${baseUrl}/`,
     buildAssetsDir: '/_nuxt/',
     head: {
+      meta: [
+        {
+          // Content Security Policy (#399). It is a `<meta>` tag and not a
+          // response header because the site is `nuxt generate` output served
+          // by GitHub Pages, which cannot set headers — the `routeRules`
+          // headers elsewhere in this file are inert there for the same reason.
+          //
+          // That costs three header-only directives, which cannot be expressed
+          // here at all: `frame-ancestors` (so clickjacking protection relies
+          // on `frame-src 'none'` in whatever embeds us, i.e. nothing),
+          // `report-uri` / `report-to`, and `sandbox`.
+          //
+          // Every source below was measured against the built site in Chromium,
+          // not reasoned about — see `.github/contributing/docs-csp.md`. The
+          // three relaxations are each required by something real:
+          //
+          //   script-src 'unsafe-inline'   Nuxt emits an inline hydration
+          //                                payload on every page; hashes would
+          //                                have to differ per page, which one
+          //                                static meta tag cannot express.
+          //   script-src 'wasm-unsafe-eval'  @nuxt/content's search runs SQLite
+          //                                compiled to WebAssembly in the
+          //                                browser.
+          //   style-src 'unsafe-inline'    Nuxt inlines critical CSS.
+          //
+          // Everything else is `'self'`: after #407 removed the prettier CDN,
+          // the built site loads no script, style, font, image or fetch from
+          // any external origin. Adding one means adding it here too, and the
+          // page will say so in the console the moment you do.
+          'http-equiv': 'Content-Security-Policy',
+          'content': [
+            `default-src 'self'`,
+            `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'`,
+            `style-src 'self' 'unsafe-inline'`,
+            `img-src 'self'`,
+            `font-src 'self'`,
+            `connect-src 'self'`,
+            // Both workers this site starts — @nuxt/content's SQLite worker and
+            // the prettier formatting worker (a module worker since #407) — are
+            // same-origin. Stated rather than left to fall back to `script-src`,
+            // which carries `'unsafe-inline'`.
+            `worker-src 'self'`,
+            `object-src 'none'`,
+            `base-uri 'self'`,
+            `form-action 'none'`,
+            `frame-src 'none'`,
+            `manifest-src 'self'`
+          ].join('; ')
+        }
+      ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: `${baseUrl}/favicon.ico?v=2` }
       ],

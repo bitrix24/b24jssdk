@@ -1,6 +1,6 @@
 # Telegram release announcement (community post)
 
-<sub>Last reviewed: 2026-06-27.</sub>
+<sub>Last reviewed: 2026-08-29.</sub>
 
 Rules for drafting the Russian-language Telegram post that announces a new
 `@bitrix24/b24jssdk` release to the community. An agent follows these to produce a
@@ -190,8 +190,67 @@ printf '%s' 'Using Bitrix24 JS SDK documentation from https://bitrix24.github.io
 - ❌ English — the community is Russian-speaking.
 - ❌ `💜` in the sign-off — only `🚀`.
 - ❌ Real portals / secrets in examples.
+- ❌ Claims about how the release was verified — live-portal runs, test coverage,
+  CI. See §13.
+- ❌ Narrating the bug we fixed instead of the capability the reader gains. See §13.
+- ❌ Suggesting the reader probably has the same defect we found in our own code.
 
-## 13. Emoji dictionary
+## 13. Write about the reader, not about us
+
+The post is read by someone deciding whether this release changes anything for
+them. Everything that is really about **our** work — how carefully we tested, what
+we broke and fixed, how the CI is wired — costs them attention and gives nothing
+back. It also subtly shifts the subject of the announcement from their project to
+ours.
+
+Three specific habits, each of which shipped in a draft before being caught:
+
+**Do not advertise verification.** "Проверено на живом портале, а не только на
+тестах", "покрыто тестами", "компилируется в CI" — a reader assumes the release
+works; saying it works *this time* invites the question of when it did not. The
+checklist below requires the verification; the post does not mention it.
+
+**Describe the capability, not the defect it replaced.** "SDK терял это поле, до
+кода доезжала только строка" narrates our bug. "Список полей доступен в
+`AjaxError`" tells the reader what they can now do. The heading follows the same
+rule: *"Ошибка валидации называет поле"*, not *"теперь наконец называет"*. Where
+the old behaviour genuinely matters — because someone's code depends on it — one
+neutral sentence is enough.
+
+**Never imply the reader has the same defect.** "Оба таких дефекта нашлись в нашем
+коде, так что свой проверить не лишнее" reads as an accusation dressed as
+camaraderie. State what the check looks for and let them decide: *"если такие
+места в проекте есть, агент их покажет"*.
+
+The same test applies to a suggested prompt or task: phrase it as *"a prompt that
+checks your project against the new version"*, not as *"an evening task to find
+your mistakes"*.
+
+### When the reader does have to act
+
+The exception to all of the above is a change that requires something from them.
+That gets stated plainly and early — bolded, in its own line, with the fix
+attached:
+
+```text
+**Если вы на TypeScript и передавали лишний ключ верхнего уровня — сборка это
+заметит.** В рантайме поведение не изменилось. Достаточно перенести ключ в
+options или убрать.
+```
+
+Softening a breaking change (§7) means not dramatising it, not hiding it. A
+reader who discovers it from a red build instead of the post was failed by the
+post.
+
+### When a previous post has to be corrected
+
+If an earlier announcement told the community something that is no longer true —
+a deprecation that was withdrawn, a removal that was cancelled — say so in one
+line, with the action: *"В 2.1.0 они были помечены как уходящие в 3.0.0, план
+отозван, делать ничего не нужно."* Leaving it out is not neutrality: those
+readers are still holding the old plan.
+
+## 14. Emoji dictionary
 
 | Section / topic | Emoji |
 | --- | --- |
@@ -209,7 +268,7 @@ printf '%s' 'Using Bitrix24 JS SDK documentation from https://bitrix24.github.io
 | Changelog | 📝 |
 | Cipher for AI | 🔐 |
 
-## 14. Fill-in template
+## 15. Fill-in template
 
 ``````text
 🚀 **b24jssdk vX.Y.Z** — <N> features, <M> fixes and <highlight>.
@@ -268,7 +327,7 @@ atob('<base64 on a single line>')
 ```
 ``````
 
-## 15. Pre-flight checklist
+## 16. Pre-flight checklist
 
 - [ ] Everything in one ` ```` `-markdown block; pastes as a single piece.
 - [ ] Header counts match the CHANGELOG.
@@ -280,4 +339,14 @@ atob('<base64 on a single line>')
 - [ ] Bitrix24 never "crashes" or "lags"; no competitor comparisons.
 - [ ] Sign-off is `🚀`, not `💜`.
 - [ ] The base64 decodes to the correct URL.
+- [ ] **Every URL in the post answers 200** — check them, do not assemble them from
+      the content directory layout. `/docs/getting-started/ai/skills` resolves;
+      the same path with a trailing slash is a 404.
 - [ ] No internal details (PR numbers, CI, model ids).
+- [ ] No claims about testing or verification anywhere in the post (§13).
+- [ ] Each feature is written as what the reader can now do, not as what used to
+      be broken (§13).
+- [ ] Nothing implies the reader made a mistake (§13).
+- [ ] Anything that requires action from the reader is stated plainly, with the
+      fix attached (§13).
+- [ ] A claim from an earlier post that is no longer true is corrected here (§13).

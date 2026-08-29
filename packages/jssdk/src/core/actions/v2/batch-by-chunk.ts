@@ -1,4 +1,3 @@
-import type { ActionOptions } from '../abstract-action'
 import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal, BatchCommandsUniversal
@@ -8,7 +7,7 @@ import { AbstractBatch } from '../abstract-batch'
 import { ApiVersion } from '../../../types/b24'
 import { Result } from '../../result'
 
-export type ActionBatchByChunkV2 = ActionOptions & {
+export type ActionBatchByChunkV2 = {
   calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal
   options?: Omit<IB24BatchOptions, 'returnAjaxResult'>
 }
@@ -71,6 +70,12 @@ export class BatchByChunkV2 extends AbstractBatch {
    * @tip For very large command sets, consider using server-side task queues instead of bulk batch requests.
    */
   public override async make<T = unknown>(options: ActionBatchByChunkV2): Promise<Result<T[]>> {
+    // `returnAjaxResult` is deliberately absent from this list. `batchByChunk`
+    // does not support it in *either* position — the chunk merge overwrites it
+    // to `false` below, and `options` is typed `Omit<…, 'returnAjaxResult'>` —
+    // so telling the caller to nest it would be wrong advice.
+    this._warnMisplacedOptions(options, ['isHaltOnError', 'requestId'], 'options')
+
     const batchSize = 50
 
     const opts = {

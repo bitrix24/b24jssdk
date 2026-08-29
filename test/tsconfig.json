@@ -6,13 +6,28 @@
   // point of a project whose whole job is to catch what the other passes miss.
   //
   // Only the emit settings are overridden: this config never emits, it just
-  // type-checks the `*.types.spec.ts` pins for the `jsSdk:types` vitest project.
+  // type-checks the test tree.
+  //
+  // Scope: **every** `.ts` under `test/`, not only the `*.types.spec.ts` pins.
+  // It used to be the pins alone, and that left the rest of the tree compiled
+  // by nobody — esbuild strips types without checking them. A spec could assert
+  // against a shape the SDK does not have and only a live-portal run would ever
+  // notice; #425 is the case that made this worth fixing, where six cases read
+  // `getData()!.result` off a `Result<T[]>` and `.result` on an array is not a
+  // type error anyone was looking for (#428).
   "extends": "../packages/jssdk/tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
+    // Relaxed for tests only, and deliberately. The flag forbids `obj.foo` when
+    // `foo` comes from an index signature, which is right for library source
+    // and wrong here: a test reaching into a portal payload or a batch result
+    // keyed by command name does exactly that, on purpose, ~218 times. Turning
+    // it on would trade real type coverage for a bracket-notation rewrite that
+    // makes the assertions harder to read.
+    "noPropertyAccessFromIndexSignature": false,
     // The parent emits declarations, so it infers a `rootDir` from the inputs —
     // here that would be `test/`, and every `import` reaching into
     // `packages/jssdk/src` would be "not under rootDir". Widened to the
@@ -20,10 +35,23 @@
     "rootDir": "..",
     "types": ["node", "vitest/globals"]
   },
-  "include": ["./**/*.types.spec.ts"],
-  // Not `[]`. An empty list does not mean "nothing to exclude" — it replaces
-  // TypeScript's implicit defaults, so `node_modules` stops being excluded.
-  // Harmless against today's include glob, but it is the kind of thing that
-  // only bites once something generates a matching path.
-  "exclude": ["node_modules"]
+  "include": ["./**/*.ts"],
+  //
+  // Note what this drags in: `test/integration/skills-recipes/*.spec.ts` imports
+  // the recipe files under `skills/b24jssdk-recipes/`, so those — and their
+  // `grammy` / `node-cron` / `openai` dependencies — are part of this program.
+  // Those deps live in a non-workspace package that the root `pnpm install`
+  // does not touch, which is why `test:typecheck` and `package-jssdk:test:run-types`
+  // both run `skills:install` first. Without it the pass fails on a module it
+  // was never asked about, in a workspace the diff did not touch (#428).
+  // The two `test/integration/docs/**` specs import the docs Nuxt app, whose
+  // modules rely on Nuxt's auto-imports and generated types. Those resolve
+  // under `docs:typecheck` and cannot resolve here, so the docs app is checked
+  // by its own pass and these two specs sit outside this one. Excluding a spec
+  // is a real gap, not a tidy-up — if a third one appears, widen the pass
+  // rather than the exclusion.
+  "exclude": [
+    "../node_modules",
+    "./integration/docs/**"
+  ]
 }

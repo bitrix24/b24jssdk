@@ -1,10 +1,9 @@
-import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
 import { assertArrayFilter, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
-export type ActionCallListV3 = ActionOptions & {
+export type ActionCallListV3 = {
   method: string
   /**
    * `filter` is narrowed to the v3 array form here, unlike {@link TypeCallParamsV3},

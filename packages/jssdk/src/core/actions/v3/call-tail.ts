@@ -1,11 +1,10 @@
-import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
 import { SdkError } from '../../sdk-error'
 import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
-export type ActionCallTailV3 = ActionOptions & {
+export type ActionCallTailV3 = {
   method: string
   params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'cursor'>
   cursorField?: string

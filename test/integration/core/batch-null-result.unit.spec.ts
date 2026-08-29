@@ -13,6 +13,7 @@ import { ParamsFactory } from '../../../packages/jssdk/src/core/http/limiters/pa
 import type { SdkError } from '../../../packages/jssdk/src/core/sdk-error'
 import type { BatchCommandV3 } from '../../../packages/jssdk/src/types/http'
 import type { BatchPayload, Payload, PayloadTime } from '../../../packages/jssdk/src/types/payloads'
+import type { BatchResponsePayload } from '../../../packages/jssdk/src/core/interaction/batch/abstract-interaction-batch'
 import type { ResponseHelper } from '../../../packages/jssdk/src/core/interaction/batch/processing/interface-strategy'
 import { ProcessingAsObjectV2 } from '../../../packages/jssdk/src/core/interaction/batch/processing/v2/as-object'
 import { ProcessingAsObjectV3 } from '../../../packages/jssdk/src/core/interaction/batch/processing/v3/as-object'
@@ -37,6 +38,10 @@ function buildResponseHelper<T>(
   // `AjaxResult<BatchPayload<T>>` is typed with the SDK's double-nested
   // Payload wrapper (`Payload<BatchPayload<T>>`), but at runtime the batch
   // response is a flat `BatchPayload<T>`. Cast to satisfy the constructor.
+  // `AjaxResult<X>` already means "the payload is `{ result: X, time }`", so the
+  // envelope type the transport hands on is `BatchResponsePayload<T>`; this
+  // helper builds the inner shape. Named here rather than left to inference so
+  // the mismatch is visible (#428).
   const response = new AjaxResult<BatchPayload<T>>({
     answer: payload as unknown as Payload<BatchPayload<T>>,
     query: { method: 'batch', params: {}, requestId },
@@ -46,7 +51,7 @@ function buildResponseHelper<T>(
   return {
     requestId,
     parallelDefaultValue: false,
-    response,
+    response: response as unknown as AjaxResult<BatchResponsePayload<T>>,
     restrictionManager: new RestrictionManager(ParamsFactory.getDefault())
   }
 }

@@ -1,4 +1,3 @@
-import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
@@ -28,7 +27,7 @@ export type AggregateSelectV3 = Partial<Record<AggregateFunctionV3, string[] | R
 export type AggregateResultV3 = Partial<Record<AggregateFunctionV3, Record<string, number>>>
 
 /** @experimental options for the v3 `aggregate` action — unverified live (see {@link AggregateV3}). */
-export type ActionAggregateV3 = ActionOptions & {
+export type ActionAggregateV3 = {
   method: string
   select: AggregateSelectV3
   params?: Pick<TypeCallParamsV3, 'filter'>

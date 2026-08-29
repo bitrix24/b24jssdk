@@ -32,7 +32,7 @@ describe('legacy AbstractB24 shortcuts — deprecation warning metadata', () => 
 
   for (const { name, invoke } of cases) {
     it(`${name}() warns with removalVersion ${REMOVAL_VERSION}`, () => {
-      const spy = vi.spyOn(LoggerFactory, 'forcedLog').mockImplementation(() => {})
+      const spy = vi.spyOn(LoggerFactory, 'forcedLog').mockImplementation(async () => {})
       const b24 = makeClient()
 
       // The warning fires synchronously; swallow the trailing network promise.

@@ -178,12 +178,20 @@ describe('js-docs.actions @apiV2', () => {
       throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
     }
 
-    const results = response.getData()! as Record<string, AjaxResult<{ item: Contact } | { items: Deal }>>
+    // Keyed per command rather than as a union over a `Record`: both commands
+    // are `crm.item.get`, so both answer under `item`, and a union of the two
+    // payload shapes cannot be read without narrowing it back per key anyway.
+    // The cast this replaces claimed `{ items: Deal }` for a call that returns
+    // `item` — wrong, and invisible until the test tree was type-checked (#428).
+    const results = response.getData()! as {
+      Contact: AjaxResult<{ item: Contact }>
+      Deal: AjaxResult<{ item: Deal }>
+    }
     b24.getLogger().debug(`Contact`, {
-      item: results.Contact.getData()!.result.item as Contact
+      item: results.Contact.getData()!.result.item
     })
     b24.getLogger().debug(`Deal`, {
-      item: results.Deal.getData()!.result.item as Deal
+      item: results.Deal.getData()!.result.item
     })
 
     expect(response.isSuccess).toBe(true)

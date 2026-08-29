@@ -186,8 +186,8 @@ describe('core.deprecated @apiV2', () => {
     // Company
     {
       expect(resultData.Company).toBeInstanceOf(AjaxResult)
-      expect(resultData.Company.isSuccess).toBe(true)
-      const rowData = resultData.Company.getData()!
+      expect(resultData.Company!.isSuccess).toBe(true)
+      const rowData = resultData.Company!.getData()!
       expect(rowData.result).toHaveProperty('item')
       expect(rowData.result.item.id).toBe(getMapId().crmCompanySuccessMin)
       const time = rowData.time
@@ -198,8 +198,8 @@ describe('core.deprecated @apiV2', () => {
     // Contact
     {
       expect(resultData.Contact).toBeInstanceOf(AjaxResult)
-      expect(resultData.Contact.isSuccess).toBe(true)
-      const rowData = resultData.Contact.getData()!
+      expect(resultData.Contact!.isSuccess).toBe(true)
+      const rowData = resultData.Contact!.getData()!
       expect(rowData.result).toHaveProperty('item')
       expect(rowData.result.item.id).toBe(getMapId().crmContactSuccessMin)
       const time = rowData.time

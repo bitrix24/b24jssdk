@@ -13,10 +13,16 @@ import { HttpV2 } from '../../../packages/jssdk/src/core/http/v2'
 import { AjaxResult } from '../../../packages/jssdk/src/core/http/ajax-result'
 import type { AuthActions } from '../../../packages/jssdk/src/types/auth'
 import type { BatchCommandsArrayUniversal } from '../../../packages/jssdk/src/types/http'
+import type { PayloadTime } from '../../../packages/jssdk/src/types/payloads'
 
-const TIME = {
+/**
+ * A complete `PayloadTime`. It used to omit `operating_reset_at` / `operating`,
+ * which nothing noticed because this file was compiled by nobody (#428).
+ */
+const TIME: PayloadTime = {
   start: 0, finish: 1, duration: 1, processing: 0,
-  date_start: '', date_finish: ''
+  date_start: '', date_finish: '',
+  operating_reset_at: 0, operating: 0
 }
 
 /**

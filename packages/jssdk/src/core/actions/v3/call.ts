@@ -1,10 +1,9 @@
-import type { ActionOptions } from '../abstract-action'
 import type { TypeCallParamsV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { ApiVersion } from '../../../types/b24'
 
-export type ActionCallV3 = ActionOptions & {
+export type ActionCallV3 = {
   method: string
   params?: TypeCallParamsV3
   requestId?: string

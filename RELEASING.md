@@ -1,6 +1,6 @@
 # Releasing `@bitrix24/b24jssdk`
 
-<sub>Last reviewed: 2026-08-21.</sub>
+<sub>Last reviewed: 2026-08-29.</sub>
 
 > **Releases are moving to release-please (#347).** The routine release is:
 > review the standing release PR, merge it, then **start the two publish
@@ -105,11 +105,20 @@ That is the better outcome — no final manual release is needed, because the
 generated section already covers the work. Two things do need doing **on the
 release PR itself**, before merging it:
 
-1. **Fold in or drop the hand-written `## [Unreleased]` block.** The generated
-   section is prepended *above* it, so that block is now stranded below a
-   released version and nothing will ever clear it. Its entries explain causes
-   and consequences the commit subjects do not, so folding the ones worth keeping
-   into the generated section is usually better than deleting them.
+1. **Fold in or drop the hand-written `## Unreleased` block.** Its entries
+   explain causes and consequences the commit subjects do not, so folding the
+   ones worth keeping into the generated section is usually better than deleting
+   them.
+
+   **The generated section lands *below* it, not above.** release-please treats
+   everything before the first version heading as the file's header, and
+   `## Unreleased` matches no version pattern — so it is header, and each new
+   release is inserted after it. Measured on the 2.2.0 release PR: `## Unreleased`
+   at line 3, `## [2.2.0]` at line 17. The block is therefore not stranded below a
+   release; it floats permanently above **every** future one until someone folds
+   it in. (An earlier version of this page said the opposite. The consequence is
+   the same — fold it in — but the reason matters if you go looking for the block
+   and expect to find it at the bottom.)
 2. **Check the version.** The bot proposes a patch unless it sees a `feat:` or a
    breaking marker, and this repo has merged neither for a long time — so a
    release that adds public API will still be proposed as a patch. Raise it with

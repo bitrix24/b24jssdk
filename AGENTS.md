@@ -175,7 +175,7 @@ Cutting a release (bump → changelog → tag → publish) is documented in **[R
 - **Conventional Commits**: the commit subject IS the changelog entry — release-please assembles `CHANGELOG.md` from the subjects merged since the last tag (#347). Use a type mapped in `changelog-sections` ([release-please-config.json](release-please-config.json)): `feat`, `fix`, `perf`, `revert`, `security`, `deps`, `refactor`, `build`, `docs`, `test`, `ci`, `chore`, `style`. That list **replaces** the preset's rather than extending it, so an unmapped type is invisible in the changelog — the ad-hoc `platform:` / `dx:` / `http:` subjects this repo has used are not mapped. Only `feat` and a breaking marker raise the version above a patch; force one with a `Release-As: 2.1.0` footer. Write the subject so a reader of the release notes understands the change without opening the diff. The hand-written `## [Unreleased]` block in [CHANGELOG.md](CHANGELOG.md) is being retired on the first release PR — see the handover note in [RELEASING.md](RELEASING.md); do not add to it.
 - **No default exports**: every export is named so consumers stay tree-shakeable (`sideEffects: false`).
 - **TypeScript strict**: `tsc` for the core SDK; `vue-tsc` for the Nuxt / docs / playground projects.
-- **Public contract**: exports from [packages/jssdk/src/index.ts](packages/jssdk/src/index.ts) are a public API. Any breaking change needs a deprecation cycle, not a silent rename.
+- **Public contract**: exports from [packages/jssdk/src/index.ts](packages/jssdk/src/index.ts) are a public API. Any breaking change needs a deprecation cycle, not a silent rename — and a deprecation needs a replacement that costs the caller nothing, or it is a breaking change with a friendlier tag on it ([`deprecations.md`](.github/contributing/deprecations.md)).
 - **Cross-package awareness**: when you change the core SDK API, check whether [packages/jssdk-nuxt/src/runtime/plugin.ts](packages/jssdk-nuxt/src/runtime/plugin.ts) needs an update.
 - **Code formatting**: `@nuxt/eslint-config` (flat) with stylistic overrides — 2-space indent, no trailing commas, 1tbs braces. `.editorconfig` enforces LF + 2 spaces. The protobuf JS files in `packages/jssdk/src/pullClient` are eslint-ignored intentionally.
 - **Build tokens**: `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced at build time by [packages/jssdk/build.config.ts](packages/jssdk/build.config.ts); the Nuxt module's `meta.version` uses the same `__SDK_VERSION__` token via [packages/jssdk-nuxt/build.config.ts](packages/jssdk-nuxt/build.config.ts). Do not hard-code versions.
@@ -220,7 +220,7 @@ Load these based on your task. **Do not load all files at once** — only load w
 | Limiters | New transport code paths must respect the limiter stack (`RateLimiter`, `OperatingLimiter`, `AdaptiveDelayer`) — do not bypass it. HTTP 4xx is automatically classified as non-retryable; `hardErrorCodes` is for HTTP 2xx domain-level error codes the SDK doesn't recognise as terminal |
 | Enterprise | Treat the enterprise restriction params from `LicenseManager` as load-time switches; do not duplicate them |
 | Build tokens | Use `__SDK_VERSION__` / `__SDK_USER_AGENT__` placeholders, never literal version strings |
-| Deprecation | Mark with JSDoc `@deprecated`, add `@removed X.Y.Z` and (if useful) `@memo` tags, and emit a runtime warning with `LoggerFactory.forcedLog(this._logger, 'warning', { … })`. See `abstract-b24.ts` for the canonical pattern |
+| Deprecation | **First decide whether to deprecate at all** — does a replacement exist that costs the caller nothing? See [`deprecations.md`](.github/contributing/deprecations.md). Then: JSDoc `@deprecated`, `@removed X.Y.Z` and (if useful) `@memo` tags, and a runtime warning via `LoggerFactory.forcedLog(this._logger, 'warning', { … })`. See `abstract-b24.ts` for the canonical pattern |
 | Pull protobuf | The auto-generated protobuf JS is intentionally eslint-ignored — do not "clean it up" |
 
 ## Workflows
@@ -274,6 +274,7 @@ PR Review:
 - [ ] Errors use SdkError ({ code, description, status }) / AjaxError — no bare throws or string-form SdkError
 - [ ] Public API changes are re-exported from src/index.ts
 - [ ] Public API changes have a deprecation cycle (no silent renames): JSDoc @deprecated + @removed tag + LoggerFactory.forcedLog warning
+- [ ] **Adding `@deprecated`? Name the replacement for each member, one at a time.** Write the line of code the caller replaces it with. Cannot write that line, or it only works under one protocol version, or it is `@experimental`? Then this is a breaking change wearing a deprecation tag — see [`deprecations.md`](.github/contributing/deprecations.md). Judge per member: a shared trait is a reason to review a group together, never to decide it together
 - [ ] Frame changes bootstrap only through initializeB24Frame() (no alternative constructor paths)
 - [ ] Helper sub-managers extend AbstractHelper and follow the constructor(b24: TypeB24) + setLogger() shape
 - [ ] B24Hook usage is server-side only; no logs of raw request URLs (which contain webhook secrets in the path)

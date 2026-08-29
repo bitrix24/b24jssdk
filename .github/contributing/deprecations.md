@@ -135,15 +135,32 @@ Keeping a member is not the same as saying nothing about it. Record:
   is a contract — including whatever it does in the situation that motivated the
   deprecation in the first place.
 
-## This page is not a control
+## Where this is asked, and what still is not enforced
 
-Nothing makes anyone read it at the moment a tag is written. That is the honest
-limit of a contributing document, and it is worth saying here rather than
-discovering it the next time a batch goes through unexamined — the failure this
-page describes was not someone believing the wrong thing, it was a question
-nobody asked. #414 tracks putting the test somewhere it interrupts: the PR
-checklist, the `/code-review` prompt, or a CI nudge on a diff that tags more than
-one export at once.
+The failure this page describes was not someone believing the wrong thing. It was
+a question nobody asked. So the question is now asked in the three places
+someone passes on the way to writing a tag (#414):
+
+- the **PR Review Checklist** in `AGENTS.md` — the entry immediately after the
+  deprecation-cycle line, which asks for the replacement line of code **per
+  member**;
+- the **Code Conventions** row for Deprecation, which puts the decision ahead of
+  the `@deprecated` / `@removed` / `forcedLog` mechanics it used to describe on
+  its own;
+- the **public-contract bullet** under SDK Source, where "needs a deprecation
+  cycle" now carries "and a deprecation needs a replacement".
+
+All three previously described **how** to deprecate and never asked **whether**.
+That was the gap: the mechanics assume a decision that nothing prompted anyone to
+make.
+
+**None of it is enforced.** Nothing fails when a pull request adds `@deprecated`
+and skips the question — these are prompts in a document, read by whoever reads
+documents. A CI nudge on a diff that tags more than one export at once was
+considered and not built: it is the only option that targets the actual failure
+(batching), and also the only one that produces false alarms, since a genuine
+batch of one-for-one replacements is legitimate and would trip it every time. For
+a failure that has happened once, prompts first; revisit if it happens again.
 
 ## Related
 

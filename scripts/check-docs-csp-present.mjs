@@ -73,7 +73,15 @@ for (const file of pages) {
     problems.push(`${where}: no <head>`)
     continue
   }
-  const head = html.slice(headStart + '<head>'.length, html.indexOf('</head>'))
+  const headEnd = html.indexOf('</head>')
+  if (headEnd < 0) {
+    // Unguarded, `indexOf` returns -1 and `slice(start, -1)` silently becomes
+    // "the whole document bar its last character" — so the body gets scanned
+    // and the "first in <head>" assertion answers about the wrong text.
+    problems.push(`${where}: no closing </head>`)
+    continue
+  }
+  const head = html.slice(headStart + '<head>'.length, headEnd)
   const matches = head.match(TAG) ?? []
 
   if (matches.length === 0) {
@@ -87,9 +95,15 @@ for (const file of pages) {
   if (preceding !== '') {
     problems.push(`${where}: the CSP is not first in <head>; "${preceding.slice(0, 70)}" precedes it`)
   }
-  for (const directive of REQUIRED) {
-    if (!matches[0].includes(directive)) {
-      problems.push(`${where}: the policy no longer contains ${directive}`)
+  // Every match, not just the first: with two tags the second could be the one
+  // missing a directive, and reporting only "there are two" would name the
+  // wrong problem.
+  for (const [index, tag] of matches.entries()) {
+    for (const directive of REQUIRED) {
+      if (!tag.includes(directive)) {
+        const which = matches.length > 1 ? ` (tag ${index + 1} of ${matches.length})` : ''
+        problems.push(`${where}: the policy no longer contains ${directive}${which}`)
+      }
     }
   }
 }

@@ -99,9 +99,14 @@ one.
 `worker-src 'self'` is stated rather than left to fall back to `script-src`,
 because that fallback would carry `'unsafe-inline'` with it. Both workers the
 site starts — `@nuxt/content`'s SQLite worker and the prettier formatting worker,
-a module worker since #407 — are same-origin, so `'self'` is enough. Verified:
-constructing the prettier worker with `{ type: 'module' }` under this policy
-succeeds.
+a module worker since #407 — are same-origin, so `'self'` is enough.
+
+The prettier worker needed a deliberate check, because **no page visit reaches
+it**: `CodeExample` formats only when its `prettier` prop is set, and no content
+page sets it. So the browser script constructs it directly, on every page it
+visits, rather than leaving half of `worker-src` untested — a module worker is
+fetched rather than inherited, which is exactly the case a policy is likely to
+get wrong. Confirmed to fail under `worker-src 'none'`.
 
 `img-src 'self'` carries no `data:`, and this one has a caveat worth stating
 precisely. **The built CSS does contain a `data:image/svg+xml` URI** — the
@@ -157,7 +162,27 @@ it is the candidate.
 CSP="default-src 'self'; script-src 'self' 'unsafe-inline'" node scripts/check-docs-csp.mjs
 ```
 
-## Why this is not in CI
+## What runs automatically, and what does not
+
+Two checks, and the difference matters:
+
+| | Runs | Catches |
+| --- | --- | --- |
+| [`scripts/check-docs-csp-present.mjs`](../../scripts/check-docs-csp-present.mjs) | **in CI**, in `docs-build`, on every PR | the tag missing, duplicated, or no longer first in `<head>`, and the loss of a structural directive |
+| [`scripts/check-docs-csp.mjs`](../../scripts/check-docs-csp.mjs) | by hand | a policy that is **too strict** — the page breaking under it |
+
+The presence check exists because that failure already happened here: an earlier
+attempt emitted **no policy at all** on any of the 151 pages, with a green build
+and green tests. It needs no browser, so it is cheap enough to run always.
+
+It deliberately pins only four directives — `default-src`, `script-src`,
+`object-src`, `base-uri`. Pinning the whole policy would make every intentional
+change fail twice, once in the plugin and once in the check. The consequence is
+worth knowing: **dropping `frame-src`, `worker-src`, `style-src` or the rest
+passes CI silently.** Only the browser check would notice, and only if what you
+dropped happens to break something.
+
+## Why the browser check is not in CI
 
 It needs a full `docs:generate` and a browser, and `playwright` is not a
 dependency of this repository. Adding both to catch a policy that changes perhaps

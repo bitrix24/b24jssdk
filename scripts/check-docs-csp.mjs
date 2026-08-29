@@ -44,7 +44,7 @@
  */
 
 import { createServer } from 'node:http'
-import { readFileSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs'
 import { join, extname, resolve, dirname, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -58,10 +58,18 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'docs', '.ou
 const BASE = process.env.NUXT_PUBLIC_BASE_URL ?? '/b24jssdk'
 
 /**
- * A sample rather than all 151 pages: the home page, a docs page carrying code
- * blocks, the API reference, an example, and the migration guide. Each opens the
- * search dialog, which is what pulls `sqlite3.wasm` and starts its worker — the
- * one thing on the site that needs a relaxation beyond `'self'`.
+ * A sample rather than all 151 pages: the home page, the 404 page, a docs page
+ * carrying code blocks, the API reference, an example, and the migration guide.
+ *
+ * Each opens the search dialog, which is what pulls `sqlite3.wasm` and starts
+ * its worker — the only thing an ordinary page visit exercises that needs a
+ * relaxation beyond `'self'`.
+ *
+ * The site has a **second** worker, the prettier formatter, and no page visit
+ * reaches it: `CodeExample` only formats when its `prettier` prop is set, and no
+ * content page sets it. `worker-src` is there for both, so the run constructs it
+ * directly after the page settles rather than leaving that half of the directive
+ * unverified — see `probeModuleWorker`.
  */
 const DEFAULT_PAGES = [
   '/',
@@ -98,7 +106,9 @@ const CONTENT_TYPES = {
 function serveBuiltSite(override) {
   const server = createServer((request, response) => {
     let path = decodeURIComponent(request.url.split('?')[0])
-    if (path.startsWith(BASE)) {
+    // A bare prefix test would also strip `/b24jssdkX/...`, resolving somewhere
+    // else entirely or 404ing with nothing to explain why.
+    if (path === BASE || path.startsWith(`${BASE}/`)) {
       path = path.slice(BASE.length)
     }
     let file = resolve(ROOT, `.${path.startsWith('/') ? path : `/${path}`}`)
@@ -137,6 +147,38 @@ function serveBuiltSite(override) {
     response.end(body)
   })
   return server
+}
+
+/**
+ * Constructs the prettier worker inside the page, under whatever policy the page
+ * carries. Nothing on the site does this today, so without it `worker-src` is
+ * only ever half-tested — and it is the directive most likely to be got wrong,
+ * since the worker became a **module** worker in #407 and a module worker is
+ * fetched, not inherited, so the policy has to allow it.
+ *
+ * Returns a problem string, or null when the worker started.
+ */
+async function probeModuleWorker(page, base) {
+  const chunk = readdirSync(join(ROOT, '_nuxt')).find(name => /^prettier-.*\.js$/.test(name))
+  if (chunk === undefined) {
+    return 'no prettier-*.js chunk in the build — has the formatting worker moved?'
+  }
+  return page.evaluate(async ({ url }) => {
+    try {
+      const worker = new Worker(url, { type: 'module' })
+      return await new Promise((settle) => {
+        worker.onerror = event => settle(`module worker blocked: ${event.message || 'no message'}`)
+        // No reply is expected — the worker only answers a format request. What
+        // is being tested is that it starts at all and is not torn down.
+        setTimeout(() => {
+          worker.terminate()
+          settle(null)
+        }, 2000)
+      })
+    } catch (error) {
+      return `module worker threw: ${String(error).slice(0, 140)}`
+    }
+  }, { url: `${base}/_nuxt/${chunk}` })
 }
 
 async function main() {
@@ -190,6 +232,10 @@ async function main() {
       await page.keyboard.press('Escape').catch(() => {})
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)).catch(() => {})
       await page.waitForTimeout(1000)
+      const workerProblem = await probeModuleWorker(page, BASE).catch(error => String(error).slice(0, 140))
+      if (workerProblem) {
+        violations.set(`${path}: ${workerProblem}`, 1)
+      }
     } catch (error) {
       violations.set(`navigation failed for ${path}: ${String(error).slice(0, 140)}`, 1)
     }

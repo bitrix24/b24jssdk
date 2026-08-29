@@ -71,6 +71,38 @@ function isRepoRelative(target) {
   return true
 }
 
+/**
+ * GitHub's heading-anchor slug: lowercased, punctuation dropped, spaces to
+ * hyphens. Close enough for the headings this repo writes — it does not model
+ * GitHub's duplicate-heading `-1` suffixes, so a file with two identically named
+ * headings would resolve both to the same anchor. No such file exists here, and
+ * the failure mode is a false pass rather than a false alarm.
+ */
+function headingAnchors(markdown) {
+  // Fenced blocks only — NOT `stripCode`, which also removes inline-code
+  // *content*: it turns `## \`AjaxResult\` paging helpers` into `##  paging
+  // helpers`, dropping the first word of the slug. GitHub keeps the text and
+  // drops the ticks, which is what the replace below does.
+  const withoutFences = markdown.replace(/(`{3,})[\s\S]*?\1/g, '')
+  const anchors = new Set()
+  // The hashes, then one separator, then the rest of the line. Trailing space is
+  // trimmed in JS and the text is matched with a negated class rather than `.+`:
+  // a `[ \t]+` beside `.+` can exchange characters with it, which is a genuine
+  // polynomial-backtracking case, not a false alarm from the linter.
+  for (const match of withoutFences.matchAll(/^#{1,6}[ \t]([^\n]*)$/gm)) {
+    anchors.add(
+      match[1]
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // link text, not the URL
+        .replace(/[`*_~]/g, '')
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+    )
+  }
+  return anchors
+}
+
 let broken = 0
 let checked = 0
 
@@ -88,9 +120,22 @@ for (const file of targetFiles()) {
       continue
     }
     checked += 1
-    if (!existsSync(resolve(dir, path))) {
+    const resolved = resolve(dir, path)
+    if (!existsSync(resolved)) {
       broken += 1
       console.log(`\x1B[31mBROKEN\x1B[0m ${relative(ROOT, file)} → ${target}`)
+      continue
+    }
+    // A link to a heading that no longer exists lands the reader at the top of
+    // the right file with no hint that they are in the wrong place — quieter
+    // than a 404 and just as wrong. Only `.md` targets have headings to check.
+    const fragment = target.includes('#') ? target.slice(target.indexOf('#') + 1) : ''
+    if (fragment === '' || !path.endsWith('.md')) {
+      continue
+    }
+    if (!headingAnchors(readFileSync(resolved, 'utf8')).has(fragment)) {
+      broken += 1
+      console.log(`\x1B[31mBROKEN\x1B[0m ${relative(ROOT, file)} → ${target} (no such heading in ${path})`)
     }
   }
 }

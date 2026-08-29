@@ -107,7 +107,16 @@ export type { TypeMyPayload } from './types/payloads'
 
 - Prefer `export { Foo } from './…'` over star re-exports for public types — it keeps the contract auditable.
 - Star re-exports are acceptable for `src/types/index.ts` because that file is an internal aggregator.
-- Removing or renaming a public export is a **breaking change** and must go through a deprecation cycle. Three things are required, not one:
+- Removing or renaming a public export is a **breaking change** and must go through a deprecation cycle.
+
+  **First decide whether it should be deprecated at all** — see
+  [`deprecations.md`](deprecations.md). The test is whether a replacement exists
+  that costs the caller nothing; a member with no replacement is not a
+  deprecation candidate, it is a breaking change wearing the tag. That page
+  exists because the question was answered wrongly twice in one cycle, after the
+  answer had already shipped.
+
+  Once the decision is made, three things are required, not one:
 
   1. **JSDoc**: mark the old symbol with `@deprecated` pointing to the replacement, plus `@removed X.Y.Z` for the target removal version. Add `@memo` if the deprecation has a non-obvious reason (e.g. "only for `restApi:v2`").
   2. **Runtime warning** (for methods callers might still call): emit a warning via `LoggerFactory.forcedLog`. The signature is `(logger, action, message, context)` — **four arguments**, not three:

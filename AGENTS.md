@@ -284,6 +284,56 @@ PR Review:
 - [ ] All local checks pass (lint, typecheck, relevant test filter)
 ```
 
+## How much review a change is worth
+
+Review is not free, and applying the heaviest form to everything has a specific
+failure mode: the same configuration files get rewritten across dozens of
+iterations, each one defensible, and the result is a codebase nobody can hold in
+their head. It is worth naming because it looks like diligence the whole way
+down.
+
+**Convene the full panel** — five reviewers plus `/code-review` — for a change
+that alters:
+
+- runtime behaviour of `packages/jssdk/src/`;
+- the public API surface, including a deprecation decision (see
+  [`deprecations.md`](.github/contributing/deprecations.md));
+- how the SDK talks to a portal — transports, limiters, auth, batching;
+- anything with a security dimension.
+
+**`/code-review` alone is enough** for documentation, contributing guides,
+configuration, styling, and dependency bumps. If it turns up something with a
+behavioural edge, escalate then — that is cheaper than convening six reviewers
+for a page of prose.
+
+The panel earns its keep on the first list. Two examples from one session: a
+Content Security Policy that covered only the tail of every page, and a
+verification tool whose headline feature validated conclusions it could not
+actually reach. Neither is visible by reading a diff. But both were **behaviour**
+— and a documentation-only PR reviewed by six agents in the same session produced
+findings about wording.
+
+### Signs the process is generating work rather than catching problems
+
+Check these before adding to the repository, not after:
+
+- **A new script in `scripts/`.** Nine already exist and share one shape; see
+  #418. Ask whether an existing one should grow instead.
+- **A new `tsconfig.json` or a tenth `typecheck` pass.** There are already ten
+  and nine; see #419. Each is defensible alone.
+- **A JSDoc block longer than the function it documents.** The longest in the SDK
+  is 96 lines. If the reasoning is that long it belongs in
+  `.github/contributing/`, with a pointer from the code — see #420 for the
+  shape that works.
+- **Code written for a use case that does not exist yet.** `aggregate.ts` is the
+  standing example: written from a published reference, never run against a
+  portal, and named as the successor to a method it could not replace.
+
+Test coverage is not a target and is not a CI threshold. Tests exist to pin
+behaviour that would otherwise regress silently; a test that only restates the
+implementation is a liability, because it has to be edited every time the
+implementation legitimately changes.
+
 ## Documentation Upkeep
 
 After any code change that alters a public API (signatures, accepted parameters, return shapes, runtime behaviour, error codes, or warnings emitted), update the matching Markdown page under `docs/content/docs/`. The docs site is the public source of truth — out-of-date docs are treated as a bug equal to a broken test.

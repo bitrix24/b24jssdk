@@ -67,18 +67,19 @@ method. It was **batching**.
 
 Five `AjaxResult` paging members were tagged together on a shared trait — "reads
 a `restApi:v2` envelope field" — which is true of all five and decisive for none
-of them. That criterion describes the protocol, not the user. Inside the batch
-were two different situations:
+of them. That criterion describes the protocol, not the user.
 
-| Members | What they do | Test result |
+**All five were eventually kept** (#408). But they are not alike, and treating
+them as one thing is what went wrong:
+
+| Members | What they do | Against the test |
 | --- | --- | --- |
-| `getNext()` / `fetchNext()` | issue a follow-up request, duplicating `callList` / `fetchList` | arguably replaceable |
-| `isMore()` / `hasMore()` / `getTotal()` | only report what the portal sent | nothing replaces reading it |
+| `isMore()` / `hasMore()` / `getTotal()` | only report what the portal sent | fail it outright — nothing replaces reading a field |
+| `getNext()` / `fetchNext()` | issue a follow-up request, duplicating `callList` / `fetchList` | arguably pass it — but deleting them would still break working `restApi:v2` code for no gain, so they stay too |
 
-Both were eventually kept (#408), but the point stands regardless of where the
-line lands: a shared trait is a reason to *review* a group together, never to
-*decide* it together. Apply the test to each member and write down the answer for
-each.
+The lesson is not where the line landed. It is that **a shared trait is a reason
+to review a group together, never to decide it together.** Apply the test to each
+member and write down the answer for each.
 
 The same batch also contained `callMethod`, `callListMethod`, `fetchListMethod`,
 `callBatch`, `callBatchByChunk`, `batchSize`, and `LoggerBrowser` / `LoggerType`

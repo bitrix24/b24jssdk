@@ -9,10 +9,12 @@
  * (neither `tsc` nor the snippet-compile pass sees prose link targets).
  *
  * Scope: repo-relative links only. Skips external URLs (`https:`, `mailto:`, …),
- * site-absolute links (`/docs/…`), and pure `#anchors`. A trailing `#fragment`
- * or `?query` is stripped before the existence check (anchor validity is out of
- * scope). Fenced and inline code is stripped first so illustrative snippets
- * don't produce false positives.
+ * site-absolute links (`/docs/…`), and pure `#anchors`. A trailing `?query` is
+ * stripped before the existence check. A trailing `#fragment` on a `.md` target
+ * is checked too: it must name a heading in that file, because a link to a
+ * renamed heading lands the reader at the top of the right document with nothing
+ * to say they are in the wrong place. Fenced and inline code is stripped first
+ * so illustrative snippets don't produce false positives.
  */
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
@@ -72,33 +74,65 @@ function isRepoRelative(target) {
 }
 
 /**
- * GitHub's heading-anchor slug: lowercased, punctuation dropped, spaces to
- * hyphens. Close enough for the headings this repo writes — it does not model
- * GitHub's duplicate-heading `-1` suffixes, so a file with two identically named
- * headings would resolve both to the same anchor. No such file exists here, and
- * the failure mode is a false pass rather than a false alarm.
+ * The heading anchors GitHub would generate for a Markdown document.
+ *
+ * Modelled on `github-slugger`, which this repo does not depend on: lowercase,
+ * trim, drop punctuation, then replace **each remaining space** with a hyphen.
+ * That last step is per-character on purpose — `## Foo & Bar` becomes
+ * `foo--bar`, with two hyphens, because removing `&` leaves the spaces either
+ * side of it. Collapsing runs of whitespace instead would produce `foo-bar` and
+ * report a correct link as broken.
+ *
+ * Known and deliberate gap: GitHub disambiguates repeated headings with `-1`,
+ * `-2` suffixes and this does not, so two identically named headings both
+ * resolve to the same anchor. That fails towards a false pass, never a false
+ * alarm, which is the right direction for a gate.
  */
 function headingAnchors(markdown) {
   // Fenced blocks only — NOT `stripCode`, which also removes inline-code
   // *content*: it turns `## \`AjaxResult\` paging helpers` into `##  paging
-  // helpers`, dropping the first word of the slug. GitHub keeps the text and
-  // drops the ticks, which is what the replace below does.
-  const withoutFences = markdown.replace(/(`{3,})[\s\S]*?\1/g, '')
+  // helpers`, dropping the first word of the slug. Both fence markers count;
+  // stripping only backticks would let a `#` line inside a `~~~` block pass as
+  // a heading.
+  const withoutFences = markdown.replace(/(`{3,}|~{3,})[\s\S]*?\1/g, '')
   const anchors = new Set()
-  // The hashes, then one separator, then the rest of the line. Trailing space is
-  // trimmed in JS and the text is matched with a negated class rather than `.+`:
-  // a `[ \t]+` beside `.+` can exchange characters with it, which is a genuine
-  // polynomial-backtracking case, not a false alarm from the linter.
-  for (const match of withoutFences.matchAll(/^#{1,6}[ \t]([^\n]*)$/gm)) {
-    anchors.add(
-      match[1]
-        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // link text, not the URL
-        .replace(/[`*_~]/g, '')
-        .toLowerCase()
-        .replace(/[^\w\s-]/g, '')
-        .trim()
-        .replace(/\s+/g, '-')
-    )
+
+  // ATX. Up to three leading spaces still parse as a heading (four make it an
+  // indented code block), and a space after the hashes is required.
+  for (const match of withoutFences.matchAll(/^ {0,3}#{1,6}[ \t]([^\n]*)$/gm)) {
+    // `## Title ##` — the closing hashes are decoration, not part of the text.
+    anchors.add(slugify(match[1].replace(/[ \t]+#+[ \t]*$/, '')))
+  }
+
+  // Setext (`Title` over `===` or `---`), which anchors exactly like ATX.
+  // Guarded against a table's `| --- |` row and against `---` frontmatter,
+  // neither of which underlines a heading.
+  for (const match of withoutFences.matchAll(/^(?!\s*$)([^\n|]+)\n {0,3}(?:={2,}|-{2,})[ \t]*$/gm)) {
+    anchors.add(slugify(match[1]))
+  }
+  return anchors
+}
+
+/** One heading's text to its anchor. See {@link headingAnchors}. */
+function slugify(headingText) {
+  return headingText
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // link text, not the URL
+    .toLowerCase()
+    .trim()
+    // Letters, numbers, spaces and hyphens survive; `\p{L}` rather than `\w`
+    // so a Cyrillic or accented heading is not stripped to nothing.
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/ /g, '-')
+}
+
+/** `resolved path` → its anchors, so a file linked N times is parsed once. */
+const anchorCache = new Map()
+
+function anchorsFor(resolvedPath) {
+  let anchors = anchorCache.get(resolvedPath)
+  if (anchors === undefined) {
+    anchors = headingAnchors(readFileSync(resolvedPath, 'utf8'))
+    anchorCache.set(resolvedPath, anchors)
   }
   return anchors
 }
@@ -129,11 +163,23 @@ for (const file of targetFiles()) {
     // A link to a heading that no longer exists lands the reader at the top of
     // the right file with no hint that they are in the wrong place — quieter
     // than a 404 and just as wrong. Only `.md` targets have headings to check.
-    const fragment = target.includes('#') ? target.slice(target.indexOf('#') + 1) : ''
-    if (fragment === '' || !path.endsWith('.md')) {
+    // `#frag?query` puts the query inside the fragment; drop it either way round.
+    const rawFragment = target.includes('#')
+      ? target.slice(target.indexOf('#') + 1).replace(/\?.*$/, '')
+      : ''
+    if (rawFragment === '' || !path.endsWith('.md')) {
       continue
     }
-    if (!headingAnchors(readFileSync(resolved, 'utf8')).has(fragment)) {
+    // Normalised the same way the slug is: GitHub resolves `#Section` against a
+    // `## Section` heading, and a fragment written with percent-escapes (which
+    // GitHub itself emits for non-ASCII headings) has to be decoded to match.
+    let fragment = rawFragment.toLowerCase()
+    try {
+      fragment = decodeURIComponent(fragment)
+    } catch {
+      // A stray `%` that is not an escape — compare it as written.
+    }
+    if (!anchorsFor(resolved).has(fragment)) {
       broken += 1
       console.log(`\x1B[31mBROKEN\x1B[0m ${relative(ROOT, file)} → ${target} (no such heading in ${path})`)
     }

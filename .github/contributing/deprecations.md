@@ -74,8 +74,8 @@ them as one thing is what went wrong:
 
 | Members | What they do | Against the test |
 | --- | --- | --- |
-| `isMore()` / `hasMore()` / `getTotal()` | only report what the portal sent | fail it outright — nothing replaces reading a field |
-| `getNext()` / `fetchNext()` | issue a follow-up request, duplicating `callList` / `fetchList` | arguably pass it — but deleting them would still break working `restApi:v2` code for no gain, so they stay too |
+| `isMore()` / `hasMore()` / `getTotal()` | only report what the portal sent | fail it outright — nothing replaces reading a field, **so they stay** |
+| `getNext()` / `fetchNext()` | issue a follow-up request, duplicating `callList` / `fetchList` | arguably pass it — but deleting them would break working `restApi:v2` code for no gain, **so they stay too** |
 
 The lesson is not where the line landed. It is that **a shared trait is a reason
 to review a group together, never to decide it together.** Apply the test to each
@@ -106,6 +106,16 @@ A related asymmetry worth knowing: a **stale** deprecation is embarrassing, but 
 **wrong** one breaks working code. When unsure, ship the tag one release later
 rather than one release earlier.
 
+That bias has a boundary, though, and it is worth naming before someone leans on
+this page to defer every borderline call. **Near a major version, "wait" is
+itself a decision**: it means the member survives into `3.0.0` and cannot be
+removed until `4.0.0`. Deferring is cheap in the middle of a minor series and
+expensive at a major boundary, where it either commits the member for a whole
+major cycle or invites a scramble of hasty removals just before the cut. Neither
+is what "when unsure, wait" is meant to license. Close to a cut, decide — and if
+the decision is genuinely not ready, say the member is staying and give it the
+treatment below rather than leaving it tagged and unresolved.
+
 ## If the answer is "keep it"
 
 Keeping a member is not the same as saying nothing about it. Record:
@@ -124,6 +134,16 @@ Keeping a member is not the same as saying nothing about it. Record:
   nobody pins something that is leaving. The moment it is staying, its behaviour
   is a contract — including whatever it does in the situation that motivated the
   deprecation in the first place.
+
+## This page is not a control
+
+Nothing makes anyone read it at the moment a tag is written. That is the honest
+limit of a contributing document, and it is worth saying here rather than
+discovering it the next time a batch goes through unexamined — the failure this
+page describes was not someone believing the wrong thing, it was a question
+nobody asked. #414 tracks putting the test somewhere it interrupts: the PR
+checklist, the `/code-review` prompt, or a CI nudge on a diff that tags more than
+one export at once.
 
 ## Related
 

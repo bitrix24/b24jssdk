@@ -50,6 +50,16 @@ to automate this step is to give release-please a GitHub App token or a PAT, so
 the release is raised by an identity that is not `GITHUB_TOKEN`. That is a
 deliberate trade: a stored credential in exchange for two clicks per release.
 
+### Announcing it
+
+Once both packages are on npm, the release is announced to the community. That
+post has its own rules — what belongs in it, what does not, and the framing
+mistakes that keep recurring — in
+[`.github/contributing/telegram-release-post.md`](.github/contributing/telegram-release-post.md).
+Read it **before** drafting, not after: the most common failures (advertising how
+carefully we tested, narrating the bug rather than the new capability, implying
+the reader has the same defect) all read as helpful while writing.
+
 ### The release notes are not the changelog
 
 The GitHub Release body is rendered by release-please from its own changeset, not

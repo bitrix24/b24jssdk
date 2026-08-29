@@ -339,6 +339,9 @@ atob('<base64 on a single line>')
 - [ ] Bitrix24 never "crashes" or "lags"; no competitor comparisons.
 - [ ] Sign-off is `🚀`, not `💜`.
 - [ ] The base64 decodes to the correct URL.
+- [ ] **Every URL in the post answers 200** — check them, do not assemble them from
+      the content directory layout. `/docs/getting-started/ai/skills` resolves;
+      the same path with a trailing slash is a 404.
 - [ ] No internal details (PR numbers, CI, model ids).
 - [ ] No claims about testing or verification anywhere in the post (§13).
 - [ ] Each feature is written as what the reader can now do, not as what used to

@@ -7,7 +7,8 @@ export interface SimplePrettier {
 /**
  * The postMessage/reply bookkeeping between the page and the formatting worker,
  * kept in its own browser-free module so it can be tested without a Worker or a
- * DOM — the same reason `codeTransform.ts` was split out in #139.
+ * DOM — the same reason `codeTransform.ts` was split out in #139. Upstream keeps
+ * this body inline; the split is a deliberate divergence, see `docs/FORK.md`.
  *
  * The contract this implements is the reason `workers/prettier.js` must reply to
  * every message: a pending call lives in `handlers` until a reply carrying its

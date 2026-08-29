@@ -1,6 +1,7 @@
 # Changelog
 
-## Unreleased
+## [2.2.0](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.2.0) (2026-08-29)
+
 
 ### Deprecations
 
@@ -14,8 +15,25 @@
 
     One correction to the `2.1.0` entry below while it is in view: its "emits a runtime deprecation warning" applies to the `AbstractB24` shortcuts and `LoggerBrowser`. The `AjaxResult` methods never emitted one.
 
-## [2.2.0](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.2.0) (2026-08-29)
+### Notes on this release
 
+* **New public surface: `AjaxError.validation` and the `ValidationDetail` type (#423).** A `restApi:v3` validation failure comes back with an array naming the field that failed. The SDK dropped it, so a caller building a form could show a banner but could not mark the offending input. It now reaches you on both the soft and the hard error path:
+
+    ```ts
+    for (const error of response.getErrors()) {
+      if (error instanceof AjaxError) {
+        for (const detail of error.validation ?? []) {
+          markFieldInvalid(detail.field, detail.message)
+        }
+      }
+    }
+    ```
+
+    Absent under `restApi:v2`, which has no equivalent, and absent when v3 reported an error without one. `field` and `message` are both optional, because the portal's own shape says so. `toJSON()` includes it when present — that is where the field name matters most, since the message folds the validation *messages* in but not the `field` each came from — and an error without one serializes exactly as before. Each entry is run through the same redactor as `requestInfo.params`, so a key named `token` or `password` inside an entry is masked; portal prose is untouched. Verified against a live portal.
+
+* **Compile-time break for TypeScript consumers (#426).** Every action option type carried an index signature, so the compiler accepted **any** top-level key on **any** action — `batch.make({ calls, isHaltOnError: false })` type-checked, ran, and dropped the flag, because the transport reads it from `options`. A dropped `returnAjaxResult` is the one that bites: `isSuccess` on a raw payload is `undefined`, so a batch where every command succeeded reads as one where every command failed.
+
+    **Nothing changes at runtime** — those keys were read by nobody. But code that passed an extra top-level key, or a typo like `customKeyForResults`, now fails to compile; move the key where it belongs or remove it. The four batch actions additionally log a warning for callers TypeScript never sees. `batchByChunk` deliberately says nothing about `returnAjaxResult`: it supports the option in neither position.
 
 ### Features
 

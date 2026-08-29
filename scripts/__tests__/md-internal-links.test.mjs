@@ -44,7 +44,10 @@ function runCheck(root) {
 
 test('md-internal-links: valid links pass; external/absolute/anchor links are skipped', () => {
   withFixture((root) => {
-    writeFile(root, 'README.md', ['# Readme'])
+    // `## Section` is here because the fragment link below now has to name a
+    // real heading — before fragment checking, `#section` resolved against a
+    // file that had none.
+    writeFile(root, 'README.md', ['# Readme', '', '## Section'])
     mkDir(root, 'scripts')
 
     writeFile(root, 'AGENTS.md', [
@@ -82,6 +85,184 @@ test('md-internal-links: a missing repo-relative target exits 1', () => {
     assert.match(r.stdout, /BROKEN/)
     assert.match(r.stdout, /does-not-exist\.md/)
     assert.match(r.stdout, /1 broken link\(s\)/)
+  })
+})
+
+test('md-internal-links: a fragment naming no heading exits 1', () => {
+  // The quiet failure this catches: the file exists, so the reader lands at the
+  // top of the right document with nothing to say they are in the wrong place.
+  withFixture((root) => {
+    writeFile(root, 'README.md', ['# Readme', '', '## Real Heading'])
+    writeFile(root, 'AGENTS.md', [
+      '# Agents',
+      '',
+      'See [gone](./README.md#heading-that-was-renamed).'
+    ])
+
+    const r = runCheck(root)
+    assert.equal(r.status, 1, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+    assert.match(r.stdout, /no such heading/)
+    assert.match(r.stdout, /1 broken link\(s\)/)
+  })
+})
+
+test('md-internal-links: heading slugs drop punctuation, code ticks and link syntax', () => {
+  // Real headings in this repo carry backticks, slashes and colons; the slug has
+  // to match what GitHub generates or every such link is a false alarm.
+  withFixture((root) => {
+    writeFile(root, 'README.md', [
+      '# Readme',
+      '',
+      '## Adding to the Public Surface',
+      '',
+      '## `AjaxResult` paging helpers are not removed after all',
+      '',
+      '## Frame, Hook, OAuth',
+      '',
+      '## See [the guide](./other.md)'
+    ])
+    writeFile(root, 'AGENTS.md', [
+      '# Agents',
+      '',
+      '[a](./README.md#adding-to-the-public-surface)',
+      '[b](./README.md#ajaxresult-paging-helpers-are-not-removed-after-all)',
+      '[c](./README.md#frame-hook-oauth)',
+      '[d](./README.md#see-the-guide)'
+    ])
+
+    const r = runCheck(root)
+    assert.equal(r.status, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+    assert.match(r.stdout, /0 broken link\(s\)/)
+  })
+})
+
+test('md-internal-links: slugs match GitHub on the cases that would be false alarms', () => {
+  // Every case here is a link GitHub resolves. Getting any of them wrong fails
+  // CI on correct prose, which is far worse than missing a broken link.
+  withFixture((root) => {
+    writeFile(root, 'README.md', [
+      '# Readme',
+      '',
+      '## Foo & Bar', // punctuation between words: GitHub keeps BOTH spaces
+      '',
+      '## Привет Мир', // \w is ASCII-only; this must not strip to nothing
+      '',
+      '## Café Життя', // accented Latin + Cyrillic mixed
+      '',
+      '## Padded Title   ', // trailing whitespace
+      '',
+      '## Closing Hashes ##', // ATX closing form
+      '',
+      '   ## Indented Heading', // up to 3 leading spaces is still a heading
+      '',
+      'Setext Heading',
+      '=============='
+    ])
+    writeFile(root, 'AGENTS.md', [
+      '# Agents',
+      '',
+      '[a](./README.md#foo--bar)',
+      '[b](./README.md#привет-мир)',
+      '[c](./README.md#café-життя)',
+      '[d](./README.md#padded-title)',
+      '[e](./README.md#closing-hashes)',
+      '[f](./README.md#indented-heading)',
+      '[g](./README.md#setext-heading)',
+      '[h](./README.md#Foo--Bar)', // GitHub resolves a mis-cased fragment
+      '[i](./README.md#%D0%BF%D1%80%D0%B8%D0%B2%D0%B5%D1%82-%D0%BC%D0%B8%D1%80)' // percent-escaped
+    ])
+
+    const r = runCheck(root)
+    assert.equal(r.status, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+    assert.match(r.stdout, /0 broken link\(s\)/)
+  })
+})
+
+test('md-internal-links: a tilde fence hides its headings too', () => {
+  // The backtick case has its own test below; stripping only backticks would let
+  // a `#` line inside a `~~~` block pass as a real anchor.
+  withFixture((root) => {
+    writeFile(root, 'README.md', [
+      '# Readme',
+      '',
+      '~~~bash',
+      '# Not A Heading',
+      '~~~'
+    ])
+    writeFile(root, 'AGENTS.md', ['# Agents', '', '[x](./README.md#not-a-heading).'])
+
+    const r = runCheck(root)
+    assert.equal(r.status, 1, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+    assert.match(r.stdout, /no such heading/)
+  })
+})
+
+test('md-internal-links: a table rule is not a setext underline, and neither is a bare #', () => {
+  withFixture((root) => {
+    writeFile(root, 'README.md', [
+      '# Readme',
+      '',
+      '| Col |',
+      '| --- |',
+      '| v |',
+      '',
+      '#NoSpaceAfterHash'
+    ])
+    writeFile(root, 'AGENTS.md', ['# Agents', '', '[x](./README.md#col)'])
+
+    const r = runCheck(root)
+    assert.equal(r.status, 1, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+    assert.match(r.stdout, /no such heading/)
+  })
+})
+
+test('md-internal-links: a query after the fragment is not part of it', () => {
+  withFixture((root) => {
+    writeFile(root, 'README.md', ['# Readme', '', '## Section'])
+    writeFile(root, 'AGENTS.md', ['# Agents', '', '[x](./README.md#section?v=1)'])
+
+    const r = runCheck(root)
+    assert.equal(r.status, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+    assert.match(r.stdout, /0 broken link\(s\)/)
+  })
+})
+
+test('md-internal-links: a fragment on a non-markdown target is not checked', () => {
+  // A `#L42` line anchor on a source file is a GitHub feature, not a heading.
+  withFixture((root) => {
+    writeFile(root, 'src.ts', ['export const x = 1'])
+    writeFile(root, 'AGENTS.md', [
+      '# Agents',
+      '',
+      'See [line](./src.ts#L1).'
+    ])
+
+    const r = runCheck(root)
+    assert.equal(r.status, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+    assert.match(r.stdout, /0 broken link\(s\)/)
+  })
+})
+
+test('md-internal-links: a heading inside a code fence is not an anchor', () => {
+  // stripCode runs before headings are collected, so a `# comment` line in a
+  // shell block cannot satisfy a link.
+  withFixture((root) => {
+    writeFile(root, 'README.md', [
+      '# Readme',
+      '',
+      '```bash',
+      '# Not A Heading',
+      '```'
+    ])
+    writeFile(root, 'AGENTS.md', [
+      '# Agents',
+      '',
+      'See [fenced](./README.md#not-a-heading).'
+    ])
+
+    const r = runCheck(root)
+    assert.equal(r.status, 1, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+    assert.match(r.stdout, /no such heading/)
   })
 })
 

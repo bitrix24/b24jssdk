@@ -70,11 +70,11 @@ export class BatchByChunkV2 extends AbstractBatch {
    * @tip For very large command sets, consider using server-side task queues instead of bulk batch requests.
    */
   public override async make<T = unknown>(options: ActionBatchByChunkV2): Promise<Result<T[]>> {
-    this._warnMisplacedOptions(
-      options,
-      ['isHaltOnError', 'returnAjaxResult', 'requestId'],
-      'options'
-    )
+    // `returnAjaxResult` is deliberately absent from this list. `batchByChunk`
+    // does not support it in *either* position — the chunk merge overwrites it
+    // to `false` below, and `options` is typed `Omit<…, 'returnAjaxResult'>` —
+    // so telling the caller to nest it would be wrong advice.
+    this._warnMisplacedOptions(options, ['isHaltOnError', 'requestId'], 'options')
 
     const batchSize = 50
 

@@ -36,6 +36,14 @@
     "types": ["node", "vitest/globals"]
   },
   "include": ["./**/*.ts"],
+  //
+  // Note what this drags in: `test/integration/skills-recipes/*.spec.ts` imports
+  // the recipe files under `skills/b24jssdk-recipes/`, so those — and their
+  // `grammy` / `node-cron` / `openai` dependencies — are part of this program.
+  // Those deps live in a non-workspace package that the root `pnpm install`
+  // does not touch, which is why `test:typecheck` and `package-jssdk:test:run-types`
+  // both run `skills:install` first. Without it the pass fails on a module it
+  // was never asked about, in a workspace the diff did not touch (#428).
   // The two `test/integration/docs/**` specs import the docs Nuxt app, whose
   // modules rely on Nuxt's auto-imports and generated types. Those resolve
   // under `docs:typecheck` and cannot resolve here, so the docs app is checked

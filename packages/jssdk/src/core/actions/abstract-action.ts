@@ -45,12 +45,17 @@ export abstract class AbstractAction {
     const misplaced = nestedKeys.filter(key => Object.hasOwn(options, key))
     if (misplaced.length === 0) return
 
-    void this._logger.warning(
+    // `.catch(() => {})`, not `void`: an unawaited rejected logger promise is an
+    // unhandled rejection, which Node terminates the process on by default, and
+    // a custom `LoggerInterface` doing real I/O is exactly what rejects (#346).
+    // `local/require-catch-on-logger-call` does not see through a `void`, so it
+    // would not have caught this.
+    this._logger.warning(
       `[b24jssdk] ${misplaced.join(', ')} passed at the top level `
       + `${misplaced.length === 1 ? 'is' : 'are'} ignored — `
       + `${misplaced.length === 1 ? 'it belongs' : 'they belong'} in \`${nestedName}\`. `
       + `Write \`${nestedName}: { ${misplaced.join(', ')} }\`.`
-    )
+    ).catch(() => {})
   }
 
   public abstract make(options?: ActionOptions): AsyncGenerator | Promise<unknown>

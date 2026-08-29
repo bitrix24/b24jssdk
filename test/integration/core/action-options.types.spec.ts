@@ -31,6 +31,15 @@ import type { ActionBatchV2 } from '../../../packages/jssdk/src/core/actions/v2/
 import type { ActionBatchV3 } from '../../../packages/jssdk/src/core/actions/v3/batch'
 import type { ActionCallV2 } from '../../../packages/jssdk/src/core/actions/v2/call'
 import type { ActionCallListV2 } from '../../../packages/jssdk/src/core/actions/v2/call-list'
+import type { ActionCallV3 } from '../../../packages/jssdk/src/core/actions/v3/call'
+import type { ActionCallListV3 } from '../../../packages/jssdk/src/core/actions/v3/call-list'
+import type { ActionFetchListV2 } from '../../../packages/jssdk/src/core/actions/v2/fetch-list'
+import type { ActionFetchListV3 } from '../../../packages/jssdk/src/core/actions/v3/fetch-list'
+import type { ActionCallTailV3 } from '../../../packages/jssdk/src/core/actions/v3/call-tail'
+import type { ActionFetchTailV3 } from '../../../packages/jssdk/src/core/actions/v3/fetch-tail'
+import type { ActionAggregateV3 } from '../../../packages/jssdk/src/core/actions/v3/aggregate'
+import type { ActionBatchByChunkV2 } from '../../../packages/jssdk/src/core/actions/v2/batch-by-chunk'
+import type { ActionBatchByChunkV3 } from '../../../packages/jssdk/src/core/actions/v3/batch-by-chunk'
 
 const CALLS = { a: ['server.time', {}] } as never
 
@@ -73,6 +82,59 @@ describe('action option types', () => {
     expect(list.idKey).toBe('ID')
   })
 
+  it('reject an arbitrary key on all thirteen action types', () => {
+    // The tightening was applied to every action, so pin every action. Four of
+    // the thirteen were covered before, which left nine where an accidental
+    // re-widening would have gone unnoticed.
+    const callV3: ActionCallV3 = {
+      method: 'm',
+      // @ts-expect-error not a member of ActionCallV3.
+      nonsense: true
+    }
+    const listV3: ActionCallListV3 = {
+      method: 'm',
+      // @ts-expect-error not a member of ActionCallListV3.
+      nonsense: true
+    }
+    const fetchV2: ActionFetchListV2 = {
+      method: 'm',
+      // @ts-expect-error not a member of ActionFetchListV2.
+      nonsense: true
+    }
+    const fetchV3: ActionFetchListV3 = {
+      method: 'm',
+      // @ts-expect-error not a member of ActionFetchListV3.
+      nonsense: true
+    }
+    const tailV3: ActionCallTailV3 = {
+      method: 'm',
+      // @ts-expect-error not a member of ActionCallTailV3.
+      nonsense: true
+    }
+    const fetchTailV3: ActionFetchTailV3 = {
+      method: 'm',
+      // @ts-expect-error not a member of ActionFetchTailV3.
+      nonsense: true
+    }
+    const aggV3: ActionAggregateV3 = {
+      method: 'm',
+      // @ts-expect-error not a member of ActionAggregateV3.
+      nonsense: true
+    }
+    const chunkV2: ActionBatchByChunkV2 = {
+      calls: CALLS,
+      // @ts-expect-error not a member of ActionBatchByChunkV2.
+      nonsense: true
+    }
+    const chunkV3: ActionBatchByChunkV3 = {
+      calls: CALLS,
+      // @ts-expect-error not a member of ActionBatchByChunkV3.
+      nonsense: true
+    }
+
+    expect([callV3, listV3, fetchV2, fetchV3, tailV3, fetchTailV3, aggV3, chunkV2, chunkV3]).toHaveLength(9)
+  })
+
   it('still accept every documented shape', () => {
     // The tightening must not have narrowed anything a caller legitimately uses.
     const batch: ActionBatchV2 = {
@@ -85,6 +147,7 @@ describe('action option types', () => {
       params: { entityTypeId: 3 },
       idKey: 'id',
       customKeyForResult: 'items',
+      cursorIdKey: 'ID',
       requestId: 'r'
     }
 

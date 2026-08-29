@@ -24,6 +24,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { BatchV2 } from '../../../packages/jssdk/src/core/actions/v2/batch'
 import { BatchV3 } from '../../../packages/jssdk/src/core/actions/v3/batch'
+import { BatchByChunkV2 } from '../../../packages/jssdk/src/core/actions/v2/batch-by-chunk'
 import { Result } from '../../../packages/jssdk/src/core/result'
 import type { TypeB24 } from '../../../packages/jssdk/src/types/b24'
 import type { LoggerInterface } from '../../../packages/jssdk/src/types/logger'
@@ -101,6 +102,35 @@ describe('batch flags at the top level', () => {
     await new BatchV3(b24, logger).make({ calls: CALLS, returnAjaxResult: true } as never)
 
     expect(String(warning.mock.calls[0]?.[0])).toContain('returnAjaxResult')
+  })
+
+  it('survives an argument with no options at all', async () => {
+    // The guard returns early on a nullish argument. Nothing exercised that,
+    // and a JavaScript caller reaching `make()` with nothing is exactly the
+    // sort of caller this guard exists for.
+    const { logger, warning, b24 } = harness()
+    await expect(
+      new BatchV2(b24, logger).make(undefined as never)
+    ).rejects.toBeInstanceOf(TypeError)
+
+    expect(warning).not.toHaveBeenCalled()
+  })
+
+  it('does not tell a batchByChunk caller to nest returnAjaxResult', async () => {
+    // `batchByChunk` supports it in neither position: `options` is typed
+    // `Omit<…, 'returnAjaxResult'>` and the chunk merge overwrites it to `false`
+    // regardless. Naming it as merely misplaced would send the caller to write
+    // something that does not work either.
+    const { logger, warning, b24 } = harness()
+    await new BatchByChunkV2(b24, logger).make({
+      calls: [['server.time', {}]],
+      returnAjaxResult: true,
+      isHaltOnError: false
+    } as never)
+
+    const message = String(warning.mock.calls[0]?.[0] ?? '')
+    expect(message).toContain('isHaltOnError')
+    expect(message).not.toContain('returnAjaxResult')
   })
 
   it('ignores an inherited property, matching only own keys', async () => {

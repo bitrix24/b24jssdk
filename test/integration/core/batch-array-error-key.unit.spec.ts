@@ -33,9 +33,6 @@ const TIME: PayloadTime = {
 function arrayBatchWithErrorAtIndex1(): AjaxResult<any> {
   return new AjaxResult({
     answer: {
-      // The v2 array-mode envelope keys every map by the command's position,
-      // which `SuccessPayload` describes in its named form. The shape is the
-      // portal's; the cast is at the boundary rather than inside the assertions.
       result: {
         result: { 0: { item: { id: 10 } } },
         result_error: { 1: { error: 'INVALID_ARG', error_description: 'bad fields' } },
@@ -44,7 +41,7 @@ function arrayBatchWithErrorAtIndex1(): AjaxResult<any> {
         result_next: {}
       },
       time: TIME
-    } as never,
+    },
     query: { method: 'batch', params: {}, requestId: 'r-255' },
     status: 200
   }) as AjaxResult<any>

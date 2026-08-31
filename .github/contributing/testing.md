@@ -1,6 +1,6 @@
 # Testing
 
-<sub>Last reviewed: 2026-08-26.</sub>
+<sub>Last reviewed: 2026-08-31.</sub>
 
 > **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types, and their internals by `pnpm run skills:test`. Both install the recipes' own dependencies first — that directory is not a workspace member, so `express` / `grammy` / `node-cron` / `openai` live there rather than in the root manifest; see [README-DEPS.md](../../skills/b24jssdk-recipes/README-DEPS.md) for why. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
 
@@ -191,15 +191,46 @@ If you add type-level assertions, use this suffix — a `*.unit.spec.ts` file's 
 
 ## What type-checks what
 
-| Pass | Covers |
-| --- | --- |
-| `pnpm run test:typecheck` | **every `.ts` under `test/`** — `tsc --noEmit` against [`test/tsconfig.json`](../../test/tsconfig.json) |
-| the `jsSdk:types` vitest project | the `*.types.spec.ts` pins, where `expectTypeOf` assertions become real |
-| `pnpm run package-jssdk:typecheck` | the SDK source |
-| `docs:typecheck` / `docs:typecheck-blocks` | the docs app, and the code fences inside the docs pages |
-| `skills:typecheck` / `skills:typecheck-blocks` | the recipe files, and the code fences inside the skill files |
+`pnpm run typecheck` runs nine passes. Each column below is what that pass, and
+only that pass, catches — measured in #419 by injecting a deliberate type error
+into each area and recording which passes went red. Nothing here is inferred from
+reading a config.
 
-`pnpm run typecheck` runs all of them, and CI runs `pnpm run typecheck`.
+| Pass | The area only it covers |
+| --- | --- |
+| `package-jssdk:typecheck` | `packages/jssdk/src/` |
+| `test:typecheck` | every `.ts` under `test/`, against [`test/tsconfig.json`](../../test/tsconfig.json) |
+| `package-jssdk-nuxt:typecheck` | `packages/jssdk-nuxt/src/` |
+| `docs:typecheck` | the docs Nuxt app |
+| `playground-nuxt:typecheck` | `playgrounds/nuxt/` |
+| `playground-cli:typecheck` | `playgrounds/cli/` |
+| `docs:typecheck-blocks` | ` ```ts ` fences in `docs/content/**/*.md` |
+| `skills:typecheck` | the recipe `.ts` files under `skills/b24jssdk-recipes/` |
+| `skills:typecheck-blocks` | ` ```ts ` fences in `skills/**/*.md` |
+
+Plus the `jsSdk:types` vitest project, which is where the `*.types.spec.ts` pins
+become real — `expectTypeOf` erases at runtime, so under a plain `vitest run` a
+type assertion cannot fail.
+
+Two results from that measurement are worth carrying:
+
+- **The two playground passes are not redundant.** They were suspected of being
+  smoke tests for the published package shape rather than typechecks of the
+  playgrounds. An error inside either playground is caught by its own pass and by
+  nothing else.
+- **` ```ts ` fences in `.github/contributing/*.md` are compiled by nothing.**
+  Docs fences and skill fences are covered; these are the gap (#435). There is a
+  `test/some-code-from-docs/contributing/` directory of hand-written fixtures
+  whose names mirror the guides, and nothing checks that a fixture still matches
+  the fence it came from.
+
+A tenth pass, `contributing:typecheck`, was removed once the measurement showed
+it was redundant: it compiled those twelve fixtures alone, and since #428 widened
+`test/tsconfig.json` they are in `test:typecheck`'s program under *stricter*
+settings. Its `requireSdkTypes` guard — the friendly "run `dev:prepare`" message a
+fresh clone gets instead of `TS2307` — moved to
+[`scripts/test-typecheck.mjs`](../../scripts/test-typecheck.mjs) rather than
+disappearing.
 
 Until #428 the first row did not exist: only `*.types.spec.ts` was compiled, and everything else under `test/` was transpiled by esbuild, which strips types without checking them. A spec could assert against a shape the SDK does not have and nothing would say so. That is not hypothetical — six cases in the live skill suite read `getData()!.result` off a `Result<T[]>`, and `.result` on an array went unnoticed until someone ran the suite against a portal by hand (#425).
 

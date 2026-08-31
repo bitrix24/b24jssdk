@@ -64,8 +64,8 @@ test('require-sdk-types: marker present → exits 0 and proceeds (no output)', (
 
 test('require-sdk-types: the message prefix uses the caller-supplied label', () => {
   withFixture((root) => {
-    const r = runGuard(root, 'contributing:typecheck')
+    const r = runGuard(root, 'test:typecheck')
     assert.equal(r.status, 1, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
-    assert.match(r.stderr, /\[contributing:typecheck\]/)
+    assert.match(r.stderr, /\[test:typecheck\]/)
   })
 })

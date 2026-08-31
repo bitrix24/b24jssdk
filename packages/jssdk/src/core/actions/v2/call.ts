@@ -44,7 +44,7 @@ export class CallV2 extends AbstractAction {
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
-   * console.log(response.getData().result.item.name)
+   * console.log(response.getData()!.result.item.name)
    */
   public override async make<T = unknown>(options: ActionCallV2): Promise<AjaxResult<T>> {
     const params = options.params || {}

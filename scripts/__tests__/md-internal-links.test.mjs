@@ -318,6 +318,87 @@ test('SECURITY.md is checked, not just AGENTS.md', () => {
   })
 })
 
+test('md-internal-links: a fence marker inside an inline span does not unmask a fenced link', () => {
+  // #441. `stripCode` removed fenced blocks with an unanchored pattern, so three
+  // backticks written inside an inline-code span — the natural way to name a
+  // fence in prose — read as a fence opening. The parity of everything after it
+  // flips: the real fence below is taken for a *closing* marker, its block is
+  // left unstripped, and the illustrative link inside it gets checked.
+  //
+  // This is how it was found (#440): a false alarm on an ellipsis inside a
+  // deliberately abbreviated code sample.
+  withFixture((root) => {
+    mkDir(root, '.github/contributing')
+    writeFile(root, '.github/contributing/guide.md', [
+      '# Guide',
+      '',
+      'Prose naming a `' + '```ts' + '` fence, the way a guide does.',
+      '',
+      '```ts',
+      '/**',
+      ' * See [the batch page](…) for the full reference.',
+      ' */',
+      '```'
+    ])
+
+    const result = runCheck(root)
+
+    assert.equal(result.status, 0, `a link inside a fenced block must not be checked:\n${result.stdout}`)
+  })
+})
+
+test('md-internal-links: the same parity flip does not hide a real broken link', () => {
+  // The failure direction that matters, and the reason this is a fix rather
+  // than a tidy-up. #440 hit the harmless one — a false alarm, loud and
+  // immediate. Put the broken link *between* the inline fence marker and the
+  // real fence and the flip swallows it instead: the old strip left
+  // `Prose naming a \` ts\ncode\n\`` with the link gone, so the checker passed
+  // while the link rotted, and nothing said so.
+  withFixture((root) => {
+    mkDir(root, '.github/contributing')
+    writeFile(root, '.github/contributing/guide.md', [
+      '# Guide',
+      '',
+      'Prose naming a `' + '```ts' + '` fence.',
+      '',
+      'A [link to a file that is not there](../../packages/jssdk/src/gone.ts).',
+      '',
+      '```ts',
+      'const x = 1',
+      '```'
+    ])
+
+    const result = runCheck(root)
+
+    assert.equal(result.status, 1, 'the broken link must not be swallowed by the strip')
+    assert.match(result.stdout, /gone\.ts/)
+  })
+})
+
+test('md-internal-links: fences indented inside a list item are still stripped', () => {
+  // The fix anchors the fence to a line start, and a naive anchor at column 0
+  // would stop stripping fences nested in list items. This repository has them
+  // at two, three and six columns.
+  withFixture((root) => {
+    mkDir(root, '.github/contributing')
+    writeFile(root, '.github/contributing/guide.md', [
+      '# Guide',
+      '',
+      '1. A step:',
+      '',
+      '      ```ts',
+      '      // [illustrative](does/not/exist.ts)',
+      '      ```',
+      '',
+      '2. Another step.'
+    ])
+
+    const result = runCheck(root)
+
+    assert.equal(result.status, 0, `an indented fenced block must still be stripped:\n${result.stdout}`)
+  })
+})
+
 test('SECURITY.md exists in the repository', () => {
   // Deliberately not a fixture test: this asserts the real file is there.
   //

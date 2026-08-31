@@ -65,8 +65,28 @@ the reader has the same defect) all read as helpful while writing.
 The GitHub Release body is rendered by release-please from its own changeset, not
 read from `CHANGELOG.md`. An edit made to `CHANGELOG.md` on the release branch
 therefore lands in the repository but **not** in the release notes — the two
-diverge silently. If the release page should match the file, paste the section in
-by hand after publishing.
+diverge.
+
+**Decided: do not mirror them.** Pasting the changelog section into the release
+body was considered and rejected. It is a manual step with no gate, so it would
+be skipped and the divergence would become unpredictable instead of merely known;
+and it creates a second copy of an argument that will drift, which is the failure
+this repository has already documented elsewhere (#420).
+
+What follows from that decision is a discipline, not a chore:
+
+> **Anything a reader must act on has to be legible from the commit subject
+> alone.** The subject is the only text that reaches the release page.
+
+`feat(core): an unknown option on any action is now a compile error` passes — an
+upgrader reading nothing else knows their build may complain. `fix(core): tidy up
+action options` would not have. Check this when writing the squash message, where
+it is free; the release page cannot be fixed afterwards without the manual step
+this section just rejected.
+
+The long form — the paragraph explaining what to do about it — belongs in
+`CHANGELOG.md`, which is where a reader who needs the detail is sent by the
+subject line.
 
 What this changes for everyday work:
 

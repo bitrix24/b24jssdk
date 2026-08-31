@@ -89,6 +89,43 @@ test('a Markdown fence around the whole body is presentation and is unwrapped', 
   assert.equal(blocks[0].startLine, 4)
 })
 
+test('an unterminated fence drops its opening marker too', () => {
+  // The comment can end before the closing marker does. Keeping the opening
+  // line would compile ```ts as a tagged template — the exact TS2349 the
+  // unwrap exists to prevent.
+  const blocks = extract([
+    '/**',
+    ' * @example',
+    ' * ```ts',
+    ' * const a = 1',
+    ' */'
+  ].join('\n'))
+
+  assert.equal(blocks.length, 1)
+  assert.deepEqual(blocks[0].lines, ['const a = 1'])
+  assert.equal(blocks[0].startLine, 4)
+})
+
+test('a single-line /** ... */ does not leave the scanner inside a comment', () => {
+  // It opens and closes on one line. Treated as an opening only, every later
+  // line in the file would be read as comment body.
+  const blocks = extract([
+    '/** One-liner. */',
+    'const template = `',
+    ' * @example',
+    ' * const a: number = \'not a number\'',
+    '`',
+    '/**',
+    ' * @example',
+    ' * const real = 1',
+    ' */'
+  ].join('\n'))
+
+  // Only the genuine example, and none of the template literal that a leaked
+  // comment state would have collected as one.
+  assert.deepEqual(blocks.map(b => b.lines), [['const real = 1']])
+})
+
 test('// @check-ignore skips the block', () => {
   const blocks = extract([
     '/**',

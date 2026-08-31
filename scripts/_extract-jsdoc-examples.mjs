@@ -48,10 +48,12 @@ export function extractJsDocExamples(content, filePath) {
     if (opening) {
       const marker = opening[0]
       const closeAt = body.findIndex((l, i) => i > 0 && l.trim() === marker)
-      if (closeAt > 0) {
-        body = body.slice(1, closeAt)
-        startLine++
-      }
+      // An unterminated fence is the same presentation marker with its closing
+      // half missing — usually because the comment ended first. Dropping only
+      // the opening line still leaves compilable code; keeping it guarantees
+      // the TS2349 this unwrap exists to prevent.
+      body = body.slice(1, closeAt > 0 ? closeAt : undefined)
+      startLine++
     }
     const firstCode = body.find(l => l.trim() !== '')
     const ignored = firstCode !== undefined && firstCode.trim().startsWith('// @check-ignore')
@@ -67,7 +69,10 @@ export function extractJsDocExamples(content, filePath) {
     const trimmed = raw.trim()
 
     if (!inComment) {
-      if (trimmed.startsWith('/**')) inComment = true
+      // A single-line `/** ... */` opens and closes on one line. Without this
+      // guard it would set `inComment` and never clear it, and every later line
+      // in the file would be read as comment body.
+      if (trimmed.startsWith('/**') && !trimmed.slice(3).includes('*/')) inComment = true
       continue
     }
 

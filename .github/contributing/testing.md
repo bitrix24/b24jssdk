@@ -207,6 +207,7 @@ reading a config.
 | `docs:typecheck-blocks` | `ts` fences in `docs/content/**/*.md` |
 | `skills:typecheck` | the recipe `.ts` files under `skills/b24jssdk-recipes/` |
 | `skills:typecheck-blocks` | `ts` fences in `skills/**/*.md` |
+| `jsdoc:typecheck-blocks` | JSDoc `@example` bodies in `packages/jssdk/src/**/*.ts` |
 
 Plus the `jsSdk:types` vitest project, which is where the `*.types.spec.ts` pins
 become real — `expectTypeOf` erases at runtime, so under a plain `vitest run` a
@@ -218,6 +219,13 @@ Two results from that measurement are worth carrying:
   smoke tests for the published package shape rather than typechecks of the
   playgrounds. An error inside either playground is caught by its own pass and by
   nothing else.
+- **JSDoc `@example` bodies used to be compiled by nothing** — 41 of them, the
+  ones an IDE shows on hover. `jsdoc:typecheck-blocks` closed that in #439; the
+  first run went red on every single block. An `@example` body is extracted from
+  the line after the tag to the next tag or the end of the comment, a Markdown
+  fence wrapping the whole body is unwrapped as presentation, and a
+  `// @check-ignore` first line skips the block. A same-line `@example 'value'`
+  is a value, not code, and is not compiled.
 - **`ts` fences in `.github/contributing/*.md` are compiled by nothing.**
   Docs fences and skill fences are covered; these are the gap (#435). There is a
   `test/some-code-from-docs/contributing/` directory of hand-written fixtures

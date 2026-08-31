@@ -18,6 +18,10 @@ import { versionManager } from '../core/version-manager'
  *
  * @example
  * ```ts
+ * import { B24OAuth, type B24OAuthParams } from '@bitrix24/b24jssdk'
+ *
+ * declare const authOptions: B24OAuthParams
+ *
  * const b24 = new B24OAuth(authOptions, { clientId: '...', clientSecret: '...' })
  * const result = await b24.actions.v2.call.make({ method: 'crm.lead.list' })
  * ```

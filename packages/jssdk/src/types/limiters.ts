@@ -129,6 +129,8 @@ export interface RestrictionParams {
    *
    * @example
    * ```ts
+   * import { ParamsFactory } from '@bitrix24/b24jssdk'
+   *
    * await $b24.setRestrictionManagerParams({
    *   ...ParamsFactory.getDefault(),
    *   hardErrorCodes: ['DOCUMENT_GENERATOR_ALREADY_IN_QUEUE', 'MY_APP_BAD_PAYLOAD']

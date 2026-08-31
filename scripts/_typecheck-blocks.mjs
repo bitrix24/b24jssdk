@@ -8,8 +8,14 @@
  * might misread — it is a template that gets reproduced. The first run of this
  * gate found a documented class that is not exported from the package at all.
  *
- * The two differ only in which files they walk, which ambient declarations the
- * fragments may rely on, and where the scratch directory lives. Everything else
+ * `jsdoc-typecheck-blocks.mjs` joined them in #439 for the `@example` bodies in
+ * `packages/jssdk/src/**` — the examples an IDE shows on hover, and the only kind
+ * of example in this repository that nothing compiled. It passes its own
+ * `extract`; everything downstream is shared.
+ *
+ * The three differ only in which files they walk, how a block is recognised
+ * inside one, which ambient declarations the fragments may rely on, and where
+ * the scratch directory lives. Everything else
  * — fence extraction, the `// @check-ignore` marker, mapping a `tsc` diagnostic
  * back to `file:line:col` in the Markdown, the GitHub annotation escaping — is
  * identical, and lived in one copy before this split. It stays in one copy.
@@ -102,7 +108,7 @@ export function extractTsBlocks(content, filePath) {
  * @param {string[]} options.files     absolute paths of the Markdown files to walk
  * @returns {number} process exit code — 0 clean, 1 on any error
  */
-export function checkBlocks({ label, repoRoot, checkDir, files }) {
+export function checkBlocks({ label, repoRoot, checkDir, files, extract = extractTsBlocks }) {
   const tmpDir = join(checkDir, 'tmp')
   const tsconfigPath = join(checkDir, 'tsconfig.json')
   const tscBin = join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc')
@@ -134,7 +140,7 @@ export function checkBlocks({ label, repoRoot, checkDir, files }) {
 
   for (const file of files) {
     const content = readFileSync(file, 'utf8')
-    for (const block of extractTsBlocks(content, file)) {
+    for (const block of extract(content, file)) {
       const name = `block-${String(blockIndex).padStart(4, '0')}.ts`
       writeFileSync(join(tmpDir, name), block.lines.join('\n') + '\n', 'utf8')
       blockMap.set(name, { filePath: file, startLine: block.startLine })

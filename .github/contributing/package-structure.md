@@ -169,7 +169,7 @@ one of them measurable:
 
 - **Examples in JSDoc are compiled by nothing.** There are 57 `@example` blocks
   in `packages/jssdk/src/`, about 460 lines, and no pass type-checks them —
-  while ` ```ts ` fences in `docs/content/**` and `skills/**` are compiled on
+  while `ts` fences in `docs/content/**` and `skills/**` are compiled on
   every CI run (#439). That is not theoretical: three of those examples did not
   compile, all dereferencing `getData()` without the `!` its
   `T | null | undefined` return has required since #395. An example in a guide is

@@ -23,96 +23,46 @@ export type ActionBatchV2 = {
  */
 export class BatchV2 extends AbstractBatch {
   /**
-   * Executes a batch request to the Bitrix24 REST API with a maximum number of commands of no more than 50.
-   * Allows you to execute multiple requests in a single API call, significantly improving performance.
+   * Executes a batch request to the Bitrix24 REST API: up to 50 commands in one
+   * HTTP call, in array, object or named-command form. `restApi:v2`
    *
-   * @template T - The data type returned by batch query commands (default is `unknown`)
+   * **The argument reference, the three `calls` formats, the options table and
+   * worked examples live on the [batch page](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/batch-rest-api-ver2/).**
+   * Deliberately not repeated here: that copy is compiled on every CI run and
+   * this one would not be — no pass type-checks a JSDoc `@example` (#420).
    *
-   * @param {ActionBatchV2} options - parameters for executing the request.
-   *     - `calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal` - Commands to execute in a batch.
-   *        Supports several formats:
-   *        1. Array of tuples: `[['method1', params1], ['method2', params2], ...]`
-   *        2. Array of objects: `[{ method: 'method1', params: params1 }, { method: 'method2', params: params2 }, ...]`
-   *        3. An object with named commands: `{ cmd1: { method: 'method1', params: params1 }, cmd2: ['method2', params2], ...}`
-   *     - `options?: IB24BatchOptions` - Additional options for executing a batch request.
-   *        - `isHaltOnError?: boolean` - Whether to stop execution on the first error (default: true)
-   *        - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging (default: undefined)
-   *        - `returnAjaxResult?: boolean` - Whether to return an AjaxResult object instead of data (default: false)
+   * What matters while editing this file:
+   *   - **50 commands maximum.** This action does not split; `BatchByChunkV2`
+   *     is the one that does.
+   *   - **`getData()` has no `result` envelope here.** It returns the keyed map
+   *     or array directly — only `call.make` returns `{ result, time }` (#425).
+   *   - **Flags live in `options`.** At the top level they are dropped, which is
+   *     why `_warnMisplacedOptions` runs first (#426).
    *
-   * @returns {Promise<CallBatchResult<T>>} A promise that is resolved by the result of executing a batch request:
-   *     - On success: a `Result` object with the command execution results
-   *     - The structure of the results depends on the format of the `calls` input data:
-   *          - For an array of commands, an array of results in the same order
-   *          - For named commands, an object with keys corresponding to the command names
+   * @template T - The data type returned by batch query commands (default `unknown`)
+   * @param {ActionBatchV2} options - `calls` plus an optional `options` bag; see
+   *   {@link ActionBatchV2} and {@link IB24BatchOptions} for the members.
+   * @returns {Promise<CallBatchResult<T>>} results in the shape of the input:
+   *   an array for array input, an object keyed by command name for named input.
+   *   With `options.returnAjaxResult` each entry is an `AjaxResult` rather than
+   *   the raw payload.
    *
    * @example
-   * import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+   * import type { AjaxResult } from '@bitrix24/b24jssdk'
    *
    * interface Contact { id: number, name: string }
    * const response = await b24.actions.v2.batch.make<{ item: Contact }>({
-   *   calls: [
-   *     ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.contact, id: 1 }],
-   *     ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.contact, id: 2 }],
-   *     ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.contact, id: 3 }]
-   *   ],
-   *   options: {
-   *     isHaltOnError: true,
-   *     returnAjaxResult: true,
-   *     requestId: 'batch-123'
-   *   }
-   * })
-   * if (!response.isSuccess) {
-   *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
-   * }
-   *
-   * const resultData = (response as Result<AjaxResult<{ item: Contact }>[]>).getData()
-   * resultData.forEach((resultRow, index) => {
-   *   if (resultRow.isSuccess) {
-   *    console.log(`Item ${index + 1}:`, resultRow.getData()!.result.item)
-   *   }
-   * })
-   *
-   * @example
-   * import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
-   *
-   * const response = await b24.actions.v2.batch.make({
-   *   calls: [
-   *     { method: 'crm.item.get', params: { entityTypeId: EnumCrmEntityTypeId.contact, id: 1 } },
-   *     { method: 'crm.item.get', params: { entityTypeId: EnumCrmEntityTypeId.contact, id: 2 } }
-   *   ],
-   *   options: {
-   *     isHaltOnError: true,
-   *     returnAjaxResult: true,
-   *     requestId: 'batch-123'
-   *   }
-   * })
-   * if (!response.isSuccess) {
-   *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
-   * }
-   *
-   * @example
-   * import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
-   *
-   * interface Contact { id: number, name: string }
-   * interface Deal { id: number, title: string }
-   * const response = await b24.actions.v2.batch.make<{ item: Contact } | { item: Deal }>({
    *   calls: {
-   *     Contact: { method: 'crm.item.get', params: { entityTypeId: EnumCrmEntityTypeId.contact, id: 1 } },
-   *     Deal: ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.deal, id: 2 }]
+   *     first: ['crm.item.get', { entityTypeId: 3, id: 1 }],
+   *     second: ['crm.item.get', { entityTypeId: 3, id: 2 }]
    *   },
-   *   options: {
-   *     isHaltOnError: true,
-   *     returnAjaxResult: true,
-   *     requestId: 'batch-123'
-   *   }
+   *   options: { isHaltOnError: false, returnAjaxResult: true, requestId: 'batch-123' }
    * })
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
-   *
-   * const results = response.getData() as Record<string, AjaxResult<{ item: Contact } | { item: Deal }>>
-   * console.log('Contact:', results.Contact.getData()?.result.item as Contact)
-   * console.log('Deal:', results.Deal.getData()?.result.item as Deal)
+   * const data = response.getData()! as Record<string, AjaxResult<{ item: Contact }>>
+   * console.log(data['first']!.getData()!.result.item)
    *
    * @warning The maximum number of commands in one batch request is 50.
    * @note A batch request executes faster than sequential single calls,

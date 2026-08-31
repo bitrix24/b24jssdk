@@ -40,7 +40,7 @@ export class CallV3 extends AbstractAction {
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
-   * console.log(response.getData().result.item.title)
+   * console.log(response.getData()!.result.item.title)
    */
   public override async make<T = unknown>(options: ActionCallV3): Promise<AjaxResult<T>> {
     // No client-side allowlist: the method is sent straight to the v3 endpoint

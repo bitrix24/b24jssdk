@@ -1,6 +1,6 @@
 # Package Structure
 
-<sub>Last reviewed: 2026-06-17.</sub>
+<sub>Last reviewed: 2026-08-31.</sub>
 
 > **Agent-facing mirror:** the published surface from the angle of agents writing usage code lives in [`b24jssdk-core/`](../../skills/b24jssdk-core/SKILL.md), [`b24jssdk-frame-ui/`](../../skills/b24jssdk-frame-ui/SKILL.md), and [`b24jssdk-helpers/`](../../skills/b24jssdk-helpers/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
 
@@ -139,6 +139,72 @@ export type { TypeMyPayload } from './types/payloads'
 
       The context key is `removalVersion`, not `removeInVersion`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (search for `@deprecated` + `forcedLog`).
   3. **Both symbols ship together** for at least one minor release.
+
+## How much of a JSDoc block belongs in the code
+
+The longest block in `packages/jssdk/src/` was 97 lines. Eighteen are over
+thirty. Long comments are not the problem — the ones explaining *why* are the
+most valuable thing in this codebase. **Placement** is (#420).
+
+### The threshold
+
+> A JSDoc block longer than the function it documents is a prompt to ask where
+> the text belongs.
+
+Not a lint rule and not a limit. Plenty of short functions deserve a long
+explanation; the question is whether *this* reader, opening *this* file, needs
+all of it in front of them.
+
+### What always stays in the code
+
+The signature contract: parameter meanings, `@returns`, `@throws`,
+`@deprecated` / `@removed`, and **any invariant a reader could break while
+editing that exact file**. If getting it wrong here breaks something, it stays
+here.
+
+### What is better off in a guide
+
+Reasoning, alternatives considered, history, and worked examples. Two reasons,
+one of them measurable:
+
+- **Examples in JSDoc are compiled by nothing.** There are 57 `@example` blocks
+  in `packages/jssdk/src/`, about 460 lines, and no pass type-checks them —
+  while `ts` fences in `docs/content/**` and `skills/**` are compiled on
+  every CI run (#439). That is not theoretical: three of those examples did not
+  compile, all dereferencing `getData()` without the `!` its
+  `T | null | undefined` return has required since #395. An example in a guide is
+  checked; the same example above the function is not.
+- **A stale claim in the code rots silently.** `docs-lint`, `md-internal-links`
+  and the fence typecheck keep the Markdown guides honest. Nothing watches a
+  comment.
+
+### The shape that works
+
+Worked out in #417 and generalised here. Point at the canonical text, then list
+only what matters while editing:
+
+```ts
+/**
+ * Executes a batch request … (one or two lines)
+ *
+ * **The full argument reference, the three `calls` formats and worked examples
+ * live in [the batch page](…) — that copy is compiled in CI, this one would
+ * not be.**
+ *
+ * What matters while editing this file:
+ *   - at most 50 commands …
+ *   - flags belong in `options` …
+ */
+```
+
+Twelve lines instead of ninety, the argument in one place under lint, and a
+pointer that survives.
+
+### Do this opportunistically
+
+When a file is next touched for another reason. A mass move would be a large
+diff with no behavioural change and a high chance of losing something in
+transit.
 
 ## Class Hierarchies
 

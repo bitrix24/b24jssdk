@@ -204,9 +204,9 @@ reading a config.
 | `docs:typecheck` | the docs Nuxt app |
 | `playground-nuxt:typecheck` | `playgrounds/nuxt/` |
 | `playground-cli:typecheck` | `playgrounds/cli/` |
-| `docs:typecheck-blocks` | ` ```ts ` fences in `docs/content/**/*.md` |
+| `docs:typecheck-blocks` | `ts` fences in `docs/content/**/*.md` |
 | `skills:typecheck` | the recipe `.ts` files under `skills/b24jssdk-recipes/` |
-| `skills:typecheck-blocks` | ` ```ts ` fences in `skills/**/*.md` |
+| `skills:typecheck-blocks` | `ts` fences in `skills/**/*.md` |
 
 Plus the `jsSdk:types` vitest project, which is where the `*.types.spec.ts` pins
 become real — `expectTypeOf` erases at runtime, so under a plain `vitest run` a
@@ -218,7 +218,7 @@ Two results from that measurement are worth carrying:
   smoke tests for the published package shape rather than typechecks of the
   playgrounds. An error inside either playground is caught by its own pass and by
   nothing else.
-- **` ```ts ` fences in `.github/contributing/*.md` are compiled by nothing.**
+- **`ts` fences in `.github/contributing/*.md` are compiled by nothing.**
   Docs fences and skill fences are covered; these are the gap (#435). There is a
   `test/some-code-from-docs/contributing/` directory of hand-written fixtures
   whose names mirror the guides, and nothing checks that a fixture still matches

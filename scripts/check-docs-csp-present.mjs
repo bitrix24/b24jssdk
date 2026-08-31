@@ -22,9 +22,10 @@
  *            policy. A head-ordering change could put it back there.
  */
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
-import { join, resolve, dirname, relative } from 'node:path'
+import { readFileSync, existsSync } from 'node:fs'
+import { resolve, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { walkFiles } from './_docs-utils.mjs'
 
 const ROOT = process.env.DOCS_CSP_ROOT
   ? resolve(process.env.DOCS_CSP_ROOT)
@@ -39,25 +40,12 @@ const TAG = /<meta[^>]+http-equiv="Content-Security-Policy"[^>]*>/gi
  */
 const REQUIRED = [`default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `base-uri 'self'`]
 
-function htmlFiles(directory) {
-  const files = []
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const full = join(directory, entry.name)
-    if (entry.isDirectory()) {
-      files.push(...htmlFiles(full))
-    } else if (entry.name.endsWith('.html')) {
-      files.push(full)
-    }
-  }
-  return files
-}
-
 if (!existsSync(ROOT)) {
   console.error(`docs-csp-present: no built site at ${ROOT}. Run \`pnpm run docs:generate\` first.`)
   process.exit(1)
 }
 
-const pages = htmlFiles(ROOT)
+const pages = walkFiles(ROOT, { extension: '.html' })
 if (pages.length === 0) {
   console.error('docs-csp-present: the built site contains no HTML pages')
   process.exit(1)

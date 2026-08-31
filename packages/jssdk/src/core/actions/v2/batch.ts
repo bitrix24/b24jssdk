@@ -50,6 +50,7 @@ export class BatchV2 extends AbstractBatch {
    * @example
    * import type { AjaxResult } from '@bitrix24/b24jssdk'
    *
+   * interface Contact { id: number, name: string }
    * const response = await b24.actions.v2.batch.make<{ item: Contact }>({
    *   calls: {
    *     first: ['crm.item.get', { entityTypeId: 3, id: 1 }],

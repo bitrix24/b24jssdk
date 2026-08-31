@@ -30,7 +30,7 @@ const SDK_TYPES = resolve(ROOT, 'packages/jssdk/dist/esm/index.d.ts')
  * `run pnpm run dev:prepare` hint to stderr and exits the process with code 1.
  *
  * @param {string} label Short script tag for the message prefix, e.g.
- *   `contributing:typecheck` or `docs:typecheck-blocks`.
+ *   `test:typecheck` or `docs:typecheck-blocks`.
  * @returns {void}
  */
 export function requireSdkTypes(label) {

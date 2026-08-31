@@ -53,8 +53,37 @@ function targetFiles() {
 // Strip fenced code (a run of ≥3 backticks closed by the same length, so a
 // ```` ```` ```` block can wrap nested ``` fences) and inline code, so
 // illustrative snippets don't produce false positives.
+//
+// The fence pattern is **anchored to the start of a line**, which is where
+// Markdown defines a fence. Unanchored it also matched a fence marker written
+// inside an inline-code span — the natural way to name a fence in prose — and
+// that flips the parity of everything after it: the next real fence is read as
+// a *closing* marker, so the block it opened is left unstripped and its
+// contents get link-checked. Found in #440 as a false alarm; the same flip the
+// other way round swallows a genuinely broken link and the check passes (#441).
+//
+// Leading whitespace is allowed because fences inside list items are indented —
+// this repository has them at two, three and six columns. A fence marker in an
+// inline span that begins a line is still miscounted; that is rare enough to
+// leave, and it fails towards a false alarm.
+//
+// The opening marker is followed by its info string and the line break rather
+// than letting the body quantifier start straight after it, and that info string
+// excludes both fence characters. Neither is cosmetic: adjacent, `` `{3,} `` and
+// a quantifier that can also match a backtick trade characters, which
+// `regexp/no-super-linear-backtracking` flags as polynomial backtracking on a
+// crafted input. Excluding them is also what CommonMark says — the info string
+// of a backtick fence may not contain a backtick.
+//
+// An unclosed fence is not stripped, as before — `String.replace` finds no
+// match and the block's contents stay in the text. That fails towards a false
+// alarm, which is the right direction for a gate. Shared between the two
+// callers below and safe to share because both use it with `replace`, which
+// resets `lastIndex`; do not reach for `test` or `matchAll` on it.
+const FENCE = /^[ \t]*(`{3,}|~{3,})[^`~\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm
+
 function stripCode(md) {
-  return md.replace(/(`{3,})[\s\S]*?\1/g, '').replace(/`[^`\n]*`/g, '')
+  return md.replace(FENCE, '').replace(/`[^`\n]*`/g, '')
 }
 
 // [text](target) and ![alt](target); capture up to ) or whitespace (drops a "title")
@@ -94,7 +123,7 @@ function headingAnchors(markdown) {
   // helpers`, dropping the first word of the slug. Both fence markers count;
   // stripping only backticks would let a `#` line inside a `~~~` block pass as
   // a heading.
-  const withoutFences = markdown.replace(/(`{3,}|~{3,})[\s\S]*?\1/g, '')
+  const withoutFences = markdown.replace(FENCE, '')
   const anchors = new Set()
 
   // ATX. Up to three leading spaces still parse as a heading (four make it an

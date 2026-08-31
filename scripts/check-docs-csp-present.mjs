@@ -22,9 +22,10 @@
  *            policy. A head-ordering change could put it back there.
  */
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
-import { join, resolve, dirname, relative } from 'node:path'
+import { readFileSync, existsSync } from 'node:fs'
+import { resolve, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { walkFiles } from './_docs-utils.mjs'
 
 const ROOT = process.env.DOCS_CSP_ROOT
   ? resolve(process.env.DOCS_CSP_ROOT)
@@ -40,16 +41,7 @@ const TAG = /<meta[^>]+http-equiv="Content-Security-Policy"[^>]*>/gi
 const REQUIRED = [`default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `base-uri 'self'`]
 
 function htmlFiles(directory) {
-  const files = []
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const full = join(directory, entry.name)
-    if (entry.isDirectory()) {
-      files.push(...htmlFiles(full))
-    } else if (entry.name.endsWith('.html')) {
-      files.push(full)
-    }
-  }
-  return files
+  return walkFiles(directory, { extension: '.html' })
 }
 
 if (!existsSync(ROOT)) {

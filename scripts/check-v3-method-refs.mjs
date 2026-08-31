@@ -16,9 +16,10 @@
  * nothing to conform to and that layer was dropped.
  */
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join, resolve, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { walkFiles } from './_docs-utils.mjs'
 
 const ROOT = process.env.V3_CHECK_ROOT
   ? resolve(process.env.V3_CHECK_ROOT)
@@ -30,24 +31,10 @@ const REAL_ACTIONS = [...V3_ACTIONS].join(' / ')
 function markdownFiles() {
   const files = [join(ROOT, 'packages', 'jssdk', 'README-AI.md')]
   for (const base of ['docs/content/docs', 'skills']) {
-    const dir = join(ROOT, ...base.split('/'))
-    const walk = (current) => {
-      for (const entry of readdirSync(current, { withFileTypes: true })) {
-        const full = join(current, entry.name)
-        if (entry.isDirectory()) {
-          // `skills/b24jssdk-recipes` is its own npm package (#65), so its
-          // node_modules sits inside the tree being walked — thousands of
-          // dependency READMEs that are not ours to check.
-          if (entry.name === 'node_modules') {
-            continue
-          }
-          walk(full)
-        } else if (entry.name.endsWith('.md')) {
-          files.push(full)
-        }
-      }
-    }
-    walk(dir)
+    // `skills/b24jssdk-recipes` is its own npm package (#65), so its
+    // node_modules sits inside the tree being walked — thousands of dependency
+    // READMEs that are not ours to check.
+    files.push(...walkFiles(join(ROOT, ...base.split('/')), { skipDirs: ['node_modules'] }))
   }
   return files
 }

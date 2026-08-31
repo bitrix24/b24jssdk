@@ -1,4 +1,5 @@
-// Shared helpers for scripts/docs-lint.mjs and scripts/docs-link-check.mjs.
+// Shared helpers for the scripts under scripts/ that walk Markdown or the
+// built documentation site.
 //
 // Kept tiny on purpose: both scripts run in CI. The only third-party dep is
 // `js-yaml` (a root devDependency) for frontmatter parsing — see
@@ -11,24 +12,51 @@ import { join } from 'node:path'
 import { load as yamlLoad, JSON_SCHEMA } from 'js-yaml'
 
 /**
- * Recursively collect every `.md` file under `dir`.
+ * Recursively collect every file with `extension` under `dir`.
  *
  * Uses `lstatSync` (not `statSync`) so a directory-symlink can't drive the
- * recursion into a cycle; symlinks are skipped.
+ * recursion into a cycle; symlinks are skipped. Two callers walk trees that
+ * contain a nested npm package — `skills/b24jssdk-recipes` is its own package
+ * (#65), so its `node_modules` sits inside the tree — and pass `skipDirs` to
+ * stay out of thousands of dependency READMEs that are not ours to check.
+ *
+ * Generalised from `walkMarkdownFiles` in #418. Three scripts had written their
+ * own version of this, each missing something another had: the two that recursed
+ * had no symlink guard, and the one that walks the built site needed a different
+ * extension. The guard is the reason to share it — a symlink cycle is the kind
+ * of failure that hangs CI rather than failing it.
+ *
+ * @param {string} dir Absolute path to walk.
+ * @param {{ extension?: string, skipDirs?: readonly string[] }} [options]
+ *   `extension` defaults to `.md`; `skipDirs` names directories to not descend
+ *   into, matched on the basename.
+ * @returns {string[]} Absolute paths in deterministic depth-first order.
+ */
+export function walkFiles(dir, options = {}) {
+  const { extension = '.md', skipDirs = [] } = options
+  const out = []
+  for (const name of readdirSync(dir).sort()) {
+    const full = join(dir, name)
+    const stat = lstatSync(full)
+    if (stat.isSymbolicLink()) continue
+    if (stat.isDirectory()) {
+      if (skipDirs.includes(name)) continue
+      out.push(...walkFiles(full, options))
+    } else if (stat.isFile() && full.endsWith(extension)) {
+      out.push(full)
+    }
+  }
+  return out
+}
+
+/**
+ * Recursively collect every `.md` file under `dir`.
  *
  * @param {string} dir Absolute path to walk.
  * @returns {string[]} Absolute `.md` paths in deterministic depth-first order.
  */
 export function walkMarkdownFiles(dir) {
-  const out = []
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name)
-    const stat = lstatSync(full)
-    if (stat.isSymbolicLink()) continue
-    if (stat.isDirectory()) out.push(...walkMarkdownFiles(full))
-    else if (stat.isFile() && full.endsWith('.md')) out.push(full)
-  }
-  return out
+  return walkFiles(dir)
 }
 
 /**

@@ -40,16 +40,12 @@ const TAG = /<meta[^>]+http-equiv="Content-Security-Policy"[^>]*>/gi
  */
 const REQUIRED = [`default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `base-uri 'self'`]
 
-function htmlFiles(directory) {
-  return walkFiles(directory, { extension: '.html' })
-}
-
 if (!existsSync(ROOT)) {
   console.error(`docs-csp-present: no built site at ${ROOT}. Run \`pnpm run docs:generate\` first.`)
   process.exit(1)
 }
 
-const pages = htmlFiles(ROOT)
+const pages = walkFiles(ROOT, { extension: '.html' })
 if (pages.length === 0) {
   console.error('docs-csp-present: the built site contains no HTML pages')
   process.exit(1)

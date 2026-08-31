@@ -15,10 +15,10 @@ import { load as yamlLoad, JSON_SCHEMA } from 'js-yaml'
  * Recursively collect every file with `extension` under `dir`.
  *
  * Uses `lstatSync` (not `statSync`) so a directory-symlink can't drive the
- * recursion into a cycle; symlinks are skipped. Two callers walk trees that
- * contain a nested npm package — `skills/b24jssdk-recipes` is its own package
- * (#65), so its `node_modules` sits inside the tree — and pass `skipDirs` to
- * stay out of thousands of dependency READMEs that are not ours to check.
+ * recursion into a cycle; symlinks are skipped. A caller walking `skills/`
+ * passes `skipDirs` because `skills/b24jssdk-recipes` is its own npm package
+ * (#65), so its `node_modules` sits inside the tree — thousands of dependency
+ * READMEs that are not ours to check.
  *
  * Generalised from `walkMarkdownFiles` in #418. Three scripts had written their
  * own version of this, each missing something another had: the two that recursed

@@ -1,4 +1,4 @@
-// vitest transpiles via esbuild — no type-checking. The authoritative type gate is `contributing:typecheck`.
+// vitest transpiles via esbuild — no type-checking. The authoritative type gate is `test:typecheck`.
 import { describe, expect, it } from 'vitest'
 import { MyManager } from './package-structure-manager'
 

@@ -14,7 +14,7 @@
  * ever helps local runs.
  *
  * This file was `contributing-typecheck.mjs`, which compiled
- * `test/some-code-from-docs/contributing/` alone. Since #429 widened
+ * `test/some-code-from-docs/contributing/` alone. Since #428 widened
  * `test/tsconfig.json` to the whole tree those twelve files are in this
  * program too, under stricter settings — measured in #419, where a type error
  * injected into a fixture went red on both passes. The separate pass is gone;

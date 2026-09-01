@@ -183,11 +183,11 @@ jobs:
           name: prepared-workspace
 
       - name: Typecheck
-        # Includes docs:typecheck-blocks and jsdoc:typecheck-blocks — the first
-        # type-checks ```ts fences in docs/content/docs/**/*.md, the second the
-        # JSDoc @example bodies in packages/jssdk/src/**/*.ts (#439). Both compile
-        # against @bitrix24/b24jssdk, so they run after dev:prepare, when dist/
-        # types are available.
+        # Includes the four block gates — ```ts fences in docs/content/docs/**,
+        # in skills/** and .github/contributing/** (#435), plus the JSDoc @example
+        # bodies in packages/jssdk/src/** (#439). All compile against
+        # @bitrix24/b24jssdk, so they run after dev:prepare, when dist/ types are
+        # available.
         run: pnpm run typecheck
 
   test:

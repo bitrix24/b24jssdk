@@ -66,6 +66,7 @@ Integration test names follow `<area>-<flavor>.spec.ts`. The `core/` group exerc
 
 ## Basic Integration Test Structure
 
+// @check-ignore: excerpt of a real test file; its imports are relative to `test/integration/<area>/` and those files are compiled by `test:typecheck`
 ```ts
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
@@ -191,7 +192,7 @@ If you add type-level assertions, use this suffix — a `*.unit.spec.ts` file's 
 
 ## What type-checks what
 
-`pnpm run typecheck` runs ten passes. Each row below is what that pass, and only
+`pnpm run typecheck` runs eleven passes. Each row below is what that pass, and only
 that pass, catches — measured in #419 by injecting a deliberate type error into
 each area and recording which passes went red. Nothing here is inferred from
 reading a config.
@@ -213,6 +214,7 @@ points here instead.
 | `skills:typecheck` | the recipe `.ts` files under `skills/b24jssdk-recipes/` |
 | `skills:typecheck-blocks` | `ts` fences in `skills/**/*.md` and in `packages/jssdk/README-AI.md` |
 | `jsdoc:typecheck-blocks` | JSDoc `@example` bodies in `packages/jssdk/src/**/*.ts` |
+| `contributing:typecheck-blocks` | `ts` fences in `.github/contributing/**/*.md` |
 
 Last verified by injection 2026-09-01, after `jsdoc:typecheck-blocks` was added
 and `README-AI.md` joined the skills gate. Re-measure the rows you change: the
@@ -236,11 +238,14 @@ Two results from that measurement are worth carrying:
   fence wrapping the whole body is unwrapped as presentation, and a
   `// @check-ignore` first line skips the block. A same-line `@example 'value'`
   is a value, not code, and is not compiled.
-- **`ts` fences in `.github/contributing/*.md` are compiled by nothing.**
-  Docs fences and skill fences are covered; these are the gap (#435). There is a
-  `test/some-code-from-docs/contributing/` directory of hand-written fixtures
-  whose names mirror the guides, and nothing checks that a fixture still matches
-  the fence it came from.
+- **`ts` fences in `.github/contributing/*.md` were compiled by nothing** until
+  #435 closed it — the last gap. Five of the twelve are marked
+  `// @check-ignore` with a reason, because they cannot compile by design: they
+  are templates for files the reader is about to create, or excerpts whose
+  imports are relative to where the real file lives. The real files are compiled
+  where they live. The `test/some-code-from-docs/contributing/` fixtures stay as
+  runnable examples with their own `.spec.ts` tests; nothing now depends on them
+  matching a guide, because the guide is compiled directly.
 
 A tenth pass, `contributing:typecheck`, was removed once the measurement showed
 it was redundant: it compiled those twelve fixtures alone, and since #428 widened

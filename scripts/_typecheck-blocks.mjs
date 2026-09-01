@@ -52,6 +52,8 @@ export function extractTsBlocks(content, filePath) {
   const blocks = []
   let inFence = false
   let fenceLen = 0
+  let fenceChar = '`'
+  let collecting = false
   let blockLines = []
   let blockStart = 0
   let skip = false
@@ -60,13 +62,28 @@ export function extractTsBlocks(content, filePath) {
     const line = fileLines[i]
 
     if (!inFence) {
-      // Match opening fence: ```ts or ```typescript, with optional [filename] annotation.
-      // Explicitly exclude ```ts-type (type-signature fragments).
-      const match = line.match(/^(`{3,})(typescript|ts)(?:\s+\[.*?\])?\s*$/)
-      if (!match) continue
+      // Every opening fence is tracked, not just the ts ones. A fence of any
+      // language makes its body literal text, and a ```ts marker inside one is
+      // part of that text rather than a fence of its own — which is exactly what
+      // `telegram-release-post.md` contains: a four-backtick ````text block
+      // holding a template for an announcement, with ```ts placeholders inside
+      // it. Scanning only for ts openings turned those placeholders into
+      // TS1127 (#435). Same family as #441: a fence marker is only a fence
+      // where markdown says it is.
+      const open = line.match(/^(`{3,}|~{3,})\s*(\S*)/)
+      if (!open) continue
 
-      fenceLen = match[1].length
+      const isTs = /^(?:typescript|ts)(?:\s+\[.*?\])?$/.test(
+        line.slice(open[1].length).trim()
+      )
+
+      fenceLen = open[1].length
+      fenceChar = open[1][0]
       inFence = true
+      // A non-ts fence is consumed to its close and discarded. `skip` already
+      // means "inside a fence whose content is not compiled", so it carries this
+      // too — and it is reset on close along with everything else.
+      collecting = isTs
       blockLines = []
       // blockStart is the 1-indexed line of the first code line (line after the fence).
       blockStart = i + 2
@@ -79,19 +96,22 @@ export function extractTsBlocks(content, filePath) {
       continue
     }
 
-    // Inside fence — check for matching closing fence.
-    const close = line.match(/^(`{3,})\s*$/)
-    if (close && close[1].length >= fenceLen) {
-      if (!skip && blockLines.length > 0) {
+    // Inside fence — check for matching closing fence. It must be the same
+    // character as the opening one and at least as long, or a ``` inside a
+    // ````text block would close it early.
+    const close = line.match(/^(`{3,}|~{3,})\s*$/)
+    if (close && close[1][0] === fenceChar && close[1].length >= fenceLen) {
+      if (collecting && !skip && blockLines.length > 0) {
         blocks.push({ lines: [...blockLines], startLine: blockStart, filePath })
       }
       inFence = false
       skip = false
+      collecting = false
       blockLines = []
       continue
     }
 
-    if (!skip) blockLines.push(line)
+    if (collecting && !skip) blockLines.push(line)
   }
 
   return blocks

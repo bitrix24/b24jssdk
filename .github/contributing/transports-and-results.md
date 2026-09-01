@@ -32,6 +32,7 @@ packages/jssdk/src/core/
 
 `Result` is the uniform return type for every domain method. It carries data, errors, and (for paged endpoints) the next-page handle. **Never return raw axios responses.**
 
+// @check-ignore: SDK-internal excerpt; the import is relative to `packages/jssdk/src/<area>/` and the real file is compiled by `package-jssdk:typecheck`
 ```ts
 import { Result } from '../core/result'
 
@@ -92,6 +93,11 @@ Two error classes, two purposes:
 | `AjaxError` | HTTP / REST API errors (4xx, 5xx, malformed payloads) | Returned via `Result.getErrors()` |
 
 ```ts
+import { SdkError, AjaxError } from '@bitrix24/b24jssdk'
+
+declare const url: string | undefined
+declare const payload: Record<string, unknown>
+
 // SdkError — throw on guard failures inside the SDK.
 // The constructor takes a SdkErrorDetails object, not a string.
 if (!url) {

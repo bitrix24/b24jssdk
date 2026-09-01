@@ -111,6 +111,7 @@ coverage
 # docs-typecheck generated temp files (scripts/docs-typecheck.mjs)
 .docs-typecheck/tmp/
 .skills-typecheck/tmp/
+.jsdoc-typecheck/tmp/
 # Scratch file written by the docs-lint freshness test. It is removed in a
 # `finally`, but a killed runner would otherwise leave it as a stray untracked
 # file — ignoring it keeps `git status` honest either way.

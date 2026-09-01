@@ -41,6 +41,8 @@ export class BatchByChunkV3 extends AbstractBatch {
    * @returns {Promise<Result<T[]>>} A promise that is resolved by the result of executing all commands.
    *
    * @example
+   * import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
+   *
    * interface TaskItem { id: number, title: string }
    * const commands: BatchCommandsArrayUniversal = Array.from({ length: 150 }, (_, i) =>
    *   ['tasks.task.get', { id: i + 1, select: ['id', 'title'] }]

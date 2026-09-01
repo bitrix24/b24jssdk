@@ -54,6 +54,8 @@ export class AggregateV3 extends AbstractAction {
    * @returns {Promise<Result<AggregateResultV3>>} buckets keyed by function then field name.
    *
    * @example
+   * import { FilterV3 } from '@bitrix24/b24jssdk'
+   *
    * const response = await b24.actions.v3.aggregate.make({
    *   method: 'some.entity.aggregate',
    *   select: { sum: { amount: 'totalAmount' }, count: ['id'] },

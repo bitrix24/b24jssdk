@@ -55,6 +55,10 @@ export default class FormatterNumbers {
    *
    * @example
    * ```ts
+   * import { useFormatter } from '@bitrix24/b24jssdk'
+   *
+   * const { formatterNumber } = useFormatter()
+   *
    * formatterNumber.format(1234.5)        // '1,234.50'
    * formatterNumber.format(1234.5, 'de')  // '1.234,50'
    * ```

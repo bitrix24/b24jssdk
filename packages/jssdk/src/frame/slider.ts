@@ -43,7 +43,28 @@ export class SliderManager {
   }
 
   /**
-   * The method closes the open modal window with the application
+   * Asks the portal to close the modal window holding the application.
+   *
+   * **This is a request, not a completion signal.** The SDK posts the command
+   * and its part ends there; animating the slider shut, releasing the focus
+   * trap and removing the frame are the portal's, and the application can
+   * neither observe nor influence them.
+   *
+   * Sent with `isSafely: false`, so nothing settles the promise except the
+   * portal's own answer — and there are portal builds where that answer never
+   * arrives, because an exception raised while closing fires before the
+   * response `postMessage` (#328). `await`ing this call can therefore wait
+   * forever. Callers should treat it as fire-and-forget, put their cleanup
+   * before it, and attach `.catch(() => {})` if they also tear the frame down
+   * in the same breath — `destroy()` rejects in-flight commands with
+   * `JSSDK_FRAME_DISPOSED`.
+   *
+   * The original reasoning for `isSafely: false` was that everything is about
+   * to be closed anyway, so a timer could not help. #328 is the case that
+   * reasoning does not cover: when the portal throws, the frame is *not*
+   * destroyed, and the promise is simply stranded. Whether to switch to
+   * `isSafely: true` is open — it would settle the promise on the SDK's own
+   * timer without pretending the close succeeded.
    *
    * @return {Promise<void>}
    *
@@ -51,9 +72,8 @@ export class SliderManager {
    */
   async closeSliderAppPage(): Promise<void> {
     return this.#messageManager.send(MessageCommands.closeApplication, {
-      /**
-       * @memo There is no point - everything will be closed, and timeout will not be able to do anything
-       */
+      // `false` deliberately, and see the note above: the promise then settles
+      // only on the portal's answer, which #328 shows is not guaranteed.
       isSafely: false
     })
   }

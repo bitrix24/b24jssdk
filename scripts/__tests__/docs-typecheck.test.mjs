@@ -130,6 +130,45 @@ test('extractTsBlocks: @check-ignore not on nearest non-empty line does NOT skip
   assert.equal(blocks.length, 1)
 })
 
+test('extractTsBlocks: a ```ts marker inside a longer fence is text, not a fence', () => {
+  // `.github/contributing/telegram-release-post.md` holds a ````text block —
+  // a template for an announcement post — with ```ts placeholders inside it.
+  // Scanning only for ts openings turned those placeholders into code and the
+  // gate reported TS1127 on `<Snippet1 — compiles>` (#435). Same family as
+  // #441: a fence marker is only a fence where markdown says it is.
+  const md = [
+    '````text',
+    'Post template:',
+    '',
+    '```ts',
+    '<Snippet1 — compiles>',
+    '```',
+    '````',
+    '',
+    '```ts',
+    'const real = 1',
+    '```'
+  ].join('\n')
+
+  const blocks = extractTsBlocks(md)
+  assert.deepEqual(blocks.map(b => b.lines), [['const real = 1']])
+  assert.equal(blocks[0].startLine, 10)
+})
+
+test('extractTsBlocks: a tilde fence is not closed by a backtick run', () => {
+  const md = [
+    '~~~text',
+    '```',
+    '~~~',
+    '',
+    '```ts',
+    'const real = 1',
+    '```'
+  ].join('\n')
+
+  assert.deepEqual(extractTsBlocks(md).map(b => b.lines), [['const real = 1']])
+})
+
 test('extractTsBlocks: line number mapping — error on line 3 of block at startLine=10 → mdLine=12', () => {
   // Build a file where the fence opens at line 9 (0-indexed 8), so startLine=10.
   const prefix = Array.from({ length: 8 }, (_, i) => `// line ${i + 1}`).join('\n')

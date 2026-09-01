@@ -249,9 +249,18 @@ and CRM ids written as `'D_42'` where the type is `number[]`.
   `filter` actually lives.
 - **Placeholders belong in `globals.d.ts`** — a domain type, a handler the
   reader writes, an id list they already have.
-- **`// @check-ignore` on the line before the fence** skips it. Use it when
-  making the snippet compile would misrepresent it, and say why in the marker.
-  It is the last resort: every ignored fence is a fence the gate stops checking.
+- **`// @check-ignore` on the nearest non-empty line above the fence** skips it.
+  Use it when making the snippet compile would misrepresent it, and say why in
+  the marker. It is the last resort: every ignored fence is a fence the gate
+  stops checking.
+
+  Two mechanics worth knowing before you write one. **Leave a blank line between
+  the marker and the fence** — markdownlint's MD031 wants blank lines around a
+  fence, and the extractor skips blanks when it looks upward, so both are
+  satisfied. And **keep the reason on the marker's own line**: the extractor
+  reads exactly one line, so a reason wrapped onto a second line leaves that
+  second line as the nearest non-empty one and the marker silently stops
+  working. It fails safe — the fence gets compiled — but you will not be told.
 
 The gate proves a fence type-checks. It does not prove the method exists on a
 portal, or that the field names are right — that is what `skills:verify` (#113)

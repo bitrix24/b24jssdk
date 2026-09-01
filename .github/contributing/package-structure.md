@@ -40,6 +40,7 @@ A typical helper-style manager (the dominant shape in `src/helper/` and `src/fra
 The template below is the **standalone** flavour:
 
 // @check-ignore: template for a file the reader is about to create; `MyManager` does not exist and the imports are relative to `packages/jssdk/src/<area>/`
+
 ```ts
 // 1. Type imports first (always separate)
 import type { LoggerInterface } from '../logger'
@@ -101,6 +102,7 @@ For transport-layer actions (under `src/core/actions/v2/` and `v3/`) extend `Abs
 A symbol is *only* public once it is re-exported from `packages/jssdk/src/index.ts`. Internal-only helpers stay unexported.
 
 // @check-ignore: `./my-area/my-manager` is the file the reader is about to add, not one that exists
+
 ```ts
 // packages/jssdk/src/index.ts
 export { MyManager } from './my-area/my-manager'
@@ -301,6 +303,7 @@ Use the placeholders directly — never read `package.json` at runtime, never ha
 Add to `packages/jssdk/src/index.ts`:
 
 // @check-ignore: same hypothetical module as above
+
 ```ts
 export { MyManager } from './my-area/my-manager'
 export type { MyManagerOptions } from './my-area/my-manager'

@@ -67,6 +67,7 @@ Integration test names follow `<area>-<flavor>.spec.ts`. The `core/` group exerc
 ## Basic Integration Test Structure
 
 // @check-ignore: excerpt of a real test file; its imports are relative to `test/integration/<area>/` and those files are compiled by `test:typecheck`
+
 ```ts
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'

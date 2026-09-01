@@ -33,6 +33,7 @@ packages/jssdk/src/core/
 `Result` is the uniform return type for every domain method. It carries data, errors, and (for paged endpoints) the next-page handle. **Never return raw axios responses.**
 
 // @check-ignore: SDK-internal excerpt; the import is relative to `packages/jssdk/src/<area>/` and the real file is compiled by `package-jssdk:typecheck`
+
 ```ts
 import { Result } from '../core/result'
 

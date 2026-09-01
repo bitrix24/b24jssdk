@@ -86,12 +86,12 @@ import {
   B24Frame,
   EnumCrmEntityTypeId,
   Text,
-  LoggerBrowser,
+  LoggerFactory,
   Result,
   type ISODate
 } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('MyApp', import.meta.env?.DEV === true)
+const logger = LoggerFactory.createForBrowser('MyApp', import.meta.env?.DEV === true)
 let $b24: B24Frame
 
 async function boot() {
@@ -103,7 +103,7 @@ async function boot() {
     order: { id: 'desc' },
     select: ['id', 'title', 'createdTime']
   })
-  logger.info('items:', companies.getData().result)
+  logger.info('items', { items: companies.getData().result })
 
   // Batch (object syntax, with keys)
   const batch: Result = await $b24.callBatch({
@@ -122,7 +122,7 @@ async function boot() {
     title: it.title,
     createdTime: Text.toDateTime(it.createdTime as ISODate)
   }))
-  logger.info('batch list:', list)
+  logger.info('batch list', { list })
 }
 
 function teardown() {
@@ -159,7 +159,7 @@ When you can’t bundle ESM, load the global B24Js from a CDN inside your iframe
 <script>
   document.addEventListener('DOMContentLoaded', async () => {
     try {
-      const logger = B24Js.LoggerBrowser.build('MyApp', true)
+      const logger = B24Js.LoggerFactory.createForBrowser('MyApp', true)
       const $b24 = await B24Js.initializeB24Frame()
 
       const res = await $b24.callBatch({
@@ -173,7 +173,7 @@ When you can’t bundle ESM, load the global B24Js from a CDN inside your iframe
         }
       }, true)
 
-      logger.info('data:', res.getData())
+      logger.info('data', { data: res.getData() })
     } catch (e) {
       console.error(e)
     }
@@ -185,7 +185,7 @@ Globals exposed by UMD
 
 - B24Js.initializeB24Frame
 - B24Js.B24Frame and managers via properties (auth, parent, slider, dialog, placement, options)
-- Utilities: LoggerBrowser, Text, Type, enums (e.g., EnumCrmEntityTypeId), Result, AjaxError/AjaxResult, etc.
+- Utilities: LoggerFactory, Text, Type, enums (e.g., EnumCrmEntityTypeId), Result, AjaxError/AjaxResult, etc.
 
 
 ## Backend/Services (Node.js, ESM) with B24Hook
@@ -203,11 +203,11 @@ Example: construct from webhook URL and call API
 import {
   B24Hook,
   EnumCrmEntityTypeId,
-  LoggerBrowser,
+  LoggerFactory,
   Result
 } from '@bitrix24/b24jssdk'
 
-const logger = LoggerBrowser.build('Srv', true)
+const logger = LoggerFactory.createForBrowser('Srv', true)
 
 const $b24 = B24Hook.fromWebhookUrl(
   'https://your_domain.bitrix24.com/rest/1/k32t88gf3azpmwv3'
@@ -219,19 +219,21 @@ const res = await $b24.callMethod('crm.item.list', {
   entityTypeId: EnumCrmEntityTypeId.company,
   order: { id: 'desc' },
 })
-logger.info('companies:', res.getData().result)
+logger.info('companies', { companies: res.getData().result })
 
 // Batch (array syntax)
 const batch: Result = await $b24.callBatch([
   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] }],
   ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] }]
 ], true)
-logger.info('batch:', batch.getData())
+logger.info('batch', { batch: batch.getData() })
 ```
 
 Listing helpers
 
 ```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+
 // Pull a full list with automatic paging
 const list = await $b24.callListMethod('crm.item.list', {
   entityTypeId: EnumCrmEntityTypeId.deal,
@@ -334,7 +336,7 @@ The SDK ships a high-level helper to preload portal and app data and to work wit
 Initialization pattern (after B24Frame is initialized)
 
 ```ts
-import { useB24Helper, LoadDataType, type TypePullMessage } from '@bitrix24/b24jssdk'
+import { initializeB24Frame, useB24Helper, LoadDataType, type TypePullMessage } from '@bitrix24/b24jssdk'
 
 const {
   initB24Helper,
@@ -355,7 +357,7 @@ await initB24Helper($b24, [
 ])
 
 // Enable Pull
-usePullClient('prefix')      // optionally pass userId
+usePullClient()              // takes no arguments
 useSubscribePullClient((m: TypePullMessage) => {
   // handle Pull messages
 }, 'application')
@@ -507,7 +509,7 @@ try {
   // const total = res.getTotal()                // restApi:v2 only — returns 0 on v3, which sends no `total`
 } catch (e) {
   if (e instanceof AjaxError) {
-    console.error(e.code, e.description, e.status, e.requestInfo)
+    console.error(e.code, e.message, e.status, e.requestInfo)
     // restApi:v3 validation failures also name the field that failed:
     // e.validation?.forEach(d => markInvalid(d.field, d.message))
     // `field` and `message` are both optional; absent under restApi:v2.
@@ -531,7 +533,8 @@ try {
   - Use callListMethod/fetchListMethod for large lists
   - Batch related calls with callBatch; chunk big arrays with callBatchByChunk
 - Logging
-  - Build once via LoggerBrowser.build(appName, isDev) and set to instances if needed
+  - Build once via LoggerFactory.createForBrowser(appName, isDev) and set to instances if needed
+  - Pass context as an object: `logger.info('message', { key: value })`, not as extra arguments
 - Types and enums
   - Prefer exported enums (e.g., EnumCrmEntityTypeId) and types (ISODate, payload types)
 
@@ -557,7 +560,7 @@ try {
 - B24Hook (+ B24Hook.fromWebhookUrl)
 - AbstractB24 helpers: callMethod, callBatch, callListMethod, fetchListMethod, callBatchByChunk, chunkArray
 - HTTP types and classes: AjaxResult, AjaxError, Result
-- LoggerBrowser, Text, Type, Browser, tools/use-formatters
+- LoggerFactory, Logger, Text, Type, Browser, tools/use-formatters
 - Types/enums: http, b24, auth, payloads, user, slider, handler, placement, crm, catalog, bizproc, event, pull, b24-helper
 
 
@@ -618,7 +621,7 @@ This document is based on the SDK source in packages/jssdk/src and the docs unde
  
 - Unique ID Generator: request IDs are appended automatically via Http
 - Result / AjaxResult: uniform result objects, error aggregation. (The paging members `isMore`/`hasMore`/`getTotal`/`getNext`/`fetchNext` are not deprecated, but are `restApi:v2`-only — see Deprecation notice.)
-- Language List and LoggerBrowser
+- Language List and LoggerFactory / Logger
 
 ### Tools
 

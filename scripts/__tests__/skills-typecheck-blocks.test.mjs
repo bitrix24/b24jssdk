@@ -8,7 +8,7 @@
 // tests pin — is the wiring: which files the gate discovers, and that it treats
 // an empty sweep as a failure rather than a pass.
 
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -57,6 +57,20 @@ test('every skill directory is covered, not a hand-written list', () => {
   const match = output.match(/skills-typecheck: (\d+) block\(s\) checked/)
   assert.ok(match, `expected a block count in:\n${output}`)
   assert.ok(Number(match[1]) > 0, 'zero blocks checked — the sweep found nothing')
+})
+
+test('README-AI.md is in the sweep', () => {
+  // It is shipped in the npm package and written for an agent to read before
+  // writing code — the same category as a SKILL.md, under a different name. It
+  // sat outside every gate until #277, and the first run over it found three
+  // defects. A file added by name rather than discovered can silently drop out,
+  // so pin it.
+  const source = readFileSync(SCRIPT, 'utf8')
+  assert.match(source, /'packages', 'jssdk', 'README-AI\.md'/)
+  assert.ok(
+    existsSync(join(REPO_ROOT, 'packages', 'jssdk', 'README-AI.md')),
+    'README-AI.md is gone — the gate would now be checking a path that does not exist'
+  )
 })
 
 test('the skills tree currently type-checks clean', { skip: SKIP }, () => {

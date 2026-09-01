@@ -22,6 +22,10 @@
  * list and `.skills-typecheck/globals.d.ts`, whose header explains what may and
  * may not be declared there.
  *
+ * The file list is every `skills/*\/SKILL.md` plus `packages/jssdk/README-AI.md`,
+ * which is the same kind of file under a different name — shipped in the npm
+ * package, written for an agent to read before it writes code.
+ *
  * Prerequisites: pnpm install && pnpm run dev:prepare (creates dist/ for jssdk types).
  */
 
@@ -46,6 +50,13 @@ const files = readdirSync(SKILLS_DIR, { withFileTypes: true })
   .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
   .map(entry => join(SKILLS_DIR, entry.name, 'SKILL.md'))
   .filter(existsSync)
+
+// `README-AI.md` is the same category of file wearing a different name: it is
+// shipped inside the npm package and is written to be read by an agent before
+// it writes code. It sat outside every gate, and the first run over it found
+// three defects — a missing import, a helper called with an argument it does
+// not take, and `AjaxError.description`, which does not exist.
+files.push(join(REPO_ROOT, 'packages', 'jssdk', 'README-AI.md'))
 
 process.exit(checkBlocks({
   label: 'skills-typecheck',

@@ -206,7 +206,7 @@ reading a config.
 | `playground-cli:typecheck` | `playgrounds/cli/` |
 | `docs:typecheck-blocks` | `ts` fences in `docs/content/**/*.md` |
 | `skills:typecheck` | the recipe `.ts` files under `skills/b24jssdk-recipes/` |
-| `skills:typecheck-blocks` | `ts` fences in `skills/**/*.md` |
+| `skills:typecheck-blocks` | `ts` fences in `skills/**/*.md` and in `packages/jssdk/README-AI.md` |
 | `jsdoc:typecheck-blocks` | JSDoc `@example` bodies in `packages/jssdk/src/**/*.ts` |
 
 Plus the `jsSdk:types` vitest project, which is where the `*.types.spec.ts` pins

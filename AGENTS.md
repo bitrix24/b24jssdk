@@ -320,8 +320,13 @@ Check these before adding to the repository, not after:
 
 - **A new script in `scripts/`.** Nine already exist and share one shape; see
   #418. Ask whether an existing one should grow instead.
-- **A new `tsconfig.json` or a tenth `typecheck` pass.** There are already ten
-  and nine; see #419. Each is defensible alone.
+- **A new `tsconfig.json` or an eleventh `typecheck` pass.** There are already
+  ten of each, and #419 measured what every one of them uniquely catches — by
+  injection, not by reading configs. Eight are the only thing standing between a
+  broken area and `main`; the table is in
+  [testing.md](.github/contributing/testing.md#what-type-checks-what). Read it
+  before adding the eleventh, and add a row to it if you do. Each pass is
+  defensible alone; that is exactly why the total needs watching.
 - **A JSDoc block longer than the function it documents.** The longest in the SDK
   is 96 lines. If the reasoning is that long it belongs in
   `.github/contributing/`, with a pointer from the code — see #420 for the

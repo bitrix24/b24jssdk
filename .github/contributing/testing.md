@@ -191,10 +191,15 @@ If you add type-level assertions, use this suffix — a `*.unit.spec.ts` file's 
 
 ## What type-checks what
 
-`pnpm run typecheck` runs nine passes. Each column below is what that pass, and
-only that pass, catches — measured in #419 by injecting a deliberate type error
-into each area and recording which passes went red. Nothing here is inferred from
+`pnpm run typecheck` runs ten passes. Each row below is what that pass, and only
+that pass, catches — measured in #419 by injecting a deliberate type error into
+each area and recording which passes went red. Nothing here is inferred from
 reading a config.
+
+This table is the canonical answer to "do I need to add another pass?".
+`package.json` cannot carry the note itself — it is strict JSON, so a comment
+beside each script is not available — which is why [AGENTS.md](../../AGENTS.md)
+points here instead.
 
 | Pass | The area only it covers |
 | --- | --- |
@@ -208,6 +213,11 @@ reading a config.
 | `skills:typecheck` | the recipe `.ts` files under `skills/b24jssdk-recipes/` |
 | `skills:typecheck-blocks` | `ts` fences in `skills/**/*.md` and in `packages/jssdk/README-AI.md` |
 | `jsdoc:typecheck-blocks` | JSDoc `@example` bodies in `packages/jssdk/src/**/*.ts` |
+
+Last verified by injection 2026-09-01, after `jsdoc:typecheck-blocks` was added
+and `README-AI.md` joined the skills gate. Re-measure the rows you change: the
+claim is "only this pass", and that is a property of the whole set, not of the
+pass you happen to be editing.
 
 Plus the `jsSdk:types` vitest project, which is where the `*.types.spec.ts` pins
 become real — `expectTypeOf` erases at runtime, so under a plain `vitest run` a

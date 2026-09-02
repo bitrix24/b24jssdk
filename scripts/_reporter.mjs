@@ -32,13 +32,27 @@ const RED = '\u001B[31m'
 const YELLOW = '\u001B[33m'
 const RESET = '\u001B[0m'
 
+// Everything below C0 except tab, carriage return and line feed, plus DEL.
+// The three exceptions are handled separately: tab is harmless, and CR and LF
+// are the line boundaries each of the two paths deals with in its own way.
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const CONTROL = /[\u0000-\u0008\v\f\u000E-\u001F\u007F]/g
+
 /**
  * GitHub Actions workflow commands use %25/%0D/%0A as escape sequences.
  * Without escaping, a message containing a literal newline could inject
  * additional workflow commands (e.g. ::set-env::, ::add-mask::).
+ *
+ * Other control characters are dropped rather than escaped: an escape character
+ * reaching the annotation would paint ANSI into the CI log just as it would on
+ * the printed line, and an annotation has no use for one.
  */
 export function escapeAnnotation(s) {
-  return String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
+  return String(s)
+    .replaceAll(CONTROL, '')
+    .replace(/%/g, '%25')
+    .replace(/\r/g, '%0D')
+    .replace(/\n/g, '%0A')
 }
 
 /**
@@ -62,10 +76,7 @@ export function escapeAnnotation(s) {
  * check reported.
  */
 function oneLine(value) {
-  return String(value)
-    // eslint-disable-next-line no-control-regex -- stripping control characters is the point
-    .replaceAll(/[\u0000-\u0008\v\f\u000E-\u001F\u007F]/g, '')
-    .replaceAll(/\r\n?|\n/g, ' | ')
+  return String(value).replaceAll(CONTROL, '').replaceAll(/\r\n?|\n/g, ' | ')
 }
 
 /**

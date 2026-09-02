@@ -211,14 +211,26 @@ test('a lone carriage return is a line boundary too', () => {
 test('an escape character in a path cannot repaint the log', () => {
   // ANSI in a filename could otherwise clear the line and hide what a check
   // reported, which is a quieter failure than a forged command.
-  const { out } = capture(() => {
-    const report = createReporter({ label: 'demo', root: '/repo' })
-    report.error(`/repo/c${ESC}[2Km.md`, 'ansi in a path')
-    return report.finish()
-  })
+  //
+  // Both modes, deliberately. The first version of this test ran without
+  // pinning `GITHUB_ACTIONS`, so it never exercised the annotation — and passed
+  // locally while CI, where the variable is set, found the escape character
+  // reaching `file=` untouched.
+  for (const ci of ['true', undefined]) {
+    const { out } = withCI(ci, () => capture(() => {
+      const report = createReporter({ label: 'demo', root: '/repo' })
+      report.error(`/repo/c${ESC}[2Km.md`, 'ansi in a path')
+      return report.finish()
+    }))
 
-  assert.doesNotMatch(out, new RegExp(`c${ESC}`))
-  assert.match(out, /c\[2Km\.md ansi in a path/)
+    assert.doesNotMatch(out, new RegExp(`c${ESC}`), `escape survived with GITHUB_ACTIONS=${ci}`)
+    assert.match(out, /c\[2Km\.md ansi in a path/)
+  }
+})
+
+test('escapeAnnotation drops control characters as well as escaping newlines', () => {
+  assert.equal(escapeAnnotation(`a${ESC}[2Kb`), 'a[2Kb')
+  assert.equal(escapeAnnotation(`a${String.fromCharCode(0)}b`), 'ab')
 })
 
 test('annotation text cannot inject a second workflow command', () => {

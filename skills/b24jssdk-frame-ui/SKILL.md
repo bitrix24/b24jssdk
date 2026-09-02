@@ -140,7 +140,7 @@ await $b24.parent.setTitle('My App')         // in-page #pagetitle, NOT the brow
 await $b24.parent.scrollParentWindow(0)
 await $b24.parent.reloadWindow()
 
-// Not awaited: the portal answers this one only sometimes. Cleanup goes above.
+// Not awaited (#328). Cleanup goes above.
 $b24.parent.closeApplication().catch(() => {})
 ```
 
@@ -312,7 +312,7 @@ To check an app the portal is ignoring, ask whether it considers it installed:
 - ❌ Storing secrets in `options.appSet` — placement options are visible to everyone with access to the placement.
 - ❌ Treating a resolved `parent.im*` promise as proof the call started or the chat opened — nothing answers those commands; the promise only means the message was posted.
 - ❌ Firing `parent.closeApplication()` without `.catch(() => {})` and calling `$b24.destroy()` in the same breath — `destroy()` rejects every in-flight command with `JSSDK_FRAME_DISPOSED`, and a discarded promise becomes an unhandled rejection. Attach a `.catch`.
-- ❌ `await parent.closeApplication()` as a sequencing point — it is sent without the SDK's safety timer, so it settles only if the portal answers, and on some builds the portal raises an exception before it posts the response (#328). The `await` then never returns. Do the cleanup first, close last, do not await.
+- ❌ `await parent.closeApplication()` as a sequencing point — sent without the SDK's safety timer, so only the portal's answer settles it, and on some builds that answer never comes (#328). Cleanup first, close last, do not await.
 - ❌ Treating an absent `selectCRM` bucket as an empty array — they are `undefined`. Use `picked.deal ?? []`.
 - ❌ `return navigateTo(target)` from Nuxt route middleware to route an opened slider — discarded without error on a prerendered entry route. Navigate from `onNuxtReady` while hydrating.
 - ❌ Reading `$b24.placement.options?.place` without allowing for a JSON string — `PLACEMENT_OPTIONS` is not always an object, and key case is not guaranteed across entry points. On a string this yields `undefined` silently.

@@ -1,6 +1,6 @@
 # Package Structure
 
-<sub>Last reviewed: 2026-08-31.</sub>
+<sub>Last reviewed: 2026-09-02.</sub>
 
 > **Agent-facing mirror:** the published surface from the angle of agents writing usage code lives in [`b24jssdk-core/`](../../skills/b24jssdk-core/SKILL.md), [`b24jssdk-frame-ui/`](../../skills/b24jssdk-frame-ui/SKILL.md), and [`b24jssdk-helpers/`](../../skills/b24jssdk-helpers/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
 
@@ -146,9 +146,10 @@ export type { TypeMyPayload } from './types/payloads'
 
 ## How much of a JSDoc block belongs in the code
 
-The longest block in `packages/jssdk/src/` was 97 lines. Eighteen are over
-thirty. Long comments are not the problem — the ones explaining *why* are the
-most valuable thing in this codebase. **Placement** is (#420).
+The longest block in `packages/jssdk/src/` was 97 lines when this was written;
+it is 55 now, and seventeen of the 746 blocks are still over thirty. Long
+comments are not the problem — the ones explaining *why* are the most valuable
+thing in this codebase. **Placement** is (#420).
 
 ### The threshold
 
@@ -171,16 +172,24 @@ here.
 Reasoning, alternatives considered, history, and worked examples. Two reasons,
 one of them measurable:
 
-- **Examples in JSDoc are compiled by nothing.** There are 57 `@example` blocks
-  in `packages/jssdk/src/`, about 460 lines, and no pass type-checks them —
-  while `ts` fences in `docs/content/**` and `skills/**` are compiled on
-  every CI run (#439). That is not theoretical: three of those examples did not
-  compile, all dereferencing `getData()` without the `!` its
-  `T | null | undefined` return has required since #395. An example in a guide is
-  checked; the same example above the function is not.
 - **A stale claim in the code rots silently.** `docs-lint`, `md-internal-links`
-  and the fence typecheck keep the Markdown guides honest. Nothing watches a
-  comment.
+  and the fence typechecks keep the Markdown guides honest about their links,
+  their freshness stamps and whether their code compiles. Nothing watches a
+  sentence in a comment.
+
+  This is the remaining reason, and it is worth being honest about how the
+  other one went. The original argument here was that JSDoc examples were
+  compiled by nothing while `ts` fences in the guides were compiled on every CI
+  run — 57 `@example` blocks, about 460 lines, unchecked, three of them broken.
+  **That gap is closed:** `jsdoc:typecheck-blocks` has compiled them since #439,
+  43 blocks on every run, and the three broken ones are fixed. An example above
+  a function is now checked exactly as an example in a guide is, so it is no
+  longer a reason to move one.
+
+  Note also what rots and what does not. The paragraph you are reading was
+  itself stale for two days after #439 landed — prose in a guide is no safer
+  from that than prose in a comment. What the gates protect is the *code* in
+  both places; the sentences around it are on us either way.
 
 ### The shape that works
 

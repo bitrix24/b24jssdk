@@ -318,8 +318,9 @@ findings about wording.
 
 Check these before adding to the repository, not after:
 
-- **A new script in `scripts/`.** Nine already exist and share one shape; see
-  #418. Ask whether an existing one should grow instead.
+- **A new script in `scripts/`.** Eleven checks already exist over five shared
+  modules; see #418. Ask whether an existing one should grow instead, and report
+  through [`_reporter.mjs`](scripts/_reporter.mjs) if it is genuinely new.
 - **A new `tsconfig.json` or an eleventh `typecheck` pass.** There are already
   ten of each, and #419 measured what every one of them uniquely catches — by
   injection, not by reading configs. Eight are the only thing standing between a
@@ -328,7 +329,7 @@ Check these before adding to the repository, not after:
   before adding the eleventh, and add a row to it if you do. Each pass is
   defensible alone; that is exactly why the total needs watching.
 - **A JSDoc block longer than the function it documents.** The longest in the SDK
-  is 96 lines. If the reasoning is that long it belongs in
+  is 55 lines. If the reasoning is that long it belongs in
   `.github/contributing/`, with a pointer from the code — see #420 for the
   shape that works.
 - **Code written for a use case that does not exist yet.** `aggregate.ts` is the

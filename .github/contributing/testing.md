@@ -1,6 +1,6 @@
 # Testing
 
-<sub>Last reviewed: 2026-08-31.</sub>
+<sub>Last reviewed: 2026-09-02.</sub>
 
 > **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types, and their internals by `pnpm run skills:test`. Both install the recipes' own dependencies first — that directory is not a workspace member, so `express` / `grammy` / `node-cron` / `openai` live there rather than in the root manifest; see [README-DEPS.md](../../skills/b24jssdk-recipes/README-DEPS.md) for why. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
 
@@ -241,9 +241,10 @@ Two results from that measurement are worth carrying:
   smoke tests for the published package shape rather than typechecks of the
   playgrounds. An error inside either playground is caught by its own pass and by
   nothing else.
-- **JSDoc `@example` bodies used to be compiled by nothing** — 41 of them, the
-  ones an IDE shows on hover. `jsdoc:typecheck-blocks` closed that in #439; the
-  first run went red on every single block. An `@example` body is extracted from
+- **JSDoc `@example` bodies used to be compiled by nothing** — the ones an IDE
+  shows on hover. `jsdoc:typecheck-blocks` closed that in #439; there were 41
+  then, the first run went red on every single one, and the count moves with the
+  source rather than staying at 41. An `@example` body is extracted from
   the line after the tag to the next tag or the end of the comment, a Markdown
   fence wrapping the whole body is unwrapped as presentation, and a
   `// @check-ignore` first line skips the block. A same-line `@example 'value'`

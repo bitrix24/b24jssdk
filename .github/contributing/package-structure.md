@@ -181,13 +181,13 @@ one of them measurable:
   other one went. The original argument here was that JSDoc examples were
   compiled by nothing while `ts` fences in the guides were compiled on every CI
   run — 57 `@example` blocks, about 460 lines, unchecked, three of them broken.
-  **That gap is closed:** `jsdoc:typecheck-blocks` has compiled them since #443,
+  **That gap is closed:** `jsdoc:typecheck-blocks` has compiled them since #439,
   43 blocks on every run, and the three broken ones are fixed. An example above
   a function is now checked exactly as an example in a guide is, so it is no
   longer a reason to move one.
 
   Note also what rots and what does not. The paragraph you are reading was
-  itself stale for two days after #443 landed — prose in a guide is no safer
+  itself stale for two days after #439 landed — prose in a guide is no safer
   from that than prose in a comment. What the gates protect is the *code* in
   both places; the sentences around it are on us either way.
 

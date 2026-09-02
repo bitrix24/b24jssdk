@@ -54,7 +54,7 @@ test('every skill directory is covered, not a hand-written list', () => {
   }
 
   // The block count is reported, and it is not zero.
-  const match = output.match(/skills-typecheck: (\d+) block\(s\) checked/)
+  const match = output.match(/skills-typecheck: [^\n]*\D(\d+) block\(s\) checked/)
   assert.ok(match, `expected a block count in:\n${output}`)
   assert.ok(Number(match[1]) > 0, 'zero blocks checked — the sweep found nothing')
 })

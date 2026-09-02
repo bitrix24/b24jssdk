@@ -18,8 +18,9 @@
  */
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
-import { resolve, dirname, join, relative } from 'node:path'
+import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createReporter } from './_reporter.mjs'
 
 // MD_INTERNAL_LINKS_ROOT overrides the scan root (used by the fixture tests).
 const ROOT = process.env.MD_INTERNAL_LINKS_ROOT
@@ -166,7 +167,11 @@ function anchorsFor(resolvedPath) {
   return anchors
 }
 
-let broken = 0
+const report = createReporter({
+  label: 'md-internal-links',
+  root: ROOT,
+  errorNoun: 'broken link'
+})
 let checked = 0
 
 for (const file of targetFiles()) {
@@ -185,8 +190,7 @@ for (const file of targetFiles()) {
     checked += 1
     const resolved = resolve(dir, path)
     if (!existsSync(resolved)) {
-      broken += 1
-      console.log(`\x1B[31mBROKEN\x1B[0m ${relative(ROOT, file)} → ${target}`)
+      report.error(file, `broken link → ${target}`)
       continue
     }
     // A link to a heading that no longer exists lands the reader at the top of
@@ -209,11 +213,10 @@ for (const file of targetFiles()) {
       // A stray `%` that is not an escape — compare it as written.
     }
     if (!anchorsFor(resolved).has(fragment)) {
-      broken += 1
-      console.log(`\x1B[31mBROKEN\x1B[0m ${relative(ROOT, file)} → ${target} (no such heading in ${path})`)
+      report.error(file, `broken link → ${target} (no such heading in ${path})`)
     }
   }
 }
 
-console.log(`\nmd-internal-links: ${broken} broken link(s), ${checked} internal link(s) checked`)
-process.exit(broken > 0 ? 1 : 0)
+report.note(`${checked} internal link(s) checked`)
+process.exit(report.finish())

@@ -48,7 +48,7 @@ test('the guides currently type-check clean', { skip: SKIP }, () => {
 
   assert.equal(result.status, 0, `gate failed:\n${output}`)
 
-  const match = output.match(/contributing-typecheck: (\d+) block\(s\) checked/)
+  const match = output.match(/contributing-typecheck: [^\n]*\D(\d+) block\(s\) checked/)
   assert.ok(match, `expected a block count in:\n${output}`)
   assert.ok(Number(match[1]) > 0, 'zero blocks checked — the sweep found nothing')
 })

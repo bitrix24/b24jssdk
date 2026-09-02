@@ -17,9 +17,10 @@
  */
 
 import { readFileSync } from 'node:fs'
-import { join, resolve, dirname, relative } from 'node:path'
+import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { walkFiles } from './_docs-utils.mjs'
+import { createReporter } from './_reporter.mjs'
 
 const ROOT = process.env.V3_CHECK_ROOT
   ? resolve(process.env.V3_CHECK_ROOT)
@@ -39,12 +40,13 @@ function markdownFiles() {
   return files
 }
 
-let problems = 0
+const report = createReporter({
+  label: 'check-v3-method-refs',
+  root: ROOT,
+  errorNoun: 'problem'
+})
 
-function fail(file, message) {
-  console.log(`\x1B[31mV3-DRIFT\x1B[0m ${relative(ROOT, file)}: ${message}`)
-  problems += 1
-}
+const fail = (file, message) => report.error(file, message)
 
 function checkPhantomActions(file, body) {
   for (const m of body.matchAll(/actions\.v3\.([a-zA-Z]\w*)/g)) {
@@ -66,8 +68,5 @@ for (const file of markdownFiles()) {
   checkPhantomActions(file, body)
 }
 
-if (problems > 0) {
-  console.log(`\ncheck-v3-method-refs: ${problems} problem(s) found`)
-  process.exit(1)
-}
-console.log('check-v3-method-refs: 0 problem(s) across docs, skills, README-AI')
+report.note('across docs, skills, README-AI')
+process.exit(report.finish())

@@ -42,6 +42,33 @@ export function escapeAnnotation(s) {
 }
 
 /**
+ * Make a value safe to interpolate into the human-readable line.
+ *
+ * The line goes to the runner's stdout, and GitHub parses a workflow command
+ * from *any* line there — after trimming leading whitespace, so indenting a
+ * continuation does not help. Anything that can start a new line therefore has
+ * to go: a lone `\r` is a line boundary to the .NET-based runner, which is why
+ * `escapeAnnotation` escapes it alongside `\n`, and this has to match that
+ * threat model rather than only handling `\n`.
+ *
+ * **Applied to the path as well as the message.** A POSIX filename may contain
+ * anything but `/` and NUL, newline included, and these checks walk directories
+ * a contributor edits freely — so a file named to embed a workflow command is
+ * the most naturally attacker-controlled input here, and it reaches the line
+ * through the path rather than through the message.
+ *
+ * Other control characters are dropped outright: an escape character in a
+ * filename could otherwise repaint the log with ANSI sequences and hide what a
+ * check reported.
+ */
+function oneLine(value) {
+  return String(value)
+    // eslint-disable-next-line no-control-regex -- stripping control characters is the point
+    .replaceAll(/[\u0000-\u0008\v\f\u000E-\u001F\u007F]/g, '')
+    .replaceAll(/\r\n?|\n/g, ' | ')
+}
+
+/**
  * @param {object} options
  * @param {string} options.label       prefix for the summary line, e.g. `docs-lint`
  * @param {string} [options.root]      paths are printed relative to this
@@ -82,13 +109,9 @@ export function createReporter({
     const prefix = level === 'error' ? `${RED}ERROR${RESET}` : `${YELLOW}WARN ${RESET}`
     const body = code ? `${code}: ${message}` : String(message)
 
-    // The printed line is collapsed to one line, not merely indented. GitHub
-    // parses a workflow command from *any* line on stdout and trims leading
-    // whitespace before doing so, so an indented `::add-mask::…` would still be
-    // read as a command — through the human-readable half, which no amount of
-    // escaping the annotation would have caught. Multi-line messages exist:
-    // several checks build a bulleted list into one message.
-    console.log(`${prefix} ${where}${position} ${body.replaceAll(/\r?\n\s*/g, ' | ')}`)
+    // Both halves go through `oneLine` — see its comment for why the path needs
+    // it as much as the message does.
+    console.log(`${prefix} ${oneLine(where)}${position} ${oneLine(body)}`)
 
     if (isCI()) {
       const parts = [`file=${escapeAnnotation(where)}`]

@@ -175,6 +175,52 @@ test('a warning annotates as a warning, not an error', () => {
   assert.match(out, /^::warning file=a\.md::soft$/m)
 })
 
+const LF = String.fromCharCode(10)
+const CR = String.fromCharCode(13)
+const ESC = String.fromCharCode(27)
+
+test('a file path cannot inject a workflow command', () => {
+  // A POSIX filename may hold anything but `/` and NUL — newline included — and
+  // these checks walk directories a contributor edits freely. The path is
+  // therefore the most naturally attacker-controlled input on the line, and it
+  // was the half the first version of this defence left unprotected.
+  const { out } = withCI('true', () => capture(() => {
+    const report = createReporter({ label: 'demo', root: '/repo' })
+    report.error(`/repo/a.md${LF}::add-mask::pwned`, 'msg')
+    return report.finish()
+  }))
+
+  assert.doesNotMatch(out, /^\s*::add-mask::/m)
+  assert.match(out, /a\.md \| ::add-mask::pwned msg/)
+})
+
+test('a lone carriage return is a line boundary too', () => {
+  // The runner is .NET-based and treats a bare `\r` as one, which is why
+  // escapeAnnotation escapes it beside `\n`. A collapse that only handles `\n`
+  // does not match that threat model.
+  const { out } = withCI('true', () => capture(() => {
+    const report = createReporter({ label: 'demo', root: '/repo' })
+    report.error('/repo/a.md', `first${CR}::add-mask::pwned`)
+    return report.finish()
+  }))
+
+  assert.doesNotMatch(out, new RegExp(`${CR}::add-mask::`))
+  assert.match(out, /first \| ::add-mask::pwned/)
+})
+
+test('an escape character in a path cannot repaint the log', () => {
+  // ANSI in a filename could otherwise clear the line and hide what a check
+  // reported, which is a quieter failure than a forged command.
+  const { out } = capture(() => {
+    const report = createReporter({ label: 'demo', root: '/repo' })
+    report.error(`/repo/c${ESC}[2Km.md`, 'ansi in a path')
+    return report.finish()
+  })
+
+  assert.doesNotMatch(out, new RegExp(`c${ESC}`))
+  assert.match(out, /c\[2Km\.md ansi in a path/)
+})
+
 test('annotation text cannot inject a second workflow command', () => {
   // A message carrying a newline would otherwise let the next line be read as
   // its own ::command — ::add-mask:: or ::set-env:: among them.

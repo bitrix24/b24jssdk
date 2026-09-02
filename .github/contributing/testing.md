@@ -200,11 +200,12 @@ reading a config.
 
 Every check in `scripts/` reports through
 [`_reporter.mjs`](../../scripts/_reporter.mjs): one line shape
-(`ERROR path:line:col message`), one summary (`label: N error(s), M
-warning(s), …`), one exit rule — errors always fail, warnings only under
-`--strict` — and a GitHub annotation on every problem, so a CI failure lands on
-the pull request diff instead of only in the job log. Add a check, use the
-reporter.
+(`ERROR path:line:col message`), one summary
+(`label: N <noun>(s), M warning(s), …` — the noun stays the check's own, so
+`md-internal-links` counts broken links rather than generic errors), one exit
+rule — errors always fail, warnings only under `--strict` — and a GitHub
+annotation on every problem, so a CI failure lands on the pull request diff
+instead of only in the job log. Add a check, use the reporter.
 
 This table is the canonical answer to "do I need to add another pass?".
 `package.json` cannot carry the note itself — it is strict JSON, so a comment

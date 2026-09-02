@@ -43,7 +43,17 @@ export class SliderManager {
   }
 
   /**
-   * The method closes the open modal window with the application
+   * Asks the portal to close the modal window holding the application.
+   *
+   * Sent with `isSafely: false`, so only the portal's answer settles the
+   * promise — and on some builds that answer never arrives (#328). Do the
+   * cleanup first, then close without awaiting; `.catch()` because
+   * `destroy()` rejects commands still in flight.
+   *
+   * @example
+   * await $b24.options.appSet('draft', 'value')
+   *
+   * $b24.parent.closeApplication().catch(() => {})
    *
    * @return {Promise<void>}
    *
@@ -51,9 +61,8 @@ export class SliderManager {
    */
   async closeSliderAppPage(): Promise<void> {
     return this.#messageManager.send(MessageCommands.closeApplication, {
-      /**
-       * @memo There is no point - everything will be closed, and timeout will not be able to do anything
-       */
+      // `false` deliberately: the frame is going away, so a timer has nothing
+      // useful left to do. See the note above for what that costs (#328).
       isSafely: false
     })
   }

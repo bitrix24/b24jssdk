@@ -255,7 +255,7 @@ function runTypecheckScript(env = {}) {
 test('docs-typecheck: against the real docs tree exits 0', { skip: INTEGRATION_SKIP }, () => {
   const r = runTypecheckScript()
   assert.equal(r.status, 0, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
-  assert.match(r.stdout, /block\(s\) checked, 0 error\(s\)/)
+  assert.match(r.stdout, /0 error\(s\), 0 warning\(s\), \d+ block\(s\) checked/)
 })
 
 test('docs-typecheck: a deliberately broken block causes exit 1 with correct file:line output', { skip: INTEGRATION_SKIP }, () => {

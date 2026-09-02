@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 import { readFileSync, statSync, existsSync } from 'node:fs'
-import { join, resolve, relative, dirname } from 'node:path'
+import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { walkMarkdownFiles, parseFrontmatter, isFreshnessTrackedSource } from './_docs-utils.mjs'
+import { createReporter } from './_reporter.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -27,14 +28,14 @@ const GITHUB_SOURCE_PREFIX = 'https://github.com/bitrix24/b24jssdk/blob/main/'
 
 const STRICT = process.argv.includes('--strict')
 
-let errors = 0
-let warnings = 0
+const report = createReporter({ label: 'docs-lint', root: REPO_ROOT })
 
 function log(level, file, message) {
-  const tag = level === 'error' ? '\x1B[31mERROR\x1B[0m' : '\x1B[33mWARN \x1B[0m'
-  console.log(`${tag} ${relative(REPO_ROOT, file)}: ${message}`)
-  if (level === 'error') errors++
-  else warnings++
+  if (level === 'error') {
+    report.error(file, message)
+  } else {
+    report.warn(file, message)
+  }
 }
 
 function extractGithubLinkPaths(arrayItems) {
@@ -265,9 +266,7 @@ function main() {
     )
   }
 
-  console.log(`\ndocs-lint: ${errors} error(s), ${warnings} warning(s)`)
-  if (errors > 0) process.exit(1)
-  if (STRICT && warnings > 0) process.exit(1)
+  process.exit(report.finish({ strict: STRICT }))
 }
 
 // Run only when executed directly (e.g. `node scripts/docs-lint.mjs`), not when

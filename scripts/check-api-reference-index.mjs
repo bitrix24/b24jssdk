@@ -30,6 +30,7 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createReporter } from './_reporter.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // Overridable so the fixture tests can drive the real entry point end to end,
@@ -272,14 +273,16 @@ function main() {
     )
   }
 
-  if (problems.length > 0) {
-    console.error(
-      `docs/content/docs/3.api-reference/1.index.md is out of sync with the code.\n\n${problems.join('\n\n')}`
-    )
-    process.exit(1)
+  const report = createReporter({ label: 'api-reference-index', root: ROOT })
+  for (const problem of problems) {
+    report.error(PAGE, `the page is out of sync with the code — ${problem}`)
   }
+  report.note(`${exported.size} public value export(s)`)
 
-  console.log(`api-reference index: ${exported.size} public value export(s) — all present, none stale.`)
+  const code = report.finish()
+  if (code !== 0) {
+    process.exit(code)
+  }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {

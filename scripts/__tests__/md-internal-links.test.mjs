@@ -82,7 +82,8 @@ test('md-internal-links: a missing repo-relative target exits 1', () => {
 
     const r = runCheck(root)
     assert.equal(r.status, 1, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
-    assert.match(r.stdout, /BROKEN/)
+    assert.match(r.stdout, /ERROR/)
+    assert.match(r.stdout, /broken link/)
     assert.match(r.stdout, /does-not-exist\.md/)
     assert.match(r.stdout, /1 broken link\(s\)/)
   })

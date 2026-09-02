@@ -22,17 +22,9 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs'
-import { join, relative, basename } from 'node:path'
+import { join, basename } from 'node:path'
 import { spawnSync } from 'node:child_process'
-
-const IS_CI = process.env.GITHUB_ACTIONS === 'true'
-
-// GitHub Actions workflow commands use %25/%0D/%0A as escape sequences.
-// Without escaping, a tsc message containing a literal newline could inject
-// additional workflow commands (e.g. ::set-env::, ::add-mask::).
-function escapeAnnotation(s) {
-  return s.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
-}
+import { createReporter } from './_reporter.mjs'
 
 /**
  * Extract ```ts / ```typescript fenced blocks from a markdown file.
@@ -132,18 +124,7 @@ export function checkBlocks({ label, repoRoot, checkDir, files, extract = extrac
   const tmpDir = join(checkDir, 'tmp')
   const tsconfigPath = join(checkDir, 'tsconfig.json')
   const tscBin = join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc')
-  let errors = 0
-
-  function logError(mdFile, mdLine, col, code, message) {
-    const relFile = relative(repoRoot, mdFile)
-    console.log(`\u001B[31mERROR\u001B[0m ${relFile}:${mdLine}:${col} ${code}: ${message}`)
-    if (IS_CI) {
-      process.stdout.write(
-        `::error file=${escapeAnnotation(relFile)},line=${mdLine},col=${col}::${escapeAnnotation(code)}: ${escapeAnnotation(message)}\n`
-      )
-    }
-    errors++
-  }
+  const report = createReporter({ label, root: repoRoot })
 
   if (!existsSync(tscBin)) {
     console.error(`\u001B[31mERROR\u001B[0m ${label}: TypeScript not installed — run \`pnpm install\``)
@@ -206,17 +187,16 @@ export function checkBlocks({ label, repoRoot, checkDir, files, extract = extrac
     const block = blockMap.get(basename(rawPath))
     if (!block) {
       // Error in globals.d.ts or an untracked file — surface it as infrastructure noise.
-      console.error(`\u001B[31mERROR\u001B[0m ${label}: infrastructure error — ${rawPath}: ${code}: ${message}`)
-      errors++
+      report.error(null, `infrastructure error — ${rawPath}: ${message}`, { code })
       continue
     }
     const mdLine = block.startLine + (Number.parseInt(lineStr, 10) - 1)
-    logError(block.filePath, mdLine, Number.parseInt(colStr, 10), code, message)
+    report.error(block.filePath, message, { line: mdLine, col: Number.parseInt(colStr, 10), code })
   }
 
   // Remove tmp on success; keep on failure for local debugging.
-  if (errors === 0) rmSync(tmpDir, { recursive: true })
+  if (report.errors === 0) rmSync(tmpDir, { recursive: true })
 
-  console.log(`\n${label}: ${blockIndex} block(s) checked, ${errors} error(s)`)
-  return errors > 0 ? 1 : 0
+  report.note(`${blockIndex} block(s) checked`)
+  return report.finish()
 }

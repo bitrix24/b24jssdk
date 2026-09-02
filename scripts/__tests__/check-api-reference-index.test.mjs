@@ -265,8 +265,8 @@ test('fails, naming the export, when the page omits one', () => {
   }, (root) => {
     const run = runAgainst(root)
     assert.equal(run.status, 1)
-    assert.match(run.stderr, /does not list/)
-    assert.match(run.stderr, /- Forgotten/)
+    assert.match(run.stdout, /does not list/)
+    assert.match(run.stdout, /- Forgotten/)
   })
 })
 
@@ -282,8 +282,8 @@ test('fails, naming the row, when the page lists something no longer exported', 
   }, (root) => {
     const run = runAgainst(root)
     assert.equal(run.status, 1)
-    assert.match(run.stderr, /not public exports/)
-    assert.match(run.stderr, /- RenamedFrom/)
+    assert.match(run.stdout, /not public exports/)
+    assert.match(run.stdout, /- RenamedFrom/)
   })
 })
 
@@ -294,13 +294,13 @@ test('reports both directions at once', () => {
   }, (root) => {
     const run = runAgainst(root)
     assert.equal(run.status, 1)
-    assert.match(run.stderr, /- Added/)
-    assert.match(run.stderr, /- Removed/)
+    assert.match(run.stdout, /- Added/)
+    assert.match(run.stdout, /- Removed/)
   })
 })
 
 test('the real repo passes, and reports the export count', () => {
   const run = spawnSync(process.execPath, [SCRIPT], { cwd: REPO_ROOT, encoding: 'utf8' })
   assert.equal(run.status, 0, run.stderr)
-  assert.match(run.stdout, /public value export\(s\) — all present/)
+  assert.match(run.stdout, /0 error\(s\), 0 warning\(s\), \d+ public value export\(s\)/)
 })

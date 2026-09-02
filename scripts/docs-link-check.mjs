@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join, resolve, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { walkMarkdownFiles, parseFrontmatter } from './_docs-utils.mjs'
+import { createReporter } from './_reporter.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -12,18 +13,14 @@ const DOCS_ROOT = process.env.DOCS_LINK_CHECK_ROOT
   : join(REPO_ROOT, 'docs', 'content', 'docs')
 const URL_PREFIX = '/docs/'
 
-let errors = 0
-let warnings = 0
+const report = createReporter({
+  label: 'docs-link-check',
+  root: REPO_ROOT,
+  errorNoun: 'broken link'
+})
 
-function logError(file, message) {
-  console.log(`\x1B[31mERROR\x1B[0m ${relative(REPO_ROOT, file)}: ${message}`)
-  errors++
-}
-
-function logWarn(file, message) {
-  console.log(`\x1B[33mWARN \x1B[0m ${relative(REPO_ROOT, file)}: ${message}`)
-  warnings++
-}
+const logError = (file, message) => report.error(file, message)
+const logWarn = (file, message) => report.warn(file, message)
 
 // Map a file path under DOCS_ROOT to its public URL.
 // `1.getting-started/2.installation/3.react.md`
@@ -188,8 +185,7 @@ function main() {
     }
   }
 
-  console.log(`\ndocs-link-check: ${errors} broken link(s), ${warnings} warning(s)`)
-  if (errors > 0) process.exit(1)
+  process.exit(report.finish())
 }
 
 main()

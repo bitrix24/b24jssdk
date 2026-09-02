@@ -26,6 +26,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { walkFiles } from './_docs-utils.mjs'
+import { createReporter } from './_reporter.mjs'
 
 const ROOT = process.env.DOCS_CSP_ROOT
   ? resolve(process.env.DOCS_CSP_ROOT)
@@ -96,12 +97,16 @@ for (const file of pages) {
   }
 }
 
-for (const problem of problems.slice(0, 20)) {
-  console.log(`CSP ${problem}`)
+const report = createReporter({
+  label: 'docs-csp-present',
+  root: ROOT,
+  errorNoun: 'problem',
+  // A broken build breaks every page identically; twenty samples say what is
+  // wrong, and the count says how widely.
+  max: 20
+})
+for (const problem of problems) {
+  report.error(null, problem)
 }
-if (problems.length > 20) {
-  console.log(`… and ${problems.length - 20} more`)
-}
-
-console.log(`docs-csp-present: ${problems.length} problem(s) across ${pages.length} page(s)`)
-process.exit(problems.length > 0 ? 1 : 0)
+report.note(`${pages.length} page(s) checked`)
+process.exit(report.finish())

@@ -23,7 +23,7 @@
  */
 
 import { readFileSync, existsSync } from 'node:fs'
-import { resolve, dirname, relative } from 'node:path'
+import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { walkFiles } from './_docs-utils.mjs'
 import { createReporter } from './_reporter.mjs'
@@ -56,10 +56,10 @@ const problems = []
 
 for (const file of pages) {
   const html = readFileSync(file, 'utf8')
-  const where = relative(ROOT, file)
+  const at = message => problems.push({ file, message })
   const headStart = html.indexOf('<head>')
   if (headStart < 0) {
-    problems.push(`${where}: no <head>`)
+    at('no <head>')
     continue
   }
   const headEnd = html.indexOf('</head>')
@@ -67,22 +67,22 @@ for (const file of pages) {
     // Unguarded, `indexOf` returns -1 and `slice(start, -1)` silently becomes
     // "the whole document bar its last character" — so the body gets scanned
     // and the "first in <head>" assertion answers about the wrong text.
-    problems.push(`${where}: no closing </head>`)
+    at('no closing </head>')
     continue
   }
   const head = html.slice(headStart + '<head>'.length, headEnd)
   const matches = head.match(TAG) ?? []
 
   if (matches.length === 0) {
-    problems.push(`${where}: no Content-Security-Policy meta tag`)
+    at('no Content-Security-Policy meta tag')
     continue
   }
   if (matches.length > 1) {
-    problems.push(`${where}: ${matches.length} CSP meta tags — both are enforced, as their intersection`)
+    at(`${matches.length} CSP meta tags — both are enforced, as their intersection`)
   }
   const preceding = head.slice(0, head.search(TAG)).trim()
   if (preceding !== '') {
-    problems.push(`${where}: the CSP is not first in <head>; "${preceding.slice(0, 70)}" precedes it`)
+    at(`the CSP is not first in <head>; "${preceding.slice(0, 70)}" precedes it`)
   }
   // Every match, not just the first: with two tags the second could be the one
   // missing a directive, and reporting only "there are two" would name the
@@ -91,7 +91,7 @@ for (const file of pages) {
     for (const directive of REQUIRED) {
       if (!tag.includes(directive)) {
         const which = matches.length > 1 ? ` (tag ${index + 1} of ${matches.length})` : ''
-        problems.push(`${where}: the policy no longer contains ${directive}${which}`)
+        at(`the policy no longer contains ${directive}${which}`)
       }
     }
   }
@@ -106,7 +106,7 @@ const report = createReporter({
   max: 20
 })
 for (const problem of problems) {
-  report.error(null, problem)
+  report.error(problem.file, problem.message)
 }
 report.note(`${pages.length} page(s) checked`)
 process.exit(report.finish())

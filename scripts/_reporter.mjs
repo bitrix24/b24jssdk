@@ -82,13 +82,13 @@ export function createReporter({
     const prefix = level === 'error' ? `${RED}ERROR${RESET}` : `${YELLOW}WARN ${RESET}`
     const body = code ? `${code}: ${message}` : String(message)
 
-    // Newlines are folded out of the printed line, not only out of the
-    // annotation. GitHub parses a workflow command from *any* line on stdout,
-    // so a message carrying a newline could put `::add-mask::…` at the start of
-    // one — through the human-readable half, which no amount of escaping the
-    // annotation would have caught. Multi-line messages exist: several checks
-    // build a bulleted list into one message.
-    console.log(`${prefix} ${where}${position} ${body.replace(/\r?\n/g, '\n  ')}`)
+    // The printed line is collapsed to one line, not merely indented. GitHub
+    // parses a workflow command from *any* line on stdout and trims leading
+    // whitespace before doing so, so an indented `::add-mask::…` would still be
+    // read as a command — through the human-readable half, which no amount of
+    // escaping the annotation would have caught. Multi-line messages exist:
+    // several checks build a bulleted list into one message.
+    console.log(`${prefix} ${where}${position} ${body.replaceAll(/\r?\n\s*/g, ' | ')}`)
 
     if (isCI()) {
       const parts = [`file=${escapeAnnotation(where)}`]

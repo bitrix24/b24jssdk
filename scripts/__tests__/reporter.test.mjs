@@ -188,6 +188,9 @@ test('annotation text cannot inject a second workflow command', () => {
     return report.finish()
   }))
 
-  assert.doesNotMatch(out, /^::add-mask::/m)
+  // Indenting is not enough — Actions trims leading whitespace before parsing a
+  // `::` command, so the printed line must carry no newline at all.
+  assert.doesNotMatch(out, /^\s*::add-mask::/m)
+  assert.match(out, /first \| ::add-mask::secret/)
   assert.match(out, /%0A::add-mask::secret/)
 })

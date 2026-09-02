@@ -45,16 +45,15 @@ export class SliderManager {
   /**
    * Asks the portal to close the modal window holding the application.
    *
-   * **A request, not a completion signal.** The SDK posts the command and its
-   * part ends there; closing the slider, releasing the focus trap and removing
-   * the frame are the portal's.
-   *
    * Sent with `isSafely: false`, so only the portal's answer settles the
-   * promise — and on some builds that answer never arrives, because an
-   * exception raised while closing fires before the response `postMessage`
-   * (#328). Do not `await` this as a sequencing point: put cleanup before it,
-   * and attach `.catch(() => {})` if the frame is torn down in the same breath,
-   * since `destroy()` rejects in-flight commands with `JSSDK_FRAME_DISPOSED`.
+   * promise — and on some builds that answer never arrives (#328). Do the
+   * cleanup first, then close without awaiting; `.catch()` because
+   * `destroy()` rejects commands still in flight.
+   *
+   * @example
+   * await $b24.options.appSet('draft', 'value')
+   *
+   * $b24.parent.closeApplication().catch(() => {})
    *
    * @return {Promise<void>}
    *

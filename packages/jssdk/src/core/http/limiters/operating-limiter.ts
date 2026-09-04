@@ -137,9 +137,34 @@ export class OperatingLimiter implements ILimiter {
   }
 
   /**
-   * Updates operating time statistics for the method
+   * Updates operating time statistics for the method.
+   *
+   * `data` is optional because **a successful response without a `time` block at
+   * all is normal**, in two separate ways measured on live portals:
+   *
+   * - `rest.documentation.openapi` answers with the OpenAPI document at the top
+   *   level — no `result` envelope and no `time` — on every portal tried (an
+   *   on-premise build, a cloud portal and a cloud sandbox);
+   * - on-premise the operating limiter is off by default (the `rest` module's
+   *   `load_limiter_active` option, default `N`, which nothing in the product
+   *   ever sets), so `operating` / `operating_reset_at` are absent for *every*
+   *   method there.
+   *
+   * Destructuring an absent block threw `Cannot destructure property
+   * 'operating' of 'data' as it is undefined` and turned a fine HTTP 200 into an
+   * exception. Same shape as #338, one level over: there the missing key was
+   * `result`, here it is `time`.
+   *
+   * No counters are synthesised when the block is absent. A fabricated
+   * `operating: 0` is indistinguishable from a real "nothing consumed yet" and
+   * would make the limiter confidently wrong — on-premise that exact value is
+   * what an enabled-but-unconfigured limiter reports.
    */
-  async updateStats(requestId: string, method: string, data: PayloadTime): Promise<void> {
+  async updateStats(requestId: string, method: string, data?: PayloadTime): Promise<void> {
+    if (!data) {
+      return
+    }
+
     this.#cleanupOldStats()
 
     // all in seconds

@@ -582,10 +582,17 @@ export abstract class AbstractHttp implements TypeHttp {
       status: response.status
     })
 
-    // 5. Update operating statistics
+    // 5. Update operating statistics — only when the portal sent a `time` block.
+    // It does not always: `rest.documentation.openapi` answers with the OpenAPI
+    // document at the top level, with neither a `result` envelope nor `time`.
+    // The `time!` assertion that used to stand here claimed otherwise, and
+    // `OperatingLimiter.updateStats()` destructured the absent block — so a
+    // perfectly good HTTP 200 came back to the caller as an exception.
     if (result.isSuccess) {
       const time = result.getData()?.time
-      await this._restrictionManager.updateStats(requestId, method, time!)
+      if (time) {
+        await this._restrictionManager.updateStats(requestId, method, time)
+      }
     }
 
     return result

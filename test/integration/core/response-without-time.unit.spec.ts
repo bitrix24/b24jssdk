@@ -98,6 +98,13 @@ describe('a response without a `time` block', () => {
     vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
       .mockResolvedValue(OPENAPI_DOCUMENT_RESPONSE)
 
+    // Asserting *which* guard did the work, not merely that nothing threw. The
+    // two guards — `if (time)` at the call site and `if (!data) return` in the
+    // limiter — cover for each other completely: with both in place, removing
+    // either one leaves every black-box assertion green. Only the call count
+    // separates them, so it is what this case pins.
+    const updateStats = vi.spyOn(RestrictionManager.prototype, 'updateStats')
+
     // The assertion that matters: this used to throw.
     const response = await b24.actions.v3.call.make<Record<string, unknown>>({
       method: 'rest.documentation.openapi'
@@ -105,12 +112,16 @@ describe('a response without a `time` block', () => {
 
     expect(response.isSuccess).toBe(true)
     expect(response.getData()).toBeDefined()
+    // The call site must not reach the limiter at all when there is no `time`.
+    expect(updateStats).not.toHaveBeenCalled()
   })
 
   it('@apiV3 does not throw when `time` is present but carries no operating counters', async () => {
     b24 = buildHook()
     vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
       .mockResolvedValue(RESPONSE_WITHOUT_OPERATING)
+
+    const updateStats = vi.spyOn(RestrictionManager.prototype, 'updateStats')
 
     const response = await b24.actions.v3.call.make<{ items: Array<{ id: number }> }>({
       method: 'main.eventlog.list',
@@ -119,6 +130,9 @@ describe('a response without a `time` block', () => {
 
     expect(response.isSuccess).toBe(true)
     expect(response.getData()!.result.items).toEqual([{ id: 1 }])
+    // `time` is here, so the call site passes it on — the counters being absent
+    // is the limiter's business, and it has always handled that (see below).
+    expect(updateStats).toHaveBeenCalledOnce()
   })
 
   it('@apiV3 still accepts a response that does carry the counters', async () => {
@@ -136,9 +150,11 @@ describe('a response without a `time` block', () => {
   })
 
   it('updateStats tolerates an absent time block from any caller', async () => {
-    // The v2 batch strategy calls this directly with the per-command `time`,
-    // which is equally absent when the portal sends none — so the guard has to
-    // live in the limiter, not only at the transport call site.
+    // `updateStats` is on the exported `ILimiter` contract, so the transport is
+    // not its only caller — the v2 batch strategy calls it per command. That one
+    // guards its own call, but the contract has to hold for a caller that does
+    // not, which is why the guard lives in the limiter as well as at the call
+    // site. This is the case that goes red if the limiter's guard is removed.
     const manager = new RestrictionManager(ParamsFactory.getDefault())
 
     await expect(

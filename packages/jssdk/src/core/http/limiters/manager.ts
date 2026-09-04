@@ -1,5 +1,6 @@
 import type { RestrictionParams, RestrictionManagerStats } from '../../../types/limiters'
 import type { LoggerInterface } from '../../../types/logger'
+import type { PayloadTime } from '../../../types/payloads'
 import { LoggerFactory } from '../../../logger'
 import { RateLimiter } from './rate-limiter'
 import { OperatingLimiter } from './operating-limiter'
@@ -91,10 +92,19 @@ export class RestrictionManager {
     } while (waitTime > 0)
   }
 
+  /**
+   * Fans the response's `time` block out to all three limiters.
+   *
+   * `timeData` is `undefined` when the portal sent no `time` block at all, which
+   * a success legitimately can — `rest.documentation.openapi` answers with the
+   * OpenAPI document at the top level. The transport already skips this call in
+   * that case; the parameter stays optional because `updateStats` is on the
+   * public {@link ILimiter} contract and the transport is not its only caller.
+   */
   async updateStats(
     requestId: string,
     method: string,
-    timeData: any
+    timeData: PayloadTime | undefined
   ): Promise<void> {
     await this.#operatingLimiter.updateStats(requestId, method, timeData)
     await this.#adaptiveDelayer.updateStats(requestId, method, timeData)

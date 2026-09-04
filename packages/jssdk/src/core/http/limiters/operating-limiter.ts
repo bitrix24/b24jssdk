@@ -140,20 +140,20 @@ export class OperatingLimiter implements ILimiter {
    * Updates operating time statistics for the method.
    *
    * `data` is optional because **a successful response without a `time` block at
-   * all is normal**, in two separate ways measured on live portals:
-   *
-   * - `rest.documentation.openapi` answers with the OpenAPI document at the top
-   *   level — no `result` envelope and no `time` — on every portal tried (an
-   *   on-premise build, a cloud portal and a cloud sandbox);
-   * - on-premise the operating limiter is off by default (the `rest` module's
-   *   `load_limiter_active` option, default `N`, which nothing in the product
-   *   ever sets), so `operating` / `operating_reset_at` are absent for *every*
-   *   method there.
-   *
-   * Destructuring an absent block threw `Cannot destructure property
+   * all is normal**: `rest.documentation.openapi` answers with the OpenAPI
+   * document at the top level — no `result` envelope and no `time` — on every
+   * portal tried (an on-premise build, a cloud portal and a cloud sandbox).
+   * Destructuring the absent block threw `Cannot destructure property
    * 'operating' of 'data' as it is undefined` and turned a fine HTTP 200 into an
    * exception. Same shape as #338, one level over: there the missing key was
    * `result`, here it is `time`.
+   *
+   * A `time` block that arrives *without* the counters is a second, separate
+   * case and was never the crash — the `operating === undefined` check below has
+   * always caught it. It is the normal on-premise state, because the operating
+   * limiter is off by default there (the `rest` module's `load_limiter_active`
+   * option, default `N`, which nothing in the product ever sets), so the
+   * counters are missing from every response on such a portal.
    *
    * No counters are synthesised when the block is absent. A fabricated
    * `operating: 0` is indistinguishable from a real "nothing consumed yet" and
@@ -184,7 +184,15 @@ export class OperatingLimiter implements ILimiter {
     const stats = this.#methodStats.get(method)!
 
     stats.operating = operating * 1000
-    stats.operating_reset_at = operating_reset_at * 1000
+    // Held apart from `operating` deliberately. The two counters travel together
+    // on every portal seen, but the type no longer promises that, and the old
+    // unconditional `operating_reset_at * 1000` would have written `NaN` into
+    // the stats if one ever arrived without the other — and `NaN` compares false
+    // against every threshold, so the limiter would have stopped waiting rather
+    // than failed visibly. Keeping the previous reset point is the safe reading.
+    if (operating_reset_at !== undefined) {
+      stats.operating_reset_at = operating_reset_at * 1000
+    }
     stats.lastUpdated = Date.now()
 
     // Check for heavy requests

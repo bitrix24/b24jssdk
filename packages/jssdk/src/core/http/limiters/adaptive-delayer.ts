@@ -1,6 +1,7 @@
 import type { AdaptiveConfig, ILimiter } from '../../../types/limiters'
 import type { OperatingLimiter } from './operating-limiter'
 import type { LoggerInterface } from '../../../types/logger'
+import type { PayloadTime } from '../../../types/payloads'
 import { LoggerFactory } from '../../../logger'
 
 /**
@@ -124,7 +125,7 @@ export class AdaptiveDelayer implements ILimiter {
     return maxDelay
   }
 
-  async updateStats(_requestId: string, _method: string, _data: any): Promise<void> {
+  async updateStats(_requestId: string, _method: string, _data: PayloadTime | undefined): Promise<void> {
     // Adaptive delayer updates based on operating limiter
   }
 

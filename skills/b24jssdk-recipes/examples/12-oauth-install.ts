@@ -309,6 +309,18 @@ async function main() {
     throw new Error('B24_CLIENT_ID and B24_CLIENT_SECRET env vars are required')
   }
 
+  // Say this at startup, not only when the first install is refused. Portal-URL
+  // validation fails closed, and it fails quietly from Bitrix24's side — the
+  // endpoint still answers 200, so a self-hosted operator who has not set the
+  // allow-lists sees installs simply not arrive. One line here is the
+  // difference between "nothing works" and "I know which env var to set".
+  if (!process.env.B24_ALLOWED_PORTAL_HOSTS && !process.env.B24_ALLOWED_OAUTH_HOSTS) {
+    logger.info(
+      'portal-URL validation is using the Bitrix24 cloud defaults; a self-hosted portal '
+      + 'must set B24_ALLOWED_PORTAL_HOSTS and B24_ALLOWED_OAUTH_HOSTS or its installs will be refused'
+    )
+  }
+
   const port = Number(process.env.PORT ?? 3001)
   const app = express()
   app.use(express.json())

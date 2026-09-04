@@ -72,6 +72,7 @@ Check for the recipe's startup log line rather than trusting the exit code.
 | --- | --- | --- |
 | `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipes 01, 03, 06 |
 | `lib/crypto.ts` | `safeEqual` | recipes 07, 12 |
+| `lib/portal-url.ts` | `checkPortalUrls` | recipe 12 |
 
 `baseStage(s)` strips the multi-funnel category prefix (`"C2:WON"` → `"WON"`), falling
 back to the original string when the part after the colon is empty (`"C2:"` → `"C2:"`).

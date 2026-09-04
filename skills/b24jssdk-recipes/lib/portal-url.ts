@@ -44,7 +44,17 @@
  * cloud default, not weaker.
  */
 
-/** Cloud portal suffixes. A leading dot, so `evil-bitrix24.com` cannot match. */
+/**
+ * Cloud portal suffixes. A leading dot, so `evil-bitrix24.com` cannot match.
+ *
+ * **This list is a snapshot and will go stale.** When Bitrix24 opens a region
+ * this does not name, installs from it are refused until someone edits this
+ * array — and nothing will tell you, because the failure looks like "installs
+ * stopped arriving". That is the price of failing closed, taken deliberately:
+ * the alternative is accepting an unknown host, which is the hole this exists
+ * to shut. An app that knows its own customers should narrow both lists with
+ * the environment variables rather than rely on this staying current.
+ */
 const DEFAULT_ALLOWED_SUFFIXES = [
   '.bitrix24.com',
   '.bitrix24.ru',
@@ -81,10 +91,42 @@ function allowedHosts(variable: string, fallback: string[]): string[] {
     return fallback
   }
 
-  return configured
+  const entries = configured
     .split(',')
     .map(entry => entry.trim().toLowerCase())
     .filter(entry => entry !== '')
+
+  // A value like `,` is non-empty but parses to nothing, which would refuse
+  // every install — an outage that looks like the portal has gone quiet rather
+  // than like a typo. Fail loudly at the point of the mistake instead.
+  if (entries.length === 0) {
+    throw new Error(`${variable} is set but lists no hosts`)
+  }
+
+  // `.com` would re-open exactly the hole this file closes: every `*.com` host
+  // accepted. A suffix has to name something you control, which means at least
+  // two labels after the leading dot.
+  for (const entry of entries) {
+    if (entry.startsWith('.') && entry.slice(1).split('.').filter(Boolean).length < 2) {
+      throw new Error(`${variable} entry "${entry}" is too broad — a suffix must name a domain, not a TLD`)
+    }
+  }
+
+  return entries
+}
+
+/**
+ * A syntactically plausible hostname: at least two non-empty labels, each of
+ * letters, digits and hyphens.
+ *
+ * Without the "non-empty label" part, the bare string `.bitrix24.com` passes
+ * `endsWith('.bitrix24.com')` and is accepted as a portal. No resolver would
+ * answer for it, so it is not a route to an attacker's host — but accepting a
+ * value that cannot exist is the kind of gap that becomes one later.
+ */
+function isPlausibleHost(host: string): boolean {
+  const labels = host.split('.')
+  return labels.length >= 2 && labels.every(label => /^[a-z0-9-]+$/.test(label))
 }
 
 function hostIsAllowed(host: string, allowed: string[]): boolean {
@@ -98,10 +140,8 @@ function hostIsAllowed(host: string, allowed: string[]): boolean {
  * string, a URL, something with a slash or a colon in it.
  */
 function domainHost(domain: string): string | null {
-  if (domain === '' || /[/\\:\s]/.test(domain)) {
-    return null
-  }
-  return domain.toLowerCase()
+  const lower = domain.toLowerCase()
+  return isPlausibleHost(lower) ? lower : null
 }
 
 /** One endpoint URL, parsed and shape-checked. Returns `null` if unusable. */
@@ -126,7 +166,8 @@ function endpointHost(value: string): string | null {
     return null
   }
 
-  return url.hostname.toLowerCase()
+  const host = url.hostname.toLowerCase()
+  return isPlausibleHost(host) ? host : null
 }
 
 /**

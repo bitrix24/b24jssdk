@@ -113,21 +113,13 @@ wrong once.
   params — including inside a query string, and two object levels deep, which is
   what a batch payload needs — before they can reach a log sink. It also masks
   the secret segment of a Bitrix24 webhook URL, `/rest/<userId>/<secret>/`,
-  which is neither a key nor a `key=value` pair and so was missed by both of the
-  other passes. `AjaxError.requestInfo` carries no request URL at all
+  which is neither a key nor a `key=value` pair and so is not something the
+  other two passes can see. `AjaxError.requestInfo` carries no request URL at all
   (#39, #40, #287).
-- **If you ran 2.2.0 or earlier with an `info`-level log sink, rotate the
-  webhook.** Until this was fixed, a portal answer carrying a webhook URL in its
-  path — `rest.deferredbatch.downloadresult` returns one — wrote that secret into
-  the `post/response` record while the line still read as redacted. A webhook
-  secret is a bearer credential with no expiry, so an upgrade does not undo the
-  copies already sitting in Sentry, Datadog or a log file: **treat any webhook
-  used with that method as compromised and issue a new one.** Nothing else is
-  needed if you never wired a logger, or wired one above `info`.
-- **The redactor runs over response bodies too, not only over request params.**
-  A portal method can return a URL carrying the calling webhook's own secret in
-  its path — `rest.deferredbatch.downloadresult` does — so the `post/response`
-  log record is in scope for redaction exactly as `post/send` is.
+- **The redactor runs over response bodies as well as request params.** A portal
+  method can return a URL with a webhook secret in its path —
+  `rest.deferredbatch.downloadresult` does — so the `post/response` record is in
+  scope for redaction exactly as `post/send` is.
 - **`SdkError.originalError` is non-enumerable.** It stays readable for local
   debugging, but a spread, `Object.keys()`, `JSON.stringify()` or a
   Sentry-style capture skips it, so a raw transport error carrying a secret in
@@ -168,9 +160,9 @@ wrong once.
 - **The path pass matches one shape**, Bitrix24's own webhook URL. "A credential
   somewhere in a path" is not a decidable question, so a credential that some
   other service puts in a path is not covered.
-- **Response bodies are logged at `info`, redacted.** Redaction is not the same
-  as omission: a portal answer is user data, and if your sink must not hold it,
-  filter at the sink or do not wire one at `info`.
+- **Response bodies are logged at `info`, redacted.** Redaction is not omission
+  — a portal answer is user data. If your sink should not hold it, filter at the
+  sink or do not wire one at `info`.
 
 The first two are recorded as accepted residual risk in
 [`redact.ts`](packages/jssdk/src/core/http/redact.ts) itself, with the reasoning.

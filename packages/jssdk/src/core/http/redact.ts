@@ -8,10 +8,10 @@
  * `toString()`). Keeping a single source of truth means the redaction list
  * stays consistent across all of them.
  *
- * **This runs over response bodies, not only over request params.** The
+ * **This runs over response bodies as well as request params.** The
  * `post/response` callsite passes `response.data.result` through here, so
- * whatever the portal chose to put in an answer is in scope — which is a wider
- * remit than "parameters we sent" and is why pass 3 exists.
+ * whatever the portal put in an answer is in scope too — a wider remit than
+ * "the parameters we sent", and the reason pass 3 exists.
  *
  * Three complementary passes run over each value:
  *   1. Key match — a property whose (lower-cased) name is in
@@ -26,16 +26,12 @@
  *   3. Credential-in-path scrub — a *string* value is scanned for the Bitrix24
  *      incoming-webhook URL shape, `/rest/<userId>/<secret>/`, and the secret
  *      segment is masked. Neither of the passes above can see it: the secret is
- *      not a key, and it is not a `key=value` pair — it is a path segment. A
- *      webhook secret is a bearer credential with every scope of the webhook,
- *      no second factor and no expiry, so this is the same class of leak as
- *      #39 / #40 through a different door. It reaches a log because a portal
- *      method can *return* such a URL in its answer:
- *      `rest.deferredbatch.downloadresult` answers
- *      `{ result: { downloadUrl } }` whose path carries the calling webhook's
- *      own secret, measured on a cloud portal. That the portal does this at all
- *      is a platform question and goes to Bitrix24; that the SDK wrote it to an
- *      `info` record while reporting the line as redacted is ours.
+ *      not a key, and it is not a `key=value` pair — it is a path segment, so
+ *      neither pass above can see it. It turns up in a log because this runs
+ *      over response bodies as well as over request params, and a portal method
+ *      can return such a URL: `rest.deferredbatch.downloadresult` answers
+ *      `{ result: { downloadUrl } }` built from the calling webhook, measured on
+ *      a cloud portal.
  *
  * The object walk descends two levels into nested objects and arrays — the
  * minimum that covers batch payloads (`{ cmd: [{ method, params:
@@ -107,17 +103,16 @@ const QS_SENSITIVE_RE = new RegExp(
  * - `<secret>` carries no dot, so a REST method name never matches — those do
  *   (`crm.item.list`, `rest.deferredbatch.downloadresult`). Hyphen and
  *   underscore are inside the class even though Bitrix24 issues alphanumeric
- *   secrets: the SDK does not control that format, and a secret shape we
- *   guessed too narrowly fails the only way that matters;
+ *   secrets: the SDK does not control that format, and guessing it too narrowly
+ *   fails in the direction that matters;
  * - at least 8 characters, which no short path word (`batch`, `profile`,
  *   `download`) reaches, and every real webhook secret does — they are issued
  *   far longer.
  *
  * **Both API versions.** `restApi:v3` puts the webhook at `/rest/api/<id>/…`
- * rather than `/rest/<id>/…` (`B24Hook.fromWebhookUrl`), so an `api/` segment is
- * optional here. A pattern written for v2 alone would have left every v3 hook
- * unmasked while reporting the same success — the whole defect, one version
- * over.
+ * rather than `/rest/<id>/…` (`B24Hook.fromWebhookUrl`), so the `api/` segment
+ * is optional here — a pattern written for v2 alone would leave every v3 hook
+ * unmasked.
  *
  * **The segment may end the string.** `.../rest/1/<secret>` with no trailing
  * slash is a legitimate webhook URL — it is the form `fromWebhookUrl` accepts —
@@ -125,8 +120,8 @@ const QS_SENSITIVE_RE = new RegExp(
  * where the shape stops being conservative: `/rest/1/somedotlessword` at the end
  * of a string is masked too. Accepted deliberately — dotless REST method names
  * are short (`batch`, `scope`, `profile`) and fall under the length floor, and
- * masking a method name costs a debugging detail while missing a secret costs
- * the portal.
+ * masking a method name costs a line of debugging detail where missing a secret
+ * costs rather more.
  *
  * Case-insensitive, matching the query-string pass. The portal issues a
  * lower-case `/rest/`, but a URL that reached a log may have been copied,

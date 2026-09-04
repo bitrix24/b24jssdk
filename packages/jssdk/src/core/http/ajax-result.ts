@@ -1,5 +1,5 @@
 import type { IResult } from '../result'
-import type { Payload, SuccessPayload } from '../../types/payloads'
+import type { Payload, PayloadTime, SuccessPayload } from '../../types/payloads'
 import type { ValidationDetail } from './parse-error-payload'
 import { parseErrorPayload } from './parse-error-payload'
 import type { TypeCallParams, TypeHttp } from '../../types/http'
@@ -80,12 +80,44 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     return this._errors.size === 0
   }
 
+  /**
+   * The success payload as `{ result, time }`.
+   *
+   * A response whose body carries **no `result` key at all** is wrapped: the
+   * whole body becomes `result`. Without that the body is simply lost — this
+   * method rebuilds the payload from two named keys, so anything else on it is
+   * projected away and the caller gets `{ result: undefined, time: undefined }`.
+   *
+   * That is not hypothetical. `rest.documentation.openapi` answers with the
+   * OpenAPI document at the top level — no envelope, no `time` — on every portal
+   * measured (an on-premise build, a cloud portal, a cloud sandbox). It is the
+   * method our own docs call the source of truth for v3 discovery, and its
+   * documented snippet reads `getData()?.result`; the wrap is what makes that
+   * snippet true rather than a promise the transport quietly breaks.
+   *
+   * Done here rather than in the constructor on purpose: `#processErrors()` runs
+   * against the raw body and detects an error by its `error` key. Wrapping
+   * earlier would hide `error` one level down and turn every error response into
+   * a "successful" one. By the time this method runs, `isSuccess` has already
+   * been decided.
+   *
+   * `b24phpsdk` resolves the same problem the same way — `Response.php` moves a
+   * body with no `result` key under `result`, naming this very endpoint in its
+   * comment.
+   */
   override getData(): undefined | SuccessPayload<T> {
     if (!this.isSuccess) {
       return undefined
     }
 
     const payload = this._data as SuccessPayload<T>
+
+    if (payload && typeof payload === 'object' && !('result' in payload)) {
+      return Object.freeze({
+        result: payload as unknown as T,
+        time: (payload as { time?: PayloadTime }).time
+      }) as SuccessPayload<T>
+    }
 
     return Object.freeze({
       result: payload.result,

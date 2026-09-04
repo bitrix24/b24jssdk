@@ -3,12 +3,17 @@
  * enter any logger or error-rendering surface.
  *
  * Callers: `Http._sanitizeParams` (logger context), `_makeAxiosRequest`
- * (`post/send` and `post/catchError` info logs), `AjaxError` constructor
- * (stores `requestInfo.params` exposed by `toJSON()` / `toString()`).
- * Keeping a single source of truth means the redaction list stays
- * consistent across all of them.
+ * (`post/send`, `post/response` and `post/catchError` info logs), `AjaxError`
+ * constructor (stores `requestInfo.params` exposed by `toJSON()` /
+ * `toString()`). Keeping a single source of truth means the redaction list
+ * stays consistent across all of them.
  *
- * Two complementary passes run over each value:
+ * **This runs over response bodies, not only over request params.** The
+ * `post/response` callsite passes `response.data.result` through here, so
+ * whatever the portal chose to put in an answer is in scope — which is a wider
+ * remit than "parameters we sent" and is why pass 3 exists.
+ *
+ * Three complementary passes run over each value:
  *   1. Key match — a property whose (lower-cased) name is in
  *      {@link SENSITIVE_PARAM_KEYS} has its whole value replaced, so a nested
  *      credential object (e.g. `auth: { application_token }`) is masked
@@ -18,6 +23,19 @@
  *      batch `cmd[i]` shape (`method?auth=<token>&...`) where `_prepareParams`
  *      has already serialised the credential into text the key walk can't see
  *      (#229).
+ *   3. Credential-in-path scrub — a *string* value is scanned for the Bitrix24
+ *      incoming-webhook URL shape, `/rest/<userId>/<secret>/`, and the secret
+ *      segment is masked. Neither of the passes above can see it: the secret is
+ *      not a key, and it is not a `key=value` pair — it is a path segment. A
+ *      webhook secret is a bearer credential with every scope of the webhook,
+ *      no second factor and no expiry, so this is the same class of leak as
+ *      #39 / #40 through a different door. It reaches a log because a portal
+ *      method can *return* such a URL in its answer:
+ *      `rest.deferredbatch.downloadresult` answers
+ *      `{ result: { downloadUrl } }` whose path carries the calling webhook's
+ *      own secret, measured on a cloud portal. That the portal does this at all
+ *      is a platform question and goes to Bitrix24; that the SDK wrote it to an
+ *      `info` record while reporting the line as redacted is ours.
  *
  * The object walk descends two levels into nested objects and arrays — the
  * minimum that covers batch payloads (`{ cmd: [{ method, params:
@@ -43,6 +61,10 @@
  *     of over-redacting a non-credential field that happens to be named so.
  *   - empty / nullish values are still treated as sensitive — an empty
  *     `access_token` is unusual but not safe to leave un-redacted.
+ *   - the path scrub matches one shape — Bitrix24's own webhook URL — and not
+ *     "a credential somewhere in a path" in general, which is not a decidable
+ *     question. A credential that some other service puts in a path is not
+ *     covered.
  */
 
 export const SENSITIVE_PARAM_KEYS: readonly string[] = [
@@ -75,6 +97,32 @@ const QS_SENSITIVE_RE = new RegExp(
   'gi'
 )
 
+/**
+ * The Bitrix24 incoming-webhook URL shape: `/rest/<userId>/<secret>/`.
+ *
+ * Deliberately narrow, because a path segment carries no name to match on and
+ * the only defence against over-masking is the shape itself:
+ *
+ * - `<userId>` is digits, as the portal builds it;
+ * - `<secret>` is letters and digits only, so a REST method name never matches —
+ *   those carry dots (`crm.item.list`, `rest.deferredbatch.downloadresult`);
+ * - at least 8 characters, which no short path word (`batch`, `profile`,
+ *   `download`) reaches, and every real webhook secret does — they are issued
+ *   far longer.
+ *
+ * A trailing `/` is required so the secret is a complete segment: without it
+ * the pattern would also fire on `/rest/1/somemethod` at the end of a URL,
+ * where the third segment is a method rather than a secret.
+ *
+ * Only the secret is masked; the portal host and the user id stay readable,
+ * because a redacted line still has to be usable for debugging.
+ */
+const WEBHOOK_PATH_RE = /(\/rest\/\d+\/)[A-Za-z0-9]{8,}(?=\/)/g
+
+function redactWebhookPath(value: string): string {
+  return value.replace(WEBHOOK_PATH_RE, `$1${REDACTED_PLACEHOLDER}`)
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -87,13 +135,25 @@ function redactQueryString(value: string): string {
   )
 }
 
+/**
+ * Both string passes, in the order that keeps each one's fast path honest.
+ *
+ * The query scrub returns early when the string holds no `=` at all, which is
+ * correct for a query pair and wrong for a path: `.../rest/1/<secret>/download/`
+ * has no `=` anywhere, so routing every string through the query pass alone
+ * left exactly that URL untouched.
+ */
+function redactString(value: string): string {
+  return redactWebhookPath(redactQueryString(value))
+}
+
 // String scrubbing runs before the `depth <= 0` guard on purpose: scanning a
 // string is cheap and bounded, so a serialised credential is masked even at a
 // level the object walk would stop descending into. Arrays do not consume a
 // depth slot (only object descent decrements `depth`), so an array nested in an
 // array is still walked.
 function redactValue(value: unknown, depth: number): unknown {
-  if (typeof value === 'string') return redactQueryString(value)
+  if (typeof value === 'string') return redactString(value)
   if (depth <= 0) return value
   if (isPlainObject(value)) return redactObject(value, depth - 1)
   if (Array.isArray(value)) return value.map(item => redactValue(item, depth))
@@ -135,8 +195,9 @@ export function redactSensitiveParams(params: unknown): unknown {
 }
 
 /**
- * Redact credential query-string values in a URL string — e.g. a Pull
- * `connectionPath` surfaced by `getDebugInfo()`. Masks every
+ * Redact credentials in a URL string — e.g. a Pull `connectionPath` surfaced by
+ * `getDebugInfo()`. Masks the webhook secret when the URL carries one in its
+ * path (`/rest/<userId>/<secret>/`), and every
  * {@link SENSITIVE_PARAM_KEYS} value plus any caller-supplied `extraKeys`
  * (e.g. Pull's `CHANNEL_ID`, a private identifier that is not a global
  * credential key). `extraKeys` are regex-escaped, so any literal key name is
@@ -145,12 +206,17 @@ export function redactSensitiveParams(params: unknown): unknown {
  * returned unchanged (a defensive guard for untyped JS callers).
  */
 export function redactSensitiveUrl(url: string, extraKeys: readonly string[] = []): string {
-  if (typeof url !== 'string' || !url.includes('=')) return url
-  if (extraKeys.length === 0) return redactQueryString(url)
+  if (typeof url !== 'string') return url
+  // The webhook-path pass runs first and unconditionally: a webhook URL with no
+  // query string at all holds no `=`, and the query scrub's early return would
+  // otherwise hand it back with the secret intact.
+  const masked = redactWebhookPath(url)
+  if (!masked.includes('=')) return masked
+  if (extraKeys.length === 0) return redactQueryString(masked)
   const escaped = extraKeys.map(key => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   const re = new RegExp(
     `([?&]|^)(${[...SENSITIVE_PARAM_KEYS, ...escaped].join('|')})=[^&#;]*`,
     'gi'
   )
-  return url.replace(re, (_match, sep: string, key: string) => `${sep}${key}=${REDACTED_PLACEHOLDER}`)
+  return masked.replace(re, (_match, sep: string, key: string) => `${sep}${key}=${REDACTED_PLACEHOLDER}`)
 }

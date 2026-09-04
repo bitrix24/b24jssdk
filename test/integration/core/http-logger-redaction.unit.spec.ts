@@ -717,4 +717,86 @@ describe('core.http logger redaction @issue-39', () => {
     expect(redactSensitiveUrl(null as any)).toBe(null)
     expect(redactSensitiveUrl('wss://host/sub/no-query')).toBe('wss://host/sub/no-query')
   })
+
+  // ---------------------------------------------------------------------
+  // A webhook secret in the URL *path* — the shape neither earlier pass saw.
+  // ---------------------------------------------------------------------
+
+  it('masks a webhook secret sitting in the URL path, with and without a query string', () => {
+    const secret = 'wh00ksecret0000000'
+    const base = `https://example.bitrix24.com/rest/1/${secret}/download/`
+
+    // The measured `rest.deferredbatch.downloadresult` shape. The `?token=`
+    // beside it was always masked, which is what made the line *look* redacted.
+    const withQuery = redactSensitiveParams({ downloadUrl: `${base}?token=abc123&fileId=42` })
+    expect(JSON.stringify(withQuery)).not.toContain(secret)
+    expect(String(withQuery.downloadUrl)).toContain('token=***REDACTED***')
+    // The host and the user id stay readable — a redacted line still has to be
+    // usable for debugging.
+    expect(String(withQuery.downloadUrl)).toContain('https://example.bitrix24.com/rest/1/')
+    expect(String(withQuery.downloadUrl)).toContain('fileId=42')
+
+    // No `=` anywhere: the query pass returns early here, so this case is what
+    // proves the path pass is not hiding behind it.
+    const noQuery = redactSensitiveParams({ downloadUrl: base })
+    expect(JSON.stringify(noQuery)).not.toContain(secret)
+
+    // The same through the URL helper, whose early return had the same shape.
+    expect(redactSensitiveUrl(base)).not.toContain(secret)
+    expect(redactSensitiveUrl(`${base}?token=x`)).not.toContain(secret)
+  })
+
+  it('does not mask path segments that only look like a secret', () => {
+    // Method names carry dots, so they can never match; short path words are
+    // below the length floor. Over-masking here would blind the logs instead.
+    const kept = [
+      'https://example.bitrix24.com/rest/crm.item.list',
+      'https://example.bitrix24.com/rest/1/crm.item.list',
+      'https://example.bitrix24.com/rest/1/batch/',
+      'https://example.bitrix24.com/rest/1/profile/',
+      'https://example.bitrix24.com/rest/api/1/main.eventlog.list'
+    ]
+    for (const url of kept) {
+      expect(redactSensitiveParams({ url }).url, url).toBe(url)
+    }
+  })
+
+  it('post/response never writes a webhook secret returned in the body (deferredbatch downloadresult)', async () => {
+    // The whole point: the secret arrives in the *answer*, so nothing about the
+    // request being clean protects it. Measured shape, synthetic values.
+    const returnedSecret = 'r3turn3dwebhooksecret'
+    b24 = buildClient('v2')
+    vi.spyOn(b24.getHttpClient(ApiVersion.v2).ajaxClient, 'post').mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as never,
+      data: {
+        result: {
+          downloadUrl: `https://example.bitrix24.com/rest/1/${returnedSecret}/download/?token=t&fileId=42`
+        },
+        time: {
+          start: 0,
+          finish: 0,
+          duration: 0,
+          processing: 0,
+          date_start: '1970-01-01T00:00:00+00:00',
+          date_finish: '1970-01-01T00:00:00+00:00',
+          operating_reset_at: 1,
+          operating: 0
+        }
+      }
+    })
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    await b24.actions.v2.call.make({ method: 'rest.deferredbatch.downloadresult', params: {} })
+
+    const postResponse = captured.find(e => e.message === 'post/response')
+    expect(postResponse, 'post/response must fire on a successful call').toBeDefined()
+    // Every captured record, not just this one — a second sink would be a leak
+    // just the same.
+    expect(JSON.stringify(captured)).not.toContain(returnedSecret)
+    expect(String(postResponse!.context!.result)).toContain('***REDACTED***')
+  })
 })

@@ -1,6 +1,6 @@
 # Security policy
 
-<sub>Last reviewed: 2026-08-27.</sub>
+<sub>Last reviewed: 2026-09-04.</sub>
 
 ## Reporting a vulnerability
 
@@ -111,8 +111,15 @@ wrong once.
   `auth`, `token`, `secret`, `access_token`, `refresh_token`, `client_secret`,
   `application_token`, `password`, `sessid`, `key` and `signature` from request
   params — including inside a query string, and two object levels deep, which is
-  what a batch payload needs — before they can reach a log sink.
-  `AjaxError.requestInfo` carries no request URL at all (#39, #40, #287).
+  what a batch payload needs — before they can reach a log sink. It also masks
+  the secret segment of a Bitrix24 webhook URL, `/rest/<userId>/<secret>/`,
+  which is neither a key nor a `key=value` pair and so was missed by both of the
+  other passes. `AjaxError.requestInfo` carries no request URL at all
+  (#39, #40, #287).
+- **The redactor runs over response bodies too, not only over request params.**
+  A portal method can return a URL carrying the calling webhook's own secret in
+  its path — `rest.deferredbatch.downloadresult` does — so the `post/response`
+  log record is in scope for redaction exactly as `post/send` is.
 - **`SdkError.originalError` is non-enumerable.** It stays readable for local
   debugging, but a spread, `Object.keys()`, `JSON.stringify()` or a
   Sentry-style capture skips it, so a raw transport error carrying a secret in
@@ -150,6 +157,12 @@ wrong once.
   redacted — do not interpolate params, a filter, or a URL into its description.
 - A `filter` legitimately carries user data. It is not treated as a credential,
   and it is not redacted.
+- **The path pass matches one shape**, Bitrix24's own webhook URL. "A credential
+  somewhere in a path" is not a decidable question, so a credential that some
+  other service puts in a path is not covered.
+- **Response bodies are logged at `info`, redacted.** Redaction is not the same
+  as omission: a portal answer is user data, and if your sink must not hold it,
+  filter at the sink or do not wire one at `info`.
 
 The first two are recorded as accepted residual risk in
 [`redact.ts`](packages/jssdk/src/core/http/redact.ts) itself, with the reasoning.

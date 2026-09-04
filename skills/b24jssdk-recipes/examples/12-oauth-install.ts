@@ -41,6 +41,7 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { safeEqual } from '../lib/crypto'
+import { checkPortalUrls } from '../lib/portal-url'
 
 const logger = Logger.create('OAuthInstall')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
@@ -155,7 +156,28 @@ export function toOAuthParams(auth: InstallEventPayload['auth']): B24OAuthParams
   }
 }
 
-async function handleInstall(req: Request, res: Response) {
+/**
+ * Handle `ONAPPINSTALL`.
+ *
+ * **This endpoint cannot authenticate its caller, and that is a platform
+ * constraint rather than an omission here:** `application_token` is *issued* by
+ * this very event, so a first-time handler has nothing to compare against. Any
+ * POST that reaches `/install` is therefore accepted, and someone who knows or
+ * guesses a `member_id` can overwrite that portal's record (#389).
+ *
+ * What that is *worth* to them is the part this code controls. The stored
+ * `domain` / `client_endpoint` / `server_endpoint` decide where every later call
+ * for the portal goes, so without a check a forged install redirects the app's
+ * own traffic — with its business data — to the forger's server, whose answers
+ * the app then trusts. `checkPortalUrls` removes that: the worst a forged
+ * install can do is corrupt a record so calls fail, which is noisy and
+ * recoverable.
+ *
+ * It does **not** make the endpoint safe to expose carelessly. Put it behind
+ * whatever network control your deployment allows — an allow-list of Bitrix24's
+ * ranges, or a secret path segment — and read the security guide.
+ */
+export async function handleInstall(req: Request, res: Response) {
   const payload = req.body as InstallEventPayload
   // Always 200 — even on bad payloads — so Bitrix24 doesn't retry for 24h.
   res.status(200).send('ok')
@@ -165,7 +187,23 @@ async function handleInstall(req: Request, res: Response) {
     return
   }
 
+  const badUrls = checkPortalUrls(payload.auth)
+  if (badUrls !== null) {
+    // Log the reason, answer nothing: telling the caller which check it tripped
+    // turns the endpoint into an oracle for finding one that passes.
+    logger.warning(`[install] refusing implausible portal URLs for member=${payload.auth.member_id}: ${badUrls}`)
+    return
+  }
+
   const params = toOAuthParams(payload.auth)
+
+  // Not protection — observability. A legitimate reinstall lands here too, so
+  // this cannot refuse; what it can do is stop a silent takeover being silent.
+  const existing = await getCredentials(params.memberId)
+  if (existing) {
+    logger.warning(`[install] overwriting existing credentials for member=${params.memberId}`)
+  }
+
   await saveCredentials(params.memberId, {
     ...params,
     applicationToken: payload.auth.application_token

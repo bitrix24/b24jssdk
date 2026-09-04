@@ -227,3 +227,126 @@ describe('handleUninstall (recipe 12)', () => {
     expect(existsSync(storeFile)).toBe(false)
   })
 })
+
+/**
+ * #389 — `handleInstall` cannot authenticate its caller, so what a forged
+ * install can *achieve* is the thing under test.
+ *
+ * The endpoint accepts any POST by design: `application_token` is issued by
+ * this very event, so a first-time handler has nothing to compare against.
+ * What it must not do is persist portal URLs that redirect the app's later
+ * traffic — that turns a forged install from "corrupt one record" into "read
+ * the app's business data and answer for Bitrix24".
+ */
+describe('handleInstall (recipe 12)', () => {
+  const installPayload = (over: Record<string, string> = {}) => ({
+    event: 'ONAPPINSTALL',
+    data: { VERSION: '1', ACTIVE: '1', LANGUAGE_ID: 'en' },
+    ts: '1893456000',
+    auth: authPayload(over)
+  })
+
+  it('stores the credentials for a plausible payload', async () => {
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleInstall({ body: installPayload() } as never, res as never)
+
+    expect(state.code).toBe(200)
+    expect(readStore()['member-abc'].accessToken).toBe('at-1')
+  })
+
+  it('always answers 200, so Bitrix24 does not retry for 24h', async () => {
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleInstall({ body: { event: 'ONAPPINSTALL', auth: {} } } as never, res as never)
+
+    expect(state.code).toBe(200)
+  })
+
+  // The attack this closes. Each of these payloads would otherwise be persisted
+  // verbatim, and every later `clientForMember()` call for that portal would go
+  // to the attacker's host carrying whatever the app sends.
+  for (const [name, over] of [
+    ['an endpoint on a foreign host', { client_endpoint: 'https://attacker.example/rest/' }],
+    // Worse than the client one: the SDK POSTs client_id, client_secret and
+    // refresh_token here on every refresh, so a forged server_endpoint leaks
+    // the application-wide secret, not just this portal's data.
+    ['a server endpoint on a foreign host', { server_endpoint: 'https://attacker.example/rest/' }],
+    ['a lookalike domain', { domain: 'evil-bitrix24.com', client_endpoint: 'https://evil-bitrix24.com/rest/', server_endpoint: 'https://evil-bitrix24.com/rest/' }],
+    ['a plain-http endpoint', { client_endpoint: 'http://acme.bitrix24.com/rest/' }],
+    // Host matches `domain`, so the consistency check passes it — only the
+    // credentials check refuses it. Written the other way round (credentials
+    // naming the portal, host naming the attacker) the test would pass for the
+    // wrong reason, which is how it was written first.
+    ['credentials embedded in the URL', { client_endpoint: 'https://user:pass@acme.bitrix24.com/rest/' }],
+    ['a domain that is really a URL', { domain: 'https://attacker.example' }]
+  ] as const) {
+    it(`refuses ${name}, leaving any existing record intact`, async () => {
+      writeStore({ 'member-abc': { applicationToken: 'real-token', accessToken: 'real-at' } })
+      const { handleInstall } = await loadRecipe()
+      const { res, state } = fakeRes()
+
+      await handleInstall({ body: installPayload(over) } as never, res as never)
+
+      expect(state.code).toBe(200)
+      expect(readStore()['member-abc'].accessToken).toBe('real-at')
+    })
+  }
+
+  it('accepts the shared cloud OAuth server, which is not the portal host', async () => {
+    // `server_endpoint` is `oauth.bitrix.info` for every cloud portal. Requiring
+    // it to match `domain` would reject every legitimate cloud install — which
+    // is exactly what the first version of this check did.
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res } = fakeRes()
+
+    await handleInstall({
+      body: installPayload({ server_endpoint: 'https://oauth.bitrix24.tech/rest/' })
+    } as never, res as never)
+
+    expect(readStore()['member-abc'].accessToken).toBe('at-1')
+  })
+
+  it('accepts a self-hosted portal once its host is allow-listed', async () => {
+    // The check would otherwise reject every on-premise install, since a boxed
+    // portal lives at whatever domain its owner chose.
+    writeStore({})
+    process.env.B24_ALLOWED_PORTAL_HOSTS = 'intranet.example.com'
+    try {
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await handleInstall({
+        body: installPayload({
+          domain: 'intranet.example.com',
+          client_endpoint: 'https://intranet.example.com/rest/',
+          server_endpoint: 'https://intranet.example.com/rest/'
+        })
+      } as never, res as never)
+
+      expect(readStore()['member-abc'].accessToken).toBe('at-1')
+    } finally {
+      delete process.env.B24_ALLOWED_PORTAL_HOSTS
+    }
+  })
+
+  it('still refuses a foreign host when an allow-list is configured', async () => {
+    writeStore({})
+    process.env.B24_ALLOWED_PORTAL_HOSTS = 'intranet.example.com'
+    try {
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await handleInstall({ body: installPayload() } as never, res as never)
+
+      expect(readStore()).toEqual({})
+    } finally {
+      delete process.env.B24_ALLOWED_PORTAL_HOSTS
+    }
+  })
+})

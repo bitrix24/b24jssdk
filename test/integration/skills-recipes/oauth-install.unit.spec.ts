@@ -227,3 +227,268 @@ describe('handleUninstall (recipe 12)', () => {
     expect(existsSync(storeFile)).toBe(false)
   })
 })
+
+/**
+ * #389 — `handleInstall` cannot authenticate its caller, so what a forged
+ * install can *achieve* is the thing under test.
+ *
+ * The endpoint accepts any POST by design: `application_token` is issued by
+ * this very event, so a first-time handler has nothing to compare against.
+ * What it must not do is persist portal URLs that redirect the app's later
+ * traffic — that turns a forged install from "corrupt one record" into "read
+ * the app's business data and answer for Bitrix24".
+ */
+describe('handleInstall (recipe 12)', () => {
+  const installPayload = (over: Record<string, string> = {}) => ({
+    event: 'ONAPPINSTALL',
+    data: { VERSION: '1', ACTIVE: '1', LANGUAGE_ID: 'en' },
+    ts: '1893456000',
+    auth: authPayload(over)
+  })
+
+  it('stores the credentials for a plausible payload', async () => {
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleInstall({ body: installPayload() } as never, res as never)
+
+    expect(state.code).toBe(200)
+    expect(readStore()['member-abc'].accessToken).toBe('at-1')
+  })
+
+  it('always answers 200, so Bitrix24 does not retry for 24h', async () => {
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleInstall({ body: { event: 'ONAPPINSTALL', auth: {} } } as never, res as never)
+
+    expect(state.code).toBe(200)
+  })
+
+  // The attack this closes. Each of these payloads would otherwise be persisted
+  // verbatim, and every later `clientForMember()` call for that portal would go
+  // to the attacker's host carrying whatever the app sends.
+  for (const [name, over] of [
+    ['an endpoint on a foreign host', { client_endpoint: 'https://attacker.example/rest/' }],
+    // Worse than the client one: the SDK POSTs client_id, client_secret and
+    // refresh_token here on every refresh, so a forged server_endpoint leaks
+    // the application-wide secret, not just this portal's data.
+    ['a server endpoint on a foreign host', { server_endpoint: 'https://attacker.example/rest/' }],
+    ['a lookalike domain', { domain: 'evil-bitrix24.com', client_endpoint: 'https://evil-bitrix24.com/rest/', server_endpoint: 'https://evil-bitrix24.com/rest/' }],
+    ['a plain-http endpoint', { client_endpoint: 'http://acme.bitrix24.com/rest/' }],
+    // Host matches `domain`, so the consistency check passes it — only the
+    // credentials check refuses it. Written the other way round (credentials
+    // naming the portal, host naming the attacker) the test would pass for the
+    // wrong reason, which is how it was written first.
+    ['credentials embedded in the URL', { client_endpoint: 'https://user:pass@acme.bitrix24.com/rest/' }],
+    ['a plain-http server endpoint', { server_endpoint: 'http://oauth.bitrix.info/rest/' }],
+    ['credentials in the server endpoint', { server_endpoint: 'https://user:pass@oauth.bitrix.info/rest/' }],
+    ['a domain that is really a URL', { domain: 'https://attacker.example' }],
+    // Ends with an allowed suffix, so the allow-list would pass it. Only the
+    // hostname-shape check refuses it — which is the point: without a case like
+    // this, disabling that check leaves every test green.
+    ['a path smuggled into the domain', {
+      domain: 'attacker.example/acme.bitrix24.com',
+      client_endpoint: 'https://attacker.example/acme.bitrix24.com/rest/'
+    }],
+    // A bare suffix has an empty leftmost label, so no resolver would answer for
+    // it — but `.bitrix24.com`.endsWith(`.bitrix24.com`) is true, so the
+    // allow-list alone would accept it.
+    ['a domain that is only a suffix', {
+      domain: '.bitrix24.com',
+      client_endpoint: 'https://.bitrix24.com/rest/'
+    }]
+  ] as const) {
+    it(`refuses ${name}, leaving any existing record intact`, async () => {
+      writeStore({ 'member-abc': { applicationToken: 'real-token', accessToken: 'real-at' } })
+      const { handleInstall } = await loadRecipe()
+      const { res, state } = fakeRes()
+
+      await handleInstall({ body: installPayload(over) } as never, res as never)
+
+      expect(state.code).toBe(200)
+      expect(readStore()['member-abc'].accessToken).toBe('real-at')
+    })
+  }
+
+  it('accepts the shared cloud OAuth server, which is not the portal host', async () => {
+    // `server_endpoint` is `oauth.bitrix.info` for every cloud portal. Requiring
+    // it to match `domain` would reject every legitimate cloud install — which
+    // is exactly what the first version of this check did.
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res } = fakeRes()
+
+    await handleInstall({
+      body: installPayload({ server_endpoint: 'https://oauth.bitrix24.tech/rest/' })
+    } as never, res as never)
+
+    expect(readStore()['member-abc'].accessToken).toBe('at-1')
+  })
+
+  it('accepts a self-hosted portal once its host is allow-listed', async () => {
+    // The check would otherwise reject every on-premise install, since a boxed
+    // portal lives at whatever domain its owner chose.
+    writeStore({})
+    process.env.B24_ALLOWED_PORTAL_HOSTS = 'intranet.example.com'
+    try {
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await handleInstall({
+        body: installPayload({
+          domain: 'intranet.example.com',
+          client_endpoint: 'https://intranet.example.com/rest/',
+          server_endpoint: 'https://intranet.example.com/rest/'
+        })
+      } as never, res as never)
+
+      expect(readStore()['member-abc'].accessToken).toBe('at-1')
+    } finally {
+      delete process.env.B24_ALLOWED_PORTAL_HOSTS
+    }
+  })
+
+  it('refuses an OAuth server that is neither the portal nor on the list', async () => {
+    // `B24_ALLOWED_OAUTH_HOSTS` had no coverage at all, so nothing pinned that
+    // narrowing it actually narrows anything.
+    writeStore({})
+    process.env.B24_ALLOWED_OAUTH_HOSTS = 'oauth.bitrix.info'
+    try {
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await handleInstall({
+        body: installPayload({ server_endpoint: 'https://oauth.bitrix24.tech/rest/' })
+      } as never, res as never)
+
+      expect(readStore()).toEqual({})
+    } finally {
+      delete process.env.B24_ALLOWED_OAUTH_HOSTS
+    }
+  })
+
+  it('refuses an allow-list that lists no hosts, rather than refusing everything quietly', async () => {
+    // `,` is non-empty but parses to nothing. Silently allowing nothing is an
+    // outage that looks like the portal has gone quiet.
+    writeStore({})
+    process.env.B24_ALLOWED_PORTAL_HOSTS = ','
+    try {
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await expect(
+        handleInstall({ body: installPayload() } as never, res as never)
+      ).rejects.toThrow(/lists no hosts/)
+    } finally {
+      delete process.env.B24_ALLOWED_PORTAL_HOSTS
+    }
+  })
+
+  it('refuses a suffix broad enough to re-open the hole', async () => {
+    writeStore({})
+    process.env.B24_ALLOWED_PORTAL_HOSTS = '.com'
+    try {
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await expect(
+        handleInstall({ body: installPayload() } as never, res as never)
+      ).rejects.toThrow(/too broad/)
+    } finally {
+      delete process.env.B24_ALLOWED_PORTAL_HOSTS
+    }
+  })
+
+  it('still refuses a foreign host when an allow-list is configured', async () => {
+    writeStore({})
+    process.env.B24_ALLOWED_PORTAL_HOSTS = 'intranet.example.com'
+    try {
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await handleInstall({ body: installPayload() } as never, res as never)
+
+      expect(readStore()).toEqual({})
+    } finally {
+      delete process.env.B24_ALLOWED_PORTAL_HOSTS
+    }
+  })
+})
+
+/**
+ * `checkPortalUrls` directly, asserting *which* check refused.
+ *
+ * Driving it through `handleInstall` cannot do this. The layers overlap on
+ * purpose — a malformed `domain` that still ends with an allowed suffix also
+ * fails the `client_endpoint === domain` comparison, so disabling either shape
+ * check alone leaves every black-box test green. That is defence in depth
+ * working, and it is also why two tests here were vacuous before this block
+ * existed. Asserting the reason string is what tells the layers apart.
+ */
+describe('checkPortalUrls (recipe 12)', () => {
+  const auth = (over: Record<string, string> = {}) => ({
+    domain: 'acme.bitrix24.com',
+    client_endpoint: 'https://acme.bitrix24.com/rest/',
+    server_endpoint: 'https://oauth.bitrix.info/rest/',
+    ...over
+  })
+
+  it('accepts a normal cloud payload', async () => {
+    const { checkPortalUrls } = await import('../../../skills/b24jssdk-recipes/lib/portal-url')
+    expect(checkPortalUrls(auth())).toBeNull()
+  })
+
+  it('accepts a cloud portal that names itself as its own token server', async () => {
+    const { checkPortalUrls } = await import('../../../skills/b24jssdk-recipes/lib/portal-url')
+    expect(checkPortalUrls(auth({ server_endpoint: 'https://acme.bitrix24.com/rest/' }))).toBeNull()
+  })
+
+  it('is not fooled by case', async () => {
+    const { checkPortalUrls } = await import('../../../skills/b24jssdk-recipes/lib/portal-url')
+    expect(checkPortalUrls(auth({
+      domain: 'ACME.BITRIX24.COM',
+      client_endpoint: 'https://ACME.BITRIX24.COM/rest/'
+    }))).toBeNull()
+  })
+
+  // Each of these ends with an allowed suffix, so the allow-list would pass it.
+  // The reason string proves the shape check is what refuses it.
+  for (const [name, domain] of [
+    ['a path smuggled in', 'attacker.example/acme.bitrix24.com'],
+    ['a bare suffix with no leftmost label', '.bitrix24.com'],
+    ['an empty label in the middle', 'acme..bitrix24.com'],
+    ['a port', 'acme.bitrix24.com:8443'],
+    ['whitespace', 'acme .bitrix24.com'],
+    // A single label is a host on a local network, never a portal. It is also
+    // the only case the "at least two labels" clause uniquely catches — without
+    // it the allow-list refuses this, but for a different reason.
+    ['a single label', 'localhost']
+  ] as const) {
+    it(`refuses ${name} on shape, not on the allow-list`, async () => {
+      const { checkPortalUrls } = await import('../../../skills/b24jssdk-recipes/lib/portal-url')
+      expect(checkPortalUrls(auth({ domain }))).toBe('domain is not a plausible host')
+    })
+  }
+
+  it('refuses an endpoint whose host is not a plausible host', async () => {
+    const { checkPortalUrls } = await import('../../../skills/b24jssdk-recipes/lib/portal-url')
+    // An IPv6 literal parses, and `hostname` keeps the brackets. A portal is
+    // never one, and letting it through would compare bracketed text to a name.
+    expect(checkPortalUrls(auth({ client_endpoint: 'https://[::1]/rest/' })))
+      .toBe('client_endpoint is not an https URL without credentials')
+  })
+
+  it('names the domain check before the endpoint checks', async () => {
+    // Order matters for the log: a payload wrong in several ways should report
+    // the first thing wrong with it, not the last.
+    const { checkPortalUrls } = await import('../../../skills/b24jssdk-recipes/lib/portal-url')
+    expect(checkPortalUrls({
+      domain: 'attacker.example',
+      client_endpoint: 'http://attacker.example/rest/',
+      server_endpoint: 'http://attacker.example/rest/'
+    })).toMatch(/^domain host is not allowed/)
+  })
+})

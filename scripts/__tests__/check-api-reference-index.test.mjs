@@ -9,7 +9,7 @@
 //
 // Run with: node --test scripts/__tests__/check-api-reference-index.test.mjs
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,7 +17,13 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { collectValueExports, collectPageNames } from '../check-api-reference-index.mjs'
+import {
+  collectValueExports,
+  collectPageNames,
+  collectPagePositions,
+  checkListConsistency,
+  checkPositionSplit
+} from '../check-api-reference-index.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..', '..')
@@ -303,4 +309,140 @@ test('the real repo passes, and reports the export count', () => {
   const run = spawnSync(process.execPath, [SCRIPT], { cwd: REPO_ROOT, encoding: 'utf8' })
   assert.equal(run.status, 0, run.stderr)
   assert.match(run.stdout, /0 error\(s\), 0 warning\(s\), \d+ public value export\(s\)/)
+})
+
+// ── list consistency (#384) ──────────────────────────────────────────────
+//
+// The #383 gate holds the page against the code and is deliberately scoped to
+// the union of positions on the page. These check the page against itself,
+// which is the drift that gate cannot see: "Not yet covered by a guide" is
+// designed to shrink, and shrinking is the one operation nothing watched.
+
+const page = body => `---
+title: API Reference
+---
+
+${body}
+`
+
+test('reads a table row guide cell as linked or not', () => {
+  const { rows } = collectPagePositions(page([
+    '## Entry points',
+    '',
+    '| Export | What it is | Guide |',
+    '| --- | --- | --- |',
+    '| [`B24Hook`](https://example.test/hook.ts) | Webhook auth. | [guide](/docs/hook/) |',
+    '| [`versionManager`](https://example.test/vm.ts) | Routing. | — |'
+  ].join('\n')))
+
+  assert.equal(rows.get('B24Hook'), true)
+  assert.equal(rows.get('versionManager'), false)
+})
+
+test('attributes a flat list to the heading above it', () => {
+  const { everythingElse, uncovered } = collectPagePositions(page([
+    '## Everything else',
+    '',
+    '`AppFrame` `LsKeys`',
+    '',
+    '## Not yet covered by a guide',
+    '',
+    '`AppFrame` `versionManager`'
+  ].join('\n')))
+
+  assert.deepEqual([...everythingElse], ['AppFrame', 'LsKeys'])
+  assert.deepEqual([...uncovered], ['AppFrame', 'versionManager'])
+})
+
+test('a name in both flat lists is fine — they are different questions', () => {
+  // "Everything else" is about having a row on this page; "Not yet covered" is
+  // about having a guide elsewhere. No row and no guide is a legitimate pair,
+  // and it describes nineteen names on the real page. A check forbidding it was
+  // written first, and this test is what the correction looks like.
+  const positions = collectPagePositions(page([
+    '## Everything else',
+    '',
+    '`AppFrame`',
+    '',
+    '## Not yet covered by a guide',
+    '',
+    '`AppFrame`'
+  ].join('\n')))
+
+  assert.deepEqual(checkListConsistency(positions), [])
+})
+
+test('fails when a name with a guide link is still listed as uncovered', () => {
+  // The drift this whole issue is about: the guide gets written, the row gets
+  // its link, and nobody remembers to delete the name from the list below.
+  const positions = collectPagePositions(page([
+    '## Tools',
+    '',
+    '| [`LsKeys`](https://example.test/ls.ts) | Storage keys. | [guide](/docs/ls-keys/) |',
+    '',
+    '## Not yet covered by a guide',
+    '',
+    '`LsKeys`'
+  ].join('\n')))
+
+  const problems = checkListConsistency(positions)
+  assert.equal(problems.length, 1)
+  assert.match(problems[0], /whose table row links to one/)
+  assert.match(problems[0], /LsKeys/)
+})
+
+test('passes when the row still says the guide is missing', () => {
+  const positions = collectPagePositions(page([
+    '## Tools',
+    '',
+    '| [`LsKeys`](https://example.test/ls.ts) | Storage keys. | — |',
+    '',
+    '## Not yet covered by a guide',
+    '',
+    '`LsKeys`'
+  ].join('\n')))
+
+  assert.deepEqual(checkListConsistency(positions), [])
+})
+
+test('fails when a name has a row and is also in "Everything else"', () => {
+  const positions = collectPagePositions(page([
+    '## Tools',
+    '',
+    '| [`LsKeys`](https://example.test/ls.ts) | Storage keys. | — |',
+    '',
+    '## Everything else',
+    '',
+    '`LsKeys`'
+  ].join('\n')))
+
+  const problems = checkListConsistency(positions)
+  assert.equal(problems.length, 1)
+  assert.match(problems[0], /in both a domain table and "Everything else"/)
+})
+
+test('fails when an export appears only under "Not yet covered by a guide"', () => {
+  // That list records a missing guide, not a place on this page — so a name
+  // listed there and nowhere else is absent from the index proper.
+  const positions = collectPagePositions(page([
+    '## Not yet covered by a guide',
+    '',
+    '`LsKeys`'
+  ].join('\n')))
+
+  const problems = checkPositionSplit(new Set(['LsKeys']), positions)
+  assert.equal(problems.length, 1)
+  assert.match(problems[0], /in neither a domain table nor "Everything else"/)
+})
+
+test('the real page satisfies both consistency checks', () => {
+  const markdown = readFileSync(
+    join(REPO_ROOT, 'docs/content/docs/3.api-reference/1.index.md'),
+    'utf8'
+  )
+  const positions = collectPagePositions(markdown)
+
+  assert.deepEqual(checkListConsistency(positions), [])
+  const entry = join(REPO_ROOT, 'packages/jssdk/src/index.ts')
+  assert.deepEqual(checkPositionSplit(collectValueExports(entry), positions), [])
 })

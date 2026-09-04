@@ -247,9 +247,138 @@ export function collectPageNames(markdown) {
   return names
 }
 
+/**
+ * The same names, but attributed to *where* on the page they sit (#384).
+ *
+ * `collectPageNames` deliberately returns their union, because the #383 gate
+ * asks one question: does the page account for every export. This asks the
+ * question that one cannot — do the page's three lists agree with each other.
+ *
+ * @returns {{
+ *   rows: Map<string, boolean>,   name -> whether its guide cell is a link
+ *   everythingElse: Set<string>,
+ *   uncovered: Set<string>
+ * }}
+ */
+export function collectPagePositions(markdown) {
+  const rows = new Map()
+  const everythingElse = new Set()
+  const uncovered = new Set()
+
+  // Which flat list a name-only line belongs to is decided by the heading above
+  // it, so the page is walked in order rather than scanned as a whole.
+  let section = ''
+
+  for (const line of markdown.split('\n')) {
+    if (line.startsWith('## ')) {
+      section = line.slice(3).trim()
+      continue
+    }
+
+    // A domain-table row: `| [`Name`](source) | description | guide |`.
+    // The guide cell is the last one, and holds either a link or an em dash.
+    const row = line.match(/^\|\s*\[`?([A-Z_$][\w$]*)`?\]\(/i)
+    if (row) {
+      // The guide cell is the last one on the row, and holds a link or an em dash.
+      const guideCell = line.split('|').filter(cell => cell.trim() !== '').at(-1) ?? ''
+      rows.set(row[1], guideCell.includes(']('))
+      continue
+    }
+
+    const trimmed = line.trim()
+    if (trimmed === '' || !/^(?:`[A-Z_$][\w$]*`\s*)+$/i.test(trimmed)) {
+      continue
+    }
+    const target = section.startsWith('Everything else')
+      ? everythingElse
+      : (section.startsWith('Not yet covered') ? uncovered : null)
+    if (target === null) {
+      continue
+    }
+    for (const match of trimmed.matchAll(/`([A-Z_$][\w$]*)`/gi)) {
+      target.add(match[1])
+    }
+  }
+
+  return { rows, everythingElse, uncovered }
+}
+
+/**
+ * Check the page's three lists against each other (#384).
+ *
+ * The #383 gate holds the page against the code, and is scoped to the union of
+ * positions on purpose. That leaves two drifts possible with every gate green,
+ * and the first is the one that matters: **"Not yet covered by a guide" is
+ * designed to shrink, and shrinking is the operation nothing checks.** Someone
+ * writing the guide for `LsKeys` has to remember to delete `LsKeys` from that
+ * list by hand, and if they forget, the page goes on telling readers a page
+ * does not exist after it does — which is worse than saying nothing, because
+ * the reader stops looking.
+ *
+ * @returns {string[]} human-readable problems, empty when the lists agree
+ */
+export function checkListConsistency({ rows, everythingElse, uncovered }) {
+  const problems = []
+
+  const contradicted = [...uncovered].filter(name => rows.get(name) === true).sort()
+  if (contradicted.length > 0) {
+    problems.push(
+      `${contradicted.length} name(s) listed as having no guide, whose table row links to one:\n`
+      + contradicted.map(name => `  - ${name}`).join('\n')
+      + '\n  The guide was written and the row updated; drop the name from '
+      + '"Not yet covered by a guide".'
+    )
+  }
+
+  const bothPlaces = [...everythingElse].filter(name => rows.has(name)).sort()
+  if (bothPlaces.length > 0) {
+    problems.push(
+      `${bothPlaces.length} name(s) in both a domain table and "Everything else":\n`
+      + bothPlaces.map(name => `  - ${name}`).join('\n')
+      + '\n  "Everything else" is defined as the leftovers, so a name with a row '
+      + 'of its own does not belong in it.'
+    )
+  }
+
+  return problems
+}
+
+/**
+ * Every export sits in exactly one of {a domain-table row, "Everything else"}.
+ *
+ * Note this is a different axis from "Not yet covered by a guide", and the
+ * distinction is easy to lose: the first two lists are about *having a row on
+ * this page*, the third about *having a guide elsewhere*. A name legitimately
+ * appears in "Everything else" and in "Not yet covered" at once — no row, no
+ * guide. A check forbidding that fires on nineteen names today, which is how
+ * this comment came to be written.
+ *
+ * @returns {string[]} human-readable problems, empty when the split is clean
+ */
+export function checkPositionSplit(exported, { rows, everythingElse }) {
+  const problems = []
+
+  const unplaced = [...exported]
+    .filter(name => !rows.has(name) && !everythingElse.has(name))
+    .sort()
+  if (unplaced.length > 0) {
+    problems.push(
+      `${unplaced.length} export(s) in neither a domain table nor "Everything else":\n`
+      + unplaced.map(name => `  - ${name}`).join('\n')
+      + '\n  Listing a name only under "Not yet covered by a guide" leaves it out '
+      + 'of the index proper — that list records a missing guide, not a place on '
+      + 'this page.'
+    )
+  }
+
+  return problems
+}
+
 function main() {
   const exported = collectValueExports(ENTRY)
   const onPage = collectPageNames(readFileSync(PAGE, 'utf8'))
+
+  const positions = collectPagePositions(readFileSync(PAGE, 'utf8'))
 
   const missing = [...exported].filter(name => !onPage.has(name)).sort()
   const stale = [...onPage].filter(name => !exported.has(name)).sort()
@@ -276,6 +405,12 @@ function main() {
   const report = createReporter({ label: 'api-reference-index', root: ROOT })
   for (const problem of problems) {
     report.error(PAGE, `the page is out of sync with the code — ${problem}`)
+  }
+  for (const problem of checkListConsistency(positions)) {
+    report.error(PAGE, `the page contradicts itself — ${problem}`)
+  }
+  for (const problem of checkPositionSplit(exported, positions)) {
+    report.error(PAGE, `the page's own lists do not cover the surface — ${problem}`)
   }
   report.note(`${exported.size} public value export(s)`)
 

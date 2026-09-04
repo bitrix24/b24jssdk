@@ -110,15 +110,30 @@ const QS_SENSITIVE_RE = new RegExp(
  *   `download`) reaches, and every real webhook secret does — they are issued
  *   far longer.
  *
- * A trailing `/` is required so the secret is a complete segment: without it
- * the pattern would also fire on `/rest/1/somemethod` at the end of a URL,
- * where the third segment is a method rather than a secret.
+ * **Both API versions.** `restApi:v3` puts the webhook at `/rest/api/<id>/…`
+ * rather than `/rest/<id>/…` (`B24Hook.fromWebhookUrl`), so an `api/` segment is
+ * optional here. A pattern written for v2 alone would have left every v3 hook
+ * unmasked while reporting the same success — the whole defect, one version
+ * over.
+ *
+ * **The segment may end the string.** `.../rest/1/<secret>` with no trailing
+ * slash is a legitimate webhook URL — it is the form `fromWebhookUrl` accepts —
+ * so the boundary is `/`, `?`, `#` or end of input, not `/` alone. This is
+ * where the shape stops being conservative: `/rest/1/somedotlessword` at the end
+ * of a string is masked too. Accepted deliberately — dotless REST method names
+ * are short (`batch`, `scope`, `profile`) and fall under the length floor, and
+ * masking a method name costs a debugging detail while missing a secret costs
+ * the portal.
  *
  * Only the secret is masked; the portal host and the user id stay readable,
  * because a redacted line still has to be usable for debugging.
  */
-const WEBHOOK_PATH_RE = /(\/rest\/\d+\/)[A-Za-z0-9]{8,}(?=\/)/g
+const WEBHOOK_PATH_RE = /(\/rest\/(?:api\/)?\d+\/)[A-Za-z0-9]{8,}(?=[/?#]|$)/g
 
+// Safe to share at module scope despite the `g` flag: `String.replace` scans
+// from 0 and resets `lastIndex` when it finishes, and this regex is only ever
+// used that way. A `.test()` or `.exec()` call on it would carry `lastIndex`
+// between calls and start skipping matches — do not add one.
 function redactWebhookPath(value: string): string {
   return value.replace(WEBHOOK_PATH_RE, `$1${REDACTED_PLACEHOLDER}`)
 }

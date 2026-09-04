@@ -116,6 +116,14 @@ wrong once.
   which is neither a key nor a `key=value` pair and so was missed by both of the
   other passes. `AjaxError.requestInfo` carries no request URL at all
   (#39, #40, #287).
+- **If you ran 2.2.0 or earlier with an `info`-level log sink, rotate the
+  webhook.** Until this was fixed, a portal answer carrying a webhook URL in its
+  path — `rest.deferredbatch.downloadresult` returns one — wrote that secret into
+  the `post/response` record while the line still read as redacted. A webhook
+  secret is a bearer credential with no expiry, so an upgrade does not undo the
+  copies already sitting in Sentry, Datadog or a log file: **treat any webhook
+  used with that method as compromised and issue a new one.** Nothing else is
+  needed if you never wired a logger, or wired one above `info`.
 - **The redactor runs over response bodies too, not only over request params.**
   A portal method can return a URL carrying the calling webhook's own secret in
   its path — `rest.deferredbatch.downloadresult` does — so the `post/response`

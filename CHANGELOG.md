@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Security
+
+* **A webhook secret sitting in a URL path is redacted before logging.** The redactor masked a credential that was an object key or half of a `key=value` query pair; a Bitrix24 webhook secret is neither — it is a path segment, `/rest/<userId>/<secret>/` (and `/rest/api/<userId>/<secret>/` under `restApi:v3`). It passed through untouched while the line still *looked* redacted, because a `?token=` beside it was masked correctly.
+
+    That reached a log because the redactor also runs over response **bodies**, and a portal method can return such a URL: `rest.deferredbatch.downloadresult` answers with a `downloadUrl` whose path carries the calling webhook's own secret. A webhook secret is a bearer credential — every scope of the webhook, no second factor, no expiry.
+
+    **Affects `B24Hook` only**, and only when the application wired a logger that keeps `info` records. `B24Frame` and `B24OAuth` are not on this path.
+
+    **If that describes you, rotate the webhook.** Upgrading stops new records; it does not remove the secret from log storage that already holds it. See [SECURITY.md](SECURITY.md).
+
+    Reported externally, with a reproduction. Same class as #39 and #40, through a door neither covered.
+
 ## [2.2.0](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.2.0) (2026-08-29)
 
 

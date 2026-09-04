@@ -746,6 +746,52 @@ describe('core.http logger redaction @issue-39', () => {
     expect(redactSensitiveUrl(`${base}?token=x`)).not.toContain(secret)
   })
 
+  it('masks the v3 webhook shape too, and a secret that ends the string', () => {
+    const secret = 'wh00ksecret0000000'
+    // `restApi:v3` puts the hook at /rest/api/<id>/<secret>/, not /rest/<id>/.
+    // A pattern written for v2 alone leaves every v3 hook unmasked while
+    // reporting exactly the same success.
+    const v3 = [
+      `https://example.bitrix24.com/rest/api/1/${secret}/download/`,
+      `https://example.bitrix24.com/rest/api/1/${secret}/download/?token=x`
+    ]
+    for (const url of v3) {
+      expect(JSON.stringify(redactSensitiveParams({ url })), url).not.toContain(secret)
+      expect(redactSensitiveUrl(url), url).not.toContain(secret)
+    }
+
+    // No trailing slash — the form `B24Hook.fromWebhookUrl` accepts — plus the
+    // `?` and `#` boundaries. A lookahead requiring `/` misses all of these.
+    const boundaries = [
+      `https://example.bitrix24.com/rest/1/${secret}`,
+      `https://example.bitrix24.com/rest/api/1/${secret}`,
+      `https://example.bitrix24.com/rest/1/${secret}?token=x`,
+      `https://example.bitrix24.com/rest/1/${secret}#frag`
+    ]
+    for (const url of boundaries) {
+      expect(JSON.stringify(redactSensitiveParams({ url })), url).not.toContain(secret)
+    }
+  })
+
+  it('masks a webhook URL wherever the walk finds it — nested, in an array, on an error', () => {
+    const secret = 'nestedwebhooksecret1'
+    const url = `https://example.bitrix24.com/rest/1/${secret}/download/`
+
+    // Depth 1 and inside an array: a response body is not always flat.
+    expect(JSON.stringify(redactSensitiveParams({ data: { url } }))).not.toContain(secret)
+    expect(JSON.stringify(redactSensitiveParams({ items: [{ url }] }))).not.toContain(secret)
+
+    // And through the error surface, which runs the same redactor.
+    const err = new AjaxError({
+      status: 400,
+      answerError: { error: 'ERR', errorDescription: 'x' },
+      cause: new Error('x'),
+      requestInfo: { method: 'some.method', params: { url }, requestId: 'r1' }
+    } as never)
+    expect(err.toString()).not.toContain(secret)
+    expect(JSON.stringify(err.toJSON())).not.toContain(secret)
+  })
+
   it('does not mask path segments that only look like a secret', () => {
     // Method names carry dots, so they can never match; short path words are
     // below the length floor. Over-masking here would blind the logs instead.

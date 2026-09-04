@@ -339,6 +339,44 @@ test('reads a table row guide cell as linked or not', () => {
   assert.equal(rows.get('versionManager'), false)
 })
 
+test('an empty guide cell is not a guide, even when the description links', () => {
+  // Filtering out blank cells makes the description the "last" one, and any
+  // link in it then reads as a guide — marking an export covered while its own
+  // row says it is not. Found in review.
+  const { rows } = collectPagePositions(page([
+    '## Tools',
+    '',
+    '| [`LsKeys`](https://example.test/ls.ts) | See [the note](/docs/note/). |  |'
+  ].join('\n')))
+
+  assert.equal(rows.get('LsKeys'), false)
+})
+
+test('a separated name list is still a name list', () => {
+  // The page separates with spaces today. A comma-separated rewrite must not
+  // silently empty the list, which would report every name in it as missing
+  // from the index.
+  const { everythingElse } = collectPagePositions(page([
+    '## Everything else',
+    '',
+    '`AppFrame`, `LsKeys`, `RpcMethod`'
+  ].join('\n')))
+
+  assert.deepEqual([...everythingElse], ['AppFrame', 'LsKeys', 'RpcMethod'])
+})
+
+test('a line of prose with backticks is not a name list', () => {
+  // The counterweight to the rule above: scraping backticks from prose would
+  // let `getData` satisfy the gate for a future export of that name.
+  const { everythingElse } = collectPagePositions(page([
+    '## Everything else',
+    '',
+    'Also exported: `AppFrame` and `LsKeys` among others.'
+  ].join('\n')))
+
+  assert.deepEqual([...everythingElse], [])
+})
+
 test('attributes a flat list to the heading above it', () => {
   const { everythingElse, uncovered } = collectPagePositions(page([
     '## Everything else',

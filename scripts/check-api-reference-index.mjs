@@ -211,6 +211,47 @@ function assertNoMultiDeclarator(entry, source) {
 }
 
 /**
+ * A domain-table row: `| [`Name`](source) | description | guide |`.
+ *
+ * @returns {{ name: string, hasGuide: boolean } | null}
+ */
+function tableRow(line) {
+  const match = line.match(/^\|\s*\[`?([A-Z_$][\w$]*)`?\]\(/i)
+  if (!match) {
+    return null
+  }
+
+  // Split on the pipes and drop the empty strings the leading and trailing
+  // delimiters produce — but keep an empty cell *between* two pipes. Filtering
+  // every blank instead would make a row with an empty guide cell fall back to
+  // its description, and any link in the description would then read as a
+  // guide, marking the export as covered when the row says it is not.
+  const cells = line.split('|').slice(1, -1)
+  const guideCell = cells.at(-1) ?? ''
+
+  return { name: match[1], hasGuide: guideCell.includes('](') }
+}
+
+/**
+ * The names on a line that is nothing but backticked identifiers.
+ *
+ * Separators between them are tolerated — the page uses spaces today, and a
+ * comma-separated rewrite should not silently empty the list. What is not
+ * tolerated is prose: a line with any other word in it is not a name list, and
+ * scraping backticks from prose would let `getData` or `isSuccess` satisfy the
+ * gate for a future export that happens to share the name.
+ *
+ * @returns {string[]}
+ */
+function flatListNames(line) {
+  const trimmed = line.trim()
+  if (trimmed === '' || !/^`[A-Z_$][\w$]*`(?:[\s,;·•]*`[A-Z_$][\w$]*`)*$/i.test(trimmed)) {
+    return []
+  }
+  return [...trimmed.matchAll(/`([A-Z_$][\w$]*)`/gi)].map(match => match[1])
+}
+
+/**
  * The names the page *claims* are exports — read from structured positions only,
  * never from prose.
  *
@@ -228,19 +269,16 @@ function assertNoMultiDeclarator(entry, source) {
 export function collectPageNames(markdown) {
   const names = new Set()
 
-  // A domain-table row: `| [`Name`](source) | description | guide |`.
-  for (const match of markdown.matchAll(/^\|\s*\[`?([A-Z_$][\w$]*)`?\]\(/gim)) {
-    names.add(match[1])
+  for (const line of markdown.split('\n')) {
+    const row = tableRow(line)
+    if (row) {
+      names.add(row.name)
+    }
   }
 
-  // A flat name list — a line that is nothing but backticked identifiers.
   for (const line of markdown.split('\n')) {
-    const trimmed = line.trim()
-    if (trimmed === '' || !/^(?:`[A-Z_$][\w$]*`\s*)+$/i.test(trimmed)) {
-      continue
-    }
-    for (const match of trimmed.matchAll(/`([A-Z_$][\w$]*)`/gi)) {
-      names.add(match[1])
+    for (const name of flatListNames(line)) {
+      names.add(name)
     }
   }
 
@@ -275,28 +313,20 @@ export function collectPagePositions(markdown) {
       continue
     }
 
-    // A domain-table row: `| [`Name`](source) | description | guide |`.
-    // The guide cell is the last one, and holds either a link or an em dash.
-    const row = line.match(/^\|\s*\[`?([A-Z_$][\w$]*)`?\]\(/i)
+    const row = tableRow(line)
     if (row) {
-      // The guide cell is the last one on the row, and holds a link or an em dash.
-      const guideCell = line.split('|').filter(cell => cell.trim() !== '').at(-1) ?? ''
-      rows.set(row[1], guideCell.includes(']('))
+      rows.set(row.name, row.hasGuide)
       continue
     }
 
-    const trimmed = line.trim()
-    if (trimmed === '' || !/^(?:`[A-Z_$][\w$]*`\s*)+$/i.test(trimmed)) {
-      continue
-    }
     const target = section.startsWith('Everything else')
       ? everythingElse
       : (section.startsWith('Not yet covered') ? uncovered : null)
     if (target === null) {
       continue
     }
-    for (const match of trimmed.matchAll(/`([A-Z_$][\w$]*)`/gi)) {
-      target.add(match[1])
+    for (const name of flatListNames(line)) {
+      target.add(name)
     }
   }
 
@@ -376,9 +406,10 @@ export function checkPositionSplit(exported, { rows, everythingElse }) {
 
 function main() {
   const exported = collectValueExports(ENTRY)
-  const onPage = collectPageNames(readFileSync(PAGE, 'utf8'))
+  const markdown = readFileSync(PAGE, 'utf8')
+  const onPage = collectPageNames(markdown)
 
-  const positions = collectPagePositions(readFileSync(PAGE, 'utf8'))
+  const positions = collectPagePositions(markdown)
 
   const missing = [...exported].filter(name => !onPage.has(name)).sort()
   const stale = [...onPage].filter(name => !exported.has(name)).sort()

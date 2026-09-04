@@ -1,6 +1,6 @@
 # Transports and Results
 
-<sub>Last reviewed: 2026-06-19.</sub>
+<sub>Last reviewed: 2026-09-04.</sub>
 
 > **Agent-facing mirror:** the same area, viewed from the angle of agents writing usage code, lives in [`skills/b24jssdk-rest/SKILL.md`](../../skills/b24jssdk-rest/SKILL.md), [`skills/b24jssdk-filtering/SKILL.md`](../../skills/b24jssdk-filtering/SKILL.md), and [`skills/b24jssdk-core/SKILL.md`](../../skills/b24jssdk-core/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
 
@@ -271,14 +271,14 @@ Every transport / limiter holds a `LoggerInterface` (the public abstraction from
 
 ### Credential redaction (since v1.1.2)
 
-The transport layer redacts credentials from log lines and error messages before they reach the logger. The redaction module is [packages/jssdk/src/core/http/redact.ts](../../packages/jssdk/src/core/http/redact.ts); the full list of redacted keys is the **static** `SENSITIVE_PARAM_KEYS` array in that file (matched **case-insensitively**, and the scrub also masks `key=value` pairs embedded in string values, e.g. a batch `cmd[i]`). The list is not extended automatically: when you introduce a new credential-bearing parameter on any code path, add its key to `SENSITIVE_PARAM_KEYS` in `redact.ts` in the same PR, or it will appear unredacted in logs and in `AjaxError`.
+The transport layer redacts credentials from log lines and error messages before they reach the logger. The redaction module is [packages/jssdk/src/core/http/redact.ts](../../packages/jssdk/src/core/http/redact.ts); the full list of redacted keys is the **static** `SENSITIVE_PARAM_KEYS` array in that file (matched **case-insensitively**, and the scrub also masks `key=value` pairs embedded in string values, e.g. a batch `cmd[i]`, and the secret segment of a Bitrix24 webhook URL, which is neither a key nor a pair). The list is not extended automatically: when you introduce a new credential-bearing parameter on any code path, add its key to `SENSITIVE_PARAM_KEYS` in `redact.ts` in the same PR, or it will appear unredacted in logs and in `AjaxError`.
 
 Rules for code under `packages/jssdk/src/`:
 
 - **Never log raw request payloads** from outside the transport layer. Go through the transport's logger so redaction applies automatically. When in doubt, wrap params with `redactSensitiveParams(params)` from `redact.ts`.
-- **Never log the raw request URL for a `B24Hook` transport.** The URL contains the webhook secret in the path segment (`/rest/<userId>/<secret>/`) — redaction only covers payload params, not URL paths. Log only the method name and `requestId`.
+- **Never log the raw request URL for a `B24Hook` transport.** The URL contains the webhook secret in the path segment (`/rest/<userId>/<secret>/`, or `/rest/api/<userId>/<secret>/` under `restApi:v3`). The redactor *does* mask that one shape now, including when it arrives in a **response body** (`rest.deferredbatch.downloadresult` returns such a URL) — but treat it as a backstop, not a licence: it matches Bitrix24's webhook shape and nothing else, and `originalError.config.url` is not covered at all. Log only the method name and `requestId`.
 - **Never put credentials into `SdkError` fields.** `code`, `description`, and any value you pass to a thrown error are serialised to logs and to caller-visible error messages.
-- `AjaxError`'s `requestInfo` shape no longer includes a `url` field — the full webhook URL (`/rest/{userId}/{secret}/`) would otherwise appear in `toJSON()` output and log sinks. **Do not widen `AjaxQuery` to add `url` back.**
+- `AjaxError`'s `requestInfo` shape no longer includes a `url` field — the full webhook URL (`/rest/{userId}/{secret}/`) would otherwise appear in `toJSON()` output and log sinks. **Do not widen `AjaxQuery` to add `url` back.** The path scrub is a second line, not a reason to reopen this one.
 - **Never log or serialize `AjaxError.originalError` directly.** `originalError` holds the raw `AxiosError` whose `config.url` carries the webhook secret and `config.headers.Authorization` carries the OAuth token. Neither field is covered by the payload redactor. Log only `err.code`, `err.status`, `err.message`, or `err.requestInfo` (which is redacted).
 
 User-facing reference: [Logging & Credential Redaction — 78.logging.md](../../docs/content/docs/2.working-with-the-rest-api/78.logging.md) (full redaction rules, callsite table, and webhook-URL audit patterns).

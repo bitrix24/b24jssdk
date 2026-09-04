@@ -717,4 +717,157 @@ describe('core.http logger redaction @issue-39', () => {
     expect(redactSensitiveUrl(null as any)).toBe(null)
     expect(redactSensitiveUrl('wss://host/sub/no-query')).toBe('wss://host/sub/no-query')
   })
+
+  // ---------------------------------------------------------------------
+  // A webhook secret in the URL *path* — the shape neither earlier pass saw.
+  // ---------------------------------------------------------------------
+
+  // One `it` per surface and shape. They were one block at first, and a
+  // mutation run showed why that is worse: hiding the path pass behind the
+  // `=` early return reported a single failure, because the first `expect`
+  // threw before the other three surfaces were reached.
+  const WEBHOOK_SECRET = 'wh00ksecret0000000'
+  const hookUrl = (path: string) => `https://example.bitrix24.com${path}`
+
+  it('redactSensitiveParams masks the secret in the measured downloadresult URL', () => {
+    const out = redactSensitiveParams({
+      downloadUrl: hookUrl(`/rest/1/${WEBHOOK_SECRET}/download/?token=abc123&fileId=42`)
+    })
+    expect(JSON.stringify(out)).not.toContain(WEBHOOK_SECRET)
+    // The `?token=` beside it was always masked — which is what made the line
+    // *look* redacted while the secret went through.
+    expect(String(out.downloadUrl)).toContain('token=***REDACTED***')
+    // Host, user id and the rest of the query stay readable: a redacted line
+    // still has to be usable for debugging.
+    expect(String(out.downloadUrl)).toContain('https://example.bitrix24.com/rest/1/')
+    expect(String(out.downloadUrl)).toContain('fileId=42')
+  })
+
+  it('redactSensitiveParams masks it when the URL has no query string at all', () => {
+    // No `=` anywhere, so the query pass returns early. This is the case that
+    // proves the path pass is not hiding behind that guard.
+    const out = redactSensitiveParams({ downloadUrl: hookUrl(`/rest/1/${WEBHOOK_SECRET}/download/`) })
+    expect(JSON.stringify(out)).not.toContain(WEBHOOK_SECRET)
+  })
+
+  it('redactSensitiveUrl masks it too, with and without a query string', () => {
+    // The URL helper carries its own copy of the early return, so it needs its
+    // own assertion rather than riding on the one above.
+    const base = hookUrl(`/rest/1/${WEBHOOK_SECRET}/download/`)
+    expect(redactSensitiveUrl(base)).not.toContain(WEBHOOK_SECRET)
+    expect(redactSensitiveUrl(`${base}?token=x`)).not.toContain(WEBHOOK_SECRET)
+  })
+
+  it('masks the restApi:v3 webhook shape, /rest/api/<id>/<secret>/', () => {
+    // v3 puts the hook one segment over. A pattern written for v2 alone leaves
+    // every v3 hook unmasked while reporting exactly the same success.
+    for (const url of [
+      hookUrl(`/rest/api/1/${WEBHOOK_SECRET}/download/`),
+      hookUrl(`/rest/api/1/${WEBHOOK_SECRET}/download/?token=x`)
+    ]) {
+      expect(JSON.stringify(redactSensitiveParams({ url })), url).not.toContain(WEBHOOK_SECRET)
+      expect(redactSensitiveUrl(url), url).not.toContain(WEBHOOK_SECRET)
+    }
+  })
+
+  it('masks a secret that ends the string, or is followed by ? or #', () => {
+    // `.../rest/1/<secret>` with no trailing slash is the form
+    // `B24Hook.fromWebhookUrl` accepts, so a lookahead demanding `/` misses the
+    // most ordinary shape there is.
+    for (const url of [
+      hookUrl(`/rest/1/${WEBHOOK_SECRET}`),
+      hookUrl(`/rest/api/1/${WEBHOOK_SECRET}`),
+      hookUrl(`/rest/1/${WEBHOOK_SECRET}?token=x`),
+      hookUrl(`/rest/1/${WEBHOOK_SECRET}#frag`)
+    ]) {
+      expect(JSON.stringify(redactSensitiveParams({ url })), url).not.toContain(WEBHOOK_SECRET)
+    }
+  })
+
+  it('masks regardless of case, and whatever characters the secret is made of', () => {
+    // The portal issues a lower-case `/rest/` and an alphanumeric secret, but
+    // the SDK controls neither: a URL reaching a log may have been copied or
+    // proxied, and a secret format guessed too narrowly fails the only way that
+    // matters.
+    const odd = 'wh00k_secret-0000'
+    expect(String(redactSensitiveParams({
+      url: `https://example.bitrix24.com/REST/1/${WEBHOOK_SECRET}/download/`
+    }).url)).not.toContain(WEBHOOK_SECRET)
+    expect(String(redactSensitiveParams({
+      url: `https://example.bitrix24.com/rest/1/${odd}/download/`
+    }).url)).not.toContain(odd)
+  })
+
+  it('masks a webhook URL wherever the walk finds it — nested, in an array, on an error', () => {
+    const secret = 'nestedwebhooksecret1'
+    const url = `https://example.bitrix24.com/rest/1/${secret}/download/`
+
+    // Depth 1 and inside an array: a response body is not always flat.
+    expect(JSON.stringify(redactSensitiveParams({ data: { url } }))).not.toContain(secret)
+    expect(JSON.stringify(redactSensitiveParams({ items: [{ url }] }))).not.toContain(secret)
+
+    // And through the error surface, which runs the same redactor.
+    const err = new AjaxError({
+      status: 400,
+      answerError: { error: 'ERR', errorDescription: 'x' },
+      cause: new Error('x'),
+      requestInfo: { method: 'some.method', params: { url }, requestId: 'r1' }
+    } as never)
+    expect(err.toString()).not.toContain(secret)
+    expect(JSON.stringify(err.toJSON())).not.toContain(secret)
+  })
+
+  it('does not mask path segments that only look like a secret', () => {
+    // Method names carry dots, so they can never match; short path words are
+    // below the length floor. Over-masking here would blind the logs instead.
+    const kept = [
+      'https://example.bitrix24.com/rest/crm.item.list',
+      'https://example.bitrix24.com/rest/1/crm.item.list',
+      'https://example.bitrix24.com/rest/1/batch/',
+      'https://example.bitrix24.com/rest/1/profile/',
+      'https://example.bitrix24.com/rest/api/1/main.eventlog.list'
+    ]
+    for (const url of kept) {
+      expect(redactSensitiveParams({ url }).url, url).toBe(url)
+    }
+  })
+
+  it('post/response never writes a webhook secret returned in the body (deferredbatch downloadresult)', async () => {
+    // The whole point: the secret arrives in the *answer*, so nothing about the
+    // request being clean protects it. Measured shape, synthetic values.
+    const returnedSecret = 'r3turn3dwebhooksecret'
+    b24 = buildClient('v2')
+    vi.spyOn(b24.getHttpClient(ApiVersion.v2).ajaxClient, 'post').mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as never,
+      data: {
+        result: {
+          downloadUrl: `https://example.bitrix24.com/rest/1/${returnedSecret}/download/?token=t&fileId=42`
+        },
+        time: {
+          start: 0,
+          finish: 0,
+          duration: 0,
+          processing: 0,
+          date_start: '1970-01-01T00:00:00+00:00',
+          date_finish: '1970-01-01T00:00:00+00:00',
+          operating_reset_at: 1,
+          operating: 0
+        }
+      }
+    })
+    const captured: CapturedLog[] = []
+    b24.setLogger(buildCapturingLogger(captured))
+
+    await b24.actions.v2.call.make({ method: 'rest.deferredbatch.downloadresult', params: {} })
+
+    const postResponse = captured.find(e => e.message === 'post/response')
+    expect(postResponse, 'post/response must fire on a successful call').toBeDefined()
+    // Every captured record, not just this one — a second sink would be a leak
+    // just the same.
+    expect(JSON.stringify(captured)).not.toContain(returnedSecret)
+    expect(String(postResponse!.context!.result)).toContain('***REDACTED***')
+  })
 })

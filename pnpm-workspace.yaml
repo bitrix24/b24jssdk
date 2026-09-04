@@ -63,8 +63,10 @@ catalog:
 # this floor still read `>=4.4.7`, so the tree stayed on 4.4.8 and carried
 # duplicate `@nuxt/kit` / `@nuxt/schema` trees.
 overrides:
-  # GHSA-7p8r-x3mc-p8w7 — fast-uri host confusion via backslash authority introducer
-  fast-uri: '>=3.1.5 <4'
+  # GHSA-7p8r-x3mc-p8w7 — fast-uri host confusion via backslash authority
+  # introducer. Floor raised to 3.1.6 for the follow-up advisory on the same
+  # parser; 3.1.5 no longer clears the audit.
+  fast-uri: '>=3.1.6 <4'
   # GHSA-8j4g-w8fx-2239 — ReDoS in CORS middleware; GHSA-f23p-vx2j-j53r — `memo()`
   # retains SSR output across requests; GHSA-54fx-42gc-7vw4 — DoS in Language
   # middleware; GHSA-79qm-7rj5-m7r9 — Proxy Helper leaves `Connection`-listed
@@ -86,11 +88,18 @@ overrides:
   # The tree carries only the 3.x line, so the ceiling is that major.
   nanoid: '>=3.3.18 <4'
   ws: '>=8.20.1 <9'
-  qs: '>=6.15.2 <7'
+  # Two advisories, and the later one has the higher floor: 6.15.4 patches the
+  # first, 6.16.0 the second, so the override has to be the latter.
+  qs: '>=6.16.0 <7'
   devalue: '>=5.8.1 <6'
   # esbuild is 0.x — every minor is a breaking release, so the ceiling is the minor
   esbuild: '>=0.28.1 <0.29'
   form-data: '>=4.0.6 <5'
+  # GHSA-cp6q-959q-f8rh — mergeAttributes() turns an own `__proto__` key into
+  # inherited executable DOM attributes. Reaches us only through the docs app
+  # (`@bitrix24/b24ui-nuxt`), which is still a dev dependency that executes
+  # during the docs build in CI.
+  '@tiptap/core': '>=3.30.4 <4'
   # nuxt 4.5.1's `@nuxt/vite-builder` declares `vite: ^8.1.5` and imports
   # `transformWithOxc`, which only vite 8 exports — on vite 7 the builder fails to
   # load with `SyntaxError: The requested module 'vite' does not provide an export

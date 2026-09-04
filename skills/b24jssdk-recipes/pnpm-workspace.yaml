@@ -1,2 +1,14 @@
 packages:
   - .
+
+# This package is deliberately NOT a workspace member of the repository root
+# (README-DEPS.md), so the overrides in the root's pnpm-workspace.yaml cannot
+# reach it. Its own advisories are pinned here, at the same threshold CI audits
+# both trees with.
+#
+# pnpm 11 no longer reads `pnpm.overrides` from package.json, which is why these
+# live here rather than as a field there.
+overrides:
+  # GHSA-x5fp-wj9c-mxmx and GHSA-4mjr-xmp4-gh2g, both reaching us through
+  # `express`. The later advisory has the higher floor, so it sets the pin.
+  qs: '>=6.16.0 <7'

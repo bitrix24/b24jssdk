@@ -104,8 +104,11 @@ const QS_SENSITIVE_RE = new RegExp(
  * the only defence against over-masking is the shape itself:
  *
  * - `<userId>` is digits, as the portal builds it;
- * - `<secret>` is letters and digits only, so a REST method name never matches —
- *   those carry dots (`crm.item.list`, `rest.deferredbatch.downloadresult`);
+ * - `<secret>` carries no dot, so a REST method name never matches — those do
+ *   (`crm.item.list`, `rest.deferredbatch.downloadresult`). Hyphen and
+ *   underscore are inside the class even though Bitrix24 issues alphanumeric
+ *   secrets: the SDK does not control that format, and a secret shape we
+ *   guessed too narrowly fails the only way that matters;
  * - at least 8 characters, which no short path word (`batch`, `profile`,
  *   `download`) reaches, and every real webhook secret does — they are issued
  *   far longer.
@@ -125,10 +128,14 @@ const QS_SENSITIVE_RE = new RegExp(
  * masking a method name costs a debugging detail while missing a secret costs
  * the portal.
  *
+ * Case-insensitive, matching the query-string pass. The portal issues a
+ * lower-case `/rest/`, but a URL that reached a log may have been copied,
+ * proxied or hand-written, and `/REST/` guards nothing by staying literal.
+ *
  * Only the secret is masked; the portal host and the user id stay readable,
  * because a redacted line still has to be usable for debugging.
  */
-const WEBHOOK_PATH_RE = /(\/rest\/(?:api\/)?\d+\/)[A-Za-z0-9]{8,}(?=[/?#]|$)/g
+const WEBHOOK_PATH_RE = /(\/rest\/(?:api\/)?\d+\/)[\w-]{8,}(?=[/?#]|$)/gi
 
 // Safe to share at module scope despite the `g` flag: `String.replace` scans
 // from 0 and resets `lastIndex` when it finishes, and this regex is only ever

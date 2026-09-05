@@ -141,7 +141,7 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
   //   // would be a fresh key per attempt, and would deduplicate nothing.
   //   const res = await $b24.actions.v3.call.make({
   //     method: 'tasks.task.add',
-  //     params: { fields: { title: 'Ship it' } },
+  //     params: { fields: { title: 'Ship it', creatorId: 1, responsibleId: 1 } },
   //     idempotencyKey: `ship-task-for-order-${orderId}`
   //   })
   //   res.isIdempotentReplay() // true when the portal replayed an earlier call

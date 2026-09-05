@@ -281,7 +281,7 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * // The key names the operation, so a retry of it repeats the same string.
    * const response = await b24.actions.v3.call.make({
    *   method: 'tasks.task.add',
-   *   params: { fields: { title: 'Ship it' } },
+   *   params: { fields: { title: 'Ship it', creatorId: 1, responsibleId: 1 } },
    *   idempotencyKey: `ship-task-for-order-${orderId}`
    * })
    * if (response.isIdempotentReplay()) {

@@ -66,7 +66,7 @@ export class CallV3 extends AbstractAction {
    * // attempt, so a retry from another process would still write a duplicate.
    * const created = await b24.actions.v3.call.make<{ item: { id: number } }>({
    *   method: 'tasks.task.add',
-   *   params: { fields: { title: 'Ship it' } },
+   *   params: { fields: { title: 'Ship it', creatorId: 1, responsibleId: 1 } },
    *   idempotencyKey: `ship-task-for-order-${orderId}`
    * })
    * // Sending the very same call again returns the very same task,

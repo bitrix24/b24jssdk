@@ -96,7 +96,7 @@ async function handleDealAdd($b24: TypeB24, payload: BitrixEventPayload) {
     // which would be a fresh key per delivery and defeat the whole thing.
     const created = await $b24.actions.v3.call.make<{ item: { id: number } }>({
       method: 'tasks.task.add',
-      params: { fields: { title: `Qualify deal #${id}`, responsibleId: deal.assignedById } },
+      params: { fields: { title: `Qualify deal #${id}`, creatorId: deal.assignedById, responsibleId: deal.assignedById } },
       idempotencyKey: `qualify-task-for-deal-${id}`
     })
 

@@ -25,7 +25,7 @@ packages:
 # npm-publish-js-sdk.yml runs). Publishing this package with plain `npm publish`
 # would ship the literal `catalog:` string and break every consumer's install.
 catalog:
-  axios: ^1.19.0
+  axios: ^1.20.0
 
 # Security/audit override pins for transitive dependencies. Each is a floor
 # (`>=fixed-version`) held until the dependency tree resolves that version on its

@@ -175,6 +175,9 @@ The same logical field has different names depending on the method:
 
 > Both shapes are v2-API, and neither is "v3-style": the casing here is per-method, not per-API-version. `crm.item.*` is camelCase for reasons of its own and is **not** a v3 method — v3 publishes no `crm.item.*` at all. Under `restApi:v3` camelCase *is* the rule, without exception across the 108 field descriptors measured; ask `<entity>.field.list` when unsure. Use the same casing across `filter`, `select`, and (where applicable) `order`. Mixing styles silently breaks paging.
 
+Full guide: [Discovering entity fields](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/discovering-entity-fields/) — how to ask an entity for its own field
+list, and why a `filterable: false` field is refused rather than ignored.
+
 ## Select
 
 Always pass `select` to limit response size:

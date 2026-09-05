@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+* **A response body with no `result` key now reaches you instead of being dropped.** `AjaxResult.getData()` rebuilds the payload from two named keys, so a body carrying neither was projected away and a *successful* call handed back `{ result: undefined, time: undefined }`. Such a body is wrapped now: the whole body becomes `result`.
+
+    `rest.documentation.openapi` answers exactly that way — the OpenAPI document at the top level, no envelope — which is the method the docs call the source of truth for v3 discovery, so `getData()?.result` on the discovery page now returns the document it always promised.
+
+    **Worth knowing if you wrote a guard around the old behaviour:** where an envelope-less body used to make `getData()!.result` `undefined`, it is now the body. A check shaped like `if (!getData()?.result)` will no longer treat such a response as empty. An error body is unaffected — it is recognised before the wrap and stays an error.
+
+    `SuccessPayload.time` and `GetPayload.time` are **optional** as a consequence: a wrapped body has no `time`, and nothing is invented to fill it. If you read a field off `time`, guard it — the compiler will now say so.
+
+    Also fixed on the same path: an HTTP 200 with a `null` body threw a `TypeError` from the success-path log line and from `getData()`, which the request path re-wrapped as `JSSDK_UNKNOWN_ERROR`. It now comes back as an ordinary empty success.
+
+* **A webhook URL in a log line no longer shows its secret.** The redactor masks a credential that is an object key or half of a `key=value` query pair. A Bitrix24 webhook secret is neither — it is a path segment, `/rest/<userId>/<secret>/` (and `/rest/api/<userId>/<secret>/` under `restApi:v3`) — so it stayed readable while the rest of the line was masked.
+
+    It shows up there because the redactor runs over response bodies as well as over the params you sent, and a portal method can return such a URL: `rest.deferredbatch.downloadresult` answers with a `downloadUrl` built from the calling webhook. The secret segment is masked now; the host and the user id stay readable, so the line is still useful for debugging.
+
+    Applies to `B24Hook` with a logger wired at `info`. Matching is case-insensitive and covers both API versions.
+
 ## [2.2.0](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.2.0) (2026-08-29)
 
 

@@ -548,13 +548,18 @@ export abstract class AbstractHttp implements TypeHttp {
     // wired logger sink — mirror the `post/send` redaction on the success path. (#69)
     // A v3 method outside the `result` envelope (e.g. `rest.documentation.openapi`)
     // makes this `undefined` rather than a string; `truncateForLog` coerces it. (#338)
-    const resultFormattedForLog = JSON.stringify(redactSensitiveParams(response.data.result), null, 0)
+    // `?.` on the body itself, not only on `.result`: a success is not always an
+    // object. An HTTP 200 whose body is `null` made this line throw, and the
+    // request path then re-wrapped that `TypeError` as `JSSDK_UNKNOWN_ERROR` —
+    // a fine response reaching the caller as an unrecognisable failure, the same
+    // shape as #338 and #456 one field over.
+    const resultFormattedForLog = JSON.stringify(redactSensitiveParams(response.data?.result), null, 0)
     this.getLogger().info(
       `post/response`, {
         requestId,
         // responseFull: JSON.stringify(response.data, null, 2),
         result: truncateForLog(resultFormattedForLog),
-        time: JSON.stringify(response.data.time, null, 0)
+        time: JSON.stringify(response.data?.time, null, 0)
       }
     ).catch(() => {})
 
@@ -582,10 +587,17 @@ export abstract class AbstractHttp implements TypeHttp {
       status: response.status
     })
 
-    // 5. Update operating statistics
+    // 5. Update operating statistics — only when the portal sent a `time` block.
+    // It does not always: `rest.documentation.openapi` answers with the OpenAPI
+    // document at the top level, with neither a `result` envelope nor `time`.
+    // The `time!` assertion that used to stand here claimed otherwise, and
+    // `OperatingLimiter.updateStats()` destructured the absent block — so a
+    // perfectly good HTTP 200 came back to the caller as an exception.
     if (result.isSuccess) {
       const time = result.getData()?.time
-      await this._restrictionManager.updateStats(requestId, method, time!)
+      if (time) {
+        await this._restrictionManager.updateStats(requestId, method, time)
+      }
     }
 
     return result

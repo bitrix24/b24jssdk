@@ -1,4 +1,5 @@
 import type { LoggerInterface } from './logger'
+import type { PayloadTime } from './payloads'
 /**
  * Types and interfaces for configuring rate-limiting and adaptive throttling of REST API requests.
  * These settings control the operating time window, per-window limits, and adaptive pause behaviour.
@@ -178,7 +179,13 @@ export interface ILimiter {
   getLogger(): LoggerInterface
   canProceed(requestId: string, method: string, params?: any): Promise<boolean>
   waitIfNeeded(requestId: string, method: string, params?: any): Promise<number>
-  updateStats(requestId: string, method: string, data: any): Promise<void>
+  /**
+   * @param data - the response's `time` block, or `undefined` when the portal
+   *   sent none. Not every success carries one — `rest.documentation.openapi`
+   *   answers with the OpenAPI document at the top level — so an implementation
+   *   must tolerate its absence rather than assume it away.
+   */
+  updateStats(requestId: string, method: string, data: PayloadTime | undefined): Promise<void>
   reset(): Promise<void>
   getStats(): Record<string, any>
 }

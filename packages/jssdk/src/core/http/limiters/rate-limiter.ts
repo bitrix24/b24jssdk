@@ -1,5 +1,6 @@
 import type { ILimiter, RateLimitConfig } from '../../../types/limiters'
 import type { LoggerInterface } from '../../../types/logger'
+import type { PayloadTime } from '../../../types/payloads'
 import { LoggerFactory } from '../../../logger'
 
 /**
@@ -130,7 +131,7 @@ export class RateLimiter implements ILimiter {
    * Successful request handler.
    * If everything is OK, we'll restore the limits.
    */
-  async updateStats(requestId: string, method: string, _data: any): Promise<void> {
+  async updateStats(requestId: string, method: string, _data: PayloadTime | undefined): Promise<void> {
     // skip accounting of `batch` subqueries
     if (method.startsWith('batch::')) {
       return

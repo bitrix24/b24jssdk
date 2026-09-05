@@ -46,7 +46,7 @@ describe('core callBatch @apiV3', () => {
         expect(result.item.id).toBeDefined()
       }
 
-      const time = rowData.time
+      const time = rowData.time!
       expect(time).toHaveProperty('operating')
       // @todo waite apiV3 fix docs
       expect(time.operating).toEqual(0)
@@ -90,7 +90,7 @@ describe('core callBatch @apiV3', () => {
         expect(result.item.id).toBeDefined()
       }
 
-      const time = rowData.time
+      const time = rowData.time!
       expect(time).toHaveProperty('operating')
       // @todo waite apiV3 fix docs
       expect(time.operating).toEqual(0)
@@ -144,7 +144,7 @@ describe('core callBatch @apiV3', () => {
         expect(result.item.id).toBeDefined()
       }
 
-      const time = rowData.time
+      const time = rowData.time!
       expect(time).toHaveProperty('operating')
       // @todo waite apiV3 fix docs
       expect(time.operating).toEqual(0)
@@ -638,7 +638,7 @@ describe('core callBatch @apiV3', () => {
     //   const rowData = resultData.FirstEventLogMessage!.getData()!
     //   expect(rowData.result).toHaveProperty('item')
     //   expect(rowData.result.item.id).toBe(getMapId().eventLogMessageSuccessV1)
-    //   const time = rowData.time
+    //   const time = rowData.time!
     //   expect(time).toHaveProperty('operating')
     //   // @todo waite apiV3 fix docs
     //   expect(time.operating).toEqual(0)
@@ -659,7 +659,7 @@ describe('core callBatch @apiV3', () => {
       const rowData = resultData.EventLogMessagesList1!.getData()!
       expect(rowData.result).toHaveProperty('items')
       // expect(rowData.result.items.length).toBe(2)
-      const time = rowData.time
+      const time = rowData.time!
       expect(time).toHaveProperty('operating')
       // @todo waite apiV3 fix docs
       expect(time.operating).toEqual(0)

@@ -234,7 +234,12 @@ export class LoadTesterV2 extends AbstractLoadTester {
       return (new Result<TestResult>()).setData({
         requestId,
         duration,
-        operating: response.getData()!.time.operating
+        // `?.` and `?? 0` because both levels are optional: a body may carry no
+        // `time` block at all, and a portal with its operating limiter off sends
+        // a block with no `operating` in it. Zero is what this harness's own
+        // catch branch already reports for "nothing measured", so the two paths
+        // stay comparable.
+        operating: response.getData()!.time?.operating ?? 0
       })
     } catch (error) {
       return (new Result<TestResult>())
@@ -383,7 +388,12 @@ export class LoadTesterV3 extends AbstractLoadTester {
       return (new Result<TestResult>()).setData({
         requestId,
         duration,
-        operating: response.getData()!.time.operating
+        // `?.` and `?? 0` because both levels are optional: a body may carry no
+        // `time` block at all, and a portal with its operating limiter off sends
+        // a block with no `operating` in it. Zero is what this harness's own
+        // catch branch already reports for "nothing measured", so the two paths
+        // stay comparable.
+        operating: response.getData()!.time?.operating ?? 0
       })
     } catch (error) {
       return (new Result<TestResult>())

@@ -107,6 +107,10 @@ coverage
 /docs/llms-full.txt
 .claude/channels/
 .claude/debug/
+# Isolated git worktrees a review agent works in — tooling scratch, and the
+# checkout inside is a second copy of this repository, which must never be
+# committed into it.
+.claude/worktrees/
 
 # docs-typecheck generated temp files (scripts/docs-typecheck.mjs)
 .docs-typecheck/tmp/

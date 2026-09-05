@@ -127,7 +127,7 @@ Inside the recipes the split is:
 
 ## Field-naming choice
 
-The newer CRM methods (`crm.item.list`) use camelCase fields: `stageId`, `assignedById`, `opportunity`, `createdTime`. The classic ones (`tasks.task.add`, `crm.activity.list`, `crm.timeline.comment.add`) use uppercase: `TITLE`, `DESCRIPTION`, `OWNER_TYPE_ID`. Recipes follow this split. Both are `restApi:v2` — `crm.item.*` is camelCase for reasons of its own, not because it is v3; the v3 endpoint publishes no `crm.item.*`. Under `restApi:v3` camelCase is the rule everywhere, and `<entity>.field.list` answers it per entity.
+The newer CRM methods (`crm.item.list`) use camelCase fields: `stageId`, `assignedById`, `opportunity`, `createdTime`. The classic ones (`tasks.task.add`, `crm.activity.list`, `crm.timeline.comment.add`) use uppercase: `TITLE`, `DESCRIPTION`, `OWNER_TYPE_ID`. Recipes follow this split. Both are `restApi:v2` — `crm.item.*` is camelCase for reasons of its own, not because it is v3; the v3 endpoint publishes no `crm.item.*`. Under `restApi:v3` camelCase is the rule everywhere, and `<entity>.field.list` answers it per entity — see [Discovering entity fields](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/discovering-entity-fields/).
 
 ## Running
 

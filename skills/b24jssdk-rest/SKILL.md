@@ -402,6 +402,7 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 - The document is **portal-specific** (reflects installed modules + token scopes) and **large** (100 KB+). Fetch it **once and cache it** — it's response-only and stable within a session; don't re-request per interaction.
 - Each `paths['/method.name'].post.requestBody` schema lists the accepted parameters (often with an `example` of real field names) — read those instead of inventing `select` fields.
 - Full guide: [Discovering v3 methods](https://github.com/bitrix24/b24jssdk/blob/main/docs/content/docs/2.working-with-the-rest-api/7.discovering-v3-methods.md).
+- For one entity's fields and their flags, the cheaper half of the same question: [Discovering entity fields](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/discovering-entity-fields/).
 
 ## Anti-patterns
 

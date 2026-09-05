@@ -40,7 +40,7 @@ export class CallV3 extends AbstractAction {
    * @param {ActionCallV3} options - parameters for executing the request.
    *     - `method: string` - REST API method name (eg: `tasks.task.get`)
    *     - `params?: TypeCallParamsV3` - Parameters for calling the method.
-   *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
+   *     - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
    *     - `idempotencyKey?: string` - `Idempotency-Key` header; a repeat with the same key and body
    *       replays the stored response instead of writing again.
    *

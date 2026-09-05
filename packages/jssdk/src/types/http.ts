@@ -121,7 +121,7 @@ export interface ICallBatchOptions {
    */
   isHaltOnError?: boolean
   /**
-   * Unique request identifier for tracking. Used for query deduplication and debugging.
+   * Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
    */
   requestId?: string
 }

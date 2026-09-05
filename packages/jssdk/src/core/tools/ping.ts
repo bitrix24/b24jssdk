@@ -22,7 +22,7 @@ export class Ping extends AbstractTool {
    *     and use the median value.
    *
    * @param options Some options for executing
-   *   - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging (default: undefined)
+   *   - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3) (default: undefined)
    *
    * @returns {Promise<number>} Promise that resolves to a response time in milliseconds:
    *   - Positive number: time from sending the request to receiving the response

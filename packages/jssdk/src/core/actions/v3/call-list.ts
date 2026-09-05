@@ -51,7 +51,7 @@ export class CallListV3 extends AbstractAction {
    *     - `customKeyForResult: string` - A custom key indicating that the response REST API will be
    *        grouped by this field.
    *        Example: `items` to group a list of CRM items.
-   *    - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
+   *    - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
    *    - `limit?: number` - How many records to retrieve at a time. Default is `50`. Maximum is `1000`.
    *
    * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.

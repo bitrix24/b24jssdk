@@ -36,7 +36,7 @@ export class BatchByChunkV2 extends AbstractBatch {
    *        - Note: Named commands are not supported as they are difficult to process when chunking.
    *     - `options?: Omit<IB24BatchOptions, 'returnAjaxResult'>` - Additional options for executing a batch request.
    *        - `isHaltOnError?: boolean` - Whether to stop execution on the first error (default: true)
-   *        - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging (default: undefined)
+   *        - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3) (default: undefined)
    *
    * @returns {Promise<Result<T[]>>} A promise that is resolved by the result of executing all commands.
    *

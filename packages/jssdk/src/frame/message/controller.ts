@@ -31,7 +31,7 @@ interface PromiseHandlers {
  * - `isSafely?: boolean` auto completion mode Promise.resolve()
  * - `safelyTime?: number` after what time (900 ms) should it be automatically resolved Promise
  * - `callBack?: () => void` for placement event
- * - `requestId?: string` Unique request identifier for tracking. Used for query deduplication and debugging.
+ * - `requestId?: string` Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
  */
 export interface SendParams {
   isRawValue?: boolean

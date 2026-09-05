@@ -53,18 +53,18 @@ export class BatchV3 extends AbstractBatch {
    * @example
    * import type { AjaxResult } from '@bitrix24/b24jssdk'
    *
-   * interface Contact { id: number, name: string }
-   * const response = await b24.actions.v3.batch.make<{ item: Contact }>({
+   * interface Task { id: number, title: string }
+   * const response = await b24.actions.v3.batch.make<{ item: Task }>({
    *   calls: {
-   *     first: ['crm.item.get', { entityTypeId: 3, id: 1 }],
-   *     second: ['crm.item.get', { entityTypeId: 3, id: 2 }]
+   *     first: ['tasks.task.get', { taskId: 1 }],
+   *     second: ['tasks.task.get', { taskId: 2 }]
    *   },
    *   options: { isHaltOnError: false, returnAjaxResult: true, requestId: 'batch-123' }
    * })
    * if (!response.isSuccess) {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
-   * const data = response.getData()! as Record<string, AjaxResult<{ item: Contact }>>
+   * const data = response.getData()! as Record<string, AjaxResult<{ item: Task }>>
    * console.log(data['first']!.getData()!.result.item)
    *
    * @warning The maximum number of commands in one batch request is 50.

@@ -24,7 +24,7 @@ export class CallV3 extends AbstractAction {
    * @template T - The expected data type in the response (default is `unknown`).
    *
    * @param {ActionCallV3} options - parameters for executing the request.
-   *     - `method: string` - REST API method name (eg: `crm.item.get`)
+   *     - `method: string` - REST API method name (eg: `tasks.task.get`)
    *     - `params?: TypeCallParamsV3` - Parameters for calling the method.
    *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
    *

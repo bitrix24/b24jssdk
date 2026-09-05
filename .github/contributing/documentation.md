@@ -1,6 +1,6 @@
 # Documentation
 
-<sub>Last reviewed: 2026-08-26.</sub>
+<sub>Last reviewed: 2026-09-05.</sub>
 
 > **Agent-facing mirror:** the same surface, condensed for agents generating usage code, lives in [`skills/`](../../skills/README.md). The skill set has its own maintenance playbook ([`maintenance.md`](../../.github/contributing/maintenance.md)). When the public docs change here, the matching skill files usually need a refresh in the same PR.
 
@@ -159,7 +159,33 @@ console.log(result.getData().result)
 
 > Compile-checked example: [`documentation-b24hook-example.ts`](../../test/some-code-from-docs/contributing/documentation-b24hook-example.ts)
 >
-> **CI guard:** the `docs-lint` job runs [`scripts/check-v3-method-refs.mjs`](../../scripts/check-v3-method-refs.mjs), which blocks examples that call a non-existent `actions.v3.*` action (real actions: `call` / `callList` / `fetchList` / `callTail` / `fetchTail` / `batch` / `batchByChunk`). It no longer validates v3 *method* names against a whitelist — the SDK dropped its hardcoded v3 allowlist, so any method may be called on v3 and the server validates it. (Separate from `// @check-ignore`, which skips the `docs:typecheck-blocks` TypeScript pass.)
+> **CI guard:** the `docs-lint` job runs [`scripts/check-v3-method-refs.mjs`](../../scripts/check-v3-method-refs.mjs) over docs, skills, `README-AI.md` **and `packages/jssdk/src/`**. Two layers: it blocks examples that call a non-existent `actions.v3.*` action (real actions: `call` / `callList` / `fetchList` / `callTail` / `fetchTail` / `batch` / `batchByChunk`), and it holds every v3 **method name** against a committed snapshot of a portal's own OpenAPI document — see below.
+
+### Checking a v3 method name against a portal snapshot
+
+The docs call `rest.documentation.openapi` the source of truth for what exists on v3, and now something compares against it. `scripts/data/openapi-<kind>-<date>.json` is a reduction of that document — method name, module, operations — carrying a portal **kind** and never a domain, a scope or a credential.
+
+A name is only judged in a **method position**: a `method: '…'` literal, a v3 batch tuple, a parameter-table row whose first cell is `method`, or a JSDoc bullet documenting the `method` option. A backticked name in ordinary prose is not one, because this project writes `result.items` the same way it writes `crm.item.list`.
+
+Two verdicts, and only one of them fails:
+
+- a name in a v3 position that **no** snapshot publishes → **failure**, with `file:line`;
+- a portal method the docs never mention → informational. Never a failure: 237 of 245 are undocumented today, and a check that is red by design gets switched off.
+
+A name published by **one** snapshot is accepted. Portals genuinely differ — two cloud portals measured a day apart disagreed on 28 methods, and every on-premise method exists in the cloud while 98 cloud ones do not exist on the box. A snapshot is a baseline for prose, not a catalogue, and this must never gate runtime.
+
+**Deliberate anti-examples and placeholders** are marked with the same `// @check-ignore: <reason>` this repository already uses, on the line, the line above, or the nearest non-empty line before the fence. **The reason must name the method**, e.g. ``// @check-ignore: `some.method` is a placeholder, not a portal method``. That is deliberate: two fences already carried a marker written for the typecheck gate, and without the name an exemption granted for one reason would silently grant the other.
+
+**Refreshing a snapshot** is a local step — CI never calls a portal:
+
+```bash
+B24_HOOK='https://<portal>/rest/<userId>/<secret>/' V3_SNAPSHOT_KIND=cloud \
+  node scripts/check-v3-method-refs.mjs --refresh
+```
+
+`V3_SNAPSHOT_KIND` is the portal kind (`cloud`, `on-premise`), never a domain. Re-run it when a Bitrix24 release adds v3 methods, or when a name you know is real is rejected; commit the new file and delete the one it replaces if it is the same kind. `--coverage` prints the per-module table and always exits 0 — that is the number to quote in a PR.
+
+(Separate from `// @check-ignore` used alone, which skips the `docs:typecheck-blocks` TypeScript pass.)
 
 #### Runnable examples (`<CodeExample>`)
 

@@ -57,6 +57,7 @@ export class AggregateV3 extends AbstractAction {
    * import { FilterV3 } from '@bitrix24/b24jssdk'
    *
    * const response = await b24.actions.v3.aggregate.make({
+   *   // @check-ignore: `some.entity.aggregate` is a placeholder, not a portal method
    *   method: 'some.entity.aggregate',
    *   select: { sum: { amount: 'totalAmount' }, count: ['id'] },
    *   params: { filter: FilterV3.build(FilterV3.eq('status', 'NEW')) }

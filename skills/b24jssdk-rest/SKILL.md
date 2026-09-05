@@ -404,6 +404,7 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 - ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 3.0.0. Use the actions API.
 - ❌ `res.getNext()` / `res.fetchNext()` against a **v3** client — they throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`. Under v2 they work and are supported; for new code prefer `callList` / `fetchList`, which work under both versions.
 - ❌ Reading `res.getTotal()` or `res.isMore()` on a **v3** response — not an error, but they always answer `0` / `false` there because v3 sends no `total` / `next`. Under v2 they are correct and supported. For a v3 count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action, and treat it as unverified.
+<!-- @check-ignore: `crm.item.get` is the deliberate anti-example this bullet is about — v3 publishes no `crm.item.*` -->
 - ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — `crm.*` is v2-only, so the v3 server returns a `METHODNOTFOUNDEXCEPTION` soft error (`response.isSuccess === false`); use `actions.v2.*` for CRM. (The SDK no longer pre-flight-throws here.)
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.
 - ❌ `customKeyForResult: 'result'` for `crm.item.list` — wrong, use `'items'`. Otherwise you'll get an empty list silently.

@@ -1,5 +1,52 @@
 # Changelog
 
+## [2.3.0](https://github.com/bitrix24/b24jssdk/compare/v2.2.0...v2.3.0) (2026-09-05)
+
+
+### Features
+
+* **core:** support `Idempotency-Key` on `restApi:v3` calls ([#475](https://github.com/bitrix24/b24jssdk/issues/475)) ([d6f81c8](https://github.com/bitrix24/b24jssdk/commit/d6f81c81ba2254fdcb211e8b6a5872958b4e517f)), closes [#462](https://github.com/bitrix24/b24jssdk/issues/462)
+* **scripts:** check the API Reference index against itself ([#458](https://github.com/bitrix24/b24jssdk/issues/458)) ([5c53c9e](https://github.com/bitrix24/b24jssdk/commit/5c53c9e4698bde7302712636030111c868c9d2ad)), closes [#384](https://github.com/bitrix24/b24jssdk/issues/384)
+* **scripts:** compile the ts fences in the contributing guides ([#448](https://github.com/bitrix24/b24jssdk/issues/448)) ([6e8c85f](https://github.com/bitrix24/b24jssdk/commit/6e8c85f4a10cbfea86f8f99f518427a252ac4112)), closes [#435](https://github.com/bitrix24/b24jssdk/issues/435)
+* **scripts:** hold v3 method names against a portal's own OpenAPI document ([#471](https://github.com/bitrix24/b24jssdk/issues/471)) ([36dd2e6](https://github.com/bitrix24/b24jssdk/commit/36dd2e6dcaaa2a946305fd62eeb76f244a135bc3)), closes [#463](https://github.com/bitrix24/b24jssdk/issues/463) [#464](https://github.com/bitrix24/b24jssdk/issues/464)
+* **scripts:** type-check the JSDoc [@example](https://github.com/example) blocks in the SDK source ([#443](https://github.com/bitrix24/b24jssdk/issues/443)) ([f5e6a76](https://github.com/bitrix24/b24jssdk/commit/f5e6a76f76848ff995e3ee340645f956bf3e6a00)), closes [#439](https://github.com/bitrix24/b24jssdk/issues/439)
+
+
+### Bug Fixes
+
+* **core:** keep a response without a time block from throwing ([#456](https://github.com/bitrix24/b24jssdk/issues/456)) ([1f90b2b](https://github.com/bitrix24/b24jssdk/commit/1f90b2b57c24bf218453a5b5249ceabbe7ecefdd))
+* **core:** mask the webhook secret when it appears in a URL path ([#468](https://github.com/bitrix24/b24jssdk/issues/468)) ([4601238](https://github.com/bitrix24/b24jssdk/commit/4601238f7ef5b10153fa55b9e8f626b3d678be7b))
+* **core:** wrap a response body that has no result key into result ([#469](https://github.com/bitrix24/b24jssdk/issues/469)) ([d917cee](https://github.com/bitrix24/b24jssdk/commit/d917ceef40069e383249eee8bf5b3c66e57d30dc))
+* **docs:** stop README-AI.md teaching the removed LoggerBrowser, and gate it ([#446](https://github.com/bitrix24/b24jssdk/issues/446)) ([dfc115a](https://github.com/bitrix24/b24jssdk/commit/dfc115a7e4bedd4cff207acca3bf66bc80d2cb2a)), closes [#277](https://github.com/bitrix24/b24jssdk/issues/277)
+* **recipes:** validate the portal URLs an install event carries ([#452](https://github.com/bitrix24/b24jssdk/issues/452)) ([5b1bf78](https://github.com/bitrix24/b24jssdk/commit/5b1bf78c8f6d0ec866a788a7523810d35e9acffe)), closes [#389](https://github.com/bitrix24/b24jssdk/issues/389)
+* **scripts:** anchor the fence pattern, which was miscounting an inline marker ([#442](https://github.com/bitrix24/b24jssdk/issues/442)) ([638c977](https://github.com/bitrix24/b24jssdk/commit/638c977ca97f008a2b6165f7135039908165d5a1)), closes [#441](https://github.com/bitrix24/b24jssdk/issues/441)
+
+
+### Dependencies
+
+* bump grammy and openai in the recipes package ([#444](https://github.com/bitrix24/b24jssdk/issues/444)) ([5bbfefd](https://github.com/bitrix24/b24jssdk/commit/5bbfefd3715d9b3f827ba26f1f848c8c227bd3e9))
+* raise the audit floors that new advisories moved past ([#453](https://github.com/bitrix24/b24jssdk/issues/453)) ([67a11b9](https://github.com/bitrix24/b24jssdk/commit/67a11b9e5034a6dff6298c8eb8ad97c662af8f0c))
+* take the tooling half of the grouped bump, leave the docs app alone ([#470](https://github.com/bitrix24/b24jssdk/issues/470)) ([2abf5fc](https://github.com/bitrix24/b24jssdk/commit/2abf5fc3b05c0f9d07a75b6cbb943ff4d882c676)), closes [#457](https://github.com/bitrix24/b24jssdk/issues/457)
+
+
+### Changed
+
+* **ci:** drop the typecheck pass the measurement showed was redundant ([#436](https://github.com/bitrix24/b24jssdk/issues/436)) ([778ba82](https://github.com/bitrix24/b24jssdk/commit/778ba829b7efda1517d992f0f07fe9b930d40dad)), closes [#419](https://github.com/bitrix24/b24jssdk/issues/419)
+* **scripts:** one directory walk, with the symlink guard the copies lacked ([#437](https://github.com/bitrix24/b24jssdk/issues/437)) ([576c365](https://github.com/bitrix24/b24jssdk/commit/576c36525b84eb68342ba77f56d1a49ac87a935f)), closes [#418](https://github.com/bitrix24/b24jssdk/issues/418)
+* **scripts:** one reporter, and GitHub annotations for every check ([#450](https://github.com/bitrix24/b24jssdk/issues/450)) ([134e820](https://github.com/bitrix24/b24jssdk/commit/134e8208b30b4dcb73ee98a33faa9e784071a160)), closes [#418](https://github.com/bitrix24/b24jssdk/issues/418)
+
+
+### Docs
+
+* **contributing:** re-measure the typecheck coverage table and point AGENTS.md at it ([#447](https://github.com/bitrix24/b24jssdk/issues/447)) ([33ef7df](https://github.com/bitrix24/b24jssdk/commit/33ef7df3b5f09ca0c70e13cb6c66c015d82d4fff)), closes [#419](https://github.com/bitrix24/b24jssdk/issues/419)
+* **contributing:** retire the argument [#439](https://github.com/bitrix24/b24jssdk/issues/439) disproved, and refresh the counts ([#451](https://github.com/bitrix24/b24jssdk/issues/451)) ([ea6f38c](https://github.com/bitrix24/b24jssdk/commit/ea6f38ca74ca2102233053783910ad75ce6048b1))
+* **core:** agree where a JSDoc block ends, and cut the two longest ([#440](https://github.com/bitrix24/b24jssdk/issues/440)) ([cbdb6fe](https://github.com/bitrix24/b24jssdk/commit/cbdb6fe2766cc94880c6b97b6820a5fb34784f70)), closes [#420](https://github.com/bitrix24/b24jssdk/issues/420)
+* **frame:** state the portal-side contract for closing a slider app ([#449](https://github.com/bitrix24/b24jssdk/issues/449)) ([dd04808](https://github.com/bitrix24/b24jssdk/commit/dd04808125ea793805a264fa1270827280dd6bde)), closes [#328](https://github.com/bitrix24/b24jssdk/issues/328)
+* **releasing:** decide the release body does not mirror the changelog ([#434](https://github.com/bitrix24/b24jssdk/issues/434)) ([c339d75](https://github.com/bitrix24/b24jssdk/commit/c339d75f0f25ccebbb67680e33b4763cd7968be9))
+* **releasing:** write the community post about the reader, not about us ([#432](https://github.com/bitrix24/b24jssdk/issues/432)) ([8206b6e](https://github.com/bitrix24/b24jssdk/commit/8206b6ee3fbd490918d264d75e0ee1b901657e1e))
+* **skills:** point the filtering and recipes skills at the field-list guide ([#474](https://github.com/bitrix24/b24jssdk/issues/474)) ([a33d654](https://github.com/bitrix24/b24jssdk/commit/a33d654ecf6f0109cfc0a6111b146ec5502e4dd7))
+* **v3:** document *.field.list, and state the camelCase rule once ([#473](https://github.com/bitrix24/b24jssdk/issues/473)) ([9a70742](https://github.com/bitrix24/b24jssdk/commit/9a70742006fbec4376454bcad8ae7141c7780940)), closes [#466](https://github.com/bitrix24/b24jssdk/issues/466)
+
 ## [Unreleased]
 
 ### Bug Fixes

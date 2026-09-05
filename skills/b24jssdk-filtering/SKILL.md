@@ -138,7 +138,7 @@ If you need a specific sort order, drop down to `call.make` and page manually �
 ## `order` for single `call.make`
 
 - **v2**: object with values `'asc' | 'desc' | 'ASC' | 'DESC'` — `order: { id: 'asc', amount: 'desc' }`.
-- **v3**: object form **only** (`{ field: 'asc' | 'desc' }`). Arrays throw `InvalidOrderException`. The DTO field must carry the server-side `#[Sortable]` attribute or you'll get `DtoFieldRequiredAttributeException`.
+- **v3**: object form **only** (`{ field: 'asc' | 'desc' }`). Arrays throw `InvalidOrderException`. The DTO field must carry the server-side `#[Sortable]` attribute, or the request is **refused**: HTTP 400 with `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` and the field name in `validation[].field`. (The specific PHP class is `DtoFieldRequiredAttributeException`, but it inherits that code and gets none of its own, so match on the code and the field — never on the message, which is localised.) `<entity>.field.list` tells you which fields are `sortable` before you send anything.
 
 ## Dates
 
@@ -157,11 +157,11 @@ const paramsV2 = { filter: { '>=createdTime': Text.toB24Format(sixMonthsAgo) } }
 const paramsV3 = { filter: [['createdTime', '>=', Text.toB24Format(sixMonthsAgo)]] }
 ```
 
-## Field naming — v2 (classic vs v3-style)
+## Field naming — two casings inside v2
 
 The same logical field has different names depending on the method:
 
-| Logical | Classic methods (`crm.deal.list`, …) | v3-style methods (`crm.item.list`) |
+| Logical | UPPER_SNAKE methods (`crm.deal.list`, …) | camelCase methods (`crm.item.list`) |
 | --- | --- | --- |
 | ID | `ID` | `id` |
 | Title | `TITLE` | `title` |
@@ -173,7 +173,7 @@ The same logical field has different names depending on the method:
 | Assigned to | `ASSIGNED_BY_ID` | `assignedById` |
 | Custom field | `UF_CRM_INN` | `ufCrmInn` |
 
-> Both shapes are v2-API. The casing is per-method, not per-API-version. Use the same casing across `filter`, `select`, and (where applicable) `order`. Mixing styles silently breaks paging.
+> Both shapes are v2-API, and neither is "v3-style": the casing here is per-method, not per-API-version. `crm.item.*` is camelCase for reasons of its own and is **not** a v3 method — v3 publishes no `crm.item.*` at all. Under `restApi:v3` camelCase *is* the rule, without exception across the 108 field descriptors measured; ask `<entity>.field.list` when unsure. Use the same casing across `filter`, `select`, and (where applicable) `order`. Mixing styles silently breaks paging.
 
 ## Select
 

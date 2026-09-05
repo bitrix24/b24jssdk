@@ -44,7 +44,7 @@ describe('core.actions.call @apiV3', () => {
     expect(result.item.id).toBeDefined()
     expect(result.item.title).toBeDefined()
 
-    const time = response.getData()!.time
+    const time = response.getData()!.time!
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
     expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -112,7 +112,7 @@ describe('core.actions.call @apiV3', () => {
   //   expect(response.isSuccess).toBe(true)
   //
   //   const result = response.getData()!.result
-  //   const time = response.getData()!.time
+  //   const time = response.getData()!.time!
   //
   //   expect(result).toBeDefined()
   //   expect(result).toHaveProperty('result')

@@ -58,7 +58,7 @@ async function smokeList(
   expect(data.result, `${method} returned no result envelope`).toBeDefined()
   expect(data.result, `${method} returned an empty result envelope`).not.toBeNull()
 
-  const time = data.time
+  const time = data.time!
   expect(time).toHaveProperty('operating')
   expect(time.operating).toBeGreaterThanOrEqual(0)
   expect(time.operating_reset_at).toBeGreaterThan(0)

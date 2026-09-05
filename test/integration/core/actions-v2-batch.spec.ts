@@ -41,7 +41,7 @@ describe('core callBatch @apiV2', () => {
       expect(result).toHaveProperty('items')
       expect(result.items.length).toBeGreaterThan(0)
 
-      const time = rowData.time
+      const time = rowData.time!
       expect(time).toHaveProperty('operating')
       expect(time.operating).toBeGreaterThanOrEqual(0)
       expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -76,7 +76,7 @@ describe('core callBatch @apiV2', () => {
       expect(result).toHaveProperty('items')
       expect(result.items.length).toBeGreaterThan(0)
 
-      const time = rowData.time
+      const time = rowData.time!
       expect(time).toHaveProperty('operating')
       expect(time.operating).toBeGreaterThanOrEqual(0)
       expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -126,7 +126,7 @@ describe('core callBatch @apiV2', () => {
       expect(result).toHaveProperty('items')
       expect(result.items.length).toBeGreaterThan(0)
 
-      const time = rowData.time
+      const time = rowData.time!
       expect(time).toHaveProperty('operating')
       expect(time.operating).toBeGreaterThanOrEqual(0)
       expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -198,7 +198,7 @@ describe('core callBatch @apiV2', () => {
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
 
-        const time = rowData.time
+        const time = rowData.time!
         expect(time).toHaveProperty('operating')
         expect(time.operating).toBeGreaterThanOrEqual(0)
         expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -247,7 +247,7 @@ describe('core callBatch @apiV2', () => {
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
 
-        const time = rowData.time
+        const time = rowData.time!
         expect(time).toHaveProperty('operating')
         expect(time.operating).toBeGreaterThanOrEqual(0)
         expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -325,7 +325,7 @@ describe('core callBatch @apiV2', () => {
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
 
-        const time = rowData.time
+        const time = rowData.time!
         expect(time).toHaveProperty('operating')
         expect(time.operating).toBeGreaterThanOrEqual(0)
         expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -410,7 +410,7 @@ describe('core callBatch @apiV2', () => {
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
 
-        const time = rowData.time
+        const time = rowData.time!
         expect(time).toHaveProperty('operating')
         expect(time.operating).toBeGreaterThanOrEqual(0)
         expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -458,7 +458,7 @@ describe('core callBatch @apiV2', () => {
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
 
-        const time = rowData.time
+        const time = rowData.time!
         expect(time).toHaveProperty('operating')
         expect(time.operating).toBeGreaterThanOrEqual(0)
         expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -535,7 +535,7 @@ describe('core callBatch @apiV2', () => {
         expect(result).toHaveProperty('items')
         expect(result.items.length).toBeGreaterThan(0)
 
-        const time = rowData.time
+        const time = rowData.time!
         expect(time).toHaveProperty('operating')
         expect(time.operating).toBeGreaterThanOrEqual(0)
         expect(time.operating_reset_at).toBeGreaterThan(0)

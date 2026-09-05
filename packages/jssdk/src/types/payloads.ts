@@ -28,9 +28,18 @@ export type PayloadTime = {
   readonly operating?: number
 }
 
+/**
+ * The wire envelope of an ordinary single-method response.
+ *
+ * `time` is optional here for the same reason it is on {@link SuccessPayload},
+ * and the two are coupled: `AjaxResult.getData()` returns a `SuccessPayload`
+ * where the `IResult` contract expects a `Payload`, so this union member has to
+ * stay assignable from it. A required `time` here would make that assignment
+ * fail the moment the output type admitted an absent one.
+ */
 export type GetPayload<P> = {
   readonly result: P
-  readonly time: PayloadTime
+  readonly time?: PayloadTime
 }
 
 // @todo ! add api3
@@ -79,14 +88,17 @@ export type Payload<P>
  * Public shape of a successful REST response, as exposed by `AjaxResult.getData()`.
  *
  * The Bitrix24 REST API wraps a success response in `{ result, time }` for both
- * `restApi:v2` and `restApi:v3` — but not universally, so neither field may be
- * assumed present at runtime: `rest.documentation.openapi` answers with the
- * OpenAPI document at the top level, with no `result` and no `time`, measured on
- * an on-premise build, a cloud portal and a cloud sandbox. The fields stay
- * required here because they are what a caller wants for every ordinary method;
- * code in the transport layer that must survive any response is written against
- * that reality instead (see `OperatingLimiter.updateStats`). Any v2-only envelope
- * fields (`next`, `total`) are intentionally NOT part of this type: they have
+ * `restApi:v2` and `restApi:v3` — but not universally:
+ * `rest.documentation.openapi` answers with the OpenAPI document at the top
+ * level, with no `result` and no `time`, measured on an on-premise build, a
+ * cloud portal and a cloud sandbox.
+ *
+ * `result` is always here regardless, because `getData()` wraps such a body —
+ * the body itself becomes `result`, which is what makes that method usable at
+ * all. `time` cannot be manufactured the same way, so it is optional.
+ *
+ * Any v2-only envelope fields (`next`, `total`) are intentionally NOT part of
+ * this type — nor are they returned by `getData()` — because they have
  * no `restApi:v3` counterpart, and the SDK's `actions.v{2,3}.{callList,fetchList}`
  * helpers handle pagination internally so consumers never need to read them.
  *
@@ -94,5 +106,12 @@ export type Payload<P>
  */
 export type SuccessPayload<P> = {
   readonly result: P
-  readonly time: PayloadTime
+  /**
+   * Optional, because a success does not always carry one and the SDK does not
+   * invent it. `rest.documentation.openapi` answers with the OpenAPI document at
+   * the top level: `getData()` hands that whole body back as `result`, and there
+   * is no `time` to report alongside it. Guard before reading a field off it —
+   * the type says `undefined` is possible precisely so the compiler makes you.
+   */
+  readonly time?: PayloadTime
 }

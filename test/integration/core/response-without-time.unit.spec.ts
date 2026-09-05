@@ -146,7 +146,7 @@ describe('a response without a `time` block', () => {
     })
 
     expect(response.isSuccess).toBe(true)
-    expect(response.getData()!.time.operating).toBe(0.5)
+    expect(response.getData()!.time!.operating).toBe(0.5)
   })
 
   it('updateStats tolerates an absent time block from any caller', async () => {

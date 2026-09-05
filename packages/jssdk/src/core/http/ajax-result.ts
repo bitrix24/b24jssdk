@@ -83,10 +83,11 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   /**
    * The success payload as `{ result, time }`.
    *
-   * A response whose body carries **no `result` key at all** is wrapped: the
-   * whole body becomes `result`. Without that the body is simply lost — this
-   * method rebuilds the payload from two named keys, so anything else on it is
-   * projected away and the caller gets `{ result: undefined, time: undefined }`.
+   * A response whose body is **not an envelope** — anything but a plain object
+   * with a `result` key — is wrapped: the whole body becomes `result`. Without
+   * that the body is simply lost, because this method rebuilds the payload from
+   * two named keys, so everything else on it is projected away and the caller
+   * gets `{ result: undefined, time: undefined }` from a call that succeeded.
    *
    * That is not hypothetical. `rest.documentation.openapi` answers with the
    * OpenAPI document at the top level — no envelope, no `time` — on every portal
@@ -112,10 +113,24 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
 
     const payload = this._data as SuccessPayload<T>
 
-    if (payload && typeof payload === 'object' && !('result' in payload)) {
+    // Asked the other way round — "is this an envelope?" rather than "is this
+    // envelope-less?" — so that everything which is not one takes the wrap. A
+    // body that is `null`, a bare `true`, a string or an array carries no
+    // `result` either, and reading `.result` off `null` threw a `TypeError`
+    // where the whole point of this branch is that a success reaches its caller.
+    //
+    // No `Array.isArray` check: `'result' in []` is already false, so an array
+    // takes the wrap regardless. Adding one would be a branch no input can tell
+    // apart from its absence — which is worse than not having it.
+    const isEnvelope = payload !== null
+      && typeof payload === 'object'
+      && 'result' in payload
+
+    if (!isEnvelope) {
       return Object.freeze({
         result: payload as unknown as T,
-        time: (payload as { time?: PayloadTime }).time
+        // Read off the body when it happens to carry one; never invented.
+        time: (payload as { time?: PayloadTime } | null)?.time
       }) as SuccessPayload<T>
     }
 

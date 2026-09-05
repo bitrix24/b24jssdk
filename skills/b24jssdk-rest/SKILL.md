@@ -68,13 +68,80 @@ For a v3 method:
 ```ts
 interface TaskItem { id: number; title: string }
 
-const response = await $b24.actions.v3.call.make<{ task: TaskItem }>({
+const response = await $b24.actions.v3.call.make<{ item: TaskItem }>({
   method: 'tasks.task.get',
   params: { id: 1, select: ['id', 'title'] },
   requestId: 'task-1'
 })
-const task = response.getData()!.result.task
+// v3 wraps a single entity as `result.item` — including tasks, where the v2
+// method answered `result.task`.
+const task = response.getData()!.result.item
 ```
+
+### Writes that must not double up (`restApi:v3`)
+
+For a v3 method that **creates, changes or deletes**, pass `idempotencyKey`.
+The portal stores the successful response against the key for 24 hours and
+replays it instead of writing twice — which covers the duplicate a retry
+policy cannot: a crashed worker rerunning its job, or an outbound event
+delivered twice.
+
+```ts
+// The key names the OPERATION, not the attempt: two attempts at the same
+// business operation must produce the same string, in any process, after any
+// restart. Derive it from your own identifiers rather than minting a UUID at
+// the call site — a restarted worker would mint a different one and write a
+// second record.
+const orderId = 1042
+const responsibleId = 1
+
+const response = await $b24.actions.v3.call.make<{ item: { id: number } }>({
+  method: 'tasks.task.add',
+  // creatorId and responsibleId are required by tasks.task.add
+  params: { fields: { title: 'Ship it', creatorId: responsibleId, responsibleId } },
+  idempotencyKey: `task-from-order-${orderId}`
+})
+
+if (response.isIdempotentReplay()) {
+  // Already done earlier — nothing new was written; skip the side effects
+  // (the notification, the counter, the outbound webhook) you would fire on a
+  // real create.
+}
+```
+
+**The integration case — a re-run of an import.** An import already carries the
+key it needs: the source system's own identifier. Use it, and re-running the
+import stops creating duplicates without a read-before-write per row.
+
+```ts
+declare const rows: Array<{ externalId: string, title: string }>
+declare const ownerId: number
+
+for (const row of rows) {
+  await $b24.actions.v3.call.make({
+    method: 'tasks.task.add',
+    params: { fields: { title: row.title, creatorId: ownerId, responsibleId: ownerId } },
+    idempotencyKey: `import-task-${row.externalId}`
+  })
+}
+```
+
+**But check the method exists on v3 first.** There is **no `crm.*` create on
+v3** — no lead, deal, contact or company (245 methods / 14 modules measured
+2026-09-05; the creating ones are `tasks.task.add`, `tasks.task.result.add`,
+`note.{collection,document,file}.add`, `humanresources.node.add` and a few
+under `rest.*` / `main.*`). So the usual integration write goes through `crm.*`
+on `restApi:v2`, where the header is ignored — for those, keep the source id in
+a field and check it before inserting. Ask the portal with
+`rest.documentation.openapi` rather than assuming.
+
+Constraints: 1–255 printable ASCII (otherwise the SDK throws
+`JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY` before sending); the same key with a
+*different* body is refused, not deduplicated; the response is stored only on
+success, so keep `retryOnNetworkError: false` on long writes as well; `batch`
+takes no key; and `restApi:v2` ignores the header — the v2 transport drops it
+and warns. Full guide:
+[Idempotency-Key](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-rest-api-ver3/#idempotency-key).
 
 ## `batch.make` — array form
 
@@ -419,6 +486,10 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 - ❌ Hand-paging a v3 list method by the `nextCursor` it returns (e.g. `note.*`) — `callList` / `fetchList` page via their own `idKey` cursor and walk every page; `nextCursor` is informational and the SDK ignores it. Just use the list helpers with `idKey` + `customKeyForResult`.
 - ❌ `batch.make({ calls, isHaltOnError: false })` — batch flags at the top level are **not applied**. They belong under `options: { isHaltOnError, returnAjaxResult, requestId }`. TypeScript now rejects the literal and the SDK logs a warning for callers it cannot see, but nothing recovers the intent: `returnAjaxResult` dropped this way makes `entry.isSuccess` `undefined` on a plain object, so a batch where everything succeeded reads as a batch where everything failed (#426).
 - ❌ Reading `getData()!.result` off `batch.make` / `callList.make` / `batchByChunk.make` — only `call.make` returns that envelope. See the table above.
+- ❌ Expecting `idempotencyKey` to protect a CRM import — `crm.*` has no v3 create, so the write is v2 and the key is dropped with a warning. Check `rest.documentation.openapi` before designing around it.
+- ❌ Reaching for `batch.make` on a bulk load that must not duplicate — a batch carries no key. Loop single calls and accept the throughput cost, or accept the duplicates.
+- ❌ `idempotencyKey: crypto.randomUUID()` written at the call site for a job that can be retried by a *different* process — the restart mints a new key and writes a duplicate anyway. Derive the key from the operation (`deal-${orderId}-create`), or persist a minted one with the job before calling.
+- ❌ Reusing one `idempotencyKey` for two different writes — the portal answers HTTP 422 `…IDEMPOTENCYKEYREUSEDEXCEPTION` rather than deduplicating. Prefix by operation: `deal-42-create` vs `deal-42-close`.
 - ❌ `B24Hook` in a browser bundle — leaks the webhook secret. Use `B24Frame` there.
 
 ## Cross-reference

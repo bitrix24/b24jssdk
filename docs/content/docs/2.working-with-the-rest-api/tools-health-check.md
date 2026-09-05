@@ -2,7 +2,7 @@
 title: HealthCheck.make()
 description: 'Method for checking the availability of Bitrix24 REST API. Performs a simple request to the REST API to verify service health.'
 category: 'tools'
-audited: 2026-06-25
+audited: 2026-09-05
 navigation.title: HealthCheck
 links:
   - label: HealthCheck
@@ -37,7 +37,7 @@ make(
 
 | Parameter | Type | Required | Description |
 |----|----|----|----|
-| **`requestId`** | `string`{lang="ts-type"} | No | Unique request identifier for tracking. Used for request deduplication and debugging. |
+| **`requestId`** | `string`{lang="ts-type"} | No | Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3). |
 
 ### Return Value
 

@@ -25,7 +25,7 @@ export class CallV2 extends AbstractAction {
    * @param {ActionCallV2} options - parameters for executing the request.
    *     - `method: string` - REST API method name (eg: `crm.item.get`)
    *     - `params?: TypeCallParamsV2` - Parameters for calling the method.
-   *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
+   *     - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
    *
    * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an REST API call.
    *

@@ -131,6 +131,23 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
   // In code with overlapping async work on the same $b24, prefer:
   //   - a dedicated $b24 instance for non-idempotent flows, or
   //   - a per-method idempotency token + manual conflict-detection on conflict.
+  //
+  // On restApi:v3 none of this is needed: pass `idempotencyKey` on the call and
+  // the portal deduplicates the write itself, so a retry replays the stored
+  // response instead of creating a second entity.
+  //
+  //   // The key names the OPERATION: derive it from your own identifiers so a
+  //   // retry in another process produces the same string. A randomUUID() here
+  //   // would be a fresh key per attempt, and would deduplicate nothing.
+  //   const res = await $b24.actions.v3.call.make({
+  //     method: 'tasks.task.add',
+  //     params: { fields: { title: 'Ship it', creatorId: 1, responsibleId: 1 } },
+  //     idempotencyKey: `ship-task-for-order-${orderId}`
+  //   })
+  //   res.isIdempotentReplay() // true when the portal replayed an earlier call
+  //
+  // `crm.item.add` below is a v2 method, where the portal ignores the header —
+  // hence the instance-wide policy change and the reconciliation note.
   await $b24.setRestrictionManagerParams({
     ...ParamsFactory.getDefault(),
     retryOnNetworkError: false,
@@ -153,7 +170,9 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
   } catch (e) {
     if (e instanceof AjaxError && (e.code === 'NETWORK_ERROR' || e.code === 'REQUEST_TIMEOUT')) {
       // CRITICAL: do NOT retry blindly. The server may have created the deal.
-      // Reconcile by querying for the new id (e.g. via a client-side idempotency tag).
+      // On v2 the only recourse is to reconcile by querying for the new id
+      // (e.g. via a client-side idempotency tag). A v3 method would instead
+      // carry `idempotencyKey` and be safe to retry as-is.
       logger.error('Network failure during create — may need reconciliation', { code: e.code })
       return null
     }

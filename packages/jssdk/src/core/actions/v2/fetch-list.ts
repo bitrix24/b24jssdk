@@ -42,7 +42,7 @@ export class FetchListV2 extends AbstractAction {
    *     - `customKeyForResult?: string` - A custom key indicating that the response REST API will be
    *        grouped by this field.
    *        Example: `items` to group a list of CRM items.
-   *    - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
+   *    - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
    *
    * @returns {AsyncGenerator<T[]>} An async generator that yields chunks of data as arrays of type `T`.
    *     Each iteration returns the next page/batch of results until all data is fetched.

@@ -17,10 +17,10 @@ All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The le
 | 4 | `examples/04-erp-sync.ts` | Node, `node-cron` | `crm` | Two-way contact sync between Bitrix24 (via `actions.v2.*`) and a mock ERP |
 | 5 | `examples/05-disk-files.ts` | Node | `disk` | Storages → root → create folder → list files, with a `actions.v2.batch.make` round-trip |
 | 6 | `examples/06-telegram-bot.ts` | Node, `grammy`, `node-cron` | `crm` | Poll new deals via `actions.v2.call.make`, notify a Telegram chat |
-| 7 | `examples/07-webhook-handler.ts` | Node, `express` | `crm` | Express server that receives Bitrix24 outbound events; loads details with `actions.v2.call.make` |
+| 7 | `examples/07-webhook-handler.ts` | Node, `express` | `crm`, `task` | Express server that receives Bitrix24 outbound events; loads details with `actions.v2.call.make`, then creates a follow-up task with an `idempotencyKey` so a redelivered event does not create it twice |
 | 8 | `examples/08-ai-assistant.ts` | Node, `openai` | `crm`, `task` | Deal + activity timeline → GPT prompt → `actions.v3.call.make('tasks.task.add')` follow-up |
 | 9 | `examples/09-web-search-llm.ts` | Node, BYOC | `crm` | Two-step RAG; SDK posts the answer to a deal's timeline via `actions.v2.call.make('crm.timeline.comment.add')` |
-| 10 | `examples/10-error-handling.ts` | Node | any | Error-handling cookbook: AjaxError vs SdkError taxonomy; `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` knobs via `setRestrictionManagerParams`; non-idempotent-call safety |
+| 10 | `examples/10-error-handling.ts` | Node | any | Error-handling cookbook: AjaxError vs SdkError taxonomy; `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` knobs via `setRestrictionManagerParams`; non-idempotent-call safety, with `idempotencyKey` as the v3 answer |
 | 11 | `examples/11-event-registration.ts` | Node | `crm` | CLI tool — list / bind / unbind outbound webhook events (`event.get`, `event.bind`, `event.unbind`). Pairs with recipe 7. |
 | 12 | `examples/12-oauth-install.ts` | Node, `express` | OAuth app | OAuth install handshake: handle `ONAPPINSTALL` / `ONAPPUPDATE` / `ONAPPUNINSTALL` events, persist tokens per portal, build `B24OAuth` on demand, refresh callback writes new tokens back to storage |
 

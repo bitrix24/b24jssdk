@@ -2,7 +2,7 @@ import type { IResult } from '../result'
 import type { Payload, PayloadTime, SuccessPayload } from '../../types/payloads'
 import type { ValidationDetail } from './parse-error-payload'
 import { parseErrorPayload } from './parse-error-payload'
-import type { TypeCallParams, TypeHttp } from '../../types/http'
+import type { AjaxIdempotency, TypeCallParams, TypeHttp } from '../../types/http'
 import { Type } from '../../tools/type'
 import { Text } from '../../tools/text'
 import { Result } from '../result'
@@ -32,6 +32,11 @@ type AjaxResultOptions<T> = Readonly<{
    * it is the error, not a reconstruction of one.
    */
   error?: AjaxError
+
+  /**
+   * The idempotency headers the response carried, when it carried any.
+   */
+  idempotency?: AjaxIdempotency
 }>
 
 type ErrorData = {
@@ -53,6 +58,7 @@ type ErrorData = {
 export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResult<Payload<T>> {
   private readonly _status: number
   private readonly _query: AjaxQuery
+  private readonly _idempotency: AjaxIdempotency | undefined
   protected override _data: Payload<T> | null | undefined
 
   constructor(options: AjaxResultOptions<T>) {
@@ -61,6 +67,7 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
     this._data = options.answer ? Object.freeze(options.answer) : undefined
     this._query = Object.freeze(structuredClone(options.query))
     this._status = options.status
+    this._idempotency = options.idempotency ? Object.freeze({ ...options.idempotency }) : undefined
 
     if (options.error) {
       this.addError(options.error, 'base-error')
@@ -254,6 +261,48 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
 
   getStatus(): number {
     return this._status
+  }
+
+  /**
+   * Whether the portal replayed a stored response instead of executing the
+   * method again.
+   *
+   * Only ever `true` for a `restApi:v3` call made with an `idempotencyKey`
+   * that the portal has already seen with the same body: it answers HTTP 200
+   * with the stored body — the same ids, the same everything — and marks it
+   * with `Idempotent-Replayed: true`. That header is the only difference; a
+   * replay is otherwise indistinguishable from a fresh write.
+   *
+   * `false` for every other response, including a first call that *did* carry
+   * a key.
+   *
+   * @example
+   * declare const orderId: number
+   * // The key names the operation, so a retry of it repeats the same string.
+   * const response = await b24.actions.v3.call.make({
+   *   method: 'tasks.task.add',
+   *   params: { fields: { title: 'Ship it', creatorId: 1, responsibleId: 1 } },
+   *   idempotencyKey: `ship-task-for-order-${orderId}`
+   * })
+   * if (response.isIdempotentReplay()) {
+   *   console.log('already created earlier, nothing new was written')
+   * }
+   *
+   * @see https://apidocs.bitrix24.ru/api-reference/rest-v3.html — section
+   *   «Повторный вызов без дублей»
+   */
+  isIdempotentReplay(): boolean {
+    return this._idempotency?.replayed ?? false
+  }
+
+  /**
+   * The idempotency key the portal echoed back, when it echoed one.
+   *
+   * Useful for correlating a call with its key in a log; the caller already
+   * knows the key it sent, so this is a confirmation rather than a discovery.
+   */
+  getIdempotencyKey(): string | undefined {
+    return this._idempotency?.key
   }
 
   getQuery(): Readonly<AjaxQuery> {

@@ -2,7 +2,7 @@
 title: Ping.make()
 description: 'Method for measuring Bitrix24 REST API response speed. Performs a test request and returns response time in milliseconds.'
 category: 'tools'
-audited: 2026-06-25
+audited: 2026-09-05
 navigation.title: Ping
 links:
   - label: Ping
@@ -37,7 +37,7 @@ make(
 
 | Parameter | Type | Required | Description |
 |----|----|----|----|
-| **`requestId`** | `string`{lang="ts-type"} | No | Unique request identifier for tracking. Used for request deduplication and debugging. |
+| **`requestId`** | `string`{lang="ts-type"} | No | Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3). |
 
 ### Return Value
 

@@ -26,7 +26,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { AxiosError } from 'axios'
-import { ApiVersion, B24Hook, ParamsFactory, SdkError } from '../../../packages/jssdk/src/'
+import { ApiVersion, B24Hook, ParamsFactory } from '../../../packages/jssdk/src/'
 
 const IDEMPOTENCY_KEY = '2f7c1e4a-0000-4000-8000-abcdefabcdef'
 
@@ -287,11 +287,15 @@ describe('Idempotency-Key on restApi:v3 (issue #462)', () => {
     const postSpy = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
       .mockResolvedValue(writeResponse())
 
+    // `toBeInstanceOf(SdkError)` alone is not enough here: `AjaxError` extends
+    // `SdkError`, so that assertion stays green even when the named error is
+    // converted to `JSSDK_UNKNOWN_ERROR` on the way out — which is exactly what
+    // happened while the key was validated inside the retry loop's `try`.
     await expect(b24.actions.v3.call.make({
       method: 'note.collection.add',
       params: { fields: { name: 'audit-v3 idem' } },
       idempotencyKey: ''
-    })).rejects.toBeInstanceOf(SdkError)
+    })).rejects.toMatchObject({ code: 'JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY' })
 
     // And it fails before the write, not after it.
     expect(postSpy).not.toHaveBeenCalled()
@@ -308,7 +312,7 @@ describe('Idempotency-Key on restApi:v3 (issue #462)', () => {
       method: 'note.collection.add',
       params: { fields: { name: 'audit-v3 idem' } },
       idempotencyKey: 'key-with\r\nInjected: header'
-    })).rejects.toBeInstanceOf(SdkError)
+    })).rejects.toMatchObject({ code: 'JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY' })
   })
 
   it('@apiV3 refuses a key longer than the documented 255 characters', async () => {
@@ -320,7 +324,7 @@ describe('Idempotency-Key on restApi:v3 (issue #462)', () => {
       method: 'note.collection.add',
       params: { fields: { name: 'audit-v3 idem' } },
       idempotencyKey: 'x'.repeat(256)
-    })).rejects.toBeInstanceOf(SdkError)
+    })).rejects.toMatchObject({ code: 'JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY' })
   })
 
   it('@apiV3 accepts a key of exactly the documented maximum length', async () => {
@@ -353,6 +357,8 @@ describe('Idempotency-Key on restApi:v3 (issue #462)', () => {
     const [message] = warning.mock.calls[0] as [string, unknown]
     expect(message).toContain('restApi:v2')
     expect(message).toContain('actions.v3.call.make')
+    // Once for the call, not once per retry attempt.
+    expect(warning).toHaveBeenCalledTimes(1)
   })
 
   it('@apiV2 stays on the two-argument post when no key is given', async () => {

@@ -363,6 +363,16 @@ export abstract class AbstractHttp implements TypeHttp {
     this._validateParams(requestId, method, params)
     this._logRequest(requestId, method, params)
 
+    // Built once, before the retry loop, and threaded down as config rather
+    // than as options. Three reasons, all of them found the hard way:
+    // a malformed key must fail as `JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY` — built
+    // inside the loop it was thrown inside the try, converted by
+    // `_convertToAjaxError`, and reached the caller as `JSSDK_UNKNOWN_ERROR`;
+    // `HttpV2`'s dropped-key warning belongs to the call, not to each attempt;
+    // and the same config must go out on every attempt, since a retry of one
+    // operation has to carry the same key. (#462)
+    const requestConfig = this._prepareRequestConfig(requestId, method, options)
+
     let lastError: AjaxError | null = null
     const startTime = Date.now()
 
@@ -374,7 +384,7 @@ export abstract class AbstractHttp implements TypeHttp {
         await this._restrictionManager.applyOperatingLimits(requestId, method, params)
 
         // 3. We execute the request taking into account authorization, rate limit, and update operating statistics.
-        const result = await this._executeSingleCall<T>(requestId, method, params, options)
+        const result = await this._executeSingleCall<T>(requestId, method, params, requestConfig)
         const duration = Date.now() - startTime
 
         // 6. Updating statistics
@@ -508,10 +518,10 @@ export abstract class AbstractHttp implements TypeHttp {
    * - rate limit check
    * - updating operating statistics
    */
-  protected async _executeSingleCall<T = unknown>(requestId: string, method: string, params: TypeCallParams, options?: TypeCallOptions): Promise<AjaxResult<T>> {
+  protected async _executeSingleCall<T = unknown>(requestId: string, method: string, params: TypeCallParams, requestConfig?: AxiosRequestConfig): Promise<AjaxResult<T>> {
     this._checkClientSideWarning(requestId)
     const authData = await this._ensureAuth(requestId)
-    const response = await this._makeRequestWithAuthRetry<T>(requestId, method, params, authData, options)
+    const response = await this._makeRequestWithAuthRetry<T>(requestId, method, params, authData, requestConfig)
 
     return this._createAjaxResultFromResponse<T>(response, requestId, method, params)
   }
@@ -547,12 +557,12 @@ export abstract class AbstractHttp implements TypeHttp {
   }
 
   // Execute the request with 401 error handling
-  protected async _makeRequestWithAuthRetry<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData, options?: TypeCallOptions): Promise<AjaxResponse<T>> {
+  protected async _makeRequestWithAuthRetry<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData, requestConfig?: AxiosRequestConfig): Promise<AjaxResponse<T>> {
     try {
       // 4. Apply the rate limit through the manager
       await this._restrictionManager.checkRateLimit(requestId, method)
 
-      return await this._makeAxiosRequest<T>(requestId, method, params, authData, options)
+      return await this._makeAxiosRequest<T>(requestId, method, params, authData, requestConfig)
     } catch (error) {
       if (error instanceof AxiosError) {
         this.getLogger().info(
@@ -584,7 +594,7 @@ export abstract class AbstractHttp implements TypeHttp {
         // 4. Apply the rate limit through the manager
         await this._restrictionManager.checkRateLimit(requestId, method)
 
-        return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData, options)
+        return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData, requestConfig)
       }
 
       // Non-auth error: rethrow the already-converted AjaxError (idempotent in
@@ -593,7 +603,7 @@ export abstract class AbstractHttp implements TypeHttp {
     }
   }
 
-  protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData, options?: TypeCallOptions): Promise<AjaxResponse<T>> {
+  protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData, requestConfig?: AxiosRequestConfig): Promise<AjaxResponse<T>> {
     const methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
 
     const paramsFormatted = this._prepareParams(authData, params)
@@ -609,11 +619,6 @@ export abstract class AbstractHttp implements TypeHttp {
         params: truncateForLog(paramsFormattedForLog)
       }
     ).catch(() => {})
-
-    // Per-request axios config — the only way a header can belong to one call
-    // instead of to the instance. `undefined` when the call asked for nothing,
-    // which axios treats exactly as the two-argument form. (#462)
-    const requestConfig = this._prepareRequestConfig(requestId, method, options)
 
     const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted, requestConfig)
 

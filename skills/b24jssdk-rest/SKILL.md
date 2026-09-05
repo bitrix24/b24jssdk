@@ -245,7 +245,11 @@ const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
 
 ## `idKey`, `cursorIdKey` and `customKeyForResult` cheat sheet
 
-`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method sorts/filters by one name but returns another — most notably `tasks.task.list` **on v2** (request `ID`, response `id`). On the **v3** endpoint `tasks.task.list` is all-lowercase (`id` for both request and response, rows under `result.items`), so no `cursorIdKey` override is needed.
+**The rule the defaults come from: `restApi:v3` field names are camelCase, `restApi:v2` names are UPPER_SNAKE.** Measured across 108 descriptors from two entities (`tasks.task` 95, `main.eventlog` 13) — not one v3 name starts with an uppercase letter. That is why `idKey` defaults to `'id'` on v3 and `'ID'` on v2, and it is a rule rather than a per-method quirk: expect it to hold for the next method too.
+
+`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method spells the id one way in the request and another in the response — `tasks.task.list` **on v2** is the known case (request `ID`, response `id`), and without the override the cursor reads a field that is not there, never advances, and repeats the first page for ever. On the **v3** endpoint the same method is all-lowercase (`id` both ways, rows under `result.items`), so no override is needed.
+
+Ask the portal rather than guess: **`<entity>.field.list`** returns every field with `type`, `filterable`, `sortable`, `editable` and `requiredGroups`, under `result.items`; `<entity>.field.get` returns one, under `result.item`. Both take an optional `select` that narrows the descriptor keys. A v3 field without `Filterable` / `Sortable` is **refused**, not ignored — `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` with the offending name in `validation[].field`. On the portal measured, `tasks.task` exposes exactly one filterable field: `id`.
 
 | Method | `idKey` (response) | `cursorIdKey` (request) | `customKeyForResult` |
 | --- | --- | --- | --- |

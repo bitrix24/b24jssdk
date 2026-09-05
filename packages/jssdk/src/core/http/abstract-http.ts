@@ -1,5 +1,6 @@
 import type { LoggerInterface } from '../../logger'
 import type {
+  TypeCallOptions,
   TypeCallParams,
   TypeHttp,
   ICallBatchOptions,
@@ -10,7 +11,7 @@ import type {
 } from '../../types/http'
 import type { RestrictionManagerStats, RestrictionParams } from '../../types/limiters'
 import type { AuthActions, AuthData } from '../../types/auth'
-import type { AxiosInstance } from 'axios'
+import type { AxiosInstance, AxiosRequestConfig } from 'axios'
 import type { Result } from '../result'
 import type { SuccessPayload } from '../../types/payloads'
 import axios, { AxiosError } from 'axios'
@@ -47,9 +48,68 @@ export function truncateForLog(value: unknown): string {
     : text
 }
 
+/**
+ * Header for a per-request idempotency key on `restApi:v3`. Sent in this
+ * casing; read back case-insensitively, because the portal answers lowercased
+ * and axios normalises differently per adapter.
+ */
+export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key'
+const IDEMPOTENCY_KEY_HEADER_LOWER = 'idempotency-key'
+const IDEMPOTENT_REPLAYED_HEADER_LOWER = 'idempotent-replayed'
+
+/**
+ * The idempotency headers of one response, as far as a caller may see them.
+ */
+export type AjaxIdempotency = {
+  /** The key the portal echoed back, when it echoed one. */
+  key?: string
+  /** `true` only when the portal marked the body as a replayed response. */
+  replayed: boolean
+}
+
+/**
+ * Picks the two idempotency headers out of a response header bag, by
+ * lowercased name.
+ *
+ * Deliberately two named headers rather than the whole bag: putting arbitrary
+ * response headers on a public result object would also put them into every
+ * wired logger sink, and the SDK does not know what a portal or a proxy in
+ * front of it may add there.
+ *
+ * Returns `undefined` when neither header is present, so an ordinary response
+ * carries no extra field at all.
+ */
+export function readIdempotencyHeaders(headers: unknown): AjaxIdempotency | undefined {
+  if (null === headers || typeof headers !== 'object') {
+    return undefined
+  }
+
+  let key: string | undefined
+  let replayed: boolean | undefined
+
+  for (const [name, value] of Object.entries(headers as Record<string, unknown>)) {
+    const lowerName = name.toLowerCase()
+    if (IDEMPOTENCY_KEY_HEADER_LOWER === lowerName && typeof value === 'string') {
+      key = value
+    } else if (IDEMPOTENT_REPLAYED_HEADER_LOWER === lowerName) {
+      // The portal sends the string `true`; accept the boolean too, since an
+      // adapter or a test double may have parsed it already.
+      replayed = true === value || 'true' === String(value).trim().toLowerCase()
+    }
+  }
+
+  if (undefined === key && undefined === replayed) {
+    return undefined
+  }
+
+  return { key, replayed: replayed ?? false }
+}
+
 export type AjaxResponse<T = unknown> = {
   status: number
   payload: SuccessPayload<T>
+  /** Present only when the response carried an idempotency header. */
+  idempotency?: AjaxIdempotency
 }
 
 export type TypePrepareParams = TypeCallParams & {
@@ -283,9 +343,10 @@ export abstract class AbstractHttp implements TypeHttp {
    * @param method - REST API method name
    * @param params - Parameters for the method.
    * @param requestId - Request id
+   * @param options - Per-request transport options (currently `idempotencyKey`)
    * @returns Promise with AjaxResult
    */
-  public async call<T = unknown>(method: string, params: TypeCallParams, requestId?: string): Promise<AjaxResult<T>> {
+  public async call<T = unknown>(method: string, params: TypeCallParams, requestId?: string, options?: TypeCallOptions): Promise<AjaxResult<T>> {
     requestId = requestId ?? this._requestIdGenerator.getRequestId()
     const maxRetries = this._restrictionManager.getParams().maxRetries!
 
@@ -303,7 +364,7 @@ export abstract class AbstractHttp implements TypeHttp {
         await this._restrictionManager.applyOperatingLimits(requestId, method, params)
 
         // 3. We execute the request taking into account authorization, rate limit, and update operating statistics.
-        const result = await this._executeSingleCall<T>(requestId, method, params)
+        const result = await this._executeSingleCall<T>(requestId, method, params, options)
         const duration = Date.now() - startTime
 
         // 6. Updating statistics
@@ -437,10 +498,10 @@ export abstract class AbstractHttp implements TypeHttp {
    * - rate limit check
    * - updating operating statistics
    */
-  protected async _executeSingleCall<T = unknown>(requestId: string, method: string, params: TypeCallParams): Promise<AjaxResult<T>> {
+  protected async _executeSingleCall<T = unknown>(requestId: string, method: string, params: TypeCallParams, options?: TypeCallOptions): Promise<AjaxResult<T>> {
     this._checkClientSideWarning(requestId)
     const authData = await this._ensureAuth(requestId)
-    const response = await this._makeRequestWithAuthRetry<T>(requestId, method, params, authData)
+    const response = await this._makeRequestWithAuthRetry<T>(requestId, method, params, authData, options)
 
     return this._createAjaxResultFromResponse<T>(response, requestId, method, params)
   }
@@ -476,12 +537,12 @@ export abstract class AbstractHttp implements TypeHttp {
   }
 
   // Execute the request with 401 error handling
-  protected async _makeRequestWithAuthRetry<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData): Promise<AjaxResponse<T>> {
+  protected async _makeRequestWithAuthRetry<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData, options?: TypeCallOptions): Promise<AjaxResponse<T>> {
     try {
       // 4. Apply the rate limit through the manager
       await this._restrictionManager.checkRateLimit(requestId, method)
 
-      return await this._makeAxiosRequest<T>(requestId, method, params, authData)
+      return await this._makeAxiosRequest<T>(requestId, method, params, authData, options)
     } catch (error) {
       if (error instanceof AxiosError) {
         this.getLogger().info(
@@ -513,7 +574,7 @@ export abstract class AbstractHttp implements TypeHttp {
         // 4. Apply the rate limit through the manager
         await this._restrictionManager.checkRateLimit(requestId, method)
 
-        return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData)
+        return await this._makeAxiosRequest<T>(requestId, method, params, refreshedAuthData, options)
       }
 
       // Non-auth error: rethrow the already-converted AjaxError (idempotent in
@@ -522,7 +583,7 @@ export abstract class AbstractHttp implements TypeHttp {
     }
   }
 
-  protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData): Promise<AjaxResponse<T>> {
+  protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData, options?: TypeCallOptions): Promise<AjaxResponse<T>> {
     const methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
 
     const paramsFormatted = this._prepareParams(authData, params)
@@ -539,7 +600,12 @@ export abstract class AbstractHttp implements TypeHttp {
       }
     ).catch(() => {})
 
-    const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted)
+    // Per-request axios config — the only way a header can belong to one call
+    // instead of to the instance. `undefined` when the call asked for nothing,
+    // which axios treats exactly as the two-argument form. (#462)
+    const requestConfig = this._prepareRequestConfig(requestId, method, options)
+
+    const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted, requestConfig)
 
     // Redact the log-bound copy only; callers still receive the untouched
     // `response.data` below. First-party success bodies don't embed credentials
@@ -563,10 +629,31 @@ export abstract class AbstractHttp implements TypeHttp {
       }
     ).catch(() => {})
 
+    const idempotency = readIdempotencyHeaders(response.headers)
+
     return {
       status: response.status,
-      payload: response.data
+      payload: response.data,
+      ...(idempotency ? { idempotency } : {})
     }
+  }
+
+  /**
+   * Builds the per-request axios config for one call, or `undefined` when the
+   * call needs none.
+   *
+   * `HttpV2` overrides this to drop `idempotencyKey`: the v2 endpoint ignores
+   * the header, and a key that is silently dropped leaves a caller believing a
+   * retry is deduplicated when it is not.
+   */
+  protected _prepareRequestConfig(_requestId: string, _method: string, options?: TypeCallOptions): AxiosRequestConfig | undefined {
+    const idempotencyKey = options?.idempotencyKey
+
+    if (undefined === idempotencyKey) {
+      return undefined
+    }
+
+    return { headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey } }
   }
 
   protected _isAuthError(error: unknown): boolean {
@@ -584,7 +671,8 @@ export abstract class AbstractHttp implements TypeHttp {
     const result = new AjaxResult<T>({
       answer: response.payload,
       query: { method, params, requestId },
-      status: response.status
+      status: response.status,
+      idempotency: response.idempotency
     })
 
     // 5. Update operating statistics — only when the portal sent a `time` block.

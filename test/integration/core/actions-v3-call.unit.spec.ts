@@ -25,7 +25,7 @@ describe('actions.v3 no longer gates on a method allowlist', () => {
       .resolves.toBeDefined()
 
     expect(getHttpClient).toHaveBeenCalledWith(ApiVersion.v3)
-    expect(call).toHaveBeenCalledWith('note.collection.list', { pagination: { limit: 1 } }, undefined)
+    expect(call).toHaveBeenCalledWith('note.collection.list', { pagination: { limit: 1 } }, undefined, undefined)
   })
 
   it('CallV3.make does not throw for a method that does not exist on v3 either', async () => {
@@ -33,7 +33,7 @@ describe('actions.v3 no longer gates on a method allowlist', () => {
     const b24 = { getHttpClient: vi.fn().mockReturnValue({ call }) } as never
     // The old gate would have thrown JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3 here.
     await expect(new CallV3(b24, makeLogger()).make({ method: 'crm.item.get' })).resolves.toBeDefined()
-    expect(call).toHaveBeenCalledWith('crm.item.get', {}, undefined)
+    expect(call).toHaveBeenCalledWith('crm.item.get', {}, undefined, undefined)
   })
 
   it('BatchV3.make sends off-old-list commands to the v3 batch endpoint (no throw)', async () => {

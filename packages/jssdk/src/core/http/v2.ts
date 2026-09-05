@@ -2,12 +2,14 @@ import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
   BatchNamedCommandsUniversal, BatchRequestEnvelopeV2, ICallBatchOptions, ICallBatchResult,
+  TypeCallOptions,
   TypeHttp
 } from '../../types/http'
 import type { AuthActions } from '../../types/auth'
 import type { RestrictionParams } from '../../types/limiters'
 import type { Result } from '../result'
 import type { BatchResponsePayload } from '../interaction/batch/abstract-interaction-batch'
+import type { AxiosRequestConfig } from 'axios'
 import { AbstractHttp } from './abstract-http'
 import { ApiVersion } from '../../types/b24'
 import { InteractionBatchV2 } from '../interaction/batch/v2'
@@ -33,6 +35,29 @@ export class HttpV2 extends AbstractHttp implements TypeHttp {
   ) {
     super(authActions, options, restrictionParams)
     this._version = ApiVersion.v2
+  }
+
+  /**
+   * Drops `idempotencyKey` and warns instead of sending it.
+   *
+   * `Idempotency-Key` is honoured only under `/rest/api/` — the v3 endpoint.
+   * The v2 endpoint ignores it, so sending it anyway would leave the caller
+   * believing a retry is deduplicated when nothing on the portal side is
+   * deduplicating it. Every other per-request option is passed through. (#462)
+   */
+  protected override _prepareRequestConfig(requestId: string, method: string, options?: TypeCallOptions): AxiosRequestConfig | undefined {
+    if (undefined === options?.idempotencyKey) {
+      return super._prepareRequestConfig(requestId, method, options)
+    }
+
+    this.getLogger().warning(
+      'http.call: `idempotencyKey` is ignored on `restApi:v2` — the portal honours `Idempotency-Key` only on the v3 endpoint. Use `b24.actions.v3.call.make()` for an idempotent write.',
+      { requestId, method }
+    ).catch(() => {})
+
+    const { idempotencyKey: _ignoredIdempotencyKey, ...restOptions } = options
+
+    return super._prepareRequestConfig(requestId, method, restOptions)
   }
 
   // region batch ////

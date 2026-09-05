@@ -7,6 +7,20 @@ export type ActionCallV3 = {
   method: string
   params?: TypeCallParamsV3
   requestId?: string
+  /**
+   * `Idempotency-Key` for this call — an arbitrary string naming one business
+   * operation, so that a repeat of it does not create a second entity.
+   *
+   * Opt-in: the SDK never generates one, because the dedup scope is
+   * webhook/application x user x method and only the caller knows which
+   * operation a call belongs to. Pass the *same* key on a retry of the *same*
+   * operation, and read {@link AjaxResult.isIdempotentReplay} to tell a replay
+   * from a fresh write.
+   *
+   * @see https://apidocs.bitrix24.ru/api-reference/rest-v3.html — section
+   *   «Повторный вызов без дублей»
+   */
+  idempotencyKey?: string
 }
 
 /**
@@ -27,6 +41,8 @@ export class CallV3 extends AbstractAction {
    *     - `method: string` - REST API method name (eg: `tasks.task.get`)
    *     - `params?: TypeCallParamsV3` - Parameters for calling the method.
    *     - `requestId?: string` - Unique request identifier for tracking. Used for query deduplication and debugging.
+   *     - `idempotencyKey?: string` - `Idempotency-Key` header; a repeat with the same key and body
+   *       replays the stored response instead of writing again.
    *
    * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an REST API call.
    *
@@ -41,11 +57,27 @@ export class CallV3 extends AbstractAction {
    *   throw new Error(`Problem: ${response.getErrorMessages().join('; ')}`)
    * }
    * console.log(response.getData()!.result.item.title)
+   *
+   * @example
+   * // A write that is safe to retry: the same key means the same operation.
+   * const idempotencyKey = crypto.randomUUID()
+   * const created = await b24.actions.v3.call.make<{ item: { id: number } }>({
+   *   method: 'tasks.task.add',
+   *   params: { fields: { title: 'Ship it' } },
+   *   idempotencyKey
+   * })
+   * // Sending the very same call again returns the very same task,
+   * // and `created.isIdempotentReplay()` is `true` on that second response.
    */
   public override async make<T = unknown>(options: ActionCallV3): Promise<AjaxResult<T>> {
     // No client-side allowlist: the method is sent straight to the v3 endpoint
     // and the server decides (an unknown method returns METHODNOTFOUNDEXCEPTION).
     const params = options.params || {}
-    return this._b24.getHttpClient(ApiVersion.v3).call<T>(options.method, params, options.requestId)
+    return this._b24.getHttpClient(ApiVersion.v3).call<T>(
+      options.method,
+      params,
+      options.requestId,
+      undefined === options.idempotencyKey ? undefined : { idempotencyKey: options.idempotencyKey }
+    )
   }
 }

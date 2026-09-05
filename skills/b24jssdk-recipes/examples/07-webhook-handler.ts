@@ -6,6 +6,8 @@
  *   - dispatches by event name
  *   - fetches full entity details via REST when needed
  *   - always returns 200 (Bitrix24 retries on non-2xx for up to 24h)
+ *   - creates a follow-up task idempotently, so a redelivered event does not
+ *     create it twice
  *
  * Install: pnpm add express
  * Env:
@@ -83,7 +85,32 @@ async function handleDealAdd($b24: TypeB24, payload: BitrixEventPayload) {
   try {
     const deal = await loadDeal($b24, id)
     logger.info(`  deal #${id} created: title="${deal.title}", stage=${deal.stageId}, amount=${deal.opportunity} ${deal.currencyId}`)
-    // …add your downstream actions here (Slack/Telegram, internal queues, etc.)
+
+    // Event delivery is at-least-once: Bitrix24 retries for up to 24h on a
+    // non-2xx, and a slow handler that answers after the portal gave up will
+    // see the same event again. Without a key that means a second task on
+    // every redelivery.
+    //
+    // The key names the OPERATION, so it must be the same string on every
+    // delivery of this event. Derived from the deal id — NOT crypto.randomUUID(),
+    // which would be a fresh key per delivery and defeat the whole thing.
+    const created = await $b24.actions.v3.call.make<{ task: { id: number } }>({
+      method: 'tasks.task.add',
+      params: { fields: { title: `Qualify deal #${id}`, responsibleId: deal.assignedById } },
+      idempotencyKey: `qualify-task-for-deal-${id}`
+    })
+
+    if (created.isIdempotentReplay()) {
+      // Already handled on an earlier delivery. The body is the stored
+      // response, so the id below is the task made the first time — skip the
+      // side effects (Slack, counters, outbound calls) you would fire on a
+      // real create.
+      logger.info(`  duplicate delivery — task #${created.getData()?.result.task.id} already exists`)
+    } else {
+      logger.info(`  follow-up task #${created.getData()?.result.task.id} created`)
+    }
+
+    // …add your other downstream actions here (Slack/Telegram, queues, etc.)
   } catch (e) {
     if (e instanceof AjaxError) logger.warning(`  failed to load deal #${id}: ${e.code}`)
     else throw e

@@ -76,6 +76,43 @@ const response = await $b24.actions.v3.call.make<{ task: TaskItem }>({
 const task = response.getData()!.result.task
 ```
 
+### Writes that must not double up (`restApi:v3`)
+
+For a v3 method that **creates, changes or deletes**, pass `idempotencyKey`.
+The portal stores the successful response against the key for 24 hours and
+replays it instead of writing twice — which covers the duplicate a retry
+policy cannot: a crashed worker rerunning its job, or an outbound event
+delivered twice.
+
+```ts
+// The key names the OPERATION, not the attempt: two attempts at the same
+// business operation must produce the same string, in any process, after any
+// restart. Derive it from your own identifiers rather than minting a UUID at
+// the call site — a restarted worker would mint a different one and write a
+// second record.
+const orderId = 1042
+
+const response = await $b24.actions.v3.call.make<{ task: { id: number } }>({
+  method: 'tasks.task.add',
+  params: { fields: { title: 'Ship it' } },
+  idempotencyKey: `task-from-order-${orderId}`
+})
+
+if (response.isIdempotentReplay()) {
+  // Already done earlier — nothing new was written; skip the side effects
+  // (the notification, the counter, the outbound webhook) you would fire on a
+  // real create.
+}
+```
+
+Constraints: 1–255 printable ASCII (otherwise the SDK throws
+`JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY` before sending); the same key with a
+*different* body is refused, not deduplicated; the response is stored only on
+success, so keep `retryOnNetworkError: false` on long writes as well; `batch`
+takes no key; and `restApi:v2` ignores the header — the v2 transport drops it
+and warns. Full guide:
+[Idempotency-Key](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-rest-api-ver3/#idempotency-key).
+
 ## `batch.make` — array form
 
 ```ts
@@ -419,6 +456,8 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 - ❌ Hand-paging a v3 list method by the `nextCursor` it returns (e.g. `note.*`) — `callList` / `fetchList` page via their own `idKey` cursor and walk every page; `nextCursor` is informational and the SDK ignores it. Just use the list helpers with `idKey` + `customKeyForResult`.
 - ❌ `batch.make({ calls, isHaltOnError: false })` — batch flags at the top level are **not applied**. They belong under `options: { isHaltOnError, returnAjaxResult, requestId }`. TypeScript now rejects the literal and the SDK logs a warning for callers it cannot see, but nothing recovers the intent: `returnAjaxResult` dropped this way makes `entry.isSuccess` `undefined` on a plain object, so a batch where everything succeeded reads as a batch where everything failed (#426).
 - ❌ Reading `getData()!.result` off `batch.make` / `callList.make` / `batchByChunk.make` — only `call.make` returns that envelope. See the table above.
+- ❌ `idempotencyKey: crypto.randomUUID()` written at the call site for a job that can be retried by a *different* process — the restart mints a new key and writes a duplicate anyway. Derive the key from the operation (`deal-${orderId}-create`), or persist a minted one with the job before calling.
+- ❌ Reusing one `idempotencyKey` for two different writes — the portal answers HTTP 422 `…IDEMPOTENCYKEYREUSEDEXCEPTION` rather than deduplicating. Prefix by operation: `deal-42-create` vs `deal-42-close`.
 - ❌ `B24Hook` in a browser bundle — leaks the webhook secret. Use `B24Frame` there.
 
 ## Cross-reference

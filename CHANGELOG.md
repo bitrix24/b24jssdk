@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+* **A webhook URL in a log line no longer shows its secret.** The redactor masks a credential that is an object key or half of a `key=value` query pair. A Bitrix24 webhook secret is neither — it is a path segment, `/rest/<userId>/<secret>/` (and `/rest/api/<userId>/<secret>/` under `restApi:v3`) — so it stayed readable while the rest of the line was masked.
+
+    It shows up there because the redactor runs over response bodies as well as over the params you sent, and a portal method can return such a URL: `rest.deferredbatch.downloadresult` answers with a `downloadUrl` built from the calling webhook. The secret segment is masked now; the host and the user id stay readable, so the line is still useful for debugging.
+
+    Applies to `B24Hook` with a logger wired at `info`. Matching is case-insensitive and covers both API versions.
+
 ## [2.2.0](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.2.0) (2026-08-29)
 
 

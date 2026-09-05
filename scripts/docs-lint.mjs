@@ -229,7 +229,14 @@ export function checkFrontmatterLinkTargets(file, frontmatter, deps = {}) {
 // It is built from Nuxt auto-imports and two app-level helpers, none of which
 // exist in the isolated context this check compiles in — un-checkable rather
 // than unfixed, which is what the marker is for.
-const CHECK_IGNORE_WARN_THRESHOLD = 51
+//
+// 51 -> 57 (#463): six placeholders — `some.method`, `some.list` — in migration
+// and error-handling snippets, now that the v3 method-name gate reads the same
+// marker. They are deliberately not portal methods, which is the whole point of
+// the snippet, and the ten *real* wrong names that gate found were fixed rather
+// than marked. Two of the six extended a marker that already existed for the
+// typecheck pass, so the marker count rose by four, not six.
+const CHECK_IGNORE_WARN_THRESHOLD = 57
 
 function countCheckIgnoreMarkers(files) {
   let total = 0

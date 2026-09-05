@@ -53,6 +53,8 @@ export class AggregateV3 extends AbstractAction {
    *
    * @returns {Promise<Result<AggregateResultV3>>} buckets keyed by function then field name.
    *
+   * @check-ignore: `some.entity.aggregate` is a placeholder, not a portal method
+   *
    * @example
    * import { FilterV3 } from '@bitrix24/b24jssdk'
    *

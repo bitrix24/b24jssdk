@@ -1,0 +1,1775 @@
+{
+  "portalKind": "cloud",
+  "snapshotDate": "2026-09-05",
+  "openapi": "3.0.0",
+  "totals": {
+    "methods": 245,
+    "modules": 14
+  },
+  "methodsPerModule": {
+    "batch": 1,
+    "bizprocdesigner": 16,
+    "call": 4,
+    "crm": 11,
+    "documentation": 1,
+    "humanresources": 33,
+    "mail": 24,
+    "main": 37,
+    "note": 25,
+    "rest": 55,
+    "scopes": 1,
+    "tasks": 22,
+    "timeman": 3,
+    "vibecodeconnector": 12
+  },
+  "methods": [
+    {
+      "method": "batch",
+      "module": "batch",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.agent.connect",
+      "module": "bizprocdesigner",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.catalog.block.field.get",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.catalog.block.field.list",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.catalog.block.get",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.catalog.block.list",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.document.field.field.get",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.document.field.field.list",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.document.field.list",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.template.draft.add",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.template.draft.field.get",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.template.draft.field.list",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.template.field.get",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.template.field.list",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.template.get",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.template.list",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "bizprocdesigner.template.validate",
+      "module": "bizprocdesigner",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "call.followup.field.get",
+      "module": "call",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "call.followup.field.list",
+      "module": "call",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "call.followup.get",
+      "module": "call",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "call.followup.list",
+      "module": "call",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.activity.mail.getContent",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.activity.mail.getThread",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.activity.mail.reply",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.company.timeline.activity.email.list",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.company.timeline.activity.email.send",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.contact.timeline.activity.email.list",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.contact.timeline.activity.email.send",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.deal.timeline.activity.email.list",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.deal.timeline.activity.email.send",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.lead.timeline.activity.email.list",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "crm.lead.timeline.activity.email.send",
+      "module": "crm",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "documentation",
+      "module": "documentation",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.access.permission.list",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.access.role.add",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.access.role.delete",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.access.role.field.get",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.access.role.field.list",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.access.role.get",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.access.role.list",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.access.role.update",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.access.user.permissions",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.employee.count",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.employee.field.get",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.employee.field.list",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.employee.multidepartment",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.employee.search",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.employee.subordinates",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.add",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.children",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.communication.edit",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.communication.list",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.count",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.edit",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.field.get",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.field.list",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.get",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.list",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.member.add",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.member.field.get",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.member.field.list",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.member.move",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.member.remove",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.member.set",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.move",
+      "module": "humanresources",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "humanresources.node.search",
+      "module": "humanresources",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.mailbox.field.get",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.mailbox.field.list",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.mailbox.get",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.mailbox.list",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.mailbox.senders",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.createcalendarevent",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.createchat",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.createcrmactivity",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.createfeedpost",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.createtask",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.field.get",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.field.list",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.forward",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.get",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.list",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.movetofolder",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.removecrmactivity",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.reply",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.send",
+      "module": "mail",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "mail.message.thread",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.recipient.field.get",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.recipient.field.list",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.recipient.listcontacts",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "mail.recipient.listemployees",
+      "module": "mail",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.eventlog.field.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.eventlog.field.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.eventlog.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.eventlog.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.eventlog.tail",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.like.field.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.like.field.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.like.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.like.reactions",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.smile.field.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.smile.field.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.smile.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.smileset.field.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.smileset.field.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.smileset.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.agreement.field.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.agreement.field.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.agreement.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.agreement.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.consent.add",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.consent.field.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.consent.field.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.history.field.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.history.field.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.history.fields.field.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.history.fields.field.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.history.fields.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.history.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.user.history.tail",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.userfieldconfig.add",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.userfieldconfig.delete",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.userfieldconfig.field.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.userfieldconfig.field.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.userfieldconfig.get",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.userfieldconfig.gettypes",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.userfieldconfig.list",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "main.userfieldconfig.update",
+      "module": "main",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.collection.add",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.collection.archive",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.collection.delete",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.collection.field.get",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.collection.field.list",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.collection.get",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.collection.list",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.collection.update",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.add",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.archive",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.delete",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.field.get",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.field.list",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.get",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.search.field.get",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.search.field.list",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.search.list",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.tree.field.get",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.tree.field.list",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.tree.list",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.document.update",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.file.add",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.file.field.get",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.file.field.list",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "note.file.get",
+      "module": "note",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.app.scoperequest.add",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.app.scoperequest.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.app.scoperequest.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.app.scoperequest.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.app.scoperequest.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.access.delete",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.access.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.access.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.access.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.access.reset",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.access.set",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.embedding.add",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.embedding.delete",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.embedding.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.embedding.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.embedding.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.getbyclientid",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.local.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.local.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.local.install",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.local.uninstall",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.personal.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.personal.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.personal.install",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.personal.uninstall",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.placement.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.placement.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.application.placement.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.deferredbatch.add",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.deferredbatch.delete",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.deferredbatch.downloadresult",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.deferredbatch.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.deferredbatch.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.deferredbatch.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.deferredbatch.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.documentation.openapi",
+      "module": "rest",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "rest.event.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.event.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.event.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.event.online.bind",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.event.online.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.event.online.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.event.online.unbind",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.incomingwebhook.add",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.incomingwebhook.delete",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.incomingwebhook.field.get",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.incomingwebhook.field.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.incomingwebhook.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.incomingwebhook.prolong",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.incomingwebhook.update",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "rest.portal.license.get",
+      "module": "rest",
+      "operations": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "method": "rest.scope.list",
+      "module": "rest",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "scopes",
+      "module": "scopes",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.access.get",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.add",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.chat.message.field.get",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.chat.message.field.list",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.chat.message.send",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.delete",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.field.get",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.field.list",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.file.attach",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.gantt.link.field.get",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.gantt.link.field.list",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.gantt.link.list",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.get",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.list",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.result.add",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.result.addfromchatmessage",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.result.delete",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.result.field.get",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.result.field.list",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.result.list",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.result.update",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "tasks.task.update",
+      "module": "tasks",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "timeman.record.field.get",
+      "module": "timeman",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "timeman.record.field.list",
+      "module": "timeman",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "timeman.record.list",
+      "module": "timeman",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.access.field.get",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.access.field.list",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.access.set",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.add",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.delete",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.field.get",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.field.list",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.pin.delete",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.pin.field.get",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.pin.field.list",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.pin.set",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    },
+    {
+      "method": "vibecodeconnector.catalog.item.update",
+      "module": "vibecodeconnector",
+      "operations": [
+        "post"
+      ]
+    }
+  ]
+}

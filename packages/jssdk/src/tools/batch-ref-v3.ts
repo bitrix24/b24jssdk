@@ -46,7 +46,7 @@ function assertPath(path: string, who: string): void {
  *   calls: [
  *     { method: 'tasks.task.list', as: 'tasks', params: { select: ['id'] } },
  *     {
- *       method: 'tasks.task.comment.list',
+ *       method: 'tasks.task.result.list',
  *       // server substitutes the array of ids collected from the first command's items[]
  *       params: { filter: [['taskId', 'in', R.refArray('tasks.id')]] }
  *     }

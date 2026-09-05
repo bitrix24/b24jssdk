@@ -94,7 +94,7 @@ async function handleDealAdd($b24: TypeB24, payload: BitrixEventPayload) {
     // The key names the OPERATION, so it must be the same string on every
     // delivery of this event. Derived from the deal id — NOT crypto.randomUUID(),
     // which would be a fresh key per delivery and defeat the whole thing.
-    const created = await $b24.actions.v3.call.make<{ task: { id: number } }>({
+    const created = await $b24.actions.v3.call.make<{ item: { id: number } }>({
       method: 'tasks.task.add',
       params: { fields: { title: `Qualify deal #${id}`, responsibleId: deal.assignedById } },
       idempotencyKey: `qualify-task-for-deal-${id}`
@@ -105,9 +105,9 @@ async function handleDealAdd($b24: TypeB24, payload: BitrixEventPayload) {
       // response, so the id below is the task made the first time — skip the
       // side effects (Slack, counters, outbound calls) you would fire on a
       // real create.
-      logger.info(`  duplicate delivery — task #${created.getData()?.result.task.id} already exists`)
+      logger.info(`  duplicate delivery — task #${created.getData()?.result.item.id} already exists`)
     } else {
-      logger.info(`  follow-up task #${created.getData()?.result.task.id} created`)
+      logger.info(`  follow-up task #${created.getData()?.result.item.id} created`)
     }
 
     // …add your other downstream actions here (Slack/Telegram, queues, etc.)

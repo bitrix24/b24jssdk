@@ -68,12 +68,14 @@ For a v3 method:
 ```ts
 interface TaskItem { id: number; title: string }
 
-const response = await $b24.actions.v3.call.make<{ task: TaskItem }>({
+const response = await $b24.actions.v3.call.make<{ item: TaskItem }>({
   method: 'tasks.task.get',
   params: { id: 1, select: ['id', 'title'] },
   requestId: 'task-1'
 })
-const task = response.getData()!.result.task
+// v3 wraps a single entity as `result.item` — including tasks, where the v2
+// method answered `result.task`.
+const task = response.getData()!.result.item
 ```
 
 ### Writes that must not double up (`restApi:v3`)
@@ -92,7 +94,7 @@ delivered twice.
 // second record.
 const orderId = 1042
 
-const response = await $b24.actions.v3.call.make<{ task: { id: number } }>({
+const response = await $b24.actions.v3.call.make<{ item: { id: number } }>({
   method: 'tasks.task.add',
   params: { fields: { title: 'Ship it' } },
   idempotencyKey: `task-from-order-${orderId}`

@@ -59,12 +59,15 @@ export class CallV3 extends AbstractAction {
    * console.log(response.getData()!.result.item.title)
    *
    * @example
+   * declare const orderId: number
    * // A write that is safe to retry: the same key means the same operation.
-   * const idempotencyKey = crypto.randomUUID()
+   * // Derive the key from your own identifiers rather than minting one at the
+   * // call site — a `crypto.randomUUID()` here would be a fresh key on every
+   * // attempt, so a retry from another process would still write a duplicate.
    * const created = await b24.actions.v3.call.make<{ item: { id: number } }>({
    *   method: 'tasks.task.add',
    *   params: { fields: { title: 'Ship it' } },
-   *   idempotencyKey
+   *   idempotencyKey: `ship-task-for-order-${orderId}`
    * })
    * // Sending the very same call again returns the very same task,
    * // and `created.isIdempotentReplay()` is `true` on that second response.

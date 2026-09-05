@@ -136,11 +136,13 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
   // the portal deduplicates the write itself, so a retry replays the stored
   // response instead of creating a second entity.
   //
-  //   const idempotencyKey = crypto.randomUUID()
+  //   // The key names the OPERATION: derive it from your own identifiers so a
+  //   // retry in another process produces the same string. A randomUUID() here
+  //   // would be a fresh key per attempt, and would deduplicate nothing.
   //   const res = await $b24.actions.v3.call.make({
   //     method: 'tasks.task.add',
   //     params: { fields: { title: 'Ship it' } },
-  //     idempotencyKey
+  //     idempotencyKey: `ship-task-for-order-${orderId}`
   //   })
   //   res.isIdempotentReplay() // true when the portal replayed an earlier call
   //

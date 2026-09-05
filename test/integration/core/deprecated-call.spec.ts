@@ -15,7 +15,7 @@ describe('core.deprecated @apiV2', () => {
 
     expect(response.isSuccess).toBe(true)
     const result = response.getData()!.result
-    const time = response.getData()!.time
+    const time = response.getData()!.time!
     expect(result).toBeDefined()
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
@@ -39,7 +39,7 @@ describe('core.deprecated @apiV2', () => {
     expect(result.task).toHaveProperty('id')
     expect(result.task).toHaveProperty('title')
 
-    const time = response.getData()!.time
+    const time = response.getData()!.time!
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
     expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -190,7 +190,7 @@ describe('core.deprecated @apiV2', () => {
       const rowData = resultData.Company!.getData()!
       expect(rowData.result).toHaveProperty('item')
       expect(rowData.result.item.id).toBe(getMapId().crmCompanySuccessMin)
-      const time = rowData.time
+      const time = rowData.time!
       expect(time).toHaveProperty('operating')
       expect(time.operating).toBeGreaterThanOrEqual(0)
       expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -202,7 +202,7 @@ describe('core.deprecated @apiV2', () => {
       const rowData = resultData.Contact!.getData()!
       expect(rowData.result).toHaveProperty('item')
       expect(rowData.result.item.id).toBe(getMapId().crmContactSuccessMin)
-      const time = rowData.time
+      const time = rowData.time!
       expect(time).toHaveProperty('operating')
       expect(time.operating).toBeGreaterThanOrEqual(0)
       expect(time.operating_reset_at).toBeGreaterThan(0)

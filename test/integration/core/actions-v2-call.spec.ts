@@ -36,7 +36,7 @@ describe('core.actions.call @apiV2', () => {
     expect(result.task).toHaveProperty('id')
     expect(result.task).toHaveProperty('title')
 
-    const time = response.getData()!.time
+    const time = response.getData()!.time!
     expect(time).toHaveProperty('operating')
     expect(time.operating).toBeGreaterThanOrEqual(0)
     expect(time.operating_reset_at).toBeGreaterThan(0)
@@ -81,7 +81,7 @@ describe('core.actions.call @apiV2', () => {
 
     expect(result).not.toHaveProperty('task')
 
-    const time = response.getData()!.time
+    const time = response.getData()!.time!
     expect(time).toHaveProperty('operating')
   })
 })

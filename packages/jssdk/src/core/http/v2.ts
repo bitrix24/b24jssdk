@@ -51,7 +51,8 @@ export class HttpV2 extends AbstractHttp implements TypeHttp {
     }
 
     this.getLogger().warning(
-      'http.call: `idempotencyKey` is ignored on `restApi:v2` — the portal honours `Idempotency-Key` only on the v3 endpoint. Use `b24.actions.v3.call.make()` for an idempotent write.',
+      'http.call: `idempotencyKey` is ignored on `restApi:v2` — the portal honours `Idempotency-Key` only on the v3 endpoint (`/rest/api/`). '
+      + 'Use `b24.actions.v3.call.make()` for an idempotent write, or an application-layer dedup guard if the method exists only on v2.',
       { requestId, method }
     ).catch(() => {})
 

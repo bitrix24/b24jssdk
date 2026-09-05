@@ -1,5 +1,6 @@
 import type { LoggerInterface } from '../../logger'
 import type {
+  AjaxIdempotency,
   TypeCallOptions,
   TypeCallParams,
   TypeHttp,
@@ -26,6 +27,7 @@ import { redactSensitiveParams } from './redact'
 import { Type } from '../../tools/type'
 import { Environment, getEnvironment } from '../../tools/environment'
 import { ApiVersion } from '../../types/b24'
+import { SdkError } from '../sdk-error'
 
 // Logger payloads are truncated so a large params / result / error body can't
 // flood a wired logger sink. Shared by the post/send, post/response, and
@@ -58,14 +60,15 @@ const IDEMPOTENCY_KEY_HEADER_LOWER = 'idempotency-key'
 const IDEMPOTENT_REPLAYED_HEADER_LOWER = 'idempotent-replayed'
 
 /**
- * The idempotency headers of one response, as far as a caller may see them.
+ * A valid idempotency key: 1-255 printable ASCII characters, no whitespace and
+ * no control characters, as the portal's reference states.
+ *
+ * Checked before the key reaches axios so a malformed one fails as a readable
+ * SDK error rather than as an opaque `ERR_INVALID_CHAR` out of Node's HTTP
+ * client (or a silent rejection in a browser). The bound is the documented
+ * one; a portal that later widens it would need this widened with it.
  */
-export type AjaxIdempotency = {
-  /** The key the portal echoed back, when it echoed one. */
-  key?: string
-  /** `true` only when the portal marked the body as a replayed response. */
-  replayed: boolean
-}
+const IDEMPOTENCY_KEY_RE = /^[\u0021-\u007E]{1,255}$/
 
 /**
  * Picks the two idempotency headers out of a response header bag, by
@@ -87,8 +90,15 @@ export function readIdempotencyHeaders(headers: unknown): AjaxIdempotency | unde
   let key: string | undefined
   let replayed: boolean | undefined
 
-  for (const [name, value] of Object.entries(headers as Record<string, unknown>)) {
+  for (const [name, rawValue] of Object.entries(headers as Record<string, unknown>)) {
     const lowerName = name.toLowerCase()
+
+    // A repeated header name reaches us as an array through Node's http
+    // adapter. Bitrix24 does not send either of these twice, but a proxy in
+    // front of it may — and reading the array itself would stringify to
+    // `true,true`, which matches nothing and would swallow a real replay.
+    const value = Array.isArray(rawValue) ? rawValue[0] : rawValue
+
     if (IDEMPOTENCY_KEY_HEADER_LOWER === lowerName && typeof value === 'string') {
       key = value
     } else if (IDEMPOTENT_REPLAYED_HEADER_LOWER === lowerName) {
@@ -642,15 +652,34 @@ export abstract class AbstractHttp implements TypeHttp {
    * Builds the per-request axios config for one call, or `undefined` when the
    * call needs none.
    *
-   * `HttpV2` overrides this to drop `idempotencyKey`: the v2 endpoint ignores
-   * the header, and a key that is silently dropped leaves a caller believing a
-   * retry is deduplicated when it is not.
+   * A `protected` hook rather than a branch inside `_makeAxiosRequest` because
+   * the two transports genuinely disagree about one option: `HttpV2` overrides
+   * it to drop `idempotencyKey`, since the v2 endpoint ignores the header and a
+   * key that is silently dropped leaves a caller believing a retry is
+   * deduplicated when it is not. It is the mechanism for that disagreement, not
+   * a speculative extension point — a subclass overriding it owes the same
+   * contract: return per-request axios config, or `undefined` for none.
+   *
+   * @throws {SdkError} `JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY` when the key is not
+   *   1-255 printable ASCII characters.
    */
   protected _prepareRequestConfig(_requestId: string, _method: string, options?: TypeCallOptions): AxiosRequestConfig | undefined {
     const idempotencyKey = options?.idempotencyKey
 
     if (undefined === idempotencyKey) {
       return undefined
+    }
+
+    if (!IDEMPOTENCY_KEY_RE.test(idempotencyKey)) {
+      // Static text only — never the key itself. `SdkError` does not run its
+      // description through `redactSensitiveParams`, and a caller is free to
+      // build a key out of business identifiers.
+      throw new SdkError({
+        code: 'JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY',
+        description: '`idempotencyKey` must be 1-255 printable ASCII characters with no whitespace or control characters. '
+          + 'A `crypto.randomUUID()` value satisfies this. See https://apidocs.bitrix24.ru/api-reference/rest-v3.html',
+        status: 500
+      })
     }
 
     return { headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey } }

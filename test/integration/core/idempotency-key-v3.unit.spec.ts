@@ -25,7 +25,8 @@
  * `*.unit.spec.ts` — no real Bitrix24 portal required (axios is mocked).
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { ApiVersion, B24Hook, ParamsFactory } from '../../../packages/jssdk/src/'
+import { AxiosError } from 'axios'
+import { ApiVersion, B24Hook, ParamsFactory, SdkError } from '../../../packages/jssdk/src/'
 
 const IDEMPOTENCY_KEY = '2f7c1e4a-0000-4000-8000-abcdefabcdef'
 
@@ -46,6 +47,23 @@ function writeResponse(headers: Record<string, string> = {}) {
       }
     }
   }
+}
+
+/** A 401 the transport will answer by refreshing the token and retrying. */
+function expiredTokenError(): AxiosError {
+  return new AxiosError(
+    'Request failed with status code 401',
+    'ERR_BAD_REQUEST',
+    undefined,
+    undefined,
+    {
+      status: 401,
+      statusText: 'Error',
+      headers: {},
+      config: {} as never,
+      data: { error: 'expired_token', error_description: 'simulated expired_token' }
+    }
+  )
 }
 
 function buildHook(): B24Hook {
@@ -205,6 +223,136 @@ describe('Idempotency-Key on restApi:v3 (issue #462)', () => {
       expect.stringContaining('idempotencyKey'),
       expect.objectContaining({ method: 'crm.deal.add' })
     )
+  })
+
+  it('@apiV3 keeps the key on the retry after a 401 refreshed the token', async () => {
+    b24 = buildHook()
+    const postSpy = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+      .mockRejectedValueOnce(expiredTokenError())
+      .mockResolvedValue(writeResponse())
+
+    await b24.actions.v3.call.make({
+      method: 'note.collection.add',
+      params: { fields: { name: 'audit-v3 idem' } },
+      idempotencyKey: IDEMPOTENCY_KEY
+    })
+
+    // The refresh-and-retry branch rebuilds the request from scratch. Losing
+    // the key there is the one place a retry would write a *second* entity —
+    // which is precisely what the key exists to prevent.
+    expect(postSpy).toHaveBeenCalledTimes(2)
+    const retryConfig = postSpy.mock.calls[1]?.[2] as { headers?: Record<string, unknown> } | undefined
+    expect(retryConfig?.headers?.['Idempotency-Key']).toBe(IDEMPOTENCY_KEY)
+  })
+
+  it('@apiV3 accepts an already-parsed boolean replay header', async () => {
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+      .mockResolvedValue(writeResponse({ 'idempotent-replayed': true as unknown as string }))
+
+    const response = await b24.actions.v3.call.make({
+      method: 'note.collection.add',
+      params: { fields: { name: 'audit-v3 idem' } },
+      idempotencyKey: IDEMPOTENCY_KEY
+    })
+
+    // An adapter or a test double may hand back a boolean rather than the
+    // string the portal sends.
+    expect(response.isIdempotentReplay()).toBe(true)
+  })
+
+  it('@apiV3 reads a repeated header handed back as an array', async () => {
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+      .mockResolvedValue(writeResponse({
+        'idempotent-replayed': ['true', 'true'] as unknown as string,
+        'idempotency-key': [IDEMPOTENCY_KEY] as unknown as string
+      }))
+
+    const response = await b24.actions.v3.call.make({
+      method: 'note.collection.add',
+      params: { fields: { name: 'audit-v3 idem' } },
+      idempotencyKey: IDEMPOTENCY_KEY
+    })
+
+    // Node's http adapter arrays a repeated header name. Stringifying the
+    // array gives `true,true`, which matches nothing — so a proxy that
+    // duplicated the header would have swallowed a real replay.
+    expect(response.isIdempotentReplay()).toBe(true)
+    expect(response.getIdempotencyKey()).toBe(IDEMPOTENCY_KEY)
+  })
+
+  it('@apiV3 refuses an empty key rather than sending an empty header', async () => {
+    b24 = buildHook()
+    const postSpy = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+      .mockResolvedValue(writeResponse())
+
+    await expect(b24.actions.v3.call.make({
+      method: 'note.collection.add',
+      params: { fields: { name: 'audit-v3 idem' } },
+      idempotencyKey: ''
+    })).rejects.toBeInstanceOf(SdkError)
+
+    // And it fails before the write, not after it.
+    expect(postSpy).not.toHaveBeenCalled()
+  })
+
+  it('@apiV3 refuses a key with a control character', async () => {
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+      .mockResolvedValue(writeResponse())
+
+    // Node's HTTP client would throw ERR_INVALID_CHAR here, and a browser
+    // would reject it silently; neither tells the caller what is wrong.
+    await expect(b24.actions.v3.call.make({
+      method: 'note.collection.add',
+      params: { fields: { name: 'audit-v3 idem' } },
+      idempotencyKey: 'key-with\r\nInjected: header'
+    })).rejects.toBeInstanceOf(SdkError)
+  })
+
+  it('@apiV3 refuses a key longer than the documented 255 characters', async () => {
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+      .mockResolvedValue(writeResponse())
+
+    await expect(b24.actions.v3.call.make({
+      method: 'note.collection.add',
+      params: { fields: { name: 'audit-v3 idem' } },
+      idempotencyKey: 'x'.repeat(256)
+    })).rejects.toBeInstanceOf(SdkError)
+  })
+
+  it('@apiV3 accepts a key of exactly the documented maximum length', async () => {
+    b24 = buildHook()
+    const postSpy = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+      .mockResolvedValue(writeResponse())
+    const longestKey = 'x'.repeat(255)
+
+    await b24.actions.v3.call.make({
+      method: 'note.collection.add',
+      params: { fields: { name: 'audit-v3 idem' } },
+      idempotencyKey: longestKey
+    })
+
+    // The bound is inclusive: an off-by-one here would reject a key the portal
+    // documents as valid.
+    expect(sentHeaders(postSpy)?.['Idempotency-Key']).toBe(longestKey)
+  })
+
+  it('@apiV2 names the v3 endpoint in the warning, not just the option', async () => {
+    b24 = buildHook()
+    const httpClient = b24.getHttpClient(ApiVersion.v2)
+    vi.spyOn(httpClient.ajaxClient, 'post').mockResolvedValue(writeResponse())
+    const warning = vi.spyOn(httpClient.getLogger(), 'warning').mockResolvedValue(undefined)
+
+    await httpClient.call('crm.deal.add', {}, 'req-v2-idem', { idempotencyKey: IDEMPOTENCY_KEY })
+
+    // The warning is the caller's only signal that the key went nowhere, so it
+    // has to say where to go instead — not merely that something was ignored.
+    const [message] = warning.mock.calls[0] as [string, unknown]
+    expect(message).toContain('restApi:v2')
+    expect(message).toContain('actions.v3.call.make')
   })
 
   it('@apiV2 stays on the two-argument post when no key is given', async () => {

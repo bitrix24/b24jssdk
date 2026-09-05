@@ -179,6 +179,20 @@ export interface IRequestIdGenerator {
 }
 
 /**
+ * The idempotency headers of one response, as far as a caller may see them.
+ *
+ * Lives here rather than beside the transport so consumers can name the type:
+ * `types/http` is re-exported from the package entry point, `abstract-http`
+ * is not.
+ */
+export type AjaxIdempotency = {
+  /** The key the portal echoed back, when it echoed one. */
+  key?: string
+  /** `true` only when the portal marked the body as a replayed response. */
+  replayed: boolean
+}
+
+/**
  * Per-request transport options — the things that belong to one call rather
  * than to the client instance, and so cannot live in the constructor headers
  * or in `ajaxClient.defaults`.
@@ -204,6 +218,11 @@ export type TypeCallOptions = {
    *
    * `restApi:v2` ignores the header, so the v2 transport drops it and warns
    * rather than sending a key the caller would believe protects them.
+   *
+   * Single calls only. `batch` does not carry a key: the portal's mechanism
+   * names one operation, and a batch is many — whether a key on a v3 batch
+   * replays the whole batch has not been measured, so the SDK does not offer
+   * it rather than guess.
    *
    * @see https://apidocs.bitrix24.ru/api-reference/rest-v3.html — section
    *   «Повторный вызов без дублей»

@@ -7,20 +7,28 @@
  * `result.items`, `response.isSuccess` and `crm.item.list` in backticks with the
  * same syntax, and only the position tells them apart (#463).
  *
- * Four positions, every one of them taken from a real occurrence rather than
+ * Five positions, every one of them taken from a real occurrence rather than
  * imagined:
  *
  *  1. **A code literal** — `method: 'crm.item.list'`. The plain case.
  *  2. **A v3 batch tuple** — `first: ['crm.item.get', { … }]`, the shape
  *     `actions.v3.batch.make({ calls })` takes. The name is the first element of
  *     an array literal, so no `method:` key names it.
- *  3. **A parameter-table row** whose first cell is `method` — the docs describe
+ *  3. **A `callMethod('x.y', …)` argument** — the deprecated entry point, which
+ *     the migration pages use throughout.
+ *  4. **A parameter-table row** whose first cell is `method` — the docs describe
  *     the argument in prose there, and the example inside that prose is what a
  *     reader copies first.
- *  4. **A JSDoc bullet for the `method` option** — `` - `method: string` - … ``
+ *  5. **A JSDoc bullet for the `method` option** — `` - `method: string` - … ``
  *     followed by an example in backticks. Five of the eight known defect sites
  *     were of this shape, which is why `packages/jssdk/src/` has to be walked at
  *     all.
+ *
+ * One shape is knowingly missed: a `method:` whose value sits on the *next*
+ * line. The scan is line-by-line, no occurrence in this repository is written
+ * that way, and reading across lines would mean tracking string state through
+ * fences for a case that does not exist. If one ever appears it is a false
+ * negative — silence, not a wrong answer.
  *
  * Everything else — a backticked name in ordinary prose, a heading, a link — is
  * deliberately **not** a method position. That is the difference between a check
@@ -28,12 +36,20 @@
  */
 
 /**
- * A Bitrix24 method name: lower-case segments separated by dots, at least two.
+ * A Bitrix24 method name: dot-separated segments, each starting lower-case, at
+ * least two of them.
+ *
+ * **A segment may be camelCase.** An earlier version demanded lower-case
+ * throughout, which rejected `crm.activity.mail.getContent` and
+ * `crm.activity.mail.getThread` — both published by the very snapshot this
+ * check validates against. A name it cannot recognise is not reported as wrong;
+ * it is silently not seen at all, which is the worse failure for a gate whose
+ * whole claim is fidelity to the real surface.
  *
  * Anchored at both ends by the caller so `tasks.task.list` matches but the
  * `list` of `crm.item.list` inside a longer identifier does not.
  */
-const METHOD_NAME = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]+)+$/
+const METHOD_NAME = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)+$/
 
 /** Every backticked span on a line, unwrapped. */
 function backtickedSpans(line) {
@@ -102,7 +118,16 @@ export function collectMethodPositions(body) {
       add(m[1], 'batch tuple')
     }
 
-    // 3 and 4 read the same way: backticked examples inside a line that is
+    // 3. `callMethod('x.y', …)` — the deprecated entry point, which the
+    // migration pages are full of. It is v2 by definition, so `versionContextAt`
+    // will almost always rule it out; it is collected anyway because a name is
+    // either read in every position or the gate has a blind spot people find by
+    // accident.
+    for (const m of line.matchAll(/\bcall(?:List|Tail)?Method\s*\(\s*['"]([^'"]+)['"]/g)) {
+      add(m[1], 'callMethod argument')
+    }
+
+    // 4 and 5 read the same way: backticked examples inside a line that is
     // *about* the `method` argument.
     const cells = tableCells(line)
     if (isMethodParamRow(cells) || isMethodOptionBullet(line)) {
@@ -119,6 +144,10 @@ export const __testing = { isMethodName, tableCells, isMethodParamRow, isMethodO
 
 /**
  * Which API version a line is talking about, or `null` when nothing says.
+ *
+ * Rescanned from the top of the file per call rather than indexed once: the
+ * files here are documentation pages, the cost is invisible at their size, and
+ * a shared index would be one more thing to keep in step with the walk.
  *
  * Order matters, most specific first, and each rule exists because a real line
  * needed it:
@@ -143,7 +172,7 @@ export function versionContextAt(file, lines, index) {
   let fenceTag = null
   let open = false
   for (let i = 0; i <= index; i++) {
-    const fence = /^\s*`{3,}([^`].*)?$/.exec(lines[i])
+    const fence = /^\s*(?:`{3,}([^`].*)?|~{3,}([^~].*)?)$/.exec(lines[i])
     if (fence === null) {
       continue
     }
@@ -152,7 +181,7 @@ export function versionContextAt(file, lines, index) {
       fenceTag = null
     } else {
       open = true
-      const info = (fence[1] ?? '').trim()
+      const info = (fence[1] ?? fence[2] ?? '').trim()
       fenceTag = /\[v3\]/.test(info) ? 'v3' : /\[v2\]/.test(info) ? 'v2' : null
     }
   }
@@ -170,12 +199,21 @@ export function versionContextAt(file, lines, index) {
     return v3Near ? 'v3' : 'v2'
   }
 
-  // 3. The path.
-  const path = file.replaceAll('\\', '/')
-  if (/\/v3\/|v3[.-]|-ver3\./.test(path)) {
+  // 3. The path — by segment, never by substring. `v3[.-]` matched anywhere in
+  // the path, so a directory called `v3-migration-notes/` would have forced v3
+  // on a page about v2. It surfaced because the test harness's own temporary
+  // directory is named `v3-refs-…`, which is a fair warning about how easily an
+  // unanchored path rule fires on something that is not a path decision.
+  const segments = file.replaceAll('\\', '/').split('/').filter(Boolean)
+  const version = (n) => {
+    const dir = segments.slice(0, -1).includes(`v${n}`)
+    const base = new RegExp(`(^|[-.])(v|ver)${n}([-.]|$)`).test(segments.at(-1) ?? '')
+    return dir || base
+  }
+  if (version(3)) {
     return 'v3'
   }
-  if (/\/v2\/|v2[.-]|-ver2\./.test(path)) {
+  if (version(2)) {
     return 'v2'
   }
 

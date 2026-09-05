@@ -38,7 +38,7 @@
 
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs'
 import { join, resolve, dirname, basename } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { walkFiles } from './_docs-utils.mjs'
 import { createReporter } from './_reporter.mjs'
 import { collectMethodPositions, versionContextAt } from './_v3-method-positions.mjs'
@@ -99,7 +99,19 @@ export function loadSnapshots(dir = SNAPSHOT_DIR) {
     .filter(name => name.startsWith('openapi-') && name.endsWith('.json'))
     .sort()
     .map((name) => {
-      const parsed = JSON.parse(readFileSync(join(dir, name), 'utf8'))
+      // Validated rather than trusted: `--refresh` is the only writer, but a run
+      // interrupted mid-write leaves a truncated file, and the failure that
+      // produced was an undefined `.map` deep inside module load with nothing
+      // naming the file.
+      let parsed
+      try {
+        parsed = JSON.parse(readFileSync(join(dir, name), 'utf8'))
+      } catch (error) {
+        throw new Error(`snapshot ${name} is not valid JSON — re-run --refresh`, { cause: error })
+      }
+      if (!Array.isArray(parsed.methods) || parsed.methods.some(m => typeof m?.method !== 'string')) {
+        throw new Error(`snapshot ${name} has no usable "methods" array — re-run --refresh`)
+      }
       return { name, methods: new Set(parsed.methods.map(m => m.method)), raw: parsed }
     })
 }
@@ -113,7 +125,7 @@ export function loadSnapshots(dir = SNAPSHOT_DIR) {
 function enclosingFenceStart(lines, index) {
   let open = -1
   for (let i = 0; i <= index; i++) {
-    if (/^\s*`{3,}/.test(lines[i])) {
+    if (/^\s*(?:`{3,}|~{3,})/.test(lines[i])) {
       open = open === -1 ? i : -1
     }
   }
@@ -145,15 +157,39 @@ function isMarkedIgnored(lines, index, name) {
     return true
   }
 
+  // In a source file there is no fence, and the marker cannot sit next to the
+  // line either: inside a JSDoc `@example` it would render on hover as if it
+  // were part of the example an SDK consumer is meant to copy. So a marker
+  // anywhere in the enclosing JSDoc block exempts that block, which is also how
+  // a reader would expect a block annotation to behave.
   const fence = enclosingFenceStart(lines, index)
   if (fence === -1) {
+    for (let i = index - 1; i >= 0; i--) {
+      const text = lines[i].trim()
+      if (names(text)) {
+        return true
+      }
+      if (text.startsWith('/**')) {
+        return false
+      }
+      if (!text.startsWith('*')) {
+        return false
+      }
+    }
     return false
   }
   let prev = fence - 1
   while (prev >= 0 && lines[prev].trim() === '') {
     prev--
   }
-  return prev >= 0 && lines[prev].trim().startsWith('// @check-ignore') && lines[prev].includes(name)
+  if (prev < 0) {
+    return false
+  }
+  // `.replace(/^\*\s*/, '')` because inside a JSDoc block the marker line reads
+  // `* // @check-ignore: …` — without it the fence form silently never matched
+  // in TypeScript, and only the line-above form worked there.
+  const marker = lines[prev].trim().replace(/^\*\s*/, '')
+  return marker.startsWith('// @check-ignore') && marker.includes(name)
 }
 
 const report = createReporter({
@@ -189,16 +225,24 @@ function checkMethodNames(file, body, snapshots, documented) {
     if (versionContextAt(file, lines, hit.line - 1) !== 'v3') {
       continue
     }
+    if (isMarkedIgnored(lines, hit.line - 1, hit.name)) {
+      // Not counted as documented either: a marked placeholder is not a method
+      // this repository describes, and counting it inflated the very number
+      // `--coverage` exists to report.
+      continue
+    }
     documented.add(hit.name)
-    if (snapshots.length === 0 || isMarkedIgnored(lines, hit.line - 1, hit.name)) {
+    if (snapshots.length === 0) {
       continue
     }
     const publishedBy = snapshots.filter(s => s.methods.has(hit.name))
     if (publishedBy.length === 0) {
       report.error(
         file,
-        `"${hit.name}" is used as a v3 method (${hit.position}) but no portal snapshot publishes it — `
-        + `fix the name, or mark the line "@check-ignore: <reason>" if it is a deliberate anti-example`,
+        `"${hit.name}" is used as a v3 method (${hit.position}) but no committed portal snapshot `
+        + `publishes it — fix the name; or, if the method is real and new, refresh a snapshot `
+        + `(\`--refresh\`, see .github/contributing/documentation.md); or mark the line `
+        + `"@check-ignore: <reason naming ${hit.name}>" if it is a deliberate anti-example`,
         { line: hit.line }
       )
     }
@@ -232,18 +276,34 @@ async function refresh() {
     process.exit(2)
   }
   const base = v3Base.endsWith('/') ? v3Base : `${v3Base}/`
-  const response = await fetch(`${base}rest.documentation.openapi`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: '{}'
-  })
+  // Wrapped, and the caught error deliberately discarded: Node's `fetch failed`
+  // carries a `cause` of `getaddrinfo ENOTFOUND <hostname>`, so an uncaught
+  // network error prints the portal's host. The secret is in the path rather
+  // than the host, but neither belongs in a terminal someone may paste from.
+  let response
+  try {
+    response = await fetch(`${base}rest.documentation.openapi`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    })
+  } catch {
+    console.error('could not reach the portal (network error)')
+    process.exit(1)
+  }
   if (!response.ok) {
     // Deliberately without the body or the URL: both can carry the secret.
     console.error(`portal refused with HTTP ${response.status}`)
     process.exit(1)
   }
 
-  const document = await response.json()
+  let document
+  try {
+    document = await response.json()
+  } catch {
+    console.error('the portal did not answer with JSON')
+    process.exit(1)
+  }
   if (typeof document?.paths !== 'object') {
     console.error('the response carried no `paths` — not an OpenAPI document')
     process.exit(1)
@@ -334,7 +394,15 @@ function printCoverage(snapshots, documented) {
   }
 }
 
-if (wantRefresh) {
+// Only when run, never when imported: the tests import `reduceDocument` to
+// exercise the part `--refresh` owns, and a module body that calls
+// `process.exit` on import ends the test run instead.
+const isEntryPoint = process.argv[1] !== undefined
+  && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (!isEntryPoint) {
+  // nothing to do — the exports above are the whole point of an import
+} else if (wantRefresh) {
   await refresh()
 } else {
   const snapshots = loadSnapshots()

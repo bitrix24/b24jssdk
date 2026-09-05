@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
+import { reduceDocument } from '../check-v3-method-refs.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -252,4 +253,148 @@ test('the fence tag decides the dialect when nothing else in the block does', ()
     assert.match(r.stdout, /side-by-side\.md:6 "crm\.item\.list"/)
     assert.doesNotMatch(r.stdout, /side-by-side\.md:2 /)
   })
+})
+
+test('a method name with a camelCase segment is seen — the snapshot publishes such names', () => {
+  // `crm.activity.mail.getContent` is in the committed snapshot. An earlier
+  // `METHOD_NAME` demanded lower-case throughout and simply did not see it,
+  // which is worse than reporting it wrong: a gate blind to a class of real
+  // names cannot claim fidelity to the real surface.
+  withFixture({
+    'docs/content/docs/camel.md': [
+      '```ts',
+      'await $b24.actions.v3.call.make({ method: \'crm.activity.mail.getThread\' })',
+      '```'
+    ].join('\n')
+  }, (root) => {
+    const published = runCheck(root, { snapshots: { cloud: ['crm.activity.mail.getThread'] } })
+    assert.equal(published.status, 0, `stdout:\n${published.stdout}`)
+
+    const absent = runCheck(root, { snapshots: { cloud: ['tasks.task.get'] } })
+    assert.equal(absent.status, 1, `stdout:\n${absent.stdout}`)
+    assert.match(absent.stdout, /"crm\.activity\.mail\.getThread"/)
+  })
+})
+
+test('a `callMethod(...)` argument is a method position too', () => {
+  // v2 by definition, so the version rule rules it out — but it is collected,
+  // because a name read in four positions and not the fifth is a blind spot
+  // people find by accident.
+  withFixture({
+    'docs/content/docs/legacy.md': [
+      'Under v3 this becomes `actions.v3.call.make`:',
+      '',
+      '```ts',
+      'await b24.callMethod(\'no.such.method\', {})',
+      '```'
+    ].join('\n')
+  }, (root) => {
+    const r = runCheck(root, { snapshots: { cloud: ['tasks.task.get'] } })
+    assert.equal(r.status, 1, `stdout:\n${r.stdout}`)
+    assert.match(r.stdout, /"no\.such\.method" is used as a v3 method \(callMethod argument\)/)
+  })
+})
+
+test('a malformed snapshot names itself instead of crashing from inside a map', () => {
+  withFixture({ 'docs/content/docs/ok.md': '# ok\n' }, (root) => {
+    const dir = join(root, 'snapshots')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'openapi-truncated.json'), '{"methods": [{"modul', 'utf8')
+    const r = spawnSync(process.execPath, [SCRIPT], {
+      env: { ...process.env, V3_CHECK_ROOT: root, V3_SNAPSHOT_DIR: dir },
+      encoding: 'utf8'
+    })
+    assert.notEqual(r.status, 0)
+    assert.match(r.stderr, /openapi-truncated\.json is not valid JSON/)
+  })
+})
+
+test('the v3 batch tuple is a method position', () => {
+  // `calls: { first: ['x.y', {…}] }` — no `method:` key names it, which is why
+  // it needs a rule of its own.
+  withFixture({
+    'docs/content/docs/batch.md': [
+      '```ts',
+      'await $b24.actions.v3.batch.make({',
+      '  calls: { first: [\'no.such.method\', { id: 1 }] }',
+      '})',
+      '```'
+    ].join('\n')
+  }, (root) => {
+    const r = runCheck(root, { snapshots: { cloud: ['tasks.task.get'] } })
+    assert.equal(r.status, 1, `stdout:\n${r.stdout}`)
+    assert.match(r.stdout, /"no\.such\.method" is used as a v3 method \(batch tuple\)/)
+  })
+})
+
+test('a parameter-table row whose first cell is `method` is a method position', () => {
+  // The example inside that prose is the first thing a reader copies.
+  withFixture({
+    'docs/content/docs/table-ver3.md': [
+      '| Parameter | Type | Description |',
+      '| --- | --- | --- |',
+      '| **`method`** | `string` | REST API method name (e.g. `no.such.method`). |',
+      '| **`params`** | `object` | Passed through to the portal. |'
+    ].join('\n')
+  }, (root) => {
+    const r = runCheck(root, { snapshots: { cloud: ['tasks.task.get'] } })
+    assert.equal(r.status, 1, `stdout:\n${r.stdout}`)
+    assert.match(r.stdout, /table-ver3\.md:3 "no\.such\.method" is used as a v3 method \(method parameter row\)/)
+    // The `params` row is not about the method argument, and `string` is not a
+    // method name — neither may be picked up.
+    assert.doesNotMatch(r.stdout, /table-ver3\.md:4/)
+  })
+})
+
+test('the path decides when no fence tag and no nearby call do', () => {
+  // Far enough from any `actions.vN.` mention that only the directory answers.
+  // The earlier version of this rule matched `v3` as a *substring* of the path,
+  // so a directory named `v3-migration-notes/` forced v3 on content about v2 —
+  // hence the deliberately awkward directory names below.
+  const filler = Array.from({ length: 14 }, (_, i) => ` * filler line ${i}`).join('\n')
+  const block = [
+    '/**',
+    ' * Documentation for the call action.',
+    filler,
+    ' *     - `method: string` - REST API method name (eg: `no.such.method`)',
+    ' */',
+    'export class X {}'
+  ].join('\n')
+  withFixture({
+    'packages/jssdk/src/core/actions/v3/call.ts': block,
+    'packages/jssdk/src/core/actions/v2/call.ts': block,
+    'packages/jssdk/src/v3-migration-notes/legacy.ts': block
+  }, (root) => {
+    const r = runCheck(root, { snapshots: { cloud: ['tasks.task.get'] } })
+    assert.equal(r.status, 1, `stdout:\n${r.stdout}`)
+    assert.match(r.stdout, /v3\/call\.ts:\d+ "no\.such\.method"/)
+    assert.doesNotMatch(r.stdout, /v2\/call\.ts/)
+    // A directory that merely *contains* "v3" is not a version decision.
+    assert.doesNotMatch(r.stdout, /v3-migration-notes/)
+  })
+})
+
+test('reduceDocument keeps what the check needs and drops the rest', () => {
+  // Exercised here because `--refresh` is a manual step the suite never runs,
+  // and this is the function that decides what a committed snapshot contains.
+  const reduced = reduceDocument({
+    openapi: '3.0.0',
+    info: { title: 'Bitrix24 REST V3 API' },
+    paths: {
+      '/tasks.task.list': { post: {} },
+      '/crm.activity.mail.getContent': { post: {}, get: {} },
+      '/': {}
+    }
+  }, 'cloud', new Date('2026-09-05T00:00:00Z'))
+
+  assert.equal(reduced.portalKind, 'cloud')
+  assert.equal(reduced.snapshotDate, '2026-09-05')
+  assert.equal(reduced.totals.methods, 2)
+  assert.deepEqual(reduced.methods.map(m => m.method), ['crm.activity.mail.getContent', 'tasks.task.list'])
+  assert.deepEqual(reduced.methods[0].operations, ['get', 'post'])
+  // Nothing that could name the portal or its rights comes through.
+  const serialised = JSON.stringify(reduced)
+  for (const forbidden of ['info', 'title', 'scopes', 'summary', 'servers']) {
+    assert.doesNotMatch(serialised, new RegExp(forbidden), `${forbidden} must not survive the reduction`)
+  }
 })

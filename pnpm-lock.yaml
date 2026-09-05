@@ -66,7 +66,7 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(vitest@4.1.11)
       axios:
-        specifier: 1.20.0
+        specifier: 'catalog:'
         version: 1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       dotenv:
         specifier: ^17.4.2

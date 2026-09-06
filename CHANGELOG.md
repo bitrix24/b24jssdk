@@ -4,6 +4,12 @@
 
 ### Bug Fixes
 
+* **`setRestrictionManagerParams` no longer wipes the parameters you did not mention.** It replaced the whole configuration, so `setRestrictionManagerParams({ maxRetries: 5 })` after a deliberate setup left `hardErrorCodes`, `retryOnNetworkError` and `classifyV3ErrorsByCategory` at `undefined` — and `rateLimit` too, which then reached the rate limiter as `undefined` behind a non-null assertion. No error, nothing in the log; the next call simply ran under a policy nobody had chosen. It now replaces what you name and leaves the rest alone.
+
+    The nested blocks — `rateLimit`, `operatingLimit`, `adaptiveConfig` — are replaced **whole** rather than merged field by field; their types have no optional fields, and a partial block arriving from JavaScript is now refused with `JSSDK_LIMITER_INVALID_CONFIG_BLOCK` instead of switching rate limiting off on a `NaN` interval. `getRestrictionManagerParams()` returns a copy, so reading the policy no longer hands out the limiter's live state.
+
+    **Worth knowing:** an omitted key and one set to `undefined` both mean "leave it alone", so clearing a value now takes an explicit one — `hardErrorCodes: []`. Spreading `...ParamsFactory.getDefault()` does not clear `hardErrorCodes` / `softErrorCodes` / `classifyV3ErrorsByCategory`, because the factory carries no such keys. And `b24.setRestrictionManagerParams()` no longer swallows a failure from one of its clients.
+
 * **A response body with no `result` key now reaches you instead of being dropped.** `AjaxResult.getData()` rebuilds the payload from two named keys, so a body carrying neither was projected away and a *successful* call handed back `{ result: undefined, time: undefined }`. Such a body is wrapped now: the whole body becomes `result`.
 
     `rest.documentation.openapi` answers exactly that way — the OpenAPI document at the top level, no envelope — which is the method the docs call the source of truth for v3 discovery, so `getData()?.result` on the discovery page now returns the document it always promised.

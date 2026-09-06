@@ -11,8 +11,12 @@
  * Portal-free (jsSdk:unit): nothing here makes an HTTP request.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { ApiVersion, B24Hook, ParamsFactory } from '../../../packages/jssdk/src/'
+import { ApiVersion, AjaxError, B24Hook, ParamsFactory, SdkError } from '../../../packages/jssdk/src/'
 import { RateLimiter } from '../../../packages/jssdk/src/core/http/limiters/rate-limiter'
+import { OperatingLimiter } from '../../../packages/jssdk/src/core/http/limiters/operating-limiter'
+import { AdaptiveDelayer } from '../../../packages/jssdk/src/core/http/limiters/adaptive-delayer'
+import { HttpV2 } from '../../../packages/jssdk/src/core/http/v2'
+import type { AuthActions } from '../../../packages/jssdk/src/types/auth'
 
 function buildHook(): B24Hook {
   return B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/SECRET')
@@ -38,7 +42,7 @@ describe('#479 RestrictionParams merge on set', () => {
       classifyV3ErrorsByCategory: true
     })
 
-    await b24.setRestrictionManagerParams({ maxRetries: 5 } as never)
+    await b24.setRestrictionManagerParams({ maxRetries: 5 })
 
     const params = client.getRestrictionManagerParams()
     expect(params.maxRetries).toBe(5)
@@ -55,7 +59,7 @@ describe('#479 RestrictionParams merge on set', () => {
     const client = b24.getHttpClient(ApiVersion.v3)
     const before = client.getRestrictionManagerParams()
 
-    await b24.setRestrictionManagerParams({ maxRetries: 5 } as never)
+    await b24.setRestrictionManagerParams({ maxRetries: 5 })
 
     const after = client.getRestrictionManagerParams()
     expect(after.rateLimit).toEqual(before.rateLimit)
@@ -63,18 +67,83 @@ describe('#479 RestrictionParams merge on set', () => {
     expect(after.adaptiveConfig).toEqual(before.adaptiveConfig)
   })
 
-  it('replaces a nested block whole rather than merging it field by field', async () => {
-    // Stated behaviour, not an accident of the spread: supply `rateLimit` and
-    // you supply all of it. A half-specified block must NOT pick the missing
-    // fields up from the previous one — passing a fully-specified block here
-    // would leave replace and deep-merge indistinguishable.
+  it('refuses a half-specified nested block instead of running on NaN', async () => {
+    // Blocks are replaced, not deep-merged, and their types have no optional
+    // fields — so this is unreachable from TypeScript and reachable from
+    // JavaScript or a cast. It used to sail through: `1000 / undefined` is
+    // `NaN`, `while (waitTime > 0)` is false on `NaN`, and rate limiting was
+    // off for the rest of the process with nothing logged.
+    b24 = buildHook()
+    const before = b24.getHttpClient(ApiVersion.v3).getRestrictionManagerParams()
+
+    await expect(b24.setRestrictionManagerParams(
+      { rateLimit: { burstLimit: 7 } } as never
+    )).rejects.toMatchObject({ code: 'JSSDK_LIMITER_INVALID_CONFIG_BLOCK' })
+
+    // And it refuses before touching anything.
+    expect(b24.getHttpClient(ApiVersion.v3).getRestrictionManagerParams().rateLimit)
+      .toEqual(before.rateLimit)
+  })
+
+  it('names the missing fields, so the caller can act on the refusal', async () => {
+    b24 = buildHook()
+    const thrown = await b24.setRestrictionManagerParams(
+      { rateLimit: { burstLimit: 7 } } as never
+    ).catch((error: unknown) => error)
+
+    expect(thrown).toBeInstanceOf(SdkError)
+    expect((thrown as SdkError).message).toContain('drainRate')
+    expect((thrown as SdkError).message).toContain('adaptiveEnabled')
+  })
+
+  it.each([
+    ['operatingLimit', { operatingLimit: { windowMs: 1000 } }],
+    ['adaptiveConfig', { adaptiveConfig: { enabled: true } }]
+  ])('refuses a half-specified %s too — all three blocks are guarded', async (_name, params) => {
+    // Guarding only `rateLimit` left the other two able to reach their limiter
+    // half-built, which is the same failure one file over.
+    b24 = buildHook()
+    await expect(b24.setRestrictionManagerParams(params as never))
+      .rejects.toMatchObject({ code: 'JSSDK_LIMITER_INVALID_CONFIG_BLOCK' })
+  })
+
+  it('refuses a null block rather than resolving and failing on every later call', async () => {
+    // `null` reached `RateLimiter.setConfig`, which stored it and then threw on
+    // `#config.drainRate`. The rejection was swallowed by the `Promise.allSettled`
+    // fan-out, so the setter RESOLVED and every subsequent request died.
+    b24 = buildHook()
+    await expect(b24.setRestrictionManagerParams(
+      { rateLimit: null } as never
+    )).rejects.toMatchObject({ code: 'JSSDK_LIMITER_INVALID_CONFIG_BLOCK' })
+  })
+
+  it('treats an explicitly undefined key as "not mentioned"', async () => {
+    // Object spread copies a key whose value is `undefined`, so the natural
+    // spelling of an optional override wiped the field: `maxRetries` reaching
+    // the retry loop as `undefined` made `attempt < undefined` false on the
+    // first pass, and every call failed as "all attempts exhausted" without one
+    // request going out.
     b24 = buildHook()
     const client = b24.getHttpClient(ApiVersion.v3)
-    expect(client.getRestrictionManagerParams().rateLimit?.drainRate).toBeDefined()
 
-    await b24.setRestrictionManagerParams({ rateLimit: { burstLimit: 7 } } as never)
+    await b24.setRestrictionManagerParams({ ...ParamsFactory.getDefault(), maxRetries: 7 })
+    await b24.setRestrictionManagerParams({ maxRetries: undefined })
 
-    expect(client.getRestrictionManagerParams().rateLimit).toEqual({ burstLimit: 7 })
+    expect(client.getRestrictionManagerParams().maxRetries).toBe(7)
+  })
+
+  it('an explicitly undefined nested key leaves the block and the limiter in step', async () => {
+    b24 = buildHook()
+    const client = b24.getHttpClient(ApiVersion.v3)
+    const before = client.getRestrictionManagerParams()
+    const setConfig = vi.spyOn(RateLimiter.prototype, 'setConfig')
+
+    await b24.setRestrictionManagerParams({ rateLimit: undefined, maxRetries: 5 })
+
+    // Reporting `undefined` here while the limiter kept enforcing the old block
+    // was a permanent drift between what `getParams()` says and what runs.
+    expect(client.getRestrictionManagerParams().rateLimit).toEqual(before.rateLimit)
+    expect(setConfig).not.toHaveBeenCalled()
   })
 
   it('reconfigures the sub-limiter when its block is supplied', async () => {
@@ -85,9 +154,42 @@ describe('#479 RestrictionParams merge on set', () => {
     const setConfig = vi.spyOn(RateLimiter.prototype, 'setConfig')
 
     const rateLimit = { burstLimit: 7, drainRate: 1, adaptiveEnabled: false }
-    await b24.setRestrictionManagerParams({ rateLimit } as never)
+    await b24.setRestrictionManagerParams({ rateLimit })
 
     expect(setConfig).toHaveBeenCalledWith(rateLimit)
+  })
+
+  it('reconfigures the operating limiter when its block is supplied', async () => {
+    // The three forwards are independent; spying on only one of them left the
+    // other two entirely unguarded — deleting them both kept the suite green.
+    b24 = buildHook()
+    const setConfig = vi.spyOn(OperatingLimiter.prototype, 'setConfig')
+
+    const operatingLimit = { windowMs: 1000, limitMs: 500, heavyPercent: 50 }
+    await b24.setRestrictionManagerParams({ operatingLimit })
+
+    expect(setConfig).toHaveBeenCalledWith(operatingLimit)
+  })
+
+  it('reconfigures the adaptive delayer when its block is supplied', async () => {
+    b24 = buildHook()
+    const setConfig = vi.spyOn(AdaptiveDelayer.prototype, 'setConfig')
+
+    const adaptiveConfig = { thresholdPercent: 50, coefficient: 0.02, maxDelay: 1000, enabled: false }
+    await b24.setRestrictionManagerParams({ adaptiveConfig })
+
+    expect(setConfig).toHaveBeenCalledWith(adaptiveConfig)
+  })
+
+  it('leaves the operating limiter and adaptive delayer alone when their blocks are not supplied', async () => {
+    b24 = buildHook()
+    const operating = vi.spyOn(OperatingLimiter.prototype, 'setConfig')
+    const adaptive = vi.spyOn(AdaptiveDelayer.prototype, 'setConfig')
+
+    await b24.setRestrictionManagerParams({ maxRetries: 5 })
+
+    expect(operating).not.toHaveBeenCalled()
+    expect(adaptive).not.toHaveBeenCalled()
   })
 
   it('leaves the sub-limiter alone when its block is not supplied', async () => {
@@ -96,13 +198,15 @@ describe('#479 RestrictionParams merge on set', () => {
     b24 = buildHook()
     const setConfig = vi.spyOn(RateLimiter.prototype, 'setConfig')
 
-    await b24.setRestrictionManagerParams({ maxRetries: 5 } as never)
+    await b24.setRestrictionManagerParams({ maxRetries: 5 })
 
     expect(setConfig).not.toHaveBeenCalled()
   })
 
-  it('still applies every parameter of a full update', async () => {
-    // The merge must not make a full replacement stickier than it was.
+  it('a value named in one update and not the next survives it', async () => {
+    // Setting the same key twice cannot tell merge from replace. `ParamsFactory`
+    // carries no `hardErrorCodes` key at all, so spreading the defaults does not
+    // clear one — which is exactly what the documentation now says.
     b24 = buildHook()
     const client = b24.getHttpClient(ApiVersion.v3)
 
@@ -110,27 +214,80 @@ describe('#479 RestrictionParams merge on set', () => {
       ...ParamsFactory.getDefault(),
       hardErrorCodes: ['FIRST']
     })
-    await b24.setRestrictionManagerParams({
-      ...ParamsFactory.getDefault(),
-      hardErrorCodes: ['SECOND']
-    })
+    await b24.setRestrictionManagerParams({ ...ParamsFactory.getDefault() })
 
-    expect(client.getRestrictionManagerParams().hardErrorCodes).toEqual(['SECOND'])
+    expect(client.getRestrictionManagerParams().hardErrorCodes).toEqual(['FIRST'])
   })
 
-  it('the merged policy is what the next call actually runs under', async () => {
-    // `getParams()` could agree while the manager read something else.
-    // `exceptionCodeForHard` is derived from the live config, so it is the
-    // honest witness.
+  it('an explicit empty array is how a list is cleared', async () => {
     b24 = buildHook()
     const client = b24.getHttpClient(ApiVersion.v3)
 
-    await b24.setRestrictionManagerParams({
-      ...ParamsFactory.getDefault(),
-      hardErrorCodes: ['MY_APP_BAD_PAYLOAD']
-    })
-    await b24.setRestrictionManagerParams({ maxRetries: 5 } as never)
+    await b24.setRestrictionManagerParams({ hardErrorCodes: ['FIRST'] })
+    await b24.setRestrictionManagerParams({ hardErrorCodes: [] })
 
-    expect(client.getRestrictionManagerParams().hardErrorCodes).toContain('MY_APP_BAD_PAYLOAD')
+    expect(client.getRestrictionManagerParams().hardErrorCodes).toEqual([])
+  })
+
+  it('three updates in sequence compose', async () => {
+    b24 = buildHook()
+    const client = b24.getHttpClient(ApiVersion.v3)
+
+    await b24.setRestrictionManagerParams({ ...ParamsFactory.getDefault(), hardErrorCodes: ['ONE'] })
+    await b24.setRestrictionManagerParams({ rateLimit: { burstLimit: 7, drainRate: 1, adaptiveEnabled: false } })
+    await b24.setRestrictionManagerParams({ maxRetries: 9 })
+
+    const params = client.getRestrictionManagerParams()
+    expect(params.hardErrorCodes).toEqual(['ONE'])
+    expect(params.rateLimit?.burstLimit).toBe(7)
+    expect(params.maxRetries).toBe(9)
+  })
+
+  it('the merged policy is what the next call actually runs under', async () => {
+    // `getParams()` reads the manager's own copy, so it cannot on its own show
+    // that the classification path sees the same thing. Drive a real call
+    // instead: a `hardErrorCodes` entry that survived a partial update must
+    // still make the call throw rather than resolve softly.
+    const http = new HttpV2({} as unknown as AuthActions, null, { maxRetries: 1 })
+    await http.setRestrictionManagerParams({
+      ...ParamsFactory.getDefault(),
+      maxRetries: 1,
+      softErrorCodes: ['MY_APP_CODE'],
+      hardErrorCodes: ['MY_APP_CODE']
+    })
+    await http.setRestrictionManagerParams({ retryDelay: 1 })
+
+    ;(http as never as { _executeSingleCall: unknown })._executeSingleCall = vi.fn()
+      .mockRejectedValue(new AjaxError({
+        code: 'MY_APP_CODE',
+        description: 'error MY_APP_CODE',
+        status: 400,
+        requestInfo: { method: 'crm.deal.get', params: {}, requestId: 'r-479' },
+        originalError: null
+      }))
+
+    // Hard outranks soft, and both survived the partial update above.
+    await expect(http.call('crm.deal.get', {})).rejects.toBeInstanceOf(AjaxError)
+  })
+
+  it('getParams hands back a copy, not the live limiter state', async () => {
+    // A sub-limiter stores its block by reference and rewrites it in place
+    // while throttling, so a shallow spread let a reader mutate live
+    // enforcement without ever calling the setter.
+    b24 = buildHook()
+    const client = b24.getHttpClient(ApiVersion.v3)
+
+    const first = client.getRestrictionManagerParams()
+    const second = client.getRestrictionManagerParams()
+    expect(first.rateLimit).not.toBe(second.rateLimit)
+
+    first.rateLimit!.burstLimit = 999
+    first.hardErrorCodes = undefined
+    await b24.setRestrictionManagerParams({ hardErrorCodes: ['KEPT'] })
+    const third = client.getRestrictionManagerParams()
+    third.hardErrorCodes!.push('INJECTED')
+
+    expect(client.getRestrictionManagerParams().rateLimit?.burstLimit).not.toBe(999)
+    expect(client.getRestrictionManagerParams().hardErrorCodes).toEqual(['KEPT'])
   })
 })

@@ -18,6 +18,7 @@ import {
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import { baseStage } from '../lib/funnel'
+import { toPortalDateTime } from '../lib/portal-datetime'
 
 const logger = Logger.create('TaskAuto')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
@@ -29,11 +30,18 @@ function bootB24(): TypeB24 {
   return $b24
 }
 
+/**
+ * `priority` is a v3 enum, not the numeric v2 scale. Measured against a portal:
+ * only `high` and `average` exist — `low`, `normal` and any number are accepted
+ * without an error and stored as `average`, so a wrong value is silent.
+ */
+type TaskPriority = 'high' | 'average'
+
 interface TaskTemplate {
   title: string
   description: string
   deadlineDays: number
-  priority: 0 | 1 | 2
+  priority: TaskPriority
 }
 
 const STAGE_TASKS: Record<string, TaskTemplate> = {
@@ -41,19 +49,19 @@ const STAGE_TASKS: Record<string, TaskTemplate> = {
     title: 'Prepare documents and start execution',
     description: 'Deal moved into execution. Prepare all paperwork and kick off delivery.',
     deadlineDays: 5,
-    priority: 2
+    priority: 'high'
   },
   PREPAYMENT_INVOICE: {
     title: 'Send the invoice and chase payment',
     description: 'Issue the prepayment invoice and follow up until paid.',
     deadlineDays: 3,
-    priority: 2
+    priority: 'high'
   },
   FINAL_INVOICE: {
     title: 'Final reconciliation and closing',
     description: 'Final stage of the deal. Prepare closing documents.',
     deadlineDays: 7,
-    priority: 1
+    priority: 'average'
   }
 }
 
@@ -96,32 +104,43 @@ async function fetchOpenDeals($b24: TypeB24): Promise<DealRow[]> {
 }
 
 interface TasksTaskAddResponse {
-  task: { id: number }
+  item: { id: number }
 }
 
 async function createTask($b24: TypeB24, deal: DealRow, t: TaskTemplate): Promise<number> {
   const deadline = new Date()
   deadline.setDate(deadline.getDate() + t.deadlineDays)
 
-  // tasks.task.add is called on v3 (camelCase fields, result.item).
+  // tasks.task.add is on v3: camelCase fields, and the created entity comes
+  // back under `result.item`. Ask the portal itself with `tasks.task.field.list`
+  // rather than translating the v2 names by eye.
+  const responsibleId = deal.assignedById || 1
   const res = await $b24.actions.v3.call.make<TasksTaskAddResponse>({
     method: 'tasks.task.add',
     params: {
       fields: {
-        TITLE: `${t.title} — ${deal.title}`,
-        DESCRIPTION: `${t.description}\n\nDeal: ${deal.title} (ID: ${deal.id})`,
-        RESPONSIBLE_ID: deal.assignedById || 1,
-        PRIORITY: t.priority,
-        DEADLINE: deadline.toISOString(),
-        UF_CRM_TASK: [`D_${deal.id}`]
+        title: `${t.title} — ${deal.title}`,
+        description: `${t.description}\n\nDeal: ${deal.title} (ID: ${deal.id})`,
+        // Both are required — a fields object without them fails validation.
+        creatorId: responsibleId,
+        responsibleId,
+        priority: t.priority,
+        deadline: toPortalDateTime(deadline),
+        // The v2 `UF_CRM_TASK` field is `crmItemIds` on v3. The `D_<id>` value
+        // shape carries over; a bare number or an object is accepted and then
+        // silently dropped.
+        crmItemIds: [`D_${deal.id}`]
       }
     },
-    requestId: `task-add-${deal.id}`
+    // Names this attempt in the logs. It does NOT deduplicate — for that,
+    // `idempotencyKey` makes the retry of one operation write only once.
+    requestId: `task-add-${deal.id}`,
+    idempotencyKey: `stage-task-${deal.id}-${t.title}`
   })
 
   if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
 
-  const id = Number(res.getData()!.result.task.id)
+  const id = Number(res.getData()!.result.item.id)
   logger.info(`  task #${id} created — ${t.title}`)
   return id
 }

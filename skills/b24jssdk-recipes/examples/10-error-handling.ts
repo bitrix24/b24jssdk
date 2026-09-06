@@ -191,6 +191,9 @@ async function intentionallyWrongCall($b24: TypeB24) {
   // it as a SOFT error — the call does NOT throw, it returns a failed
   // AjaxResult. Check `isSuccess` rather than catching.
   const response = await $b24.actions.v3.call.make({
+    // v3 publishes no `crm.item.*`; the point of this section is that the
+    // server rejects it, not the SDK.
+    // @check-ignore: `crm.item.get` is the deliberate anti-example here
     method: 'crm.item.get',
     params: { entityTypeId: EnumCrmEntityTypeId.deal, id: 1 }
   })

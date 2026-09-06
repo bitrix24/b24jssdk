@@ -398,3 +398,121 @@ test('reduceDocument keeps what the check needs and drops the rest', () => {
     assert.doesNotMatch(serialised, new RegExp(forbidden), `${forbidden} must not survive the reduction`)
   }
 })
+
+// --- the v3 result key (#476) -------------------------------------------
+//
+// v3 returns a single entity under `result.item`, tasks included. TypeScript
+// cannot catch the v2 spelling because the response type is the caller's own
+// generic argument, so the gate has to.
+
+test('result key: `result.task` on a v3 call is an error', () => {
+  withFixture({
+    'skills/recipe.ts': [
+      'const res = await $b24.actions.v3.call.make({ method: \'tasks.task.add\', params: {} })',
+      'const id = res.getData().result.task.id'
+    ].join('\n')
+  }, (root) => {
+    const out = runCheck(root)
+    assert.equal(out.status, 1)
+    assert.match(out.stdout + out.stderr, /result\.task.*restApi:v3/s)
+  })
+})
+
+test('result key: the generic argument `<{ task: … }>` is an error too', () => {
+  withFixture({
+    'skills/recipe.ts': [
+      'const res = await $b24.actions.v3.call.make<{ task: { id: number } }>({',
+      '  method: \'tasks.task.add\', params: {} })'
+    ].join('\n')
+  }, (root) => {
+    assert.equal(runCheck(root).status, 1)
+  })
+})
+
+test('result key: a long call still attributes the read to the v3 above it', () => {
+  // `versionContextAt` looks +/-8 lines; a call with a big `fields` object puts
+  // `actions.v3.` further away than that, which is how the recipes escaped.
+  withFixture({
+    'skills/recipe.ts': [
+      'const res = await $b24.actions.v3.call.make({',
+      '  method: \'tasks.task.add\',',
+      '  params: { fields: {',
+      ...Array.from({ length: 14 }, (_, i) => `    field${i}: ${i},`),
+      '  } }',
+      '})',
+      'const id = res.getData().result.task.id'
+    ].join('\n')
+  }, (root) => {
+    assert.equal(runCheck(root).status, 1)
+  })
+})
+
+test('result key: `result.task` on a v2 call is correct and stays silent', () => {
+  withFixture({
+    'skills/recipe.ts': [
+      'const res = await $b24.actions.v2.call.make({ method: \'tasks.task.get\', params: {} })',
+      'const id = res.getData().result.task.id'
+    ].join('\n')
+  }, (root) => {
+    assert.equal(runCheck(root).status, 0)
+  })
+})
+
+test('result key: naming `result.task` in prose is not making the mistake', () => {
+  withFixture({
+    'docs/content/docs/note.md': [
+      '# Note',
+      '',
+      'A `actions.v3.call.make` returns `result.item` — the v2 method answered `result.task`.'
+    ].join('\n')
+  }, (root) => {
+    assert.equal(runCheck(root).status, 0)
+  })
+})
+
+test('result key: a marked anti-example is exempt', () => {
+  withFixture({
+    'skills/recipe.ts': [
+      'const res = await $b24.actions.v3.call.make({ method: \'tasks.task.add\', params: {} })',
+      '// @check-ignore: showing the wrong result.task spelling on purpose',
+      'const id = res.getData().result.task.id'
+    ].join('\n')
+  }, (root) => {
+    assert.equal(runCheck(root).status, 0)
+  })
+})
+
+test('recipes: .ts under skills/ is walked, not just .md', () => {
+  // The recipes were invisible to every v3 gate while only `.md` was walked.
+  withFixture({
+    'skills/b24jssdk-recipes/examples/03.ts': 'await $b24.actions.v3.notAnAction.make({})'
+  }, (root) => {
+    const out = runCheck(root)
+    assert.equal(out.status, 1)
+    assert.match(out.stdout + out.stderr, /notAnAction/)
+  })
+})
+
+test('result key: a v2 sample later on the page is not attributed to a v3 call above it', () => {
+  // A page routinely shows both. The v2 sample may name no action of its own —
+  // only the response shape — so without a fence bound its correct
+  // `result.task` would inherit the v3 call further up and be reported.
+  withFixture({
+    'docs/content/docs/both.md': [
+      '# Both',
+      '',
+      '```ts',
+      'const res = await $b24.actions.v3.call.make({ method: \'tasks.task.get\', params: {} })',
+      'const task = res.getData().result.item',
+      '```',
+      '',
+      'The same call on v2:',
+      '',
+      '```ts [v2]',
+      'const id = res.getData().result.task.id',
+      '```'
+    ].join('\n')
+  }, (root) => {
+    assert.equal(runCheck(root).status, 0)
+  })
+})

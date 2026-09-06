@@ -85,7 +85,18 @@ export interface RateLimitConfig {
 }
 
 /**
- * Parameters for managing all types of restrictions
+ * Parameters for managing all types of restrictions.
+ *
+ * `setRestrictionManagerParams` **replaces the parameters you name and keeps
+ * the rest**, so a partial update is safe: changing `maxRetries` alone leaves
+ * `hardErrorCodes`, `retryOnNetworkError` and the limiter blocks as they were.
+ * Before v2.3.0 it replaced the whole configuration, silently resetting
+ * everything a call did not mention (#479).
+ *
+ * The merge is **shallow**: `rateLimit`, `operatingLimit` and `adaptiveConfig`
+ * are replaced whole rather than merged field by field. Their own types have
+ * no optional fields, so supplying one means supplying all of it; to change a
+ * single number, spread the block you already have.
  */
 export interface RestrictionParams {
   rateLimit?: RateLimitConfig

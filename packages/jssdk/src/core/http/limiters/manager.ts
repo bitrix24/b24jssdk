@@ -440,11 +440,48 @@ export class RestrictionManager {
     }
   }
 
+  /**
+   * Replaces the named parameters, keeping the ones not mentioned.
+   *
+   * It used to assign — `this.#config = params` — so a caller changing one
+   * field silently lost every other one. `setRestrictionManagerParams({
+   * maxRetries: 5 })` after a careful setup left `hardErrorCodes`,
+   * `retryOnNetworkError`, `classifyV3ErrorsByCategory` **and** `rateLimit` all
+   * `undefined`, with no error and nothing in the log. The constructor merges
+   * against `ParamsFactory.getDefault()`, so the same `RestrictionParams`
+   * object meant one thing there and the opposite here. (#479)
+   *
+   * The tell was in our own documentation: every example of this method spreads
+   * `...ParamsFactory.getDefault()` first. That was not house style, it was a
+   * workaround repeated everywhere the method appeared.
+   *
+   * **The merge is shallow.** `rateLimit`, `operatingLimit` and
+   * `adaptiveConfig` are replaced **whole**, not merged field by field — pass
+   * one and you supply all of its fields, omit it and it is left untouched.
+   * Deep-merging them would let a half-specified `rateLimit` combine with an
+   * older one into a pair of numbers nobody chose; replacing keeps a limiter's
+   * configuration something a caller stated in one place.
+   *
+   * A sub-limiter is only reconfigured when its own block was supplied, which
+   * is also why the non-null assertions here are gone: they claimed the caller
+   * always sends every block, and the whole point of this method is that they
+   * do not.
+   */
   async setConfig(params: RestrictionParams): Promise<void> {
-    this.#config = params
-    await this.#rateLimiter.setConfig(params.rateLimit!)
-    await this.#operatingLimiter.setConfig(params.operatingLimit!)
-    await this.#adaptiveDelayer.setConfig(params.adaptiveConfig!)
+    const merged: RestrictionParams = { ...this.#config, ...params }
+    this.#config = merged
+
+    if (params.rateLimit !== undefined) {
+      await this.#rateLimiter.setConfig(params.rateLimit)
+    }
+
+    if (params.operatingLimit !== undefined) {
+      await this.#operatingLimiter.setConfig(params.operatingLimit)
+    }
+
+    if (params.adaptiveConfig !== undefined) {
+      await this.#adaptiveDelayer.setConfig(params.adaptiveConfig)
+    }
   }
 
   getParams(): RestrictionParams {

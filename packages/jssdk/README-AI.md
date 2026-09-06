@@ -616,7 +616,7 @@ This document is based on the SDK source in packages/jssdk/src and the docs unde
 // fix
   ```ts
   // Example: increase limits for enterprise (done automatically by LicenseManager)
-  // $b24.getHttpClient().setRestrictionManagerParams(RestrictionManagerParamsForEnterprise)
+  // $b24.setRestrictionManagerParams(ParamsFactory.getEnterprise())
   ```
  
 - Unique ID Generator: request IDs are appended automatically via Http

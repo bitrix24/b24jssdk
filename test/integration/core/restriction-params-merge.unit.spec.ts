@@ -219,6 +219,31 @@ describe('#479 RestrictionParams merge on set', () => {
     expect(client.getRestrictionManagerParams().hardErrorCodes).toEqual(['FIRST'])
   })
 
+  it('spreading the defaults does NOT clear the two code lists', async () => {
+    // The shape a "restore defaults" `finally` block takes. `ParamsFactory`
+    // carries no `hardErrorCodes` / `softErrorCodes` key, so under the merge
+    // they survive it — which is why the error-handling recipe now names them
+    // explicitly. Pinned here because it is the one place the merge surprises.
+    b24 = buildHook()
+    const client = b24.getHttpClient(ApiVersion.v3)
+
+    await b24.setRestrictionManagerParams({
+      ...ParamsFactory.getDefault(),
+      hardErrorCodes: ['MY_APP_BAD_PAYLOAD']
+    })
+    await b24.setRestrictionManagerParams(ParamsFactory.getDefault())
+
+    expect(client.getRestrictionManagerParams().hardErrorCodes).toEqual(['MY_APP_BAD_PAYLOAD'])
+
+    // Naming them is what clears them.
+    await b24.setRestrictionManagerParams({
+      ...ParamsFactory.getDefault(),
+      hardErrorCodes: [],
+      softErrorCodes: []
+    })
+    expect(client.getRestrictionManagerParams().hardErrorCodes).toEqual([])
+  })
+
   it('an explicit empty array is how a list is cleared', async () => {
     b24 = buildHook()
     const client = b24.getHttpClient(ApiVersion.v3)

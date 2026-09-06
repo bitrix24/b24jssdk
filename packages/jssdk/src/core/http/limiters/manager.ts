@@ -359,6 +359,13 @@ export class RestrictionManager {
       return false
     }
 
+    // This check, not the status range below, is what keeps an untagged error
+    // out of the rule. Every other path that builds an `AjaxError` — the
+    // 401 refresh, a timeout, a network failure, `_convertUnknownErrorToAjaxError`
+    // — leaves `isV3Envelope` undefined, and today each also carries a status
+    // the range happens to exclude. That overlap is a coincidence, not a
+    // guarantee: a future conversion path producing a synthetic 403 without an
+    // envelope must still be refused here. Do not remove this as redundant.
     if ((error as { isV3Envelope?: unknown } | null)?.isV3Envelope !== true) {
       return false
     }

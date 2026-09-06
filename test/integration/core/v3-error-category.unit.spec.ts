@@ -20,6 +20,8 @@
  * makes the flat-v2 arm meaningful.
  */
 import { describe, it, expect, vi } from 'vitest'
+import { AxiosError } from 'axios'
+import { ApiVersion, B24Hook, ParamsFactory } from '../../../packages/jssdk/src/'
 import { HttpV2 } from '../../../packages/jssdk/src/core/http/v2'
 import { AjaxError } from '../../../packages/jssdk/src/core/http/ajax-error'
 import { AjaxResult } from '../../../packages/jssdk/src/core/http/ajax-result'
@@ -60,6 +62,17 @@ async function deliveryOf(http: HttpV2): Promise<'soft' | 'throw'> {
 
 const ON: Partial<RestrictionParams> = { classifyV3ErrorsByCategory: true }
 
+/** A v3 error body, as the portal sends it. */
+function v3ErrorResponse(code: string, status: number) {
+  return {
+    status,
+    statusText: 'Error',
+    headers: {},
+    config: {} as never,
+    data: { error: { code, message: `error ${code}` } }
+  }
+}
+
 describe('#460 v3 errors classified by response category', () => {
   describe('with the rule off — today\'s behaviour, unchanged', () => {
     it('an unlisted v3 4xx still throws', async () => {
@@ -78,6 +91,75 @@ describe('#460 v3 errors classified by response category', () => {
         isV3Envelope: true
       })
       await expect(deliveryOf(http)).resolves.toBe('soft')
+    })
+  })
+
+  describe('the envelope flag reaches the error through the real path', () => {
+    // The cases below stub `_executeSingleCall`, so they never run
+    // `parseErrorPayload`. These two do: without them, deleting
+    // `isV3Envelope: parsed?.isV3Envelope` from `_convertAxiosErrorToAjaxError`
+    // leaves the whole suite green, and the wiring the rule depends on holds on
+    // nothing.
+
+    it('an axios failure carrying a v3 body produces isV3Envelope === true', async () => {
+      const b24 = B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/SECRET', {
+        restrictionParams: { ...ParamsFactory.getDefault(), maxRetries: 1, retryDelay: 1 }
+      })
+      const client = b24.getHttpClient(ApiVersion.v3)
+      vi.spyOn(client.ajaxClient, 'post').mockRejectedValue(new AxiosError(
+        'Request failed with status code 400',
+        'ERR_BAD_REQUEST',
+        undefined,
+        undefined,
+        v3ErrorResponse('BITRIX_REST_V3_EXCEPTION_INVALIDPAGINATIONEXCEPTION', 400)
+      ))
+
+      const thrown = await client.call('main.eventlog.list', {}).catch((error: unknown) => error)
+
+      expect(thrown).toBeInstanceOf(AjaxError)
+      expect((thrown as AjaxError).isV3Envelope).toBe(true)
+      b24.destroy()
+    })
+
+    it('an axios failure carrying a flat v2 body produces isV3Envelope === false', async () => {
+      const b24 = B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/SECRET', {
+        restrictionParams: { ...ParamsFactory.getDefault(), maxRetries: 1, retryDelay: 1 }
+      })
+      const client = b24.getHttpClient(ApiVersion.v2)
+      vi.spyOn(client.ajaxClient, 'post').mockRejectedValue(new AxiosError(
+        'Request failed with status code 400',
+        'ERR_BAD_REQUEST',
+        undefined,
+        undefined,
+        {
+          status: 400,
+          statusText: 'Error',
+          headers: {},
+          config: {} as never,
+          data: { error: 'SOME_V2_CODE', error_description: 'nope' }
+        }
+      ))
+
+      const thrown = await client.call('crm.deal.get', {}).catch((error: unknown) => error)
+
+      expect(thrown).toBeInstanceOf(AjaxError)
+      expect((thrown as AjaxError).isV3Envelope).toBe(false)
+      b24.destroy()
+    })
+
+    it('an error read off a 200 body carries the flag too', async () => {
+      // `AjaxResult.#processErrors()` is the other construction site, reached
+      // when the portal reports an error inside an otherwise successful
+      // response rather than through an HTTP failure.
+      const result = new AjaxResult({
+        answer: { error: { code: 'BITRIX_REST_V3_EXCEPTION_INVALIDFILTEREXCEPTION', message: 'nope' } } as never,
+        query: { method: 'main.eventlog.list', params: {}, requestId: 'r-460' },
+        status: 400
+      })
+
+      expect(result.isSuccess).toBe(false)
+      const [error] = result.getErrors() as AjaxError[]
+      expect(error.isV3Envelope).toBe(true)
     })
   })
 
@@ -170,6 +252,36 @@ describe('#460 v3 errors classified by response category', () => {
     it('an error with no envelope information at all still throws', async () => {
       // A transport failure never went through the payload parser.
       const http = httpRejectingWith({ code: 'NETWORK_ERROR', status: 0 }, ON)
+      await expect(deliveryOf(http)).resolves.toBe('throw')
+    })
+
+    it('499 is soft — the upper bound of the range is inclusive of 4xx', async () => {
+      // 400 alone cannot distinguish `< 500` from `< 499`.
+      const http = httpRejectingWith({
+        code: 'BITRIX_REST_V3_EXCEPTION_SOMECLIENTEXCEPTION',
+        status: 499,
+        isV3Envelope: true
+      }, ON)
+      await expect(deliveryOf(http)).resolves.toBe('soft')
+    })
+
+    it('399 still throws — the lower bound is 400, not "anything below 500"', async () => {
+      const http = httpRejectingWith({
+        code: 'BITRIX_REST_V3_EXCEPTION_SOMEODDEXCEPTION',
+        status: 399,
+        isV3Envelope: true
+      }, ON)
+      await expect(deliveryOf(http)).resolves.toBe('throw')
+    })
+
+    it('a code in BOTH lists throws — the hard list is consulted first', async () => {
+      // The ordering claim in the predicate's docstring: without this, swapping
+      // the two `if` blocks changes nothing any test can see.
+      const http = httpRejectingWith({
+        code: 'DUP_CODE',
+        status: 400,
+        isV3Envelope: true
+      }, { ...ON, hardErrorCodes: ['DUP_CODE'], softErrorCodes: ['DUP_CODE'] })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 

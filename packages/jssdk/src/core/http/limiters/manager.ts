@@ -1,10 +1,104 @@
-import type { RestrictionParams, RestrictionManagerStats } from '../../../types/limiters'
+import type {
+  AdaptiveConfig,
+  OperatingLimitConfig,
+  RateLimitConfig,
+  RestrictionManagerStats,
+  RestrictionParams
+} from '../../../types/limiters'
 import type { LoggerInterface } from '../../../types/logger'
 import type { PayloadTime } from '../../../types/payloads'
 import { LoggerFactory } from '../../../logger'
 import { RateLimiter } from './rate-limiter'
 import { OperatingLimiter } from './operating-limiter'
 import { AdaptiveDelayer } from './adaptive-delayer'
+import { ParamsFactory } from './params-factory'
+import { SdkError } from '../../sdk-error'
+
+const RATE_LIMIT_FIELDS = ['burstLimit', 'drainRate', 'adaptiveEnabled'] as const
+const OPERATING_LIMIT_FIELDS = ['windowMs', 'limitMs', 'heavyPercent'] as const
+const ADAPTIVE_CONFIG_FIELDS = ['thresholdPercent', 'coefficient', 'maxDelay', 'enabled'] as const
+
+/**
+ * Drops keys whose value is explicitly `undefined`.
+ *
+ * Object spread copies an own key even when its value is `undefined`, so
+ * `{ ...config, ...{ maxRetries: undefined } }` erases `maxRetries` rather than
+ * keeping it — the natural spelling of an optional override
+ * (`maxRetries: fromEnv ? Number(fromEnv) : undefined`) silently emptied the
+ * field, and `maxRetries` reaching the retry loop as `undefined` made
+ * `attempt < undefined` false on the first pass, so every call failed as
+ * "all attempts exhausted" without one request going out.
+ *
+ * With this, "omitted" and "explicitly undefined" mean the same thing, which is
+ * what the merge promises and what the block guards below already assumed.
+ */
+function definedOnly(params: RestrictionParams): RestrictionParams {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined)
+  ) as RestrictionParams
+}
+
+/**
+ * Copies the nested blocks and the code arrays, not just the top level.
+ *
+ * A sub-limiter stores the block it is given by reference and rewrites it in
+ * place — `RateLimiter` lowers `drainRate` and `burstLimit` as it throttles
+ * adaptively. A shallow spread therefore handed a caller the live enforcement
+ * state: reading the policy showed values changing underneath, and pushing onto
+ * the returned `hardErrorCodes` reconfigured the manager without ever calling
+ * the setter.
+ */
+function cloneParams(params: RestrictionParams): RestrictionParams {
+  return {
+    ...params,
+    ...(params.rateLimit ? { rateLimit: { ...params.rateLimit } } : {}),
+    ...(params.operatingLimit ? { operatingLimit: { ...params.operatingLimit } } : {}),
+    ...(params.adaptiveConfig ? { adaptiveConfig: { ...params.adaptiveConfig } } : {}),
+    ...(params.hardErrorCodes ? { hardErrorCodes: [...params.hardErrorCodes] } : {}),
+    ...(params.softErrorCodes ? { softErrorCodes: [...params.softErrorCodes] } : {})
+  }
+}
+
+/**
+ * Refuses a limiter block that is not whole.
+ *
+ * The blocks are replaced rather than deep-merged, and their types carry no
+ * optional fields — so for a TypeScript caller a half-specified block is
+ * already a compile error. JavaScript has no such gate, and neither does a
+ * cast: `{ rateLimit: { burstLimit: 7 } }` used to reach `RateLimiter`, where
+ * `1000 / undefined` is `NaN`, `while (waitTime > 0)` is false on `NaN`, and
+ * rate limiting was simply off for the rest of the process — no error, nothing
+ * logged. That is the failure class this whole change exists to remove, so it
+ * is not acceptable one layer down.
+ *
+ * @throws {SdkError} `JSSDK_LIMITER_INVALID_CONFIG_BLOCK`
+ */
+function assertBlock(
+  block: object | undefined,
+  name: string,
+  fields: readonly string[]
+): void {
+  if (block === undefined) {
+    return
+  }
+
+  const present = block as Record<string, unknown> | null
+  const missing = present === null
+    ? [...fields]
+    : fields.filter(field => present[field] === undefined)
+
+  if (missing.length === 0) {
+    return
+  }
+
+  // Static text plus the block and field names only — never a caller value.
+  throw new SdkError({
+    code: 'JSSDK_LIMITER_INVALID_CONFIG_BLOCK',
+    description: `setRestrictionManagerParams: \`${name}\` is replaced whole, not merged, so it must carry every field. `
+      + `Missing: ${missing.join(', ')}. Spread the current block if you mean to change one value.`,
+    status: 500
+  })
+}
 
 /**
  * Central coordinator for all outbound request throttling.
@@ -34,12 +128,32 @@ export class RestrictionManager {
 
   private _logger: LoggerInterface
 
+  /**
+   * `RestrictionManager` is exported from the package root and every field of
+   * `RestrictionParams` is optional, so `new RestrictionManager({ maxRetries: 5 })`
+   * is a call TypeScript accepts. It used to throw from inside `RateLimiter`,
+   * because the defaulting lived one class away in `AbstractHttp` and the
+   * assertions here claimed a caller always sends every block. Merging against
+   * the defaults makes the class safe on its own terms, and makes the promise
+   * this file documents true here as well as in the setter. (#479)
+   */
   constructor(params: RestrictionParams) {
     this._logger = LoggerFactory.createNullLogger()
-    this.#config = params
-    this.#rateLimiter = new RateLimiter(params.rateLimit!)
-    this.#operatingLimiter = new OperatingLimiter(params.operatingLimit!)
-    this.#adaptiveDelayer = new AdaptiveDelayer(params.adaptiveConfig!, this.#operatingLimiter)
+
+    const patch = definedOnly(params)
+
+    // The same gate as `setConfig`. A block replaces the default whole, so a
+    // half-specified one here reaches `RateLimiter` exactly as it would through
+    // the setter — and this door is open from `B24Hook`'s `restrictionParams`
+    // option as well as from the exported class.
+    assertBlock(patch.rateLimit, 'rateLimit', RATE_LIMIT_FIELDS)
+    assertBlock(patch.operatingLimit, 'operatingLimit', OPERATING_LIMIT_FIELDS)
+    assertBlock(patch.adaptiveConfig, 'adaptiveConfig', ADAPTIVE_CONFIG_FIELDS)
+
+    this.#config = cloneParams({ ...ParamsFactory.getDefault(), ...patch })
+    this.#rateLimiter = new RateLimiter(this.#config.rateLimit as RateLimitConfig)
+    this.#operatingLimiter = new OperatingLimiter(this.#config.operatingLimit as OperatingLimitConfig)
+    this.#adaptiveDelayer = new AdaptiveDelayer(this.#config.adaptiveConfig as AdaptiveConfig, this.#operatingLimiter)
   }
 
   // region Logger ////
@@ -390,7 +504,12 @@ export class RestrictionManager {
    * Delay due to unknown errors
    */
   async #getErrorBackoff(_requestId: string): Promise<number> {
-    return this.#config.retryDelay!
+    // Unreachable today — the constructor merges against the defaults, so
+    // `retryDelay` is always set. Kept because the alternative spelling is
+    // `retryDelay!`, the assertion pattern this file just finished removing,
+    // and an absent value there produces `NaN` delays rather than a clean
+    // failure — a retry storm dressed up as a backoff.
+    return this.#config.retryDelay ?? ParamsFactory.getDefault().retryDelay!
   }
 
   incrementError(method: string): void {
@@ -440,15 +559,70 @@ export class RestrictionManager {
     }
   }
 
+  /**
+   * Replaces the named parameters, keeping the ones not mentioned.
+   *
+   * It used to assign — `this.#config = params` — so a caller changing one
+   * field silently lost every other one. `setRestrictionManagerParams({
+   * maxRetries: 5 })` after a careful setup left `hardErrorCodes`,
+   * `retryOnNetworkError`, `classifyV3ErrorsByCategory` **and** `rateLimit` all
+   * `undefined`, with no error and nothing in the log. (#479)
+   *
+   * The tell was in our own documentation: every example of this method spreads
+   * `...ParamsFactory.getDefault()` first. That was not house style, it was a
+   * workaround repeated everywhere the method appeared.
+   *
+   * **The merge is shallow.** `rateLimit`, `operatingLimit` and
+   * `adaptiveConfig` are replaced **whole**, not merged field by field — pass
+   * one and you supply all of its fields, omit it and it is left untouched.
+   * Deep-merging them would let a half-specified `rateLimit` combine with an
+   * older one into a pair of numbers nobody chose; replacing keeps a limiter's
+   * configuration something a caller stated in one place.
+   *
+   * A sub-limiter is only reconfigured when its own block was supplied, which
+   * is also why the non-null assertions here are gone: they claimed the caller
+   * always sends every block, and the whole point of this method is that they
+   * do not. A block that *is* supplied must be whole — `assertBlock` refuses a
+   * partial one rather than letting `1000 / undefined` switch rate limiting off
+   * for the rest of the process.
+   *
+   * An **explicitly `undefined`** value counts as "not mentioned". Object
+   * spread would otherwise copy the key and erase the field, which is not what
+   * `maxRetries: enabled ? 5 : undefined` means.
+   */
   async setConfig(params: RestrictionParams): Promise<void> {
-    this.#config = params
-    await this.#rateLimiter.setConfig(params.rateLimit!)
-    await this.#operatingLimiter.setConfig(params.operatingLimit!)
-    await this.#adaptiveDelayer.setConfig(params.adaptiveConfig!)
+    const patch = definedOnly(params)
+
+    assertBlock(patch.rateLimit, 'rateLimit', RATE_LIMIT_FIELDS)
+    assertBlock(patch.operatingLimit, 'operatingLimit', OPERATING_LIMIT_FIELDS)
+    assertBlock(patch.adaptiveConfig, 'adaptiveConfig', ADAPTIVE_CONFIG_FIELDS)
+
+    this.#config = cloneParams({ ...this.#config, ...patch })
+
+    if (patch.rateLimit !== undefined) {
+      await this.#rateLimiter.setConfig({ ...patch.rateLimit })
+    }
+
+    if (patch.operatingLimit !== undefined) {
+      await this.#operatingLimiter.setConfig({ ...patch.operatingLimit })
+    }
+
+    if (patch.adaptiveConfig !== undefined) {
+      await this.#adaptiveDelayer.setConfig({ ...patch.adaptiveConfig })
+    }
   }
 
+  /**
+   * A **copy**, nested blocks and code arrays included.
+   *
+   * A shallow spread handed the caller the very objects the sub-limiters use:
+   * `RateLimiter` rewrites `drainRate` and `burstLimit` in place while it
+   * throttles adaptively, so a caller reading the policy saw it change under
+   * them, and a caller pushing onto the returned `hardErrorCodes` reconfigured
+   * the manager without ever calling the setter. (#479)
+   */
   getParams(): RestrictionParams {
-    return { ...this.#config }
+    return cloneParams(this.#config)
   }
 
   /**

@@ -179,7 +179,16 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
     throw e
   } finally {
     // Restore the default policy (instance-global; see GOTCHA above).
-    await $b24.setRestrictionManagerParams(ParamsFactory.getDefault())
+    //
+    // Naming the two code lists is not decoration: the setter replaces what you
+    // name and leaves the rest alone, and `ParamsFactory.getDefault()` carries
+    // no `hardErrorCodes` / `softErrorCodes` key — so spreading it alone would
+    // leave the app-specific codes set at the top of this file in force.
+    await $b24.setRestrictionManagerParams({
+      ...ParamsFactory.getDefault(),
+      hardErrorCodes: [],
+      softErrorCodes: []
+    })
   }
 }
 

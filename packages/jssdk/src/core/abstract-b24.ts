@@ -406,12 +406,24 @@ export abstract class AbstractB24 implements TypeB24 {
   /**
    * @inheritDoc
    */
+  /**
+   * Applies the parameters to every API version's client.
+   *
+   * `Promise.all`, not `allSettled`: a rejection here means the policy was not
+   * applied, and swallowing it made the call resolve while the client kept
+   * running the old configuration — or, when a malformed limiter block reached
+   * a sub-limiter, while it ran on nothing at all. A caller must be able to see
+   * that their policy did not take. (#479)
+   *
+   * All versions receive the same object, so a value read from one client is
+   * written to all of them.
+   */
   public async setRestrictionManagerParams(params: RestrictionParams): Promise<void> {
     const promises = versionManager.getAllApiVersions().map(version =>
       this.getHttpClient(version).setRestrictionManagerParams(params)
     )
 
-    await Promise.allSettled(promises)
+    await Promise.all(promises)
   }
 
   /**

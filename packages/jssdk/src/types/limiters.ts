@@ -85,7 +85,23 @@ export interface RateLimitConfig {
 }
 
 /**
- * Parameters for managing all types of restrictions
+ * Parameters for managing all types of restrictions.
+ *
+ * `setRestrictionManagerParams` **replaces the parameters you name and keeps
+ * the rest**, so a partial update is safe: changing `maxRetries` alone leaves
+ * `hardErrorCodes`, `retryOnNetworkError` and the limiter blocks as they were.
+ * It used to replace the whole configuration, silently resetting everything
+ * a call did not mention (#479).
+ *
+ * The merge is **shallow**: `rateLimit`, `operatingLimit` and `adaptiveConfig`
+ * are replaced whole rather than merged field by field. Their own types have
+ * no optional fields, so supplying one means supplying all of it — a partial
+ * block reaching the setter from JavaScript is refused with
+ * `JSSDK_LIMITER_INVALID_CONFIG_BLOCK`. To change a single number, spread the
+ * block you already have.
+ *
+ * An omitted key and one set to `undefined` mean the same thing: leave that
+ * parameter alone. To clear a list, pass an empty array.
  */
 export interface RestrictionParams {
   rateLimit?: RateLimitConfig

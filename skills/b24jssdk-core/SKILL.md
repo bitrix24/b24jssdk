@@ -257,7 +257,7 @@ await $b24.setRestrictionManagerParams({
 })
 ```
 
-**Why the category rule exists.** The built-in soft list holds nine v3 codes; one on-premise build was measured to ship at least 39, and the set grows with every portal module. So classification by list is per-module-shipping-date, not per-error-kind: `INVALIDSELECTEXCEPTION` is soft while `INVALIDPAGINATIONEXCEPTION` — same caller mistake, same request, same HTTP 400 — throws. Pinned codes (built-in and yours) still outrank the rule; 5xx, 401, 408, 429 and all of `restApi:v2` are untouched; 403 is soft, matching the already-pinned `…ACCESSDENIEDEXCEPTION`.
+**Why the category rule exists.** The built-in soft list holds nine v3 codes; one on-premise build was measured to ship at least 39, and the set grows with every portal module. So classification by list is per-module-shipping-date, not per-error-kind: `INVALIDSELECTEXCEPTION` is soft while `INVALIDPAGINATIONEXCEPTION` — same caller mistake, same request, same HTTP 400 — throws. Pinned codes (built-in and yours) still outrank the rule; 5xx, 401, 408, 429 and all of `restApi:v2` are untouched; 403 is soft, matching the already-pinned `…ACCESSDENIEDEXCEPTION` — except `…INSUFFICIENTSCOPEEXCEPTION`, pinned hard because it is a missing OAuth grant and its v2 twin `insufficient_scope` has always thrown.
 
 **Never match on the `BITRIX_REST_V3_EXCEPTION_` prefix** — modules ship unprefixed codes such as `NOTE_SEARCH_QUERY_TOO_SHORT`. And never match on `message`: it is localised.
 

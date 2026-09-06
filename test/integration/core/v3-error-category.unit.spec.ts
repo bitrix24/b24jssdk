@@ -158,8 +158,9 @@ describe('#460 v3 errors classified by response category', () => {
       })
 
       expect(result.isSuccess).toBe(false)
-      const [error] = result.getErrors() as AjaxError[]
-      expect(error.isV3Envelope).toBe(true)
+      const [error] = [...result.getErrors()]
+      expect(error).toBeInstanceOf(AjaxError)
+      expect((error as AjaxError).isV3Envelope).toBe(true)
     })
   })
 
@@ -189,15 +190,29 @@ describe('#460 v3 errors classified by response category', () => {
 
     it('403 is soft, alongside the other 4xx', async () => {
       // Decided deliberately rather than left to fall out of a status check: a
-      // scope refusal is caller-addressable, and `…ACCESSDENIEDEXCEPTION` — the
-      // neighbouring 403 — is already soft by list, so excluding 403 would keep
-      // exactly the arbitrariness this rule removes.
+      // permission refusal is caller-addressable, and `…ACCESSDENIEDEXCEPTION` —
+      // the neighbouring 403 — is already soft by list, so excluding 403 would
+      // keep exactly the arbitrariness this rule removes.
+      const http = httpRejectingWith({
+        code: 'BITRIX_REST_V3_EXCEPTION_SOMEFORBIDDENEXCEPTION',
+        status: 403,
+        isV3Envelope: true
+      }, ON)
+      await expect(deliveryOf(http)).resolves.toBe('soft')
+    })
+
+    it('a missing OAuth scope still throws at 403, on v3 as on v2', async () => {
+      // `insufficient_scope` is pinned hard for `restApi:v2`. The v3 spelling
+      // is a different string and matched nothing, so the category rule would
+      // have softened the same condition on one version and not the other.
+      // Pinning it keeps the two in step: this is a missing grant, a
+      // configuration fault, not a per-record permission check.
       const http = httpRejectingWith({
         code: 'BITRIX_REST_V3_EXCEPTION_INSUFFICIENTSCOPEEXCEPTION',
         status: 403,
         isV3Envelope: true
       }, ON)
-      await expect(deliveryOf(http)).resolves.toBe('soft')
+      await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
     it('401 still throws — the auth-refresh path owns it', async () => {

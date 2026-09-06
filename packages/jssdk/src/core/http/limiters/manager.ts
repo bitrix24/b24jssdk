@@ -244,6 +244,14 @@ export class RestrictionManager {
     'INVALID_REQUEST',
     'OVERLOAD_LIMIT', 'expired_token', 'invalid_token',
     'ACCESS_DENIED', 'INVALID_CREDENTIALS', 'user_access_error', 'insufficient_scope',
+    // The `restApi:v3` spelling of `insufficient_scope`, pinned so the same
+    // condition is delivered the same way on both versions. Without it the v3
+    // form matches nothing — it is a different string — and the category rule
+    // would soften it at 403 while the v2 form kept throwing. This is a missing
+    // OAuth grant, a configuration fault rather than a per-record ACL check, so
+    // it stays loud; the neighbouring `…ACCESSDENIEDEXCEPTION` is a permission
+    // check and stays soft. (#460)
+    'BITRIX_REST_V3_EXCEPTION_INSUFFICIENTSCOPEEXCEPTION',
     'ERROR_MANIFEST_IS_NOT_AVAILABLE',
     'allowed_only_intranet_user',
     'NOT_FOUND',

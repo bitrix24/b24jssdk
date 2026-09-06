@@ -18,6 +18,7 @@ export type AjaxErrorParams = {
 type AjaxErrorDetails = SdkErrorDetails & {
   requestInfo?: Partial<AjaxQuery>
   validation?: readonly ValidationDetail[]
+  isV3Envelope?: boolean
 }
 
 /**
@@ -81,6 +82,25 @@ export class AjaxError extends SdkError {
    */
   public readonly validation?: readonly ValidationDetail[]
 
+  /**
+   * Whether the portal answered in the `restApi:v3` error envelope —
+   * `{ error: { code, message } }` — rather than the flat `restApi:v2` shape.
+   *
+   * Carried alongside `status` so the soft/hard decision can be made from the
+   * response's own category instead of from an enumerated list of codes: a
+   * build ships far more v3 codes than any list in this repository can track,
+   * and a module released after the last edit would otherwise throw codes
+   * nothing here has heard of (#460).
+   *
+   * Set from what the body actually looked like, never from the client's
+   * version, because a gateway in front of the v3 controller is documented to
+   * sometimes answer in the flat shape.
+   *
+   * `undefined` when the error did not come from a parsed REST body at all —
+   * a transport failure, a timeout, an SDK-side error.
+   */
+  public readonly isV3Envelope?: boolean
+
   constructor(params: AjaxErrorDetails) {
     // @todo test this
     // @memo get from PullClient.loadConfig
@@ -92,6 +112,7 @@ export class AjaxError extends SdkError {
     super(params)
 
     this.name = 'AjaxError' as const
+    this.isV3Envelope = params.isV3Envelope
     // Redacted on the same terms as `requestInfo.params` below: the portal's
     // shape permits keys the SDK has not seen, and this field is serialized.
     // An empty array is treated as no validation at all, so a caller

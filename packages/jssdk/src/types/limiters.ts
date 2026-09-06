@@ -148,6 +148,51 @@ export interface RestrictionParams {
    * custom v3 endpoint).
    */
   softErrorCodes?: string[]
+  /**
+   * Decide the soft/hard split for `restApi:v3` by the **response category**
+   * rather than by an enumerated list of codes.
+   *
+   * With this on, an error that arrived in the v3 error envelope with an HTTP
+   * **4xx other than 401, 408 or 429** is returned inside `AjaxResult` as a
+   * soft error, whatever its code. `hardErrorCodes` and `softErrorCodes` still
+   * outrank the rule, so a pinned classification always wins; 5xx is untouched;
+   * and `restApi:v2`, whose flat error body is not a v3 envelope, is unaffected.
+   *
+   * **Why it is not the default yet.** Turning it on changes *how* an error is
+   * delivered: a code that throws today resolves instead, so a `try / catch`
+   * around the call stops firing and control falls through into the success
+   * path. That is a breaking change, so it is opt-in for the 2.x line and
+   * becomes the default in 3.0.0. Callers relying on `catch` move to
+   * `if (!response.isSuccess)`.
+   *
+   * **Why the rule exists.** The built-in soft list holds nine v3 codes; a
+   * single on-premise build ships at least 39, and the set grows with every
+   * portal module. Classification by list is therefore per-module-shipping-date
+   * rather than per-error-kind: `INVALIDSELECTEXCEPTION` is soft while
+   * `INVALIDPAGINATIONEXCEPTION` — the same caller mistake, same request, same
+   * HTTP 400 — throws. Codes are also not uniformly prefixed
+   * (`NOTE_SEARCH_QUERY_TOO_SHORT` carries none), so no pattern match can
+   * stand in for the list either.
+   *
+   * @default false
+   *
+   * @example
+   * ```ts
+   * import { ParamsFactory } from '@bitrix24/b24jssdk'
+   *
+   * await $b24.setRestrictionManagerParams({
+   *   ...ParamsFactory.getDefault(),
+   *   classifyV3ErrorsByCategory: true
+   * })
+   *
+   * const response = await $b24.actions.v3.call.make({ method: 'main.eventlog.list', params: {} })
+   * if (!response.isSuccess) {
+   *   // Reached for any 4xx the portal reports, not only the nine listed codes.
+   *   console.log(response.getErrorMessages().join('; '))
+   * }
+   * ```
+   */
+  classifyV3ErrorsByCategory?: boolean
 }
 
 /**

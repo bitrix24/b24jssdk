@@ -308,6 +308,70 @@ export class RestrictionManager {
   }
 
   /**
+   * Statuses a 4xx category rule must not claim.
+   *
+   * `401` belongs to the auth-refresh path, which owns it end to end. `408`
+   * and `429` are the two retryable 4xx — the same pair
+   * `#isNonRetryableClientError` excludes — and an error still being retried
+   * has not been classified yet.
+   *
+   * `403` is deliberately **not** here. A permission or scope refusal is
+   * caller-addressable, and `…_ACCESSDENIEDEXCEPTION` is already in the
+   * built-in soft list, so excluding 403 would leave one 403 soft by list and
+   * its neighbour thrown — exactly the per-code arbitrariness this rule
+   * removes. (#460)
+   */
+  static readonly #CATEGORY_RULE_EXCLUDED_STATUSES: readonly number[] = [401, 408, 429]
+
+  /**
+   * Should this error reach the caller inside an `AjaxResult` rather than be
+   * thrown?
+   *
+   * Evaluated in a fixed order, most specific first:
+   *
+   * 1. a code in `exceptionCodeForHard` throws — so the rule can never soften
+   *    a credential failure, and a caller's `hardErrorCodes` always wins;
+   * 2. a code in `exceptionCodeForSoft` is soft — so the built-in list, the v2
+   *    codes and a caller's `softErrorCodes` keep working unchanged;
+   * 3. with `classifyV3ErrorsByCategory` on, an error that arrived in the
+   *    **v3 error envelope** carrying a **4xx other than 401 / 408 / 429** is
+   *    soft, whatever its code;
+   * 4. otherwise it throws, which is what happens today for anything unlisted.
+   *
+   * Step 3 keys on the envelope the response actually carried, never on the
+   * client's own version: a gateway in front of the v3 controller is documented
+   * to sometimes answer in the flat v2 shape, and such a body is left to the
+   * lists.
+   */
+  isSoftError(error: unknown): boolean {
+    const code = (error as { code?: unknown } | null)?.code
+    const codeText = typeof code === 'string' ? code : ''
+
+    if (this.exceptionCodeForHard.includes(codeText)) {
+      return false
+    }
+
+    if (this.exceptionCodeForSoft.includes(codeText)) {
+      return true
+    }
+
+    if (this.#config.classifyV3ErrorsByCategory !== true) {
+      return false
+    }
+
+    if ((error as { isV3Envelope?: unknown } | null)?.isV3Envelope !== true) {
+      return false
+    }
+
+    const status = Number((error as { status?: unknown } | null)?.status ?? 0)
+
+    return Number.isInteger(status)
+      && status >= 400
+      && status < 500
+      && !RestrictionManager.#CATEGORY_RULE_EXCLUDED_STATUSES.includes(status)
+  }
+
+  /**
    * Delay due to unknown errors
    */
   async #getErrorBackoff(_requestId: string): Promise<number> {

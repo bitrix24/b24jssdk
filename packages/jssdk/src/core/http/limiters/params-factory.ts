@@ -30,7 +30,11 @@ export class ParamsFactory {
       },
       maxRetries: 3,
       retryDelay: 1_000,
-      retryOnNetworkError: true
+      retryOnNetworkError: true,
+      // Off for the 2.x line: turning it on changes how an error is delivered,
+      // which breaks a `try / catch` written against today's behaviour. Becomes
+      // the default in 3.0.0. (#460)
+      classifyV3ErrorsByCategory: false
     }
   }
 

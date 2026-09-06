@@ -141,31 +141,47 @@ Reply as JSON:
 async function createTask($b24: TypeB24, r: Recommendation, deal: DealItem): Promise<number> {
   const deadline = new Date()
   deadline.setDate(deadline.getDate() + Math.max(1, r.deadlineDays))
-  const priorityMap = { high: 2, medium: 1, low: 0 } as const
+  // v3 `priority` is an enum, not the numeric v2 scale. Measured against a
+  // portal: only `high` and `average` exist, and anything else — `low`, a
+  // number — is accepted without an error and stored as `average`. Mapping the
+  // model's three levels onto the two that exist keeps that explicit.
+  const priorityMap = { high: 'high', medium: 'average', low: 'average' } as const
 
-  // tasks.task.add is called on v3 (camelCase fields, result.item).
-  const res = await $b24.actions.v3.call.make<{ task: { id: number } }>({
+  // tasks.task.add is on v3: camelCase fields, and the created entity comes
+  // back under `result.item`. Ask `tasks.task.field.list` rather than
+  // translating the v2 names by eye.
+  const responsibleId = Number(deal.assignedById ?? 1)
+  const res = await $b24.actions.v3.call.make<{ item: { id: number } }>({
     method: 'tasks.task.add',
     params: {
       fields: {
-        TITLE: `[AI] ${r.taskTitle}`,
-        DESCRIPTION: [
+        title: `[AI] ${r.taskTitle}`,
+        description: [
           r.taskDescription,
           '',
           '---',
           `AI analysis: ${r.analysis}`,
           `Deal: ${deal.title} (ID: ${deal.id})`
         ].join('\n'),
-        RESPONSIBLE_ID: Number(deal.assignedById ?? 1),
-        PRIORITY: priorityMap[r.priority],
-        DEADLINE: deadline.toISOString(),
-        UF_CRM_TASK: [`D_${deal.id}`]
+        // Both are required — a fields object without them fails validation.
+        creatorId: responsibleId,
+        responsibleId,
+        priority: priorityMap[r.priority],
+        // `deadline` wants a DateTime *without* milliseconds; `toISOString()`
+        // emits `.000Z`, which the portal rejects outright.
+        deadline: deadline.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        // v2's `UF_CRM_TASK` is `crmItemIds` here; the `D_<id>` value shape
+        // carries over, while a bare number is silently dropped.
+        crmItemIds: [`D_${deal.id}`]
       }
     },
-    requestId: `task-add-${deal.id}`
+    requestId: `task-add-${deal.id}`,
+    // The model can be asked twice about the same deal; the key makes the
+    // second run replay the first task instead of creating another.
+    idempotencyKey: `ai-task-${deal.id}-${r.taskTitle}`
   })
   if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
-  return Number(res.getData()!.result.task.id)
+  return Number(res.getData()!.result.item.id)
 }
 
 async function main() {

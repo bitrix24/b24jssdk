@@ -74,6 +74,12 @@ function filesToCheck() {
     // READMEs that are not ours to check.
     files.push(...walkFiles(join(ROOT, ...base.split('/')), { skipDirs: ['node_modules'] }))
   }
+  // The recipes are runnable TypeScript, not prose, and were invisible to every
+  // v3 gate while only `.md` was walked here — which is how two of them shipped
+  // calling `tasks.task.add` on v3 with v2 field names and reading the v2
+  // result key (#476). They are the files most likely to carry the mistake,
+  // because they are the ones people copy.
+  files.push(...walkFiles(join(ROOT, 'skills'), { extension: '.ts', skipDirs: ['node_modules'] }))
   // Tolerated as absent so a fixture root can populate only what it is testing;
   // `pullClient` is skipped because its vendored protobuf modules are not ours.
   const sdkSource = join(ROOT, 'packages', 'jssdk', 'src')
@@ -210,6 +216,84 @@ function checkPhantomActions(file, body) {
         report.error(file, `references non-existent v3 action "${name}" in actions.v3.{${m[1]}}`)
       }
     }
+  }
+}
+
+/**
+ * The v3 endpoint returns a single entity under `result.item`, always — tasks
+ * included, where the v2 method answered `result.task`.
+ *
+ * Worth a rule of its own because TypeScript cannot catch it: the response type
+ * is supplied by the caller as a generic argument, so `<{ task: … }>` compiles
+ * happily against a body that has no `task` key. The read then yields
+ * `undefined`, and `Number(undefined)` is `NaN` — so the caller reports a
+ * created entity with an id of `NaN` rather than failing. Two recipes shipped
+ * that way (#476).
+ *
+ * Only fires where the version context says v3, so the v2 spelling — which is
+ * correct there — stays silent. Prose is skipped too: explaining the mistake
+ * is not making it, and the sentence naming `result.task` as the v2 spelling
+ * is exactly the documentation this rule wants to keep.
+ */
+const V2_RESULT_KEY = /\bresult\.task\b|<\{\s*task\s*:/g
+
+/**
+ * Is this line prose rather than code?
+ *
+ * In markdown, anything outside a fenced block. In TypeScript, a comment line —
+ * `//`, or a `*` continuing a JSDoc block.
+ */
+function isProse(file, lines, index) {
+  const line = (lines[index] ?? '').trim()
+  if (file.endsWith('.md')) {
+    return enclosingFenceStart(lines, index) === -1 || line.startsWith('//') || line.startsWith('*')
+  }
+  return line.startsWith('//') || line.startsWith('*') || line.startsWith('/*')
+}
+
+/**
+ * Which surface does a result read belong to?
+ *
+ * `versionContextAt` looks ±8 lines, which is right for a `method:` literal
+ * sitting inside its call but too narrow here: a read comes *after* the call,
+ * and a call with a long `fields` object puts `actions.v3.` well out of that
+ * window — recipe 03 spans some twenty lines between the two. So walk back to
+ * the nearest preceding `actions.vN.` instead, with no distance limit: a result
+ * read belongs to the last call opened above it. Falls back to the shared
+ * context when the file names no action at all, and `null` stays a real answer.
+ */
+function callSurfaceAbove(file, lines, index) {
+  for (let i = index; i >= 0; i--) {
+    const found = /actions\.v([23])\./.exec(lines[i] ?? '')
+    if (found !== null) {
+      return `v${found[1]}`
+    }
+  }
+  return versionContextAt(file, lines, index)
+}
+
+function checkResultKey(file, body) {
+  const lines = body.split(/\r\n?|\n/)
+  for (const m of body.matchAll(V2_RESULT_KEY)) {
+    const line = body.slice(0, m.index).split(/\r\n?|\n/).length
+    if (callSurfaceAbove(file, lines, line - 1) !== 'v3') {
+      continue
+    }
+    if (isProse(file, lines, line - 1)) {
+      continue
+    }
+    if (isMarkedIgnored(lines, line - 1, 'result.task')) {
+      continue
+    }
+    report.error(
+      file,
+      `reads "${m[0]}" on a restApi:v3 call — v3 returns a single entity under \`result.item\`, `
+      + `including tasks (the v2 method answered \`result.task\`). TypeScript cannot catch this: `
+      + `the response type is the caller's own generic argument, so the read silently yields `
+      + `undefined. Use \`result.item\`, or mark the line `
+      + `"@check-ignore: <reason naming result.task>" if it is a deliberate anti-example`,
+      { line }
+    )
   }
 }
 
@@ -411,6 +495,7 @@ if (!isEntryPoint) {
   for (const file of filesToCheck()) {
     const body = readFileSync(file, 'utf8')
     checkPhantomActions(file, body)
+    checkResultKey(file, body)
     checkMethodNames(file, body, snapshots, documented)
   }
 

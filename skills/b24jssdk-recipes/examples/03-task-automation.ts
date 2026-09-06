@@ -18,6 +18,7 @@ import {
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import { baseStage } from '../lib/funnel'
+import { toPortalDateTime } from '../lib/portal-datetime'
 
 const logger = Logger.create('TaskAuto')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
@@ -104,15 +105,6 @@ async function fetchOpenDeals($b24: TypeB24): Promise<DealRow[]> {
 
 interface TasksTaskAddResponse {
   item: { id: number }
-}
-
-/**
- * `deadline` wants a DateTime *without* milliseconds. `Date.toISOString()`
- * emits `.000Z`, which the portal rejects outright with "требуется тип данных
- * `DateTime`" — so trim them rather than passing the ISO string straight in.
- */
-function toPortalDateTime(date: Date): string {
-  return date.toISOString().replace(/\.\d{3}Z$/, 'Z')
 }
 
 async function createTask($b24: TypeB24, deal: DealRow, t: TaskTemplate): Promise<number> {

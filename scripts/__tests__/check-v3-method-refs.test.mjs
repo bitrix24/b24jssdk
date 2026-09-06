@@ -492,3 +492,27 @@ test('recipes: .ts under skills/ is walked, not just .md', () => {
     assert.match(out.stdout + out.stderr, /notAnAction/)
   })
 })
+
+test('result key: a v2 sample later on the page is not attributed to a v3 call above it', () => {
+  // A page routinely shows both. The v2 sample may name no action of its own —
+  // only the response shape — so without a fence bound its correct
+  // `result.task` would inherit the v3 call further up and be reported.
+  withFixture({
+    'docs/content/docs/both.md': [
+      '# Both',
+      '',
+      '```ts',
+      'const res = await $b24.actions.v3.call.make({ method: \'tasks.task.get\', params: {} })',
+      'const task = res.getData().result.item',
+      '```',
+      '',
+      'The same call on v2:',
+      '',
+      '```ts [v2]',
+      'const id = res.getData().result.task.id',
+      '```'
+    ].join('\n')
+  }, (root) => {
+    assert.equal(runCheck(root).status, 0)
+  })
+})

@@ -240,15 +240,24 @@ const V2_RESULT_KEY = /\bresult\.task\b|<\{\s*task\s*:/g
 /**
  * Is this line prose rather than code?
  *
- * In markdown, anything outside a fenced block. In TypeScript, a comment line —
- * `//`, or a `*` continuing a JSDoc block.
+ * A comment either way — `//`, or a `*` continuing a JSDoc block — plus, in
+ * markdown, anything outside a fenced block.
+ *
+ * Indented (four-space) code blocks are read as prose by this test. That is a
+ * known gap rather than an oversight: every code sample in this repository is
+ * fenced, because the typecheck gates find blocks by fence and an indented one
+ * would already be invisible to them.
  */
+function isComment(line) {
+  return line.startsWith('//') || line.startsWith('*') || line.startsWith('/*')
+}
+
 function isProse(file, lines, index) {
   const line = (lines[index] ?? '').trim()
-  if (file.endsWith('.md')) {
-    return enclosingFenceStart(lines, index) === -1 || line.startsWith('//') || line.startsWith('*')
+  if (file.endsWith('.md') && enclosingFenceStart(lines, index) === -1) {
+    return true
   }
-  return line.startsWith('//') || line.startsWith('*') || line.startsWith('/*')
+  return isComment(line)
 }
 
 /**
@@ -260,10 +269,18 @@ function isProse(file, lines, index) {
  * window — recipe 03 spans some twenty lines between the two. So walk back to
  * the nearest preceding `actions.vN.` instead, with no distance limit: a result
  * read belongs to the last call opened above it. Falls back to the shared
- * context when the file names no action at all, and `null` stays a real answer.
+ * context when nothing is found, and `null` stays a real answer.
+ *
+ * In markdown the walk stops at the enclosing fence. A page routinely shows a
+ * v3 sample and then a v2 one, and the v2 sample may name no action of its own
+ * — only the response shape. Without the bound, its correct `result.task`
+ * would be attributed to the v3 call further up the page and reported as an
+ * error. A fenced sample is its own scope; `versionContextAt` then decides,
+ * which is what reads the `[v2]` / `[v3]` fence tag.
  */
 function callSurfaceAbove(file, lines, index) {
-  for (let i = index; i >= 0; i--) {
+  const floor = file.endsWith('.md') ? Math.max(0, enclosingFenceStart(lines, index)) : 0
+  for (let i = index; i >= floor; i--) {
     const found = /actions\.v([23])\./.exec(lines[i] ?? '')
     if (found !== null) {
       return `v${found[1]}`

@@ -24,6 +24,7 @@ import {
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import OpenAI from 'openai'
+import { toPortalDateTime } from '../lib/portal-datetime'
 
 const logger = Logger.create('AiAssistant')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
@@ -167,9 +168,7 @@ async function createTask($b24: TypeB24, r: Recommendation, deal: DealItem): Pro
         creatorId: responsibleId,
         responsibleId,
         priority: priorityMap[r.priority],
-        // `deadline` wants a DateTime *without* milliseconds; `toISOString()`
-        // emits `.000Z`, which the portal rejects outright.
-        deadline: deadline.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        deadline: toPortalDateTime(deadline),
         // v2's `UF_CRM_TASK` is `crmItemIds` here; the `D_<id>` value shape
         // carries over, while a bare number is silently dropped.
         crmItemIds: [`D_${deal.id}`]

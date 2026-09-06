@@ -27,6 +27,23 @@ export type ParsedErrorPayload = {
    * send one.
    */
   readonly validation?: readonly ValidationDetail[]
+
+  /**
+   * Which envelope this body was: `true` for the `restApi:v3` shape
+   * (`{ error: { code, message } }`), `false` for the flat `restApi:v2` one
+   * (`{ error: '…', error_description: '…' }`).
+   *
+   * Reported here rather than sniffed again downstream, because this function
+   * has already made the decision and a second sniffing site is a second thing
+   * to keep in agreement — which is the bug this function was extracted to end
+   * (#423).
+   *
+   * It is the **parsed body** that decides, never the client's own version. A
+   * gateway in front of the v3 controller is documented to answer in the flat
+   * v2 shape sometimes; such a response carries no v3 envelope, and anything
+   * keyed on this flag then correctly declines to treat it as one. (#460)
+   */
+  readonly isV3Envelope: boolean
 }
 
 /**
@@ -108,6 +125,7 @@ export function parseErrorPayload(
       // reordering or extending the array. Both are **shallow** — the `readonly`
       // on each entry's fields is a type-level claim only, and nothing stops a
       // caller writing to `validation[0].field` at runtime.
+      isV3Envelope: true,
       ...(error.validation ? { validation: Object.freeze([...error.validation]) } : {})
     }
   }
@@ -116,7 +134,8 @@ export function parseErrorPayload(
   if (responseData.error && typeof responseData.error === 'string') {
     return {
       code: responseData.error !== '0' ? responseData.error : fallbackCode,
-      description: (responseData as TypeDescriptionError)?.error_description ?? fallbackDescription
+      description: (responseData as TypeDescriptionError)?.error_description ?? fallbackDescription,
+      isV3Envelope: false
     }
   }
 

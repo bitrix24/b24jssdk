@@ -44,6 +44,7 @@ type ErrorData = {
   description: string
   status: number
   validation?: readonly ValidationDetail[]
+  isV3Envelope?: boolean
 }
 
 /**
@@ -165,7 +166,8 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
       code: parsed.code,
       description: parsed.description,
       status: this._status,
-      validation: parsed.validation
+      validation: parsed.validation,
+      isV3Envelope: parsed.isV3Envelope
     }), 'base-error')
   }
 
@@ -175,6 +177,7 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
       description: errorData.description,
       status: errorData.status,
       validation: errorData.validation,
+      isV3Envelope: errorData.isV3Envelope,
       requestInfo: {
         method: this._query.method,
         params: this._query.params,

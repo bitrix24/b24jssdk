@@ -214,7 +214,9 @@ Common SdkError codes:
 
 ## Tuning retry / throw behaviour
 
-The restriction manager classifies errors into **hard** (throw immediately, no retry) and **soft** (return inside `AjaxResult` for inspection). Defaults cover the well-known Bitrix24 codes; extend per-app via `RestrictionParams`.
+The restriction manager decides how a failed call reaches you: **hard** means the promise rejects and you catch an `AjaxError`; **soft** means it resolves and `response.isSuccess === false`. That is delivery, not severity — neither affects retries (any 4xx except 408/429 stops retrying either way), and **anything not classified soft is thrown**, unlisted codes included.
+
+Defaults pin the well-known Bitrix24 codes; extend per-app via `RestrictionParams`.
 
 ```ts
 import { B24Hook, ParamsFactory, ApiVersion } from '@bitrix24/b24jssdk'
@@ -244,10 +246,20 @@ await $b24.setRestrictionManagerParams({
   // duplicates.
   retryOnNetworkError: false,
 
+  // restApi:v3 only. Decide soft/hard from the RESPONSE — a v3 error envelope
+  // carrying a 4xx other than 401/408/429 is soft, whatever its code. Off by
+  // default in 2.x because it is breaking (a code that throws today resolves
+  // instead); the default flips in 3.0.0.
+  classifyV3ErrorsByCategory: true,
+
   maxRetries: 3,
   retryDelay: 1_000
 })
 ```
+
+**Why the category rule exists.** The built-in soft list holds nine v3 codes; one on-premise build was measured to ship at least 39, and the set grows with every portal module. So classification by list is per-module-shipping-date, not per-error-kind: `INVALIDSELECTEXCEPTION` is soft while `INVALIDPAGINATIONEXCEPTION` — same caller mistake, same request, same HTTP 400 — throws. Pinned codes (built-in and yours) still outrank the rule; 5xx, 401, 408, 429 and all of `restApi:v2` are untouched; 403 is soft, matching the already-pinned `…ACCESSDENIEDEXCEPTION` — except `…INSUFFICIENTSCOPEEXCEPTION`, pinned hard because it is a missing OAuth grant and its v2 twin `insufficient_scope` has always thrown.
+
+**Never match on the `BITRIX_REST_V3_EXCEPTION_` prefix** — modules ship unprefixed codes such as `NOTE_SEARCH_QUERY_TOO_SHORT`. And never match on `message`: it is localised.
 
 `hardErrorCodes` and `softErrorCodes` are **additive** — the built-in lists (auth/fatal codes) are always hard, and you can't remove them, only extend (per `packages/jssdk/src/types/limiters.ts:120-146`).
 

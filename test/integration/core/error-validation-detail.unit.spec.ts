@@ -96,8 +96,29 @@ describe('parseErrorPayload', () => {
       'FALLBACK',
       'fallback'
     )
-    expect(parsed).toEqual({ code: 'ERROR_CODE', description: 'nope' })
+    expect(parsed).toEqual({ code: 'ERROR_CODE', description: 'nope', isV3Envelope: false })
     expect(parsed?.validation).toBeUndefined()
+  })
+
+  it('reports which envelope it read, so nothing downstream has to sniff again', () => {
+    // The soft/hard category rule keys on this rather than on the client's own
+    // version, because a gateway in front of the v3 controller is documented to
+    // sometimes answer in the flat v2 shape. A second sniffing site is a second
+    // thing to keep in agreement — which is the bug this parser ended (#423,
+    // #460).
+    const v3 = parseErrorPayload(
+      { error: { code: 'BITRIX_REST_V3_EXCEPTION_INVALIDPAGINATIONEXCEPTION', message: 'nope' } },
+      'FALLBACK',
+      'fallback'
+    )
+    const v2 = parseErrorPayload(
+      { error: 'ERROR_CODE', error_description: 'nope' },
+      'FALLBACK',
+      'fallback'
+    )
+
+    expect(v3?.isV3Envelope).toBe(true)
+    expect(v2?.isV3Envelope).toBe(false)
   })
 
   it('falls back for the v2 sentinel code "0"', () => {

@@ -425,9 +425,14 @@ export abstract class AbstractHttp implements TypeHttp {
         }
 
         /**
-         * We decide whether to throw an error in `AjaxResult` or throw an exception.
+         * We decide whether to return the error inside an `AjaxResult` or throw.
+         *
+         * Delegated to the manager rather than tested here against one list:
+         * the decision now also has a category branch for `restApi:v3`, and
+         * splitting it across two files is how the payload parsing came to
+         * disagree with itself (#423, #460).
          */
-        if (this._restrictionManager.exceptionCodeForSoft.includes(lastError.code)) {
+        if (this._restrictionManager.isSoftError(lastError)) {
           return this._createAjaxResultWithErrorFromResponse<T>(lastError, requestId, method, params)
         }
         throw lastError
@@ -496,6 +501,7 @@ export abstract class AbstractHttp implements TypeHttp {
       description: parsed?.description ?? errorDescription,
       status,
       validation: parsed?.validation,
+      isV3Envelope: parsed?.isV3Envelope,
       requestInfo: { method, params, requestId },
       originalError: axiosError
     })

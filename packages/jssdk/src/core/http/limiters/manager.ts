@@ -139,7 +139,18 @@ export class RestrictionManager {
    */
   constructor(params: RestrictionParams) {
     this._logger = LoggerFactory.createNullLogger()
-    this.#config = cloneParams({ ...ParamsFactory.getDefault(), ...definedOnly(params) })
+
+    const patch = definedOnly(params)
+
+    // The same gate as `setConfig`. A block replaces the default whole, so a
+    // half-specified one here reaches `RateLimiter` exactly as it would through
+    // the setter — and this door is open from `B24Hook`'s `restrictionParams`
+    // option as well as from the exported class.
+    assertBlock(patch.rateLimit, 'rateLimit', RATE_LIMIT_FIELDS)
+    assertBlock(patch.operatingLimit, 'operatingLimit', OPERATING_LIMIT_FIELDS)
+    assertBlock(patch.adaptiveConfig, 'adaptiveConfig', ADAPTIVE_CONFIG_FIELDS)
+
+    this.#config = cloneParams({ ...ParamsFactory.getDefault(), ...patch })
     this.#rateLimiter = new RateLimiter(this.#config.rateLimit as RateLimitConfig)
     this.#operatingLimiter = new OperatingLimiter(this.#config.operatingLimit as OperatingLimitConfig)
     this.#adaptiveDelayer = new AdaptiveDelayer(this.#config.adaptiveConfig as AdaptiveConfig, this.#operatingLimiter)
@@ -493,9 +504,11 @@ export class RestrictionManager {
    * Delay due to unknown errors
    */
   async #getErrorBackoff(_requestId: string): Promise<number> {
-    // Not `retryDelay!`: an absent value produced `NaN` delays rather than a
-    // clean failure, which reads as an immediate retry — a retry storm dressed
-    // up as a backoff.
+    // Unreachable today — the constructor merges against the defaults, so
+    // `retryDelay` is always set. Kept because the alternative spelling is
+    // `retryDelay!`, the assertion pattern this file just finished removing,
+    // and an absent value there produces `NaN` delays rather than a clean
+    // failure — a retry storm dressed up as a backoff.
     return this.#config.retryDelay ?? ParamsFactory.getDefault().retryDelay!
   }
 

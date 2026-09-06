@@ -107,6 +107,16 @@ describe('#479 RestrictionParams merge on set', () => {
       .rejects.toMatchObject({ code: 'JSSDK_LIMITER_INVALID_CONFIG_BLOCK' })
   })
 
+  it('refuses a half-specified block at construction too', () => {
+    // `restrictionParams` is a public constructor option, and
+    // `RestrictionManager` is exported from the package root — the same door,
+    // one frame further out. Without the gate here, the block replaces the
+    // default whole and the limiter runs on NaN from the very first request.
+    expect(() => B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/SECRET', {
+      restrictionParams: { rateLimit: { burstLimit: 7 } } as never
+    })).toThrow(expect.objectContaining({ code: 'JSSDK_LIMITER_INVALID_CONFIG_BLOCK' }))
+  })
+
   it('refuses a null block rather than resolving and failing on every later call', async () => {
     // `null` reached `RateLimiter.setConfig`, which stored it and then threw on
     // `#config.drainRate`. The rejection was swallowed by the `Promise.allSettled`

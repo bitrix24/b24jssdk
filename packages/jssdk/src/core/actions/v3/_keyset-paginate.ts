@@ -3,6 +3,7 @@ import type { LoggerInterface } from '../../../types/logger'
 import type { TypeCallParams, TypeFilterV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { SdkError } from '../../sdk-error'
+import { cursorStalledError } from '../_cursor-stalled'
 
 /**
  * Reject a non-array `filter` for the emulated-keyset list actions.
@@ -215,6 +216,20 @@ export type KeysetPaginateStrategy = {
   noCursorWarning: string
   /** Label logged at `error` level when the underlying `call` fails. */
   errorLabel: string
+  /**
+   * Caller-facing name of the action, e.g. `callList.make` — the wording the
+   * filter guards already use, so both errors from one action read alike.
+   * Separate from {@link KeysetPaginateStrategy.errorLabel}, which is an
+   * internal log label (`callFastListMethod`) and does not belong in a message
+   * the caller reads.
+   */
+  actionLabel: string
+  /**
+   * What to check when the cursor stops advancing, in the vocabulary of *this*
+   * action: the list walkers expose `idKey` / `cursorIdKey`, the tail walkers
+   * expose `cursorField`. See `actions/_cursor-stalled.ts` for the two texts.
+   */
+  stalledCursorHint: string
 }
 
 /**
@@ -232,6 +247,12 @@ export type KeysetPaginateStrategy = {
  * On a soft error it throws {@link KeysetPaginationError}; the calling helper
  * decides whether to fold it into a `Result` (eager) or rethrow as an
  * `SdkError` (streaming).
+ *
+ * A cursor that stops advancing is a different case and throws `SdkError`
+ * directly, past that fold — see the guard below for why.
+ *
+ * @throws {KeysetPaginationError} when the underlying `call` reports a soft error
+ * @throws {SdkError} `JSSDK_ACTION_CURSOR_STALLED`
  */
 export async function* keysetPaginate<T = unknown>(
   b24: TypeB24,
@@ -278,9 +299,45 @@ export async function* keysetPaginate<T = unknown>(
 
     const lastItem = resultData[resultData.length - 1] as Record<string, any>
     const next = lastItem ? strategy.readNextCursor(lastItem) : null
-    if (next === null || next === undefined) {
+
+    // `readNextCursor` is declared to return `number | string | null`, but the
+    // tail walkers read the value straight off the response — `lastItem[
+    // cursorField]`, typed `any` — so nothing narrows it at runtime. A
+    // `cursorField` naming an object- or array-valued field (ordinary in a v3
+    // response) then yields a **fresh reference on every page**, which the stall
+    // check below cannot see: `===` between two distinct objects is never true,
+    // so the walk this guard exists to stop would run forever anyway.
+    //
+    // A non-primitive is therefore treated as no cursor at all and takes the
+    // same warning-and-stop path as an unreadable one — in both cases
+    // `cursorField` does not name a scalar, which is exactly what the warning
+    // already tells the caller. This subsumes the `null` / `undefined` check it
+    // replaces; the list walkers hand back `null` for an unparsable id and keep
+    // the behaviour they had.
+    if (typeof next !== 'number' && typeof next !== 'string') {
       logger.warning(strategy.noCursorWarning).catch(() => {})
       break
+    }
+
+    // Nothing above this line catches a repeating page: the `maxPageSize` stop
+    // fires on a page *shorter* than the largest seen, and a repeated page is
+    // the same size as itself. See `actions/_cursor-stalled.ts` for what the
+    // error says and why it throws rather than folding into the `Result`.
+    //
+    // `===` rather than `==`, so no genuinely different value is read as a stall
+    // — `0 == ''` and `0 == false` are true, and stopping on one of those would
+    // be stopping on a lie. The cost is one extra request when a server changes
+    // only the type of an identical cursor (`100` → `'100'`): that reads as
+    // movement, and the guard fires on the next page once the type settles.
+    //
+    // Two limits, both deliberate. It catches a repeat of the **immediately
+    // preceding** cursor, not a longer cycle — a server alternating between two
+    // pages still loops, and seeing that needs a set of every cursor so far,
+    // which grows with the walk. And it sits after the `maxPageSize` stop, so a
+    // stalled page that happens to be shorter than an earlier one ends the walk
+    // quietly instead of reaching here; that is how that check already behaved.
+    if (next === cursor) {
+      throw cursorStalledError(strategy.actionLabel, strategy.stalledCursorHint)
     }
 
     cursor = next

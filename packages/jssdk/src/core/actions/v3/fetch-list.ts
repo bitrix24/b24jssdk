@@ -2,6 +2,7 @@ import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../ty
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 import { assertArrayFilter, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
+import { CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
 
 export type ActionFetchListV3 = {
   method: string
@@ -125,7 +126,9 @@ export class FetchListV3 extends AbstractAction {
           return Number.isFinite(value) ? value : null
         },
         noCursorWarning: `fetchList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`,
-        errorLabel: 'fetchListMethod'
+        errorLabel: 'fetchListMethod',
+        actionLabel: 'fetchList.make',
+        stalledCursorHint: CURSOR_STALLED_HINT_LIST
       })
     } catch (error) {
       if (error instanceof KeysetPaginationError) {

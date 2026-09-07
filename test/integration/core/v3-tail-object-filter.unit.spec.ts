@@ -392,6 +392,41 @@ describe('the filter walk is bounded by work, not only by depth', () => {
     expect(Date.now() - started).toBeLessThan(budgetMs)
   })
 
+  it('finds a field behind a node the long path could not look inside', () => {
+    // The memo has to distinguish two very different `false`s: "this subtree
+    // does not mention the field" and "the budget ran out before we could tell".
+    // A plain visited set stores them as one, and the truncated answer wins.
+    //
+    // `a` is reached twice: down the 30-deep chain with one level of budget
+    // left — too little to look inside it — and directly from the top with 31
+    // levels to spare. `some` walks the chain first.
+    const a: unknown[] = [['x', '=', 1]]
+    let chain: unknown = a
+    for (let index = 0; index < 30; index++) {
+      chain = [chain]
+    }
+
+    expect(filterMentionsField([chain, a], 'x')).toBe(true)
+    // The same objects in the other order. A memo that kept a truncated answer
+    // would disagree with itself here, which is how this was found.
+    expect(filterMentionsField([a, chain], 'x')).toBe(true)
+  })
+
+  it('returns at once for a shared-node DAG built from logic groups', () => {
+    // The two cases above are plain arrays, and a memo that only recorded array
+    // nodes passed every test in this file. A group — `{ logic, conditions }`,
+    // which is what `FilterV3.or()` returns — is the other half of what this
+    // walk descends through, and the shape a caller actually reaches for.
+    let group: unknown = { logic: 'and', conditions: [['x', '=', 1]] }
+    for (let index = 0; index < probeDepth; index++) {
+      group = { logic: 'or', conditions: [group, group] }
+    }
+
+    const started = Date.now()
+    expect(filterMentionsField(group, 'id', probeDepth + 2)).toBe(false)
+    expect(Date.now() - started).toBeLessThan(budgetMs)
+  })
+
   it('still finds a field that sits behind a shared node', () => {
     // The visited set must not swallow a real match. `shared` is reached twice;
     // the first visit has to answer truthfully, and `some` short-circuits before

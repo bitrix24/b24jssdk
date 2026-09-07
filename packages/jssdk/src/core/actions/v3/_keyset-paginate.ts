@@ -94,8 +94,8 @@ function isPortalFilterGroup(value: unknown): boolean {
  * - **`depth`** stops a legitimately deep nesting. The limit is far past any
  *   filter anyone writes; reaching it means the shape is pathological, and
  *   answering "no" there is right — the caller loses a warning, not a request.
- * - **`seen`** stops the same node being explored twice. Depth alone bounds the
- *   distance the walk travels, not the work it does, and those come apart as
+ * - **`seen`** stops the same node being explored twice over. Depth alone bounds
+ *   the distance the walk travels, not the work it does, and those come apart as
  *   soon as one node is reachable by two edges: `const a = []; a.push(a, a)`
  *   gives `T(d) = 1 + 2·T(d − 1)`, and a plain DAG built without any cycle at all
  *   — `let n = [['x', '=', 1]]; for (let i = 0; i < 32; i++) n = [n, n]` — does
@@ -103,35 +103,52 @@ function isPortalFilterGroup(value: unknown): boolean {
  *   **85 seconds** of blocked event loop inside a check whose only output is a
  *   warning. With `seen` it returns immediately.
  *
- * `seen` is consulted globally within one call, not per path: a node that did
- * not mention the field the first time will not mention it the second, and one
- * that did short-circuits the whole walk through `some`. The one case that gets
- * a less precise answer is a node first reached with the depth budget already
- * spent and met again higher up — it stays `false`. That needs a filter nested
- * past 32 levels *and* sharing a node across them, which is well beyond what
- * either bound is protecting.
+ * `seen` records **the depth each node was explored with**, not merely that it
+ * was seen, and a cached `false` is trusted only when that visit had at least as
+ * much budget as this one. The distinction is the whole correctness of the memo,
+ * because a `false` means one of two different things: "this subtree does not
+ * mention the field", or "the budget ran out before we could tell". Storing them
+ * as one answer loses a real `true`, and not only in a corner:
+ *
+ * ```js
+ * const a = [['x', '=', 1]]
+ * let chain = a
+ * for (let i = 0; i < 30; i++) { chain = [chain] }
+ * filterMentionsField([chain, a], 'x') // must be true
+ * ```
+ *
+ * The long path reaches `a` with one level of budget left, cannot look inside it
+ * and answers `false`; the short path meets `a` again with 31 levels to spare. A
+ * memo that recorded only "visited" would hand back that truncated `false` — and
+ * `[a, chain]`, the same objects in the other order, would answer `true`. The
+ * depth-keyed memo answers `true` either way, and still collapses the shapes
+ * above, where every revisit happens at the same depth or shallower.
  */
 const MAX_FILTER_DEPTH = 32
 
 export function filterMentionsField(filter: unknown, field: string, depth = MAX_FILTER_DEPTH): boolean {
-  return walkFilterForField(filter, field, depth, new WeakSet())
+  return walkFilterForField(filter, field, depth, new WeakMap())
 }
 
 function walkFilterForField(
   filter: unknown,
   field: string,
   depth: number,
-  seen: WeakSet<object>
+  seen: WeakMap<object, number>
 ): boolean {
   if (depth <= 0) {
     return false
   }
 
   if (typeof filter === 'object' && filter !== null) {
-    if (seen.has(filter)) {
+    // Trust a cached `false` only if that visit had at least this much budget.
+    // A node explored with one level left would otherwise poison a later visit
+    // that had thirty — see the worked example above.
+    const exploredWith = seen.get(filter)
+    if (exploredWith !== undefined && exploredWith >= depth) {
       return false
     }
-    seen.add(filter)
+    seen.set(filter, depth)
   }
 
   if (Array.isArray(filter)) {

@@ -86,6 +86,41 @@ describe('#279 v3 list actions reject the v2 object filter', () => {
     })
   })
 
+  it('names the group case for what it is, not as the v2 dialect', async () => {
+    // `callList` / `fetchList` need an array because they append the page
+    // condition to it. A logic group is a perfectly valid v3 filter — the
+    // portal takes one as the whole filter — so reporting it as "the v2 object
+    // dialect" sends the caller after a mistake they did not make.
+    const { b24 } = makeB24()
+
+    await expect(
+      new CallListV3(b24, logger).make({
+        method: 'main.eventlog.list',
+        customKeyForResult: 'items',
+        params: { filter: { logic: 'or', conditions: [['id', '>', 1]] } as never }
+      })
+    ).rejects.toMatchObject({
+      code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY',
+      message: expect.stringContaining('Wrap it')
+    })
+  })
+
+  it.each([
+    ['null', null],
+    ['a string', 'id > 1'],
+    ['a number', 42]
+  ])('rejects %s with the named error rather than a TypeError', async (_name, filter) => {
+    const { b24 } = makeB24()
+
+    await expect(
+      new CallListV3(b24, logger).make({
+        method: 'main.eventlog.list',
+        customKeyForResult: 'items',
+        params: { filter: filter as never }
+      })
+    ).rejects.toBeInstanceOf(SdkError)
+  })
+
   it('fetchList reports the same code, not just the same class', async () => {
     // Without the guard this path also throws — but a TypeError, not an
     // SdkError. Asserting the code as well as the class is what distinguishes

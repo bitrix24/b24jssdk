@@ -41,7 +41,7 @@ export function assertArrayFilter(
   // email or phone number being searched for.
   throw new SdkError({
     code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY',
-    description: isFilterGroup(filter)
+    description: isPortalFilterGroup(filter)
       ? `${action}: \`filter\` must be an array here. A logic group is a valid v3 filter — the portal accepts one on its own — but this action appends its page condition to \`filter\` on every request, and only an array can be extended. Wrap it: filter: [FilterV3.or(...)].`
       : `${action}: \`filter\` must be the restApi:v3 array form, e.g. [['id', '>', 100]] or FilterV3.build(...). `
         + `The restApi:v2 object dialect ({ '>id': 100 }) is not accepted by the portal: a filter element carrying none of type/logic/conditions/negative is read positionally, so a map keyed by an operator prefix matches no condition it knows.`,
@@ -49,9 +49,57 @@ export function assertArrayFilter(
   })
 }
 
-/** A logic group — `{ logic?, negative?, conditions }` — as {@link FilterV3.or} builds. */
-function isFilterGroup(value: unknown): boolean {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) && 'conditions' in value
+/**
+ * The keys `FilterStructure::fillStructure()` looks for before it falls through
+ * to positional parsing.
+ */
+const PORTAL_GROUP_KEYS = ['type', 'logic', 'conditions', 'negative'] as const
+
+/**
+ * Would the portal read this object as a **group** rather than positionally?
+ *
+ * Deliberately not `isGroup` from `tools/filter-v3.ts`, which asks a different
+ * question: that one validates what the *builder* produces and so requires
+ * `conditions`. This one predicts what the *portal* will do, and the portal
+ * checks all four of `type` / `logic` / `conditions` / `negative` — any one of
+ * them takes the group branch. Testing only `conditions` would make the guard
+ * stricter than the server it is standing in for, and reject `{ type: … }`,
+ * which the portal accepts. A false rejection is worse than the round trip this
+ * guard saves, because there is no way for the caller to get past it.
+ */
+function isPortalFilterGroup(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+
+  return PORTAL_GROUP_KEYS.some(key => key in value)
+}
+
+/**
+ * Does `filter` mention `field` anywhere — including inside a logic group?
+ *
+ * The tail walkers warn when the cursor field also appears in `filter`, because
+ * the server orders and pages by it and rejects a filter on the same field.
+ * That check used to be written inline as "a top-level array containing a
+ * triple whose first element is the field", which stopped seeing anything the
+ * moment a bare group became a legal filter — and had never seen a group nested
+ * inside the array form either. Both are exactly where a caller puts a
+ * condition once they reach for `FilterV3.or()`.
+ */
+export function filterMentionsField(filter: unknown, field: string): boolean {
+  if (Array.isArray(filter)) {
+    // A triple is an array too: `['id', '>', 100]`.
+    if (typeof filter[0] === 'string') {
+      return filter[0] === field
+    }
+    return filter.some(node => filterMentionsField(node, field))
+  }
+
+  if (typeof filter === 'object' && filter !== null && 'conditions' in filter) {
+    return filterMentionsField((filter as { conditions: unknown }).conditions, field)
+  }
+
+  return false
 }
 
 /**
@@ -86,12 +134,17 @@ function isFilterGroup(value: unknown): boolean {
  * @throws {SdkError} `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`
  */
 export function assertTailFilter(filter: unknown, action: string): void {
-  if (filter === undefined || Array.isArray(filter) || isFilterGroup(filter)) {
+  if (filter === undefined || Array.isArray(filter) || isPortalFilterGroup(filter)) {
     return
   }
 
+  // A code of its own rather than the list one: there `NOT_ARRAY` states the
+  // condition exactly, here a non-array is valid and only the v2 dialect is
+  // refused. Codes are documented as stable strings to match on, so one whose
+  // name asserts something untrue of half its call sites is a cost paid by
+  // whoever reads it and not by us.
   throw new SdkError({
-    code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY',
+    code: 'JSSDK_ACTION_V3_TAIL_FILTER_INVALID',
     description: `${action}: \`filter\` must be the restApi:v3 array form, e.g. [['id', '>', 100]] or FilterV3.build(...), or a logic group from FilterV3.or() / and() / not(). `
       + `The restApi:v2 object dialect ({ '>id': 100 }) is not accepted by the portal: a filter element carrying none of type/logic/conditions/negative is read positionally, so a map keyed by an operator prefix matches no condition it knows. `
       + `Rejected here rather than one round trip later, where the server reports it in wording that never mentions the dialect.`,

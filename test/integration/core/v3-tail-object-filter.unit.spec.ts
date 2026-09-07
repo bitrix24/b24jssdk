@@ -59,7 +59,13 @@ describe('the v2 object filter dialect on the v3 tail walkers', () => {
         params: { select: ['id'], filter: { '>id': 1 } } as never,
         customKeyForResult: 'items'
       })
-    ).rejects.toMatchObject({ code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY' })
+    ).rejects.toMatchObject({
+      code: 'JSSDK_ACTION_V3_TAIL_FILTER_INVALID',
+      // The wording is the other half of the guard's job — the portal's own
+      // rejection never names the dialect. Without this, a mutation that swapped
+      // in the list message would pass.
+      message: expect.stringContaining('logic group from FilterV3.or()')
+    })
 
     // The point of the guard: the caller learns before spending a request.
     expect(post).not.toHaveBeenCalled()
@@ -75,7 +81,10 @@ describe('the v2 object filter dialect on the v3 tail walkers', () => {
       customKeyForResult: 'items'
     } as never)
 
-    await expect(generator.next()).rejects.toMatchObject({ code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY' })
+    await expect(generator.next()).rejects.toMatchObject({
+      code: 'JSSDK_ACTION_V3_TAIL_FILTER_INVALID',
+      message: expect.stringContaining('fetchTail.make')
+    })
     expect(post).not.toHaveBeenCalled()
   })
 
@@ -126,5 +135,113 @@ describe('the v2 object filter dialect on the v3 tail walkers', () => {
     })
 
     expect(response.isSuccess).toBe(true)
+  })
+})
+
+describe('shapes the tail guard has to tell apart', () => {
+  let b24: B24Hook | null = null
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    b24?.destroy()
+    b24 = null
+  })
+
+  it.each([
+    ['null', null],
+    ['a string', 'id > 1'],
+    ['a number', 42],
+    ['a boolean', true]
+  ])('rejects %s rather than throwing a TypeError', async (_name, filter) => {
+    // `null` is the sharp one: the group test reads `'conditions' in value`,
+    // which throws a raw TypeError on `null` if the guard lets it through — an
+    // error the caller cannot act on, from a check meant to make errors clearer.
+    b24 = buildHook()
+    const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+
+    await expect(
+      b24.actions.v3.callTail.make({
+        method: 'main.eventlog.tail',
+        params: { select: ['id'], filter } as never,
+        customKeyForResult: 'items'
+      })
+    ).rejects.toMatchObject({ code: 'JSSDK_ACTION_V3_TAIL_FILTER_INVALID' })
+
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    // Each carries exactly ONE of the four keys and, crucially, three of them
+    // carry no `conditions` — otherwise a predicate testing `conditions` alone
+    // would be indistinguishable from one testing all four.
+    ['logic', { logic: 'or' }],
+    ['type', { type: 'group' }],
+    ['negative', { negative: true }],
+    ['conditions', { conditions: [] }]
+  ])('passes an object carrying only %s — the portal reads all four as a group', async (_name, filter) => {
+    // The portal's `fillStructure()` takes the group branch on any of
+    // type/logic/conditions/negative. Testing only `conditions` would make the
+    // guard stricter than the server it stands in for, and a false rejection
+    // has no way around it.
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)
+
+    await expect(
+      b24.actions.v3.callTail.make({
+        method: 'main.eventlog.tail',
+        params: { select: ['id'], filter } as never,
+        customKeyForResult: 'items'
+      })
+    ).resolves.toBeDefined()
+  })
+})
+
+describe('the cursor field hiding inside a logic group', () => {
+  let b24: B24Hook | null = null
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    b24?.destroy()
+    b24 = null
+  })
+
+  it.each([
+    ['a bare group', FilterV3.or(['id', '>', 1], ['id', '<', 9])],
+    ['a group inside the array form', [FilterV3.or(['id', '>', 1], ['id', '<', 9])]],
+    ['a plain triple', [['id', '>', 1]]]
+  ])('warns when the cursor field appears in %s', async (_name, filter) => {
+    // The scan used to look only at a top-level array of triples. Once a bare
+    // group became a legal filter here, it stopped seeing anything at all — so
+    // the server rejected with INVALIDFILTEREXCEPTION and the caller got no
+    // warning, which is the round trip this whole guard exists to save.
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)
+    // The action carries the manager's logger, not the transport's.
+    const warning = vi.spyOn(b24.actions.v3.callTail['_logger'], 'warning').mockResolvedValue(undefined)
+
+    await b24.actions.v3.callTail.make({
+      method: 'main.eventlog.tail',
+      params: { select: ['id'], filter } as never,
+      cursorField: 'id',
+      customKeyForResult: 'items'
+    })
+
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('must not appear in `filter`'))
+  })
+
+  it('stays quiet when the filter mentions another field', async () => {
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)
+    // The action carries the manager's logger, not the transport's.
+    const warning = vi.spyOn(b24.actions.v3.callTail['_logger'], 'warning').mockResolvedValue(undefined)
+
+    await b24.actions.v3.callTail.make({
+      method: 'main.eventlog.tail',
+      params: { select: ['id'], filter: [FilterV3.or(['severity', '=', 'ERROR'])] } as never,
+      cursorField: 'id',
+      customKeyForResult: 'items'
+    })
+
+    expect(warning).not.toHaveBeenCalledWith(expect.stringContaining('must not appear in `filter`'))
   })
 })

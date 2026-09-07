@@ -20,9 +20,9 @@ import { SdkError } from '../../sdk-error'
  * type has not already done. It exists for the callers the types cannot reach:
  * JavaScript, and anyone who wrote `params as any`.
  *
- * `callTail` / `fetchTail` do NOT need this. They paginate through the separate
- * `cursor` parameter and forward `filter` untouched, so the object dialect is
- * harmless there — which is why the fix stops at two of the four v3 walkers.
+ * `callTail` / `fetchTail` do **not** use this one — see {@link assertTailFilter}.
+ * They forward `filter` untouched, so the shapes they can accept are decided by
+ * the portal rather than by this mechanism.
  *
  * @throws {SdkError} `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`
  */
@@ -41,8 +41,60 @@ export function assertArrayFilter(
   // email or phone number being searched for.
   throw new SdkError({
     code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY',
-    description: `${action}: \`filter\` must be the restApi:v3 array form, e.g. [['id', '>', 100]] or FilterV3.build(...). `
-      + `The restApi:v2 object dialect ({ '>id': 100 }) cannot be used here, because keyset pagination extends the filter with a cursor condition.`,
+    description: isFilterGroup(filter)
+      ? `${action}: \`filter\` must be an array here. A logic group is a valid v3 filter — the portal accepts one on its own — but this action appends its page condition to \`filter\` on every request, and only an array can be extended. Wrap it: filter: [FilterV3.or(...)].`
+      : `${action}: \`filter\` must be the restApi:v3 array form, e.g. [['id', '>', 100]] or FilterV3.build(...). `
+        + `The restApi:v2 object dialect ({ '>id': 100 }) is not accepted by the portal: a filter element carrying none of type/logic/conditions/negative is read positionally, so a map keyed by an operator prefix matches no condition it knows.`,
+    status: 500
+  })
+}
+
+/** A logic group — `{ logic?, negative?, conditions }` — as {@link FilterV3.or} builds. */
+function isFilterGroup(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && 'conditions' in value
+}
+
+/**
+ * Reject the `restApi:v2` object dialect for the **native tail** walkers.
+ *
+ * Narrower than {@link assertArrayFilter} on purpose, because the mechanism is
+ * different: `callTail` / `fetchTail` paginate through the separate `cursor`
+ * parameter and forward `filter` verbatim, so nothing here needs to extend it.
+ * What the portal accepts is therefore the only constraint, and it accepts more
+ * than an array.
+ *
+ * Measured on an on-premise build (`SM_VERSION 26.700.0`), `main.eventlog.list`:
+ *
+ * | `filter` | portal |
+ * | --- | --- |
+ * | `[['auditTypeId', '=', 'USER_LOGIN']]` | accepted |
+ * | `[{ logic: 'or', conditions: [...] }]` | accepted |
+ * | `{ logic: 'or', conditions: [...] }` — bare group | **accepted** |
+ * | `{ '>id': 1 }` — the v2 dialect | rejected, "Unknown filter condition" |
+ *
+ * The grammar explains the split: `FilterStructure::fillStructure()` reads
+ * `type` / `logic` / `conditions` / `negative` off a map and only falls through
+ * to the positional `handleSimpleCondition()` — which dispatches on `count()`
+ * and reads `[0]`, `[1]`, `[2]` — when none of them is present. So a group is a
+ * shape the portal knows, and an operator-prefix map is not: there the operator
+ * is a position, not a prefix on the field name as it was in v2.
+ *
+ * A bare group is thus left alone. Guarding it would reject what
+ * {@link FilterV3.or} produces and what the portal answers to, which is a worse
+ * outcome than the round trip this guard saves.
+ *
+ * @throws {SdkError} `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`
+ */
+export function assertTailFilter(filter: unknown, action: string): void {
+  if (filter === undefined || Array.isArray(filter) || isFilterGroup(filter)) {
+    return
+  }
+
+  throw new SdkError({
+    code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY',
+    description: `${action}: \`filter\` must be the restApi:v3 array form, e.g. [['id', '>', 100]] or FilterV3.build(...), or a logic group from FilterV3.or() / and() / not(). `
+      + `The restApi:v2 object dialect ({ '>id': 100 }) is not accepted by the portal: a filter element carrying none of type/logic/conditions/negative is read positionally, so a map keyed by an operator prefix matches no condition it knows. `
+      + `Rejected here rather than one round trip later, where the server reports it in wording that never mentions the dialect.`,
     status: 500
   })
 }
@@ -158,6 +210,7 @@ export async function* keysetPaginate<T = unknown>(
       logger.warning(strategy.noCursorWarning).catch(() => {})
       break
     }
+
     cursor = next
   }
 }

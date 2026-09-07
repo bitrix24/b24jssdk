@@ -40,6 +40,8 @@ There is no manual-pagination path any more — the list helpers page for you. T
 - **`callList` / `fetchList`** *emulate* a cursor on top of the `list` action by injecting a `[idField, '>', n]` condition into `filter` and forcing `order`. Works for any `*.list` method (v2 and v3).
 - **`callTail` / `fetchTail`** (v3 only) drive the server's *native* `tail` action via its `cursor: { field, value, order, limit }` parameter. Use these when a method publishes a `*.tail` endpoint. The cursor field must **not** appear in `filter` (the server rejects it), is auto-added to `select`, and `order: 'DESC'` requires an explicit `initialValue`.
 
+`filter` on v3 is the array form or a `FilterV3` logic group — never the v2 object dialect (`{ '>id': 100 }`), which the portal rejects on every v3 method. All four walkers reject it client-side with `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`. `callList` / `fetchList` additionally require an array, because they extend it with the page condition; `callTail` / `fetchTail` accept a bare group too.
+
 ## `call.make` — single call
 
 ```ts

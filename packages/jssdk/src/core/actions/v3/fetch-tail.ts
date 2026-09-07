@@ -1,11 +1,25 @@
-import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
-import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
+import type { FilterV3Group } from '../../../tools/filter-v3'
+import { assertTailFilter, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionFetchTailV3 = {
   method: string
-  params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'cursor'>
+  /**
+   * `filter` is narrowed to the `restApi:v3` array form, as it is for
+   * `callList` / `fetchList`. The `restApi:v2` object dialect (`{ '>id': 100 }`)
+   * is not accepted by v3 anywhere — measured against a live portal, the tail
+   * methods reject it with the portal's own "unknown filter condition", exactly
+   * like the list ones.
+   */
+  /**
+   * `filter` is narrowed away from the `restApi:v2` object dialect, which the
+   * portal rejects everywhere in v3. A **logic group** stays allowed: this
+   * walker forwards `filter` untouched, and the portal accepts a bare group as
+   * the whole filter — measured.
+   */
+  params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'cursor' | 'filter'> & { filter?: TypeFilterV3 | FilterV3Group }
   cursorField?: string
   order?: 'ASC' | 'DESC' | 'asc' | 'desc' | string
   customKeyForResult?: string
@@ -67,6 +81,8 @@ export class FetchTailV3 extends AbstractAction {
     const order = options?.order ?? 'ASC'
     const customKeyForResult = options?.customKeyForResult ?? 'items'
     const params = options?.params ?? {}
+
+    assertTailFilter(params['filter'], 'fetchTail.make')
 
     // DESC keyset needs an explicit start: the server pages by `field < value`,
     // so the default first-page value 0 would match nothing for a non-negative

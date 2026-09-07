@@ -2,6 +2,7 @@ import type { TypeCallParams, TypeCallParamsV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
+import { cursorStalledError, CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
 
 export type ActionCallListV2 = {
   method: string
@@ -138,6 +139,22 @@ export class CallListV2 extends AbstractAction {
       const lastItem = resultData[resultData.length - 1] as Record<string, any>
       const cursorValue = lastItem ? Number.parseInt(lastItem[idKey], 10) : Number.NaN
       if (Number.isFinite(cursorValue)) {
+        // A full page whose last id is the one already filtered on means the
+        // `>idKey` condition was dropped and this page will keep arriving. The
+        // check above cannot see it — a repeated page is full, so
+        // `resultData.length < batchSize` stays false however long the walk runs
+        // — and `allItems` grows by the same 50 rows for ever.
+        //
+        // Measured on a live portal, `tasks.task.list` with `idKey: 'id'` and no
+        // `cursorIdKey`: the walk was capped at three pages and collected 150
+        // rows of which 50 were unique, the cursor reading 3 every time. The
+        // response spells the id lowercase, the filter accepts it uppercase, so
+        // `>id` matches nothing the server knows and is ignored. That is the
+        // configuration #185 added `cursorIdKey` for; this is the signal that it
+        // is missing, instead of a hang.
+        if (cursorValue === requestParams.filter[moreIdKey]) {
+          throw cursorStalledError('callList.make', CURSOR_STALLED_HINT_LIST)
+        }
         requestParams.filter[moreIdKey] = cursorValue
       } else {
         // A full page came back, yet no usable numeric cursor id could be read from

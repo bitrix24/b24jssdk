@@ -3,6 +3,7 @@ import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 import type { FilterV3Group } from '../../../tools/filter-v3'
 import { assertTailFilter, filterMentionsField, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
+import { CURSOR_STALLED_HINT_TAIL } from '../_cursor-stalled'
 
 export type ActionFetchTailV3 = {
   method: string
@@ -130,7 +131,9 @@ export class FetchTailV3 extends AbstractAction {
         // value (cursorField not selected / wrong name) stops the walk.
         readNextCursor: lastItem => lastItem[cursorField] ?? null,
         noCursorWarning: `fetchTail.make: pagination stops here — no value could be read from the returned items via cursorField "${cursorField}". Make sure cursorField matches a field present in the response (and in \`select\`).`,
-        errorLabel: 'fetchTailMethod'
+        errorLabel: 'fetchTailMethod',
+        actionLabel: 'fetchTail.make',
+        stalledCursorHint: CURSOR_STALLED_HINT_TAIL
       })
     } catch (error) {
       if (error instanceof KeysetPaginationError) {

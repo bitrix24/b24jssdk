@@ -7,13 +7,6 @@ import { assertTailFilter, keysetPaginate, KeysetPaginationError } from './_keys
 export type ActionFetchTailV3 = {
   method: string
   /**
-   * `filter` is narrowed to the `restApi:v3` array form, as it is for
-   * `callList` / `fetchList`. The `restApi:v2` object dialect (`{ '>id': 100 }`)
-   * is not accepted by v3 anywhere — measured against a live portal, the tail
-   * methods reject it with the portal's own "unknown filter condition", exactly
-   * like the list ones.
-   */
-  /**
    * `filter` is narrowed away from the `restApi:v2` object dialect, which the
    * portal rejects everywhere in v3. A **logic group** stays allowed: this
    * walker forwards `filter` untouched, and the portal accepts a bare group as

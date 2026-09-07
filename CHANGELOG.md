@@ -4,6 +4,10 @@
 
 ### Bug Fixes
 
+* **The log redactor no longer skips a response whose `result` is an array.** `redactSensitiveParams` began `if (!isPlainObject(params)) return params`, and that excludes arrays — so a credential key was masked inside an object and printed verbatim when it arrived on its own. `post/response` logs `response.data?.result`, and a `restApi:v3` batch answers with an array there, so every successful v3 batch wrote its response to the log unmasked. A bare string was skipped for the same reason, which meant a webhook secret in a URL path — the case v2.2.0 taught the redactor to mask — was missed whenever the URL was the whole value rather than a field inside one.
+
+    The walker underneath always handled both shapes; only the entry point refused them. Nothing about which keys are masked, or how deep the walk goes, has changed.
+
 * **`setRestrictionManagerParams` no longer wipes the parameters you did not mention.** It replaced the whole configuration, so `setRestrictionManagerParams({ maxRetries: 5 })` after a deliberate setup left `hardErrorCodes`, `retryOnNetworkError` and `classifyV3ErrorsByCategory` at `undefined` — and `rateLimit` too, which then reached the rate limiter as `undefined` behind a non-null assertion. No error, nothing in the log; the next call simply ran under a policy nobody had chosen. It now replaces what you name and leaves the rest alone.
 
     The nested blocks — `rateLimit`, `operatingLimit`, `adaptiveConfig` — are replaced **whole** rather than merged field by field; their types have no optional fields, and a partial block arriving from JavaScript is now refused with `JSSDK_LIMITER_INVALID_CONFIG_BLOCK` instead of switching rate limiting off on a `NaN` interval. `getRestrictionManagerParams()` returns a copy, so reading the policy no longer hands out the limiter's live state.

@@ -120,7 +120,16 @@ describe('a cursor that does not move', () => {
         method: 'tasks.task.list',
         idKey: 'id',
         customKeyForResult: 'tasks'
-      })).rejects.toMatchObject({ code: STALLED })
+      })).rejects.toMatchObject({
+        code: STALLED,
+        // 500, not the 400 the client-side guards use: from inside the loop
+        // there is no way to tell a caller who named the wrong field from a
+        // portal that ignores the condition on this method, so reporting a
+        // caller error would be a guess. Asserted because the choice is
+        // argued for at length in `_cursor-stalled.ts` and nothing else pinned
+        // it — 400 passed the whole suite.
+        status: 500
+      })
 
       // Two requests: the first establishes the cursor, the second returns it
       // unchanged. Nothing beyond that is paid for.
@@ -128,6 +137,35 @@ describe('a cursor that does not move', () => {
       // Not the `no numeric id` branch — that one is a warning, and confusing
       // the two is the whole reason this test names the configuration.
       expect(warnings).toEqual([])
+    })
+
+    it('the v2 message names the v2 action and the option to check', async () => {
+      // The v2 call sites pass their own `actionLabel` literal, and nothing
+      // read the message on this path: replacing either label with a nonsense
+      // string passed the whole suite.
+      const { make } = ignoringServer({ customKey: 'tasks', page: FULL_V2_PAGE })
+      const { logger } = makeLogger()
+
+      const error = await new CallListV2(b24V2(make), logger).make<Item>({
+        method: 'tasks.task.list',
+        idKey: 'id',
+        customKeyForResult: 'tasks'
+      }).catch((error_: Error) => error_)
+
+      expect((error as Error).message).toContain('callList.make:')
+      expect((error as Error).message).toContain('cursorIdKey')
+
+      const streaming = ignoringServer({ customKey: 'tasks', page: FULL_V2_PAGE })
+      const fetchError = await (async () => {
+        for await (const _chunk of new FetchListV2(b24V2(streaming.make), makeLogger().logger).make<Item>({
+          method: 'tasks.task.list',
+          idKey: 'id',
+          customKeyForResult: 'tasks'
+        })) { /* drain until it throws */ }
+      })().catch((error_: Error) => error_)
+
+      expect((fetchError as Error).message).toContain('fetchList.make:')
+      expect((fetchError as Error).message).toContain('cursorIdKey')
     })
 
     it('fetchList rejects too, after the consumer already holds the duplicates', async () => {
@@ -179,16 +217,22 @@ describe('a cursor that does not move', () => {
       const action = new FetchListV3(b24V3(make), logger)
 
       const seen: unknown[] = []
-      await expect((async () => {
+      const thrown = await (async () => {
         for await (const chunk of action.make<Item>({
           method: 'main.eventlog.list',
           customKeyForResult: 'items'
         })) {
           seen.push(...chunk.map(row => row['id']))
         }
-      })()).rejects.toMatchObject({ code: STALLED })
+      })().catch((error_: Error) => error_)
+
+      expect(thrown).toMatchObject({ code: STALLED })
 
       expect(seen).toEqual(['1', '2', '1', '2'])
+      // The streaming helpers carry their own `actionLabel`; only the eager
+      // ones had their wording checked, so a wrong label on either survived.
+      expect((thrown as Error).message).toContain('fetchList.make:')
+      expect((thrown as Error).message).toContain('cursorIdKey')
     })
 
     it('callTail rejects, and the message names cursorField — not cursorIdKey', async () => {
@@ -218,7 +262,7 @@ describe('a cursor that does not move', () => {
       const action = new FetchTailV3(b24V3(make), logger)
 
       const seen: unknown[] = []
-      await expect((async () => {
+      const thrown = await (async () => {
         for await (const chunk of action.make<Item>({
           method: 'main.eventlog.tail',
           params: { select: ['id'] },
@@ -226,10 +270,55 @@ describe('a cursor that does not move', () => {
         })) {
           seen.push(...chunk.map(row => row['id']))
         }
-      })()).rejects.toMatchObject({ code: STALLED })
+      })().catch((error_: Error) => error_)
+
+      expect(thrown).toMatchObject({ code: STALLED })
 
       expect(seen).toEqual(['1', '2', '1', '2'])
+      expect((thrown as Error).message).toContain('fetchTail.make:')
+      expect((thrown as Error).message).toContain('cursorField')
+      expect((thrown as Error).message).not.toContain('cursorIdKey')
     })
+  })
+
+  it('a cursor that changes only its type is movement, not a stall', async () => {
+    // `===` rather than `==`, and this is the input that tells them apart:
+    // `2 == '2'` is true, so a loose comparison would call the second page a
+    // stall and throw on a walk that is making progress. The cost of being
+    // strict is one extra request when a server changes only the type of an
+    // identical cursor — and the guard still fires on the page after that,
+    // which is the second half of what this pins.
+    //
+    // Page 1 ends at the number 2, page 2 at the string '2', page 3 at '2'
+    // again: strict equality pages through the first two and stalls on the
+    // third. A loose one would have thrown after page 2 and never reached it.
+    const pages: Item[][] = [
+      [{ id: 1 }, { id: 2 }],
+      [{ id: '1' }, { id: '2' }],
+      [{ id: '1' }, { id: '2' }]
+    ]
+    const calls: unknown[] = []
+    const make = async (callOpts: { params: unknown }) => {
+      calls.push(structuredClone(callOpts.params))
+      const slice = pages[calls.length - 1] ?? []
+      return {
+        isSuccess: true,
+        getData: () => ({ result: { items: slice } }),
+        getErrorMessages: () => [],
+        errors: [] as Array<[number, Error]>
+      } as never
+    }
+
+    const { logger } = makeLogger()
+    const error = await new CallTailV3(b24V3(make), logger).make<Item>({
+      method: 'main.eventlog.tail',
+      params: { select: ['id'] },
+      customKeyForResult: 'items'
+    }).catch((error_: Error) => error_)
+
+    // Reached the third page: the type flip was not mistaken for a stall.
+    expect(calls).toHaveLength(3)
+    expect(error).toMatchObject({ code: STALLED })
   })
 
   it('a cursor field that is not a scalar stops the walk instead of defeating it', async () => {

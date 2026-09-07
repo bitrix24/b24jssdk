@@ -71,7 +71,7 @@ These are the load-bearing facts that the skills rely on. If a future audit find
 
 ### 2. ~~Aggregate action not exposed in the SDK~~ — RESOLVED
 
-The SDK now exposes a typed `actions.v3.aggregate.make` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). It is spec-based and not yet verified against a live portal — no module on the test portal publishes an `*.aggregate` endpoint (confirmed via OpenAPI). Recipe 1 (CRM analytics) still aggregates client-side because CRM is v2-only here; switch it to a one-call `aggregate` query if/when a CRM `*.aggregate` v3 method appears.
+The SDK now exposes a typed `actions.v3.aggregate.make` (`avg`/`sum`/`min`/`max`/`count`/`countDistinct`). Its request and response contract has been measured, but no shipped module publishes an `*.aggregate` endpoint — confirmed via OpenAPI on four portals — so it stays `@experimental` for want of a use case rather than for want of verification. Recipe 1 (CRM analytics) still aggregates client-side because CRM is v2-only here; switch it to a one-call `aggregate` query if/when a CRM `*.aggregate` v3 method appears.
 
 ### 3. `B24OAuth` install handshake still uncovered
 

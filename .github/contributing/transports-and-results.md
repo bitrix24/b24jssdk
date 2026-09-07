@@ -1,6 +1,6 @@
 # Transports and Results
 
-<sub>Last reviewed: 2026-09-04.</sub>
+<sub>Last reviewed: 2026-09-08.</sub>
 
 > **Agent-facing mirror:** the same area, viewed from the angle of agents writing usage code, lives in [`skills/b24jssdk-rest/SKILL.md`](../../skills/b24jssdk-rest/SKILL.md), [`skills/b24jssdk-filtering/SKILL.md`](../../skills/b24jssdk-filtering/SKILL.md), and [`skills/b24jssdk-core/SKILL.md`](../../skills/b24jssdk-core/SKILL.md). Keep this guide and those skills in sync when the underlying API changes.
 
@@ -269,9 +269,38 @@ Every transport / limiter holds a `LoggerInterface` (the public abstraction from
   Context key is `removalVersion`, not `removeInVersion`. The canonical pattern lives in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) (look for `@deprecated` + `@removed` + `forcedLog`).
 - New warnings or errors must be mentioned in the relevant docs page so users can recognise them.
 
-### Credential redaction (since v1.1.2)
+### A `restApi:v3` batch is the only bare array on the wire
+
+`HttpV3.batch` passes the commands as `params`, and `_makeAxiosRequest` sends
+them unwrapped instead of through `_prepareParams`, because on v3 the commands
+**are** the body. The portal reads every top-level entry as a command and
+requires `method` and `query` on each, so an `auth` entry fails the whole batch
+with `INVALIDSELECTEXCEPTION` before anything runs — and so does a command that
+carries no `query`, which is why `ParseRow` defaults it to `{}`.
+
+The credential therefore moves, per transport: a webhook keeps it in the URL, a
+non-hook transport **outside a CORS-enforcing runtime** sends
+`Authorization: Bearer`. A browser — and a Web Worker, which is a browser
+context without a `window` — keeps the old object body and stays broken: the
+portal's preflight allows only `origin, content-type, accept`, so asking for the
+header would replace a diagnosable 400 with an opaque network error. Do not
+"fix" that branch without a portal-side change.
+
+The branch is gated on the version **and** the method, not on the body being an
+array: `TypeCallParams` has an index signature, so a positional `restApi:v2`
+call such as `task.commentitem.getlist` also arrives here with an array, and
+none of the reasoning above applies to it.
+
+## Credential redaction (since v1.1.2)
 
 The transport layer redacts credentials from log lines and error messages before they reach the logger. The redaction module is [packages/jssdk/src/core/http/redact.ts](../../packages/jssdk/src/core/http/redact.ts); the full list of redacted keys is the **static** `SENSITIVE_PARAM_KEYS` array in that file (matched **case-insensitively**, and the scrub also masks `key=value` pairs embedded in string values, e.g. a batch `cmd[i]`, and the secret segment of a Bitrix24 webhook URL, which is neither a key nor a pair). The list is not extended automatically: when you introduce a new credential-bearing parameter on any code path, add its key to `SENSITIVE_PARAM_KEYS` in `redact.ts` in the same PR, or it will appear unredacted in logs and in `AjaxError`.
+
+**A header is not a parameter, and nothing redacts it.** The SDK sets
+`Authorization: Bearer` itself on a v3 batch outside a CORS-enforcing runtime.
+`redactSensitiveParams` walks `params` and never sees a header; the local
+`no-credential-in-logger` rule does not know the word either. So the invariant
+"no header reaches logger context" is held by a test, not by a guard — if you
+add a log line near the transport, do not put the request config in it.
 
 Rules for code under `packages/jssdk/src/`:
 

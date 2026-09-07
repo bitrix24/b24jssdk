@@ -87,19 +87,51 @@ function isPortalFilterGroup(value: unknown): boolean {
  * inside the array form either. Both are exactly where a caller puts a
  * condition once they reach for `FilterV3.or()`.
  *
- * `depth` bounds the walk. A filter is ordinary JavaScript, not parsed JSON, so
- * a caller can hand over a structure that points back at itself — `const f = {
- * conditions: [] }; f.conditions.push(f)` — and an unbounded walk would take the
- * stack down inside a check whose whole purpose is to make failures clearer.
- * The limit is far past any filter anyone writes; reaching it means the shape is
- * pathological, and answering "no" there is right: the caller loses a warning,
- * not a request.
+ * Two bounds, because a filter is ordinary JavaScript rather than parsed JSON
+ * and so can be shaped in ways `JSON.parse` could never produce. They answer
+ * different questions and neither replaces the other:
+ *
+ * - **`depth`** stops a legitimately deep nesting. The limit is far past any
+ *   filter anyone writes; reaching it means the shape is pathological, and
+ *   answering "no" there is right — the caller loses a warning, not a request.
+ * - **`seen`** stops the same node being explored twice. Depth alone bounds the
+ *   distance the walk travels, not the work it does, and those come apart as
+ *   soon as one node is reachable by two edges: `const a = []; a.push(a, a)`
+ *   gives `T(d) = 1 + 2·T(d − 1)`, and a plain DAG built without any cycle at all
+ *   — `let n = [['x', '=', 1]]; for (let i = 0; i < 32; i++) n = [n, n]` — does
+ *   the same. Measured at the shipped depth of 32, the two-edge cycle took
+ *   **85 seconds** of blocked event loop inside a check whose only output is a
+ *   warning. With `seen` it returns immediately.
+ *
+ * `seen` is consulted globally within one call, not per path: a node that did
+ * not mention the field the first time will not mention it the second, and one
+ * that did short-circuits the whole walk through `some`. The one case that gets
+ * a less precise answer is a node first reached with the depth budget already
+ * spent and met again higher up — it stays `false`. That needs a filter nested
+ * past 32 levels *and* sharing a node across them, which is well beyond what
+ * either bound is protecting.
  */
 const MAX_FILTER_DEPTH = 32
 
 export function filterMentionsField(filter: unknown, field: string, depth = MAX_FILTER_DEPTH): boolean {
+  return walkFilterForField(filter, field, depth, new WeakSet())
+}
+
+function walkFilterForField(
+  filter: unknown,
+  field: string,
+  depth: number,
+  seen: WeakSet<object>
+): boolean {
   if (depth <= 0) {
     return false
+  }
+
+  if (typeof filter === 'object' && filter !== null) {
+    if (seen.has(filter)) {
+      return false
+    }
+    seen.add(filter)
   }
 
   if (Array.isArray(filter)) {
@@ -112,11 +144,11 @@ export function filterMentionsField(filter: unknown, field: string, depth = MAX_
     if (typeof filter[0] === 'string') {
       return filter[0] === field
     }
-    return filter.some(node => filterMentionsField(node, field, depth - 1))
+    return filter.some(node => walkFilterForField(node, field, depth - 1, seen))
   }
 
   if (typeof filter === 'object' && filter !== null && 'conditions' in filter) {
-    return filterMentionsField((filter as { conditions: unknown }).conditions, field, depth - 1)
+    return walkFilterForField((filter as { conditions: unknown }).conditions, field, depth - 1, seen)
   }
 
   return false

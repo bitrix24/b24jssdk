@@ -196,19 +196,35 @@ const DEFAULT_REDACT_DEPTH = 2
 
 /**
  * Returns a copy of `params` with any known credential-bearing key replaced by
- * `REDACTED_PLACEHOLDER`, and any credential value embedded in a query-string
- * value masked in place. Walks up to two levels into nested objects/arrays so
- * batch-shaped payloads (`cmd[i].params.<key>` and `cmd[i]` query strings) are
- * covered. Non-object inputs are returned as-is so callers don't have to
- * pre-check.
+ * `REDACTED_PLACEHOLDER`, and any credential embedded in a string — a query
+ * value or a webhook secret in a URL path — masked in place. Walks up to two
+ * levels into nested objects/arrays so batch-shaped payloads
+ * (`cmd[i].params.<key>` and `cmd[i]` query strings) are covered.
+ *
+ * **An array or a string at the top level is walked too.** It used to be
+ * returned untouched: this function began `if (!isPlainObject(params)) return
+ * params`, and `isPlainObject` excludes arrays. The walker underneath has
+ * always handled both — only the door was shut. So the same content was masked
+ * inside an object and printed verbatim when it arrived on its own, and #468
+ * widened that gap rather than closing it, by teaching the string pass to mask
+ * a webhook secret in a URL path that a top-level string never reached.
+ *
+ * That is not a corner: `_makeAxiosRequest` logs `response.data?.result`, and a
+ * `restApi:v3` batch answers with an array there, so every successful v3 batch
+ * wrote its response to the log unmasked.
+ *
+ * The plain-object branch is kept rather than folded into `redactValue`,
+ * because entering through the value walker would spend a depth level on the
+ * object itself and leave one for its contents — half the reach that
+ * batch-shaped payloads need.
  */
 export function redactSensitiveParams(
   params: Record<string, unknown>
 ): Record<string, unknown>
 export function redactSensitiveParams<T>(params: T): T
 export function redactSensitiveParams(params: unknown): unknown {
-  if (!isPlainObject(params)) return params
-  return redactObject(params, DEFAULT_REDACT_DEPTH)
+  if (isPlainObject(params)) return redactObject(params, DEFAULT_REDACT_DEPTH)
+  return redactValue(params, DEFAULT_REDACT_DEPTH)
 }
 
 /**

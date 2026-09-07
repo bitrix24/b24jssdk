@@ -229,6 +229,103 @@ describe('the cursor field hiding inside a logic group', () => {
     expect(warning).toHaveBeenCalledWith(expect.stringContaining('must not appear in `filter`'))
   })
 
+  it.each([
+    ['a bare group', FilterV3.or(['id', '>', 1], ['id', '<', 9])],
+    ['a group inside the array form', [FilterV3.or(['id', '>', 1])]],
+    ['a group nested in a group', [FilterV3.or(FilterV3.and(['id', '>', 1]))]]
+  ])('warns from fetchTail too, for %s', async (_name, filter) => {
+    // The walker is shared, but the wiring is not: each action passes its own
+    // `cursorField` and `params.filter` into it. Covering only `callTail` left
+    // a defect in `fetchTail`'s call site invisible.
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)
+    const warning = vi.spyOn(b24.actions.v3.fetchTail['_logger'], 'warning').mockResolvedValue(undefined)
+
+    const generator = b24.actions.v3.fetchTail.make({
+      method: 'main.eventlog.tail',
+      params: { select: ['id'], filter } as never,
+      cursorField: 'id',
+      customKeyForResult: 'items'
+    } as never)
+    await generator.next()
+
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('must not appear in `filter`'))
+  })
+
+  it('stays quiet on fetchTail when the filter mentions another field', async () => {
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)
+    const warning = vi.spyOn(b24.actions.v3.fetchTail['_logger'], 'warning').mockResolvedValue(undefined)
+
+    const generator = b24.actions.v3.fetchTail.make({
+      method: 'main.eventlog.tail',
+      params: { select: ['id'], filter: [FilterV3.or(['severity', '=', 'ERROR'])] } as never,
+      cursorField: 'id',
+      customKeyForResult: 'items'
+    } as never)
+    await generator.next()
+
+    expect(warning).not.toHaveBeenCalledWith(expect.stringContaining('must not appear in `filter`'))
+  })
+
+  it('sees a field two groups deep', async () => {
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)
+    const warning = vi.spyOn(b24.actions.v3.callTail['_logger'], 'warning').mockResolvedValue(undefined)
+
+    await b24.actions.v3.callTail.make({
+      method: 'main.eventlog.tail',
+      params: {
+        select: ['id'],
+        filter: [FilterV3.or(FilterV3.and(['severity', '=', 'ERROR'], ['id', '>', 1]))]
+      } as never,
+      cursorField: 'id',
+      customKeyForResult: 'items'
+    })
+
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('must not appear in `filter`'))
+  })
+
+  it('does not fall over on a filter that points at itself', async () => {
+    // A filter is ordinary JavaScript, not parsed JSON, so a caller can hand
+    // over a cycle. Without the depth cap this took the stack down inside a
+    // check whose whole purpose is to make failures clearer.
+    const cyclic: { conditions: unknown[] } = { conditions: [] }
+    cyclic.conditions.push(cyclic)
+
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)
+
+    // The transport refuses a circular payload by name. Reaching that refusal
+    // is the assertion: it proves the walk terminated. Without the cap the
+    // recursion dies first, with a RangeError from inside a warning check.
+    await expect(
+      b24.actions.v3.callTail.make({
+        method: 'main.eventlog.tail',
+        params: { select: ['id'], filter: cyclic } as never,
+        cursorField: 'id',
+        customKeyForResult: 'items'
+      })
+    ).rejects.toMatchObject({ code: 'JSSDK_INVALID_PARAMS' })
+  })
+
+  it('treats a group whose conditions are not an array as mentioning nothing', async () => {
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)
+    const warning = vi.spyOn(b24.actions.v3.callTail['_logger'], 'warning').mockResolvedValue(undefined)
+
+    await b24.actions.v3.callTail.make({
+      method: 'main.eventlog.tail',
+      params: { select: ['id'], filter: { logic: 'or', conditions: 'id' } } as never,
+      cursorField: 'id',
+      customKeyForResult: 'items'
+    })
+
+    // The portal will refuse this shape itself; the point is that the scan
+    // answers rather than throwing on the way there.
+    expect(warning).not.toHaveBeenCalledWith(expect.stringContaining('must not appear in `filter`'))
+  })
+
   it('stays quiet when the filter mentions another field', async () => {
     b24 = buildHook()
     vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)

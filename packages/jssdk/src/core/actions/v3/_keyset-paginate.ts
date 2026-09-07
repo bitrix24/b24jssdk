@@ -85,18 +85,37 @@ function isPortalFilterGroup(value: unknown): boolean {
  * moment a bare group became a legal filter — and had never seen a group nested
  * inside the array form either. Both are exactly where a caller puts a
  * condition once they reach for `FilterV3.or()`.
+ *
+ * `depth` bounds the walk. A filter is ordinary JavaScript, not parsed JSON, so
+ * a caller can hand over a structure that points back at itself — `const f = {
+ * conditions: [] }; f.conditions.push(f)` — and an unbounded walk would take the
+ * stack down inside a check whose whole purpose is to make failures clearer.
+ * The limit is far past any filter anyone writes; reaching it means the shape is
+ * pathological, and answering "no" there is right: the caller loses a warning,
+ * not a request.
  */
-export function filterMentionsField(filter: unknown, field: string): boolean {
+const MAX_FILTER_DEPTH = 32
+
+export function filterMentionsField(filter: unknown, field: string, depth = MAX_FILTER_DEPTH): boolean {
+  if (depth <= 0) {
+    return false
+  }
+
   if (Array.isArray(filter)) {
-    // A triple is an array too: `['id', '>', 100]`.
+    // A triple is an array too — `['id', '>', 100]` — and it is the only array
+    // whose first element is a string, because every element of a filter array
+    // is itself a triple or a group. So this branch fires only once we are
+    // already inside a triple, and stopping here is deliberate: the remaining
+    // two elements are the operator and the value, and matching a field name
+    // against those would report `['severity', '=', 'id']` as a filter on `id`.
     if (typeof filter[0] === 'string') {
       return filter[0] === field
     }
-    return filter.some(node => filterMentionsField(node, field))
+    return filter.some(node => filterMentionsField(node, field, depth - 1))
   }
 
   if (typeof filter === 'object' && filter !== null && 'conditions' in filter) {
-    return filterMentionsField((filter as { conditions: unknown }).conditions, field)
+    return filterMentionsField((filter as { conditions: unknown }).conditions, field, depth - 1)
   }
 
   return false
@@ -131,7 +150,7 @@ export function filterMentionsField(filter: unknown, field: string): boolean {
  * {@link FilterV3.or} produces and what the portal answers to, which is a worse
  * outcome than the round trip this guard saves.
  *
- * @throws {SdkError} `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`
+ * @throws {SdkError} `JSSDK_ACTION_V3_TAIL_FILTER_INVALID`
  */
 export function assertTailFilter(filter: unknown, action: string): void {
   if (filter === undefined || Array.isArray(filter) || isPortalFilterGroup(filter)) {

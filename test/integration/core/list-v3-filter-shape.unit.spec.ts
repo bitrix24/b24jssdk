@@ -97,7 +97,11 @@ describe('#279 v3 list actions reject the v2 object filter', () => {
       new CallListV3(b24, logger).make({
         method: 'main.eventlog.list',
         customKeyForResult: 'items',
-        params: { filter: { logic: 'or', conditions: [['id', '>', 1]] } as never }
+        // Only `logic`, deliberately: an object carrying `conditions` too
+        // cannot tell "any of the portal's four group keys" from "conditions
+        // alone", and a mutation to that predicate walked straight through the
+        // first version of this test.
+        params: { filter: { logic: 'or' } as never }
       })
     ).rejects.toMatchObject({
       code: 'JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY',

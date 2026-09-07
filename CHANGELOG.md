@@ -4,6 +4,12 @@
 
 ### Bug Fixes
 
+* **`callTail` / `fetchTail` now refuse the `restApi:v2` object filter dialect before sending.** `{ '>id': 100 }` was forwarded to the portal, which answered "unknown filter condition" in wording that never names the dialect — one round trip later and with nothing to act on. A `FilterV3` logic group stays allowed there: those two forward `filter` untouched, and the portal accepts a bare group as the whole filter (measured). `callList` / `fetchList` still require an array, because they append the page condition to it — and when they see a group they now say so instead of reporting it as the v2 dialect.
+
+    Two codes rather than one: `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY` for the list walkers, where a non-array really is the fault, and the new `JSSDK_ACTION_V3_TAIL_FILTER_INVALID` for the tail ones, where a non-array is valid and only the v2 dialect is refused.
+
+    The cursor-field-in-`filter` warning now looks inside logic groups. It only ever inspected a top-level array of triples, so it saw nothing at all once a bare group became legal here, and had never seen a group nested in the array form.
+
 * **The log redactor no longer skips a response whose `result` is an array.** `redactSensitiveParams` began `if (!isPlainObject(params)) return params`, and that excludes arrays — so a credential key was masked inside an object and printed verbatim when it arrived on its own. `post/response` logs `response.data?.result`, and a `restApi:v3` batch answers with an array there, so every successful v3 batch wrote its response to the log unmasked. A bare string was skipped for the same reason, which meant a webhook secret in a URL path — the case v2.2.0 taught the redactor to mask — was missed whenever the URL was the whole value rather than a field inside one.
 
     The walker underneath always handled both shapes; only the entry point refused them. Nothing about which keys are masked, or how deep the walk goes, has changed.

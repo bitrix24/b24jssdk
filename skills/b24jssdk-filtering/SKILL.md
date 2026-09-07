@@ -290,6 +290,7 @@ On portals with multiple funnels, stage IDs come prefixed: `C2:WON`, `C4:LOSE`. 
 - ❌ `filter: [['title', 'like', 'A%']]` — `like` is not in the v3 operator set. Use v2 + `=%` for substring search.
 - ❌ Hand-assembling nested v3 groups (`{ logic, conditions }`) by hand — use the `FilterV3` builder, which validates operators and `in`/`between` shapes client-side.
 - ❌ Passing a single condition as `params.filter` (`filter: F.eq('a', 1)`) — `filter` must be an **array**; wrap it: `filter: F.build(F.eq('a', 1))` (or `[F.eq('a', 1)]`).
+- ⚠️ The array requirement is `callList` / `fetchList` only. They append the page condition to `filter`, so only an array can be extended (`JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`). `callTail` / `fetchTail` forward `filter` untouched and the portal takes a bare logic group as the whole filter, so `filter: F.or(...)` is accepted there — only the v2 object dialect is refused (`JSSDK_ACTION_V3_TAIL_FILTER_INVALID`). Wrapping in an array works everywhere, so wrap if you want one habit.
 - ❌ Passing `order` to `callList.make` / `fetchList.make` — silently discarded with a warning.
 - ❌ Mixing `STAGE_ID` and `stageId` across `filter` and `select` — they're different fields per method.
 - ❌ Forgetting timezone in date strings — Bitrix24 portals are configured in a portal timezone. Use `Text.toB24Format()` to stay consistent.

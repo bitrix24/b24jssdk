@@ -40,6 +40,30 @@ There is no manual-pagination path any more — the list helpers page for you. T
 - **`callList` / `fetchList`** *emulate* a cursor on top of the `list` action by injecting a `[idField, '>', n]` condition into `filter` and forcing `order`. Works for any `*.list` method (v2 and v3).
 - **`callTail` / `fetchTail`** (v3 only) drive the server's *native* `tail` action via its `cursor: { field, value, order, limit }` parameter. Use these when a method publishes a `*.tail` endpoint. The cursor field must **not** appear in `filter` (the server rejects it), is auto-added to `select`, and `order: 'DESC'` requires an explicit `initialValue`.
 
+`filter` on v3 is the array form or a `FilterV3` logic group — never the v2 object dialect (`{ '>id': 100 }`), which the portal rejects on every v3 method. All four walkers refuse it client-side. `callList` / `fetchList` additionally require an **array**, because they extend it with the page condition, and throw `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`; `callTail` / `fetchTail` forward `filter` untouched, so a bare group is fine there and only the v2 dialect throws — `JSSDK_ACTION_V3_TAIL_FILTER_INVALID`.
+
+```ts
+import { B24Hook, FilterV3 } from '@bitrix24/b24jssdk'
+
+const b24 = B24Hook.fromWebhookUrl('https://your-portal.bitrix24.ru/rest/1/SECRET')
+
+// list: the page condition is appended to `filter`, so wrap the group
+await b24.actions.v3.callList.make({
+  method: 'main.eventlog.list',
+  params: { select: ['id'], filter: [FilterV3.or(['severity', '=', 'ERROR'])] },
+  idKey: 'id',
+  customKeyForResult: 'items'
+})
+
+// tail: `filter` is forwarded verbatim, so a bare group is accepted as-is
+await b24.actions.v3.callTail.make({
+  method: 'main.eventlog.tail',
+  cursorField: 'id', // must NOT appear in `filter` — the SDK warns if it does
+  params: { select: ['id'], filter: FilterV3.or(['severity', '=', 'ERROR']) },
+  customKeyForResult: 'items'
+})
+```
+
 ## `call.make` — single call
 
 ```ts

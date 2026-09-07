@@ -1,11 +1,18 @@
-import type { TypeCallParams, TypeCallParamsV3 } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
-import { keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
+import type { FilterV3Group } from '../../../tools/filter-v3'
+import { assertTailFilter, filterMentionsField, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 
 export type ActionFetchTailV3 = {
   method: string
-  params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'cursor'>
+  /**
+   * `filter` is narrowed away from the `restApi:v2` object dialect, which the
+   * portal rejects everywhere in v3. A **logic group** stays allowed: this
+   * walker forwards `filter` untouched, and the portal accepts a bare group as
+   * the whole filter — measured.
+   */
+  params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'cursor' | 'filter'> & { filter?: TypeFilterV3 | FilterV3Group }
   cursorField?: string
   order?: 'ASC' | 'DESC' | 'asc' | 'desc' | string
   customKeyForResult?: string
@@ -68,6 +75,8 @@ export class FetchTailV3 extends AbstractAction {
     const customKeyForResult = options?.customKeyForResult ?? 'items'
     const params = options?.params ?? {}
 
+    assertTailFilter(params['filter'], 'fetchTail.make')
+
     // DESC keyset needs an explicit start: the server pages by `field < value`,
     // so the default first-page value 0 would match nothing for a non-negative
     // field. Require `initialValue` (the type maximum / newest value) for DESC.
@@ -81,9 +90,12 @@ export class FetchTailV3 extends AbstractAction {
 
     // The cursor field cannot also live in `filter` — the server forces ordering
     // and the `> value` condition on it and rejects a duplicate with
-    // INVALIDFILTEREXCEPTION. Warn instead of letting the server 400. (Detection
-    // covers only the short-form `[field, op, value]` triples the SDK emits.)
-    if (Array.isArray(params['filter']) && params['filter'].some((c: any) => Array.isArray(c) && c[0] === cursorField)) {
+    // INVALIDFILTEREXCEPTION. Warn instead of letting the server 400. The scan
+    // descends into logic groups: it used to look only at a top-level array of
+    // triples, which stopped seeing anything at all once a bare group became a
+    // legal filter here, and had never seen a group nested inside the array
+    // form.
+    if (filterMentionsField(params['filter'], cursorField)) {
       this._logger.warning(`fetchTail.make: the cursor field "${cursorField}" must not appear in \`filter\` — the server orders and pages by it and will reject a filter on the same field (INVALIDFILTEREXCEPTION). Remove it from \`filter\`.`).catch(() => {})
     }
 

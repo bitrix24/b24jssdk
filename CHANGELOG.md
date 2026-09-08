@@ -4,6 +4,38 @@
 
 ### Bug Fixes
 
+* **A `restApi:v3` batch no longer sends the OAuth token as one of its commands.**
+  On v3 the commands are the request body — a bare array, no envelope — but
+  `_prepareParams` spread that array into `{ '0': …, '1': … }` and then added the
+  access token as one more top-level entry. The portal reads every top-level entry
+  of a batch body as a command and requires `method` and `query` on each, so that
+  entry rejected the whole batch with `INVALIDSELECTEXCEPTION` before a single
+  command ran. Every `B24OAuth` v3 batch failed this way; a webhook survived only
+  because PHP cannot tell a list from a map with sequential integer keys.
+
+    The commands now go out as the array the portal's grammar describes, and
+    outside a CORS-enforcing runtime the token travels in `Authorization: Bearer`,
+    merged into the per-request config so a caller's own `Idempotency-Key` survives
+    beside it. A second victim of the same rule is fixed with it: a command written
+    without `params` went out with no `query` key at all, which is refused under the
+    same code and takes the rest of the batch with it.
+
+    **Worth knowing:** the request body changes shape for **every** transport,
+    `B24Hook` included, even though a webhook batch already worked. A proxy, a WAF
+    rule, a recorded HTTP fixture or a request-log assertion sees `[{…},{…}]` where
+    it saw `{"0":{…},"1":{…}}`, plus a header it has not seen before. The
+    `post/send` log line changes the same way. `AjaxError.requestInfo.params` does
+    not — it has always carried the commands array.
+
+    **A frame app still cannot batch on v3.** The portal's CORS preflight allows
+    only `origin, content-type, accept`, so a browser cannot send the header; that
+    path is left exactly as it was, failing visibly with a 400 rather than opaquely
+    at the preflight. That half needs a portal-side change.
+
+    Verified against two portals, and end to end rather than by hand-built request:
+    `b24.actions.v3.batch.make` on a real `B24OAuth` succeeds, while the same build
+    driven as a browser reproduces the old rejection verbatim.
+
 * **A list or tail walk whose cursor stops advancing now fails instead of running for ever.** When the server does not apply the page condition, the same full page keeps arriving and nothing in the loops noticed: the `restApi:v3` driver stops on a page *shorter* than the largest it has seen, the `restApi:v2` loops stop on `length < 50`, and a repeated full page is neither. The streaming helpers yielded the same rows for ever; the eager ones grew an array until the process died.
 
     Measured on `restApi:v2` `tasks.task.list` with `idKey: 'id'` and no `cursorIdKey`: three pages, 150 rows, 50 unique, the cursor reading 3 every time — the response spells the id lowercase while the filter accepts it uppercase, so `>id` matches nothing and is dropped. The two halves of that mistake fail in opposite ways: leave `idKey` at its default `'ID'` and the cursor cannot be read, so the walk warns and stops after 50 rows; set `idKey: 'id'` alone and the read works while the request condition is ignored. Only the second one used to hang.

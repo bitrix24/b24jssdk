@@ -40,6 +40,8 @@ There is no manual-pagination path any more — the list helpers page for you. T
 - **`callList` / `fetchList`** *emulate* a cursor on top of the `list` action by injecting a `[idField, '>', n]` condition into `filter` and forcing `order`. Works for any `*.list` method (v2 and v3).
 - **`callTail` / `fetchTail`** (v3 only) drive the server's *native* `tail` action via its `cursor: { field, value, order, limit }` parameter. Use these when a method publishes a `*.tail` endpoint. The cursor field must **not** appear in `filter` (the server rejects it), is auto-added to `select`, and `order: 'DESC'` requires an explicit `initialValue`.
 
+Every example uses `$b24` of type `TypeB24`, but **`actions.v3.batch` is the one place the three entry points are not interchangeable** — it does not work under `B24Frame`. See the anti-patterns at the end.
+
 `filter` on v3 is the array form or a `FilterV3` logic group — never the v2 object dialect (`{ '>id': 100 }`), which the portal rejects on every v3 method. All four walkers refuse it client-side. `callList` / `fetchList` additionally require an **array**, because they extend it with the page condition, and throw `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`; `callTail` / `fetchTail` forward `filter` untouched, so a bare group is fine there and only the v2 dialect throws — `JSSDK_ACTION_V3_TAIL_FILTER_INVALID`.
 
 All of them — and the two `restApi:v2` list walkers — also throw `JSSDK_ACTION_CURSOR_STALLED` when a full page comes back and the cursor read from it equals the one just sent. That means the page condition was dropped, so the walk can never end; it rejects rather than collecting the same page for ever.
@@ -517,6 +519,7 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 - ❌ Reaching for `batch.make` on a bulk load that must not duplicate — a batch carries no key. Loop single calls and accept the throughput cost, or accept the duplicates.
 - ❌ `idempotencyKey: crypto.randomUUID()` written at the call site for a job that can be retried by a *different* process — the restart mints a new key and writes a duplicate anyway. Derive the key from the operation (`deal-${orderId}-create`), or persist a minted one with the job before calling.
 - ❌ Reusing one `idempotencyKey` for two different writes — the portal answers HTTP 422 `…IDEMPOTENCYKEYREUSEDEXCEPTION` rather than deduplicating. Prefix by operation: `deal-42-create` vs `deal-42-close`.
+- ❌ `actions.v3.batch.make` / `batchByChunk.make` from a browser (`B24Frame`) — on v3 the commands are the request body, so the credential has to travel in an `Authorization` header, and the portal's CORS preflight allows only `origin, content-type, accept`. The SDK therefore leaves the token in the body there and the portal rejects the batch with `BITRIX_REST_V3_EXCEPTION_INVALIDSELECTEXCEPTION`. Use `actions.v2.batch.make` in the frame, or run the v3 batch on a backend.
 - ❌ `B24Hook` in a browser bundle — leaks the webhook secret. Use `B24Frame` there.
 
 ## Cross-reference

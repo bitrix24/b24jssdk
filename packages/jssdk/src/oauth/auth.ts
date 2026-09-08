@@ -62,7 +62,7 @@ export class AuthOAuthManager implements AuthActions {
     // Same shape, same reasoning as `clientEndpoint` above: strip any trailing
     // slash first, then take the REST root off the end with an anchored match,
     // so both spellings of the input give the same origin.
-    this.#oAuthTarget = this.#authOptions.serverEndpoint
+    this.#oAuthTarget = this.#authOptions.serverEndpoint.replace(/\/+$/, '').replace(/\/rest$/, '')
     this.#authExpires = this.#authOptions.expires * 1_000
     this.#authExpiresIn = this.#authOptions.expiresIn
 

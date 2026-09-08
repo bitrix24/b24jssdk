@@ -252,6 +252,23 @@ fires both publish workflows — each runs CI, then publishes its package.
   `major` for breaking changes. Decide from what sits under `## [Unreleased]` in
   [`CHANGELOG.md`](CHANGELOG.md) (a `Features` block ⇒ at least a minor; any
   `BREAKING CHANGE` ⇒ major).
+- **`@experimental` is outside SemVer.** Correcting a symbol tagged
+  `@experimental` — its type, its return shape, the arguments it refuses — is
+  **not** a breaking change, and must not carry a `!` or a `BREAKING CHANGE:`
+  footer. The tag is the contract: it says the shape is provisional and asks a
+  caller who depends on it to pin a version. Without this carve-out every
+  correction to an unverified surface would cost a major, which is precisely the
+  bar `@experimental` exists to lower — the tag would deter callers without
+  buying the project any freedom. Land such a change as `fix:` (or `feat:` if it
+  also adds something), and describe the change in `CHANGELOG.md` under
+  `### Changed` with the same care a breaking note would get, naming what a
+  caller has to rewrite. The release post already follows this rule:
+  [telegram-release-post.md](.github/contributing/telegram-release-post.md)
+  excludes experimental surfaces from its breaking-changes block.
+
+    This does **not** extend to `@deprecated`. A deprecated symbol is a promise
+    that kept working; an experimental one never made the promise. See
+    [deprecations.md](.github/contributing/deprecations.md).
 - **Lockstep.** The root `package.json`, `packages/jssdk/package.json`, and
   `packages/jssdk-nuxt/package.json` always carry the **same** version.
   `pnpm run release:bump` rewrites all three and refuses to run if they are already

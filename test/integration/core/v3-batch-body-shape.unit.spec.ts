@@ -243,6 +243,54 @@ describe('the body of a v3 batch', () => {
     }
   })
 
+  it('@apiV3 a browser with no usable token appends nothing', async () => {
+    // The `hasAccessToken` term of the query gate, which nothing distinguished:
+    // the existing empty-token test never sets `window`, so it only ever runs the
+    // header branch, and dropping the term from `useQueryAuth` passed the whole
+    // file. Without it a browser with no token appends a bare `?auth=` — a
+    // request that fails for a reason naming neither the token nor the header,
+    // where the body fallback at least fails the way this transport already does.
+    for (const token of ['', '   ']) {
+      const originalWindow = (globalThis as { window?: unknown }).window
+      ;(globalThis as { window?: unknown }).window = { document: {} }
+
+      try {
+        b24 = new B24OAuth(
+          {
+            accessToken: token,
+            refreshToken: 'REFRESH_TOKEN_PLACEHOLDER',
+            expires: 2_000_000_000,
+            expiresIn: 3600,
+            domain: 'example.bitrix24.com',
+            memberId: 'member',
+            clientEndpoint: 'https://example.bitrix24.com/rest/',
+            serverEndpoint: 'https://oauth.bitrix.info/rest/',
+            status: 'L'
+          } as never,
+          { clientId: 'local.test', clientSecret: 'secret' } as never
+        )
+        const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+          .mockResolvedValue(BATCH_OK as never)
+
+        await b24.actions.v3.batch.make({ calls: COMMANDS })
+
+        const [url, body] = post.mock.calls[0]!
+        expect(String(url)).not.toContain('auth=')
+        // And the fallback is the old body, not a headerless bare array the
+        // portal would refuse for an unrelated reason.
+        expect(Array.isArray(body)).toBe(false)
+      } finally {
+        b24?.destroy()
+        b24 = null
+        if (typeof originalWindow === 'undefined') {
+          delete (globalThis as { window?: unknown }).window
+        } else {
+          ;(globalThis as { window?: unknown }).window = originalWindow
+        }
+      }
+    }
+  })
+
   it('@apiV3 a non-batch v3 call in a browser gets no query credential', async () => {
     // The query branch carries the same gate as the header branch. A single call
     // still authenticates through `auth` in its body, where it always did — a

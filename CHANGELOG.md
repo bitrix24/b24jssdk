@@ -40,6 +40,12 @@
     `authorization` reaches the portal's allow-list, a browser takes the same header
     path a server takes today.
 
+    Unlike the transport change above, this one carries **no** `BREAKING CHANGE`
+    marker, and the difference is deliberate: a v3 batch from a browser never
+    worked, so nothing that worked before changes shape. The array body and the
+    header did change a request that worked — a webhook batch — which is why that
+    half is marked and this half is not.
+
 * **A list or tail walk whose cursor stops advancing now fails instead of running for ever.** When the server does not apply the page condition, the same full page keeps arriving and nothing in the loops noticed: the `restApi:v3` driver stops on a page *shorter* than the largest it has seen, the `restApi:v2` loops stop on `length < 50`, and a repeated full page is neither. The streaming helpers yielded the same rows for ever; the eager ones grew an array until the process died.
 
     Measured on `restApi:v2` `tasks.task.list` with `idKey: 'id'` and no `cursorIdKey`: three pages, 150 rows, 50 unique, the cursor reading 3 every time — the response spells the id lowercase while the filter accepts it uppercase, so `>id` matches nothing and is dropped. The two halves of that mistake fail in opposite ways: leave `idKey` at its default `'ID'` and the cursor cannot be read, so the walk warns and stops after 50 rows; set `idKey: 'id'` alone and the read works while the request condition is ignored. Only the second one used to hang.

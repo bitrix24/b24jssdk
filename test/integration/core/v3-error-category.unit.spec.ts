@@ -201,6 +201,26 @@ describe('#460 v3 errors classified by response category', () => {
       await expect(deliveryOf(http)).resolves.toBe('soft')
     })
 
+    it.each([401, 403])('`…ACCESSDENIEDEXCEPTION` is soft at %i — the list decides, not the status', async (status) => {
+      // Pinned because the docs got this wrong once: the code was described as
+      // classifying by status, "soft at 403, hard at 401". It does not.
+      // `isSoftError` consults `exceptionCodeForSoft` at step 2, before any
+      // status is looked at, and this code is in the built-in soft list — so
+      // both statuses come back soft. The 401 auth-refresh path does not take
+      // it either: `_isAuthError` additionally requires the code to be
+      // `expired_token` or `invalid_token`.
+      //
+      // What varies by status is what a *caller* should conclude — 401 is a
+      // credential that was not accepted, 403 a method disabled on the portal —
+      // and that is a reading instruction, not a delivery mode.
+      const http = httpRejectingWith({
+        code: 'BITRIX_REST_V3_EXCEPTION_ACCESSDENIEDEXCEPTION',
+        status,
+        isV3Envelope: true
+      }, ON)
+      await expect(deliveryOf(http)).resolves.toBe('soft')
+    })
+
     it('a missing OAuth scope still throws at 403, on v3 as on v2', async () => {
       // `insufficient_scope` is pinned hard for `restApi:v2`. The v3 spelling
       // is a different string and matched nothing, so the category rule would

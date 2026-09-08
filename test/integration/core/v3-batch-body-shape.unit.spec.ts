@@ -243,6 +243,43 @@ describe('the body of a v3 batch', () => {
     }
   })
 
+  it('@apiV3 the query branch refuses to follow a redirect too', async () => {
+    // Weaker than the header case and still worth having. A query credential
+    // does not follow a redirect the way a header does — the target is whatever
+    // `Location` names, and it carries the original query only if the server
+    // echoes it back — but an nginx or Apache rule built from `$request_uri`
+    // does exactly that, and the hop then hands the token to whatever serves
+    // the target.
+    //
+    // Whether the option bites depends on the adapter rather than on "is this a
+    // browser": XHR ignores `maxRedirects`, and a service worker — which has no
+    // `XMLHttpRequest` — resolves the default adapter list to `fetch`, which
+    // reads it as `redirect: 'manual'`. Inert on the common path, load-bearing
+    // on that one.
+    const originalWindow = (globalThis as { window?: unknown }).window
+    ;(globalThis as { window?: unknown }).window = { document: {} }
+
+    try {
+      b24 = oauthClient()
+      const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+        .mockResolvedValue(BATCH_OK as never)
+
+      await b24.actions.v3.batch.make({ calls: COMMANDS })
+
+      const config = post.mock.calls[0]![2] as { maxRedirects?: number, headers?: Record<string, string> }
+      expect(config?.maxRedirects).toBe(0)
+      // And still no header — this is the branch that exists because one cannot
+      // be sent.
+      expect(config?.headers?.['Authorization']).toBeUndefined()
+    } finally {
+      if (typeof originalWindow === 'undefined') {
+        delete (globalThis as { window?: unknown }).window
+      } else {
+        ;(globalThis as { window?: unknown }).window = originalWindow
+      }
+    }
+  })
+
   it('@apiV3 a browser with no usable token appends nothing', async () => {
     // The `hasAccessToken` term of the query gate, which nothing distinguished:
     // the existing empty-token test never sets `window`, so it only ever runs the

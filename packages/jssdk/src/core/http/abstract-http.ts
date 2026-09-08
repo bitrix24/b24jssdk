@@ -721,6 +721,25 @@ export abstract class AbstractHttp implements TypeHttp {
     // browser cannot send `Authorization`, so the token rides in the query
     // string. A hook is excluded for the same reason it is excluded above — its
     // credential is already in the URL path, and `_prepareParams` skips it.
+    //
+    // This branch takes `maxRedirects: 0` as well, for a narrower reason than
+    // the header does. A credential in a query string does not follow a redirect
+    // the way a header does: `follow-redirects` re-sends `Authorization` to a
+    // same-host or subdomain hop, whereas a redirect target is whatever
+    // `Location` names and carries the original query only if the server echoes
+    // it back. Some do — an nginx or Apache rule built from `$request_uri` on a
+    // scheme or trailing-slash hop preserves the query string, and the hop is
+    // then a token handed to whatever serves the target.
+    //
+    // Whether the option bites depends on the adapter, and that is not decided
+    // by "is this a browser". `getAdapter()` walks the default
+    // `['xhr', 'http', 'fetch']` and takes the first *supported* entry. XHR is
+    // supported wherever `XMLHttpRequest` exists — a window, a dedicated worker,
+    // a shared worker — and the XHR adapter ignores `maxRedirects` outright. A
+    // **service worker** has no `XMLHttpRequest`, so the list falls through
+    // `http` (Node only) to `fetch`, and the fetch adapter does read it, as
+    // `redirect: 'manual'`. Inert on the common path, load-bearing on that one:
+    // reason enough to set it rather than reason to leave it out.
     const useQueryAuth = isBareArrayBody && !isHook && hasAccessToken && isCorsEnforcedRuntime()
     const sendBareArray = isBareArrayBody && (isHook || canSendAuthHeader || useQueryAuth)
 
@@ -761,7 +780,9 @@ export abstract class AbstractHttp implements TypeHttp {
             Authorization: `Bearer ${authData.access_token}`
           }
         }
-      : requestConfig
+      : useQueryAuth
+        ? { maxRedirects: 0, ...requestConfig }
+        : requestConfig
 
     // `paramsFormatted` carries the OAuth `auth` (access_token) for non-hook flows;
     // log a redacted copy so the secret never enters logger context, while axios

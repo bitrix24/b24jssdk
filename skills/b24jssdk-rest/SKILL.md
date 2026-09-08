@@ -33,7 +33,7 @@ Rule of thumb:
 | Read a small list (<1000 items) and process in memory | `actions.v{2,3}.callList.make` |
 | Read a large list with low memory footprint | `actions.v{2,3}.fetchList.make` (async iterator) |
 | Read a v3 method that exposes a native `tail` (keyset) action — e.g. `main.eventlog.tail` | `actions.v3.callTail.make` / `actions.v3.fetchTail.make` (v3 only) |
-| Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only, **`@experimental`** — unverified live; fall back to `callList` + reduce if the endpoint isn't available) |
+| Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only, **`@experimental`** — the contract is measured, but no shipped module publishes `*.aggregate` yet, so fall back to `callList` + reduce when the endpoint isn't there. Values come back as **strings**, and `null` when the filter matched nothing) |
 
 There is no manual-pagination path any more — the list helpers page for you. Two mechanisms exist, and they are not interchangeable:
 
@@ -405,7 +405,7 @@ On a **`restApi:v3`** response both return their empty value — `0` and `false`
 
 `getNext(http)` / `fetchNext(http)` re-run the query at the reported `next` offset. Under `restApi:v3` they **throw** `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` rather than returning empty, because a silent `false` would be indistinguishable from "last page". For new paging code still prefer `callList.make` / `fetchList.make` — they hide the offset bookkeeping and work under both versions.
 
-For a v3 count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action. Note that action is `@experimental` and **has not been verified against a live portal** — most modules do not expose `*.aggregate` yet. If it is unavailable, reduce a `callList` client-side.
+For a v3 count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action. The count arrives as a **string** (`'18'`), keyed by function then field — `getData()?.count?.id` — so convert it with `Text.toNumber()`. The action stays `@experimental` because **no shipped module publishes `*.aggregate` yet**, not because the shape is unknown; if the endpoint isn't there, reduce a `callList` client-side.
 
 ## Null result is passthrough
 
@@ -503,7 +503,7 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 
 - ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 3.0.0. Use the actions API.
 - ❌ `res.getNext()` / `res.fetchNext()` against a **v3** client — they throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`. Under v2 they work and are supported; for new code prefer `callList` / `fetchList`, which work under both versions.
-- ❌ Reading `res.getTotal()` or `res.isMore()` on a **v3** response — not an error, but they always answer `0` / `false` there because v3 sends no `total` / `next`. Under v2 they are correct and supported. For a v3 count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action, and treat it as unverified.
+- ❌ Reading `res.getTotal()` or `res.isMore()` on a **v3** response — not an error, but they always answer `0` / `false` there because v3 sends no `total` / `next`. Under v2 they are correct and supported. For a v3 count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action — remembering the count is a string, not a number.
 <!-- @check-ignore: `crm.item.get` is the deliberate anti-example this bullet is about — v3 publishes no `crm.item.*` -->
 - ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — `crm.*` is v2-only, so the v3 server returns a `METHODNOTFOUNDEXCEPTION` soft error (`response.isSuccess === false`); use `actions.v2.*` for CRM. (The SDK no longer pre-flight-throws here.)
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-08-27.</sub>
+<sub>Last reviewed: 2026-09-08.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -333,8 +333,11 @@ Check these before adding to the repository, not after:
   `.github/contributing/`, with a pointer from the code — see #420 for the
   shape that works.
 - **Code written for a use case that does not exist yet.** `aggregate.ts` is the
-  standing example: written from a published reference, never run against a
-  portal, and named as the successor to a method it could not replace.
+  standing example: written from a published reference and named as the
+  successor to a method it could not replace. Its contract has since been
+  measured — against a module written for the purpose, because no shipped module
+  publishes an `*.aggregate` method — which fixed the first half and left the
+  second exactly where it was.
 
 Test coverage is not a target and is not a CI threshold. Tests exist to pin
 behaviour that would otherwise regress silently; a test that only restates the

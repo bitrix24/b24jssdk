@@ -59,7 +59,8 @@ and `#getNext()` / `#fetchNext()` **throw**
 `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`. For new paging code prefer
 `actions.v{2,3}.{callList,fetchList}` — they hide the offset bookkeeping and work
 under both versions. For a `restApi:v3` count use `actions.v3.aggregate.make`
-(`@experimental`, **not verified against a live portal**) with `count` /
+(`@experimental` — the contract is measured, but **no shipped module publishes
+an `*.aggregate` method yet**) with `count` /
 `countDistinct` on a method that exposes an `*.aggregate` action — check
 `rest.documentation.openapi` to confirm the endpoint exists; otherwise reduce a
 `callList` client-side.

@@ -41,14 +41,20 @@ It is read-only.
 | `b24jssdk-helpers` | `initB24Helper` over a webhook loads Profile + Currency; `currency.format` uses the portal's own rules (the formatted value is printed) |
 | `b24jssdk-vibecode` | the SDK-side calls the skill documents succeed |
 
-### The one question this run is expected to answer: does `v3.aggregate` work at all?
+### The one question this run is expected to answer: does any shipped module expose `*.aggregate` yet?
 
-`actions.v3.aggregate.make` is marked `@experimental` in the SDK, and the working
-assumption is **that it does not work on any module yet**. Nobody has run it
-against a portal. That matters beyond the action itself, because two documents
-currently hedge on it — `AjaxResult.getTotal()`'s JSDoc and the `restApi:v3`
-count advice in `b24jssdk-rest/SKILL.md` and `README-AI.md` — and the hedge can
-only be replaced by a real answer.
+**The contract itself is no longer in question.** It was measured against a
+module written for the purpose (PR #498), reaching the same
+`AggregateOrmActionTrait` / `OrmRepository::getAllWithAggregate()` every future
+module will: values come back as **strings**, an aggregate over an empty match is
+`null` except `count` (which is `'0'`), and the `{ result: { result } }` double
+envelope the reference §7 describes is real. `AggregateResultV3` says so, and the
+docs no longer hedge on the shape.
+
+What is still unmeasured is the **use case**: no *shipped* module publishes an
+`*.aggregate` action on any of the four portals checked, so no per-module
+behaviour has been observed and the action keeps its `@experimental` tag for that
+reason alone. That is what this survey is looking for.
 
 So the suite **surveys** it rather than probing one method: `tasks.task`,
 `crm.deal`, `crm.contact`, `crm.company`, `crm.lead` and `main.eventlog`, each
@@ -76,11 +82,14 @@ the module names, and replace the counts with `<n>` — what #113 needs to know 
 which modules answered, not how many deals you have.
 ::
 
-Paste the block into #113, redacted as above. If every line is `SOFT` or `THROW`, the
-conclusion is that `AggregateV3` stays `@experimental`, the docs keep telling
-readers to reduce a `callList` client-side, and `AjaxResult.getTotal()` remains
-the only count available under `restApi:v2` — which is why it was kept out of the
-`3.0.0` removal set.
+Paste the block into #113, redacted as above. If every line is `SOFT` or `THROW`,
+nothing changes: `AggregateV3` keeps its `@experimental` tag — not because the
+contract is unknown, but because no shipped module exercises it — the docs keep
+telling readers to reduce a `callList` client-side, and `AjaxResult.getTotal()`
+remains the only count available under `restApi:v2`, which is why it was kept out
+of the `3.0.0` removal set. A single `OK` line is the interesting outcome: it
+names the first module that can lift the tag, and its bucket shape is worth
+recording against the measured one.
 
 ### Reading the output
 

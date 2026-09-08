@@ -101,6 +101,47 @@
 
     Applies to `B24Hook` with a logger wired at `info`. Matching is case-insensitive and covers both API versions.
 
+### Changed
+
+* **`AggregateResultV3` values are `string | number | null`, not `number`.**
+  `AggregateV3` is `@experimental`, so this is a correction inside the `2.x`
+  line, not a breaking change — see the
+  [`@experimental` carve-out](RELEASING.md#versioning). It is also unlikely to
+  have broken anyone in practice: no shipped Bitrix24 module publishes an
+  `*.aggregate` action on any of four portals, so there is nothing on a real portal
+  to call. The contract was therefore measured against a module written for the
+  purpose, and the shipped type turned out to be wrong in three ways.
+
+    Values come back as **strings**: `count` as `'27'`, `avg` as `'14.0000'` with
+    the scale MySQL chose. Over a filter that matches no rows, `count` is `'0'`
+    while `sum`, `avg`, `min` and `max` are **`null`** — SQL aggregates over an
+    empty set are null, and only `count` has a zero. Both levels of the record are
+    now `Partial`: a function you did not ask for is absent, and a field key is
+    only there if the portal put it there.
+
+    The SDK does **not** convert. `Number()` is right for a count and wrong for a
+    money `sum` — `'12345.6700'` through a float is a rounding a ledger cannot
+    undo, and `Text.toNumber()` goes through `Number.parseFloat`, so it loses it
+    too. Convert deliberately, once you know which kind of number you are holding.
+
+    **What to change.** Anything doing arithmetic straight off the result:
+    `data.count.id + 1` now concatenates instead of adding, and a `?? 0` written
+    against a missing key does not catch an explicit `null`. Wrap the value in
+    `Text.toNumber()` for counts, or hand it to a decimal library for money.
+
+    A select naming no aggregate column at all (`{}`, `{ count: [] }`,
+    `{ count: {} }`) is now refused client-side with
+    `JSSDK_AGGREGATE_V3_EMPTY_SELECT`: the portal answers it with a bare 500 that
+    carries nothing to act on, after burning the whole retry budget on a request
+    that was never going to succeed. An empty list *beside* a non-empty one stays
+    allowed — measured, the portal answers it.
+
+    `AggregateV3` keeps its `@experimental` tag. The framework contract is now
+    pinned (`AggregateOrmActionTrait`, `OrmRepository::getAllWithAggregate()`),
+    but nothing in the product exercises it, so the first module to ship an
+    `*.aggregate` action may surface something no synthetic caller could. Pin a
+    version if you depend on the exact shape.
+
 ## [2.2.0](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.2.0) (2026-08-29)
 
 

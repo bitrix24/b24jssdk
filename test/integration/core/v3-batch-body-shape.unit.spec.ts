@@ -411,6 +411,92 @@ describe('the body of a v3 batch', () => {
     expect(JSON.stringify(config ?? {})).not.toContain('Bearer undefined')
   })
 
+  it('@apiV3 a v3 call that is not a batch keeps its body, even with array params', async () => {
+    // The `'batch' === method` half of the gate, on its own. Removing it while
+    // keeping the version check passed the whole suite: the v2 case below is
+    // caught by the version half instead, and nothing else fed an array to a
+    // non-batch method. `TypeCallParams` carries an index signature, so an array
+    // is accepted here without a cast on the type level, and the legacy `task.*`
+    // family is documented with positional arguments — so this is a shape a
+    // caller can actually produce, not a contrivance.
+    b24 = oauthClient()
+    const http = b24.getHttpClient(ApiVersion.v3)
+    const post = vi.spyOn(http.ajaxClient, 'post').mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as never,
+      data: { result: [], time: BATCH_OK.data.time }
+    } as never)
+
+    await http.call('task.commentitem.getlist', [1, {}, {}] as never, 'v3-not-a-batch')
+
+    const [, body, config] = post.mock.calls[0]!
+    // Reshaping this body would change the wire format of a method nobody
+    // measured, and moving the credential would put it where nothing
+    // established the portal reads it.
+    expect(Array.isArray(body)).toBe(false)
+    expect((body as { auth?: string }).auth).toBe('ACCESS_TOKEN_PLACEHOLDER')
+    expect((config as { headers?: Record<string, string> })?.headers?.Authorization).toBeUndefined()
+  })
+
+  it('@apiV3 a restApi:v2 method named batch is still not a v3 batch', async () => {
+    // The version half of the gate, on its own. `HttpV2.batch()` wraps its
+    // commands in a `{ halt, cmd }` envelope, so an array never reaches this
+    // point through the public path — which is exactly why dropping the version
+    // check passed every test. Calling `call('batch', …)` directly is the one
+    // way to ask whether the version term does any work, and it has to: v2
+    // authenticates through `auth` in the body, and nothing here established
+    // that a v2 endpoint reads an `Authorization` header at all.
+    b24 = oauthClient()
+    const http = b24.getHttpClient(ApiVersion.v2)
+    const post = vi.spyOn(http.ajaxClient, 'post').mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as never,
+      data: { result: [], time: BATCH_OK.data.time }
+    } as never)
+
+    await http.call('batch', COMMANDS as never, 'v2-batch-by-name')
+
+    const [, body, config] = post.mock.calls[0]!
+    expect(Array.isArray(body)).toBe(false)
+    expect((body as { auth?: string }).auth).toBe('ACCESS_TOKEN_PLACEHOLDER')
+    expect((config as { headers?: Record<string, string> })?.headers?.Authorization).toBeUndefined()
+  })
+
+  it('@apiV3 a token of blanks is not a token', async () => {
+    // `length > 0` accepted it and produced `Bearer   ` — a malformed header,
+    // not a failed authentication. The portal would answer something that names
+    // neither the header nor the token, where the body fallback at least fails
+    // the way this transport already fails.
+    b24 = new B24OAuth(
+      {
+        accessToken: '   ',
+        refreshToken: 'REFRESH_TOKEN_PLACEHOLDER',
+        expires: 2_000_000_000,
+        expiresIn: 3600,
+        domain: 'example.bitrix24.com',
+        memberId: 'member',
+        clientEndpoint: 'https://example.bitrix24.com/rest/',
+        serverEndpoint: 'https://oauth.bitrix.info/rest/',
+        status: 'L'
+      } as never,
+      { clientId: 'local.test', clientSecret: 'secret' } as never
+    )
+    const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+      .mockResolvedValue(BATCH_OK as never)
+
+    await b24.actions.v3.batch.make({ calls: COMMANDS })
+
+    const [, body, config] = post.mock.calls[0]!
+    expect((config as { headers?: Record<string, string> })?.headers?.Authorization).toBeUndefined()
+    // And it falls back to the old body rather than sending a headerless array
+    // the portal would reject for a different reason entirely.
+    expect(Array.isArray(body)).toBe(false)
+  })
+
   it('@apiV3 a restApi:v2 array body is untouched — the branch is v3-batch only', async () => {
     // `TypeCallParams` has an index signature, so an array satisfies it, and the
     // legacy `task.*` family is documented with positional arguments. Without the

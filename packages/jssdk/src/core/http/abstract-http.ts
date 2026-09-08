@@ -693,8 +693,11 @@ export abstract class AbstractHttp implements TypeHttp {
     // An absent or empty token would go out as the literal `Bearer undefined`.
     // `_prepareParams` used to drop it silently — `JSON.stringify` omits an
     // `undefined` value — so require a real one rather than put a nonsense
-    // credential on the wire.
-    const hasAccessToken = 'string' === typeof authData.access_token && authData.access_token.length > 0
+    // credential on the wire. Trimmed, because a token of blanks is not a token
+    // and `Bearer   ` is a malformed header rather than a failed authentication:
+    // it earns a portal error that names neither the header nor the token, where
+    // the body fallback at least fails the way this transport already fails.
+    const hasAccessToken = 'string' === typeof authData.access_token && authData.access_token.trim().length > 0
     const canSendAuthHeader = isBareArrayBody && !isHook && hasAccessToken && !isCorsEnforcedRuntime()
     const sendBareArray = isBareArrayBody && (isHook || canSendAuthHeader)
 

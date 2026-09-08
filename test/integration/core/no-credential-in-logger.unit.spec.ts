@@ -58,7 +58,18 @@ describe('no-credential-in-logger rule (#226, guards #39/#40)', () => {
     ['key+member { token: cfg.value }', 'logger.error(\'m\', { token: cfg.value })'],
     // capital-`Token` KEY — locks the `[Tt]` arm of CREDENTIAL_KEY; a future
     // edit that narrowed it to `t` (lowercase only) would silently let this slip.
-    ['key+identifier { Token: someVar } (capital T)', 'logger.debug(\'m\', { Token: someVar })']
+    ['key+identifier { Token: someVar } (capital T)', 'logger.debug(\'m\', { Token: someVar })'],
+    // Headers, added when the SDK first put a credential in one rather than in
+    // the body — the `restApi:v3` batch on an OAuth transport sends
+    // `Authorization: Bearer …` (#455/#491). `redactSensitiveParams()` walks
+    // params and has no concept of headers, so unlike every case above this is
+    // not defence in depth: the lint layer is the only net there is.
+    ['key+member { headers: config.headers }', 'logger.debug(\'m\', { headers: config.headers })'],
+    ['member-access { auth: config.headers.Authorization }', 'logger.info(\'m\', { auth: config.headers.Authorization })'],
+    ['spread { ...config.headers }', 'logger.error(\'m\', { ...config.headers })'],
+    ['bare identifier { headers }', 'logger.debug(\'m\', { headers })'],
+    // Singular, because the leak-shaped access is a single header by name.
+    ['key+identifier { header: authHeader }', 'logger.debug(\'m\', { header: authHeader })']
   ]
 
   const shouldStaySilent: Array<[string, string]> = [

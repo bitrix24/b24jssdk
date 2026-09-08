@@ -26,6 +26,27 @@ pnpm dev
 
 Opens at `http://localhost:3001`.
 
+## v3 batch from a browser (issue #455)
+
+Route: **`/v3-batch-browser`**.
+
+A `restApi:v3` batch sends its commands *as* the request body, so there is
+nowhere inside it for a credential, and the portal's CORS preflight allows only
+`origin, content-type, accept` — no `Authorization`. The SDK therefore appends
+`?auth=<token>` to the URL in a browser.
+
+Everything about that is covered by unit tests and was measured against a live
+portal from Node. The one thing neither can settle is the **preflight**: whether
+a real browser lets the request out. Open the page inside a Bitrix24 frame and
+read the three lines it prints, plus the Network tab — an `OPTIONS` that
+succeeds, then the `POST` carrying `auth=`.
+
+A bare network error with no status is what a refused preflight looks like.
+
+Needs a scope the batch's commands can use; the page ships with
+`main.eventlog.list` and `rest.scope.list`, so swap them for whatever the app
+holds.
+
 ## Deprecation trigger (issue #331)
 
 All four messenger methods this SDK exposes are deprecated upstream, and all

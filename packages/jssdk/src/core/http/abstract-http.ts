@@ -637,7 +637,7 @@ export abstract class AbstractHttp implements TypeHttp {
   }
 
   protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData, requestConfig?: AxiosRequestConfig): Promise<AjaxResponse<T>> {
-    const methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
+    let methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
 
     // A `restApi:v3` batch sends its commands AS the request body — a bare
     // top-level array, no envelope (see `HttpV3.batch`). Everything else sends an
@@ -658,9 +658,27 @@ export abstract class AbstractHttp implements TypeHttp {
     // 3. A non-hook transport **where CORS applies** cannot use that header: the
     //    portal answers the preflight with `Access-Control-Allow-Headers: origin,
     //    content-type, accept` (`CRestUtil::sendHeaders()`), so asking for
-    //    `Authorization` fails the preflight and the request never leaves. That
-    //    would trade a diagnosable 400 for an opaque network error, so such a
-    //    caller keeps the body it had — and the 400 it had with it.
+    //    `Authorization` fails the preflight and the request never leaves. The
+    //    credential goes in the **query string** instead — `?auth=<token>`,
+    //    which the portal reads through the same dictionary as a body `auth`
+    //    (`CRestUtil::getRequestData()` merges GET and POST with
+    //    `array_replace`, so `getAuthKey()` cannot tell the two apart). Measured
+    //    accepted on a live portal. A query parameter costs nothing on a
+    //    preflight the request is already making for its `Content-Type`.
+    //
+    //    This is the one place the SDK puts an OAuth token in a URL, so the
+    //    reasoning is worth keeping: in a frame app the token is in the page's
+    //    JavaScript already — devtools, the body of every non-batch call — so
+    //    the query string reveals it to nobody who could not already read it.
+    //    What it does add is a server-side record: `?auth=` reaches the portal's
+    //    access log and, when an administrator switches the module's diagnostic
+    //    logger on, its `REQUEST_URI` field. That was weighed and accepted; the
+    //    alternative was leaving every browser app unable to batch on v3 at all,
+    //    since this SDK is the only official one that runs in a browser.
+    //
+    //    Delete this branch the day `authorization` appears in the portal's
+    //    `Access-Control-Allow-Headers` — then a browser takes the same header
+    //    path as a server and nothing else here needs to change.
     //
     // Case 3 asks about CORS rather than about "is this a server", because those
     // are not the same question and `isServerSide()` answers the wrong one: it is
@@ -699,7 +717,12 @@ export abstract class AbstractHttp implements TypeHttp {
     // the body fallback at least fails the way this transport already fails.
     const hasAccessToken = 'string' === typeof authData.access_token && authData.access_token.trim().length > 0
     const canSendAuthHeader = isBareArrayBody && !isHook && hasAccessToken && !isCorsEnforcedRuntime()
-    const sendBareArray = isBareArrayBody && (isHook || canSendAuthHeader)
+    // Same conditions as the header, on the other side of the CORS question: a
+    // browser cannot send `Authorization`, so the token rides in the query
+    // string. A hook is excluded for the same reason it is excluded above — its
+    // credential is already in the URL path, and `_prepareParams` skips it.
+    const useQueryAuth = isBareArrayBody && !isHook && hasAccessToken && isCorsEnforcedRuntime()
+    const sendBareArray = isBareArrayBody && (isHook || canSendAuthHeader || useQueryAuth)
 
     const paramsFormatted = sendBareArray
       ? params as unknown as TypePrepareParams
@@ -758,6 +781,14 @@ export abstract class AbstractHttp implements TypeHttp {
         params: truncateForLog(paramsFormattedForLog)
       }
     ).catch(() => {})
+
+    if (useQueryAuth) {
+      // `_prepareMethod` always emits a query string for a `batch` (the `task.`
+      // carve-out cannot match it), so a separator is not in question — but ask
+      // rather than assume, since that carve-out is one regex away from moving.
+      const separator = methodFormatted.includes('?') ? '&' : '?'
+      methodFormatted += `${separator}auth=${encodeURIComponent(authData.access_token)}`
+    }
 
     const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted, effectiveConfig)
 

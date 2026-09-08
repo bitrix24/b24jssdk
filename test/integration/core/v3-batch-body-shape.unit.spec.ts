@@ -158,11 +158,13 @@ describe('the body of a v3 batch', () => {
     expect(config).toBeUndefined()
   })
 
-  it('@apiV3 a browser transport keeps the old body and sends no header', async () => {
+  it('@apiV3 a browser sends the array and puts the token in the query string', async () => {
     // The portal's CORS allow-list has no `authorization`, so the header would
-    // fail the preflight and the request would never be sent. Simulated by making
-    // `getEnvironment()` report a browser — this project runs spec files serially
-    // for exactly this kind of global mutation.
+    // fail the preflight and the request would never leave. The credential goes
+    // in the query string instead, which the portal reads through the same
+    // dictionary (`CRestUtil::getRequestData()` merges GET over POST). Simulated
+    // by making `getEnvironment()` report a browser — this project runs spec
+    // files serially for exactly this kind of global mutation.
     const originalWindow = (globalThis as { window?: unknown }).window
     ;(globalThis as { window?: unknown }).window = { document: {} }
 
@@ -173,19 +175,98 @@ describe('the body of a v3 batch', () => {
 
       await b24.actions.v3.batch.make({ calls: COMMANDS })
 
-      const [, body, config] = post.mock.calls[0]!
-      expect(config).toBeUndefined()
-      // Unchanged from before this fix: the numeric-key spread with `auth` in it.
-      // The portal still rejects it; that is issue #455's remaining half and it
-      // needs the portal's CORS policy to move, not the SDK.
-      expect(Array.isArray(body)).toBe(false)
+      const [url, body, config] = post.mock.calls[0]!
+      // No header, and therefore no preflight to fail.
+      expect((config as { headers?: Record<string, string> })?.headers?.Authorization).toBeUndefined()
+      // The body is the array here too — the whole point is that the portal can
+      // parse it, which it cannot do while a credential sits inside.
+      expect(Array.isArray(body)).toBe(true)
+      expect(body).toHaveLength(2)
+      expect(JSON.stringify(body)).not.toContain('ACCESS_TOKEN_PLACEHOLDER')
+      // And the commands survive. Without this, a body replaced wholesale by
+      // something shaped right but empty passed every other assertion here.
+      const asList = body as Array<{ method?: string }>
+      expect(asList[0]?.method).toBe('main.eventlog.list')
+      expect(asList[1]?.method).toBe('rest.scope.list')
+      // The credential, in the one place a browser can put it.
+      expect(String(url)).toContain('auth=ACCESS_TOKEN_PLACEHOLDER')
+    } finally {
+      if (typeof originalWindow === 'undefined') {
+        delete (globalThis as { window?: unknown }).window
+      } else {
+        ;(globalThis as { window?: unknown }).window = originalWindow
+      }
+    }
+  })
+
+  it('@apiV3 the query credential is url-encoded, and appended not substituted', async () => {
+    // Two failures one character apart. A token with a `+` or `/` in it — both
+    // ordinary in a Bitrix24 token — decodes wrong if it is not encoded, and the
+    // portal answers an authentication error naming neither. And appending with
+    // the wrong separator would swallow the telemetry params that `_prepareMethod`
+    // already put there, which is how request tracing quietly stops working.
+    const originalWindow = (globalThis as { window?: unknown }).window
+    ;(globalThis as { window?: unknown }).window = { document: {} }
+
+    try {
+      b24 = new B24OAuth(
+        {
+          accessToken: 'a+b/c=d',
+          refreshToken: 'REFRESH_TOKEN_PLACEHOLDER',
+          expires: 2_000_000_000,
+          expiresIn: 3600,
+          domain: 'example.bitrix24.com',
+          memberId: 'member',
+          clientEndpoint: 'https://example.bitrix24.com/rest/',
+          serverEndpoint: 'https://oauth.bitrix.info/rest/',
+          status: 'L'
+        } as never,
+        { clientId: 'local.test', clientSecret: 'secret' } as never
+      )
+      const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+        .mockResolvedValue(BATCH_OK as never)
+
+      await b24.actions.v3.batch.make({ calls: COMMANDS })
+
+      const url = String(post.mock.calls[0]![0])
+      expect(url).toContain('auth=a%2Bb%2Fc%3Dd')
+      expect(url).not.toContain('auth=a+b/c=d')
+      // The telemetry params `_prepareMethod` emits are still there.
+      expect(url).toContain('bx24_request_id=')
+      expect(url).toContain('&auth=')
+    } finally {
+      if (typeof originalWindow === 'undefined') {
+        delete (globalThis as { window?: unknown }).window
+      } else {
+        ;(globalThis as { window?: unknown }).window = originalWindow
+      }
+    }
+  })
+
+  it('@apiV3 a non-batch v3 call in a browser gets no query credential', async () => {
+    // The query branch carries the same gate as the header branch. A single call
+    // still authenticates through `auth` in its body, where it always did — a
+    // token appended to that URL would be a second copy of the credential, in a
+    // place the SDK does not otherwise put one, for no gain.
+    const originalWindow = (globalThis as { window?: unknown }).window
+    ;(globalThis as { window?: unknown }).window = { document: {} }
+
+    try {
+      b24 = oauthClient()
+      const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+        .mockResolvedValue({
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: {} as never,
+          data: { result: { items: [] }, time: BATCH_OK.data.time }
+        } as never)
+
+      await b24.actions.v3.call.make({ method: 'main.eventlog.list', params: { select: ['id'] } })
+
+      const [url, body] = post.mock.calls[0]!
+      expect(String(url)).not.toContain('auth=')
       expect((body as { auth?: string }).auth).toBe('ACCESS_TOKEN_PLACEHOLDER')
-      // And the commands are still in it. Without these, replacing the whole
-      // body with `{ auth }` — a browser batch carrying no commands at all —
-      // passed every other assertion in this file.
-      const asMap = body as Record<string, { method?: string }>
-      expect(asMap['0']?.method).toBe('main.eventlog.list')
-      expect(asMap['1']?.method).toBe('rest.scope.list')
     } finally {
       if (typeof originalWindow === 'undefined') {
         delete (globalThis as { window?: unknown }).window
@@ -340,9 +421,17 @@ describe('the body of a v3 batch', () => {
 
       await b24.actions.v3.batch.make({ calls: COMMANDS })
 
-      const [, body, config] = post.mock.calls[0]!
+      const [url, body, config] = post.mock.calls[0]!
       expect(Array.isArray(body)).toBe(true)
       expect(config).toBeUndefined()
+      // And no `?auth=`. A hook's credential is already in the URL **path**,
+      // where the portal documents it; appending it again as a query parameter
+      // would put a portal-wide, non-expiring secret in a second place for no
+      // gain. `AuthHookManager` returns that secret as `access_token`, so the
+      // query branch reaches for it unless `!isHook` holds — and nothing else
+      // in this file notices if that term is dropped.
+      expect(String(url)).not.toContain('auth=SECRET')
+      expect(String(url)).not.toContain('&auth=')
     } finally {
       if (typeof originalWindow === 'undefined') {
         delete (globalThis as { window?: unknown }).window
@@ -356,7 +445,8 @@ describe('the body of a v3 batch', () => {
     // `getEnvironment()` recognises a browser by `window.document`, which a worker
     // does not have — so `isServerSide()` called it a server, and the header would
     // have been added where CORS forbids it, producing exactly the opaque failure
-    // this change exists to avoid. The guard asks about CORS instead.
+    // this change exists to avoid. The guard asks about CORS instead, so a worker
+    // takes the browser route: array body, credential in the query string.
     const scope = globalThis as { WorkerGlobalScope?: unknown }
     const original = scope.WorkerGlobalScope
     scope.WorkerGlobalScope = function WorkerGlobalScope() {}
@@ -368,10 +458,11 @@ describe('the body of a v3 batch', () => {
 
       await b24.actions.v3.batch.make({ calls: COMMANDS })
 
-      const [, body, config] = post.mock.calls[0]!
-      expect(config).toBeUndefined()
-      expect(Array.isArray(body)).toBe(false)
-      expect((body as { auth?: string }).auth).toBe('ACCESS_TOKEN_PLACEHOLDER')
+      const [url, body, config] = post.mock.calls[0]!
+      expect((config as { headers?: Record<string, string> })?.headers?.Authorization).toBeUndefined()
+      expect(Array.isArray(body)).toBe(true)
+      expect(JSON.stringify(body)).not.toContain('ACCESS_TOKEN_PLACEHOLDER')
+      expect(String(url)).toContain('auth=ACCESS_TOKEN_PLACEHOLDER')
     } finally {
       if (typeof original === 'undefined') {
         delete scope.WorkerGlobalScope

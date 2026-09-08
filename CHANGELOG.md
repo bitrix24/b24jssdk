@@ -27,14 +27,18 @@
     `post/send` log line changes the same way. `AjaxError.requestInfo.params` does
     not — it has always carried the commands array.
 
-    **A frame app still cannot batch on v3.** The portal's CORS preflight allows
-    only `origin, content-type, accept`, so a browser cannot send the header; that
-    path is left exactly as it was, failing visibly with a 400 rather than opaquely
-    at the preflight. That half needs a portal-side change.
-
-    Verified against two portals, and end to end rather than by hand-built request:
-    `b24.actions.v3.batch.make` on a real `B24OAuth` succeeds, while the same build
-    driven as a browser reproduces the old rejection verbatim.
+    **In a browser the token goes in the query string.** The portal's CORS
+    preflight allows only `origin, content-type, accept`, so a browser cannot send
+    the header at all, and a v3 batch body is entirely commands with nowhere for a
+    credential — leaving the URL. `?auth=<token>` is appended on this one request
+    shape; the portal reads it through the same dictionary as a body `auth`, and it
+    costs nothing on a preflight the request is already making. This is the only
+    place the SDK puts an OAuth token in a URL: it is not visible to anyone who
+    could not already read it — in a frame app the token is in the page's own
+    JavaScript — but it does reach the portal's access log, which a body does not.
+    `B24Hook` appends nothing, its secret being in the URL path already. The day
+    `authorization` reaches the portal's allow-list, a browser takes the same header
+    path a server takes today.
 
 * **A list or tail walk whose cursor stops advancing now fails instead of running for ever.** When the server does not apply the page condition, the same full page keeps arriving and nothing in the loops noticed: the `restApi:v3` driver stops on a page *shorter* than the largest it has seen, the `restApi:v2` loops stop on `length < 50`, and a repeated full page is neither. The streaming helpers yielded the same rows for ever; the eager ones grew an array until the process died.
 

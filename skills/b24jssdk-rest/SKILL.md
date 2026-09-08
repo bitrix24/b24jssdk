@@ -40,6 +40,32 @@ There is no manual-pagination path any more — the list helpers page for you. T
 - **`callList` / `fetchList`** *emulate* a cursor on top of the `list` action by injecting a `[idField, '>', n]` condition into `filter` and forcing `order`. Works for any `*.list` method (v2 and v3).
 - **`callTail` / `fetchTail`** (v3 only) drive the server's *native* `tail` action via its `cursor: { field, value, order, limit }` parameter. Use these when a method publishes a `*.tail` endpoint. The cursor field must **not** appear in `filter` (the server rejects it), is auto-added to `select`, and `order: 'DESC'` requires an explicit `initialValue`.
 
+`filter` on v3 is the array form or a `FilterV3` logic group — never the v2 object dialect (`{ '>id': 100 }`), which the portal rejects on every v3 method. All four walkers refuse it client-side. `callList` / `fetchList` additionally require an **array**, because they extend it with the page condition, and throw `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`; `callTail` / `fetchTail` forward `filter` untouched, so a bare group is fine there and only the v2 dialect throws — `JSSDK_ACTION_V3_TAIL_FILTER_INVALID`.
+
+All of them — and the two `restApi:v2` list walkers — also throw `JSSDK_ACTION_CURSOR_STALLED` when a full page comes back and the cursor read from it equals the one just sent. That means the page condition was dropped, so the walk can never end; it rejects rather than collecting the same page for ever.
+
+```ts
+import { B24Hook, FilterV3 } from '@bitrix24/b24jssdk'
+
+const b24 = B24Hook.fromWebhookUrl('https://your-portal.bitrix24.ru/rest/1/SECRET')
+
+// list: the page condition is appended to `filter`, so wrap the group
+await b24.actions.v3.callList.make({
+  method: 'main.eventlog.list',
+  params: { select: ['id'], filter: [FilterV3.or(['severity', '=', 'ERROR'])] },
+  idKey: 'id',
+  customKeyForResult: 'items'
+})
+
+// tail: `filter` is forwarded verbatim, so a bare group is accepted as-is
+await b24.actions.v3.callTail.make({
+  method: 'main.eventlog.tail',
+  cursorField: 'id', // must NOT appear in `filter` — the SDK warns if it does
+  params: { select: ['id'], filter: FilterV3.or(['severity', '=', 'ERROR']) },
+  customKeyForResult: 'items'
+})
+```
+
 ## `call.make` — single call
 
 ```ts
@@ -314,7 +340,7 @@ const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
 
 **The rule the defaults come from: `restApi:v3` field names are camelCase, `restApi:v2` names are UPPER_SNAKE.** Measured across 108 descriptors from two entities (`tasks.task` 95, `main.eventlog` 13) — not one v3 name starts with an uppercase letter. That is why `idKey` defaults to `'id'` on v3 and `'ID'` on v2, and it is a rule rather than a per-method quirk: expect it to hold for the next method too.
 
-`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method spells the id one way in the request and another in the response — `tasks.task.list` **on v2** is the known case (request `ID`, response `id`), and without the override the cursor reads a field that is not there, never advances, and repeats the first page for ever. On the **v3** endpoint the same method is all-lowercase (`id` both ways, rows under `result.items`), so no override is needed.
+`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method spells the id one way in the request and another in the response — `tasks.task.list` **on v2** is the known case (request `ID`, response `id`), and it breaks in two different ways depending on which half you get wrong. Leave `idKey` at its default `'ID'` and the cursor reads a field the response does not carry: the walk warns and stops after the first 50 rows. Set `idKey: 'id'` but leave `cursorIdKey` defaulting to it and the opposite happens — the read works, but the request filters on `>id`, which the method ignores, so the same page returns for ever; that one now throws `JSSDK_ACTION_CURSOR_STALLED` instead of hanging. Set both. On the **v3** endpoint the same method is all-lowercase (`id` both ways, rows under `result.items`), so no override is needed.
 
 Ask the portal rather than guess: **`<entity>.field.list`** returns every field with `type`, `filterable`, `sortable`, `editable` and `requiredGroups`, under `result.items`; `<entity>.field.get` returns one, under `result.item`. Both take an optional `select` that narrows the descriptor keys. A v3 field without `Filterable` / `Sortable` is **refused**, not ignored — `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` with the offending name in `validation[].field`. On the portal measured, `tasks.task` exposes exactly one filterable field: `id`.
 
@@ -481,7 +507,8 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.
 - ❌ `customKeyForResult: 'result'` for `crm.item.list` — wrong, use `'items'`. Otherwise you'll get an empty list silently.
 - ❌ `idKey: 'ID'` for `crm.item.list` — wrong, use `'id'`. The classic `crm.deal.list` is the opposite.
-- ❌ `idKey: 'ID'` alone for `tasks.task.list` — the response id is lowercase `id`, so the cursor can't read it and paging silently stops after 50. Use `idKey: 'id', cursorIdKey: 'ID'`.
+- ❌ `idKey: 'ID'` alone for `tasks.task.list` — the response id is lowercase `id`, so the cursor can't read it and paging warns and stops after 50. Use `idKey: 'id', cursorIdKey: 'ID'`.
+- ❌ `idKey: 'id'` alone for the same method — the read works but the request filters on `>id`, which the method ignores, so the same page repeats; throws `JSSDK_ACTION_CURSOR_STALLED`. Same fix: set both.
 - ❌ `Promise.all` over `callList.make` for parallel paging — internal cursor pagination is sequential by design; you'll get duplicates or skipped rows.
 - ❌ Hand-paging a v3 list method by the `nextCursor` it returns (e.g. `note.*`) — `callList` / `fetchList` page via their own `idKey` cursor and walk every page; `nextCursor` is informational and the SDK ignores it. Just use the list helpers with `idKey` + `customKeyForResult`.
 - ❌ `batch.make({ calls, isHaltOnError: false })` — batch flags at the top level are **not applied**. They belong under `options: { isHaltOnError, returnAjaxResult, requestId }`. TypeScript now rejects the literal and the SDK logs a warning for callers it cannot see, but nothing recovers the intent: `returnAjaxResult` dropped this way makes `entry.isSuccess` `undefined` on a plain object, so a batch where everything succeeded reads as a batch where everything failed (#426).

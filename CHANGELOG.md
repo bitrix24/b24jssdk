@@ -4,6 +4,20 @@
 
 ### Bug Fixes
 
+* **A list or tail walk whose cursor stops advancing now fails instead of running for ever.** When the server does not apply the page condition, the same full page keeps arriving and nothing in the loops noticed: the `restApi:v3` driver stops on a page *shorter* than the largest it has seen, the `restApi:v2` loops stop on `length < 50`, and a repeated full page is neither. The streaming helpers yielded the same rows for ever; the eager ones grew an array until the process died.
+
+    Measured on `restApi:v2` `tasks.task.list` with `idKey: 'id'` and no `cursorIdKey`: three pages, 150 rows, 50 unique, the cursor reading 3 every time — the response spells the id lowercase while the filter accepts it uppercase, so `>id` matches nothing and is dropped. The two halves of that mistake fail in opposite ways: leave `idKey` at its default `'ID'` and the cursor cannot be read, so the walk warns and stops after 50 rows; set `idKey: 'id'` alone and the read works while the request condition is ignored. Only the second one used to hang.
+
+    `JSSDK_ACTION_CURSOR_STALLED` covers `callList` / `fetchList` on **both** API versions and `callTail` / `fetchTail` on v3, with the remedy written in each action's own vocabulary — the list walkers have `idKey` / `cursorIdKey`, the tail ones have `cursorField`.
+
+    **Worth knowing:** this **rejects** rather than resolving with a partial `Result`, so a `callList` / `callTail` that used to hang now needs a `try`/`catch`. For the list walkers everything collected at that point is page one repeated, and handing it back would return duplicates that read as data. `fetchList` / `fetchTail` have already yielded every page they read, the repeated one included, so a consumer that persisted them has to undo that. A `cursorField` naming an object- or array-valued field is now treated as no cursor at all — it takes the existing warn-and-stop path, because two distinct references are never equal and would have defeated the guard in exactly the case it exists for.
+
+* **`callTail` / `fetchTail` now refuse the `restApi:v2` object filter dialect before sending.** `{ '>id': 100 }` was forwarded to the portal, which answered "unknown filter condition" in wording that never names the dialect — one round trip later and with nothing to act on. A `FilterV3` logic group stays allowed there: those two forward `filter` untouched, and the portal accepts a bare group as the whole filter (measured). `callList` / `fetchList` still require an array, because they append the page condition to it — and when they see a group they now say so instead of reporting it as the v2 dialect.
+
+    Two codes rather than one: `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY` for the list walkers, where a non-array really is the fault, and the new `JSSDK_ACTION_V3_TAIL_FILTER_INVALID` for the tail ones, where a non-array is valid and only the v2 dialect is refused.
+
+    The cursor-field-in-`filter` warning now looks inside logic groups. It only ever inspected a top-level array of triples, so it saw nothing at all once a bare group became legal here, and had never seen a group nested in the array form.
+
 * **The log redactor no longer skips a response whose `result` is an array.** `redactSensitiveParams` began `if (!isPlainObject(params)) return params`, and that excludes arrays — so a credential key was masked inside an object and printed verbatim when it arrived on its own. `post/response` logs `response.data?.result`, and a `restApi:v3` batch answers with an array there, so every successful v3 batch wrote its response to the log unmasked. A bare string was skipped for the same reason, which meant a webhook secret in a URL path — the case v2.2.0 taught the redactor to mask — was missed whenever the URL was the whole value rather than a field inside one.
 
     The walker underneath always handled both shapes; only the entry point refused them. Nothing about which keys are masked, or how deep the walk goes, has changed.

@@ -2,6 +2,7 @@ import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../ty
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
 import { assertArrayFilter, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
+import { CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
 
 export type ActionCallListV3 = {
   method: string
@@ -124,7 +125,9 @@ export class CallListV3 extends AbstractAction {
           return Number.isFinite(value) ? value : null
         },
         noCursorWarning: `callList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`,
-        errorLabel: 'callFastListMethod'
+        errorLabel: 'callFastListMethod',
+        actionLabel: 'callList.make',
+        stalledCursorHint: CURSOR_STALLED_HINT_LIST
       })) {
         for (const item of page) {
           allItems.push(item)

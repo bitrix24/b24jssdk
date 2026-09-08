@@ -2,6 +2,7 @@ import type { TypeCallParams, TypeCallParamsV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
+import { cursorStalledError, CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
 
 export type ActionFetchListV2 = {
   method: string
@@ -140,6 +141,13 @@ export class FetchListV2 extends AbstractAction {
       const lastItem = resultData[resultData.length - 1] as Record<string, any>
       const cursorValue = lastItem ? Number.parseInt(lastItem[idKey], 10) : Number.NaN
       if (Number.isFinite(cursorValue)) {
+        // See the note in `v2/call-list.ts`: a full page whose last id equals
+        // the one already filtered on means `>idKey` was dropped, and the same
+        // page repeats for ever. Here the pages have already been yielded, so
+        // the consumer holds the duplicates — the error says so.
+        if (cursorValue === requestParams.filter[moreIdKey]) {
+          throw cursorStalledError('fetchList.make', CURSOR_STALLED_HINT_LIST)
+        }
         requestParams.filter[moreIdKey] = cursorValue
       } else {
         // A full page came back, yet no usable numeric cursor id could be read from

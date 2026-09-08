@@ -235,7 +235,7 @@ describe('AggregateV3', () => {
     await expect(new AggregateV3(b24, makeLogger()).make({
       method: 'x.aggregate',
       select: select as never
-    })).rejects.toMatchObject({ code: 'JSSDK_AGGREGATE_V3_INVALID_SELECT', status: 400 })
+    })).rejects.toMatchObject({ code: 'JSSDK_AGGREGATE_V3_EMPTY_SELECT', status: 400 })
     expect(calls).toHaveLength(0)
   })
 

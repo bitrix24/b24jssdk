@@ -153,7 +153,7 @@ export class AggregateV3 extends AbstractAction {
     // handles properly: 400 with `validation: [{ field: 'select' }]`.)
     if (columns === 0) {
       throw new SdkError({
-        code: 'JSSDK_AGGREGATE_V3_INVALID_SELECT',
+        code: 'JSSDK_AGGREGATE_V3_EMPTY_SELECT',
         description: 'AggregateV3: `select` names no field to aggregate, e.g. { count: [\'id\'] }. The portal answers such a request with a 500 that says nothing, so it is refused here.',
         status: 400
       })

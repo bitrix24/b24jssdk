@@ -4,6 +4,21 @@
 
 ### Bug Fixes
 
+* **`B24OAuth` no longer builds request URLs with a double slash.** The portal
+  sends `client_endpoint` with a trailing slash — `https://<portal>/rest/` — and
+  every consumer appended its own separator, so the slash survived into the
+  request twice: `…/rest//profile` on `restApi:v2`, `…/rest//api/batch` on v3.
+  Measured on a live portal, both spellings answer identically, so nothing was
+  broken by it — but the URL reaches access logs, proxy and WAF path rules, and
+  anything a caller matches on.
+
+    The half that could bite is `getTargetOrigin()`. It took the REST root off
+    with `replace('/rest/', '')`, which matches only the trailing-slash spelling,
+    so an endpoint arriving without one would have returned
+    `https://<portal>/rest` where the caller asked for the portal. Both endpoints
+    are now normalised once, and the root is stripped with an anchored match — a
+    portal named `rest-team` keeps its name.
+
 * **A `restApi:v3` batch no longer sends the OAuth token as one of its commands.**
   On v3 the commands are the request body — a bare array, no envelope — but
   `_prepareParams` spread that array into `{ '0': …, '1': … }` and then added the
@@ -27,14 +42,24 @@
     `post/send` log line changes the same way. `AjaxError.requestInfo.params` does
     not — it has always carried the commands array.
 
-    **A frame app still cannot batch on v3.** The portal's CORS preflight allows
-    only `origin, content-type, accept`, so a browser cannot send the header; that
-    path is left exactly as it was, failing visibly with a 400 rather than opaquely
-    at the preflight. That half needs a portal-side change.
+    **In a browser the token goes in the query string.** The portal's CORS
+    preflight allows only `origin, content-type, accept`, so a browser cannot send
+    the header at all, and a v3 batch body is entirely commands with nowhere for a
+    credential — leaving the URL. `?auth=<token>` is appended on this one request
+    shape; the portal reads it through the same dictionary as a body `auth`, and it
+    costs nothing on a preflight the request is already making. This is the only
+    place the SDK puts an OAuth token in a URL: it is not visible to anyone who
+    could not already read it — in a frame app the token is in the page's own
+    JavaScript — but it does reach the portal's access log, which a body does not.
+    `B24Hook` appends nothing, its secret being in the URL path already. The day
+    `authorization` reaches the portal's allow-list, a browser takes the same header
+    path a server takes today.
 
-    Verified against two portals, and end to end rather than by hand-built request:
-    `b24.actions.v3.batch.make` on a real `B24OAuth` succeeds, while the same build
-    driven as a browser reproduces the old rejection verbatim.
+    Unlike the transport change above, this one carries **no** `BREAKING CHANGE`
+    marker, and the difference is deliberate: a v3 batch from a browser never
+    worked, so nothing that worked before changes shape. The array body and the
+    header did change a request that worked — a webhook batch — which is why that
+    half is marked and this half is not.
 
 * **A list or tail walk whose cursor stops advancing now fails instead of running for ever.** When the server does not apply the page condition, the same full page keeps arriving and nothing in the loops noticed: the `restApi:v3` driver stops on a page *shorter* than the largest it has seen, the `restApi:v2` loops stop on `length < 50`, and a repeated full page is neither. The streaming helpers yielded the same rows for ever; the eager ones grew an array until the process died.
 

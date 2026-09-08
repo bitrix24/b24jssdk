@@ -42,9 +42,27 @@ export class AuthOAuthManager implements AuthActions {
       .replaceAll('http://', '')
       .replace(/:(80|443)$/, '')
 
-    this.#b24TargetRest = this.#authOptions.clientEndpoint
-    this.#b24Target = this.#b24TargetRest.replace('/rest/', '')
-    this.#oAuthTarget = this.#authOptions.serverEndpoint.replace('/rest/', '')
+    // `client_endpoint` arrives from the portal **with** a trailing slash —
+    // `https://<portal>/rest/` — and every consumer of this value appends its
+    // own separator, so keeping it produced a double slash on both versions:
+    // `…/rest//profile` on v2 and `…/rest//api/batch` on v3. The portal tolerates
+    // it (measured: identical answers either way), so nothing was broken — but it
+    // reaches access logs, proxy path rules and anything matching on the URL, and
+    // it is one character to stop emitting.
+    //
+    // Normalised here rather than at each use so the two derived values below,
+    // and both entries of the version map, are built from one shape.
+    this.#b24TargetRest = this.#authOptions.clientEndpoint.replace(/\/+$/, '')
+    // Anchored, and reading a value that no longer ends in a slash. The previous
+    // `replace('/rest/', '')` matched only the trailing-slash spelling: had the
+    // portal ever sent `client_endpoint` without one, `getTargetOrigin()` would
+    // have returned `https://<portal>/rest` — the REST root where the caller
+    // asked for the portal.
+    this.#b24Target = this.#b24TargetRest.replace(/\/rest$/, '')
+    // Same shape, same reasoning as `clientEndpoint` above: strip any trailing
+    // slash first, then take the REST root off the end with an anchored match,
+    // so both spellings of the input give the same origin.
+    this.#oAuthTarget = this.#authOptions.serverEndpoint.replace(/\/+$/, '').replace(/\/rest$/, '')
     this.#authExpires = this.#authOptions.expires * 1_000
     this.#authExpiresIn = this.#authOptions.expiresIn
 

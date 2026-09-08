@@ -637,7 +637,7 @@ export abstract class AbstractHttp implements TypeHttp {
   }
 
   protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData, requestConfig?: AxiosRequestConfig): Promise<AjaxResponse<T>> {
-    const methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
+    let methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
 
     // A `restApi:v3` batch sends its commands AS the request body — a bare
     // top-level array, no envelope (see `HttpV3.batch`). Everything else sends an
@@ -658,9 +658,27 @@ export abstract class AbstractHttp implements TypeHttp {
     // 3. A non-hook transport **where CORS applies** cannot use that header: the
     //    portal answers the preflight with `Access-Control-Allow-Headers: origin,
     //    content-type, accept` (`CRestUtil::sendHeaders()`), so asking for
-    //    `Authorization` fails the preflight and the request never leaves. That
-    //    would trade a diagnosable 400 for an opaque network error, so such a
-    //    caller keeps the body it had — and the 400 it had with it.
+    //    `Authorization` fails the preflight and the request never leaves. The
+    //    credential goes in the **query string** instead — `?auth=<token>`,
+    //    which the portal reads through the same dictionary as a body `auth`
+    //    (`CRestUtil::getRequestData()` merges GET and POST with
+    //    `array_replace`, so `getAuthKey()` cannot tell the two apart). Measured
+    //    accepted on a live portal. A query parameter costs nothing on a
+    //    preflight the request is already making for its `Content-Type`.
+    //
+    //    This is the one place the SDK puts an OAuth token in a URL, so the
+    //    reasoning is worth keeping: in a frame app the token is in the page's
+    //    JavaScript already — devtools, the body of every non-batch call — so
+    //    the query string reveals it to nobody who could not already read it.
+    //    What it does add is a server-side record: `?auth=` reaches the portal's
+    //    access log and, when an administrator switches the module's diagnostic
+    //    logger on, its `REQUEST_URI` field. That was weighed and accepted; the
+    //    alternative was leaving every browser app unable to batch on v3 at all,
+    //    since this SDK is the only official one that runs in a browser.
+    //
+    //    Delete this branch the day `authorization` appears in the portal's
+    //    `Access-Control-Allow-Headers` — then a browser takes the same header
+    //    path as a server and nothing else here needs to change.
     //
     // Case 3 asks about CORS rather than about "is this a server", because those
     // are not the same question and `isServerSide()` answers the wrong one: it is
@@ -699,7 +717,31 @@ export abstract class AbstractHttp implements TypeHttp {
     // the body fallback at least fails the way this transport already fails.
     const hasAccessToken = 'string' === typeof authData.access_token && authData.access_token.trim().length > 0
     const canSendAuthHeader = isBareArrayBody && !isHook && hasAccessToken && !isCorsEnforcedRuntime()
-    const sendBareArray = isBareArrayBody && (isHook || canSendAuthHeader)
+    // Same conditions as the header, on the other side of the CORS question: a
+    // browser cannot send `Authorization`, so the token rides in the query
+    // string. A hook is excluded for the same reason it is excluded above — its
+    // credential is already in the URL path, and `_prepareParams` skips it.
+    //
+    // This branch takes `maxRedirects: 0` as well, for a narrower reason than
+    // the header does. A credential in a query string does not follow a redirect
+    // the way a header does: `follow-redirects` re-sends `Authorization` to a
+    // same-host or subdomain hop, whereas a redirect target is whatever
+    // `Location` names and carries the original query only if the server echoes
+    // it back. Some do — an nginx or Apache rule built from `$request_uri` on a
+    // scheme or trailing-slash hop preserves the query string, and the hop is
+    // then a token handed to whatever serves the target.
+    //
+    // Whether the option bites depends on the adapter, and that is not decided
+    // by "is this a browser". `getAdapter()` walks the default
+    // `['xhr', 'http', 'fetch']` and takes the first *supported* entry. XHR is
+    // supported wherever `XMLHttpRequest` exists — a window, a dedicated worker,
+    // a shared worker — and the XHR adapter ignores `maxRedirects` outright. A
+    // **service worker** has no `XMLHttpRequest`, so the list falls through
+    // `http` (Node only) to `fetch`, and the fetch adapter does read it, as
+    // `redirect: 'manual'`. Inert on the common path, load-bearing on that one:
+    // reason enough to set it rather than reason to leave it out.
+    const useQueryAuth = isBareArrayBody && !isHook && hasAccessToken && isCorsEnforcedRuntime()
+    const sendBareArray = isBareArrayBody && (isHook || canSendAuthHeader || useQueryAuth)
 
     const paramsFormatted = sendBareArray
       ? params as unknown as TypePrepareParams
@@ -721,8 +763,10 @@ export abstract class AbstractHttp implements TypeHttp {
     // be load-bearing for someone. This branch is different: it is reached only
     // by a v3 batch on a non-hook transport, which fails on every portal today —
     // there is no working behaviour here to preserve. A deployment that does
-    // redirect gets a legible 301 through `validateStatus` instead of a silent
-    // hop with a bearer token attached.
+    // redirect gets a rejection through `validateStatus` instead of a silent hop
+    // with a credential attached — as a legible 301 on the Node adapter, and as
+    // an opaque `status: 0` on `fetch`, where `redirect: 'manual'` is what
+    // `maxRedirects: 0` becomes and the response carries no status of its own.
     //
     // Before the spread, not after, so it is a default rather than a lock: a
     // transport that overrides `_prepareRequestConfig` — `HttpV2` already does —
@@ -738,7 +782,9 @@ export abstract class AbstractHttp implements TypeHttp {
             Authorization: `Bearer ${authData.access_token}`
           }
         }
-      : requestConfig
+      : useQueryAuth
+        ? { maxRedirects: 0, ...requestConfig }
+        : requestConfig
 
     // `paramsFormatted` carries the OAuth `auth` (access_token) for non-hook flows;
     // log a redacted copy so the secret never enters logger context, while axios
@@ -758,6 +804,14 @@ export abstract class AbstractHttp implements TypeHttp {
         params: truncateForLog(paramsFormattedForLog)
       }
     ).catch(() => {})
+
+    if (useQueryAuth) {
+      // `_prepareMethod` always emits a query string for a `batch` (the `task.`
+      // carve-out cannot match it), so a separator is not in question — but ask
+      // rather than assume, since that carve-out is one regex away from moving.
+      const separator = methodFormatted.includes('?') ? '&' : '?'
+      methodFormatted += `${separator}auth=${encodeURIComponent(authData.access_token)}`
+    }
 
     const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted, effectiveConfig)
 

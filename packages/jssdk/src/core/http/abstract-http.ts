@@ -763,8 +763,10 @@ export abstract class AbstractHttp implements TypeHttp {
     // be load-bearing for someone. This branch is different: it is reached only
     // by a v3 batch on a non-hook transport, which fails on every portal today —
     // there is no working behaviour here to preserve. A deployment that does
-    // redirect gets a legible 301 through `validateStatus` instead of a silent
-    // hop with a bearer token attached.
+    // redirect gets a rejection through `validateStatus` instead of a silent hop
+    // with a credential attached — as a legible 301 on the Node adapter, and as
+    // an opaque `status: 0` on `fetch`, where `redirect: 'manual'` is what
+    // `maxRedirects: 0` becomes and the response carries no status of its own.
     //
     // Before the spread, not after, so it is a default rather than a lock: a
     // transport that overrides `_prepareRequestConfig` — `HttpV2` already does —

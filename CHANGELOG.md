@@ -4,6 +4,21 @@
 
 ### Bug Fixes
 
+* **`B24OAuth` no longer builds request URLs with a double slash.** The portal
+  sends `client_endpoint` with a trailing slash — `https://<portal>/rest/` — and
+  every consumer appended its own separator, so the slash survived into the
+  request twice: `…/rest//profile` on `restApi:v2`, `…/rest//api/batch` on v3.
+  Measured on a live portal, both spellings answer identically, so nothing was
+  broken by it — but the URL reaches access logs, proxy and WAF path rules, and
+  anything a caller matches on.
+
+    The half that could bite is `getTargetOrigin()`. It took the REST root off
+    with `replace('/rest/', '')`, which matches only the trailing-slash spelling,
+    so an endpoint arriving without one would have returned
+    `https://<portal>/rest` where the caller asked for the portal. Both endpoints
+    are now normalised once, and the root is stripped with an anchored match — a
+    portal named `rest-team` keeps its name.
+
 * **A `restApi:v3` batch no longer sends the OAuth token as one of its commands.**
   On v3 the commands are the request body — a bare array, no envelope — but
   `_prepareParams` spread that array into `{ '0': …, '1': … }` and then added the

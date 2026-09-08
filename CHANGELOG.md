@@ -4,6 +4,63 @@
 
 ### Bug Fixes
 
+* **`B24OAuth` no longer builds request URLs with a double slash.** The portal
+  sends `client_endpoint` with a trailing slash — `https://<portal>/rest/` — and
+  every consumer appended its own separator, so the slash survived into the
+  request twice: `…/rest//profile` on `restApi:v2`, `…/rest//api/batch` on v3.
+  Measured on a live portal, both spellings answer identically, so nothing was
+  broken by it — but the URL reaches access logs, proxy and WAF path rules, and
+  anything a caller matches on.
+
+    The half that could bite is `getTargetOrigin()`. It took the REST root off
+    with `replace('/rest/', '')`, which matches only the trailing-slash spelling,
+    so an endpoint arriving without one would have returned
+    `https://<portal>/rest` where the caller asked for the portal. Both endpoints
+    are now normalised once, and the root is stripped with an anchored match — a
+    portal named `rest-team` keeps its name.
+
+* **A `restApi:v3` batch no longer sends the OAuth token as one of its commands.**
+  On v3 the commands are the request body — a bare array, no envelope — but
+  `_prepareParams` spread that array into `{ '0': …, '1': … }` and then added the
+  access token as one more top-level entry. The portal reads every top-level entry
+  of a batch body as a command and requires `method` and `query` on each, so that
+  entry rejected the whole batch with `INVALIDSELECTEXCEPTION` before a single
+  command ran. Every `B24OAuth` v3 batch failed this way; a webhook survived only
+  because PHP cannot tell a list from a map with sequential integer keys.
+
+    The commands now go out as the array the portal's grammar describes, and
+    outside a CORS-enforcing runtime the token travels in `Authorization: Bearer`,
+    merged into the per-request config so a caller's own `Idempotency-Key` survives
+    beside it. A second victim of the same rule is fixed with it: a command written
+    without `params` went out with no `query` key at all, which is refused under the
+    same code and takes the rest of the batch with it.
+
+    **Worth knowing:** the request body changes shape for **every** transport,
+    `B24Hook` included, even though a webhook batch already worked. A proxy, a WAF
+    rule, a recorded HTTP fixture or a request-log assertion sees `[{…},{…}]` where
+    it saw `{"0":{…},"1":{…}}`, plus a header it has not seen before. The
+    `post/send` log line changes the same way. `AjaxError.requestInfo.params` does
+    not — it has always carried the commands array.
+
+    **In a browser the token goes in the query string.** The portal's CORS
+    preflight allows only `origin, content-type, accept`, so a browser cannot send
+    the header at all, and a v3 batch body is entirely commands with nowhere for a
+    credential — leaving the URL. `?auth=<token>` is appended on this one request
+    shape; the portal reads it through the same dictionary as a body `auth`, and it
+    costs nothing on a preflight the request is already making. This is the only
+    place the SDK puts an OAuth token in a URL: it is not visible to anyone who
+    could not already read it — in a frame app the token is in the page's own
+    JavaScript — but it does reach the portal's access log, which a body does not.
+    `B24Hook` appends nothing, its secret being in the URL path already. The day
+    `authorization` reaches the portal's allow-list, a browser takes the same header
+    path a server takes today.
+
+    Unlike the transport change above, this one carries **no** `BREAKING CHANGE`
+    marker, and the difference is deliberate: a v3 batch from a browser never
+    worked, so nothing that worked before changes shape. The array body and the
+    header did change a request that worked — a webhook batch — which is why that
+    half is marked and this half is not.
+
 * **A list or tail walk whose cursor stops advancing now fails instead of running for ever.** When the server does not apply the page condition, the same full page keeps arriving and nothing in the loops noticed: the `restApi:v3` driver stops on a page *shorter* than the largest it has seen, the `restApi:v2` loops stop on `length < 50`, and a repeated full page is neither. The streaming helpers yielded the same rows for ever; the eager ones grew an array until the process died.
 
     Measured on `restApi:v2` `tasks.task.list` with `idKey: 'id'` and no `cursorIdKey`: three pages, 150 rows, 50 unique, the cursor reading 3 every time — the response spells the id lowercase while the filter accepts it uppercase, so `>id` matches nothing and is dropped. The two halves of that mistake fail in opposite ways: leave `idKey` at its default `'ID'` and the cursor cannot be read, so the walk warns and stops after 50 rows; set `idKey: 'id'` alone and the read works while the request condition is ignored. Only the second one used to hang.
@@ -43,6 +100,47 @@
     It shows up there because the redactor runs over response bodies as well as over the params you sent, and a portal method can return such a URL: `rest.deferredbatch.downloadresult` answers with a `downloadUrl` built from the calling webhook. The secret segment is masked now; the host and the user id stay readable, so the line is still useful for debugging.
 
     Applies to `B24Hook` with a logger wired at `info`. Matching is case-insensitive and covers both API versions.
+
+### Changed
+
+* **`AggregateResultV3` values are `string | number | null`, not `number`.**
+  `AggregateV3` is `@experimental`, so this is a correction inside the `2.x`
+  line, not a breaking change — see the
+  [`@experimental` carve-out](RELEASING.md#versioning). It is also unlikely to
+  have broken anyone in practice: no shipped Bitrix24 module publishes an
+  `*.aggregate` action on any of four portals, so there is nothing on a real portal
+  to call. The contract was therefore measured against a module written for the
+  purpose, and the shipped type turned out to be wrong in three ways.
+
+    Values come back as **strings**: `count` as `'27'`, `avg` as `'14.0000'` with
+    the scale MySQL chose. Over a filter that matches no rows, `count` is `'0'`
+    while `sum`, `avg`, `min` and `max` are **`null`** — SQL aggregates over an
+    empty set are null, and only `count` has a zero. Both levels of the record are
+    now `Partial`: a function you did not ask for is absent, and a field key is
+    only there if the portal put it there.
+
+    The SDK does **not** convert. `Number()` is right for a count and wrong for a
+    money `sum` — `'12345.6700'` through a float is a rounding a ledger cannot
+    undo, and `Text.toNumber()` goes through `Number.parseFloat`, so it loses it
+    too. Convert deliberately, once you know which kind of number you are holding.
+
+    **What to change.** Anything doing arithmetic straight off the result:
+    `data.count.id + 1` now concatenates instead of adding, and a `?? 0` written
+    against a missing key does not catch an explicit `null`. Wrap the value in
+    `Text.toNumber()` for counts, or hand it to a decimal library for money.
+
+    A select naming no aggregate column at all (`{}`, `{ count: [] }`,
+    `{ count: {} }`) is now refused client-side with
+    `JSSDK_AGGREGATE_V3_EMPTY_SELECT`: the portal answers it with a bare 500 that
+    carries nothing to act on, after burning the whole retry budget on a request
+    that was never going to succeed. An empty list *beside* a non-empty one stays
+    allowed — measured, the portal answers it.
+
+    `AggregateV3` keeps its `@experimental` tag. The framework contract is now
+    pinned (`AggregateOrmActionTrait`, `OrmRepository::getAllWithAggregate()`),
+    but nothing in the product exercises it, so the first module to ship an
+    `*.aggregate` action may surface something no synthetic caller could. Pin a
+    version if you depend on the exact shape.
 
 ## [2.2.0](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.2.0) (2026-08-29)
 

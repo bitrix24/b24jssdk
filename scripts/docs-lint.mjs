@@ -236,7 +236,12 @@ export function checkFrontmatterLinkTargets(file, frontmatter, deps = {}) {
 // the snippet, and the ten *real* wrong names that gate found were fixed rather
 // than marked. Two of the six extended a marker that already existed for the
 // typecheck pass, so the marker count rose by four, not six.
-const CHECK_IGNORE_WARN_THRESHOLD = 57
+//
+// 57 -> 58 (#467): `some.entity.aggregate` in the 2.x migration page. There is
+// no real name to use instead — no shipped Bitrix24 module publishes an
+// `*.aggregate` action on any portal checked, which is the reason the action is
+// still `@experimental` and the reason the snippet needs a placeholder at all.
+const CHECK_IGNORE_WARN_THRESHOLD = 58
 
 function countCheckIgnoreMarkers(files) {
   let total = 0

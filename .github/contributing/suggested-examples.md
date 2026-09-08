@@ -38,9 +38,9 @@ Right now no recipe uses `batchByChunk.make`. The most natural example: import 5
 
 `crm.duplicate.findbycomm` is a one-call solution for "is this email/phone already a contact?". Comes up in every lead-import workflow.
 
-### 7. `actions.v3.aggregate.make` for analytics — **M** (once available in SDK)
+### 7. `actions.v3.aggregate.make` for analytics — **M** (blocked on a portal module)
 
-The v3 protocol supports aggregate functions (`sum`, `count`, `countDistinct`, etc.), but the SDK doesn't expose a typed `aggregate.make` action yet. When it lands, Recipe 1 (CRM analytics) becomes a one-call query instead of loading all deals into memory.
+The SDK exposes a typed `actions.v3.aggregate.make`, and its contract is measured — values come back as strings, and `null` over a filter that matched no rows. What is missing is a module to call it on: no shipped Bitrix24 module publishes an `*.aggregate` action yet. Once one does, Recipe 1 (CRM analytics) becomes a one-call query instead of loading all deals into memory.
 
 ## Lower-impact but useful
 
@@ -91,4 +91,4 @@ A table showing, for each common Bitrix24 method, whether to use `actions.v2.*` 
 1. **#3** — Vue/Nuxt frame boot template. Biggest remaining gap for in-frame app authors.
 2. **#5** — `batchByChunk.make` bulk import. Demonstrates a feature no recipe currently exercises.
 3. **#2** — Per-portal multi-tenant backend (builds on recipe 12).
-4. **#7** — `aggregate.make` (when SDK exposes the action).
+4. **#7** — `aggregate.make` (when a shipped module publishes an `*.aggregate` action).

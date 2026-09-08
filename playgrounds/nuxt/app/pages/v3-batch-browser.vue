@@ -22,7 +22,7 @@
  * design is meant to avoid.
  */
 import { onMounted, ref } from 'vue'
-import type { B24Frame } from '@bitrix24/b24jssdk'
+import type { B24Frame, BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
 import { ApiVersion, LoggerFactory } from '@bitrix24/b24jssdk'
 
 const { $initializeB24Frame } = useNuxtApp()
@@ -54,15 +54,18 @@ onMounted(async () => {
       return config
     })
 
-    // Two read-only commands. `user.current` needs only `user_brief`, which this
-    // playground already asks for; swap in anything your app has a scope for.
+    // Two read-only commands; swap in anything your app has a scope for.
+    //
+    // Typed rather than cast: `as never` compiles too, and would go on compiling
+    // if the command shape were ever mistyped, which is the opposite of what a
+    // check page is for.
+    const calls: BatchCommandsArrayUniversal = [
+      ['main.eventlog.list', { select: ['id'], pagination: { limit: 1 } }],
+      ['rest.scope.list', {}]
+    ]
+
     try {
-      const response = await $b24.actions.v3.batch.make({
-        calls: [
-          ['main.eventlog.list', { select: ['id'], pagination: { limit: 1 } }],
-          ['rest.scope.list', {}]
-        ] as never
-      })
+      const response = await $b24.actions.v3.batch.make({ calls })
 
       add('batch →', response.isSuccess ? 'OK' : 'FAILED')
 

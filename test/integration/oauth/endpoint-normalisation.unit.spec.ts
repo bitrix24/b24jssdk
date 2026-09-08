@@ -15,8 +15,9 @@
  *
  * `*.unit.spec.ts` — no real Bitrix24 portal required.
  */
-import { describe, it, expect } from 'vitest'
-import { ApiVersion } from '../../../packages/jssdk/src/'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import axios from 'axios'
+import { ApiVersion, B24OAuth } from '../../../packages/jssdk/src/'
 import { AuthOAuthManager } from '../../../packages/jssdk/src/oauth/auth'
 
 function manager(clientEndpoint: string, serverEndpoint = 'https://oauth.bitrix.info/rest/'): AuthOAuthManager {
@@ -37,6 +38,10 @@ function manager(clientEndpoint: string, serverEndpoint = 'https://oauth.bitrix.
 }
 
 describe('the OAuth endpoints are normalised once, not at each use', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   // The shape the portal actually sends.
   it('a trailing slash does not survive into the version map', () => {
     const paths = manager('https://example.bitrix24.com/rest/').getTargetOriginWithPath()
@@ -64,6 +69,99 @@ describe('the OAuth endpoints are normalised once, not at each use', () => {
       .toBe('https://example.bitrix24.com')
     expect(manager('https://example.bitrix24.com/rest').getTargetOrigin())
       .toBe('https://example.bitrix24.com')
+  })
+
+  it('normalises serverEndpoint too, where only the refresh client sees it', () => {
+    // The half that was untested, and it showed: this line was silently reverted
+    // by a stray edit and the whole `test/integration/oauth/` directory stayed
+    // green. `#oAuthTarget` feeds exactly one consumer — the `baseURL` of the
+    // token-refresh axios client — and every other spec in this directory mocks
+    // `axios.create` wholesale without ever looking at the config it was handed.
+    //
+    // So the assertion has to be on that argument. Reading the intermediate
+    // would prove nothing: the map is not where this value goes.
+    const created = vi.spyOn(axios, 'create')
+
+    for (const [given, expected] of [
+      ['https://oauth.bitrix.info/rest/', 'https://oauth.bitrix.info'],
+      ['https://oauth.bitrix.info/rest', 'https://oauth.bitrix.info'],
+      ['https://oauth.bitrix.info/', 'https://oauth.bitrix.info']
+    ] as Array<[string, string]>) {
+      created.mockClear()
+      manager('https://example.bitrix24.com/rest/', given)
+
+      expect(created).toHaveBeenCalled()
+      const config = created.mock.calls[0]![0] as { baseURL?: string }
+      expect(config.baseURL).toBe(expected)
+    }
+  })
+
+  it('strips every trailing slash, not just the last one', () => {
+    // `/\/$/` and `/\/+$/` are indistinguishable until an input carries two.
+    // A portal is unlikely to send `…/rest//`, but a caller assembling the
+    // options by hand can, and one slash left behind is the whole bug again.
+    const paths = manager('https://example.bitrix24.com/rest//').getTargetOriginWithPath()
+
+    expect(paths.get(ApiVersion.v2)).toBe('https://example.bitrix24.com/rest')
+    expect(paths.get(ApiVersion.v3)).toBe('https://example.bitrix24.com/rest/api')
+  })
+
+  it('the URL that actually goes out has one slash, on both versions', async () => {
+    // The map is an intermediate; the URL is the artefact, and only the URL
+    // shows the defect. `_prepareMethod` concatenates the base with a path that
+    // already starts with `/`, so a base keeping its trailing slash produced
+    // `…/rest//profile` — which nothing here would have seen while asserting on
+    // the map alone.
+    const b24 = new B24OAuth(
+      {
+        accessToken: 'ACCESS_TOKEN_PLACEHOLDER',
+        refreshToken: 'REFRESH_TOKEN_PLACEHOLDER',
+        expires: 2_000_000_000,
+        expiresIn: 3600,
+        domain: 'example.bitrix24.com',
+        memberId: 'member',
+        clientEndpoint: 'https://example.bitrix24.com/rest/',
+        serverEndpoint: 'https://oauth.bitrix.info/rest/',
+        status: 'L'
+      } as never,
+      { clientId: 'local.test', clientSecret: 'secret' } as never
+    )
+
+    const ok = {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as never,
+      data: {
+        result: {},
+        time: {
+          start: 0, finish: 0, duration: 0, processing: 0,
+          date_start: '1970-01-01T00:00:00+00:00',
+          date_finish: '1970-01-01T00:00:00+00:00'
+        }
+      }
+    }
+
+    try {
+      for (const [version, method, expected] of [
+        [ApiVersion.v2, 'profile', 'https://example.bitrix24.com/rest/profile'],
+        [ApiVersion.v3, 'main.eventlog.list', 'https://example.bitrix24.com/rest/api/main.eventlog.list']
+      ] as Array<[ApiVersion, string, string]>) {
+        const post = vi.spyOn(b24.getHttpClient(version).ajaxClient, 'post')
+          .mockResolvedValue(ok as never)
+
+        await b24.actions[ApiVersion.v2 === version ? 'v2' : 'v3'].call.make({ method, params: {} } as never)
+
+        const url = String(post.mock.calls[0]![0])
+        expect(url.startsWith(expected)).toBe(true)
+        // Said twice on purpose: the first assertion would still pass if a
+        // second slash appeared somewhere later in the path.
+        expect(url).not.toContain('//api')
+        expect(url.replace('https://', '')).not.toContain('//')
+      }
+    } finally {
+      b24.destroy()
+    }
   })
 
   it('does not eat a portal whose own name contains rest', () => {

@@ -280,6 +280,52 @@ describe('the body of a v3 batch', () => {
     }
   })
 
+  it('@apiV3 maxRedirects is a default, not a lock — on both branches', async () => {
+    // The comment beside it says "before the spread, not after, so it is a
+    // default rather than a lock". Nothing asserted that: moving the property
+    // after `...requestConfig` passed the whole file, on both branches, because
+    // no test ever supplied a `requestConfig` carrying its own `maxRedirects`.
+    //
+    // A transport overriding `_prepareRequestConfig` is the caller this exists
+    // for, so the check reaches the merge through the public `call()` — the only
+    // path that produces a real per-request config.
+    for (const asBrowser of [false, true]) {
+      const originalWindow = (globalThis as { window?: unknown }).window
+      if (asBrowser) {
+        ;(globalThis as { window?: unknown }).window = { document: {} }
+      }
+
+      try {
+        b24 = oauthClient()
+        const http = b24.getHttpClient(ApiVersion.v3)
+        const post = vi.spyOn(http.ajaxClient, 'post').mockResolvedValue(BATCH_OK as never)
+
+        // Stand in for a transport that returns its own `maxRedirects`.
+        const original = (http as unknown as {
+          _prepareRequestConfig: (...a: never[]) => unknown
+        })._prepareRequestConfig.bind(http)
+        ;(http as unknown as { _prepareRequestConfig: (...a: never[]) => unknown })
+          ._prepareRequestConfig = (...args: never[]) => ({
+            ...(original(...args) as object),
+            maxRedirects: 999
+          })
+
+        await http.call('batch', COMMANDS as never, 'redirect-override')
+
+        const config = post.mock.calls[0]![2] as { maxRedirects?: number }
+        expect(config?.maxRedirects).toBe(999)
+      } finally {
+        b24?.destroy()
+        b24 = null
+        if (typeof originalWindow === 'undefined') {
+          delete (globalThis as { window?: unknown }).window
+        } else {
+          ;(globalThis as { window?: unknown }).window = originalWindow
+        }
+      }
+    }
+  })
+
   it('@apiV3 a browser with no usable token appends nothing', async () => {
     // The `hasAccessToken` term of the query gate, which nothing distinguished:
     // the existing empty-token test never sets `window`, so it only ever runs the

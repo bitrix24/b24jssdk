@@ -110,8 +110,13 @@ async function boot() {
   })
   logger.info('items', { items: companies.getData().result })
 
-  // Batch (object syntax, with keys)
-  const batch: Result = await $b24.actions.v2.batch.make({
+  // Batch (object syntax, with keys). The generic names ONE command's payload;
+  // the result is keyed by command name, and the overloads work that out from
+  // the arguments. Since 3.0.0 `Result<T>` defaults to `unknown` rather than
+  // `any`, so reading a field off an un-narrowed result is a compile error —
+  // name the payload, as here.
+  type CompanyRow = { id: string, title: string, createdTime: string }
+  const batch = await $b24.actions.v2.batch.make<{ items: CompanyRow[] }>({
     calls: {
       CompanyList: {
         method: 'crm.item.list',
@@ -124,8 +129,10 @@ async function boot() {
     },
     options: { isHaltOnError: true }
   })
+  // No cast: `batch.make` is overloaded, so passing named commands without
+  // `returnAjaxResult` resolves to a record keyed by command name (#518).
   const data = batch.getData()
-  const list = (data.CompanyList.items || []).map((it: any) => ({
+  const list = (data?.CompanyList?.items ?? []).map(it => ({
     id: Number(it.id),
     title: it.title,
     createdTime: Text.toDateTime(it.createdTime as ISODate)

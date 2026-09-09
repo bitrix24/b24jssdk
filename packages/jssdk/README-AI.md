@@ -180,8 +180,9 @@ When you can’t bundle ESM, load the global B24Js from a CDN inside your iframe
               select: ['id', 'title', 'createdTime']
             }
           }
-        }
-      }, true)
+        },
+        options: { isHaltOnError: true }
+      })
 
       logger.info('data', { data: res.getData() })
     } catch (e) {

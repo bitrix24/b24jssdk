@@ -89,7 +89,21 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * The success payload as `{ result, time }`.
+   * The success payload as `{ result, time }` — those two keys, and no others.
+   *
+   * The `restApi:v2` envelope fields `next` and `total` are **not** carried
+   * through. Neither branch below copies them: both rebuild the payload from two
+   * named keys, so `getData()!.next` is `undefined` on a response that really
+   * did carry a next offset. Read them through the methods that exist for it —
+   * {@link AjaxResult.isMore} with {@link AjaxResult.getNext} for paging,
+   * {@link AjaxResult.getTotal} for the row count — or let
+   * `actions.v{2,3}.{callList,fetchList}` page for you. Under `restApi:v3` the
+   * portal sends neither field at all.
+   *
+   * Worth stating here because the Bitrix24 REST reference shows `next` in its
+   * response examples, so expecting it in the payload is the natural reading,
+   * and a hand-rolled loop that reads it stops after one page while looking like
+   * it worked (#482).
    *
    * A response whose body is **not an envelope** — anything but a plain object
    * with a `result` key — is wrapped: the whole body becomes `result`. Without

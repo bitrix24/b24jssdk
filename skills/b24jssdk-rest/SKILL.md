@@ -298,7 +298,7 @@ const items = response.getData()! // CrmItem[]
 
 > **`order` is ignored** by `callList.make`. The action forces `order: { [cursorIdKey]: 'ASC' }` for cursor stability and **logs a warning** when you pass an `order` (see the `order` warning in `actions/v2/call-list.ts`). Use `filter` to narrow results.
 
-### Bounding a walk — `maxPages`, `signal`, `progress`
+## Bounding a walk — `maxPages`, `signal`, `progress`
 
 All four walkers (`callList` / `fetchList` on both versions, `callTail` / `fetchTail` on v3) accept:
 
@@ -324,6 +324,29 @@ const response = await $b24.actions.v3.callList.make({
 ```
 
 The default ceiling does not replace `JSSDK_ACTION_CURSOR_STALLED`, which fires far earlier and says something more specific: the cursor came back equal to the one just sent. The ceiling catches what that guard cannot — a cursor that *moves* but never ends, including one cycling between values (#495).
+
+## On `restApi:v2`, conditions go in lowercase `filter` — never `FILTER`
+
+Applies to **both** `callList.make` and `fetchList.make`.
+
+They page by writing their own lowercase `filter`, `order` and `start`, and the portal keeps only the later of two top-level keys that differ by case. Older list methods (`user.get`, `task.item.list`, …) are *documented* with uppercase `FILTER` / `SORT` / `ORDER`, so following that documentation here is the mistake.
+
+```ts
+// ❌ conditions silently dropped — this returns every user, not employees.
+// Note there is no cast here: `TypeCallParams` carries an index signature, so
+// this type-checks. Nothing but the runtime warning catches it.
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { FILTER: { USER_TYPE: 'employee' } }, idKey: 'ID' })
+
+// ❌ worse — half-migrated. `FILTER` is now the later key, so it overwrites the
+// walker's own `>ID` cursor: the same page arrives for ever and the walk throws
+// JSSDK_ACTION_CURSOR_STALLED.
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { USER_TYPE: 'employee' }, FILTER: { ACTIVE: 'Y' } }, idKey: 'ID' })
+
+// ✅ moved across, uppercase key removed
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { USER_TYPE: 'employee', ACTIVE: 'Y' } }, idKey: 'ID' })
+```
+
+Measured on `user.get` with four users: `FILTER: { ID: 4 }` returns all four, `filter: { ID: 4 }` returns one. `SORT` is worse and louder — on `user.get` it makes the walker's own injected `order` fail the method's validation, so the request throws `ERROR_ARGUMENT` / *"Order must be a string"*. All of these are reported with a `warning` (#483), emitted through `LoggerFactory.forcedLog`, so it reaches `console.warn` even with the default logger. This is `restApi:v2` only; v3 has no uppercase contract — its parameters are camelCase and its `filter` is the array form.
 
 ## `fetchList.make` — large lists, streaming
 

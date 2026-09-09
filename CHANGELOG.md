@@ -4,6 +4,20 @@
 
 ### ⚠ BREAKING CHANGES
 
+* **Node 20 is no longer supported** (#312). `engines.node` moves from
+  `^20.0.0 || >=22.0.0` to `>=22.0.0` in both `@bitrix24/b24jssdk` and
+  `@bitrix24/b24jssdk-nuxt`.
+
+    Node 20 reached end-of-life on 2026-04-30 and no longer receives security
+    fixes. CI has tested only Node 22 and 24 for some time, so the `2.x` manifest
+    advertised a line nothing exercised; the matrix and the advertised floor now
+    agree.
+
+    On **Node 22 or newer** nothing changes. On **Node 20**, `npm install` prints
+    an `EBADENGINE` warning, and under `engine-strict=true` — pnpm's default
+    inside a workspace — the install fails outright. This is a packaging floor,
+    not an API change: no source has to change, only the Node version you run on.
+
 * **The deprecated legacy surface is removed** (#277). Marked `@deprecated` since
   `2.0.0` and carrying a `removalVersion: '3.0.0'` in every runtime warning, these
   symbols are now gone:

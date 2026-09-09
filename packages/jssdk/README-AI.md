@@ -274,7 +274,7 @@ for await (const chunk of $b24.actions.v2.fetchList.make({
 
 Notes
 
-- Supported Node versions: ^20 or >=22.
+- Supported Node versions: >=22. Node 20 was dropped in 3.0.0 (EOL 2026-04-30).
 - B24Hook warns if used on the client; keep it server-side.
 
 

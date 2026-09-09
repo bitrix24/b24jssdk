@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-09-08.</sub>
+<sub>Last reviewed: 2026-09-09.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -136,7 +136,7 @@ Three Vitest projects, defined in [vitest.config.ts](vitest.config.ts):
 - `jsSdk:integration` — `test/integration/**/*.spec.ts` (excluding `*.unit.spec.ts`), 30s timeouts, hits a real portal.
 - `jsSdk:underLoad` — `test/under-load/**.spec.ts`, sequential, 40-min timeouts.
 
-`jsSdk:integration` and `jsSdk:underLoad` load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — the underlying client constructor in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it. In tests, reach this client through `setupB24Tests()` from [test/0_setup/hooks-integration-jssdk.ts](test/0_setup/hooks-integration-jssdk.ts) — see [`.github/contributing/testing.md`](.github/contributing/testing.md) for the canonical pattern.
+`jsSdk:integration` and `jsSdk:underLoad` load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — the underlying client constructor in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it. **The environment outranks the file**: `dotenv` never overwrites a variable that is already set, so a `B24_HOOK` exported in your shell or inherited from a container wins over `.env.test`. That is deliberate — it keeps `B24_HOOK=… pnpm vitest` working — and since #506 the run prints one warning naming both hosts when the two disagree, instead of discarding the file in silence. In tests, reach this client through `setupB24Tests()` from [test/0_setup/hooks-integration-jssdk.ts](test/0_setup/hooks-integration-jssdk.ts) — see [`.github/contributing/testing.md`](.github/contributing/testing.md) for the canonical pattern.
 
 **Webhook scopes.** The webhook needs at minimum `crm`, `tasks`, `user`, `im`, and `main`. The `im` scope is required by the issue-23 regression spec (`im.chat.get` inside a batch); `main` is a non-obvious scope (not exposed in the standard webhook scope picker) required by the v3 batch-ref spec that calls `main.eventlog.list`. Add it manually.
 

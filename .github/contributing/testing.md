@@ -1,6 +1,6 @@
 # Testing
 
-<sub>Last reviewed: 2026-09-02.</sub>
+<sub>Last reviewed: 2026-09-09.</sub>
 
 > **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types, and their internals by `pnpm run skills:test`. Both install the recipes' own dependencies first — that directory is not a workspace member, so `express` / `grammy` / `node-cron` / `openai` live there rather than in the root manifest; see [README-DEPS.md](../../skills/b24jssdk-recipes/README-DEPS.md) for why. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
 
@@ -15,7 +15,7 @@ Defined in [vitest.config.ts](../../vitest.config.ts):
 | `jsSdk:integration` | `test/integration/**/*.spec.ts` | 30s test / 30s hook | parallel |
 | `jsSdk:underLoad` | `test/under-load/**.spec.ts` | 40 min test / 40 min hook | sequential, no file parallelism |
 
-Both projects load `.env.test` (gitignored) via `dotenv`.
+Both projects load `.env.test` (gitignored) via `dotenv`, from [test/0_setup/env-test-precedence.ts](../../test/0_setup/env-test-precedence.ts).
 
 ## Environment Setup
 
@@ -34,6 +34,22 @@ Both projects load `.env.test` (gitignored) via `dotenv`.
    **Never commit `.env.test` to version control.** It holds a real webhook secret. The file is listed in `.gitignore` — keep it that way and never modify the ignore rule.
 
 3. `setupB24Client()` in [test/0_setup/setup-integration-jssdk.ts](../../test/0_setup/setup-integration-jssdk.ts) throws if `B24_HOOK` is missing — that is the intended fast-fail.
+
+### Which `B24_HOOK` wins
+
+**The environment, not the file.** `dotenv` never overwrites a variable that is already set, so a `B24_HOOK` exported in your shell, baked into a container image or inherited from a CI job takes precedence over `.env.test`. The precedence is deliberate: `B24_HOOK=… pnpm vitest` has to keep working, and [`smoke-retry.yml`](../workflows/smoke-retry.yml) sets the variable from a repository secret on purpose.
+
+What is *not* deliberate is not noticing. Before #506 the file was read and its value discarded in silence, and the suite then ran against a portal nobody chose — whose answers read as findings rather than as a misconfiguration. A run now prints one warning when, and only when, the two sources disagree:
+
+```text
+[.env.test] B24_HOOK comes from the environment, not from the file.
+dotenv does not overwrite a variable that is already set, so the file's value is unused.
+  environment → env-portal.example.test
+  .env.test   → file-portal.example.test
+Unset B24_HOOK to use the file. Hosts only are shown here; the secret is not printed.
+```
+
+`unset B24_HOOK` in that shell to hand control back to the file. Hosts only appear in the message — the webhook secret is a path segment of the URL, and this text reaches terminals and CI logs.
 
 ### Webhook scopes
 

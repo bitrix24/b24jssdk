@@ -1,8 +1,12 @@
 import { defineConfig } from 'vitest/config'
-import dotenv from 'dotenv'
 import path from 'node:path'
+import { loadEnvTest } from './test/0_setup/env-test-precedence'
 
-dotenv.config({ quiet: true, path: path.resolve(__dirname, '.env.test') })
+// Loads `.env.test`, and says so when a `B24_HOOK` already in the environment
+// is shadowing the file — silently discarding it is how a suite ends up running
+// against a portal nobody chose (#506). Precedence is unchanged; see the
+// docblock in that module for why it stays that way.
+loadEnvTest(path.resolve(__dirname, '.env.test'))
 
 export default defineConfig({
   test: {

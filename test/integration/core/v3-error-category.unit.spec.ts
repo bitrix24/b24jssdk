@@ -27,7 +27,7 @@
  * run, so `isV3Envelope` is set on the error explicitly — which is also what
  * makes the flat-v2 arm meaningful.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { AxiosError } from 'axios'
 import { ApiVersion, B24Hook, ParamsFactory } from '../../../packages/jssdk/src/'
 import { HttpV2 } from '../../../packages/jssdk/src/core/http/v2'
@@ -80,6 +80,15 @@ function v3ErrorResponse(code: string, status: number) {
 }
 
 describe('#460 v3 errors classified by response category', () => {
+  // Two cases below spy on a live axios client. Without this, the stub outlives
+  // the case that installed it and reaches whatever the runner schedules next in
+  // the same file — a leak that only shows up in some orderings, which is the
+  // worst kind to debug. The sibling `restriction-params-merge.unit.spec.ts`
+  // already does this; #523 was the same class of bug one directory over.
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   describe('the envelope flag reaches the error through the real path', () => {
     // The cases below stub `_executeSingleCall`, so they never run
     // `parseErrorPayload`. These two do: without them, deleting

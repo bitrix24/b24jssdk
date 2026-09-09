@@ -4,6 +4,36 @@
 
 ### ⚠ BREAKING CHANGES
 
+* **`restApi:v3` errors are classified by response category, and the
+  `classifyV3ErrorsByCategory` parameter is gone** (#480, completing #460). An
+  error that arrived in the v3 error envelope carrying an HTTP **4xx other than
+  401, 408 or 429** is returned inside `AjaxResult` — soft — whatever its code.
+  Through the `2.x` line that was opt-in behind a restriction parameter which
+  defaulted to `false`; the parameter no longer exists.
+
+    Classification by list was really classification by module-shipping-date:
+    the built-in soft list holds nine v3 codes, one on-premise build was measured
+    to ship at least 39, and the set grows with every portal module. So
+    `INVALIDSELECTEXCEPTION` was soft while `INVALIDPAGINATIONEXCEPTION` — the
+    same caller mistake, same request, same HTTP 400 — threw.
+
+    **Two populations, and only one gets a compile error.** If you passed the
+    parameter, TypeScript now reports an unknown property: delete the line, the
+    behaviour you asked for is the default. **If you never passed it, nothing
+    fails to compile and the delivery of some v3 errors changes** — a `try` /
+    `catch` around a v3 call stops firing, control falls through into the success
+    path, and `getData()` is `undefined` there. Check `isSuccess`.
+
+    That check was already required for every code pinned soft — the nine
+    built-in v3 codes and anything in your own `softErrorCodes` — so a caller who
+    had it was already handling this path for some errors and now handles it for
+    more. **Nothing that was soft becomes thrown**; the change moves in one
+    direction only.
+
+    To keep one code throwing, pin it: `hardErrorCodes` is step 1 of the
+    classifier and the category rule is step 3, so a pinned code still throws.
+    See [Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/#behaviour-v3-errors-are-classified-by-response-category).
+
 * **`Result<T>` and `IResult<T>` default to `unknown` instead of `any`** (#279),
   and the same narrowing reaches `TypeCallParams`: its catch-all index signature
   is now `[key: string]: unknown`, the nested `params` field is
@@ -179,11 +209,11 @@
 
     The walker underneath always handled both shapes; only the entry point refused them. Nothing about which keys are masked, or how deep the walk goes, has changed.
 
-* **`setRestrictionManagerParams` no longer wipes the parameters you did not mention.** It replaced the whole configuration, so `setRestrictionManagerParams({ maxRetries: 5 })` after a deliberate setup left `hardErrorCodes`, `retryOnNetworkError` and `classifyV3ErrorsByCategory` at `undefined` — and `rateLimit` too, which then reached the rate limiter as `undefined` behind a non-null assertion. No error, nothing in the log; the next call simply ran under a policy nobody had chosen. It now replaces what you name and leaves the rest alone.
+* **`setRestrictionManagerParams` no longer wipes the parameters you did not mention.** It replaced the whole configuration, so `setRestrictionManagerParams({ maxRetries: 5 })` after a deliberate setup left `hardErrorCodes`, `softErrorCodes` and `retryOnNetworkError` at `undefined` — and `rateLimit` too, which then reached the rate limiter as `undefined` behind a non-null assertion. No error, nothing in the log; the next call simply ran under a policy nobody had chosen. It now replaces what you name and leaves the rest alone.
 
     The nested blocks — `rateLimit`, `operatingLimit`, `adaptiveConfig` — are replaced **whole** rather than merged field by field; their types have no optional fields, and a partial block arriving from JavaScript is now refused with `JSSDK_LIMITER_INVALID_CONFIG_BLOCK` instead of switching rate limiting off on a `NaN` interval. `getRestrictionManagerParams()` returns a copy, so reading the policy no longer hands out the limiter's live state.
 
-    **Worth knowing:** an omitted key and one set to `undefined` both mean "leave it alone", so clearing a value now takes an explicit one — `hardErrorCodes: []`. Spreading `...ParamsFactory.getDefault()` does not clear `hardErrorCodes` / `softErrorCodes` / `classifyV3ErrorsByCategory`, because the factory carries no such keys. And `b24.setRestrictionManagerParams()` no longer swallows a failure from one of its clients.
+    **Worth knowing:** an omitted key and one set to `undefined` both mean "leave it alone", so clearing a value now takes an explicit one — `hardErrorCodes: []`. Spreading `...ParamsFactory.getDefault()` does not clear `hardErrorCodes` / `softErrorCodes`, because the factory carries no such keys. And `b24.setRestrictionManagerParams()` no longer swallows a failure from one of its clients.
 
 * **A response body with no `result` key now reaches you instead of being dropped.** `AjaxResult.getData()` rebuilds the payload from two named keys, so a body carrying neither was projected away and a *successful* call handed back `{ result: undefined, time: undefined }`. Such a body is wrapped now: the whole body becomes `result`.
 

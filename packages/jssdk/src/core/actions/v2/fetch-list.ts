@@ -3,6 +3,7 @@ import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 import { cursorStalledError, CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
+import { warnOnShadowedUppercaseParams } from './_uppercase-list-params'
 
 export type ActionFetchListV2 = {
   method: string
@@ -32,7 +33,19 @@ export class FetchListV2 extends AbstractAction {
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
    *     - `params?: Omit<TypeCallParamsV2, 'start' | 'order'>` - Request parameters, excluding the `start` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
-   *         Note: Use `filter`, `order`, and `select` to control the selection.
+   *         Note: Use `filter` and `select` to control the selection. `order` is NOT one of
+   *         them — cursor paging must order by `cursorIdKey`, so a caller-supplied `order` is
+   *         stripped with a `warning` (it is `Omit`ted from the type for the same reason).
+   *         This line used to name `order` among them, which the code below has always
+   *         contradicted.
+   *
+   *         **Conditions go in lowercase `filter`.** This walker pages by writing its own
+   *         lowercase `filter` and `order`, and the portal keeps only the later of two keys that
+   *         differ by case — the injected one. So a method documented with uppercase `FILTER` /
+   *         `SORT` / `ORDER` needs its parameters brought to the lowercase shape first: passing
+   *         `FILTER` drops the conditions silently and returns rows they should have excluded,
+   *         and passing `SORT` fails the request outright. All three are reported with a
+   *         `warning` (#483).
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
    *         drives the cursor. Default is 'ID' (uppercase). For methods that return a lowercase /
    *         camelCase id (for example `tasks.task.list` returns `id`), set `idKey: 'id'`.
@@ -89,6 +102,8 @@ export class FetchListV2 extends AbstractAction {
     if ('order' in params && params['order']) {
       this._logger.warning('fetchList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by cursorIdKey. Use `filter` to narrow results instead.').catch(() => {})
     }
+
+    warnOnShadowedUppercaseParams('fetchList.make', params as TypeCallParams, this._logger)
 
     const moreIdKey = `>${cursorIdKey}`
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams

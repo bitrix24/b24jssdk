@@ -298,6 +298,20 @@ const items = response.getData()! // CrmItem[]
 
 > **`order` is ignored** by `callList.make`. The action forces `order: { [cursorIdKey]: 'ASC' }` for cursor stability and **logs a warning** when you pass an `order` (see the `order` warning in `actions/v2/call-list.ts`). Use `filter` to narrow results.
 
+### On `restApi:v2`, conditions go in lowercase `filter` — never `FILTER`
+
+`callList` / `fetchList` page by writing their own lowercase `filter` and `order`, and the portal keeps only the later of two keys that differ by case: the injected one. Older list methods (`user.get`, `task.item.list`, …) are *documented* with uppercase `FILTER` / `SORT` / `ORDER`, so following that documentation here is the mistake.
+
+```ts
+// ❌ conditions silently dropped — this returns every user, not employees
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { FILTER: { USER_TYPE: 'employee' } } as never, idKey: 'ID' })
+
+// ✅
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { USER_TYPE: 'employee' } }, idKey: 'ID' })
+```
+
+Measured on `user.get` with four users: `FILTER: { ID: 4 }` returns all four, `filter: { ID: 4 }` returns one. `SORT` is worse and louder — it makes the walker's own injected `order` fail the method's validation, so the request throws `ERROR_ARGUMENT` / *"Order must be a string"*. All three uppercase keys are reported with a `warning` (#483). This is `restApi:v2` only; v3 has no uppercase contract.
+
 ## `fetchList.make` — large lists, streaming
 
 Async iterator that yields chunks. Same shape as `callList.make` plus an optional `limit` for v3.

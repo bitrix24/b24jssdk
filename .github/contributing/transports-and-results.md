@@ -82,7 +82,7 @@ if (result.isMore()) {
 - Pass the http client (from `b24.getHttpClient(version)`) to `getNext()` — it preserves the same limiter stack.
 - Do **not** loop with raw `start` parameters; use `isMore()` + `getNext()`.
 - **v3 does not support `getNext()`** — it throws `restApi:v3 not support method getNext`. For v3 pagination use `b24.actions.v3.callList.make()` or `b24.actions.v3.fetchList.make()` instead.
-- The legacy shortcuts on `AbstractB24` (`b24.callMethod`, `callListMethod`, `fetchListMethod`, `callBatch`, `callBatchByChunk`) are `@deprecated` and emit a runtime warning. Do not use them in new code; see the `@removed` tag on each method in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) for the target removal version.
+- The legacy shortcuts on `AbstractB24` (`b24.callMethod`, `callListMethod`, `fetchListMethod`, `callBatch`, `callBatchByChunk`) were **removed in 3.0.0** (#277). Use `b24.actions.v{2,3}.*.make(options)`; see the [migration guide](../../docs/content/docs/1.getting-started/3.migration/2.v3.md).
 
 ## Error Types
 

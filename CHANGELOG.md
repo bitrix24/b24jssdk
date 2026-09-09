@@ -2,6 +2,48 @@
 
 ## [Unreleased]
 
+### ⚠ BREAKING CHANGES
+
+* **The deprecated legacy surface is removed** (#277). Marked `@deprecated` since
+  `2.0.0` and carrying a `removalVersion: '3.0.0'` in every runtime warning, these
+  symbols are now gone:
+
+    | Removed | Replacement |
+    | --- | --- |
+    | `b24.callMethod(method, params, start)` | `b24.actions.v{2,3}.call.make(options)` |
+    | `b24.callListMethod(method, params, progress, customKeyForResult)` | `b24.actions.v{2,3}.callList.make(options)` — **not a drop-in** |
+    | `b24.fetchListMethod(method, params, idKey, customKeyForResult)` | `b24.actions.v{2,3}.fetchList.make(options)` |
+    | `b24.callBatch(calls, isHaltOnError, returnAjaxResult)` | `b24.actions.v{2,3}.batch.make(options)` |
+    | `b24.callBatchByChunk(calls, isHaltOnError)` | `b24.actions.v{2,3}.batchByChunk.make(options)` |
+    | `AbstractB24.batchSize` | inline `50` |
+    | `LoggerBrowser` | `LoggerFactory.createForBrowser(title, isDev)` |
+    | `LoggerType` | no replacement — drop the import, `LoggerFactory` manages levels |
+
+    The same five methods leave the `TypeB24` interface, and `LoggerBrowser` /
+    `LoggerType` leave the package's public exports (96 value exports → 94).
+
+    **Read the migration guide before upgrading:**
+    [Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/).
+    Four of the five methods are a mechanical swap. **`callListMethod` is not** —
+    it carried its own offset-paging loop, and the replacement pages by cursor, so
+    three things change: there is no `progress` callback, a caller-supplied `order`
+    is not accepted, and the `idKey` / `cursorIdKey` pair now has to match the
+    method. The guide has a worked rewrite for each.
+
+    **How to find your call sites.** Through `2.x` these symbols announced
+    themselves with a `JSSDK_CORE_DEPRECATED_METHOD` warning on every call; that
+    warning is gone with them. TypeScript now reports each call site as an error,
+    which is the good case — plain JavaScript fails at run time with
+    `is not a function` instead. Grep before you upgrade:
+
+    ```
+    grep -rnE 'callMethod|callListMethod|fetchListMethod|callBatch|callBatchByChunk|LoggerBrowser|LoggerType' src
+    ```
+
+    **Not removed:** the `AjaxResult` paging members `isMore()`, `hasMore()`,
+    `getTotal()`, `getNext()` and `fetchNext()`. They were once on this list; that
+    plan was withdrawn in #408 and they stay for as long as `restApi:v2` does.
+
 ### Bug Fixes
 
 * **`B24OAuth` no longer builds request URLs with a double slash.** The portal

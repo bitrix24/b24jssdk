@@ -107,7 +107,7 @@ export class FetchListV2 extends AbstractAction {
       })
 
       if (!response.isSuccess) {
-        this._logger.error('fetchListMethod', {
+        this._logger.error('fetchList.make', {
           method: options.method,
           requestId: options.requestId,
           messages: response.getErrorMessages()

@@ -38,8 +38,8 @@ export type TestResult = {
 }
 
 export enum CustomMethod {
-  callBatch = 'callBatch',
-  callBatchByChunk = 'callBatchByChunk'
+  batch = 'batch',
+  batchByChunk = 'batchByChunk'
 }
 
 export const testConfig = {
@@ -58,7 +58,7 @@ export const testConfig = {
     },
     batchCrmItemListAsCompanyV2: {
       apiVersion: ApiVersion.v2,
-      method: CustomMethod.callBatch,
+      method: CustomMethod.batch,
       params: [
         {
           method: 'crm.item.list',
@@ -80,7 +80,7 @@ export const testConfig = {
     },
     batchByChunkCrmItemListAsCompanyV2: {
       apiVersion: ApiVersion.v2,
-      method: CustomMethod.callBatchByChunk,
+      method: CustomMethod.batchByChunk,
       params: {
         method: 'crm.item.list',
         params: { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'], filter: { '>id': 2 } }
@@ -98,7 +98,7 @@ export const testConfig = {
     },
     batchTasksTaskGerV3: {
       apiVersion: ApiVersion.v3,
-      method: CustomMethod.callBatch,
+      method: CustomMethod.batch,
       params: [
         {
           method: 'tasks.task.get',
@@ -112,7 +112,7 @@ export const testConfig = {
     },
     batchByChunkTasksTaskGerV3: {
       apiVersion: ApiVersion.v3,
-      method: CustomMethod.callBatchByChunk,
+      method: CustomMethod.batchByChunk,
       params: {
         method: 'tasks.task.get',
         params: { id: 1, select: ['id', 'title'] }
@@ -157,9 +157,9 @@ export abstract class AbstractLoadTester {
   }
 
   protected async _makeRequest(requestId: string, iterator: number): Promise<Result<TestResult>> {
-    if (this._method === CustomMethod.callBatchByChunk) {
+    if (this._method === CustomMethod.batchByChunk) {
       return this._makeRequestBatchByChunk(requestId, iterator)
-    } else if (this._method === CustomMethod.callBatch) {
+    } else if (this._method === CustomMethod.batch) {
       return this._makeRequestBatch(requestId, iterator)
     } else {
       return this._makeRequestBase(requestId, iterator)

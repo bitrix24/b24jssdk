@@ -1,4 +1,4 @@
-import type { B24Hook, TypeCallParams, AjaxResult, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal } from '../../packages/jssdk/src/index'
+import type { B24Hook, TypeCallParams, TypeCallParamsV2, TypeCallParamsV3, AjaxResult, BatchCommandsArrayUniversal, BatchCommandsObjectUniversal } from '../../packages/jssdk/src/index'
 // beforeAll, afterAll
 import { expect, test } from 'vitest'
 import { setupTestGlobals, getB24Client } from './setup-under-load-jssdk'
@@ -199,15 +199,20 @@ export abstract class AbstractLoadTester {
    * `SdkError` does not run its description through `redactSensitiveParams`, and
    * a load-test filter can carry portal data.
    */
-  protected _asCallParams(): TypeCallParams {
-    if (Array.isArray(this._params)) {
+  protected _asCallParams<T extends TypeCallParams = TypeCallParams>(): T {
+    // Rejects both wrong shapes, not just the array. A `{ method, params }`
+    // command template is an object too, so an `Array.isArray` check alone let
+    // a `batchByChunk` fixture through and folded its `method` / `params` keys
+    // into the call's own parameters — a malformed request the portal would
+    // have had to reject.
+    if (Array.isArray(this._params) || typeof (this._params as { method?: unknown })?.method === 'string') {
       throw new SdkError({
         code: 'JSSDK_TEST_UNDER_LOAD_PARAMS_SHAPE',
-        description: `Config entry for "${this._method}" runs a single call but its params are an array of commands.`,
+        description: `Config entry for "${this._method}" runs a single call, so its params must be the call's own parameters — not an array of commands or a { method, params } template.`,
         status: 500
       })
     }
-    return this._params as TypeCallParams
+    return this._params as T
   }
 
   protected _asBatchCalls(): BatchCommandsArrayUniversal | BatchCommandsObjectUniversal {
@@ -273,7 +278,7 @@ export class LoadTesterV2 extends AbstractLoadTester {
     try {
       const response = await this._b24.actions.v2.call.make({
         method: this._method,
-        params: this._asCallParams(),
+        params: this._asCallParams<TypeCallParamsV2>(),
         requestId
       })
 
@@ -428,7 +433,7 @@ export class LoadTesterV3 extends AbstractLoadTester {
     try {
       const response = await this._b24.actions.v3.call.make({
         method: this._method,
-        params: this._asCallParams(),
+        params: this._asCallParams<TypeCallParamsV3>(),
         requestId
       })
 

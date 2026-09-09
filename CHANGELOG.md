@@ -6,8 +6,9 @@
 
 * **`Result<T>` and `IResult<T>` default to `unknown` instead of `any`** (#279),
   and the same narrowing reaches `TypeCallParams`: its catch-all index signature
-  is now `[key: string]: unknown`, and the nested `params` field is
-  `Record<string, unknown>`. `any` is gone from both types.
+  is now `[key: string]: unknown`, the nested `params` field is
+  `Record<string, unknown>`, and `filter` is `TypeFilterV2 | TypeFilterV3` rather
+  than `any`. No `any` is left in either type.
 
     **Who is affected.** Anyone who wrote `Result` with no type argument and then
     read a field off it — that compiled silently before, because `any`

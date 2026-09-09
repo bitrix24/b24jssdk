@@ -28,7 +28,7 @@ export type TypeFilterV3 = Array<[string, string, unknown] | FilterV3Group>
 
 export type TypeCallParams = {
   order?: Record<string, 'ASC' | 'DESC' | 'asc' | 'desc' | string>
-  filter?: any
+  filter?: TypeFilterV2 | TypeFilterV3
   select?: string[]
   params?: Record<string, unknown> // @see tasks.task.list
   /**
@@ -67,8 +67,9 @@ export type TypeCallParams = {
 /**
  * Per-version specialisation of {@link TypeCallParams} that types the request-side
  * `filter` for `restApi:v2` (prefix-operator object) and drops the v3-only
- * `pagination` / `cursor` fields. The permissive `[key: string]: any` index
- * signature is retained, so existing call sites keep compiling.
+ * `pagination` / `cursor` fields. The permissive `[key: string]: unknown` index
+ * signature is retained, so existing call sites keep compiling — its value type
+ * narrowed from `any` in 3.0.0 (#279), but the signature itself stays.
  */
 export type TypeCallParamsV2 = Omit<TypeCallParams, 'filter' | 'pagination' | 'cursor'> & {
   filter?: TypeFilterV2
@@ -79,8 +80,9 @@ export type TypeCallParamsV2 = Omit<TypeCallParams, 'filter' | 'pagination' | 'c
  * `filter` for `restApi:v3` and drops the v2-only `start` field. The preferred
  * v3 shape is the array of triples / groups ({@link TypeFilterV3}); the v2-style
  * object ({@link TypeFilterV2}) is still accepted for backward compatibility.
- * The permissive `[key: string]: any` index signature is retained, so existing
- * call sites keep compiling.
+ * The permissive `[key: string]: unknown` index signature is retained, so existing
+ * call sites keep compiling — its value type narrowed from `any` in 3.0.0 (#279),
+ * but the signature itself stays.
  */
 export type TypeCallParamsV3 = Omit<TypeCallParams, 'filter' | 'start'> & {
   filter?: TypeFilterV3 | TypeFilterV2

@@ -1,4 +1,4 @@
-import type { TypeCallParams, TypeCallParamsV2 } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV2, TypeFilterV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
@@ -91,7 +91,7 @@ export class CallListV2 extends AbstractAction {
 
     const moreIdKey = `>${cursorIdKey}`
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
-    const requestParams: TypeCallParams = {
+    const requestParams: TypeCallParamsV2 & { filter: TypeFilterV2 } = {
       ...restParams,
       order: { [cursorIdKey]: 'ASC' },
       filter: { ...(params['filter'] || {}), [moreIdKey]: 0 },

@@ -34,7 +34,8 @@ export class CallListV2 extends AbstractAction {
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter` and `select` to control the selection. `order` is NOT one of
    *         them — cursor paging must order by `cursorIdKey`, so a caller-supplied `order` is
-   *         stripped with a `warning` (it is `Omit`ted from the type for the same reason).
+   *         stripped with a `warning` (it is `Omit`ted from the type for the same reason —
+   *         though the inherited `[key: string]: unknown` index signature still lets one compile).
    *
    *         **Conditions go in lowercase `filter`, and the uppercase key must be removed.**
    *         This walker pages by writing its own lowercase `filter`, `order` and `start`, and the

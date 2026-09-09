@@ -63,16 +63,47 @@ type InjectedKey = (typeof INJECTED_KEYS)[number]
 /** What the walker uses each injected key for, in the caller's terms. */
 const INJECTED_PURPOSE: Record<InjectedKey, string> = {
   filter: 'the `>id` cursor condition that advances the walk',
+  // Unreachable in practice: `order` is destructured out of the caller's params
+  // and re-appended, so the injected one is always the later of the pair. Kept
+  // so the table is total rather than partial.
   order: 'the ordering by the cursor field, which cursor paging depends on',
   start: 'the `start: -1` that turns off the portal\'s own row counting'
 }
 
-/** What the caller loses when the walker's key wins. */
+/** What the caller loses when the walker's key is the later one. */
 const CALLER_LOSES: Record<InjectedKey, string> = {
   filter:
     'its conditions are dropped and the request returns rows they should have excluded',
   order: 'it is ignored — cursor paging must order by the cursor field',
   start: 'it is ignored — the walker pages by cursor, not by offset'
+}
+
+/**
+ * What goes wrong when the *caller's* key is the later one. Only `filter`
+ * carries the cursor, so only `filter` stalls the walk; saying so for the other
+ * two would be inventing a failure.
+ */
+const CALLER_WINS_EFFECT: Record<InjectedKey, string> = {
+  filter: 'The walk will not advance and will fail as stalled.',
+  order: 'Ordering is then unstable across pages, which cursor paging cannot survive.',
+  start:
+    'The walk still advances, but the portal resumes counting rows on every page and an '
+    + 'offset skips rows.'
+}
+
+/**
+ * What to do about it. Only `filter` is merged with what the walker writes —
+ * `order` is stripped wholesale and `start` is overwritten with `-1` — so only
+ * `filter` can be moved rather than removed.
+ */
+const ADVICE: Record<InjectedKey, string> = {
+  filter:
+    'Move the conditions into `filter`, which is merged with the page condition rather than '
+    + 'replaced by it',
+  order:
+    'Remove it: cursor paging must order by `cursorIdKey`, and a lowercase `order` is stripped '
+    + 'just the same',
+  start: 'Remove it: the walker pages by cursor and forces `start: -1`'
 }
 
 /**
@@ -143,29 +174,31 @@ export function warnOnShadowedUppercaseParams(
 
     const message = callerWins
       ? `\`${key}\` is sent after the \`${folded}\` this walker pages with, and the portal keeps `
-      + `only the later of two keys that differ by case — so \`${key}\` overwrites `
-      + `${INJECTED_PURPOSE[folded]}. The walk will not advance and will fail as stalled. `
-      + `Move these conditions into \`${folded}\` and remove \`${key}\`; adding \`${folded}\` `
-      + `while leaving \`${key}\` in place is what produces this.`
+      + `only the later of two top-level keys that differ by case — so \`${key}\` overwrites `
+      + `${INJECTED_PURPOSE[folded]}. ${CALLER_WINS_EFFECT[folded]} ${ADVICE[folded]}, and `
+      + `remove \`${key}\`; writing \`${folded}\` while leaving \`${key}\` in place is what `
+      + `produces this.`
       : `\`${key}\` is not the key this walker pages with. It writes the lowercase \`${folded}\`, `
-        + `the portal keeps only the later of two keys that differ by case, and here the injected `
-        + `one is later — so \`${key}\` never takes effect and ${CALLER_LOSES[folded]}. `
-        + `Move it to \`${folded}\`, which is merged with the page condition rather than `
-        + `replaced by it.`
+        + `the portal keeps only the later of two top-level keys that differ by case, and here the `
+        + `injected one is later — so \`${key}\` never takes effect and ${CALLER_LOSES[folded]}. `
+        + `${ADVICE[folded]}.`
 
     warned.push({ key, message })
     warn(logger, action, message)
   }
 
-  if (isSentKey(requestParams, 'SORT')) {
+  const sortKey = order.find(key => 'sort' === key.toLowerCase() && isSentKey(requestParams, key))
+
+  if (undefined !== sortKey) {
     const message
-      = '`SORT` makes this request fail. The walker replaces `order` with an object to page by the '
+      = `\`${sortKey}\` makes this request fail. `
+        + 'The walker replaces `order` with an object to page by the '
         + 'cursor, the portal folds that onto `ORDER`, and a method that takes `SORT` validates '
         + '`ORDER` as a string — so the call throws ERROR_ARGUMENT ("Order must be a string"). '
         + 'Measured on `user.get`. Cursor paging fixes the ordering; drop `SORT` and narrow with '
         + 'lowercase `filter` instead.'
 
-    warned.push({ key: 'SORT', message })
+    warned.push({ key: sortKey, message })
     warn(logger, action, message)
   }
 

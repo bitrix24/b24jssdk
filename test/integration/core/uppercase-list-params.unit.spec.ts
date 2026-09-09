@@ -128,6 +128,38 @@ describe('uppercase FILTER / SORT / ORDER on the v2 list walkers (#483)', () => 
       expect(entry?.message).toContain('`ORDER`')
     })
 
+    // A caller who "fixed" the SORT warning by lowercasing the key gets the
+    // same ERROR_ARGUMENT with the warning gone — the half-applied-advice trap
+    // this rewrite exists to close. The portal folds it; so does the check.
+    it.each(['sort', 'Sort', 'sORT'])('reports %s, folded like every other key', (key) => {
+      const reported = report(asBuiltRequest({ [key]: 'ID' }))
+
+      expect(reported.map(entry => entry.key)).toEqual([key])
+      expect(reported[0]?.message).toContain('ERROR_ARGUMENT')
+    })
+
+    // The two messages were first written for `filter` and then reused. Only
+    // `filter` carries the cursor and only `filter` is merged, so the other
+    // keys must not be told they stall the walk or that they will be merged.
+    it('does not tell START that the walk will stall', () => {
+      const built = asBuiltRequest({ start: 0, START: 50 })
+
+      expect(Object.keys(built).indexOf('START')).toBeGreaterThan(Object.keys(built).indexOf('start'))
+
+      const [entry] = report(built)
+
+      expect(entry?.key).toBe('START')
+      expect(entry?.message).not.toContain('stalled')
+      expect(entry?.message).toContain('Remove it')
+    })
+
+    it('does not promise ORDER that it will be merged', () => {
+      const [entry] = report(asBuiltRequest({ ORDER: 'DESC' }))
+
+      expect(entry?.message).not.toContain('merged')
+      expect(entry?.message).toContain('Remove it')
+    })
+
     it('reports every offending key, not only the first', () => {
       expect(keysOf(asBuiltRequest({ FILTER: { ID: 4 }, ORDER: 'DESC', SORT: 'ID' })))
         .toEqual(['FILTER', 'ORDER', 'SORT'])
@@ -193,6 +225,17 @@ describe('uppercase FILTER / SORT / ORDER on the v2 list walkers (#483)', () => 
       expect(report(asBuiltRequest(params))).toEqual([])
     })
 
+    // The other side of the same rule: there is no collision unless the
+    // lowercase counterpart is itself sent. An inherited one is not, so a
+    // truthiness test on it would invent a collision that cannot happen.
+    it('says nothing when only the lowercase counterpart is inherited', () => {
+      const built = Object.create({ filter: { ID: 9 } }) as Record<string, unknown>
+      built['FILTER'] = { ACTIVE: 'Y' }
+
+      expect(JSON.stringify(built)).not.toContain('"filter"')
+      expect(report(built)).toEqual([])
+    })
+
     it('ignores an unrelated uppercase key', () => {
       expect(report(asBuiltRequest({ IBLOCK_ID: 4, ACTIVE: 'Y' }))).toEqual([])
     })
@@ -226,6 +269,45 @@ describe('uppercase FILTER / SORT / ORDER on the v2 list walkers (#483)', () => 
       expect(params['filter']).toEqual({ '>ID': 0 })
       expect(Object.keys(params)).toEqual(['FILTER', 'order', 'filter', 'start'])
     })
+
+    // Pins the link between the check and the shipped code path. The warning
+    // is emitted through `forcedLog`, which is a no-op under vitest, so the spy
+    // goes on `forcedLog` itself — that also pins the routing that makes the
+    // warning visible with the default `NullLogger`.
+    it.each(['callList', 'fetchList'] as const)(
+      '%s warns from the built request, so the half-migrated shape reads as stalled',
+      async (walker) => {
+        b24 = buildHook()
+        vi.spyOn(b24.getHttpClient(ApiVersion.v2).ajaxClient, 'post').mockResolvedValue(EMPTY_PAGE)
+        const forced = vi.spyOn(LoggerFactory, 'forcedLog').mockResolvedValue(undefined)
+
+        const options = {
+          method: 'user.get',
+          // `filter` first, `FILTER` second: the caller's key ends up later, so
+          // it is the cursor that loses, not the caller's conditions. Warning
+          // from the caller's params instead of the built request would report
+          // the opposite.
+          params: { filter: { USER_TYPE: 'employee' }, FILTER: { ACTIVE: 'Y' } },
+          idKey: 'ID',
+          requestId: 'r-483'
+        }
+
+        if ('callList' === walker) {
+          await b24.actions.v2.callList.make(options)
+        } else {
+          for await (const _page of b24.actions.v2.fetchList.make(options)) {
+            // one empty page, nothing to collect
+          }
+        }
+
+        const messages = forced.mock.calls.map(call => String(call[2]))
+        const shadowWarning = messages.find(message => message.includes('`FILTER`')) ?? ''
+
+        expect(shadowWarning).toContain(`${walker}.make`)
+        expect(shadowWarning).toContain('stalled')
+        expect(shadowWarning).not.toContain('never takes effect')
+      }
+    )
 
     it('fetchList sends the same shape — it injects the same cursor', async () => {
       b24 = buildHook()

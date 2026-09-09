@@ -40,7 +40,7 @@ export class CallListV3 extends AbstractAction {
    *
    * @param {ActionCallListV3} options - parameters for executing the request.
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `tasks.task.list`, `main.eventlog.list`)
-   *     - `params?: Omit<TypeCallParamsV3, 'pagination' | 'order'>` - Request parameters, excluding the `pagination` and `order` parameters,
+   *     - `params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'filter'> & { filter?: TypeFilterV3 }` - Request parameters, excluding the `pagination` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter`, `order`, and `select` to control the selection.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value

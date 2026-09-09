@@ -3,6 +3,7 @@ import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
 import { cursorStalledError, CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
+import { warnOnShadowedUppercaseParams } from './_uppercase-list-params'
 
 export type ActionCallListV2 = {
   method: string
@@ -33,7 +34,17 @@ export class CallListV2 extends AbstractAction {
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter` and `select` to control the selection. `order` is NOT one of
    *         them — cursor paging must order by `cursorIdKey`, so a caller-supplied `order` is
-   *         stripped with a `warning` (it is `Omit`ted from the type for the same reason).
+   *         stripped with a `warning` (it is `Omit`ted from the type for the same reason —
+   *         though the inherited `[key: string]: unknown` index signature still lets one compile).
+   *
+   *         **Conditions go in lowercase `filter`, and the uppercase key must be removed.**
+   *         This walker pages by writing its own lowercase `filter`, `order` and `start`, and the
+   *         portal keeps only the later of two top-level keys that differ by case. So a method
+   *         documented with uppercase `FILTER` / `SORT` / `ORDER` needs its parameters *moved* to
+   *         the lowercase shape: passing `FILTER` alone drops the conditions silently and returns
+   *         rows they should have excluded (#483), while passing `FILTER` *and* `filter` drops the
+   *         walker's cursor instead and fails the walk as stalled. `SORT` fails the request
+   *         outright. All of these are reported with a `warning`.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
    *         drives the cursor. Default is 'ID' (uppercase). For methods that return a lowercase /
    *         camelCase id (for example `tasks.task.list` returns `id`), set `idKey: 'id'`.
@@ -97,6 +108,8 @@ export class CallListV2 extends AbstractAction {
       filter: { ...(params['filter'] || {}), [moreIdKey]: 0 },
       start: -1
     }
+
+    warnOnShadowedUppercaseParams('callList.make', requestParams as Record<string, unknown>, this._logger)
 
     let allItems: T[] = []
 

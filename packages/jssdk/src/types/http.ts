@@ -30,7 +30,7 @@ export type TypeCallParams = {
   order?: Record<string, 'ASC' | 'DESC' | 'asc' | 'desc' | string>
   filter?: any
   select?: string[]
-  params?: any // @see tasks.task.list
+  params?: Record<string, unknown> // @see tasks.task.list
   /**
    * Used only in Api:V2
    */
@@ -61,7 +61,7 @@ export type TypeCallParams = {
     order?: 'ASC' | 'DESC' | 'asc' | 'desc' | string
     limit?: number
   }
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /**

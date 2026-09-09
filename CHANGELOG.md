@@ -4,6 +4,25 @@
 
 ### ⚠ BREAKING CHANGES
 
+* **`Result<T>` and `IResult<T>` default to `unknown` instead of `any`** (#279),
+  and the same narrowing reaches `TypeCallParams`: its catch-all index signature
+  is now `[key: string]: unknown`, and the nested `params` field is
+  `Record<string, unknown>`. `any` is gone from both types.
+
+    **Who is affected.** Anyone who wrote `Result` with no type argument and then
+    read a field off it — that compiled silently before, because `any`
+    propagates through every access. Name the payload instead: every action takes
+    a generic (`call.make<T>`, `batch.make<T>`, `callList.make<T>`), and the type
+    then flows through the whole read. Where the shape is genuinely unknown until
+    run time, one narrowing cast at the point of reading keeps the rest checked.
+    See [Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/#resultt-defaults-to-unknown-not-any).
+
+    **The `[key: string]` index signature stays** — only its value type narrowed.
+    Removing it outright was considered and rejected on a count of the SDK's own
+    examples: `crm.item.get` **is** `{ entityTypeId, id }`, so those keys are the
+    payload rather than an escape hatch, and a closed type would stop most of the
+    documentation from compiling.
+
 * **Node 20 is no longer supported** (#312). `engines.node` moves from
   `^20.0.0 || >=22.0.0` to `>=22.0.0` in both `@bitrix24/b24jssdk` and
   `@bitrix24/b24jssdk-nuxt`.

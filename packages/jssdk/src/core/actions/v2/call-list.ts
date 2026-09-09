@@ -1,5 +1,5 @@
 import type { WalkBoundsOptions, WalkProgress } from '../_walk-bounds'
-import { assertNotAborted, maxPagesExceededError, resolveMaxPages } from '../_walk-bounds'
+import { assertNotAborted, isWalkBoundsError, maxPagesExceededError, resolveMaxPages } from '../_walk-bounds'
 import type { TypeCallParams, TypeCallParamsV2, TypeFilterV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
@@ -130,83 +130,99 @@ export class CallListV2 extends AbstractAction {
     let pages = 0
     const maxPages = resolveMaxPages('callList.make', options?.maxPages)
 
-    while (true) {
-      assertNotAborted(options?.signal, 'callList.make', options.method)
+    try {
+      while (true) {
+        assertNotAborted(options?.signal, 'callList.make', options.method)
 
-      const response: AjaxResult<T> = await this._b24.actions.v2.call.make<T>({
-        method: options.method,
-        params: requestParams,
-        requestId: options.requestId
-      })
-
-      if (!response.isSuccess) {
-        this._logger.error('callFastListMethod', {
+        const response: AjaxResult<T> = await this._b24.actions.v2.call.make<T>({
           method: options.method,
-          requestId: options.requestId,
-          messages: response.getErrorMessages()
-        }).catch(() => {})
-        for (const [index, error] of response.errors) {
-          result.addError(error, index)
+          params: requestParams,
+          requestId: options.requestId
+        })
+
+        if (!response.isSuccess) {
+          this._logger.error('callFastListMethod', {
+            method: options.method,
+            requestId: options.requestId,
+            messages: response.getErrorMessages()
+          }).catch(() => {})
+          for (const [index, error] of response.errors) {
+            result.addError(error, index)
+          }
+          break
         }
-        break
-      }
-      const responseData = response.getData()
-      if (!responseData) {
-        break
-      }
-
-      const resultData: T[] = null === customKeyForResult
-        ? responseData.result as T[]
-        : (responseData.result as any)[customKeyForResult] as T[]
-
-      if (resultData.length === 0) {
-        break
-      }
-
-      allItems = [...allItems, ...resultData]
-      pages += 1
-      options.progress?.({ pages, rows: allItems.length })
-
-      if (resultData.length < batchSize) {
-        break
-      }
-
-      // Update the filter for the next iteration
-      const lastItem = resultData[resultData.length - 1] as Record<string, any>
-      const cursorValue = lastItem ? Number.parseInt(lastItem[idKey], 10) : Number.NaN
-      if (Number.isFinite(cursorValue)) {
-        // A full page whose last id is the one already filtered on means the
-        // `>idKey` condition was dropped and this page will keep arriving. The
-        // check above cannot see it — a repeated page is full, so
-        // `resultData.length < batchSize` stays false however long the walk runs
-        // — and `allItems` grows by the same 50 rows for ever.
-        //
-        // Measured on a live portal, `tasks.task.list` with `idKey: 'id'` and no
-        // `cursorIdKey`: the walk was capped at three pages and collected 150
-        // rows of which 50 were unique, the cursor reading 3 every time. The
-        // response spells the id lowercase, the filter accepts it uppercase, so
-        // `>id` matches nothing the server knows and is ignored. That is the
-        // configuration #185 added `cursorIdKey` for; this is the signal that it
-        // is missing, instead of a hang.
-        if (cursorValue === requestParams.filter[moreIdKey]) {
-          throw cursorStalledError('callList.make', CURSOR_STALLED_HINT_LIST)
+        const responseData = response.getData()
+        if (!responseData) {
+          break
         }
-        requestParams.filter[moreIdKey] = cursorValue
 
-        // Last, so every cheaper stop wins: a walk that ends exactly on its
-        // ceiling finishes rather than erroring on its final page, and a stalled
-        // cursor is still reported as a stall — the more specific diagnosis.
-        if (pages >= maxPages) {
-          throw maxPagesExceededError('callList.make', options.method, maxPages)
+        const resultData: T[] = null === customKeyForResult
+          ? responseData.result as T[]
+          : (responseData.result as any)[customKeyForResult] as T[]
+
+        if (resultData.length === 0) {
+          break
         }
+
+        allItems = [...allItems, ...resultData]
+        pages += 1
+        options.progress?.({ pages, rows: allItems.length })
+
+        if (resultData.length < batchSize) {
+          break
+        }
+
+        // Update the filter for the next iteration
+        const lastItem = resultData[resultData.length - 1] as Record<string, any>
+        const cursorValue = lastItem ? Number.parseInt(lastItem[idKey], 10) : Number.NaN
+        if (Number.isFinite(cursorValue)) {
+          // A full page whose last id is the one already filtered on means the
+          // `>idKey` condition was dropped and this page will keep arriving. The
+          // check above cannot see it — a repeated page is full, so
+          // `resultData.length < batchSize` stays false however long the walk runs
+          // — and `allItems` grows by the same 50 rows for ever.
+          //
+          // Measured on a live portal, `tasks.task.list` with `idKey: 'id'` and no
+          // `cursorIdKey`: the walk was capped at three pages and collected 150
+          // rows of which 50 were unique, the cursor reading 3 every time. The
+          // response spells the id lowercase, the filter accepts it uppercase, so
+          // `>id` matches nothing the server knows and is ignored. That is the
+          // configuration #185 added `cursorIdKey` for; this is the signal that it
+          // is missing, instead of a hang.
+          if (cursorValue === requestParams.filter[moreIdKey]) {
+            throw cursorStalledError('callList.make', CURSOR_STALLED_HINT_LIST)
+          }
+          requestParams.filter[moreIdKey] = cursorValue
+
+          // Last, so every cheaper stop wins: a stalled cursor is still
+          // reported as a stall, the more specific diagnosis. A walk that ends
+          // exactly on its ceiling finishes only when its final page is short —
+          // that is what proves end-of-data. On an exact multiple of the page
+          // size the last page is full, nothing has proved the data ended, and
+          // this fires; the rows read are returned with the error attached,
+          // not discarded.
+          if (pages >= maxPages) {
+            throw maxPagesExceededError('callList.make', options.method, maxPages)
+          }
+        } else {
+          // A full page came back, yet no usable numeric cursor id could be read from
+          // its items via `idKey` — almost always an `idKey` that doesn't match the
+          // response field (e.g. a request that sorts by `ID` while the response
+          // carries a lowercase `id`). Without a cursor we can't advance, so stop and
+          // tell the caller how to fix it instead of silently truncating.
+          this._logger.warning(`callList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`).catch(() => {})
+          break
+        }
+      }
+    } catch (error) {
+      // A bound the caller set, not a fault in the data: the pages already
+      // collected are correct, so they are returned with the error attached
+      // rather than discarded — the same shape the soft-error exit above
+      // already produces.
+      if (isWalkBoundsError(error)) {
+        result.addError(error)
       } else {
-        // A full page came back, yet no usable numeric cursor id could be read from
-        // its items via `idKey` — almost always an `idKey` that doesn't match the
-        // response field (e.g. a request that sorts by `ID` while the response
-        // carries a lowercase `id`). Without a cursor we can't advance, so stop and
-        // tell the caller how to fix it instead of silently truncating.
-        this._logger.warning(`callList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`).catch(() => {})
-        break
+        throw error
       }
     }
 

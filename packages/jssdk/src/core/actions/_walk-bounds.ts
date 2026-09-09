@@ -86,15 +86,21 @@ export type WalkBoundsOptions = {
   /**
    * Abort the walk. Throws `JSSDK_ACTION_ABORTED`.
    *
-   * Checked once per iteration, at the top of the loop — so an
-   * already-aborted signal costs no request at all, and a signal that fires
-   * while a page is in flight (or while a streaming consumer is holding one)
-   * stops the walk before the next request rather than after it. Nothing
-   * between the response and the next request spends a round trip, so a second
-   * check further down would change only one thing: a walk whose data ended on
-   * the page the caller aborted during would report `JSSDK_ACTION_ABORTED`
-   * instead of completing. Finishing normally is the better answer there, and
-   * no test could tell the two apart — so there is one check, not two.
+   * Checked at the top of each iteration — so an already-aborted signal costs
+   * no request at all — and again in the streaming walkers right after the page
+   * is yielded.
+   *
+   * The second check saves no request: nothing between a response and the next
+   * request spends a round trip. It buys the right *diagnosis*. An earlier
+   * revision dropped it on the reasoning that the gap after `yield` is empty
+   * and no test could tell the two apart. The gap is not empty — the stall
+   * guard and the page ceiling both sit in it — so a consumer that aborted
+   * while holding a page was told to raise `maxPages`, or that the cursor had
+   * stalled, when in fact it had cancelled. Reproduced with `maxPages: 2` and
+   * an abort during the hold of page 2.
+   *
+   * Polled rather than subscribed: `addEventListener` would need tearing down
+   * on every exit path, and there are eight.
    */
   signal?: AbortSignal
 }
@@ -136,8 +142,10 @@ export function maxPagesExceededError(action: string, method: string, maxPages: 
     description: `${action}: stopped after ${maxPages} pages of \`${method}\` without reaching the end of the data. `
       + `Either the read is genuinely larger than the ceiling — raise \`maxPages\` — or the walk is not making progress, `
       + `which happens when the page condition is not applied and the cursor cycles rather than advancing. `
-      + `Nothing is returned, because a list that is short and looks complete is worse than an error. `
-      + `A streaming helper (fetchList / fetchTail) has already yielded every page it read.`,
+      + `The eager helpers (callList / callTail) return the pages they did read, with this error `
+      + `attached — so check \`isSuccess\` rather than assuming a returned list is whole. `
+      + `A streaming helper (fetchList / fetchTail) has already yielded every page it read, and `
+      + `throws this instead.`,
     status: 500
   })
 }
@@ -148,12 +156,16 @@ export function maxPagesExceededError(action: string, method: string, maxPages: 
  * `status: 400`: the caller asked for this, so it is not a portal fault and not
  * an SDK fault. It is still an error rather than a quiet stop, for the same
  * reason the ceiling is — a partial list must not be mistaken for a whole one.
+ * That is what the flag is for; the rows themselves are real and are handed
+ * back by the eager helpers rather than discarded.
  */
 export function walkAbortedError(action: string, method: string): SdkError {
   return new SdkError({
     code: 'JSSDK_ACTION_ABORTED',
     description: `${action}: the walk over \`${method}\` was aborted through its \`signal\`. `
-      + `Nothing is returned; a streaming helper (fetchList / fetchTail) has already yielded every page it read.`,
+      + `The eager helpers (callList / callTail) return the pages they did read, with this error `
+      + `attached; a streaming helper (fetchList / fetchTail) has already yielded every page it read, `
+      + `and throws this instead.`,
     status: 400
   })
 }
@@ -167,4 +179,30 @@ export function assertNotAborted(
   if (true === signal?.aborted) {
     throw walkAbortedError(action, method)
   }
+}
+
+/**
+ * The two codes a walk raises when it stops on a bound the caller set, rather
+ * than on anything wrong with the data.
+ *
+ * They are handled apart from every other failure because the rows collected up
+ * to that point are **correct** — merely incomplete. A stalled cursor is not in
+ * this set: there the extra rows are duplicates of ones already held, so there
+ * is nothing worth handing back.
+ */
+const WALK_BOUNDS_ERROR_CODES: ReadonlySet<string> = new Set([
+  'JSSDK_ACTION_MAX_PAGES_EXCEEDED',
+  'JSSDK_ACTION_ABORTED'
+])
+
+/**
+ * Whether `error` is a walk stopping on one of its own bounds.
+ *
+ * The eager walkers use this to attach the error to their `Result` and return
+ * what they read, the way they already do for a soft error from the portal. The
+ * streaming walkers let it through: their consumer has each page as it arrives,
+ * so there is nothing left to hand back.
+ */
+export function isWalkBoundsError(error: unknown): error is SdkError {
+  return error instanceof SdkError && WALK_BOUNDS_ERROR_CODES.has(error.code)
 }

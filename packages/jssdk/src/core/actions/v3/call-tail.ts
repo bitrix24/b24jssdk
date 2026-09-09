@@ -1,4 +1,5 @@
 import type { WalkBoundsOptions, WalkProgress } from '../_walk-bounds'
+import { isWalkBoundsError } from '../_walk-bounds'
 import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
@@ -155,6 +156,12 @@ export class CallTailV3 extends AbstractAction {
         for (const [index, err] of error.errors) {
           result.addError(err, index)
         }
+      } else if (isWalkBoundsError(error)) {
+        // A bound the caller set, not a fault in the data: the pages already
+        // collected are correct, so they are returned with the error attached
+        // rather than discarded — the same shape this walker already produces
+        // for a soft error from the portal.
+        result.addError(error)
       } else {
         throw error
       }

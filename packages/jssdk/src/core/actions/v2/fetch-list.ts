@@ -162,6 +162,13 @@ export class FetchListV2 extends AbstractAction {
 
       pages += 1
       yield resultData
+      // Again after the page has been handed over. The gap between `yield` and
+      // the top of the loop is not empty - the stall guard and the ceiling both
+      // sit in it - so a consumer that aborts while holding a page would
+      // otherwise be told the read is too large, or that the cursor stalled,
+      // when what actually happened is that they cancelled. No request is saved
+      // by this check; the correct diagnosis is.
+      assertNotAborted(options?.signal, 'fetchList.make', options.method)
 
       if (resultData.length < batchSize) {
         break
@@ -180,9 +187,12 @@ export class FetchListV2 extends AbstractAction {
         }
         requestParams.filter[moreIdKey] = cursorValue
 
-        // Last, so every cheaper stop wins: a walk that ends exactly on its
-        // ceiling finishes rather than erroring on its final page, and a stalled
-        // cursor is still reported as a stall — the more specific diagnosis.
+        // Last, so every cheaper stop wins: a stalled cursor is still reported
+        // as a stall, the more specific diagnosis. A walk that ends exactly on
+        // its ceiling finishes only when its final page is short — that is what
+        // proves end-of-data. On an exact multiple of the page size the last
+        // page is full, nothing has proved the data ended, and this fires; the
+        // rows read are returned with the error attached, not discarded.
         if (pages >= maxPages) {
           throw maxPagesExceededError('fetchList.make', options.method, maxPages)
         }

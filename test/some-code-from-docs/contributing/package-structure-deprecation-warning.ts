@@ -18,10 +18,10 @@ export function warnDeprecated(logger: LoggerInterface): void {
   LoggerFactory.forcedLog(
     logger,
     'warning',
-    'AbstractB24.callMethod() is deprecated and will be removed in version X.Y.Z. Use b24.actions.vX.call.make(options) instead.',
+    'SomeClass.someMethod() is deprecated and will be removed in version X.Y.Z. Use b24.actions.vX.call.make(options) instead.',
     {
-      class: 'AbstractB24',
-      method: 'callMethod',
+      class: 'SomeClass',
+      method: 'someMethod',
       replacement: 'b24.actions.vX.call.make()',
       removalVersion: 'X.Y.Z'
     }

@@ -35,9 +35,45 @@ export interface IB24BatchOptions extends ICallBatchOptions {
   returnAjaxResult?: boolean
 }
 
+/**
+ * The four shapes a batch answers with, named. `T` is **one command's payload**
+ * in all of them.
+ *
+ * Which one you get is decided by two things you pass in: whether `calls` was a
+ * record of named commands or an array, and whether `options.returnAjaxResult`
+ * was set. Nothing on the returned value says which — the discriminator is the
+ * input — so {@link CallBatchResult} below cannot be narrowed by a type guard.
+ * That is why `batch.make` carries overloads: they pick the right member from
+ * the arguments, which is the only place the answer exists.
+ *
+ * Measured, all four (#518):
+ *
+ * | `calls` | `returnAjaxResult` | `getData()` |
+ * | --- | --- | --- |
+ * | named record | absent / `false` | `{ [name]: payload }` |
+ * | named record | `true`            | `{ [name]: AjaxResult }` |
+ * | array         | absent / `false` | `payload[]` |
+ * | array         | `true`            | `AjaxResult[]` |
+ */
+export type BatchResultByName<T> = Result<Record<string, T>>
+/** @see BatchResultByName */
+export type BatchResultByIndex<T> = Result<T[]>
+/** @see BatchResultByName */
+export type BatchResultByNameDetailed<T> = Result<Record<string | number, AjaxResult<T>>>
+/** @see BatchResultByName */
+export type BatchResultByIndexDetailed<T> = Result<AjaxResult<T>[]>
+
+/**
+ * The union of every batch shape — what the implementation signature returns,
+ * and what a caller sees when `returnAjaxResult` is a `boolean` the compiler
+ * cannot read as a literal. Prefer the overloads; reach for this only when the
+ * flag is genuinely dynamic.
+ */
 export type CallBatchResult<T>
-  = Result<Record<string | number, AjaxResult<T>>>
-    | Result<AjaxResult<T>[]>
+  = BatchResultByNameDetailed<T>
+    | BatchResultByIndexDetailed<T>
+    | BatchResultByName<T>
+    | BatchResultByIndex<T>
     | Result<T>
 
 export type TypeB24 = {
@@ -83,61 +119,6 @@ export type TypeB24 = {
    *  - `restApi:v2` `https://your_domain.bitrix24.com/rest/`
    */
   getTargetOriginWithPath(): Map<ApiVersion, string>
-
-  /**
-   * Calls the Bitrix24 REST API method.
-   *
-   * @deprecated This method is deprecated and will be removed in version `3.0.0`
-   *   - for `restApi:v3` use {@link CallV3.make `b24.actions.v3.call.make(options)`}
-   *   - for `restApi:v2` use {@link CallV2.make `b24.actions.v2.call.make(options)`}
-   *
-   * @removed 3.0.0
-   */
-  callMethod(method: string, params?: object, start?: number): Promise<AjaxResult>
-
-  /**
-   * Calls a Bitrix24 REST API list method to retrieve all data.
-   *
-   * @deprecated This method is deprecated and will be removed in version `3.0.0`
-   *   - for `restApi:v3` use {@link CallListV3.make `b24.actions.v3.callList.make(options)`}
-   *   - for `restApi:v2` use {@link CallListV2.make `b24.actions.v2.callList.make(options)`}
-   *
-   * @removed 3.0.0
-   */
-  callListMethod(method: string, params?: object, progress?: null | ((progress: number) => void), customKeyForResult?: string | null): Promise<Result>
-
-  /**
-   * Calls a Bitrix24 REST API list method and returns an async generator.
-   *
-   * @deprecated This method is deprecated and will be removed in version `3.0.0`
-   *   - for `restApi:v3` use {@link FetchListV3.make `b24.actions.v3.fetchList.make(options)`}
-   *   - for `restApi:v2` use {@link FetchListV2.make `b24.actions.v2.fetchList.make(options)`}
-   *
-   * @removed 3.0.0
-   */
-  fetchListMethod(method: string, params?: any, idKey?: string, customKeyForResult?: string | null): AsyncGenerator<any[]>
-
-  /**
-   * Executes a batch request to the Bitrix24 REST API
-   *
-   * @deprecated This method is deprecated and will be removed in version `3.0.0`
-   *   - for `restApi:v3` use {@link BatchV3.make `b24.actions.v3.batch.make(options)`}
-   *   - for `restApi:v2` use {@link BatchV2.make `b24.actions.v2.batch.make(options)`}
-   *
-   * @removed 3.0.0
-   */
-  callBatch(calls: Array<any> | object, isHaltOnError?: boolean, returnAjaxResult?: boolean): Promise<Result>
-
-  /**
-   * Executes a batch request to the Bitrix24 REST API with automatic chunking for any number of commands.
-   *
-   * @deprecated This method is deprecated and will be removed in version `3.0.0`
-   *   - for `restApi:v3` use {@link BatchByChunkV3.make `b24.actions.v3.batchByChunk.make(options)`}
-   *   - for `restApi:v2` use {@link BatchByChunkV2.make `b24.actions.v2.batchByChunk.make(options)`}
-   *
-   * @removed 3.0.0
-   */
-  callBatchByChunk(calls: Array<any>, isHaltOnError: boolean): Promise<Result>
 
   /**
    * Returns the HTTP client to perform the request.

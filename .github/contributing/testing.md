@@ -78,7 +78,7 @@ The integration test client uses `ParamsFactory.getDefault()`. The under-load se
 | UMD browser smoke | `test/umd/browser.html` (manual) |
 | Setup helpers | `test/0_setup/` |
 
-Integration test names follow `<area>-<flavor>.spec.ts`. The `core/` group exercises the transport layer (`actions-v2-call`, `actions-v3-batch`, `deprecated-call`, …); the `frame/`, `js-docs/`, `tools/` groups exercise their respective surfaces.
+Integration test names follow `<area>-<flavor>.spec.ts`. The `core/` group exercises the transport layer (`actions-v2-call`, `actions-v3-batch`, `actions-v3-aggregate`, …); the `frame/`, `js-docs/`, `tools/` groups exercise their respective surfaces.
 
 ## Basic Integration Test Structure
 
@@ -185,7 +185,6 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 | Paging | `isMore()`, `getNext()`, accumulated record count |
 | Errors | `SdkError` thrown for invariant violations, `AjaxError` surfaced via `Result.getErrors()` |
 | Limiters | Under-load suite confirms QPS caps and backoff |
-| Deprecation | `deprecated-call.spec.ts` confirms the v3-availability warning fires when callers use a v2-deprecated method |
 
 ## What Tests Do **Not** Do
 
@@ -246,6 +245,28 @@ Last verified by injection 2026-09-01, after `jsdoc:typecheck-blocks` was added
 and `README-AI.md` joined the skills gate. Re-measure the rows you change: the
 claim is "only this pass", and that is a property of the whole set, not of the
 pass you happen to be editing.
+
+### Estimating the cost of a type change
+
+**Measure with `pnpm run typecheck`, not with one pass, and write down which
+command produced the number.**
+
+`pnpm --filter ./packages/jssdk typecheck` is one row of the eleven above. A
+change measured with it has been measured against `packages/jssdk/src/` and
+nothing else — not the test tree, not the docs app, not the fenced examples —
+and "the typecheck is green" reads as total either way.
+
+This is not hypothetical. #279 estimated narrowing `TypeCallParams`'s index
+signature at **three sites** and recorded that the full typecheck was green under
+the change. Both numbers came from the package pass alone. The real cost was six
+errors, every one of them in `test/` — where the load-test harness turned out to
+have a genuine mistyping that `any` had been hiding (#516). The estimate was used
+to argue the change was cheap enough to attempt; it happened to be worth doing
+anyway, which is luck rather than method.
+
+So when an issue records a measured cost, record the command beside it. `three
+sites (pnpm --filter ./packages/jssdk typecheck)` is self-evidently narrow;
+`three sites` is not.
 
 Plus the `jsSdk:types` vitest project, which is where the `*.types.spec.ts` pins
 become real — `expectTypeOf` erases at runtime, so under a plain `vitest run` a

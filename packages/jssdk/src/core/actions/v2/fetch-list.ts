@@ -1,4 +1,4 @@
-import type { TypeCallParams, TypeCallParamsV2 } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV2, TypeFilterV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
@@ -92,7 +92,7 @@ export class FetchListV2 extends AbstractAction {
 
     const moreIdKey = `>${cursorIdKey}`
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
-    const requestParams: TypeCallParams = {
+    const requestParams: TypeCallParamsV2 & { filter: TypeFilterV2 } = {
       ...restParams,
       order: { [cursorIdKey]: 'ASC' },
       filter: { ...(params['filter'] || {}), [moreIdKey]: 0 },
@@ -107,7 +107,7 @@ export class FetchListV2 extends AbstractAction {
       })
 
       if (!response.isSuccess) {
-        this._logger.error('fetchListMethod', {
+        this._logger.error('fetchList.make', {
           method: options.method,
           requestId: options.requestId,
           messages: response.getErrorMessages()

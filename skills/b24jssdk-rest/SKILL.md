@@ -1,13 +1,13 @@
 ---
 name: b24jssdk-rest
-description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk (and the v3-only native-keyset callTail/fetchTail) for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface is @deprecated for 3.0.0 — do not generate code against it.
+description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk (and the v3-only native-keyset callTail/fetchTail) for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface was removed in 3.0.0 — do not generate code against it.
 ---
 
 # b24jssdk REST patterns (actions API)
 
 Every example uses `$b24` of type `TypeB24`, so the same code runs on `B24Hook`, `B24Frame`, and `B24OAuth`. The actions surface is published per API version under `$b24.actions.v2.*` and `$b24.actions.v3.*`.
 
-> The previous SDK surface — `callMethod`, `callBatch`, `callBatchByChunk`, `callListMethod`, `fetchListMethod` — is **`@deprecated`** and scheduled for removal in **`3.0.0`** (see `packages/jssdk/README-AI.md` "Deprecation notice"). Do not generate new code against it.
+> The previous SDK surface — `callMethod`, `callBatch`, `callBatchByChunk`, `callListMethod`, `fetchListMethod` — was **removed in `3.0.0`** and no longer exists (see `packages/jssdk/README-AI.md`, "Removed in 3.0.0"). Code that calls it does not compile.
 >
 > The `AjaxResult` paging members — `isMore()`, `hasMore()`, `getTotal()`, `getNext()`, `fetchNext()` — are **not** in that set and are not deprecated. They are `restApi:v2`-only; see "restApi:v2 paging members" below.
 
@@ -21,7 +21,7 @@ Rule of thumb:
 
 - Default to `$b24.actions.v2.*` — it works for every classic method.
 - Use `$b24.actions.v3.*` when you specifically want the v3 representation of a method (camelCase fields, the unified `{result}` envelope, native `tail`/cursor, dotted relation select). Confirm a method exists on this portal's v3 via `rest.documentation.openapi` if unsure.
-- Version auto-detection (the deprecated legacy `callMethod`/`callBatch` shims) defaults to v2; v3 is opt-in only via the explicit `actions.v3.*` surface.
+- There is no version auto-detection: the legacy `callMethod`/`callBatch` shims that defaulted to v2 are gone, so the protocol is always whichever `actions.v2.*` / `actions.v3.*` you name.
 
 ## Decision tree
 
@@ -501,7 +501,7 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 
 ## Anti-patterns
 
-- ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 3.0.0. Use the actions API.
+- ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — removed in 3.0.0, these are compile errors now. Use the actions API.
 - ❌ `res.getNext()` / `res.fetchNext()` against a **v3** client — they throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`. Under v2 they work and are supported; for new code prefer `callList` / `fetchList`, which work under both versions.
 - ❌ Reading `res.getTotal()` or `res.isMore()` on a **v3** response — not an error, but they always answer `0` / `false` there because v3 sends no `total` / `next`. Under v2 they are correct and supported. For a v3 count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action — remembering the count is a string, not a number.
 <!-- @check-ignore: `crm.item.get` is the deliberate anti-example this bullet is about — v3 publishes no `crm.item.*` -->

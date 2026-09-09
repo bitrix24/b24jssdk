@@ -2,6 +2,106 @@
 
 ## [Unreleased]
 
+### ⚠ BREAKING CHANGES
+
+* **`Result<T>` and `IResult<T>` default to `unknown` instead of `any`** (#279),
+  and the same narrowing reaches `TypeCallParams`: its catch-all index signature
+  is now `[key: string]: unknown`, the nested `params` field is
+  `Record<string, unknown>`, and `filter` is `TypeFilterV2 | TypeFilterV3` rather
+  than `any`. No `any` is left in either type.
+
+    **Who is affected.** Anyone who wrote `Result` with no type argument and then
+    read a field off it — that compiled silently before, because `any`
+    propagates through every access. Name the payload instead: every action takes
+    a generic (`call.make<T>`, `batch.make<T>`, `callList.make<T>`), and the type
+    then flows through the whole read. Where the shape is genuinely unknown until
+    run time, one narrowing cast at the point of reading keeps the rest checked.
+    See [Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/#resultt-defaults-to-unknown-not-any).
+
+    **The `[key: string]` index signature stays** — only its value type narrowed.
+    Removing it outright was considered and rejected on a count of the SDK's own
+    examples: `crm.item.get` **is** `{ entityTypeId, id }`, so those keys are the
+    payload rather than an escape hatch, and a closed type would stop most of the
+    documentation from compiling.
+
+* **`batch.make` picks its return shape from the arguments** (#518). A batch
+  answers in one of four shapes, and which one was decided by two things you
+  pass in — whether `calls` is a record of named commands or an array, and
+  whether `options.returnAjaxResult` is set. Nothing on the returned value said
+  which, so the type was the union `CallBatchResult<T>` and a caller had to cast.
+
+    | `calls` | `returnAjaxResult` | now resolves to |
+    | --- | --- | --- |
+    | named record | absent / `false` | `Result<Record<string, T>>` |
+    | named record | `true` | `Result<Record<string, AjaxResult<T>>>` |
+    | array | absent / `false` | `Result<T[]>` |
+    | array | `true` | `Result<AjaxResult<T>[]>` |
+
+    `T` is **one command's** payload in every row. Nothing changes at run time
+    and no call site has to be rewritten; casts written to work around the union
+    can go. A `returnAjaxResult` the compiler cannot read as a literal still
+    resolves to the union, which is the honest answer when the discriminator is
+    only known at run time.
+
+    Under the old `Result<T = any>` this went unnoticed — `any` was assignable
+    everywhere. The documentation had already given ground to it: the v2 batch
+    guide carried a `@check-ignore: … uses union result type` on a supported,
+    documented example. That marker is gone and the example compiles.
+
+* **Node 20 is no longer supported** (#312). `engines.node` moves from
+  `^20.0.0 || >=22.0.0` to `>=22.0.0` in both `@bitrix24/b24jssdk` and
+  `@bitrix24/b24jssdk-nuxt`.
+
+    Node 20 reached end-of-life on 2026-04-30 and no longer receives security
+    fixes. CI has tested only Node 22 and 24 for some time, so the `2.x` manifest
+    advertised a line nothing exercised; the matrix and the advertised floor now
+    agree.
+
+    On **Node 22 or newer** nothing changes. On **Node 20**, `npm install` prints
+    an `EBADENGINE` warning, and under `engine-strict=true` — pnpm's default
+    inside a workspace — the install fails outright. This is a packaging floor,
+    not an API change: no source has to change, only the Node version you run on.
+
+* **The deprecated legacy surface is removed** (#277). Marked `@deprecated` since
+  `2.0.0` and carrying a `removalVersion: '3.0.0'` in every runtime warning, these
+  symbols are now gone:
+
+    | Removed | Replacement |
+    | --- | --- |
+    | `b24.callMethod(method, params, start)` | `b24.actions.v{2,3}.call.make(options)` |
+    | `b24.callListMethod(method, params, progress, customKeyForResult)` | `b24.actions.v{2,3}.callList.make(options)` — **not a drop-in** |
+    | `b24.fetchListMethod(method, params, idKey, customKeyForResult)` | `b24.actions.v{2,3}.fetchList.make(options)` |
+    | `b24.callBatch(calls, isHaltOnError, returnAjaxResult)` | `b24.actions.v{2,3}.batch.make(options)` |
+    | `b24.callBatchByChunk(calls, isHaltOnError)` | `b24.actions.v{2,3}.batchByChunk.make(options)` |
+    | `AbstractB24.batchSize` | inline `50` |
+    | `LoggerBrowser` | `LoggerFactory.createForBrowser(title, isDev)` |
+    | `LoggerType` | no replacement — drop the import, `LoggerFactory` manages levels |
+
+    The same five methods leave the `TypeB24` interface, and `LoggerBrowser` /
+    `LoggerType` leave the package's public exports (96 value exports → 94).
+
+    **Read the migration guide before upgrading:**
+    [Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/).
+    Four of the five methods are a mechanical swap. **`callListMethod` is not** —
+    it carried its own offset-paging loop, and the replacement pages by cursor, so
+    three things change: there is no `progress` callback, a caller-supplied `order`
+    is not accepted, and the `idKey` / `cursorIdKey` pair now has to match the
+    method. The guide has a worked rewrite for each.
+
+    **How to find your call sites.** Through `2.x` these symbols announced
+    themselves with a `JSSDK_CORE_DEPRECATED_METHOD` warning on every call; that
+    warning is gone with them. TypeScript now reports each call site as an error,
+    which is the good case — plain JavaScript fails at run time with
+    `is not a function` instead. Grep before you upgrade:
+
+    ```
+    grep -rnE 'callMethod|callListMethod|fetchListMethod|callBatch|callBatchByChunk|LoggerBrowser|LoggerType' src
+    ```
+
+    **Not removed:** the `AjaxResult` paging members `isMore()`, `hasMore()`,
+    `getTotal()`, `getNext()` and `fetchNext()`. They were once on this list; that
+    plan was withdrawn in #408 and they stay for as long as `restApi:v2` does.
+
 ### Bug Fixes
 
 * **`B24OAuth` no longer builds request URLs with a double slash.** The portal

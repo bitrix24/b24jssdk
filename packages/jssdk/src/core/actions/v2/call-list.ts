@@ -1,4 +1,4 @@
-import type { TypeCallParams, TypeCallParamsV2 } from '../../../types/http'
+import type { TypeCallParams, TypeCallParamsV2, TypeFilterV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
@@ -31,7 +31,9 @@ export class CallListV2 extends AbstractAction {
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
    *     - `params?: Omit<TypeCallParamsV2, 'start' | 'order'>` - Request parameters, excluding the `start` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
-   *         Note: Use `filter`, `order`, and `select` to control the selection.
+   *         Note: Use `filter` and `select` to control the selection. `order` is NOT one of
+   *         them — cursor paging must order by `cursorIdKey`, so a caller-supplied `order` is
+   *         stripped with a `warning` (it is `Omit`ted from the type for the same reason).
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
    *         drives the cursor. Default is 'ID' (uppercase). For methods that return a lowercase /
    *         camelCase id (for example `tasks.task.list` returns `id`), set `idKey: 'id'`.
@@ -89,7 +91,7 @@ export class CallListV2 extends AbstractAction {
 
     const moreIdKey = `>${cursorIdKey}`
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
-    const requestParams: TypeCallParams = {
+    const requestParams: TypeCallParamsV2 & { filter: TypeFilterV2 } = {
       ...restParams,
       order: { [cursorIdKey]: 'ASC' },
       filter: { ...(params['filter'] || {}), [moreIdKey]: 0 },

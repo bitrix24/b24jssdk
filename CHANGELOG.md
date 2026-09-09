@@ -24,6 +24,30 @@
     payload rather than an escape hatch, and a closed type would stop most of the
     documentation from compiling.
 
+* **`batch.make` picks its return shape from the arguments** (#518). A batch
+  answers in one of four shapes, and which one was decided by two things you
+  pass in — whether `calls` is a record of named commands or an array, and
+  whether `options.returnAjaxResult` is set. Nothing on the returned value said
+  which, so the type was the union `CallBatchResult<T>` and a caller had to cast.
+
+    | `calls` | `returnAjaxResult` | now resolves to |
+    | --- | --- | --- |
+    | named record | absent / `false` | `Result<Record<string, T>>` |
+    | named record | `true` | `Result<Record<string, AjaxResult<T>>>` |
+    | array | absent / `false` | `Result<T[]>` |
+    | array | `true` | `Result<AjaxResult<T>[]>` |
+
+    `T` is **one command's** payload in every row. Nothing changes at run time
+    and no call site has to be rewritten; casts written to work around the union
+    can go. A `returnAjaxResult` the compiler cannot read as a literal still
+    resolves to the union, which is the honest answer when the discriminator is
+    only known at run time.
+
+    Under the old `Result<T = any>` this went unnoticed — `any` was assignable
+    everywhere. The documentation had already given ground to it: the v2 batch
+    guide carried a `@check-ignore: … uses union result type` on a supported,
+    documented example. That marker is gone and the example compiles.
+
 * **Node 20 is no longer supported** (#312). `engines.node` moves from
   `^20.0.0 || >=22.0.0` to `>=22.0.0` in both `@bitrix24/b24jssdk` and
   `@bitrix24/b24jssdk-nuxt`.

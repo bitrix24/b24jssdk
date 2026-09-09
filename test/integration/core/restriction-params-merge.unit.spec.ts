@@ -39,17 +39,20 @@ describe('#479 RestrictionParams merge on set', () => {
       ...ParamsFactory.getDefault(),
       retryOnNetworkError: false,
       hardErrorCodes: ['MY_APP_BAD_PAYLOAD'],
-      classifyV3ErrorsByCategory: true
+      softErrorCodes: ['MY_APP_RETRYABLE']
     })
 
     await b24.setRestrictionManagerParams({ maxRetries: 5 })
 
     const params = client.getRestrictionManagerParams()
     expect(params.maxRetries).toBe(5)
-    // Each of these was `undefined` before the fix.
+    // Each of these was `undefined` before the fix. The third slot used to hold
+    // `classifyV3ErrorsByCategory`, removed in 3.0.0 (#480); `softErrorCodes` is
+    // its nearest equivalent — a field the default set does not populate, so it
+    // can only be here because the merge kept it.
     expect(params.retryOnNetworkError).toBe(false)
     expect(params.hardErrorCodes).toEqual(['MY_APP_BAD_PAYLOAD'])
-    expect(params.classifyV3ErrorsByCategory).toBe(true)
+    expect(params.softErrorCodes).toEqual(['MY_APP_RETRYABLE'])
   })
 
   it('keeps the nested limiter blocks a partial update does not mention', async () => {

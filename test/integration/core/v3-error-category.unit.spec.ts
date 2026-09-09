@@ -10,8 +10,16 @@
  * throws. Codes are not uniformly prefixed either (`NOTE_SEARCH_QUERY_TOO_SHORT`
  * carries none), so no pattern can stand in for the list.
  *
- * The rule is opt-in for 2.x because it changes *how* an error is delivered: a
- * code that throws today resolves instead, so a `try / catch` stops firing.
+ * The rule was opt-in through the 2.x line, behind `classifyV3ErrorsByCategory`,
+ * because it changes *how* an error is delivered: a code that used to throw
+ * resolves instead, so a `try / catch` written against the old behaviour stops
+ * firing. As of 3.0.0 it is simply the behaviour and the flag is gone (#480),
+ * so the cases below configure nothing — they assert the default.
+ *
+ * The two cases that pinned the flag-off position are gone with it. Neither
+ * could survive the removal: one asserted that an unlisted v3 4xx throws, which
+ * is now the opposite of the rule, and the other that a **listed** code is soft
+ * at 400 — true by list and by category both, so it stopped being able to fail.
  *
  * Portal-free (jsSdk:unit), following the #230 spec next door: `maxRetries: 1`
  * and `_executeSingleCall` stubbed to reject, so `call()`'s classification
@@ -19,7 +27,7 @@
  * run, so `isV3Envelope` is set on the error explicitly — which is also what
  * makes the flat-v2 arm meaningful.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { AxiosError } from 'axios'
 import { ApiVersion, B24Hook, ParamsFactory } from '../../../packages/jssdk/src/'
 import { HttpV2 } from '../../../packages/jssdk/src/core/http/v2'
@@ -60,8 +68,6 @@ async function deliveryOf(http: HttpV2): Promise<'soft' | 'throw'> {
   }
 }
 
-const ON: Partial<RestrictionParams> = { classifyV3ErrorsByCategory: true }
-
 /** A v3 error body, as the portal sends it. */
 function v3ErrorResponse(code: string, status: number) {
   return {
@@ -74,24 +80,13 @@ function v3ErrorResponse(code: string, status: number) {
 }
 
 describe('#460 v3 errors classified by response category', () => {
-  describe('with the rule off — today\'s behaviour, unchanged', () => {
-    it('an unlisted v3 4xx still throws', async () => {
-      const http = httpRejectingWith({
-        code: 'BITRIX_REST_V3_EXCEPTION_INVALIDPAGINATIONEXCEPTION',
-        status: 400,
-        isV3Envelope: true
-      })
-      await expect(deliveryOf(http)).resolves.toBe('throw')
-    })
-
-    it('a listed v3 code is still soft', async () => {
-      const http = httpRejectingWith({
-        code: 'BITRIX_REST_V3_EXCEPTION_INVALIDSELECTEXCEPTION',
-        status: 400,
-        isV3Envelope: true
-      })
-      await expect(deliveryOf(http)).resolves.toBe('soft')
-    })
+  // Two cases below spy on a live axios client. Without this, the stub outlives
+  // the case that installed it and reaches whatever the runner schedules next in
+  // the same file — a leak that only shows up in some orderings, which is the
+  // worst kind to debug. The sibling `restriction-params-merge.unit.spec.ts`
+  // already does this; #523 was the same class of bug one directory over.
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   describe('the envelope flag reaches the error through the real path', () => {
@@ -102,6 +97,11 @@ describe('#460 v3 errors classified by response category', () => {
     // nothing.
 
     it('an axios failure carrying a v3 body produces isV3Envelope === true', async () => {
+      // End to end, with nothing configured: the portal answers 400 in the v3
+      // envelope, `_convertAxiosErrorToAjaxError` tags the error, and the
+      // category rule then delivers it **inside the result** rather than
+      // throwing. Before #480 this same call threw and the assertion below read
+      // the error off a `.catch()`.
       const b24 = B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/SECRET', {
         restrictionParams: { ...ParamsFactory.getDefault(), maxRetries: 1, retryDelay: 1 }
       })
@@ -114,10 +114,14 @@ describe('#460 v3 errors classified by response category', () => {
         v3ErrorResponse('BITRIX_REST_V3_EXCEPTION_INVALIDPAGINATIONEXCEPTION', 400)
       ))
 
-      const thrown = await client.call('main.eventlog.list', {}).catch((error: unknown) => error)
+      const outcome = await client.call('main.eventlog.list', {}).catch((error: unknown) => error)
 
-      expect(thrown).toBeInstanceOf(AjaxError)
-      expect((thrown as AjaxError).isV3Envelope).toBe(true)
+      expect(outcome).toBeInstanceOf(AjaxResult)
+      expect((outcome as AjaxResult<unknown>).isSuccess).toBe(false)
+
+      const [error] = [...(outcome as AjaxResult<unknown>).getErrors()]
+      expect(error).toBeInstanceOf(AjaxError)
+      expect((error as AjaxError).isV3Envelope).toBe(true)
       b24.destroy()
     })
 
@@ -164,7 +168,7 @@ describe('#460 v3 errors classified by response category', () => {
     })
   })
 
-  describe('with the rule on', () => {
+  describe('the category rule — the default since 3.0.0', () => {
     it('an unlisted v3 4xx becomes soft', async () => {
       // Measured on an on-premise build: `main.eventlog.list` with
       // `pagination: { limit: 0 }`, HTTP 400.
@@ -172,7 +176,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_INVALIDPAGINATIONEXCEPTION',
         status: 400,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('soft')
     })
 
@@ -184,7 +188,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'NOTE_SEARCH_QUERY_TOO_SHORT',
         status: 400,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('soft')
     })
 
@@ -197,7 +201,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_SOMEFORBIDDENEXCEPTION',
         status: 403,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('soft')
     })
 
@@ -217,7 +221,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_ACCESSDENIEDEXCEPTION',
         status,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('soft')
     })
 
@@ -231,7 +235,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_INSUFFICIENTSCOPEEXCEPTION',
         status: 403,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
@@ -240,7 +244,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_SOMEAUTHEXCEPTION',
         status: 401,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
@@ -249,7 +253,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_SOMETIMEOUTEXCEPTION',
         status: 408,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
@@ -258,7 +262,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_RATELIMITEXCEPTION',
         status: 429,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
@@ -267,7 +271,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_INTERNAL_INTERNALEXCEPTION',
         status: 500,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
@@ -280,13 +284,13 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'SOME_UNLISTED_V2_CODE',
         status: 400,
         isV3Envelope: false
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
     it('an error with no envelope information at all still throws', async () => {
       // A transport failure never went through the payload parser.
-      const http = httpRejectingWith({ code: 'NETWORK_ERROR', status: 0 }, ON)
+      const http = httpRejectingWith({ code: 'NETWORK_ERROR', status: 0 })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
@@ -296,7 +300,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_SOMECLIENTEXCEPTION',
         status: 499,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('soft')
     })
 
@@ -305,7 +309,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'BITRIX_REST_V3_EXCEPTION_SOMEODDEXCEPTION',
         status: 399,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
@@ -316,7 +320,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'DUP_CODE',
         status: 400,
         isV3Envelope: true
-      }, { ...ON, hardErrorCodes: ['DUP_CODE'], softErrorCodes: ['DUP_CODE'] })
+      }, { hardErrorCodes: ['DUP_CODE'], softErrorCodes: ['DUP_CODE'] })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
@@ -325,7 +329,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'MY_APP_BAD_PAYLOAD',
         status: 400,
         isV3Envelope: true
-      }, { ...ON, hardErrorCodes: ['MY_APP_BAD_PAYLOAD'] })
+      }, { hardErrorCodes: ['MY_APP_BAD_PAYLOAD'] })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
 
@@ -336,7 +340,7 @@ describe('#460 v3 errors classified by response category', () => {
         code: 'expired_token',
         status: 400,
         isV3Envelope: true
-      }, ON)
+      })
       await expect(deliveryOf(http)).resolves.toBe('throw')
     })
   })

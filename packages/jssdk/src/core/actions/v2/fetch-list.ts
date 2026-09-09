@@ -36,16 +36,15 @@ export class FetchListV2 extends AbstractAction {
    *         Note: Use `filter` and `select` to control the selection. `order` is NOT one of
    *         them — cursor paging must order by `cursorIdKey`, so a caller-supplied `order` is
    *         stripped with a `warning` (it is `Omit`ted from the type for the same reason).
-   *         This line used to name `order` among them, which the code below has always
-   *         contradicted.
    *
-   *         **Conditions go in lowercase `filter`.** This walker pages by writing its own
-   *         lowercase `filter` and `order`, and the portal keeps only the later of two keys that
-   *         differ by case — the injected one. So a method documented with uppercase `FILTER` /
-   *         `SORT` / `ORDER` needs its parameters brought to the lowercase shape first: passing
-   *         `FILTER` drops the conditions silently and returns rows they should have excluded,
-   *         and passing `SORT` fails the request outright. All three are reported with a
-   *         `warning` (#483).
+   *         **Conditions go in lowercase `filter`, and the uppercase key must be removed.**
+   *         This walker pages by writing its own lowercase `filter`, `order` and `start`, and the
+   *         portal keeps only the later of two top-level keys that differ by case. So a method
+   *         documented with uppercase `FILTER` / `SORT` / `ORDER` needs its parameters *moved* to
+   *         the lowercase shape: passing `FILTER` alone drops the conditions silently and returns
+   *         rows they should have excluded (#483), while passing `FILTER` *and* `filter` drops the
+   *         walker's cursor instead and fails the walk as stalled. `SORT` fails the request
+   *         outright. All of these are reported with a `warning`.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
    *         drives the cursor. Default is 'ID' (uppercase). For methods that return a lowercase /
    *         camelCase id (for example `tasks.task.list` returns `id`), set `idKey: 'id'`.
@@ -103,8 +102,6 @@ export class FetchListV2 extends AbstractAction {
       this._logger.warning('fetchList.make: user-provided `order` parameter is ignored because cursor-based pagination requires ordering by cursorIdKey. Use `filter` to narrow results instead.').catch(() => {})
     }
 
-    warnOnShadowedUppercaseParams('fetchList.make', params as TypeCallParams, this._logger)
-
     const moreIdKey = `>${cursorIdKey}`
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
     const requestParams: TypeCallParamsV2 & { filter: TypeFilterV2 } = {
@@ -113,6 +110,8 @@ export class FetchListV2 extends AbstractAction {
       filter: { ...(params['filter'] || {}), [moreIdKey]: 0 },
       start: -1
     }
+
+    warnOnShadowedUppercaseParams('fetchList.make', requestParams as Record<string, unknown>, this._logger)
 
     while (true) {
       const response: AjaxResult<T> = await this._b24.actions.v2.call.make<T>({

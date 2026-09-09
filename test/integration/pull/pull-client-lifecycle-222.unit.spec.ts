@@ -13,6 +13,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PullClient } from '../../../packages/jssdk/src/pullClient/client'
 import type { TypeB24 } from '../../../packages/jssdk/src/types/b24'
+// Installing these by descriptor, and restoring the original, is what keeps this
+// file independent of the order the suite runs its files in — see
+// `test/0_setup/browser-globals.ts` for why assignment is not equivalent.
+import { defineGlobal, restoreGlobal } from '../../0_setup/browser-globals'
 
 type Listener = (...args: any[]) => void
 
@@ -34,10 +38,10 @@ function installWindowStub() {
       added.get(type)?.delete(handler)
     }
   }
-  ;(globalThis as any).window = stub
-  ;(globalThis as any).document = { location: { href: 'https://test.local/' } }
-  ;(globalThis as any).navigator = { onLine: true }
-  ;(globalThis as any).XMLHttpRequest = class {
+  defineGlobal('window', stub)
+  defineGlobal('document', { location: { href: 'https://test.local/' } })
+  defineGlobal('navigator', { onLine: true })
+  defineGlobal('XMLHttpRequest', class {
     responseType = ''
     onreadystatechange: Listener | null = null
     open() {}
@@ -46,15 +50,15 @@ function installWindowStub() {
     setRequestHeader() {}
     addEventListener() {}
     removeEventListener() {}
-  }
+  })
   return stub
 }
 
 function clearGlobals() {
-  delete (globalThis as any).window
-  delete (globalThis as any).document
-  delete (globalThis as any).navigator
-  delete (globalThis as any).XMLHttpRequest
+  restoreGlobal('window')
+  restoreGlobal('document')
+  restoreGlobal('navigator')
+  restoreGlobal('XMLHttpRequest')
 }
 
 function createClient(): PullClient {

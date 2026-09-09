@@ -3,7 +3,7 @@ import { Text } from '../tools/text'
 /**
  * Interface defining the structure and methods of a Result object.
  */
-export interface IResult<T = any> {
+export interface IResult<T = unknown> {
   /**
    * Indicates whether the operation resulted in success (no errors).
    */
@@ -91,7 +91,7 @@ export interface IResult<T = any> {
  * Similar to \Bitrix\Main\Result from Bitrix Framework.
  * @link https://dev.1c-bitrix.ru/api_d7/bitrix/main/result/index.php
  */
-export class Result<T = any> implements IResult<T> {
+export class Result<T = unknown> implements IResult<T> {
   protected _errors: Map<string, Error>
   protected _data: T | null | undefined
 

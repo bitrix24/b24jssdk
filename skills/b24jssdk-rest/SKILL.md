@@ -300,15 +300,17 @@ const items = response.getData()! // CrmItem[]
 
 ## Bounding a walk — `maxPages`, `signal`, `progress`
 
-All four walkers (`callList` / `fetchList` on both versions, `callTail` / `fetchTail` on v3) accept:
+All six walkers (`callList` / `fetchList` on both versions, `callTail` / `fetchTail` on v3) accept:
 
 | option | what it does |
 | --- | --- |
-| `maxPages?: number` | Ceiling. Throws `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. **Default 10 000** — a backstop, not a policy (500 000 rows on v2; ~83 min at the default drain rate). |
+| `maxPages?: number` | Ceiling. Raises `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. **Default 10 000** — a backstop, not a policy (500 000 rows at the default page size of 50; ~83 min at the default drain rate). Must be a positive integer, or `JSSDK_ACTION_INVALID_MAX_PAGES` is raised at call time. |
 | `signal?: AbortSignal` | Throws `JSSDK_ACTION_ABORTED`. Checked at the top of each iteration, so an already-aborted signal costs no request. |
 | `progress?` | `({ pages, rows }) => void`, **eager walkers only** (`callList` / `callTail`). Counts, not a percentage — cursor paging reads no total. The streaming walkers hand you each page instead. |
 
-Both errors **return nothing**: a short list that looks complete is worse than a failure. `fetchList` / `fetchTail` have already yielded the pages they read.
+Neither error discards data. The eager walkers (`callList` / `callTail`) **resolve** with the rows they read and the error attached, so check `isSuccess` rather than assuming a returned list is whole — those rows are correct, merely incomplete. `fetchList` / `fetchTail` throw, having already yielded every page they read.
+
+A stalled cursor is different and still throws everywhere: there the extra rows are duplicates of ones already held, so there is nothing worth handing back.
 
 ```ts
 const controller = new AbortController()

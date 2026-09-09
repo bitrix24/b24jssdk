@@ -126,7 +126,7 @@ export class FetchListV3 extends AbstractAction {
           return Number.isFinite(value) ? value : null
         },
         noCursorWarning: `fetchList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`,
-        errorLabel: 'fetchListMethod',
+        errorLabel: 'fetchList.make',
         actionLabel: 'fetchList.make',
         stalledCursorHint: CURSOR_STALLED_HINT_LIST
       })

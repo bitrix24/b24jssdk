@@ -62,7 +62,7 @@ The integration test client uses `ParamsFactory.getDefault()`. The under-load se
 | UMD browser smoke | `test/umd/browser.html` (manual) |
 | Setup helpers | `test/0_setup/` |
 
-Integration test names follow `<area>-<flavor>.spec.ts`. The `core/` group exercises the transport layer (`actions-v2-call`, `actions-v3-batch`, `deprecated-call`, …); the `frame/`, `js-docs/`, `tools/` groups exercise their respective surfaces.
+Integration test names follow `<area>-<flavor>.spec.ts`. The `core/` group exercises the transport layer (`actions-v2-call`, `actions-v3-batch`, `actions-v3-aggregate`, …); the `frame/`, `js-docs/`, `tools/` groups exercise their respective surfaces.
 
 ## Basic Integration Test Structure
 
@@ -169,7 +169,6 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 | Paging | `isMore()`, `getNext()`, accumulated record count |
 | Errors | `SdkError` thrown for invariant violations, `AjaxError` surfaced via `Result.getErrors()` |
 | Limiters | Under-load suite confirms QPS caps and backoff |
-| Deprecation | `deprecated-call.spec.ts` confirms the v3-availability warning fires when callers use a v2-deprecated method |
 
 ## What Tests Do **Not** Do
 

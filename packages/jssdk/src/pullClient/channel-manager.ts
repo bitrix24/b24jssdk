@@ -55,9 +55,14 @@ export class ChannelManager {
      * @memo we not use Promise.reject()
      */
     return new Promise((resolve) => {
-      this._restClient
-        .callMethod(this._getPublicListMethod, {
-          users: unknownUsers
+      // Was `callMethod`, removed in 3.0.0 (#277). `pull.server.time` and the
+      // channel methods are `restApi:v2` only, which is what `callMethod`
+      // resolved to anyway — so this is the same request, spelled the way the
+      // SDK spells every other one.
+      this._restClient.actions.v2.call
+        .make({
+          method: this._getPublicListMethod,
+          params: { users: unknownUsers }
         })
         .then((response: AjaxResult) => {
           const data = (response.getData() as SuccessPayload<Record<string, TypePublicIdDescriptor>>).result

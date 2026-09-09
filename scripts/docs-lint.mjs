@@ -241,7 +241,12 @@ export function checkFrontmatterLinkTargets(file, frontmatter, deps = {}) {
 // no real name to use instead — no shipped Bitrix24 module publishes an
 // `*.aggregate` action on any portal checked, which is the reason the action is
 // still `@experimental` and the reason the snippet needs a placeholder at all.
-const CHECK_IGNORE_WARN_THRESHOLD = 58
+//
+// 58 -> 59 (#277): the `getTotal()` progress snippet on the 3.0.0 migration page.
+// It shows how to replace `callListMethod`'s removed `progress` callback, so it
+// deliberately opens mid-story with a `$b24` the reader already has — declaring
+// a client would bury the one line the snippet exists to show.
+const CHECK_IGNORE_WARN_THRESHOLD = 59
 
 function countCheckIgnoreMarkers(files) {
   let total = 0

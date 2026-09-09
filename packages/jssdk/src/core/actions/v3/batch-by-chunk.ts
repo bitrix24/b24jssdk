@@ -84,7 +84,7 @@ export class BatchByChunkV3 extends AbstractBatch {
       apiVersion: ApiVersion.v3
     }
 
-    // callBatchByChunk
+    // batchByChunk.make
     const result = new Result<T[]>()
 
     const dataResult: T[] = []

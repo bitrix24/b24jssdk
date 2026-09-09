@@ -246,16 +246,12 @@ await $b24.setRestrictionManagerParams({
   // duplicates.
   retryOnNetworkError: false,
 
-  // restApi:v3 only. Decide soft/hard from the RESPONSE — a v3 error envelope
-  // carrying a 4xx other than 401/408/429 is soft, whatever its code. Off by
-  // default in 2.x because it is breaking (a code that throws today resolves
-  // instead); the default flips in 3.0.0.
-  classifyV3ErrorsByCategory: true,
-
   maxRetries: 3,
   retryDelay: 1_000
 })
 ```
+
+**The category rule needs no configuration.** On `restApi:v3` an error that arrived in the v3 error envelope carrying a 4xx other than 401/408/429 is soft, whatever its code. Through the `2.x` line this was opt-in behind a `classifyV3ErrorsByCategory` parameter; since `3.0.0` it is simply the behaviour and that parameter no longer exists — passing it is a compile error, and the fix is to delete the line.
 
 **Why the category rule exists.** The built-in soft list holds nine v3 codes; one on-premise build was measured to ship at least 39, and the set grows with every portal module. So classification by list is per-module-shipping-date, not per-error-kind: `INVALIDSELECTEXCEPTION` is soft while `INVALIDPAGINATIONEXCEPTION` — same caller mistake, same request, same HTTP 400 — throws. Pinned codes (built-in and yours) still outrank the rule; 5xx, 401, 408, 429 and all of `restApi:v2` are untouched; 403 is soft, matching the already-pinned `…ACCESSDENIEDEXCEPTION` — except `…INSUFFICIENTSCOPEEXCEPTION`, pinned hard because it is a missing OAuth grant and its v2 twin `insufficient_scope` has always thrown.
 

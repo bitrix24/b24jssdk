@@ -10,8 +10,15 @@ import { AbstractAction } from './abstract-action'
 import { Result } from '../result'
 
 export abstract class AbstractBatch extends AbstractAction {
+  /**
+   * Copies a failed response's errors onto the result being built.
+   *
+   * The payload type is irrelevant here — only `isSuccess` and `errors` are
+   * read — so this takes `unknown` rather than an explicit `any`, which would
+   * opt out of the narrowing #279 applied to the rest of the type family.
+   */
   protected _addBatchErrorsIfAny(
-    response: Result<ICallBatchResult<any>>,
+    response: Result<ICallBatchResult<unknown>>,
     result: Result
   ): void {
     if (!response.isSuccess) {
@@ -87,7 +94,7 @@ export abstract class AbstractBatch extends AbstractAction {
     isArrayCall: boolean
   ): T {
     if (isArrayCall) {
-      const dataResult: any[] = []
+      const dataResult: unknown[] = []
       for (const [_index, data] of response.getData()!.result!) {
         // @memo Add only success rows
         if (data.isSuccess) {
@@ -96,7 +103,7 @@ export abstract class AbstractBatch extends AbstractAction {
       }
       return dataResult as T
     } else {
-      const dataResult: Record<string | number, any> = {}
+      const dataResult: Record<string | number, unknown> = {}
       for (const [index, data] of response.getData()!.result!) {
         // @memo Add only success rows
         if (data.isSuccess) {

@@ -102,7 +102,7 @@ export class FetchListV3 extends AbstractAction {
     assertArrayFilter(params['filter'], 'fetchList.make')
 
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
-    const requestParams: TypeCallParams = {
+    const requestParams: TypeCallParamsV3 & { filter: TypeFilterV3 } = {
       ...restParams,
       order: { [cursorIdKey]: 'ASC' },
       filter: [...(params['filter'] ?? [])],

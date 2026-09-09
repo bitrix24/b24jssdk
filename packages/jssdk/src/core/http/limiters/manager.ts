@@ -455,10 +455,16 @@ export class RestrictionManager {
    *    a credential failure, and a caller's `hardErrorCodes` always wins;
    * 2. a code in `exceptionCodeForSoft` is soft — so the built-in list, the v2
    *    codes and a caller's `softErrorCodes` keep working unchanged;
-   * 3. with `classifyV3ErrorsByCategory` on, an error that arrived in the
-   *    **v3 error envelope** carrying a **4xx other than 401 / 408 / 429** is
-   *    soft, whatever its code;
-   * 4. otherwise it throws, which is what happens today for anything unlisted.
+   * 3. an error that arrived in the **v3 error envelope** carrying a **4xx
+   *    other than 401 / 408 / 429** is soft, whatever its code;
+   * 4. otherwise it throws.
+   *
+   * Step 3 was opt-in through the 2.x line, behind `classifyV3ErrorsByCategory`,
+   * and is simply the behaviour as of 3.0.0 — the flag is gone rather than
+   * inverted, because a permanent compatibility switch is what the 2.x
+   * arrangement was scheduled to avoid becoming (#480). A caller who needs the
+   * old classification for one code pins it in `hardErrorCodes`, which step 1
+   * still honours.
    *
    * Step 3 keys on the envelope the response actually carried, never on the
    * client's own version: a gateway in front of the v3 controller is documented
@@ -475,10 +481,6 @@ export class RestrictionManager {
 
     if (this.exceptionCodeForSoft.includes(codeText)) {
       return true
-    }
-
-    if (this.#config.classifyV3ErrorsByCategory !== true) {
-      return false
     }
 
     // This check, not the status range below, is what keeps an untagged error
@@ -565,7 +567,7 @@ export class RestrictionManager {
    * It used to assign — `this.#config = params` — so a caller changing one
    * field silently lost every other one. `setRestrictionManagerParams({
    * maxRetries: 5 })` after a careful setup left `hardErrorCodes`,
-   * `retryOnNetworkError`, `classifyV3ErrorsByCategory` **and** `rateLimit` all
+   * `softErrorCodes`, `retryOnNetworkError` **and** `rateLimit` all
    * `undefined`, with no error and nothing in the log. (#479)
    *
    * The tell was in our own documentation: every example of this method spreads

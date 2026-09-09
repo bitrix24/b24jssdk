@@ -79,7 +79,7 @@
     "docs:lint-links": "node scripts/docs-link-check.mjs",
     "docs:lint-api-index": "node scripts/check-api-reference-index.mjs",
     "docs:lint:test": "node --test \"scripts/__tests__/**/*.test.mjs\"",
-    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run test:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run docs:typecheck-blocks && pnpm run skills:typecheck && pnpm run skills:typecheck-blocks && pnpm run jsdoc:typecheck-blocks && pnpm run contributing:typecheck-blocks",
+    "typecheck": "pnpm run package-jssdk:typecheck && pnpm run test:typecheck && pnpm run package-jssdk-nuxt:typecheck && pnpm run docs:typecheck && pnpm run playground-nuxt:typecheck && pnpm run playground-cli:typecheck && pnpm run docs:typecheck-blocks && pnpm run skills:typecheck && pnpm run skills:typecheck-blocks && pnpm run jsdoc:typecheck-blocks && pnpm run contributing:typecheck-blocks && node scripts/typecheck-summary.mjs",
     "release:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {

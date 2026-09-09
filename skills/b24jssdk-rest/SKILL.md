@@ -298,6 +298,33 @@ const items = response.getData()! // CrmItem[]
 
 > **`order` is ignored** by `callList.make`. The action forces `order: { [cursorIdKey]: 'ASC' }` for cursor stability and **logs a warning** when you pass an `order` (see the `order` warning in `actions/v2/call-list.ts`). Use `filter` to narrow results.
 
+### Bounding a walk — `maxPages`, `signal`, `progress`
+
+All four walkers (`callList` / `fetchList` on both versions, `callTail` / `fetchTail` on v3) accept:
+
+| option | what it does |
+| --- | --- |
+| `maxPages?: number` | Ceiling. Throws `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. **Default 10 000** — a backstop, not a policy (500 000 rows on v2; ~83 min at the default drain rate). |
+| `signal?: AbortSignal` | Throws `JSSDK_ACTION_ABORTED`. Checked at the top of each iteration, so an already-aborted signal costs no request. |
+| `progress?` | `({ pages, rows }) => void`, **eager walkers only** (`callList` / `callTail`). Counts, not a percentage — cursor paging reads no total. The streaming walkers hand you each page instead. |
+
+Both errors **return nothing**: a short list that looks complete is worse than a failure. `fetchList` / `fetchTail` have already yielded the pages they read.
+
+```ts
+const controller = new AbortController()
+
+const response = await $b24.actions.v3.callList.make({
+  method: 'main.eventlog.list',
+  customKeyForResult: 'items',
+  idKey: 'id',
+  maxPages: 200,
+  signal: controller.signal,
+  progress: ({ pages, rows }) => console.log(`${pages} pages, ${rows} rows`)
+})
+```
+
+The default ceiling does not replace `JSSDK_ACTION_CURSOR_STALLED`, which fires far earlier and says something more specific: the cursor came back equal to the one just sent. The ceiling catches what that guard cannot — a cursor that *moves* but never ends, including one cycling between values (#495).
+
 ## `fetchList.make` — large lists, streaming
 
 Async iterator that yields chunks. Same shape as `callList.make` plus an optional `limit` for v3.

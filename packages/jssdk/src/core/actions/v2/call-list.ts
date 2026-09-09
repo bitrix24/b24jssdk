@@ -1,10 +1,14 @@
+import type { WalkBoundsOptions, WalkProgress } from '../_walk-bounds'
+import { assertNotAborted, maxPagesExceededError, resolveMaxPages } from '../_walk-bounds'
 import type { TypeCallParams, TypeCallParamsV2, TypeFilterV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { Result } from '../../result'
 import { cursorStalledError, CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
 
-export type ActionCallListV2 = {
+export type ActionCallListV2 = WalkBoundsOptions & {
+  /** Called after each collected page; see `WalkProgress`. */
+  progress?: WalkProgress
   method: string
   params?: Omit<TypeCallParamsV2, 'start' | 'order'>
   idKey?: string
@@ -45,6 +49,17 @@ export class CallListV2 extends AbstractAction {
    *        grouped by this field.
    *        Example: `items` to group a list of CRM items.
    *    - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
+   *    - `maxPages?: number` - Stop after this many pages and throw
+   *        `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. Defaults to 10 000 — a backstop,
+   *        not a policy: on `restApi:v2` that is 500 000 rows, and at the default drain rate
+   *        about 83 minutes of requests, so a walk that never ends is bounded without capping
+   *        a read anyone performs. Nothing is returned when it fires; a short list that looks
+   *        complete is the failure this refuses to produce.
+   *    - `signal?: AbortSignal` - Stop the walk. Checked at the top of each iteration, so an
+   *        already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
+   *    - `progress?: (p: { pages: number, rows: number }) => void` - Called after each
+   *        collected page. Counts, not a percentage: cursor paging reads no total, and
+   *        inventing a denominator would be worse than an honest count.
    *
    * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.
    *
@@ -99,8 +114,12 @@ export class CallListV2 extends AbstractAction {
     }
 
     let allItems: T[] = []
+    let pages = 0
+    const maxPages = resolveMaxPages('callList.make', options?.maxPages)
 
     while (true) {
+      assertNotAborted(options?.signal, 'callList.make', options.method)
+
       const response: AjaxResult<T> = await this._b24.actions.v2.call.make<T>({
         method: options.method,
         params: requestParams,
@@ -132,6 +151,8 @@ export class CallListV2 extends AbstractAction {
       }
 
       allItems = [...allItems, ...resultData]
+      pages += 1
+      options.progress?.({ pages, rows: allItems.length })
 
       if (resultData.length < batchSize) {
         break
@@ -158,6 +179,13 @@ export class CallListV2 extends AbstractAction {
           throw cursorStalledError('callList.make', CURSOR_STALLED_HINT_LIST)
         }
         requestParams.filter[moreIdKey] = cursorValue
+
+        // Last, so every cheaper stop wins: a walk that ends exactly on its
+        // ceiling finishes rather than erroring on its final page, and a stalled
+        // cursor is still reported as a stall — the more specific diagnosis.
+        if (pages >= maxPages) {
+          throw maxPagesExceededError('callList.make', options.method, maxPages)
+        }
       } else {
         // A full page came back, yet no usable numeric cursor id could be read from
         // its items via `idKey` — almost always an `idKey` that doesn't match the

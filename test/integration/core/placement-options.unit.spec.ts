@@ -159,4 +159,50 @@ describe('PlacementManager reads PLACEMENT_OPTIONS through the normaliser (#485)
 
     expect(Object.isFrozen(raw)).toBe(false)
   })
+
+  // The mutation sweep found nothing pinning this: normalising in the getter
+  // instead of once in `initData` still returns a frozen object with the right
+  // keys, so every assertion passed while `options` handed back a fresh object
+  // per read — enough to break any consumer keyed on the reference.
+  it('returns the same object on every read', () => {
+    const placement = initWith({ payload: { id: 1 } })
+
+    expect(placement.options).toBe(placement.options)
+  })
+
+  // The copy and the freeze are one level deep, which the JSDoc now says
+  // outright. Pinned so the claim and the code cannot drift apart again: the
+  // previous wording promised the copy severed the tie to `MessageInitData`,
+  // and it severs it only at the top.
+  it('does not freeze or copy nested values — they stay the portal\'s', () => {
+    const initData = { payload: { id: 1 } }
+    const result = normalisePlacementOptions(initData) as { payload: { id: number } }
+
+    expect(Object.isFrozen(result)).toBe(true)
+    expect(Object.isFrozen(result.payload)).toBe(false)
+    expect(result.payload).toBe(initData.payload)
+  })
+
+  // Reachable only through `initData`, which is public — nothing that crossed
+  // `postMessage` can carry an accessor. "Never throws" is stated without a
+  // qualifier, so it has to hold here too.
+  it('does not throw on a source whose getter throws', () => {
+    const hostile = {
+      get boom(): never {
+        throw new Error('boom')
+      }
+    }
+
+    expect(() => normalisePlacementOptions(hostile)).not.toThrow()
+    expect(normalisePlacementOptions(hostile)).toEqual({})
+  })
+
+  // `isSliderMode` compares against the string 'Y' because the value comes from
+  // a query string. A registered placement can send a real boolean, and that
+  // deliberately does not count — pinned so a future "helpful" loosening has to
+  // argue with a test.
+  it('leaves a boolean IFRAME as a boolean, which is not slider mode', () => {
+    expect(normalisePlacementOptions({ IFRAME: true })['IFRAME']).toBe(true)
+    expect(initWith({ IFRAME: true }, 'DEFAULT').isSliderMode).toBe(false)
+  })
 })

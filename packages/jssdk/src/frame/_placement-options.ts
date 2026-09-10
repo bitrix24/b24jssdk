@@ -57,7 +57,15 @@ export type PlacementOptions = Readonly<Record<string, unknown>>
 const EMPTY: PlacementOptions = Object.freeze({})
 
 /**
- * A plain object — not `null`, not an array, which the portal never sends here.
+ * A plain object — not `null`, not an array.
+ *
+ * Arrays are excluded because none of the four producers above was observed to
+ * send one **on the build this was read from**. That is the least-evidenced arm
+ * here, and the only one that discards data if it is wrong: an array, or a
+ * string that parses to one, becomes `{}` rather than being carried through.
+ * Producer 1 is the plausible route — PHP turns `a[0]=x&a[1]=y` into a list —
+ * so if a placement is ever seen arriving as an array, this arm is the thing to
+ * revisit, not the caller's code.
  *
  * The `null` arm is a **type-soundness** guard, not a behavioural one, and no
  * test can distinguish it: removing it leaves the predicate claiming `null` is a
@@ -77,24 +85,45 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * Never throws and never returns `undefined`: a malformed value is indistinguishable
  * from an absent one as far as a caller can act on it, and an exception here would
  * fail the whole frame handshake over a parameter the application may not even read.
+ *
+ * **The copy and the freeze are one level deep.** The top-level object is this
+ * module's own and is frozen; the values inside it are still the portal's
+ * references, and are not frozen. So `options.payload` — once a caller has
+ * narrowed it, which `unknown` forces them to — is the same object the handshake
+ * data holds, and writing through it is visible there. Nothing in the SDK reads
+ * `MessageInitData` again after `init()`, so this costs nothing today; it is
+ * documented because the shallow copy was introduced to sever exactly that tie
+ * and only severs it at the top.
+ *
+ * Five wire shapes collapse to `{}` and cannot be told apart afterwards: an
+ * absent value, `''`, a genuinely empty object, an array, and a string that is
+ * not JSON or parses to a non-object. There is deliberately no accessor for the
+ * raw value — the shapes that lose information are the ones no producer above is
+ * known to send. A caller who needs one of them should say so in an issue rather
+ * than reach around this.
  */
 export function normalisePlacementOptions(raw: unknown): PlacementOptions {
-  if (isPlainObject(raw)) {
-    return Object.freeze({ ...raw })
-  }
+  try {
+    if (isPlainObject(raw)) {
+      // Inside the `try` as well: spreading runs the source's getters, so a
+      // value carrying one that throws would take the handshake down. Nothing
+      // that crossed `postMessage` can — structured clone strips accessors —
+      // but `initData` is public, so "never throws" has to hold for what a
+      // caller can hand it too, not only for what the portal sends.
+      return Object.freeze({ ...raw })
+    }
 
-  if ('string' === typeof raw && raw.length > 0) {
-    try {
+    if ('string' === typeof raw && raw.length > 0) {
       const parsed: unknown = JSON.parse(raw)
       return isPlainObject(parsed) ? Object.freeze({ ...parsed }) : EMPTY
-    } catch {
-      // A backstop, not a handled case: none of the four producers above can
-      // make a non-empty string that is not JSON. Silent rather than logged for
-      // the same reason — warning about a shape nothing produces would be
-      // guarding a guess, and this module has no logger to warn with. If one is
-      // ever seen, that is the finding, and it belongs in an issue.
-      return EMPTY
     }
+  } catch {
+    // A backstop, not a handled case: none of the four producers above can
+    // make a non-empty string that is not JSON. Silent rather than logged for
+    // the same reason — warning about a shape nothing produces would be
+    // guarding a guess, and this module has no logger to warn with. If one is
+    // ever seen, that is the finding, and it belongs in an issue.
+    return EMPTY
   }
 
   return EMPTY

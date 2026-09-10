@@ -23,7 +23,8 @@ export type ActionBatchByChunkV3 = {
 export class BatchByChunkV3 extends AbstractBatch {
   /**
    * Executes a batch request with automatic chunking for any number of commands.
-   * Unlike `BatchV3`, which is limited to 50 commands, this method automatically splits
+   * Unlike `BatchV3`, which is limited to the SDK's 50-command ceiling (see
+   * {@link MAX_BATCH_COMMANDS_V3} — the portal accepts more), this method automatically splits
    * a large set of commands into multiple batches and executes them sequentially.
    *
    * @template T - The data type returned by commands (default: `unknown`)

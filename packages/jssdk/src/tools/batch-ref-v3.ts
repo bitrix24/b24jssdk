@@ -28,8 +28,27 @@ function assertPath(path: string, who: string): void {
  * marker objects you drop into a later command's `params` (the SDK forwards
  * `params` to the wire `query`), with a little client-side validation. Reference
  * an earlier command by its `as` alias — or by its numeric index if you omit `as`.
- * Only `item` (get) and `items` (list/tail) results land in context; `add` → id
- * and `update` → bool results do not.
+ * Only `item` (get) and `items` (list/tail) results land in context. A `$ref`
+ * over an `add` result is refused with HTTP 400 — `INVALIDSELECTEXCEPTION` on
+ * the on-premise build measured, which is the code to expect rather than a
+ * contract.
+ *
+ * **On what `add` and `update` return: nothing general.** Three modules, and no
+ * two agree — with the evidence for each being different in kind: a module built
+ * for these probes (stock ORM traits, so it shows the framework default),
+ * `note.collection.*` as the #465 reporter observed it rather than re-measured
+ * here, and the framework's own response classes read from the sources.
+ *
+ * With the stock ORM action traits it is an id and a boolean — `AddResponse`
+ * declares one property, `public int $id`, and `UpdateResponse extends
+ * BooleanResponse`; measured, `add` answered `{ result: { id: 22 } }` and
+ * `update` `{ result: true }`. `tasks.task` declares its own: `add` answered the
+ * whole object under `result.item`, and `update` a boolean nested one level
+ * deeper, `{ result: { result: true } }`. `note.collection` on a cloud sandbox
+ * returned the whole object from **both**.
+ *
+ * So read the contract of the method you are calling rather than assuming a
+ * shape — but whichever it is, it does not reach the batch context.
  *
  * **v3 only.** Substitution is a v3 batch feature. Dropped into a v2 batch
  * (`actions.v2.batch.make`) the markers are NOT substituted — they are encoded
@@ -56,8 +75,9 @@ function assertPath(path: string, who: string): void {
 export const BatchRefV3 = Object.freeze({
   /**
    * `{ $ref: path }` — substitute a single value from context, e.g.
-   * `ref('newTask.item.id')`. `add` → id / `update` → bool results are NOT in
-   * context (reference §8); only `item` (get) and `items` (list/tail) are.
+   * `ref('newTask.item.id')`. Only `item` (get) and `items` (list/tail) land in
+   * context (reference §8); an `add` or `update` result does not, whatever shape
+   * that module gives it — see the note on the module docblock.
    */
   ref(path: string): BatchRef {
     assertPath(path, 'BatchRefV3.ref')

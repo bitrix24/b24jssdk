@@ -58,7 +58,15 @@ export class FetchTailV3 extends AbstractAction {
    *         backstop, not a policy. Nothing is returned when it fires.
    *     - `signal?: AbortSignal` - Stop the walk. Checked at the top of each iteration, so an
    *         already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
-   *     - `limit?: number` - How many records to retrieve at a time. Default is `50`. Maximum is `1000`.
+   *     - `limit?: number` - How many records to retrieve at a time. Default is `50`.
+   *         **A request, not a guarantee.** Each method applies its own maximum and a page
+   *         shorter than `limit` is not the end of the data — `tasks.task.list` answers 50
+   *         however much you ask for, measured with 60 rows available. This walker is
+   *         cap-tolerant; hand-rolled paging on `call.make` is not. On the build measured, a
+   *         `limit` of `0` or a non-numeric one was refused with
+   *         `INVALIDPAGINATIONEXCEPTION` and a negative one answered a bare 500 — one
+   *         method on one on-premise build, so treat the codes as what to expect rather
+   *         than a contract.
    *     - `initialValue?: number | string` - Cursor start value for the first page. Default is `0`
    *         (valid for ascending numeric fields); required for `DESC` and for non-numeric fields.
    *

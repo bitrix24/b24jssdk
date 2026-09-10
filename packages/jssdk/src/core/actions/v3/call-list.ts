@@ -32,7 +32,10 @@ export type ActionCallListV3 = WalkBoundsOptions & {
  *
  * Iterates through all pages of a v3 list method using keyset (cursor) pagination and collects
  * every item into a single array returned as a `Result`. Unlike the v2 counterpart `CallListV2`,
- * it uses v3-style array filter syntax and supports the `limit` option (the server enforces its own per-method maximum, commonly 1000).
+ * it uses v3-style array filter syntax and supports the `limit` option — a requested page size,
+ * since each method enforces its own maximum. No number here is a rule: `tasks.task.list` was
+ * measured at 50 whatever is asked, and 1000 is the figure the reference quotes rather than one
+ * observed on any method.
  * Unlike `FetchListV3`, which streams pages via an async generator, this class returns the
  * complete dataset in one awaited call.
  */
@@ -68,7 +71,15 @@ export class CallListV3 extends AbstractAction {
    *    - `progress?: (p: { pages: number, rows: number }) => void` - Called after each
    *        collected page. Counts, not a percentage: cursor paging reads no total, and
    *        inventing a denominator would be worse than an honest count.
-   *    - `limit?: number` - How many records to retrieve at a time. Default is `50`. Maximum is `1000`.
+   *    - `limit?: number` - How many records to retrieve at a time. Default is `50`.
+   *        **A request, not a guarantee.** Each method applies its own maximum and a page
+   *        shorter than `limit` is not the end of the data — `tasks.task.list` answers 50
+   *        however much you ask for, measured with 60 rows available. This walker is
+   *        cap-tolerant; hand-rolled paging on `call.make` is not. On the build measured, a
+   *        `limit` of `0` or a non-numeric one was refused with
+   *        `INVALIDPAGINATIONEXCEPTION` and a negative one answered a bare 500 — one
+   *        method on one on-premise build, so treat the codes as what to expect rather
+   *        than a contract.
    *
    * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.
    *

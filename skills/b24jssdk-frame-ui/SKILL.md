@@ -47,7 +47,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const { $initializeB24Frame } = useNuxtApp()
   const $b24 = await $initializeB24Frame()
 
-  const target = routeForPlace($b24.placement.options?.place)
+  const target = routeForPlace($b24.placement.options['place'])
   // isSamePath must tolerate a trailing slash: a static server serves `/app/`
   // while the router resolves `/app`, and a strict !== cancels every redirect.
   if (!target || isSamePath(to.path, target)) return
@@ -178,7 +178,7 @@ they have no effect yet — send them only so that no change is needed when it d
 
 ```ts
 $b24.placement.title           // string identifier of the placement
-$b24.placement.options         // params passed by the placement
+$b24.placement.options         // params passed by the placement; Readonly<Record<string, unknown>>, never undefined
 $b24.placement.isSliderMode    // boolean
 
 const iface = await $b24.placement.getInterface()
@@ -316,5 +316,5 @@ To check an app the portal is ignoring, ask whether it considers it installed:
 - ❌ `await parent.closeApplication()` — on some builds the portal never answers, so it waits forever (#328). Cleanup first, then close without awaiting.
 - ❌ Treating an absent `selectCRM` bucket as an empty array — they are `undefined`. Use `picked.deal ?? []`.
 - ❌ `return navigateTo(target)` from Nuxt route middleware to route an opened slider — discarded without error on a prerendered entry route. Navigate from `onNuxtReady` while hydrating.
-- ❌ Reading `$b24.placement.options?.place` without allowing for a JSON string — `PLACEMENT_OPTIONS` is not always an object, and key case is not guaranteed across entry points. On a string this yields `undefined` silently.
+- ❌ Trusting `$b24.placement.options['place']` without narrowing it — values are `unknown`, because the data crosses a postMessage boundary from the portal. Key case is the portal's choice too: for the default placement the object **is** the frame URL query string. (The JSON-string and empty-string wire shapes are normalised by the SDK since 3.0.0, so `?.` is no longer needed.)
 - ❌ Gating slider diagnostics on `placement.isSliderMode` — it is derived from `PLACEMENT_OPTIONS.IFRAME`, so it goes quiet exactly when the placement data you are diagnosing is missing.

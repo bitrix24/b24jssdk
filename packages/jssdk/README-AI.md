@@ -61,10 +61,18 @@ and `#getNext()` / `#fetchNext()` **throw**
 `actions.v{2,3}.{callList,fetchList}` — they hide the offset bookkeeping and work
 under both versions. For a `restApi:v3` count use `actions.v3.aggregate.make`
 (`@experimental` — the contract is measured, but **no shipped module publishes
-an `*.aggregate` method yet**) with `count` /
+an `*.aggregate` action on any of the four portals checked**) with `count` /
 `countDistinct` on a method that exposes an `*.aggregate` action — check
-`rest.documentation.openapi` to confirm the endpoint exists; otherwise reduce a
-`callList` client-side.
+`rest.documentation.openapi` and look for paths ending in `.aggregate` to confirm
+the endpoint exists; otherwise reduce a `callList` client-side.
+**Every aggregated field must be `filterable`**, which is not the same as
+selectable: a field that `list` returns quite normally is still refused by an
+aggregate `select` unless `<entity>.field.list` reports `filterable: true` for
+it. On `tasks.task` that is one field of ninety-five, so ask rather than assume.
+The refusal arrives **soft** (`isSuccess === false`, not thrown — a 4xx in the v3
+envelope) as `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION`,
+naming the field in `validation[].field`. Match on the code and the field, never
+on the message: it is localised.
 
 `AjaxResult.getData()` returns exactly `{ result: T, time: PayloadTime }` — the
 v2-only `next` and `total` fields are no longer surfaced through the public type.

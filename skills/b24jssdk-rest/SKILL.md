@@ -298,6 +298,35 @@ const items = response.getData()! // CrmItem[]
 
 > **`order` is ignored** by `callList.make`. The action forces `order: { [cursorIdKey]: 'ASC' }` for cursor stability and **logs a warning** when you pass an `order` (see the `order` warning in `actions/v2/call-list.ts`). Use `filter` to narrow results.
 
+## Bounding a walk — `maxPages`, `signal`, `progress`
+
+All six walkers (`callList` / `fetchList` on both versions, `callTail` / `fetchTail` on v3) accept:
+
+| option | what it does |
+| --- | --- |
+| `maxPages?: number` | Ceiling. Raises `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. **Default 10 000** — a backstop, not a policy (500 000 rows at the default page size of 50; ~83 min at the default drain rate). Must be a positive integer, or `JSSDK_ACTION_INVALID_MAX_PAGES` is raised at call time. |
+| `signal?: AbortSignal` | Throws `JSSDK_ACTION_ABORTED`. Checked at the top of each iteration, so an already-aborted signal costs no request. |
+| `progress?` | `({ pages, rows }) => void`, **eager walkers only** (`callList` / `callTail`). Counts, not a percentage — cursor paging reads no total. The streaming walkers hand you each page instead. |
+
+Neither error discards data. The eager walkers (`callList` / `callTail`) **resolve** with the rows they read and the error attached, so check `isSuccess` rather than assuming a returned list is whole — those rows are correct, merely incomplete. `fetchList` / `fetchTail` throw, having already yielded every page they read.
+
+A stalled cursor is different and still throws everywhere: there the extra rows are duplicates of ones already held, so there is nothing worth handing back.
+
+```ts
+const controller = new AbortController()
+
+const response = await $b24.actions.v3.callList.make({
+  method: 'main.eventlog.list',
+  customKeyForResult: 'items',
+  idKey: 'id',
+  maxPages: 200,
+  signal: controller.signal,
+  progress: ({ pages, rows }) => console.log(`${pages} pages, ${rows} rows`)
+})
+```
+
+The default ceiling does not replace `JSSDK_ACTION_CURSOR_STALLED`, which fires far earlier and says something more specific: the cursor came back equal to the one just sent. The ceiling catches what that guard cannot — a cursor that *moves* but never ends, including one cycling between values (#495).
+
 ## On `restApi:v2`, conditions go in lowercase `filter` — never `FILTER`
 
 Applies to **both** `callList.make` and `fetchList.make`.

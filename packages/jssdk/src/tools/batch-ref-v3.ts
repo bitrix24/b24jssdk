@@ -32,17 +32,19 @@ function assertPath(path: string, who: string): void {
  * over an `add` result is refused with HTTP 400 `INVALIDSELECTEXCEPTION` —
  * measured.
  *
- * **On what `add` and `update` return.** With the stock ORM action traits it is
- * an id and a boolean: `AddResponse` declares one property, `public int $id`,
- * and `UpdateResponse extends BooleanResponse`. Measured through a module using
- * those traits — `add` answered `{ result: { id: 22 } }`, `update` and `delete`
- * answered `{ result: true }`, while `get` answered `{ item: … }`.
+ * **On what `add` and `update` return: nothing general.** Three modules were
+ * measured and no two agree.
  *
- * That is the framework default, not a guarantee: a module can declare its own
- * response, and one measured on a cloud sandbox (`note.collection.*`) returned
- * the whole affected object under `result.item` from both. So read the shape the
- * module you are calling actually documents, rather than assuming either — but
- * whichever it is, it does not reach the batch context.
+ * With the stock ORM action traits it is an id and a boolean — `AddResponse`
+ * declares one property, `public int $id`, and `UpdateResponse extends
+ * BooleanResponse`; measured, `add` answered `{ result: { id: 22 } }` and
+ * `update` `{ result: true }`. `tasks.task` declares its own: `add` answered the
+ * whole object under `result.item`, and `update` a boolean nested one level
+ * deeper, `{ result: { result: true } }`. `note.collection` on a cloud sandbox
+ * returned the whole object from **both**.
+ *
+ * So read the contract of the method you are calling rather than assuming a
+ * shape — but whichever it is, it does not reach the batch context.
  *
  * **v3 only.** Substitution is a v3 batch feature. Dropped into a v2 batch
  * (`actions.v2.batch.make`) the markers are NOT substituted — they are encoded

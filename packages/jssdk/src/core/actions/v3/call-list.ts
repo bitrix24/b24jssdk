@@ -32,7 +32,10 @@ export type ActionCallListV3 = WalkBoundsOptions & {
  *
  * Iterates through all pages of a v3 list method using keyset (cursor) pagination and collects
  * every item into a single array returned as a `Result`. Unlike the v2 counterpart `CallListV2`,
- * it uses v3-style array filter syntax and supports the `limit` option (the server enforces its own per-method maximum, commonly 1000).
+ * it uses v3-style array filter syntax and supports the `limit` option — a requested page size,
+ * since each method enforces its own maximum. No number here is a rule: `tasks.task.list` was
+ * measured at 50 whatever is asked, and 1000 is the figure the reference quotes rather than one
+ * observed on any method.
  * Unlike `FetchListV3`, which streams pages via an async generator, this class returns the
  * complete dataset in one awaited call.
  */

@@ -24,6 +24,8 @@ export type ActionBatchV3 = {
  * Allows you to execute multiple requests in a single API call, significantly improving performance.
  *
  * Sends up to 50 commands in a single v3 batch HTTP call and returns their results together.
+ * That 50 is the **SDK's** ceiling on v3, not the portal's — 51 commands posted straight at
+ * the endpoint answered HTTP 200 with 51 results; see {@link MAX_BATCH_COMMANDS_V3}.
  * Supports array, object, and named-command formats. Unlike `BatchByChunkV3`, it does not split
  * large command sets automatically — callers must keep the command count within the 50-command
  * limit. Compared to `BatchV2`, it routes through the v3 endpoint without a client-side method
@@ -40,8 +42,10 @@ export class BatchV3 extends AbstractBatch {
    * this one would not be — no pass type-checks a JSDoc `@example` (#420).
    *
    * What matters while editing this file:
-   *   - **50 commands maximum.** This action does not split; `BatchByChunkV3`
-   *     is the one that does.
+   *   - **50 commands maximum**, and on v3 that number is the SDK's own rather
+   *     than the portal's — see {@link MAX_BATCH_COMMANDS_V3} for what was
+   *     measured. This action does not split; `BatchByChunkV3` is the one that
+   *     does.
    *   - **`getData()` has no `result` envelope here.** It returns the keyed map
    *     or array directly — only `call.make` returns `{ result, time }` (#425).
    *   - **Flags live in `options`.** At the top level they are dropped, which is

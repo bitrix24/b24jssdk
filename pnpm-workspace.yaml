@@ -148,6 +148,10 @@ overrides:
   launch-editor: '>=2.14.1 <3'
   # GHSA-6v5v-wf23-fmfq — markdown-it quadratic-complexity DoS in smartquotes
   markdown-it: '>=14.1.2 <15'
+  # GHSA-7w5x-hrqm-74c2 — smol-toml DoS via malformed TOML documents. Reached only
+  # through `markdownlint-cli2`, a dev dependency that runs in CI (`pnpm lint:md`),
+  # so it is in scope for the audit gate. The tree carries only the 1.x line.
+  smol-toml: '>=1.7.1 <2'
   # GHSA-h67p-54hq-rp68 — js-yaml quadratic-complexity DoS in merge-key aliases;
   # GHSA-5p4m-2wfm-xmqj — quadratic CPU consumption in `!!omap` resolution
   # (CVE-2026-59870 fix not backported below 4.3.1; the 5.x line carries both

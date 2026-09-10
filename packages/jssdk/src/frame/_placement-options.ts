@@ -56,7 +56,17 @@ export type PlacementOptions = Readonly<Record<string, unknown>>
 
 const EMPTY: PlacementOptions = Object.freeze({})
 
-/** A plain object — not `null`, not an array, which the portal never sends here. */
+/**
+ * A plain object — not `null`, not an array, which the portal never sends here.
+ *
+ * The `null` arm is a **type-soundness** guard, not a behavioural one, and no
+ * test can distinguish it: removing it leaves the predicate claiming `null` is a
+ * `Record<string, unknown>`, while the only place the result is used spreads it
+ * — and `{ ...null }` is `{}`, exactly what the guard produces anyway. A
+ * mutation sweep confirmed it survives. It stays because a type predicate that
+ * lies about `null` is a trap for the next use, not because anything observable
+ * depends on it today.
+ */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return 'object' === typeof value && null !== value && !Array.isArray(value)
 }
@@ -78,9 +88,11 @@ export function normalisePlacementOptions(raw: unknown): PlacementOptions {
       const parsed: unknown = JSON.parse(raw)
       return isPlainObject(parsed) ? Object.freeze({ ...parsed }) : EMPTY
     } catch {
-      // Not JSON. The portal sends `''` when nothing was supplied, and anything
-      // else here is a shape no producer above can make — either way there is
-      // nothing to hand back but an empty object.
+      // A backstop, not a handled case: none of the four producers above can
+      // make a non-empty string that is not JSON. Silent rather than logged for
+      // the same reason — warning about a shape nothing produces would be
+      // guarding a guess, and this module has no logger to warn with. If one is
+      // ever seen, that is the finding, and it belongs in an issue.
       return EMPTY
     }
   }

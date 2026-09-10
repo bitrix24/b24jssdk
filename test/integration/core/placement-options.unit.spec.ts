@@ -27,6 +27,21 @@
  */
 import { describe, it, expect } from 'vitest'
 import { normalisePlacementOptions } from '../../../packages/jssdk/src/frame/_placement-options'
+import { PlacementManager } from '../../../packages/jssdk/src/frame/placement'
+import type { MessageManager } from '../../../packages/jssdk/src/frame/message'
+import type { MessageInitData } from '../../../packages/jssdk/src/types/auth'
+
+/**
+ * `initData` never touches the message manager, so the handshake can be driven
+ * without one.
+ */
+function buildPlacement(): PlacementManager {
+  return new PlacementManager(null as unknown as MessageManager)
+}
+
+function initWith(raw: unknown, placement = 'CRM_DEAL_DETAIL_TAB'): PlacementManager {
+  return buildPlacement().initData({ PLACEMENT: placement, PLACEMENT_OPTIONS: raw } as MessageInitData)
+}
 
 describe('placement options normalisation (#485)', () => {
   it('keeps a plain object', () => {
@@ -90,6 +105,58 @@ describe('placement options normalisation (#485)', () => {
     const options = normalisePlacementOptions(raw)
 
     expect(options).not.toBe(raw)
+    expect(Object.isFrozen(raw)).toBe(false)
+  })
+})
+
+/**
+ * The wiring, not the helper.
+ *
+ * Everything above tests `normalisePlacementOptions` in isolation, and a
+ * mutation sweep showed that is not enough: pointing `initData` at the **wrong
+ * field** — `normalisePlacementOptions(data.PLACEMENT)` — survived the whole
+ * unit suite *and* the type checker, because nothing connected the helper to the
+ * class that is supposed to call it. These cases close that.
+ */
+describe('PlacementManager reads PLACEMENT_OPTIONS through the normaliser (#485)', () => {
+  it('normalises an object off the handshake', () => {
+    expect(initWith({ place: 'deal', IFRAME: 'Y' }).options).toEqual({ place: 'deal', IFRAME: 'Y' })
+  })
+
+  it('normalises the JSON-string shape', () => {
+    expect(initWith('{"place":"deal"}').options).toEqual({ place: 'deal' })
+  })
+
+  // The shape that used to leave a field declared `object` holding a string.
+  it('turns the portal\'s empty string into an empty object', () => {
+    const placement = initWith('')
+
+    expect(placement.options).toEqual({})
+    expect(typeof placement.options).toBe('object')
+  })
+
+  it('survives PLACEMENT_OPTIONS being absent', () => {
+    expect(initWith(undefined).options).toEqual({})
+  })
+
+  // Reads `PLACEMENT_OPTIONS`, not some neighbouring field: with the wrong one
+  // wired in, `IFRAME` is unreachable and this is the assertion that fails.
+  it('reads the options field, not another one from the same payload', () => {
+    expect(initWith({ IFRAME: 'Y' }, 'DEFAULT').isSliderMode).toBe(true)
+    expect(initWith({ IFRAME: 'N' }, 'DEFAULT').isSliderMode).toBe(false)
+    expect(initWith('', 'DEFAULT').isSliderMode).toBe(false)
+  })
+
+  it('freezes what the getter hands back', () => {
+    const options = initWith({ place: 'deal' }).options
+
+    expect(Object.isFrozen(options)).toBe(true)
+  })
+
+  it('leaves the portal\'s own object alone', () => {
+    const raw = { place: 'deal' }
+    initWith(raw)
+
     expect(Object.isFrozen(raw)).toBe(false)
   })
 })

@@ -20,6 +20,27 @@ const AGGREGATE_FUNCTIONS: readonly AggregateFunctionV3[] = ['sum', 'avg', 'min'
  * The alias in the map form is accepted, but it names the column only inside the
  * portal's own query: the response keys buckets by **function then field name**
  * in both forms. Measured — an alias never appears in an answer.
+ *
+ * **Every aggregated field must be filterable on the entity**, which is not the
+ * same as being selectable. Ask `<entity>.field.list`: each field reports its own
+ * `filterable` flag, and only fields where it is `true` may be aggregated. Worth
+ * asking rather than assuming — on `tasks.task` exactly one field of ninety-five
+ * is filterable, against nineteen that are sortable.
+ *
+ * Measured on a purpose-built module (`SM_VERSION 26.150.0`) with one field left
+ * without the attribute. It is returned by `list` and appears in `select`
+ * normally — and aggregating it answers HTTP 400 in the v3 envelope:
+ *
+ * ```json
+ * {"error":{"code":"BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION",
+ *   "validation":[{"field":"severity","message":"…требуется наличие атрибута `Filterable`…"}]}}
+ * ```
+ *
+ * A 4xx in the v3 envelope, so it arrives **soft** — `isSuccess === false` with
+ * the offending field in `AjaxError.validation[].field`. Match on the code and
+ * the field, never on the message: it is localised. The same request shape put
+ * through `filter` instead of the aggregate `select` answers byte-identically,
+ * which is the shared validation exception showing through.
  */
 export type AggregateSelectV3 = Partial<Record<AggregateFunctionV3, string[] | Record<string, string>>>
 

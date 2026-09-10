@@ -30,7 +30,7 @@ Rule of thumb:
 | Single REST call | `actions.v{2,3}.call.make` |
 | 2–50 related calls in one HTTP round-trip | `actions.v{2,3}.batch.make` |
 | Many independent calls (>50) | `actions.v{2,3}.batchByChunk.make` |
-| Read a small list (<1000 items) and process in memory | `actions.v{2,3}.callList.make` |
+| Read a list small enough to hold in memory and process it there | `actions.v{2,3}.callList.make` |
 | Read a large list with low memory footprint | `actions.v{2,3}.fetchList.make` (async iterator) |
 | Read a v3 method that exposes a native `tail` (keyset) action — e.g. `main.eventlog.tail` | `actions.v3.callTail.make` / `actions.v3.fetchTail.make` (v3 only) |
 | Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only, **`@experimental`** — the contract is measured, but no shipped module publishes `*.aggregate` on any portal yet measured, so fall back to `callList` + reduce when the endpoint isn't there. Values come back as **strings**, and `null` when the filter matched nothing) |
@@ -265,7 +265,9 @@ const items = data.map((row) => row.item)
 
 ## `callList.make` — small lists in memory
 
-Loads up to 1000 items into a single array. Internally pages with a keyset cursor on `cursorIdKey` (which defaults to `idKey`).
+Pages through the **whole** result set and returns it as one array — there is no item ceiling; `limit` sizes a page, not the total. Internally pages with a keyset cursor on `cursorIdKey` (which defaults to `idKey`).
+
+On v3, `limit` is a **request**: each method applies its own maximum and a short page is not the end of the data. Measured — `tasks.task.list` answers 50 for `limit` 51, 100 and 1000 alike, with 60 rows available, and nothing in the response says it was capped. The walkers are cap-tolerant (they stop on the largest page the server returned); hand-rolled paging on `call.make` is not.
 
 ```ts
 import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'

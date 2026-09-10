@@ -28,8 +28,21 @@ function assertPath(path: string, who: string): void {
  * marker objects you drop into a later command's `params` (the SDK forwards
  * `params` to the wire `query`), with a little client-side validation. Reference
  * an earlier command by its `as` alias — or by its numeric index if you omit `as`.
- * Only `item` (get) and `items` (list/tail) results land in context; `add` → id
- * and `update` → bool results do not.
+ * Only `item` (get) and `items` (list/tail) results land in context. A `$ref`
+ * over an `add` result is refused with HTTP 400 `INVALIDSELECTEXCEPTION` —
+ * measured.
+ *
+ * **On what `add` and `update` return.** With the stock ORM action traits it is
+ * an id and a boolean: `AddResponse` declares one property, `public int $id`,
+ * and `UpdateResponse extends BooleanResponse`. Measured through a module using
+ * those traits — `add` answered `{ result: { id: 22 } }`, `update` and `delete`
+ * answered `{ result: true }`, while `get` answered `{ item: … }`.
+ *
+ * That is the framework default, not a guarantee: a module can declare its own
+ * response, and one measured on a cloud sandbox (`note.collection.*`) returned
+ * the whole affected object under `result.item` from both. So read the shape the
+ * module you are calling actually documents, rather than assuming either — but
+ * whichever it is, it does not reach the batch context.
  *
  * **v3 only.** Substitution is a v3 batch feature. Dropped into a v2 batch
  * (`actions.v2.batch.make`) the markers are NOT substituted — they are encoded
@@ -56,8 +69,9 @@ function assertPath(path: string, who: string): void {
 export const BatchRefV3 = Object.freeze({
   /**
    * `{ $ref: path }` — substitute a single value from context, e.g.
-   * `ref('newTask.item.id')`. `add` → id / `update` → bool results are NOT in
-   * context (reference §8); only `item` (get) and `items` (list/tail) are.
+   * `ref('newTask.item.id')`. Only `item` (get) and `items` (list/tail) land in
+   * context (reference §8); an `add` or `update` result does not, whatever shape
+   * that module gives it — see the note on the module docblock.
    */
   ref(path: string): BatchRef {
     assertPath(path, 'BatchRefV3.ref')

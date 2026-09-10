@@ -59,7 +59,13 @@ export class CallTailV3 extends AbstractAction {
    *         already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
    *     - `progress?: (p: { pages: number, rows: number }) => void` - Called after each
    *         collected page. Counts, not a percentage — cursor paging reads no total.
-   *     - `limit?: number` - How many records to retrieve at a time. Default is `50`. Maximum is `1000`.
+   *     - `limit?: number` - How many records to retrieve at a time. Default is `50`.
+   *         **A request, not a guarantee.** Each method applies its own maximum and a page
+   *         shorter than `limit` is not the end of the data — `tasks.task.list` answers 50
+   *         however much you ask for, measured with 60 rows available. This walker is
+   *         cap-tolerant; hand-rolled paging on `call.make` is not. A `limit` of `0` or a
+   *         non-numeric one is refused with `INVALIDPAGINATIONEXCEPTION`; a negative one
+   *         answers a bare 500.
    *     - `initialValue?: number | string` - Cursor start value for the first page. Default is `0`
    *         (valid for ascending numeric fields); required for `DESC` and for non-numeric fields.
    *

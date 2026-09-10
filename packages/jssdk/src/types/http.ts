@@ -52,8 +52,11 @@ export type TypeCallParams = {
   /**
    * Used only in Api:V3 — keyset (`tail`) pagination cursor.
    * `value` is the last seen value of `field`; `0` (or the type minimum) on the
-   * first page. `order` defaults to `asc`; `limit` shares the 50/1000 rule of
-   * `pagination`.
+   * first page. `order` defaults to `asc`; `limit` behaves as it does on
+   * `pagination` — it defaults to 50 and is a **request**, since each method
+   * applies its own maximum. `tasks.task.list` answers 50 whatever is asked,
+   * measured with 60 rows available, and the short page carries no signal that
+   * it was capped.
    */
   cursor?: {
     field: string

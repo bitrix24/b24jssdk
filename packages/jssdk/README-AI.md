@@ -430,7 +430,7 @@ Core REST utilities live on `b24.actions.v{2,3}.*`, one action per primitive:
 
 ### Choosing list retrieval strategy (recommendations)
 
-- `callList.make`: fetches the entire dataset into memory. Use only for small selections (< 1000 items) due to higher memory pressure.
+- `callList.make`: fetches the entire dataset into memory — there is no item ceiling, so the bound is what you are willing to hold. Use it for selections small enough to keep in memory, and `fetchList.make` otherwise. On v3, `limit` sizes a **page**, not the total, and each method applies its own maximum: `tasks.task.list` answers 50 whatever is asked.
 - `fetchList.make`: streams data in chunks via async iterator. Use for large datasets to keep memory usage low.
 - `call.make` (manual pagination): control paging via the `start` cursor, `restApi:v2` only. Use when you need precise batching and custom flow. For big data it’s typically less efficient/convenient than `fetchList.make`.
 

@@ -32,7 +32,8 @@ export type ActionFetchListV3 = WalkBoundsOptions & {
  * entire dataset in memory. Unlike `CallListV3`, which accumulates all pages before returning,
  * this class exposes an `AsyncGenerator` so processing can begin as soon as the first page
  * arrives. Compared to `FetchListV2`, it uses v3-style array filter syntax and supports the
- * `limit` option (up to 1000 per page).
+ * `limit` option (a requested page size; the server applies its own per-method
+ * maximum).
  */
 export class FetchListV3 extends AbstractAction {
   /**
@@ -64,7 +65,13 @@ export class FetchListV3 extends AbstractAction {
    *        complete is the failure this refuses to produce.
    *    - `signal?: AbortSignal` - Stop the walk. Checked at the top of each iteration, so an
    *        already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
-   *    - `limit?: number` - How many records to retrieve at a time. Default is `50`. Maximum is `1000`.
+   *    - `limit?: number` - How many records to retrieve at a time. Default is `50`.
+   *        **A request, not a guarantee.** Each method applies its own maximum and a page
+   *        shorter than `limit` is not the end of the data — `tasks.task.list` answers 50
+   *        however much you ask for, measured with 60 rows available. This walker is
+   *        cap-tolerant; hand-rolled paging on `call.make` is not. A `limit` of `0` or a
+   *        non-numeric one is refused with `INVALIDPAGINATIONEXCEPTION`; a negative one
+   *        answers a bare 500.
    *
    * @returns {AsyncGenerator<T[]>} An async generator that yields chunks of data as arrays of type `T`.
    *     Each iteration returns the next page/batch of results until all data is fetched.

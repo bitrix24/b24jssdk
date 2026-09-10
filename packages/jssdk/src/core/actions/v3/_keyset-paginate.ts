@@ -3,6 +3,7 @@ import type { LoggerInterface } from '../../../types/logger'
 import type { TypeCallParams, TypeFilterV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { SdkError } from '../../sdk-error'
+import { assertNotAborted, maxPagesExceededError, resolveMaxPages } from '../_walk-bounds'
 import { cursorStalledError } from '../_cursor-stalled'
 
 /**
@@ -279,6 +280,10 @@ export type KeysetPaginateStrategy = {
    * expose `cursorField`. See `actions/_cursor-stalled.ts` for the two texts.
    */
   stalledCursorHint: string
+  /** Page ceiling; see `_walk-bounds.ts`. */
+  maxPages?: number
+  /** Cancellation; see `_walk-bounds.ts`. */
+  signal?: AbortSignal
 }
 
 /**
@@ -310,8 +315,13 @@ export async function* keysetPaginate<T = unknown>(
 ): AsyncGenerator<T[]> {
   let cursor = strategy.initialCursor
   let maxPageSize = 0
+  let pages = 0
+  const maxPages = resolveMaxPages(strategy.actionLabel, strategy.maxPages)
 
   while (true) {
+    // Before the request, so an already-aborted signal costs no round trip.
+    assertNotAborted(strategy.signal, strategy.actionLabel, strategy.method)
+
     const response: AjaxResult<T> = await b24.actions.v3.call.make<T>({
       method: strategy.method,
       params: strategy.buildParams(cursor),
@@ -339,7 +349,15 @@ export async function* keysetPaginate<T = unknown>(
       break
     }
 
+    pages += 1
     yield resultData
+    // Again after the page has been handed over. The gap between `yield` and
+    // the top of the loop is not empty - the stall guard and the ceiling both
+    // sit in it - so a consumer that aborts while holding a page would
+    // otherwise be told the read is too large, or that the cursor stalled,
+    // when what actually happened is that they cancelled. No request is saved
+    // by this check; the correct diagnosis is.
+    assertNotAborted(strategy.signal, strategy.actionLabel, strategy.method)
 
     maxPageSize = Math.max(maxPageSize, resultData.length)
     if (resultData.length < maxPageSize) {
@@ -387,6 +405,21 @@ export async function* keysetPaginate<T = unknown>(
     // quietly instead of reaching here; that is how that check already behaved.
     if (next === cursor) {
       throw cursorStalledError(strategy.actionLabel, strategy.stalledCursorHint)
+    }
+
+    // Last, so every cheaper stop wins: a stalled cursor is still reported
+    // as a stall - the more specific diagnosis - instead of surfacing as "too
+    // many pages" 10 000 requests later.
+    //
+    // A walk that ends exactly on its ceiling finishes only when its final page
+    // is *short*: that is what proves end-of-data. When the row count is an
+    // exact multiple of the page size the last page is full, nothing has proved
+    // the data ended, and the ceiling fires - so `maxPages: 10` over exactly 500
+    // rows at 50 a page reports the ceiling. It cannot be otherwise without
+    // spending a request the caller's ceiling did not allow. The eager walkers
+    // hand back every row they read, so nothing is lost to it.
+    if (pages >= maxPages) {
+      throw maxPagesExceededError(strategy.actionLabel, strategy.method, maxPages)
     }
 
     cursor = next

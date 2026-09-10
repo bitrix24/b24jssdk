@@ -67,10 +67,16 @@ only as timeline email. One request now answers for the **whole portal** instead
 of six guesses, and it cannot print anyone's row counts — which is why the
 warning this section used to carry about posting real deal counts is gone.
 
-This case **cannot fail the run**, by design: a portal where no module supports
-`aggregate` is a fact about Bitrix24's v3 rollout, not a defect in a skill file.
-That makes it the one green line in this suite that proves nothing on its own —
-**read the output**.
+**An empty list cannot fail the run**, by design: a portal where no module
+supports `aggregate` is a fact about Bitrix24's v3 rollout, not a defect in a
+skill file. Everything around that answer is asserted, though — the document has
+to arrive and has to list methods — so unlike the six-probe loop this replaced,
+a green line here does mean the portal was asked and answered. What it does not
+tell you is *what* the answer was: **read the output**.
+
+A portal that scope-gates `rest.documentation.openapi` reports SKIP rather than
+FAIL. That needs handling inside the case: the refusal arrives soft, and the
+suite's limitation classifiers only see thrown errors.
 
 | Output | Means | What to do |
 | --- | --- | --- |
@@ -78,7 +84,10 @@ That makes it the one green line in this suite that proves nothing on its own �
 | `*.aggregate: <names>` | the exit condition is met | Record the names. `AggregateV3`'s tag can be revisited against a real method, and its per-module behaviour observed for the first time. |
 | the case fails on `isSuccess` | the document did not arrive | **A defect worth reporting** — that is a transport problem, not an answer about aggregate. |
 
-Paste the block into #113. If the list is empty, nothing changes: `AggregateV3`
+Paste the block into #113 — and if you are pasting a *failure* rather than the
+block, redact the portal domain first (see the note at the end of this file):
+portal prose reaches an error message verbatim, and redaction does not cover it.
+If the list is empty, nothing changes: `AggregateV3`
 keeps its `@experimental` tag — not because the contract is unknown, but because
 no shipped module exercises it — the docs keep telling readers to reduce a
 `callList` client-side, and `AjaxResult.getTotal()` remains the only count

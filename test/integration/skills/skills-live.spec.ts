@@ -411,10 +411,10 @@ describe('skills-live @skills', () => {
       expect(chunks).toBeGreaterThanOrEqual(0)
     })
 
-    it('actions.v3.aggregate.make — @experimental, asks the portal which methods publish it', async () => {
+    portalIt('actions.v3.aggregate.make — @experimental, asks the portal which methods publish it', async (ctx) => {
       // `AggregateV3` is `@experimental` because **no shipped module publishes an
-      // `*.aggregate` action** — measured across four portals — not because its
-      // shape is unknown. The shape was measured in #498, against a module
+      // `*.aggregate` action** on any of the four portals checked — not because
+      // its shape is unknown. The shape was measured in #498, against a module
       // written for the purpose that reaches the same implementation every
       // future module will.
       //
@@ -430,20 +430,44 @@ describe('skills-live @skills', () => {
       // — four of the six were `crm.*`, which on v3 exists only as timeline
       // email — so it spent six round trips confirming what one request states
       // outright.
-      const response = await getB24Client().actions.v3.call.make({
+      const response = await getB24Client().actions.v3.call.make<{
+        paths?: Record<string, unknown>
+      }>({
         method: 'rest.documentation.openapi',
         requestId: 'skills-live/rest-v3-aggregate/openapi'
       })
 
-      // Not "no aggregate methods" — the document did not arrive. Worth telling
-      // the two apart: an empty list is the finding, a missing document is a
-      // transport defect.
-      expect(response.isSuccess, response.getErrorMessages().join('; ')).toBe(true)
-      const paths = (response.getData()?.result as { paths?: Record<string, unknown> } | undefined)?.paths
+      // A soft failure never reaches `portalIt`'s catch — the classifiers there
+      // only see thrown errors — so a portal that scope-gates this method would
+      // go red as a skill defect. Classify it here instead.
+      if (!response.isSuccess) {
+        const limitation = [...response.getErrors()].find(error => isEnvironmentLimit(error))
+        if (undefined !== limitation) {
+          console.warn(`[skills-live] SKIP — the portal did not serve rest.documentation.openapi: ${limitation.message}`)
+          ctx.skip()
+          return
+        }
+      }
+
+      // Three outcomes, not two. The document may be absent (a transport
+      // defect), it may arrive empty (also a defect — see below), or it may
+      // arrive and list no aggregates, which is the finding this case exists for.
+      expect(response.isSuccess, 'the OpenAPI document did not arrive').toBe(true)
+      const paths = response.getData()?.result?.paths
       expect(paths, 'no `paths` in the OpenAPI document').toBeDefined()
 
       const all = Object.keys(paths ?? {})
-      const aggregates = all.filter(path => path.endsWith('.aggregate'))
+      // Not a tautology, unlike asserting the filter returned an array. Real
+      // portals publish 147-245 methods (see `7.discovering-v3-methods.md`), so
+      // a document with zero paths is broken rather than aggregate-free — and
+      // without this it would print "(none)" and be read as the finding.
+      expect(all.length, 'the OpenAPI document lists no methods at all').toBeGreaterThan(0)
+
+      const aggregates = all
+        .filter(path => path.endsWith('.aggregate'))
+        // `paths` is keyed `/method.name`; the leading slash is not part of the
+        // method and should not be pasted into an issue as though it were.
+        .map(path => path.replace(/^\//, ''))
 
       console.log(
         '[skills-live] v3 aggregate availability — paste into #113:\n'
@@ -456,8 +480,8 @@ describe('skills-live @skills', () => {
       )
 
       // Deliberately not asserted to be empty: a portal that grows one must not
-      // turn this red. The count is the output.
-      expect(Array.isArray(aggregates)).toBe(true)
+      // turn this red. The list is the output; the count above is the guard.
+      expect(aggregates.length).toBeLessThanOrEqual(all.length)
     })
   })
 

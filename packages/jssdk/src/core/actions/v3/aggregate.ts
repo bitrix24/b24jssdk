@@ -23,7 +23,9 @@ const AGGREGATE_FUNCTIONS: readonly AggregateFunctionV3[] = ['sum', 'avg', 'min'
  *
  * **Every aggregated field must be filterable on the entity**, which is not the
  * same as being selectable. Ask `<entity>.field.list`: each field reports its own
- * `filterable` flag, and only fields where it is `true` may be aggregated.
+ * `filterable` flag, and only fields where it is `true` may be aggregated. Worth
+ * asking rather than assuming — on `tasks.task` exactly one field of ninety-five
+ * is filterable, against nineteen that are sortable.
  *
  * Measured on a purpose-built module (`SM_VERSION 26.150.0`) with one field left
  * without the attribute. It is returned by `list` and appears in `select`

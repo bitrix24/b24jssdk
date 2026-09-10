@@ -146,7 +146,13 @@ export type MessageInitData = RefreshAuthData & {
   APP_OPTIONS: Record<string, any>
   USER_OPTIONS: Record<string, any>
   PLACEMENT: string
-  PLACEMENT_OPTIONS: Record<string, any>
+  /**
+   * As it arrives on the wire, which is **not** always an object: the portal
+   * sends `''` when the placement was opened with no parameters, and a JSON
+   * string on the form-resubmit path. `PlacementManager` normalises all three
+   * shapes — read `b24.placement.options`, not this.
+   */
+  PLACEMENT_OPTIONS: unknown
   INSTALL: boolean
   FIRST_RUN: boolean
 }

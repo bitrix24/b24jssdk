@@ -33,7 +33,7 @@ Rule of thumb:
 | Read a small list (<1000 items) and process in memory | `actions.v{2,3}.callList.make` |
 | Read a large list with low memory footprint | `actions.v{2,3}.fetchList.make` (async iterator) |
 | Read a v3 method that exposes a native `tail` (keyset) action — e.g. `main.eventlog.tail` | `actions.v3.callTail.make` / `actions.v3.fetchTail.make` (v3 only) |
-| Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only, **`@experimental`** — the contract is measured, but no shipped module publishes `*.aggregate` yet, so fall back to `callList` + reduce when the endpoint isn't there. Values come back as **strings**, and `null` when the filter matched nothing) |
+| Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only, **`@experimental`** — the contract is measured, but no shipped module publishes `*.aggregate` on any portal yet measured, so fall back to `callList` + reduce when the endpoint isn't there. Values come back as **strings**, and `null` when the filter matched nothing) |
 
 There is no manual-pagination path any more — the list helpers page for you. Two mechanisms exist, and they are not interchangeable:
 
@@ -298,6 +298,58 @@ const items = response.getData()! // CrmItem[]
 
 > **`order` is ignored** by `callList.make`. The action forces `order: { [cursorIdKey]: 'ASC' }` for cursor stability and **logs a warning** when you pass an `order` (see the `order` warning in `actions/v2/call-list.ts`). Use `filter` to narrow results.
 
+## Bounding a walk — `maxPages`, `signal`, `progress`
+
+All six walkers (`callList` / `fetchList` on both versions, `callTail` / `fetchTail` on v3) accept:
+
+| option | what it does |
+| --- | --- |
+| `maxPages?: number` | Ceiling. Raises `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. **Default 10 000** — a backstop, not a policy (500 000 rows at the default page size of 50; ~83 min at the default drain rate). Must be a positive integer, or `JSSDK_ACTION_INVALID_MAX_PAGES` is raised at call time. |
+| `signal?: AbortSignal` | Throws `JSSDK_ACTION_ABORTED`. Checked at the top of each iteration, so an already-aborted signal costs no request. |
+| `progress?` | `({ pages, rows }) => void`, **eager walkers only** (`callList` / `callTail`). Counts, not a percentage — cursor paging reads no total. The streaming walkers hand you each page instead. |
+
+Neither error discards data. The eager walkers (`callList` / `callTail`) **resolve** with the rows they read and the error attached, so check `isSuccess` rather than assuming a returned list is whole — those rows are correct, merely incomplete. `fetchList` / `fetchTail` throw, having already yielded every page they read.
+
+A stalled cursor is different and still throws everywhere: there the extra rows are duplicates of ones already held, so there is nothing worth handing back.
+
+```ts
+const controller = new AbortController()
+
+const response = await $b24.actions.v3.callList.make({
+  method: 'main.eventlog.list',
+  customKeyForResult: 'items',
+  idKey: 'id',
+  maxPages: 200,
+  signal: controller.signal,
+  progress: ({ pages, rows }) => console.log(`${pages} pages, ${rows} rows`)
+})
+```
+
+The default ceiling does not replace `JSSDK_ACTION_CURSOR_STALLED`, which fires far earlier and says something more specific: the cursor came back equal to the one just sent. The ceiling catches what that guard cannot — a cursor that *moves* but never ends, including one cycling between values (#495).
+
+## On `restApi:v2`, conditions go in lowercase `filter` — never `FILTER`
+
+Applies to **both** `callList.make` and `fetchList.make`.
+
+They page by writing their own lowercase `filter`, `order` and `start`, and the portal keeps only the later of two top-level keys that differ by case. Older list methods (`user.get`, `task.item.list`, …) are *documented* with uppercase `FILTER` / `SORT` / `ORDER`, so following that documentation here is the mistake.
+
+```ts
+// ❌ conditions silently dropped — this returns every user, not employees.
+// Note there is no cast here: `TypeCallParams` carries an index signature, so
+// this type-checks. Nothing but the runtime warning catches it.
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { FILTER: { USER_TYPE: 'employee' } }, idKey: 'ID' })
+
+// ❌ worse — half-migrated. `FILTER` is now the later key, so it overwrites the
+// walker's own `>ID` cursor: the same page arrives for ever and the walk throws
+// JSSDK_ACTION_CURSOR_STALLED.
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { USER_TYPE: 'employee' }, FILTER: { ACTIVE: 'Y' } }, idKey: 'ID' })
+
+// ✅ moved across, uppercase key removed
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { USER_TYPE: 'employee', ACTIVE: 'Y' } }, idKey: 'ID' })
+```
+
+Measured on `user.get` with four users: `FILTER: { ID: 4 }` returns all four, `filter: { ID: 4 }` returns one. `SORT` is worse and louder — on `user.get` it makes the walker's own injected `order` fail the method's validation, so the request throws `ERROR_ARGUMENT` / *"Order must be a string"*. All of these are reported with a `warning` (#483), emitted through `LoggerFactory.forcedLog`, so it reaches `console.warn` even with the default logger. This is `restApi:v2` only; v3 has no uppercase contract — its parameters are camelCase and its `filter` is the array form.
+
 ## `fetchList.make` — large lists, streaming
 
 Async iterator that yields chunks. Same shape as `callList.make` plus an optional `limit` for v3.
@@ -344,7 +396,7 @@ const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
 
 `idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method spells the id one way in the request and another in the response — `tasks.task.list` **on v2** is the known case (request `ID`, response `id`), and it breaks in two different ways depending on which half you get wrong. Leave `idKey` at its default `'ID'` and the cursor reads a field the response does not carry: the walk warns and stops after the first 50 rows. Set `idKey: 'id'` but leave `cursorIdKey` defaulting to it and the opposite happens — the read works, but the request filters on `>id`, which the method ignores, so the same page returns for ever; that one now throws `JSSDK_ACTION_CURSOR_STALLED` instead of hanging. Set both. On the **v3** endpoint the same method is all-lowercase (`id` both ways, rows under `result.items`), so no override is needed.
 
-Ask the portal rather than guess: **`<entity>.field.list`** returns every field with `type`, `filterable`, `sortable`, `editable` and `requiredGroups`, under `result.items`; `<entity>.field.get` returns one, under `result.item`. Both take an optional `select` that narrows the descriptor keys. A v3 field without `Filterable` / `Sortable` is **refused**, not ignored — `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` with the offending name in `validation[].field`. On the portal measured, `tasks.task` exposes exactly one filterable field: `id`.
+Ask the portal rather than guess: **`<entity>.field.list`** returns every field with `type`, `filterable`, `sortable`, `editable` and `requiredGroups`, under `result.items`; `<entity>.field.get` returns one, under `result.item`. Both take an optional `select` that narrows the descriptor keys. A v3 field without `Filterable` / `Sortable` is **refused**, not ignored — `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` with the offending name in `validation[].field`. It arrives **soft** (`isSuccess === false`), not thrown: a 4xx in the v3 envelope is not an exception. `Filterable` also gates an aggregate `select`, not just `filter`. On the portal measured, `tasks.task` exposes exactly one filterable field: `id`.
 
 | Method | `idKey` (response) | `cursorIdKey` (request) | `customKeyForResult` |
 | --- | --- | --- | --- |
@@ -405,7 +457,9 @@ On a **`restApi:v3`** response both return their empty value — `0` and `false`
 
 `getNext(http)` / `fetchNext(http)` re-run the query at the reported `next` offset. Under `restApi:v3` they **throw** `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` rather than returning empty, because a silent `false` would be indistinguishable from "last page". For new paging code still prefer `callList.make` / `fetchList.make` — they hide the offset bookkeeping and work under both versions.
 
-For a v3 count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action. The count arrives as a **string** (`'18'`), keyed by function then field — `getData()?.count?.id` — so convert it with `Text.toNumber()`. The action stays `@experimental` because **no shipped module publishes `*.aggregate` yet**, not because the shape is unknown; if the endpoint isn't there, reduce a `callList` client-side.
+For a v3 count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action. The count arrives as a **string** (`'18'`), keyed by function then field — `getData()?.count?.id` — so convert it with `Text.toNumber()`. The action stays `@experimental` because **no shipped module publishes `*.aggregate`** on any of the four portals checked, not because the shape is unknown; if the endpoint isn't there, reduce a `callList` client-side.
+
+**Every aggregated field must be filterable**, which is not the same as selectable. `<entity>.field.list` reports a `filterable` flag per field; only fields where it is `true` may be aggregated — on `tasks.task` that is one field of ninety-five, so assume nothing and ask. A selectable-but-not-filterable field answers a **soft** `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` naming it in `validation[].field` — measured. Match on the code and the field, never on the message: it is localised.
 
 ## Null result is passthrough
 

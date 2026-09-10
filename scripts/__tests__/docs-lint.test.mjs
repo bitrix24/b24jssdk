@@ -212,18 +212,48 @@ test('parseDirtyPaths: reads every shape git status --porcelain emits', () => {
   assert.equal(paths.size, 7)
 })
 
+/**
+ * A tracked `.ts` under `packages/jssdk/src` whose last commit is not today.
+ *
+ * Picked by asking git rather than by naming a file, so a pull request that
+ * happens to touch the chosen source does not redden a test about something
+ * else. Returns `null` only if every source in the package was committed today,
+ * which is a real reason not to be able to test the branch.
+ */
+function trackedSourceNotCommittedToday() {
+  const today = new Date().toISOString().slice(0, 10)
+  const listed = spawnSync('git', ['ls-files', 'packages/jssdk/src/**/*.ts'], { cwd: REPO_ROOT, encoding: 'utf8' })
+  const candidates = listed.stdout.split('\n').map(line => line.trim()).filter(Boolean)
+
+  for (const candidate of candidates) {
+    const committed = spawnSync('git', ['log', '-1', '--format=%cI', '--', candidate], { cwd: REPO_ROOT, encoding: 'utf8' })
+      .stdout.trim()
+    if (committed && committed.slice(0, 10) !== today) {
+      return candidate
+    }
+  }
+  return null
+}
+
 test('gitLastCommitDate: a dirty TRACKED source reports now, not its commit date', () => {
   // The primary case, and the one neither probe-file test reaches: both exit
   // through the untracked/ignored fallback, so disabling the dirty branch left
   // them green. Tested at the function that owns the branch, with `isDirty`
   // injected — the alternative, dirtying a real tracked source, is the exact
   // hazard the probe tests were rewritten to avoid.
-  const cited = 'packages/jssdk/src/core/result.ts'
   const today = new Date().toISOString().slice(0, 10)
+
+  // The file is CHOSEN at run time, not named here. A hard-coded path makes this
+  // test a tripwire on whoever edits that file: it needs a source whose last
+  // commit is not today, so committing the named file breaks a test that has
+  // nothing to do with the change. #279 sprang exactly that trap on
+  // `core/result.ts`.
+  const cited = trackedSourceNotCommittedToday()
+  assert.ok(cited, 'no tracked source under packages/jssdk/src has an older commit — cannot test the dirty branch today')
 
   const clean = gitLastCommitDate(cited, () => false)
   assert.ok(clean, 'a tracked file must have a commit date')
-  assert.notEqual(clean.slice(0, 10), today, 'fixture assumption: result.ts was not committed today')
+  assert.notEqual(clean.slice(0, 10), today, `chosen fixture ${cited} must predate today`)
 
   const dirty = gitLastCommitDate(cited, () => true)
   assert.equal(dirty.slice(0, 10), today, 'a dirty source must report as modified now')

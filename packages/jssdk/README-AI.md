@@ -61,10 +61,18 @@ and `#getNext()` / `#fetchNext()` **throw**
 `actions.v{2,3}.{callList,fetchList}` — they hide the offset bookkeeping and work
 under both versions. For a `restApi:v3` count use `actions.v3.aggregate.make`
 (`@experimental` — the contract is measured, but **no shipped module publishes
-an `*.aggregate` method yet**) with `count` /
+an `*.aggregate` action on any of the four portals checked**) with `count` /
 `countDistinct` on a method that exposes an `*.aggregate` action — check
-`rest.documentation.openapi` to confirm the endpoint exists; otherwise reduce a
-`callList` client-side.
+`rest.documentation.openapi` and look for paths ending in `.aggregate` to confirm
+the endpoint exists; otherwise reduce a `callList` client-side.
+**Every aggregated field must be `filterable`**, which is not the same as
+selectable: a field that `list` returns quite normally is still refused by an
+aggregate `select` unless `<entity>.field.list` reports `filterable: true` for
+it. On `tasks.task` that is one field of ninety-five, so ask rather than assume.
+The refusal arrives **soft** (`isSuccess === false`, not thrown — a 4xx in the v3
+envelope) as `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION`,
+naming the field in `validation[].field`. Match on the code and the field, never
+on the message: it is localised.
 
 `AjaxResult.getData()` returns exactly `{ result: T, time: PayloadTime }` — the
 v2-only `next` and `total` fields are no longer surfaced through the public type.
@@ -110,8 +118,13 @@ async function boot() {
   })
   logger.info('items', { items: companies.getData().result })
 
-  // Batch (object syntax, with keys)
-  const batch: Result = await $b24.actions.v2.batch.make({
+  // Batch (object syntax, with keys). The generic names ONE command's payload;
+  // the result is keyed by command name, and the overloads work that out from
+  // the arguments. Since 3.0.0 `Result<T>` defaults to `unknown` rather than
+  // `any`, so reading a field off an un-narrowed result is a compile error —
+  // name the payload, as here.
+  type CompanyRow = { id: string, title: string, createdTime: string }
+  const batch = await $b24.actions.v2.batch.make<{ items: CompanyRow[] }>({
     calls: {
       CompanyList: {
         method: 'crm.item.list',
@@ -124,8 +137,10 @@ async function boot() {
     },
     options: { isHaltOnError: true }
   })
+  // No cast: `batch.make` is overloaded, so passing named commands without
+  // `returnAjaxResult` resolves to a record keyed by command name (#518).
   const data = batch.getData()
-  const list = (data.CompanyList.items || []).map((it: any) => ({
+  const list = (data?.CompanyList?.items ?? []).map(it => ({
     id: Number(it.id),
     title: it.title,
     createdTime: Text.toDateTime(it.createdTime as ISODate)

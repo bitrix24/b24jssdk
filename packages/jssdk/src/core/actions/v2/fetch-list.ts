@@ -1,10 +1,13 @@
-import type { TypeCallParams, TypeCallParamsV2 } from '../../../types/http'
+import type { WalkBoundsOptions } from '../_walk-bounds'
+import { assertNotAborted, maxPagesExceededError, resolveMaxPages } from '../_walk-bounds'
+import type { TypeCallParams, TypeCallParamsV2, TypeFilterV2 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 import { cursorStalledError, CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
+import { warnOnShadowedUppercaseParams } from './_uppercase-list-params'
 
-export type ActionFetchListV2 = {
+export type ActionFetchListV2 = WalkBoundsOptions & {
   method: string
   params?: Omit<TypeCallParamsV2, 'start' | 'order'>
   idKey?: string
@@ -32,7 +35,19 @@ export class FetchListV2 extends AbstractAction {
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
    *     - `params?: Omit<TypeCallParamsV2, 'start' | 'order'>` - Request parameters, excluding the `start` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
-   *         Note: Use `filter`, `order`, and `select` to control the selection.
+   *         Note: Use `filter` and `select` to control the selection. `order` is NOT one of
+   *         them — cursor paging must order by `cursorIdKey`, so a caller-supplied `order` is
+   *         stripped with a `warning` (it is `Omit`ted from the type for the same reason —
+   *         though the inherited `[key: string]: unknown` index signature still lets one compile).
+   *
+   *         **Conditions go in lowercase `filter`, and the uppercase key must be removed.**
+   *         This walker pages by writing its own lowercase `filter`, `order` and `start`, and the
+   *         portal keeps only the later of two top-level keys that differ by case. So a method
+   *         documented with uppercase `FILTER` / `SORT` / `ORDER` needs its parameters *moved* to
+   *         the lowercase shape: passing `FILTER` alone drops the conditions silently and returns
+   *         rows they should have excluded (#483), while passing `FILTER` *and* `filter` drops the
+   *         walker's cursor instead and fails the walk as stalled. `SORT` fails the request
+   *         outright. All of these are reported with a `warning`.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
    *         drives the cursor. Default is 'ID' (uppercase). For methods that return a lowercase /
    *         camelCase id (for example `tasks.task.list` returns `id`), set `idKey: 'id'`.
@@ -44,6 +59,14 @@ export class FetchListV2 extends AbstractAction {
    *        grouped by this field.
    *        Example: `items` to group a list of CRM items.
    *    - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
+   *    - `maxPages?: number` - Stop after this many pages and throw
+   *        `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. Defaults to 10 000 — a backstop,
+   *        not a policy: on `restApi:v2` that is 500 000 rows, and at the default drain rate
+   *        about 83 minutes of requests, so a walk that never ends is bounded without capping
+   *        a read anyone performs. Nothing is returned when it fires; a short list that looks
+   *        complete is the failure this refuses to produce.
+   *    - `signal?: AbortSignal` - Stop the walk. Checked at the top of each iteration, so an
+   *        already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
    *
    * @returns {AsyncGenerator<T[]>} An async generator that yields chunks of data as arrays of type `T`.
    *     Each iteration returns the next page/batch of results until all data is fetched.
@@ -92,14 +115,20 @@ export class FetchListV2 extends AbstractAction {
 
     const moreIdKey = `>${cursorIdKey}`
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
-    const requestParams: TypeCallParams = {
+    const requestParams: TypeCallParamsV2 & { filter: TypeFilterV2 } = {
       ...restParams,
       order: { [cursorIdKey]: 'ASC' },
       filter: { ...(params['filter'] || {}), [moreIdKey]: 0 },
       start: -1
     }
 
+    warnOnShadowedUppercaseParams('fetchList.make', requestParams as Record<string, unknown>, this._logger)
+
+    let pages = 0
+    const maxPages = resolveMaxPages('fetchList.make', options?.maxPages)
+
     while (true) {
+      assertNotAborted(options?.signal, 'fetchList.make', options.method)
       const response: AjaxResult<T> = await this._b24.actions.v2.call.make<T>({
         method: options.method,
         params: requestParams,
@@ -131,7 +160,15 @@ export class FetchListV2 extends AbstractAction {
         break
       }
 
+      pages += 1
       yield resultData
+      // Again after the page has been handed over. The gap between `yield` and
+      // the top of the loop is not empty - the stall guard and the ceiling both
+      // sit in it - so a consumer that aborts while holding a page would
+      // otherwise be told the read is too large, or that the cursor stalled,
+      // when what actually happened is that they cancelled. No request is saved
+      // by this check; the correct diagnosis is.
+      assertNotAborted(options?.signal, 'fetchList.make', options.method)
 
       if (resultData.length < batchSize) {
         break
@@ -149,6 +186,16 @@ export class FetchListV2 extends AbstractAction {
           throw cursorStalledError('fetchList.make', CURSOR_STALLED_HINT_LIST)
         }
         requestParams.filter[moreIdKey] = cursorValue
+
+        // Last, so every cheaper stop wins: a stalled cursor is still reported
+        // as a stall, the more specific diagnosis. A walk that ends exactly on
+        // its ceiling finishes only when its final page is short — that is what
+        // proves end-of-data. On an exact multiple of the page size the last
+        // page is full, nothing has proved the data ended, and this fires; the
+        // rows read are returned with the error attached, not discarded.
+        if (pages >= maxPages) {
+          throw maxPagesExceededError('fetchList.make', options.method, maxPages)
+        }
       } else {
         // A full page came back, yet no usable numeric cursor id could be read from
         // its items via `idKey` — almost always an `idKey` that doesn't match the

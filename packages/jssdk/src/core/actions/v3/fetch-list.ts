@@ -1,10 +1,11 @@
+import type { WalkBoundsOptions } from '../_walk-bounds'
 import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
 import { assertArrayFilter, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 import { CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
 
-export type ActionFetchListV3 = {
+export type ActionFetchListV3 = WalkBoundsOptions & {
   method: string
   /**
    * `filter` is narrowed to the v3 array form here, unlike {@link TypeCallParamsV3},
@@ -42,7 +43,7 @@ export class FetchListV3 extends AbstractAction {
    *
    * @param {ActionFetchListV3} options - parameters for executing the request.
    *     - `method: string` - The name of the REST API method that returns a list of data (for example: `tasks.task.list`, `main.eventlog.list`)
-   *     - `params?: Omit<TypeCallParamsV3, 'pagination' | 'order'>` - Request parameters, excluding the `pagination` and `order` parameters,
+   *     - `params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'filter'> & { filter?: TypeFilterV3 }` - Request parameters, excluding the `pagination` and `order` parameters,
    *         since the method is designed to obtain all data in one call.
    *         Note: Use `filter`, `order`, and `select` to control the selection.
    *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
@@ -55,6 +56,14 @@ export class FetchListV3 extends AbstractAction {
    *        grouped by this field.
    *        Example: `items` to group a list of CRM items.
    *    - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
+   *    - `maxPages?: number` - Stop after this many pages and throw
+   *        `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. Defaults to 10 000 — a backstop,
+   *        not a policy: on `restApi:v2` that is 500 000 rows, and at the default drain rate
+   *        about 83 minutes of requests, so a walk that never ends is bounded without capping
+   *        a read anyone performs. Nothing is returned when it fires; a short list that looks
+   *        complete is the failure this refuses to produce.
+   *    - `signal?: AbortSignal` - Stop the walk. Checked at the top of each iteration, so an
+   *        already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
    *    - `limit?: number` - How many records to retrieve at a time. Default is `50`. Maximum is `1000`.
    *
    * @returns {AsyncGenerator<T[]>} An async generator that yields chunks of data as arrays of type `T`.
@@ -102,7 +111,7 @@ export class FetchListV3 extends AbstractAction {
     assertArrayFilter(params['filter'], 'fetchList.make')
 
     const { order: _ignoredOrder, ...restParams } = params as TypeCallParams
-    const requestParams: TypeCallParams = {
+    const requestParams: TypeCallParamsV3 & { filter: TypeFilterV3 } = {
       ...restParams,
       order: { [cursorIdKey]: 'ASC' },
       filter: [...(params['filter'] ?? [])],
@@ -128,7 +137,9 @@ export class FetchListV3 extends AbstractAction {
         noCursorWarning: `fetchList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`,
         errorLabel: 'fetchList.make',
         actionLabel: 'fetchList.make',
-        stalledCursorHint: CURSOR_STALLED_HINT_LIST
+        stalledCursorHint: CURSOR_STALLED_HINT_LIST,
+        maxPages: options?.maxPages,
+        signal: options?.signal
       })
     } catch (error) {
       if (error instanceof KeysetPaginationError) {

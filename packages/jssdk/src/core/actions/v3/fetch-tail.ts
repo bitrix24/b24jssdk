@@ -1,3 +1,4 @@
+import type { WalkBoundsOptions } from '../_walk-bounds'
 import type { TypeCallParams, TypeCallParamsV3, TypeFilterV3 } from '../../../types/http'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
@@ -5,7 +6,7 @@ import type { FilterV3Group } from '../../../tools/filter-v3'
 import { assertTailFilter, filterMentionsField, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 import { CURSOR_STALLED_HINT_TAIL } from '../_cursor-stalled'
 
-export type ActionFetchTailV3 = {
+export type ActionFetchTailV3 = WalkBoundsOptions & {
   method: string
   /**
    * `filter` is narrowed away from the `restApi:v2` object dialect, which the
@@ -52,6 +53,11 @@ export class FetchTailV3 extends AbstractAction {
    *         `initialValue` (the server pages by `field < value`, so the default `0` returns nothing).
    *     - `customKeyForResult?: string` - The key the response groups rows under. Default is `items`.
    *     - `requestId?: string` - Unique request identifier for tracking.
+   *     - `maxPages?: number` - Stop after this many pages and throw
+   *         `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. Defaults to 10 000 — a
+   *         backstop, not a policy. Nothing is returned when it fires.
+   *     - `signal?: AbortSignal` - Stop the walk. Checked at the top of each iteration, so an
+   *         already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
    *     - `limit?: number` - How many records to retrieve at a time. Default is `50`. Maximum is `1000`.
    *     - `initialValue?: number | string` - Cursor start value for the first page. Default is `0`
    *         (valid for ascending numeric fields); required for `DESC` and for non-numeric fields.
@@ -133,7 +139,9 @@ export class FetchTailV3 extends AbstractAction {
         noCursorWarning: `fetchTail.make: pagination stops here — no value could be read from the returned items via cursorField "${cursorField}". Make sure cursorField matches a field present in the response (and in \`select\`).`,
         errorLabel: 'fetchTailMethod',
         actionLabel: 'fetchTail.make',
-        stalledCursorHint: CURSOR_STALLED_HINT_TAIL
+        stalledCursorHint: CURSOR_STALLED_HINT_TAIL,
+        maxPages: options?.maxPages,
+        signal: options?.signal
       })
     } catch (error) {
       if (error instanceof KeysetPaginationError) {

@@ -1,4 +1,11 @@
-import type { CallBatchResult, IB24BatchOptions } from '../../../types/b24'
+import type {
+  BatchResultByIndex,
+  BatchResultByIndexDetailed,
+  BatchResultByName,
+  BatchResultByNameDetailed,
+  CallBatchResult,
+  IB24BatchOptions
+} from '../../../types/b24'
 import type {
   BatchCommandsArrayUniversal,
   BatchCommandsObjectUniversal,
@@ -69,7 +76,43 @@ export class BatchV2 extends AbstractBatch {
    *     but if one command fails, the entire batch may fail
    *     (depending on API settings and options).
    */
-  public override async make<T = unknown>(options: ActionBatchV2): Promise<CallBatchResult<T>> {
+  /**
+   * Overloads, not decoration. The shape of a batch answer is decided by the
+   * arguments — a named record of commands answers by name, an array answers by
+   * index, and `returnAjaxResult` decides whether each entry is the payload or
+   * the `AjaxResult` wrapping it. None of that is visible on the returned value,
+   * so without these a caller has the union and no way to narrow it, and has to
+   * cast at exactly the point the types are worth having (#518).
+   *
+   * `T` is **one command's payload** in every overload.
+   *
+   * The last signature keeps a dynamic `returnAjaxResult` working: when the flag
+   * is a `boolean` the compiler cannot read as a literal, the union is still the
+   * honest answer.
+   */
+  public async make<T = unknown>(options: {
+    calls: BatchNamedCommandsUniversal
+    options: IB24BatchOptions & { returnAjaxResult: true }
+  }): Promise<BatchResultByNameDetailed<T>>
+
+  public async make<T = unknown>(options: {
+    calls: BatchNamedCommandsUniversal
+    options?: IB24BatchOptions & { returnAjaxResult?: false }
+  }): Promise<BatchResultByName<T>>
+
+  public async make<T = unknown>(options: {
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal
+    options: IB24BatchOptions & { returnAjaxResult: true }
+  }): Promise<BatchResultByIndexDetailed<T>>
+
+  public async make<T = unknown>(options: {
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal
+    options?: IB24BatchOptions & { returnAjaxResult?: false }
+  }): Promise<BatchResultByIndex<T>>
+
+  public async make<T = unknown>(options: ActionBatchV2): Promise<CallBatchResult<T>>
+
+  public async make<T = unknown>(options: ActionBatchV2): Promise<CallBatchResult<T>> {
     this._warnMisplacedOptions(
       options,
       ['isHaltOnError', 'returnAjaxResult', 'requestId'],

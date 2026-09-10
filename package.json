@@ -90,7 +90,7 @@
     "@vitest/ui": "4.1.11",
     "axios": "catalog:",
     "dotenv": "^17.4.2",
-    "eslint": "^10.9.1",
+    "eslint": "^10.10.0",
     "js-yaml": "^5.4.1",
     "markdownlint-cli2": "^0.23.2",
     "nuxt": "^4.5.2",

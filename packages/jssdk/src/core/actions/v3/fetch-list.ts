@@ -69,9 +69,11 @@ export class FetchListV3 extends AbstractAction {
    *        **A request, not a guarantee.** Each method applies its own maximum and a page
    *        shorter than `limit` is not the end of the data — `tasks.task.list` answers 50
    *        however much you ask for, measured with 60 rows available. This walker is
-   *        cap-tolerant; hand-rolled paging on `call.make` is not. A `limit` of `0` or a
-   *        non-numeric one is refused with `INVALIDPAGINATIONEXCEPTION`; a negative one
-   *        answers a bare 500.
+   *        cap-tolerant; hand-rolled paging on `call.make` is not. On the build measured, a
+   *        `limit` of `0` or a non-numeric one was refused with
+   *        `INVALIDPAGINATIONEXCEPTION` and a negative one answered a bare 500 — one
+   *        method on one on-premise build, so treat the codes as what to expect rather
+   *        than a contract.
    *
    * @returns {AsyncGenerator<T[]>} An async generator that yields chunks of data as arrays of type `T`.
    *     Each iteration returns the next page/batch of results until all data is fetched.

@@ -29,11 +29,15 @@ function assertPath(path: string, who: string): void {
  * `params` to the wire `query`), with a little client-side validation. Reference
  * an earlier command by its `as` alias — or by its numeric index if you omit `as`.
  * Only `item` (get) and `items` (list/tail) results land in context. A `$ref`
- * over an `add` result is refused with HTTP 400 `INVALIDSELECTEXCEPTION` —
- * measured.
+ * over an `add` result is refused with HTTP 400 — `INVALIDSELECTEXCEPTION` on
+ * the on-premise build measured, which is the code to expect rather than a
+ * contract.
  *
- * **On what `add` and `update` return: nothing general.** Three modules were
- * measured and no two agree.
+ * **On what `add` and `update` return: nothing general.** Three modules, and no
+ * two agree — with the evidence for each being different in kind: a module built
+ * for these probes (stock ORM traits, so it shows the framework default),
+ * `note.collection.*` as the #465 reporter observed it rather than re-measured
+ * here, and the framework's own response classes read from the sources.
  *
  * With the stock ORM action traits it is an id and a boolean — `AddResponse`
  * declares one property, `public int $id`, and `UpdateResponse extends

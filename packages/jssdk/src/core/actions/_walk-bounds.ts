@@ -32,8 +32,9 @@ import { SdkError } from '../sdk-error'
  *
  * - On `restApi:v2` a page is 50 rows, so 10 000 pages is **500 000 rows** —
  *   past the point where `callList`, which holds every row in memory, is the
- *   right tool at all. On `restApi:v3` a page can be 1000, so the same ceiling
- *   is ten million rows and will not be met by a legitimate read.
+ *   right tool at all. On `restApi:v3` the page size is capped **per method**
+ *   rather than at a global 1000, and the default is 50 there too, so the
+ *   ceiling lands in the same place for a walk that does not raise `limit`.
  * - At the default `drainRate` of 2 requests/second
  *   (`ParamsFactory.getDefault()`), 10 000 requests is about **83 minutes**. So
  *   the worst case a runaway can inflict on a portal changes from unbounded to

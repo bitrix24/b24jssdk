@@ -190,6 +190,13 @@ function walkFilterForField(
  * | `{ logic: 'or', conditions: [...] }` — bare group | **accepted** |
  * | `{ '>id': 1 }` — the v2 dialect | rejected, "Unknown filter condition" |
  *
+ * On the same method and the same build, `select` turned out **not** to be
+ * required: an empty body answered 200 with 44 items, with or without
+ * `pagination`. #465 reported that shape answering HTTP 500 and asked for it to
+ * be documented as a rule; it did not reproduce, so it is recorded here rather
+ * than written into the docs as one. If it is ever seen again, this note is the
+ * thing to correct.
+ *
  * The grammar explains the split: `FilterStructure::fillStructure()` reads
  * `type` / `logic` / `conditions` / `negative` off a map and only falls through
  * to the positional `handleSimpleCondition()` — which dispatches on `count()`

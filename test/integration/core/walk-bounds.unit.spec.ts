@@ -113,7 +113,7 @@ async function rejectionOf(promise: Promise<unknown>): Promise<SdkError> {
  * attached — the shape this walker already produced for a soft error from the
  * portal. Only the streaming walkers throw, and only after yielding.
  */
-function boundErrorOf(result: { isSuccess: boolean, getErrors: () => Generator<Error> }): SdkError {
+function boundErrorOf(result: { isSuccess: boolean, getErrors: () => IterableIterator<Error> }): SdkError {
   expect(result.isSuccess).toBe(false)
   const errors = [...result.getErrors()]
   expect(errors).toHaveLength(1)

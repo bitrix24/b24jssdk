@@ -430,6 +430,8 @@ On a **`restApi:v3`** response both return their empty value — `0` and `false`
 
 For a v3 count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action. The count arrives as a **string** (`'18'`), keyed by function then field — `getData()?.count?.id` — so convert it with `Text.toNumber()`. The action stays `@experimental` because **no shipped module publishes `*.aggregate` yet**, not because the shape is unknown; if the endpoint isn't there, reduce a `callList` client-side.
 
+**Every aggregated field must be filterable**, which is not the same as selectable. `<entity>.field.list` reports a `filterable` flag per field; only fields where it is `true` may be aggregated. A selectable-but-not-filterable field answers a **soft** `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` naming it in `validation[].field` — measured. Match on the code and the field, never on the message: it is localised.
+
 ## Null result is passthrough
 
 A per-command `result` inside a batch can legitimately be `null` (e.g. `im.chat.get` with non-matching params — see issue #23). Type the generic as `T | null` and handle the null branch — the SDK no longer coerces to `{}`.

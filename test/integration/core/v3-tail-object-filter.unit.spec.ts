@@ -17,6 +17,7 @@
  * `*.unit.spec.ts` — no real Bitrix24 portal required (axios is mocked).
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
+import { filterMentionsField } from '../../../packages/jssdk/src/core/actions/v3/_keyset-paginate'
 import { ApiVersion, B24Hook, FilterV3, ParamsFactory } from '../../../packages/jssdk/src/'
 
 const EMPTY_PAGE = {
@@ -340,5 +341,155 @@ describe('the cursor field hiding inside a logic group', () => {
     })
 
     expect(warning).not.toHaveBeenCalledWith(expect.stringContaining('must not appear in `filter`'))
+  })
+})
+
+/**
+ * `filterMentionsField` is bounded twice, and the two bounds answer different
+ * questions. `MAX_FILTER_DEPTH` stops the walk going too *far*; the visited set
+ * stops it doing too *much*. The tests below are the second one: every case here
+ * is within the depth limit and would still not finish without it.
+ *
+ * Measured against the shipped depth of 32 before the visited set existed, the
+ * first case took **85 seconds** of blocked event loop — inside a check whose
+ * only output is a warning. The assertions are on wall-clock time because that
+ * is the property that was broken.
+ *
+ * They run at an explicit depth of 24 rather than the shipped 32, so that
+ * removing the visited set makes them **fail** rather than hang: at 24 the old
+ * walk took 223 ms for the cycle and 386 ms for the DAG — measured — against a
+ * 100 ms budget it now clears in under one. At 32 the same cycle took 85
+ * seconds, which is the number worth knowing and the wrong number to build a
+ * test around.
+ */
+describe('the filter walk is bounded by work, not only by depth', () => {
+  const budgetMs = 100
+  const probeDepth = 24
+
+  it('returns at once for a node that points at itself twice', () => {
+    // `T(d) = 1 + 2·T(d − 1)`. The single-edge version of this — the one the
+    // docstring used to give as *the* example — is linear and was always fine,
+    // which is exactly why the gap went unnoticed.
+    const twoEdge: unknown[] = []
+    twoEdge.push(twoEdge, twoEdge)
+
+    const started = Date.now()
+    expect(filterMentionsField(twoEdge, 'id', probeDepth)).toBe(false)
+    expect(Date.now() - started).toBeLessThan(budgetMs)
+  })
+
+  it('returns at once for a shared-node DAG with no cycle at all', () => {
+    // No node points back at an ancestor here, so a path-based cycle check would
+    // not help: the cost comes from one node being reachable by two edges, at
+    // every level.
+    let node: unknown = [['x', '=', 1]]
+    for (let index = 0; index < probeDepth; index++) {
+      node = [node, node]
+    }
+
+    const started = Date.now()
+    expect(filterMentionsField(node, 'id', probeDepth + 2)).toBe(false)
+    expect(Date.now() - started).toBeLessThan(budgetMs)
+  })
+
+  it('finds a field behind a node the long path could not look inside', () => {
+    // The memo has to distinguish two very different `false`s: "this subtree
+    // does not mention the field" and "the budget ran out before we could tell".
+    // A plain visited set stores them as one, and the truncated answer wins.
+    //
+    // `a` is reached twice: down the 30-deep chain with one level of budget
+    // left — too little to look inside it — and directly from the top with 31
+    // levels to spare. `some` walks the chain first.
+    const a: unknown[] = [['x', '=', 1]]
+    let chain: unknown = a
+    for (let index = 0; index < 30; index++) {
+      chain = [chain]
+    }
+
+    expect(filterMentionsField([chain, a], 'x')).toBe(true)
+    // The same objects in the other order. A memo that kept a truncated answer
+    // would disagree with itself here, which is how this was found.
+    expect(filterMentionsField([a, chain], 'x')).toBe(true)
+  })
+
+  it('returns at once for a shared-node DAG built from logic groups', () => {
+    // The two cases above are plain arrays, and a memo that only recorded array
+    // nodes passed every test in this file. A group — `{ logic, conditions }`,
+    // which is what `FilterV3.or()` returns — is the other half of what this
+    // walk descends through, and the shape a caller actually reaches for.
+    let group: unknown = { logic: 'and', conditions: [['x', '=', 1]] }
+    for (let index = 0; index < probeDepth; index++) {
+      group = { logic: 'or', conditions: [group, group] }
+    }
+
+    const started = Date.now()
+    expect(filterMentionsField(group, 'id', probeDepth + 2)).toBe(false)
+    expect(Date.now() - started).toBeLessThan(budgetMs)
+  })
+
+  it('still finds a field that sits behind a shared node', () => {
+    // The visited set must not swallow a real match. `shared` is reached twice;
+    // the first visit has to answer truthfully, and `some` short-circuits before
+    // the second is ever asked.
+    const shared = FilterV3.or(['id', '=', 1])
+    expect(filterMentionsField([shared, shared], 'id')).toBe(true)
+  })
+
+  it('still finds a field on the second branch when the first shares a node', () => {
+    const shared = FilterV3.or(['severity', '=', 'ERROR'])
+    expect(filterMentionsField([shared, shared, FilterV3.or(['id', '=', 1])], 'id')).toBe(true)
+  })
+
+  it('answers no for a shared node that does not mention the field', () => {
+    // The other half of the visited set, and the one the cases above cannot
+    // reach: they all end in `true`, so a `seen.has(node) → return true` would
+    // pass every one of them. Here the revisit is the only thing that could
+    // produce a `true`, and it must not.
+    const shared = FilterV3.or(['severity', '=', 'ERROR'])
+    expect(filterMentionsField([shared, shared], 'id')).toBe(false)
+  })
+
+  it('answers the same filter the same way twice', () => {
+    // The visited set has to be per call. A module-level one would still pass
+    // every case above — each builds its own filter — and would then answer
+    // `false` to the second question about any object it had already walked.
+    // Reusing one `params` object across two `callTail` calls is ordinary, so
+    // this is the shape that would break in real code and nowhere in a test.
+    const filter = [FilterV3.or(['id', '=', 1])]
+
+    expect(filterMentionsField(filter, 'id')).toBe(true)
+    expect(filterMentionsField(filter, 'id')).toBe(true)
+
+    // And the set is scoped to one question, not to the object: asking about a
+    // different field has to walk the same nodes again.
+    const both = [FilterV3.or(['id', '=', 1], ['severity', '=', 'ERROR'])]
+    expect(filterMentionsField(both, 'id')).toBe(true)
+    expect(filterMentionsField(both, 'severity')).toBe(true)
+  })
+
+  it('still stops at MAX_FILTER_DEPTH when nothing is shared', () => {
+    // The visited set alone terminates any finite structure, which makes it easy
+    // to stop noticing that the depth bound does separate work: a chain of
+    // distinct nodes shares nothing, so only depth can end it. Nesting past the
+    // limit answers `false` even though the field is really down there — the
+    // documented trade, and the reason both bounds are kept.
+    const deep = (levels: number): unknown => {
+      let node: unknown = ['id', '>', 1]
+      for (let index = 0; index < levels; index++) {
+        node = [node]
+      }
+      return node
+    }
+
+    expect(filterMentionsField(deep(5), 'id')).toBe(true)
+    expect(filterMentionsField(deep(40), 'id')).toBe(false)
+  })
+
+  it('keeps answering for the shapes a caller actually writes', () => {
+    expect(filterMentionsField([['id', '>', 1]], 'id')).toBe(true)
+    expect(filterMentionsField([FilterV3.or(['id', '>', 1])], 'id')).toBe(true)
+    expect(filterMentionsField(FilterV3.or(['id', '>', 1]), 'id')).toBe(true)
+    expect(filterMentionsField([['severity', '=', 'id']], 'id')).toBe(false)
+    expect(filterMentionsField(undefined, 'id')).toBe(false)
   })
 })

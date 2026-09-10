@@ -51,7 +51,7 @@ const $b24 = new B24Hook({
 Notes:
 
 - Keep `B24Hook` server-side only. The webhook URL contains a long-lived secret.
-- Supported Node: `^20`, `>=22`.
+- Supported Node: `>=22` (Node 20 was dropped in 3.0.0 — it is EOL).
 
 ## B24Frame (in-iframe app)
 
@@ -246,20 +246,18 @@ await $b24.setRestrictionManagerParams({
   // duplicates.
   retryOnNetworkError: false,
 
-  // restApi:v3 only. Decide soft/hard from the RESPONSE — a v3 error envelope
-  // carrying a 4xx other than 401/408/429 is soft, whatever its code. Off by
-  // default in 2.x because it is breaking (a code that throws today resolves
-  // instead); the default flips in 3.0.0.
-  classifyV3ErrorsByCategory: true,
-
   maxRetries: 3,
   retryDelay: 1_000
 })
 ```
 
+**The category rule needs no configuration.** On `restApi:v3` an error that arrived in the v3 error envelope carrying a 4xx other than 401/408/429 is soft, whatever its code. Through the `2.x` line this was opt-in behind a `classifyV3ErrorsByCategory` parameter; since `3.0.0` it is simply the behaviour and that parameter no longer exists — passing it is a compile error, and the fix is to delete the line.
+
 **Why the category rule exists.** The built-in soft list holds nine v3 codes; one on-premise build was measured to ship at least 39, and the set grows with every portal module. So classification by list is per-module-shipping-date, not per-error-kind: `INVALIDSELECTEXCEPTION` is soft while `INVALIDPAGINATIONEXCEPTION` — same caller mistake, same request, same HTTP 400 — throws. Pinned codes (built-in and yours) still outrank the rule; 5xx, 401, 408, 429 and all of `restApi:v2` are untouched; 403 is soft, matching the already-pinned `…ACCESSDENIEDEXCEPTION` — except `…INSUFFICIENTSCOPEEXCEPTION`, pinned hard because it is a missing OAuth grant and its v2 twin `insufficient_scope` has always thrown.
 
 **Never match on the `BITRIX_REST_V3_EXCEPTION_` prefix** — modules ship unprefixed codes such as `NOTE_SEARCH_QUERY_TOO_SHORT`. And never match on `message`: it is localised.
+
+**`…ACCESSDENIEDEXCEPTION` is not a permission signal.** On v3 it is the catch-all for *every* authentication failure: a wrong credential, a missing one, and a valid one sent over plain HTTP all answer it with **401**, byte-identically — the portal folds any `checkAuth()` failure into this one exception and drops the reason. The same code arrives with **403** for a different thing entirely: a method or controller disabled on the portal. So the code alone says only "not authorised". The SDK delivers it **soft at both statuses** — it sits in the built-in soft list, which `isSoftError` consults before it looks at any status, and a 401 here does not trigger a token refresh either (that path additionally requires `expired_token` / `invalid_token`). So pair the code with `status` to decide what to *do*, not to predict how it arrives, and if the credential is one you trust, check the URL scheme before you check scopes. (`restApi:v2` distinguishes these: `INVALID_CREDENTIALS` vs `INVALID_REQUEST` / *Https required.*)
 
 `hardErrorCodes` and `softErrorCodes` are **additive** — the built-in lists (auth/fatal codes) are always hard, and you can't remove them, only extend (per `packages/jssdk/src/types/limiters.ts:120-146`).
 

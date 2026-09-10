@@ -19,8 +19,8 @@ import {
 } from '@bitrix24/b24jssdk'
 import { baseStage, analyseFunnel, type DealRow, type StageStat } from '../lib/funnel'
 
-// New SDK Logger (not the @deprecated LoggerBrowser). pushHandler attaches a
-// console sink at INFO level. See /docs/working-with-the-rest-api/logger/.
+// pushHandler attaches a console sink at INFO level.
+// See /docs/working-with-the-rest-api/logger/.
 const logger = Logger.create('CrmAnalytics')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 

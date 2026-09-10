@@ -23,20 +23,21 @@ Core building blocks:
 
 - Frontend in frame: B24Frame + initializeB24Frame()
 - Backend/service: B24Hook (webhook-based)
-- REST utilities: callMethod, callBatch, callListMethod, fetchListMethod
+- REST utilities: actions.v{2,3}.{call,callList,fetchList,batch,batchByChunk}.make
 - UI managers: parent, slider, dialog, placement, options, auth
 - Helpers: B24HelperManager and useB24Helper hook; Pull client
 
 Note: the package ships ESM, CommonJS, and UMD builds. ESM is the recommended entry point; CommonJS is supported via `require('@bitrix24/b24jssdk')`, and the UMD build is for `<script>` usage in the browser.
 
-## Deprecation notice — read before generating code
+## Removed in 3.0.0 — never generate these
 
-The following surface is `@deprecated` and **scheduled for removal in `3.0.0`**.
-Many examples in this document still reference it because it remains the most
-widely-used path today, but new code should target the `actions.v{2,3}.*` API.
-Full removal checklist: [Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/).
+The following surface was `@deprecated` through `2.x` and **no longer exists**.
+Generating any of it produces code that does not compile. If you are asked to
+work on a `2.x` codebase that still uses it, the replacement column is the
+rewrite. Full checklist:
+[Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/).
 
-| Deprecated | Replacement |
+| Removed in 3.0.0 | Replacement |
 |---|---|
 | `b24.callMethod(method, params, start?)` | `b24.actions.v2.call.make({ method, params })` / `b24.actions.v3.call.make({ method, params })` |
 | `b24.callBatch(calls, isHaltOnError?, returnAjaxResult?)` | `b24.actions.v2.batch.make({ calls, options })` / `b24.actions.v3.batch.make(...)` |
@@ -59,10 +60,19 @@ and `#getNext()` / `#fetchNext()` **throw**
 `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`. For new paging code prefer
 `actions.v{2,3}.{callList,fetchList}` — they hide the offset bookkeeping and work
 under both versions. For a `restApi:v3` count use `actions.v3.aggregate.make`
-(`@experimental`, **not verified against a live portal**) with `count` /
+(`@experimental` — the contract is measured, but **no shipped module publishes
+an `*.aggregate` action on any of the four portals checked**) with `count` /
 `countDistinct` on a method that exposes an `*.aggregate` action — check
-`rest.documentation.openapi` to confirm the endpoint exists; otherwise reduce a
-`callList` client-side.
+`rest.documentation.openapi` and look for paths ending in `.aggregate` to confirm
+the endpoint exists; otherwise reduce a `callList` client-side.
+**Every aggregated field must be `filterable`**, which is not the same as
+selectable: a field that `list` returns quite normally is still refused by an
+aggregate `select` unless `<entity>.field.list` reports `filterable: true` for
+it. On `tasks.task` that is one field of ninety-five, so ask rather than assume.
+The refusal arrives **soft** (`isSuccess === false`, not thrown — a 4xx in the v3
+envelope) as `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION`,
+naming the field in `validation[].field`. Match on the code and the field, never
+on the message: it is localised.
 
 `AjaxResult.getData()` returns exactly `{ result: T, time: PayloadTime }` — the
 v2-only `next` and `total` fields are no longer surfaced through the public type.
@@ -98,26 +108,39 @@ async function boot() {
   $b24 = await initializeB24Frame()
 
   // Single method
-  const companies = await $b24.callMethod('crm.item.list', {
-    entityTypeId: EnumCrmEntityTypeId.company,
-    order: { id: 'desc' },
-    select: ['id', 'title', 'createdTime']
+  const companies = await $b24.actions.v2.call.make({
+    method: 'crm.item.list',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.company,
+      order: { id: 'desc' },
+      select: ['id', 'title', 'createdTime']
+    }
   })
   logger.info('items', { items: companies.getData().result })
 
-  // Batch (object syntax, with keys)
-  const batch: Result = await $b24.callBatch({
-    CompanyList: {
-      method: 'crm.item.list',
-      params: {
-        entityTypeId: EnumCrmEntityTypeId.company,
-        order: { id: 'desc' },
-        select: ['id', 'title', 'createdTime']
+  // Batch (object syntax, with keys). The generic names ONE command's payload;
+  // the result is keyed by command name, and the overloads work that out from
+  // the arguments. Since 3.0.0 `Result<T>` defaults to `unknown` rather than
+  // `any`, so reading a field off an un-narrowed result is a compile error —
+  // name the payload, as here.
+  type CompanyRow = { id: string, title: string, createdTime: string }
+  const batch = await $b24.actions.v2.batch.make<{ items: CompanyRow[] }>({
+    calls: {
+      CompanyList: {
+        method: 'crm.item.list',
+        params: {
+          entityTypeId: EnumCrmEntityTypeId.company,
+          order: { id: 'desc' },
+          select: ['id', 'title', 'createdTime']
+        }
       }
-    }
-  }, true)
+    },
+    options: { isHaltOnError: true }
+  })
+  // No cast: `batch.make` is overloaded, so passing named commands without
+  // `returnAjaxResult` resolves to a record keyed by command name (#518).
   const data = batch.getData()
-  const list = (data.CompanyList.items || []).map((it: any) => ({
+  const list = (data?.CompanyList?.items ?? []).map(it => ({
     id: Number(it.id),
     title: it.title,
     createdTime: Text.toDateTime(it.createdTime as ISODate)
@@ -144,8 +167,8 @@ Patterns
 
 - Always await initializeB24Frame() before any call.
 - Destroy on page/component unmount with $b24.destroy().
-- For large result sets prefer callListMethod or fetchListMethod.
-- For big batches use callBatchByChunk to respect limits.
+- For large result sets prefer `actions.v{2,3}.callList.make` (collect) or `actions.v{2,3}.fetchList.make` (stream).
+- For big batches use `actions.v{2,3}.batchByChunk.make` to respect limits.
 - A per-command `result` inside a batch can be `null` when the underlying REST method legitimately returns `null` (e.g. `im.chat.get` with non-matching params). Declare the generic as `T | null` and handle the `null` branch — the SDK no longer coerces it to `{}` (see issue #23).
 - `restApi:v3` batch is all-or-nothing: per-command errors are not returned. If any call fails, the whole batch fails and `response.getErrorMessages()` carries the error.
 
@@ -162,16 +185,19 @@ When you can’t bundle ESM, load the global B24Js from a CDN inside your iframe
       const logger = B24Js.LoggerFactory.createForBrowser('MyApp', true)
       const $b24 = await B24Js.initializeB24Frame()
 
-      const res = await $b24.callBatch({
-        CompanyList: {
-          method: 'crm.item.list',
-          params: {
-            entityTypeId: B24Js.EnumCrmEntityTypeId.company,
-            order: { id: 'desc' },
-            select: ['id', 'title', 'createdTime']
+      const res = await $b24.actions.v2.batch.make({
+        calls: {
+          CompanyList: {
+            method: 'crm.item.list',
+            params: {
+              entityTypeId: B24Js.EnumCrmEntityTypeId.company,
+              order: { id: 'desc' },
+              select: ['id', 'title', 'createdTime']
+            }
           }
-        }
-      }, true)
+        },
+        options: { isHaltOnError: true }
+      })
 
       logger.info('data', { data: res.getData() })
     } catch (e) {
@@ -195,7 +221,7 @@ Use B24Hook when calling Bitrix24 REST from servers or scripts via incoming webh
 Minimal contract
 
 - new B24Hook({ b24Url, userId, secret }) or B24Hook.fromWebhookUrl(url)
-- callMethod, callBatch, callListMethod, fetchListMethod
+- actions.v{2,3}.{call,callList,fetchList,batch,batchByChunk}.make
 
 Example: construct from webhook URL and call API
 
@@ -215,17 +241,23 @@ const $b24 = B24Hook.fromWebhookUrl(
 
 
 // Single method
-const res = await $b24.callMethod('crm.item.list', {
-  entityTypeId: EnumCrmEntityTypeId.company,
-  order: { id: 'desc' },
+const res = await $b24.actions.v2.call.make({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.company,
+    order: { id: 'desc' }
+  }
 })
 logger.info('companies', { companies: res.getData().result })
 
 // Batch (array syntax)
-const batch: Result = await $b24.callBatch([
-  ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] }],
-  ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] }]
-], true)
+const batch: Result = await $b24.actions.v2.batch.make({
+  calls: [
+    ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.company, select: ['id'] }],
+    ['crm.item.list', { entityTypeId: EnumCrmEntityTypeId.contact, select: ['id'] }]
+  ],
+  options: { isHaltOnError: true }
+})
 logger.info('batch', { batch: batch.getData() })
 ```
 
@@ -235,21 +267,29 @@ Listing helpers
 import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 
 // Pull a full list with automatic paging
-const list = await $b24.callListMethod('crm.item.list', {
-  entityTypeId: EnumCrmEntityTypeId.deal,
-  select: ['id', 'title']
+const list = await $b24.actions.v2.callList.make({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.deal,
+    select: ['id', 'title']
+  },
+  idKey: 'id' // crm.item.* returns a lowercase id
 })
 console.log(list.getData()) // array of items
 
 // Or stream chunks
-for await (const chunk of $b24.fetchListMethod('crm.item.list', { entityTypeId: EnumCrmEntityTypeId.deal }, 'id')) {
+for await (const chunk of $b24.actions.v2.fetchList.make({
+  method: 'crm.item.list',
+  params: { entityTypeId: EnumCrmEntityTypeId.deal },
+  idKey: 'id'
+})) {
   console.log('chunk size', chunk.length)
 }
 ```
 
 Notes
 
-- Supported Node versions: ^20 or >=22.
+- Supported Node versions: >=22. Node 20 was dropped in 3.0.0 (EOL 2026-04-30).
 - B24Hook warns if used on the client; keep it server-side.
 
 
@@ -372,30 +412,31 @@ const uniq = $b24.auth.getUniq('prefix') // unique per member
 Notes
 
 - Helper managers: profile, app, payment, license, currency, options
-- Currency and options managers internally use callBatch/callBatchByChunk
+- Currency and options managers internally use `actions.v2.batch` / `actions.v2.batchByChunk`
 
 
 ## REST calling model and error handling
 
-Core REST utilities live in AbstractB24 and Http:
+Core REST utilities live on `b24.actions.v{2,3}.*`, one action per primitive:
 
-- callMethod(method, params[, start]) => `Promise<AjaxResult>`
-- callBatch(calls, isHaltOnError = true, returnAjaxResult = false) => `Promise<Result>`
-  - calls can be object { key: { method, params } } or array [ [method, params], ... ]
-  - If isHaltOnError=false, Result accumulates errors (object-form calls are keyed by request label — read via getErrorsByKey()/getErrorMessagesByKey()); otherwise rejects on first error
-  - If returnAjaxResult=true, you receive AjaxResult objects per command
-- callListMethod(method, params, progress?, customKey?) => `Promise<Result>` (auto-paging)
-- fetchListMethod(method, params, idKey='ID', customKey?) => `AsyncGenerator<any[]>`
+- `call.make({ method, params, requestId? })` => `Promise<AjaxResult>`
+- `batch.make({ calls, options })` => `Promise<Result>`
+  - `calls` can be an object `{ key: { method, params } }` or an array `[ [method, params], ... ]`
+  - `options.isHaltOnError = false` accumulates errors (object-form calls are keyed by request label — read via `getErrorsByKey()` / `getErrorMessagesByKey()`); `true` stops at the first
+  - `options.returnAjaxResult = true` gives you an `AjaxResult` per command
+- `callList.make({ method, params, idKey?, cursorIdKey?, customKeyForResult? })` => `Promise<Result>` (auto-paging)
+- `fetchList.make({ … same options … })` => `AsyncGenerator<any[]>`
+- `batchByChunk.make({ calls, options })` => `Promise<Result>` (chunks any number of commands)
 
 ### Choosing list retrieval strategy (recommendations)
 
-- callListMethod: fetches the entire dataset into memory. Use only for small selections (< 1000 items) due to higher memory pressure.
-- fetchListMethod: streams data in chunks via async iterator. Use for large datasets to keep memory usage low.
-- callMethod (manual pagination): control paging via the `start` cursor. Use when you need precise batching and custom flow. For big data it’s typically less efficient/convenient than fetchListMethod.
+- `callList.make`: fetches the entire dataset into memory. Use only for small selections (< 1000 items) due to higher memory pressure.
+- `fetchList.make`: streams data in chunks via async iterator. Use for large datasets to keep memory usage low.
+- `call.make` (manual pagination): control paging via the `start` cursor, `restApi:v2` only. Use when you need precise batching and custom flow. For big data it’s typically less efficient/convenient than `fetchList.make`.
 
 Below are complete examples that iterate until all data are fetched.
 
-#### A) Small datasets: callListMethod (all-in-memory)
+#### A) Small datasets: callList.make (all-in-memory)
 
 Assumes `$b24` is already initialized (either B24Frame or B24Hook).
 
@@ -403,18 +444,18 @@ Assumes `$b24` is already initialized (either B24Frame or B24Hook).
 import { EnumCrmEntityTypeId, Result } from '@bitrix24/b24jssdk'
 
 async function loadAllCompaniesSmall($b24: any) {
-  const response: Result = await $b24.callListMethod(
-    'crm.item.list',
-    {
+  // No progress callback: `callList.make` cannot know the total in advance.
+  // For a percentage, stream with `fetchList.make` and take the denominator
+  // from one `call.make(...).getTotal()` — see the migration guide.
+  // `order` is not accepted either: cursor paging must order by the cursor.
+  const response: Result = await $b24.actions.v2.callList.make({
+    method: 'crm.item.list',
+    params: {
       entityTypeId: EnumCrmEntityTypeId.company,
-      order: { id: 'asc' },
       select: ['id', 'title']
     },
-    (progress: number) => {
-      // Optional progress callback (0..100)
-      // console.log('progress', progress)
-    }
-  )
+    idKey: 'id' // crm.item.* returns a lowercase id
+  })
 
   const items = response.getData() as any[]
   // Process all items (already fully loaded in memory)
@@ -426,7 +467,7 @@ async function loadAllCompaniesSmall($b24: any) {
 }
 ```
 
-#### B) Large datasets: fetchListMethod (streaming by chunks)
+#### B) Large datasets: fetchList.make (streaming by chunks)
 
 For `crm.item.list`, use `idKey: 'id'` so the fast-iterator strategy works reliably with v3 entities.
 
@@ -436,14 +477,14 @@ import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 async function loadAllDealsStreaming($b24: any) {
   const all: any[] = []
 
-  for await (const chunk of $b24.fetchListMethod(
-    'crm.item.list',
-    {
+  for await (const chunk of $b24.actions.v2.fetchList.make({
+    method: 'crm.item.list',
+    params: {
       entityTypeId: EnumCrmEntityTypeId.deal,
       select: ['id', 'title']
     },
-    'id' // idKey for crm.item.list payloads
-  )) {
+    idKey: 'id' // idKey for crm.item.list payloads
+  })) {
     // Process current chunk
     for (const row of chunk) {
       // ...process row
@@ -455,13 +496,13 @@ async function loadAllDealsStreaming($b24: any) {
 }
 ```
 
-#### C) Manual pagination: callMethod + next pages
+#### C) Manual pagination: call.make + next pages
 
-> **`callMethod` is `@deprecated` and goes away in `3.0.0`.** `isMore()` and
-> `getNext()` are **not** deprecated, but both are `restApi:v2`-only: they rely on
-> the envelope field `next`, which `restApi:v3` does not return, and `getNext()`
-> throws against a v3 client. Prefer `b24.actions.v{2,3}.fetchList.make` for
-> custom-throttled iteration; that helper hides pagination for both API versions.
+> `isMore()` and `getNext()` are **not** deprecated, but both are
+> `restApi:v2`-only: they rely on the envelope field `next`, which `restApi:v3`
+> does not return, and `getNext()` throws against a v3 client. Prefer
+> `b24.actions.v{2,3}.fetchList.make` for custom-throttled iteration; that helper
+> hides pagination for both API versions.
 
 Use when you need to control page sizes, pauses, or add custom throttling. Iterate until `isMore()` returns false, using `getNext($b24.getHttpClient())`.
 
@@ -472,11 +513,15 @@ async function loadAllContactsManual($b24: any) {
   const all: any[] = []
 
   // First page (start defaults to 0)
-  let page: AjaxResult = await $b24.callMethod('crm.item.list', {
-    entityTypeId: EnumCrmEntityTypeId.contact,
-    order: { id: 'asc' },
-    select: ['id', 'name']
-  }, 0)
+  let page: AjaxResult = await $b24.actions.v2.call.make({
+    method: 'crm.item.list',
+    params: {
+      entityTypeId: EnumCrmEntityTypeId.contact,
+      order: { id: 'asc' },
+      select: ['id', 'name'],
+      start: 0
+    }
+  })
 
   // Process first page
   all.push(...(page.getData().result as any[]))
@@ -503,7 +548,7 @@ Result and AjaxResult basics
 import { AjaxError } from '@bitrix24/b24jssdk'
 
 try {
-  const res = await $b24.callMethod('crm.item.get', { entityTypeId: 1, id: 10 })
+  const res = await $b24.actions.v2.call.make({ method: 'crm.item.get', params: { entityTypeId: 1, id: 10 } })
   const payload = res.getData()                  // { result, time } — see Deprecation notice
   const ok = res.isSuccess                       // boolean
   // const total = res.getTotal()                // restApi:v2 only — returns 0 on v3, which sends no `total`
@@ -530,8 +575,8 @@ try {
   - Use $b24.options.appSet/userSet for settings persistence
 - Backend
   - Construct B24Hook with B24Hook.fromWebhookUrl() when possible
-  - Use callListMethod/fetchListMethod for large lists
-  - Batch related calls with callBatch; chunk big arrays with callBatchByChunk
+  - Use `actions.v{2,3}.callList` / `fetchList` for large lists
+  - Batch related calls with `actions.v{2,3}.batch`; chunk big arrays with `batchByChunk`
 - Logging
   - Build once via LoggerFactory.createForBrowser(appName, isDev) and set to instances if needed
   - Pass context as an object: `logger.info('message', { key: value })`, not as extra arguments
@@ -558,7 +603,7 @@ try {
 
 - initializeB24Frame, B24Frame and its managers: auth, parent, slider, dialog, placement, options
 - B24Hook (+ B24Hook.fromWebhookUrl)
-- AbstractB24 helpers: callMethod, callBatch, callListMethod, fetchListMethod, callBatchByChunk, chunkArray
+- Actions surface: `actions.v{2,3}.{call,batch,callList,fetchList,batchByChunk}.make`; `chunkArray` helper on AbstractB24
 - HTTP types and classes: AjaxResult, AjaxError, Result
 - LoggerFactory, Logger, Text, Type, Browser, tools/use-formatters
 - Types/enums: http, b24, auth, payloads, user, slider, handler, placement, crm, catalog, bizproc, event, pull, b24-helper
@@ -609,7 +654,7 @@ This document is based on the SDK source in packages/jssdk/src and the docs unde
 
 ### Core utilities
 
-- AbstractB24: shared REST helpers (callMethod/batch/list/fetch/chunk)
+- AbstractB24: owns the HTTP clients, the actions surface (`actions.v{2,3}.*`) and the tools surface
 - Http: low-level transport; supports restriction throttling and auth refresh
 - RestrictionManager: automatic throttling to respect Bitrix24 limits
 

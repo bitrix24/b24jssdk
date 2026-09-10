@@ -36,51 +36,64 @@ It is read-only.
 | Skill | Verified |
 | --- | --- |
 | `b24jssdk-core` | boot snippet reaches the portal; an unknown method is a **soft** error on the `Result`, not a throw; the operating-budget fields the skill documents are present |
-| `b24jssdk-rest` | `actions.v2.batch` (one result per command), `v2.callList`, `v2.fetchList` (chunked), `v3.call`, `v3.callList` on `tasks.task.list` **without** a `cursorIdKey` override — the claim in the skill's table; a non-v3 method fails softly rather than throwing; **`v3.aggregate` surveyed across six modules** and reported, not asserted — see below |
+| `b24jssdk-rest` | `actions.v2.batch` (one result per command), `v2.callList`, `v2.fetchList` (chunked), `v3.call`, `v3.callList` on `tasks.task.list` **without** a `cursorIdKey` override — the claim in the skill's table; a non-v3 method fails softly rather than throwing; **`v3.aggregate` availability asked of the portal in one call** and reported, not asserted — see below |
 | `b24jssdk-filtering` | a v2 prefix-keyed filter actually narrows rows; a v3 array-of-triples filter is accepted; `callList` **strips a caller-supplied `order`** — asks for `DESC`, asserts the rows come back ascending |
 | `b24jssdk-helpers` | `initB24Helper` over a webhook loads Profile + Currency; `currency.format` uses the portal's own rules (the formatted value is printed) |
 | `b24jssdk-vibecode` | the SDK-side calls the skill documents succeed |
 
-### The one question this run is expected to answer: does `v3.aggregate` work at all?
+### The one question this run is expected to answer: does any shipped module expose `*.aggregate` yet?
 
-`actions.v3.aggregate.make` is marked `@experimental` in the SDK, and the working
-assumption is **that it does not work on any module yet**. Nobody has run it
-against a portal. That matters beyond the action itself, because two documents
-currently hedge on it — `AjaxResult.getTotal()`'s JSDoc and the `restApi:v3`
-count advice in `b24jssdk-rest/SKILL.md` and `README-AI.md` — and the hedge can
-only be replaced by a real answer.
+**The contract itself is no longer in question.** It was measured against a
+module written for the purpose (PR #498), reaching the same
+`AggregateOrmActionTrait` / `OrmRepository::getAllWithAggregate()` every future
+module will: values come back as **strings**, an aggregate over an empty match is
+`null` except `count` (which is `'0'`), and the `{ result: { result } }` double
+envelope the reference §7 describes is real. `AggregateResultV3` says so, and the
+docs no longer hedge on the shape.
 
-So the suite **surveys** it rather than probing one method: `tasks.task`,
-`crm.deal`, `crm.contact`, `crm.company`, `crm.lead` and `main.eventlog`, each
-with `select: { count: ['id'] }`. It prints a block headed
-`[skills-live] v3 aggregate survey`, one line per module.
+What is still unmeasured is the **use case**: no *shipped* module publishes an
+`*.aggregate` action on any of the four portals checked, so no per-module
+behaviour has been observed and the action keeps its `@experimental` tag for that
+reason alone. That is what this check is looking for.
 
-This case **cannot fail the run**, by design: a portal where no module supports
-`aggregate` is a fact about Bitrix24's v3 rollout, not a defect in a skill file.
-That makes it the one green line in this suite that proves nothing on its own —
-**read the output**.
+So the suite asks the portal for its own document in **one call**:
+`rest.documentation.openapi`, then lists every path ending in `.aggregate`. It
+prints a block headed `[skills-live] v3 aggregate availability`.
 
-| Line | Means | What to do |
+That replaced a six-module survey — `tasks.task`, four `crm.*` and
+`main.eventlog`, each probed with `select: { count: ['id'] }`. Every line came
+back `SOFT` on every portal, four of the six being `crm.*`, which on v3 exists
+only as timeline email. One request now answers for the **whole portal** instead
+of six guesses, and it cannot print anyone's row counts — which is why the
+warning this section used to carry about posting real deal counts is gone.
+
+**An empty list cannot fail the run**, by design: a portal where no module
+supports `aggregate` is a fact about Bitrix24's v3 rollout, not a defect in a
+skill file. Everything around that answer is asserted, though — the document has
+to arrive and has to list methods — so unlike the six-probe loop this replaced,
+a green line here does mean the portal was asked and answered. What it does not
+tell you is *what* the answer was: **read the output**.
+
+A portal that scope-gates `rest.documentation.openapi` reports SKIP rather than
+FAIL. That needs handling inside the case: the refusal arrives soft, and the
+suite's limitation classifiers only see thrown errors.
+
+| Output | Means | What to do |
 | --- | --- | --- |
-| `OK` | the endpoint exists and returned buckets | Record the module and the exact bucket shape. If the shape is single-level rather than the reference's `{ result: { result } }`, that is the `AggregateV3` fallback warning firing — say so, the reference §7 is then wrong. |
-| `SOFT` | the server rejected it (`METHODNOTFOUNDEXCEPTION` = no `*.aggregate` on that module) | Expected for most modules today. Record it. |
-| `THROW` | the SDK or transport failed | **This is a defect worth reporting** — the SDK should surface a server rejection softly, not throw. |
+| `*.aggregate: (none)` | no shipped module on this portal opts into `AggregateOrmActionTrait` | Expected today. Record the method count alongside it — the denominator is what makes the zero informative. |
+| `*.aggregate: <names>` | the exit condition is met | Record the names. `AggregateV3`'s tag can be revisited against a real method, and its per-module behaviour observed for the first time. |
+| the case fails on `isSuccess` | the document did not arrive | **A defect worth reporting** — that is a transport problem, not an answer about aggregate. |
 
-::warning
-**An `OK` line prints real numbers off your portal** — `count` buckets are actual
-row counts for that module (deals, leads, contacts). The rest of this document
-already tells you to replace the domain with a placeholder before posting; the
-same applies here, and more so. Run the survey against a **demo or development
-portal**. If you only have a production one, post the *shape* of the buckets and
-the module names, and replace the counts with `<n>` — what #113 needs to know is
-which modules answered, not how many deals you have.
-::
-
-Paste the block into #113, redacted as above. If every line is `SOFT` or `THROW`, the
-conclusion is that `AggregateV3` stays `@experimental`, the docs keep telling
-readers to reduce a `callList` client-side, and `AjaxResult.getTotal()` remains
-the only count available under `restApi:v2` — which is why it was kept out of the
-`3.0.0` removal set.
+Paste the block into #113 — and if you are pasting a *failure* rather than the
+block, redact the portal domain first (see the note at the end of this file):
+portal prose reaches an error message verbatim, and redaction does not cover it.
+If the list is empty, nothing changes: `AggregateV3`
+keeps its `@experimental` tag — not because the contract is unknown, but because
+no shipped module exercises it — the docs keep telling readers to reduce a
+`callList` client-side, and `AjaxResult.getTotal()` remains the only count
+available under `restApi:v2`, which is why it was kept out of the `3.0.0`
+removal set. A non-empty list is the interesting outcome: it names the first
+module that can lift the tag.
 
 ### Reading the output
 
@@ -196,6 +209,6 @@ The issue's acceptance criteria, and where each is answered:
       (same for `skills/SUGGESTED-EXAMPLES.md` →
       [`suggested-examples.md`](../.github/contributing/suggested-examples.md))
 - [ ] `skills/README.md` migration note updated once the pass is done
-- [ ] the `v3 aggregate survey` block pasted into the issue, and
-      `AggregateV3`'s `@experimental` tag either removed or re-justified with
-      the module list the survey produced
+- [ ] the `v3 aggregate availability` block pasted into the issue, and
+      `AggregateV3`'s `@experimental` tag revisited if the portal named any
+      `*.aggregate` method

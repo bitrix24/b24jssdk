@@ -26,6 +26,13 @@
  *     (`logger.debug(`GET ${url}`)`) and `'…' + url` concatenation. Now that the
  *     rule spans the whole SDK, reviewers in pull / frame / hook / oauth (not just
  *     the HTTP layer) must reject these by hand: log the bare method name.
+ *   • Vocabulary: `headers` / `Authorization` were added when the SDK first put a
+ *     credential in a header rather than in the body — the `restApi:v3` batch on an
+ *     OAuth transport sends `Authorization: Bearer …` (#455/#491). `redactSensitiveParams()`
+ *     walks *params*; it has no concept of headers, so for this one class the lint
+ *     layer is the only net there is, not defence in depth. `header` is matched
+ *     singular too, and `Authorization` explicitly, because the leak-shaped
+ *     access is `config.headers.Authorization` rather than a word ending in `s`.
  *   • Vocabulary: `auth` and `sessid` are deliberately NOT in CREDENTIAL_KEY —
  *     `auth` is too common a word (false-positive risk: `authorized`, `author`,
  *     `authManager`, `isAdminAuth`…) and both are already masked at runtime by
@@ -44,12 +51,12 @@ const LOGGER_METHODS = new Set([
 // Credential-shaped property KEY (selector 4) / member-access property (selector 2).
 // `[Tt]oken(?!s\b)` carves out a plural `tokens` (a real retry counter).
 // `auth` / `sessid` are intentionally excluded — see the fileoverview vocabulary note.
-const CREDENTIAL_KEY = /[Uu]rl|[Pp]assword|[Ss]ecret|[Tt]oken(?!s\b)/
+const CREDENTIAL_KEY = /[Uu]rl|[Pp]assword|[Ss]ecret|[Tt]oken(?!s\b)|[Hh]eaders?|[Aa]uthorization/
 // Credential-shaped VALUE identifier (selector 1) — the key set plus
 // `methodFormatted` (the #40 regression: the formatted URL bound to an identifier).
-const CREDENTIAL_VALUE = /[Uu]rl|methodFormatted|[Pp]assword|[Ss]ecret|[Tt]oken(?!s\b)/
+const CREDENTIAL_VALUE = /[Uu]rl|methodFormatted|[Pp]assword|[Ss]ecret|[Tt]oken(?!s\b)|[Hh]eaders?|[Aa]uthorization/
 // Axios objects whose spread drags the full request URL into the context.
-const AXIOS_SPREAD = /^(?:config|request|response)$/
+const AXIOS_SPREAD = /^(?:config|request|response|headers)$/
 
 function isLoggerCall(node) {
   return (

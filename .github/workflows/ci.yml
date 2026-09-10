@@ -197,8 +197,9 @@ jobs:
     # Test on every supported non-EOL Node line so the runtimes the SDK
     # advertises in `engines` are actually exercised (#174). 22 = the line the
     # publish workflows build the artifact on (lowest supported + validated);
-    # 24 = newest active LTS. (Node 20 is still in `engines` but EOL and slated
-    # for removal in #312, so it is intentionally not in the matrix.)
+    # 24 = newest active LTS. Since #312 dropped Node 20 from `engines`, the
+    # matrix and the advertised floor finally agree — nothing is advertised that
+    # this job does not run.
     strategy:
       fail-fast: false
       matrix:

@@ -2,7 +2,194 @@
 
 ## [Unreleased]
 
+### ⚠ BREAKING CHANGES
+
+* **`restApi:v3` errors are classified by response category, and the
+  `classifyV3ErrorsByCategory` parameter is gone** (#480, completing #460). An
+  error that arrived in the v3 error envelope carrying an HTTP **4xx other than
+  401, 408 or 429** is returned inside `AjaxResult` — soft — whatever its code.
+  Through the `2.x` line that was opt-in behind a restriction parameter which
+  defaulted to `false`; the parameter no longer exists.
+
+    Classification by list was really classification by module-shipping-date:
+    the built-in soft list holds nine v3 codes, one on-premise build was measured
+    to ship at least 39, and the set grows with every portal module. So
+    `INVALIDSELECTEXCEPTION` was soft while `INVALIDPAGINATIONEXCEPTION` — the
+    same caller mistake, same request, same HTTP 400 — threw.
+
+    **Two populations, and only one gets a compile error.** If you passed the
+    parameter, TypeScript now reports an unknown property: delete the line, the
+    behaviour you asked for is the default. **If you never passed it, nothing
+    fails to compile and the delivery of some v3 errors changes** — a `try` /
+    `catch` around a v3 call stops firing, control falls through into the success
+    path, and `getData()` is `undefined` there. Check `isSuccess`.
+
+    That check was already required for every code pinned soft — the nine
+    built-in v3 codes and anything in your own `softErrorCodes` — so a caller who
+    had it was already handling this path for some errors and now handles it for
+    more. **Nothing that was soft becomes thrown**; the change moves in one
+    direction only.
+
+    To keep one code throwing, pin it: `hardErrorCodes` is step 1 of the
+    classifier and the category rule is step 3, so a pinned code still throws.
+    See [Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/#behaviour-v3-errors-are-classified-by-response-category).
+
+* **`Result<T>` and `IResult<T>` default to `unknown` instead of `any`** (#279),
+  and the same narrowing reaches `TypeCallParams`: its catch-all index signature
+  is now `[key: string]: unknown`, the nested `params` field is
+  `Record<string, unknown>`, and `filter` is `TypeFilterV2 | TypeFilterV3` rather
+  than `any`. No `any` is left in either type.
+
+    **Who is affected.** Anyone who wrote `Result` with no type argument and then
+    read a field off it — that compiled silently before, because `any`
+    propagates through every access. Name the payload instead: every action takes
+    a generic (`call.make<T>`, `batch.make<T>`, `callList.make<T>`), and the type
+    then flows through the whole read. Where the shape is genuinely unknown until
+    run time, one narrowing cast at the point of reading keeps the rest checked.
+    See [Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/#resultt-defaults-to-unknown-not-any).
+
+    **The `[key: string]` index signature stays** — only its value type narrowed.
+    Removing it outright was considered and rejected on a count of the SDK's own
+    examples: `crm.item.get` **is** `{ entityTypeId, id }`, so those keys are the
+    payload rather than an escape hatch, and a closed type would stop most of the
+    documentation from compiling.
+
+* **`batch.make` picks its return shape from the arguments** (#518). A batch
+  answers in one of four shapes, and which one was decided by two things you
+  pass in — whether `calls` is a record of named commands or an array, and
+  whether `options.returnAjaxResult` is set. Nothing on the returned value said
+  which, so the type was the union `CallBatchResult<T>` and a caller had to cast.
+
+    | `calls` | `returnAjaxResult` | now resolves to |
+    | --- | --- | --- |
+    | named record | absent / `false` | `Result<Record<string, T>>` |
+    | named record | `true` | `Result<Record<string, AjaxResult<T>>>` |
+    | array | absent / `false` | `Result<T[]>` |
+    | array | `true` | `Result<AjaxResult<T>[]>` |
+
+    `T` is **one command's** payload in every row. Nothing changes at run time
+    and no call site has to be rewritten; casts written to work around the union
+    can go. A `returnAjaxResult` the compiler cannot read as a literal still
+    resolves to the union, which is the honest answer when the discriminator is
+    only known at run time.
+
+    Under the old `Result<T = any>` this went unnoticed — `any` was assignable
+    everywhere. The documentation had already given ground to it: the v2 batch
+    guide carried a `@check-ignore: … uses union result type` on a supported,
+    documented example. That marker is gone and the example compiles.
+
+* **Node 20 is no longer supported** (#312). `engines.node` moves from
+  `^20.0.0 || >=22.0.0` to `>=22.0.0` in both `@bitrix24/b24jssdk` and
+  `@bitrix24/b24jssdk-nuxt`.
+
+    Node 20 reached end-of-life on 2026-04-30 and no longer receives security
+    fixes. CI has tested only Node 22 and 24 for some time, so the `2.x` manifest
+    advertised a line nothing exercised; the matrix and the advertised floor now
+    agree.
+
+    On **Node 22 or newer** nothing changes. On **Node 20**, `npm install` prints
+    an `EBADENGINE` warning, and under `engine-strict=true` — pnpm's default
+    inside a workspace — the install fails outright. This is a packaging floor,
+    not an API change: no source has to change, only the Node version you run on.
+
+* **The deprecated legacy surface is removed** (#277). Marked `@deprecated` since
+  `2.0.0` and carrying a `removalVersion: '3.0.0'` in every runtime warning, these
+  symbols are now gone:
+
+    | Removed | Replacement |
+    | --- | --- |
+    | `b24.callMethod(method, params, start)` | `b24.actions.v{2,3}.call.make(options)` |
+    | `b24.callListMethod(method, params, progress, customKeyForResult)` | `b24.actions.v{2,3}.callList.make(options)` — **not a drop-in** |
+    | `b24.fetchListMethod(method, params, idKey, customKeyForResult)` | `b24.actions.v{2,3}.fetchList.make(options)` |
+    | `b24.callBatch(calls, isHaltOnError, returnAjaxResult)` | `b24.actions.v{2,3}.batch.make(options)` |
+    | `b24.callBatchByChunk(calls, isHaltOnError)` | `b24.actions.v{2,3}.batchByChunk.make(options)` |
+    | `AbstractB24.batchSize` | inline `50` |
+    | `LoggerBrowser` | `LoggerFactory.createForBrowser(title, isDev)` |
+    | `LoggerType` | no replacement — drop the import, `LoggerFactory` manages levels |
+
+    The same five methods leave the `TypeB24` interface, and `LoggerBrowser` /
+    `LoggerType` leave the package's public exports (96 value exports → 94).
+
+    **Read the migration guide before upgrading:**
+    [Migration to v3](https://bitrix24.github.io/b24jssdk/docs/getting-started/migration/v3/).
+    Four of the five methods are a mechanical swap. **`callListMethod` is not** —
+    it carried its own offset-paging loop, and the replacement pages by cursor, so
+    three things change: there is no `progress` callback, a caller-supplied `order`
+    is not accepted, and the `idKey` / `cursorIdKey` pair now has to match the
+    method. The guide has a worked rewrite for each.
+
+    **How to find your call sites.** Through `2.x` these symbols announced
+    themselves with a `JSSDK_CORE_DEPRECATED_METHOD` warning on every call; that
+    warning is gone with them. TypeScript now reports each call site as an error,
+    which is the good case — plain JavaScript fails at run time with
+    `is not a function` instead. Grep before you upgrade:
+
+    ```
+    grep -rnE 'callMethod|callListMethod|fetchListMethod|callBatch|callBatchByChunk|LoggerBrowser|LoggerType' src
+    ```
+
+    **Not removed:** the `AjaxResult` paging members `isMore()`, `hasMore()`,
+    `getTotal()`, `getNext()` and `fetchNext()`. They were once on this list; that
+    plan was withdrawn in #408 and they stay for as long as `restApi:v2` does.
+
 ### Bug Fixes
+
+* **`B24OAuth` no longer builds request URLs with a double slash.** The portal
+  sends `client_endpoint` with a trailing slash — `https://<portal>/rest/` — and
+  every consumer appended its own separator, so the slash survived into the
+  request twice: `…/rest//profile` on `restApi:v2`, `…/rest//api/batch` on v3.
+  Measured on a live portal, both spellings answer identically, so nothing was
+  broken by it — but the URL reaches access logs, proxy and WAF path rules, and
+  anything a caller matches on.
+
+    The half that could bite is `getTargetOrigin()`. It took the REST root off
+    with `replace('/rest/', '')`, which matches only the trailing-slash spelling,
+    so an endpoint arriving without one would have returned
+    `https://<portal>/rest` where the caller asked for the portal. Both endpoints
+    are now normalised once, and the root is stripped with an anchored match — a
+    portal named `rest-team` keeps its name.
+
+* **A `restApi:v3` batch no longer sends the OAuth token as one of its commands.**
+  On v3 the commands are the request body — a bare array, no envelope — but
+  `_prepareParams` spread that array into `{ '0': …, '1': … }` and then added the
+  access token as one more top-level entry. The portal reads every top-level entry
+  of a batch body as a command and requires `method` and `query` on each, so that
+  entry rejected the whole batch with `INVALIDSELECTEXCEPTION` before a single
+  command ran. Every `B24OAuth` v3 batch failed this way; a webhook survived only
+  because PHP cannot tell a list from a map with sequential integer keys.
+
+    The commands now go out as the array the portal's grammar describes, and
+    outside a CORS-enforcing runtime the token travels in `Authorization: Bearer`,
+    merged into the per-request config so a caller's own `Idempotency-Key` survives
+    beside it. A second victim of the same rule is fixed with it: a command written
+    without `params` went out with no `query` key at all, which is refused under the
+    same code and takes the rest of the batch with it.
+
+    **Worth knowing:** the request body changes shape for **every** transport,
+    `B24Hook` included, even though a webhook batch already worked. A proxy, a WAF
+    rule, a recorded HTTP fixture or a request-log assertion sees `[{…},{…}]` where
+    it saw `{"0":{…},"1":{…}}`, plus a header it has not seen before. The
+    `post/send` log line changes the same way. `AjaxError.requestInfo.params` does
+    not — it has always carried the commands array.
+
+    **In a browser the token goes in the query string.** The portal's CORS
+    preflight allows only `origin, content-type, accept`, so a browser cannot send
+    the header at all, and a v3 batch body is entirely commands with nowhere for a
+    credential — leaving the URL. `?auth=<token>` is appended on this one request
+    shape; the portal reads it through the same dictionary as a body `auth`, and it
+    costs nothing on a preflight the request is already making. This is the only
+    place the SDK puts an OAuth token in a URL: it is not visible to anyone who
+    could not already read it — in a frame app the token is in the page's own
+    JavaScript — but it does reach the portal's access log, which a body does not.
+    `B24Hook` appends nothing, its secret being in the URL path already. The day
+    `authorization` reaches the portal's allow-list, a browser takes the same header
+    path a server takes today.
+
+    Unlike the transport change above, this one carries **no** `BREAKING CHANGE`
+    marker, and the difference is deliberate: a v3 batch from a browser never
+    worked, so nothing that worked before changes shape. The array body and the
+    header did change a request that worked — a webhook batch — which is why that
+    half is marked and this half is not.
 
 * **A list or tail walk whose cursor stops advancing now fails instead of running for ever.** When the server does not apply the page condition, the same full page keeps arriving and nothing in the loops noticed: the `restApi:v3` driver stops on a page *shorter* than the largest it has seen, the `restApi:v2` loops stop on `length < 50`, and a repeated full page is neither. The streaming helpers yielded the same rows for ever; the eager ones grew an array until the process died.
 
@@ -22,11 +209,11 @@
 
     The walker underneath always handled both shapes; only the entry point refused them. Nothing about which keys are masked, or how deep the walk goes, has changed.
 
-* **`setRestrictionManagerParams` no longer wipes the parameters you did not mention.** It replaced the whole configuration, so `setRestrictionManagerParams({ maxRetries: 5 })` after a deliberate setup left `hardErrorCodes`, `retryOnNetworkError` and `classifyV3ErrorsByCategory` at `undefined` — and `rateLimit` too, which then reached the rate limiter as `undefined` behind a non-null assertion. No error, nothing in the log; the next call simply ran under a policy nobody had chosen. It now replaces what you name and leaves the rest alone.
+* **`setRestrictionManagerParams` no longer wipes the parameters you did not mention.** It replaced the whole configuration, so `setRestrictionManagerParams({ maxRetries: 5 })` after a deliberate setup left `hardErrorCodes`, `softErrorCodes` and `retryOnNetworkError` at `undefined` — and `rateLimit` too, which then reached the rate limiter as `undefined` behind a non-null assertion. No error, nothing in the log; the next call simply ran under a policy nobody had chosen. It now replaces what you name and leaves the rest alone.
 
     The nested blocks — `rateLimit`, `operatingLimit`, `adaptiveConfig` — are replaced **whole** rather than merged field by field; their types have no optional fields, and a partial block arriving from JavaScript is now refused with `JSSDK_LIMITER_INVALID_CONFIG_BLOCK` instead of switching rate limiting off on a `NaN` interval. `getRestrictionManagerParams()` returns a copy, so reading the policy no longer hands out the limiter's live state.
 
-    **Worth knowing:** an omitted key and one set to `undefined` both mean "leave it alone", so clearing a value now takes an explicit one — `hardErrorCodes: []`. Spreading `...ParamsFactory.getDefault()` does not clear `hardErrorCodes` / `softErrorCodes` / `classifyV3ErrorsByCategory`, because the factory carries no such keys. And `b24.setRestrictionManagerParams()` no longer swallows a failure from one of its clients.
+    **Worth knowing:** an omitted key and one set to `undefined` both mean "leave it alone", so clearing a value now takes an explicit one — `hardErrorCodes: []`. Spreading `...ParamsFactory.getDefault()` does not clear `hardErrorCodes` / `softErrorCodes`, because the factory carries no such keys. And `b24.setRestrictionManagerParams()` no longer swallows a failure from one of its clients.
 
 * **A response body with no `result` key now reaches you instead of being dropped.** `AjaxResult.getData()` rebuilds the payload from two named keys, so a body carrying neither was projected away and a *successful* call handed back `{ result: undefined, time: undefined }`. Such a body is wrapped now: the whole body becomes `result`.
 
@@ -43,6 +230,47 @@
     It shows up there because the redactor runs over response bodies as well as over the params you sent, and a portal method can return such a URL: `rest.deferredbatch.downloadresult` answers with a `downloadUrl` built from the calling webhook. The secret segment is masked now; the host and the user id stay readable, so the line is still useful for debugging.
 
     Applies to `B24Hook` with a logger wired at `info`. Matching is case-insensitive and covers both API versions.
+
+### Changed
+
+* **`AggregateResultV3` values are `string | number | null`, not `number`.**
+  `AggregateV3` is `@experimental`, so this is a correction inside the `2.x`
+  line, not a breaking change — see the
+  [`@experimental` carve-out](RELEASING.md#versioning). It is also unlikely to
+  have broken anyone in practice: no shipped Bitrix24 module publishes an
+  `*.aggregate` action on any of four portals, so there is nothing on a real portal
+  to call. The contract was therefore measured against a module written for the
+  purpose, and the shipped type turned out to be wrong in three ways.
+
+    Values come back as **strings**: `count` as `'27'`, `avg` as `'14.0000'` with
+    the scale MySQL chose. Over a filter that matches no rows, `count` is `'0'`
+    while `sum`, `avg`, `min` and `max` are **`null`** — SQL aggregates over an
+    empty set are null, and only `count` has a zero. Both levels of the record are
+    now `Partial`: a function you did not ask for is absent, and a field key is
+    only there if the portal put it there.
+
+    The SDK does **not** convert. `Number()` is right for a count and wrong for a
+    money `sum` — `'12345.6700'` through a float is a rounding a ledger cannot
+    undo, and `Text.toNumber()` goes through `Number.parseFloat`, so it loses it
+    too. Convert deliberately, once you know which kind of number you are holding.
+
+    **What to change.** Anything doing arithmetic straight off the result:
+    `data.count.id + 1` now concatenates instead of adding, and a `?? 0` written
+    against a missing key does not catch an explicit `null`. Wrap the value in
+    `Text.toNumber()` for counts, or hand it to a decimal library for money.
+
+    A select naming no aggregate column at all (`{}`, `{ count: [] }`,
+    `{ count: {} }`) is now refused client-side with
+    `JSSDK_AGGREGATE_V3_EMPTY_SELECT`: the portal answers it with a bare 500 that
+    carries nothing to act on, after burning the whole retry budget on a request
+    that was never going to succeed. An empty list *beside* a non-empty one stays
+    allowed — measured, the portal answers it.
+
+    `AggregateV3` keeps its `@experimental` tag. The framework contract is now
+    pinned (`AggregateOrmActionTrait`, `OrmRepository::getAllWithAggregate()`),
+    but nothing in the product exercises it, so the first module to ship an
+    `*.aggregate` action may surface something no synthetic caller could. Pin a
+    version if you depend on the exact shape.
 
 ## [2.2.0](https://github.com/bitrix24/b24jssdk/compare/v2.1.0...v2.2.0) (2026-08-29)
 

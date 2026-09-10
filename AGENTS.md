@@ -1,6 +1,6 @@
 # AGENTS.md
 
-<sub>Last reviewed: 2026-08-27.</sub>
+<sub>Last reviewed: 2026-09-09.</sub>
 
 This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
@@ -38,7 +38,7 @@ packages/
 │   │   ├── pullClient/             # WebSocket / long-poll Pull client
 │   │   ├── tools/                  # public tools (Text, Type, Browser, formatters)
 │   │   ├── types/                  # public types and enums
-│   │   ├── logger/                 # LoggerBrowser / LoggerFactory
+│   │   ├── logger/                 # Logger / LoggerFactory
 │   │   ├── loader-b24frame.ts      # initializeB24Frame()
 │   │   └── index.ts                # public surface — treat as a contract
 │   ├── README-AI.md                # caller-facing API guide (being absorbed into this guide)
@@ -64,7 +64,7 @@ scripts/
 
 The core SDK is organised around one abstract base + three concrete entry points:
 
-- [packages/jssdk/src/core/abstract-b24.ts](packages/jssdk/src/core/abstract-b24.ts) — `AbstractB24` exposes the action surface (`b24.actions.vX.<name>.make()`) and owns the v2 + v3 HTTP clients, the restriction/rate-limiter stack, the logger, and helper sub-managers. The legacy shortcuts (`callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`) live on this class too but are `@deprecated` — see the `@removed` tag on each method for the target removal version. Do not call them from new code.
+- [packages/jssdk/src/core/abstract-b24.ts](packages/jssdk/src/core/abstract-b24.ts) — `AbstractB24` exposes the action surface (`b24.actions.vX.<name>.make()`) and owns the v2 + v3 HTTP clients, the restriction/rate-limiter stack, the logger, and helper sub-managers. The legacy shortcuts (`callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`) were removed from this class in 3.0.0 (#277).
 - [packages/jssdk/src/frame](packages/jssdk/src/frame) — `B24Frame`, used inside the Bitrix24 iframe. Talks to the parent window via `postMessage`, auto-refreshes auth on 401, and exposes UI managers (`auth`, `parent`, `slider`, `dialog`, `placement`, `options`). **Bootstrap only via `initializeB24Frame()`** in [packages/jssdk/src/loader-b24frame.ts](packages/jssdk/src/loader-b24frame.ts) — it deduplicates concurrent inits and parses `window.name` for the portal handshake. Do not expose an alternative constructor path.
 - [packages/jssdk/src/hook](packages/jssdk/src/hook) — `B24Hook` for server-side webhook auth (`B24Hook.fromWebhookUrl(url)`). **Must only be used in server-side (Node.js / edge runtime) code.** A webhook URL contains a secret access key; shipping it in a browser bundle exposes the key to every visitor. The class emits a runtime warning when it detects a browser context — do not suppress it with `offClientSideWarning()`.
 - [packages/jssdk/src/oauth](packages/jssdk/src/oauth) — `B24OAuth` for OAuth-based local apps; manages refresh-token errors.
@@ -76,7 +76,7 @@ Cross-cutting modules:
 - [packages/jssdk/src/pullClient](packages/jssdk/src/pullClient) — Pull (push) client with WebSocket + long-polling connectors, channel manager, JSON-RPC, and protobuf decoders (the protobuf JS files are eslint-ignored — see [eslint.config.mjs](eslint.config.mjs)).
 - [packages/jssdk/src/types](packages/jssdk/src/types) — public types and enums (CRM, catalog, bizproc, event, placement, pull, payloads, etc.). Prefer importing enums like `EnumCrmEntityTypeId` from the package root.
 - [packages/jssdk/src/tools](packages/jssdk/src/tools) — `Text` (Luxon dates, number/format helpers, UUID v7), `Type` runtime guards, `Browser`, `useFormatters`, `pick / omit / getEnumValue`, scroll/environment utilities.
-- [packages/jssdk/src/logger](packages/jssdk/src/logger) — `LoggerBrowser.build(name, isDev)` + `LoggerFactory`. `AbstractB24` defaults to `LoggerFactory.createNullLogger()`; a real logger is installed via `b24.setLogger(logger)`.
+- [packages/jssdk/src/logger](packages/jssdk/src/logger) — `Logger` + `LoggerFactory.createForBrowser(name, isDev)`. `AbstractB24` defaults to `LoggerFactory.createNullLogger()`; a real logger is installed via `b24.setLogger(logger)`.
 - The build-time tokens `__SDK_VERSION__` and `__SDK_USER_AGENT__` are replaced by unbuild ([packages/jssdk/build.config.ts](packages/jssdk/build.config.ts)). The Nuxt module replaces `__SDK_VERSION__` the same way for its `meta.version` ([packages/jssdk-nuxt/build.config.ts](packages/jssdk-nuxt/build.config.ts)).
 
 The Nuxt module ([packages/jssdk-nuxt/src/module.ts](packages/jssdk-nuxt/src/module.ts)) is intentionally tiny — it only registers [packages/jssdk-nuxt/src/runtime/plugin.ts](packages/jssdk-nuxt/src/runtime/plugin.ts). Any new SDK surface that needs Nuxt auto-import / SSR handling has to be wired through that runtime plugin.
@@ -136,7 +136,7 @@ Three Vitest projects, defined in [vitest.config.ts](vitest.config.ts):
 - `jsSdk:integration` — `test/integration/**/*.spec.ts` (excluding `*.unit.spec.ts`), 30s timeouts, hits a real portal.
 - `jsSdk:underLoad` — `test/under-load/**.spec.ts`, sequential, 40-min timeouts.
 
-`jsSdk:integration` and `jsSdk:underLoad` load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — the underlying client constructor in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it. In tests, reach this client through `setupB24Tests()` from [test/0_setup/hooks-integration-jssdk.ts](test/0_setup/hooks-integration-jssdk.ts) — see [`.github/contributing/testing.md`](.github/contributing/testing.md) for the canonical pattern.
+`jsSdk:integration` and `jsSdk:underLoad` load `.env.test` (gitignored). Copy `.env.test-example` and set `B24_HOOK` to a real webhook URL — the underlying client constructor in [test/0_setup/setup-integration-jssdk.ts](test/0_setup/setup-integration-jssdk.ts) throws without it. **The environment outranks the file**: `dotenv` never overwrites a variable that is already set, so a `B24_HOOK` exported in your shell or inherited from a container wins over `.env.test`. That is deliberate — it keeps `B24_HOOK=… pnpm vitest` working — and since #506 the run prints one warning naming both hosts when the two disagree, instead of discarding the file in silence. In tests, reach this client through `setupB24Tests()` from [test/0_setup/hooks-integration-jssdk.ts](test/0_setup/hooks-integration-jssdk.ts) — see [`.github/contributing/testing.md`](.github/contributing/testing.md) for the canonical pattern.
 
 **Webhook scopes.** The webhook needs at minimum `crm`, `tasks`, `user`, `im`, and `main`. The `im` scope is required by the issue-23 regression spec (`im.chat.get` inside a batch); `main` is a non-obvious scope (not exposed in the standard webhook scope picker) required by the v3 batch-ref spec that calls `main.eventlog.list`. Add it manually.
 
@@ -212,7 +212,7 @@ Load these based on your task. **Do not load all files at once** — only load w
 | Named exports only | No `export default` in `src/`; keeps the package tree-shakeable |
 | Type imports | Always separate: `import type { X } from '…'` |
 | Public surface | Every type / symbol meant for callers must re-export from [packages/jssdk/src/index.ts](packages/jssdk/src/index.ts) |
-| Action surface | Reach REST through `b24.actions.vX.<name>.make({ method, params, requestId })`. The top-level shortcuts (`b24.callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`) are `@deprecated` (see `@removed` tag on each method) — do not use them in new code |
+| Action surface | Reach REST through `b24.actions.vX.<name>.make({ method, params, requestId })`. The top-level shortcuts (`b24.callMethod`, `callBatch`, `callListMethod`, `fetchListMethod`, `callBatchByChunk`) were removed in 3.0.0 — they do not exist |
 | Result types | All transport methods return `Result` or `AjaxResult` — never raw axios responses |
 | Paging | v2: `result.isMore()` + `result.getNext(b24.getHttpClient(ApiVersion.v2))`. v3: use `b24.actions.v3.callList.make(...)` / `fetchList.make(...)` (v3 has no `getNext`) |
 | Errors | Throw `SdkError({ code, description, status })` for SDK-level invariants; HTTP errors are `AjaxError` and surface via `Result.getErrors()` |
@@ -333,8 +333,11 @@ Check these before adding to the repository, not after:
   `.github/contributing/`, with a pointer from the code — see #420 for the
   shape that works.
 - **Code written for a use case that does not exist yet.** `aggregate.ts` is the
-  standing example: written from a published reference, never run against a
-  portal, and named as the successor to a method it could not replace.
+  standing example: written from a published reference and named as the
+  successor to a method it could not replace. Its contract has since been
+  measured — against a module written for the purpose, because no shipped module
+  publishes an `*.aggregate` method — which fixed the first half and left the
+  second exactly where it was.
 
 Test coverage is not a target and is not a CI threshold. Tests exist to pin
 behaviour that would otherwise regress silently; a test that only restates the

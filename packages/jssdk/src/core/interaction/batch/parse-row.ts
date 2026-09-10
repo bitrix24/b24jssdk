@@ -23,7 +23,14 @@ export class ParseRow {
       if (typeof row === 'object' && 'method' in row && typeof row.method === 'string') {
         return {
           method: row.method,
-          query: row.params,
+          // `?? {}` because `params` is optional on both command shapes while
+          // `query` is not optional to the portal: it reads every top-level entry
+          // of a v3 batch body as a command and rejects the WHOLE batch with
+          // `INVALIDSELECTEXCEPTION` when one of them has no `query` — measured,
+          // and one bad entry is enough to take the others down with it.
+          // `JSON.stringify` drops an `undefined` value, so leaving it undefined
+          // is not "sending an empty query", it is sending no key at all.
+          query: row.params ?? {},
           as: row.as ?? options.asDefaultValue,
           parallel: row.parallel ?? options.parallelDefaultValue
         }
@@ -32,7 +39,8 @@ export class ParseRow {
       if (Array.isArray(row) && row.length > 0 && typeof row[0] === 'string') {
         return {
           method: row[0],
-          query: row[1],
+          // Same reason as above — `['rest.scope.list']` is a valid tuple.
+          query: row[1] ?? {},
           as: options.asDefaultValue,
           parallel: options.parallelDefaultValue
         }

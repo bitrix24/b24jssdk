@@ -70,8 +70,12 @@ overrides:
   # GHSA-8j4g-w8fx-2239 — ReDoS in CORS middleware; GHSA-f23p-vx2j-j53r — `memo()`
   # retains SSR output across requests; GHSA-54fx-42gc-7vw4 — DoS in Language
   # middleware; GHSA-79qm-7rj5-m7r9 — Proxy Helper leaves `Connection`-listed
-  # response headers in place. All four are fixed in 4.12.34.
-  hono: '>=4.12.34 <5'
+  # response headers in place. Those four are fixed in 4.12.34; three more moved
+  # the floor past it — GHSA-gqvv-2mrq-wpjv (`toSSG()` still writes outside the
+  # output directory, an incomplete fix for CVE-2026-39408), GHSA-g6gw-c38x-mqfc
+  # (unbounded dot-notation nesting in `parseBody()`) and GHSA-crvj-82cr-hjcx
+  # (the query parser reads parameters after the URL fragment).
+  hono: '>=4.13.5 <5'
   ip-address: '>=10.1.1 <11'
   # GHSA-rgw5-rvv9-x895 — DoS via unbounded intermediate arrays (bypasses the
   # CVE-2026-14257 mitigation)
@@ -92,6 +96,18 @@ overrides:
   # first, 6.16.0 the second, so the override has to be the latter.
   qs: '>=6.16.0 <7'
   devalue: '>=5.8.1 <6'
+  # GHSA-w27v-7q3p-w38r and GHSA-4vpr-x523-8j87 — `removeScripts` lets executable
+  # links through via namespace prefixes, and incompletely sanitizes executable
+  # HTML. Reaches us only through the docs app, where `cssnano` runs `postcss-svgo`
+  # during the build — a dev dependency that executes in CI, so it is in scope.
+  # The tree carries only the 4.x line.
+  svgo: '>=4.1.0 <5'
+  # GHSA-7w5x-hrqm-74c2 — denial of service via a malformed TOML document.
+  # Reaches us only through `markdownlint-cli2`, a dev dependency the `lint:md`
+  # gate runs in CI, and only on input the repository controls; the floor is
+  # raised because the audit step is tree-wide and does not care about that
+  # distinction. The tree carries only the 1.x line.
+  smol-toml: '>=1.7.1 <2'
   # esbuild is 0.x — every minor is a breaking release, so the ceiling is the minor
   esbuild: '>=0.28.1 <0.29'
   form-data: '>=4.0.6 <5'
@@ -142,10 +158,12 @@ overrides:
   # GHSA-5p4m-2wfm-xmqj — quadratic CPU consumption in `!!omap` resolution
   # (CVE-2026-59870 fix not backported below 4.3.1; the 5.x line carries both
   # fixes, and 5 is what the root manifest now declares)
-  js-yaml: '>=5.3.0 <6'
+  js-yaml: '>=5.4.1 <6'
   # GHSA-f88m-g3jw-g9cj — sharp; reached via docs>@nuxt/image>ipx and
   # docs>nuxt-og-image. sharp is 0.x, so the ceiling is the minor.
-  sharp: '>=0.35.3 <0.36'
+  # Floor raised for GHSA-rgj7-g3m4-5g8c: the bundled libheif carries
+  # GHSA-g89c-p67h-r497 and GHSA-6qm7-hh4v-9v9j; 0.35.3 no longer clears it.
+  sharp: '>=0.35.4 <0.36'
   # Not security pins — a dedupe pin, mirroring the same block in the sibling
   # `bitrix24/b24ui` repo. `nuxt-og-image` / `nuxt-schema-org` pull `nuxtseo-shared`
   # → `@unhead/vue` → `@vitejs/devtools-kit` → `devframe`, which depends on the h3

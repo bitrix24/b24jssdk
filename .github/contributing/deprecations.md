@@ -1,6 +1,6 @@
 # Deciding whether to deprecate
 
-<sub>Last reviewed: 2026-08-29.</sub>
+<sub>Last reviewed: 2026-09-08.</sub>
 
 [`package-structure.md`](package-structure.md#adding-to-the-public-surface) covers **how** to
 deprecate — the `@deprecated` / `@removed` tags, the `forcedLog` runtime warning,
@@ -54,11 +54,16 @@ not be for as long as `restApi:v2` is the version most portals answer on.
 a deprecation notice — you would be telling callers to migrate onto something you
 have not verified works.
 
-`actions.v3.aggregate` was written from the published reference and has never
-been run against a live portal (#113 is where that gets settled). It was named as
-the successor to `getTotal()` regardless. That is the third failure mode, and it
-is the easiest to talk yourself past, because the replacement exists in the
-source tree and can be pointed at.
+`actions.v3.aggregate` was written from the published reference and, at the time
+it was named as the successor to `getTotal()`, had never been run against a
+portal. That is the third failure mode, and it is the easiest to talk yourself
+past, because the replacement exists in the source tree and can be pointed at.
+
+The example still stands after the contract was measured, because measuring it
+did not create the thing it was supposed to replace: no shipped module publishes
+an `*.aggregate` method, so there is still nothing to count with. Verifying a
+contract and having a use case are different claims, and only the first one got
+settled.
 
 ## Judge per member, not per batch
 

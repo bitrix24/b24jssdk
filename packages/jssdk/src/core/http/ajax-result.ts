@@ -89,7 +89,21 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
   }
 
   /**
-   * The success payload as `{ result, time }`.
+   * The success payload as `{ result, time }` — those two keys, and no others.
+   *
+   * The `restApi:v2` envelope fields `next` and `total` are **not** carried
+   * through. Neither branch below copies them: both rebuild the payload from two
+   * named keys, so `getData()!.next` is `undefined` on a response that really
+   * did carry a next offset. Read them through the methods that exist for it —
+   * {@link AjaxResult.isMore} with {@link AjaxResult.getNext} for paging,
+   * {@link AjaxResult.getTotal} for the row count — or let
+   * `actions.v{2,3}.{callList,fetchList}` page for you. Under `restApi:v3` the
+   * portal sends neither field at all.
+   *
+   * Worth stating here because the Bitrix24 REST reference shows `next` in its
+   * response examples, so expecting it in the payload is the natural reading,
+   * and a hand-rolled loop that reads it stops after one page while looking like
+   * it worked (#482).
    *
    * A response whose body is **not an envelope** — anything but a plain object
    * with a `result` key — is wrapped: the whole body becomes `result`. Without
@@ -230,8 +244,9 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * on a v3 response — which is not the same statement as "no rows matched".
    * Do not read it for v3; use
    * `b24.actions.v3.aggregate.make` with `count` / `countDistinct` instead,
-   * bearing in mind that action is `@experimental` and unverified against a live
-   * portal.
+   * bearing in mind that action is `@experimental` — its contract is measured
+   * now, but no shipped module publishes an `*.aggregate` method, so there may
+   * be nothing to count with.
    *
    * This is a reader for a protocol field, not a deprecated API. It is the only
    * way to obtain a count under `restApi:v2` — the list helpers iterate without
@@ -240,9 +255,9 @@ export class AjaxResult<T = unknown> extends Result<Payload<T>> implements IResu
    * long as `restApi:v2` does, and is not part of the `3.0.0` removal set.
    *
    * That is a decision with a trigger, not an open-ended promise. Revisit it
-   * when either holds: `b24.actions.v3.aggregate` is verified against a live
-   * portal and loses its `@experimental` tag across the common modules (a v3
-   * count then exists, and `getTotal()` has a replacement for the first time),
+   * when either holds: a shipped module publishes an `*.aggregate` method and
+   * `b24.actions.v3.aggregate` loses its `@experimental` tag (a v3 count then
+   * exists in practice, and `getTotal()` has a replacement for the first time),
    * or Bitrix24 announces a `restApi:v2` sunset date (the field it reads goes
    * away regardless). Until one of those happens there is nothing to migrate
    * callers to, which is the whole reason it is still here.

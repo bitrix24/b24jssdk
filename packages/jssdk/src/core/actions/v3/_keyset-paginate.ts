@@ -3,6 +3,7 @@ import type { LoggerInterface } from '../../../types/logger'
 import type { TypeCallParams, TypeFilterV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { SdkError } from '../../sdk-error'
+import { assertNotAborted, maxPagesExceededError, resolveMaxPages } from '../_walk-bounds'
 import { cursorStalledError } from '../_cursor-stalled'
 
 /**
@@ -87,19 +88,68 @@ function isPortalFilterGroup(value: unknown): boolean {
  * inside the array form either. Both are exactly where a caller puts a
  * condition once they reach for `FilterV3.or()`.
  *
- * `depth` bounds the walk. A filter is ordinary JavaScript, not parsed JSON, so
- * a caller can hand over a structure that points back at itself — `const f = {
- * conditions: [] }; f.conditions.push(f)` — and an unbounded walk would take the
- * stack down inside a check whose whole purpose is to make failures clearer.
- * The limit is far past any filter anyone writes; reaching it means the shape is
- * pathological, and answering "no" there is right: the caller loses a warning,
- * not a request.
+ * Two bounds, because a filter is ordinary JavaScript rather than parsed JSON
+ * and so can be shaped in ways `JSON.parse` could never produce. They answer
+ * different questions and neither replaces the other:
+ *
+ * - **`depth`** stops a legitimately deep nesting. The limit is far past any
+ *   filter anyone writes; reaching it means the shape is pathological, and
+ *   answering "no" there is right — the caller loses a warning, not a request.
+ * - **`seen`** stops the same node being explored twice over. Depth alone bounds
+ *   the distance the walk travels, not the work it does, and those come apart as
+ *   soon as one node is reachable by two edges: `const a = []; a.push(a, a)`
+ *   gives `T(d) = 1 + 2·T(d − 1)`, and a plain DAG built without any cycle at all
+ *   — `let n = [['x', '=', 1]]; for (let i = 0; i < 32; i++) n = [n, n]` — does
+ *   the same. Measured at the shipped depth of 32, the two-edge cycle took
+ *   **85 seconds** of blocked event loop inside a check whose only output is a
+ *   warning. With `seen` it returns immediately.
+ *
+ * `seen` records **the depth each node was explored with**, not merely that it
+ * was seen, and a cached `false` is trusted only when that visit had at least as
+ * much budget as this one. The distinction is the whole correctness of the memo,
+ * because a `false` means one of two different things: "this subtree does not
+ * mention the field", or "the budget ran out before we could tell". Storing them
+ * as one answer loses a real `true`, and not only in a corner:
+ *
+ * ```js
+ * const a = [['x', '=', 1]]
+ * let chain = a
+ * for (let i = 0; i < 30; i++) { chain = [chain] }
+ * filterMentionsField([chain, a], 'x') // must be true
+ * ```
+ *
+ * The long path reaches `a` with one level of budget left, cannot look inside it
+ * and answers `false`; the short path meets `a` again with 31 levels to spare. A
+ * memo that recorded only "visited" would hand back that truncated `false` — and
+ * `[a, chain]`, the same objects in the other order, would answer `true`. The
+ * depth-keyed memo answers `true` either way, and still collapses the shapes
+ * above, where every revisit happens at the same depth or shallower.
  */
 const MAX_FILTER_DEPTH = 32
 
 export function filterMentionsField(filter: unknown, field: string, depth = MAX_FILTER_DEPTH): boolean {
+  return walkFilterForField(filter, field, depth, new WeakMap())
+}
+
+function walkFilterForField(
+  filter: unknown,
+  field: string,
+  depth: number,
+  seen: WeakMap<object, number>
+): boolean {
   if (depth <= 0) {
     return false
+  }
+
+  if (typeof filter === 'object' && filter !== null) {
+    // Trust a cached `false` only if that visit had at least this much budget.
+    // A node explored with one level left would otherwise poison a later visit
+    // that had thirty — see the worked example above.
+    const exploredWith = seen.get(filter)
+    if (exploredWith !== undefined && exploredWith >= depth) {
+      return false
+    }
+    seen.set(filter, depth)
   }
 
   if (Array.isArray(filter)) {
@@ -112,11 +162,11 @@ export function filterMentionsField(filter: unknown, field: string, depth = MAX_
     if (typeof filter[0] === 'string') {
       return filter[0] === field
     }
-    return filter.some(node => filterMentionsField(node, field, depth - 1))
+    return filter.some(node => walkFilterForField(node, field, depth - 1, seen))
   }
 
   if (typeof filter === 'object' && filter !== null && 'conditions' in filter) {
-    return filterMentionsField((filter as { conditions: unknown }).conditions, field, depth - 1)
+    return walkFilterForField((filter as { conditions: unknown }).conditions, field, depth - 1, seen)
   }
 
   return false
@@ -230,6 +280,10 @@ export type KeysetPaginateStrategy = {
    * expose `cursorField`. See `actions/_cursor-stalled.ts` for the two texts.
    */
   stalledCursorHint: string
+  /** Page ceiling; see `_walk-bounds.ts`. */
+  maxPages?: number
+  /** Cancellation; see `_walk-bounds.ts`. */
+  signal?: AbortSignal
 }
 
 /**
@@ -261,8 +315,13 @@ export async function* keysetPaginate<T = unknown>(
 ): AsyncGenerator<T[]> {
   let cursor = strategy.initialCursor
   let maxPageSize = 0
+  let pages = 0
+  const maxPages = resolveMaxPages(strategy.actionLabel, strategy.maxPages)
 
   while (true) {
+    // Before the request, so an already-aborted signal costs no round trip.
+    assertNotAborted(strategy.signal, strategy.actionLabel, strategy.method)
+
     const response: AjaxResult<T> = await b24.actions.v3.call.make<T>({
       method: strategy.method,
       params: strategy.buildParams(cursor),
@@ -290,7 +349,15 @@ export async function* keysetPaginate<T = unknown>(
       break
     }
 
+    pages += 1
     yield resultData
+    // Again after the page has been handed over. The gap between `yield` and
+    // the top of the loop is not empty - the stall guard and the ceiling both
+    // sit in it - so a consumer that aborts while holding a page would
+    // otherwise be told the read is too large, or that the cursor stalled,
+    // when what actually happened is that they cancelled. No request is saved
+    // by this check; the correct diagnosis is.
+    assertNotAborted(strategy.signal, strategy.actionLabel, strategy.method)
 
     maxPageSize = Math.max(maxPageSize, resultData.length)
     if (resultData.length < maxPageSize) {
@@ -338,6 +405,21 @@ export async function* keysetPaginate<T = unknown>(
     // quietly instead of reaching here; that is how that check already behaved.
     if (next === cursor) {
       throw cursorStalledError(strategy.actionLabel, strategy.stalledCursorHint)
+    }
+
+    // Last, so every cheaper stop wins: a stalled cursor is still reported
+    // as a stall - the more specific diagnosis - instead of surfacing as "too
+    // many pages" 10 000 requests later.
+    //
+    // A walk that ends exactly on its ceiling finishes only when its final page
+    // is *short*: that is what proves end-of-data. When the row count is an
+    // exact multiple of the page size the last page is full, nothing has proved
+    // the data ended, and the ceiling fires - so `maxPages: 10` over exactly 500
+    // rows at 50 a page reports the ceiling. It cannot be otherwise without
+    // spending a request the caller's ceiling did not allow. The eager walkers
+    // hand back every row they read, so nothing is lost to it.
+    if (pages >= maxPages) {
+      throw maxPagesExceededError(strategy.actionLabel, strategy.method, maxPages)
     }
 
     cursor = next

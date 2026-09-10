@@ -1,6 +1,6 @@
 # Testing
 
-<sub>Last reviewed: 2026-09-02.</sub>
+<sub>Last reviewed: 2026-09-09.</sub>
 
 > **Agent-facing mirror:** recipe `.ts` files under [`skills/b24jssdk-recipes/examples/`](../../skills/b24jssdk-recipes/examples/) are validated by `pnpm run skills:typecheck` against the built SDK types, and their internals by `pnpm run skills:test`. Both install the recipes' own dependencies first — that directory is not a workspace member, so `express` / `grammy` / `node-cron` / `openai` live there rather than in the root manifest; see [README-DEPS.md](../../skills/b24jssdk-recipes/README-DEPS.md) for why. They complement (not replace) the integration suite covered here. When you change the underlying API or its result shapes, refresh both.
 
@@ -15,7 +15,7 @@ Defined in [vitest.config.ts](../../vitest.config.ts):
 | `jsSdk:integration` | `test/integration/**/*.spec.ts` | 30s test / 30s hook | parallel |
 | `jsSdk:underLoad` | `test/under-load/**.spec.ts` | 40 min test / 40 min hook | sequential, no file parallelism |
 
-Both projects load `.env.test` (gitignored) via `dotenv`.
+Both projects load `.env.test` (gitignored) via `dotenv`, from [test/0_setup/env-test-precedence.ts](../../test/0_setup/env-test-precedence.ts).
 
 ## Environment Setup
 
@@ -34,6 +34,22 @@ Both projects load `.env.test` (gitignored) via `dotenv`.
    **Never commit `.env.test` to version control.** It holds a real webhook secret. The file is listed in `.gitignore` — keep it that way and never modify the ignore rule.
 
 3. `setupB24Client()` in [test/0_setup/setup-integration-jssdk.ts](../../test/0_setup/setup-integration-jssdk.ts) throws if `B24_HOOK` is missing — that is the intended fast-fail.
+
+### Which `B24_HOOK` wins
+
+**The environment, not the file.** `dotenv` never overwrites a variable that is already set, so a `B24_HOOK` exported in your shell, baked into a container image or inherited from a CI job takes precedence over `.env.test`. The precedence is deliberate: `B24_HOOK=… pnpm vitest` has to keep working, and [`smoke-retry.yml`](../workflows/smoke-retry.yml) sets the variable from a repository secret on purpose.
+
+What is *not* deliberate is not noticing. Before #506 the file was read and its value discarded in silence, and the suite then ran against a portal nobody chose — whose answers read as findings rather than as a misconfiguration. A run now prints one warning when, and only when, the two sources disagree:
+
+```text
+[.env.test] B24_HOOK comes from the environment, not from the file.
+dotenv does not overwrite a variable that is already set, so the file's value is unused.
+  environment → env-portal.example.test
+  .env.test   → file-portal.example.test
+Unset B24_HOOK to use the file. Hosts only are shown here; the secret is not printed.
+```
+
+`unset B24_HOOK` in that shell to hand control back to the file. Hosts only appear in the message — the webhook secret is a path segment of the URL, and this text reaches terminals and CI logs.
 
 ### Webhook scopes
 
@@ -62,7 +78,7 @@ The integration test client uses `ParamsFactory.getDefault()`. The under-load se
 | UMD browser smoke | `test/umd/browser.html` (manual) |
 | Setup helpers | `test/0_setup/` |
 
-Integration test names follow `<area>-<flavor>.spec.ts`. The `core/` group exercises the transport layer (`actions-v2-call`, `actions-v3-batch`, `deprecated-call`, …); the `frame/`, `js-docs/`, `tools/` groups exercise their respective surfaces.
+Integration test names follow `<area>-<flavor>.spec.ts`. The `core/` group exercises the transport layer (`actions-v2-call`, `actions-v3-batch`, `actions-v3-aggregate`, …); the `frame/`, `js-docs/`, `tools/` groups exercise their respective surfaces.
 
 ## Basic Integration Test Structure
 
@@ -169,7 +185,6 @@ The SDK has no UI — there are no axe / DOM / snapshot tests. If you find yours
 | Paging | `isMore()`, `getNext()`, accumulated record count |
 | Errors | `SdkError` thrown for invariant violations, `AjaxError` surfaced via `Result.getErrors()` |
 | Limiters | Under-load suite confirms QPS caps and backoff |
-| Deprecation | `deprecated-call.spec.ts` confirms the v3-availability warning fires when callers use a v2-deprecated method |
 
 ## What Tests Do **Not** Do
 
@@ -230,6 +245,28 @@ Last verified by injection 2026-09-01, after `jsdoc:typecheck-blocks` was added
 and `README-AI.md` joined the skills gate. Re-measure the rows you change: the
 claim is "only this pass", and that is a property of the whole set, not of the
 pass you happen to be editing.
+
+### Estimating the cost of a type change
+
+**Measure with `pnpm run typecheck`, not with one pass, and write down which
+command produced the number.**
+
+`pnpm --filter ./packages/jssdk typecheck` is one row of the eleven above. A
+change measured with it has been measured against `packages/jssdk/src/` and
+nothing else — not the test tree, not the docs app, not the fenced examples —
+and "the typecheck is green" reads as total either way.
+
+This is not hypothetical. #279 estimated narrowing `TypeCallParams`'s index
+signature at **three sites** and recorded that the full typecheck was green under
+the change. Both numbers came from the package pass alone. The real cost was six
+errors, every one of them in `test/` — where the load-test harness turned out to
+have a genuine mistyping that `any` had been hiding (#516). The estimate was used
+to argue the change was cheap enough to attempt; it happened to be worth doing
+anyway, which is luck rather than method.
+
+So when an issue records a measured cost, record the command beside it. `three
+sites (pnpm --filter ./packages/jssdk typecheck)` is self-evidently narrow;
+`three sites` is not.
 
 Plus the `jsSdk:types` vitest project, which is where the `*.types.spec.ts` pins
 become real — `expectTypeOf` erases at runtime, so under a plain `vitest run` a

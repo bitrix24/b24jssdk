@@ -23,7 +23,7 @@ Source files live in `packages/jssdk/src/` and are grouped by responsibility, no
 | `src/pullClient/` | Pull (push) client — WebSocket + long-poll connectors, channel manager, JSON-RPC, protobuf decoders |
 | `src/tools/` | Public utilities — `Text` (Luxon, UUID v7), `Type` (runtime guards), `Browser`, `useFormatters`, `pick`/`omit`/`getEnumValue`, scroll/env utils |
 | `src/types/` | Public types and enums (CRM, catalog, bizproc, event, placement, pull, payloads, …) |
-| `src/logger/` | `LoggerBrowser`, `LoggerFactory` |
+| `src/logger/` | `Logger`, `LoggerFactory` |
 | `src/index.ts` | The single public-export barrel — treat as a contract |
 
 File naming is `kebab-case.ts`. Class names inside are `PascalCase`. One primary export per file.
@@ -129,10 +129,10 @@ export type { TypeMyPayload } from './types/payloads'
       LoggerFactory.forcedLog(
         this._logger,
         'warning',
-        'AbstractB24.callMethod() is deprecated and will be removed in version X.Y.Z. Use b24.actions.vX.call.make(options) instead.',
+        'SomeClass.someMethod() is deprecated and will be removed in version X.Y.Z. Use b24.actions.vX.call.make(options) instead.',
         {
           class: 'AbstractB24',
-          method: 'callMethod',
+          method: 'someMethod',
           replacement: 'b24.actions.vX.call.make(options)',
           removalVersion: 'X.Y.Z'
         }
@@ -236,7 +236,7 @@ AbstractB24                       packages/jssdk/src/core/abstract-b24.ts
 - the v2 + v3 HTTP clients, reachable via `getHttpClient(version)`,
 - the limiter stack,
 - the logger (replaced via `setLogger(logger)`),
-- the legacy shortcuts `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` / `callBatchByChunk`, all marked `@deprecated` — see the `@removed` tag on each method in [packages/jssdk/src/core/abstract-b24.ts](../../packages/jssdk/src/core/abstract-b24.ts) for the target removal version. Do not call them from new code.
+- the legacy shortcuts `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` / `callBatchByChunk` — **removed in 3.0.0** (#277). They no longer exist; the replacements are `b24.actions.v{2,3}.{call,batch,callList,fetchList,batchByChunk}.make(options)`.
 
 If a new feature is auth-agnostic, put it on `AbstractB24`. Only specialise on a subclass when it requires iframe `postMessage`, webhook URL parsing, or OAuth refresh-token handling.
 
@@ -282,7 +282,7 @@ Internal-only helpers go to `src/core/tools/`. Do not export those from `index.t
 
 - Every module that emits diagnostic output holds a `LoggerInterface` (imported from `../logger`) and starts with `LoggerFactory.createNullLogger()`.
 - The active logger is swapped in through a `setLogger(logger)` method, not via the constructor. `AbstractB24` and `B24HelperManager` follow this shape — copy it.
-- A real logger is created with `LoggerBrowser.build(name, isDev)` (from `packages/jssdk/src/logger/browser.ts`); the `name` becomes the prefix in console output. Callers pass it to `b24.setLogger(...)`.
+- A real logger is created with `LoggerFactory.createForBrowser(name, isDev)` (from `packages/jssdk/src/logger/logger-factory.ts`); the `name` becomes the prefix in console output. Callers pass it to `b24.setLogger(...)`.
 
 ## Build Tokens
 

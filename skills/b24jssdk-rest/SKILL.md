@@ -1,13 +1,13 @@
 ---
 name: b24jssdk-rest
-description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk (and the v3-only native-keyset callTail/fetchTail) for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface is @deprecated for 3.0.0 — do not generate code against it.
+description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk (and the v3-only native-keyset callTail/fetchTail) for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface was removed in 3.0.0 — do not generate code against it.
 ---
 
 # b24jssdk REST patterns (actions API)
 
 Every example uses `$b24` of type `TypeB24`, so the same code runs on `B24Hook`, `B24Frame`, and `B24OAuth`. The actions surface is published per API version under `$b24.actions.v2.*` and `$b24.actions.v3.*`.
 
-> The previous SDK surface — `callMethod`, `callBatch`, `callBatchByChunk`, `callListMethod`, `fetchListMethod` — is **`@deprecated`** and scheduled for removal in **`3.0.0`** (see `packages/jssdk/README-AI.md` "Deprecation notice"). Do not generate new code against it.
+> The previous SDK surface — `callMethod`, `callBatch`, `callBatchByChunk`, `callListMethod`, `fetchListMethod` — was **removed in `3.0.0`** and no longer exists (see `packages/jssdk/README-AI.md`, "Removed in 3.0.0"). Code that calls it does not compile.
 >
 > The `AjaxResult` paging members — `isMore()`, `hasMore()`, `getTotal()`, `getNext()`, `fetchNext()` — are **not** in that set and are not deprecated. They are `restApi:v2`-only; see "restApi:v2 paging members" below.
 
@@ -21,7 +21,7 @@ Rule of thumb:
 
 - Default to `$b24.actions.v2.*` — it works for every classic method.
 - Use `$b24.actions.v3.*` when you specifically want the v3 representation of a method (camelCase fields, the unified `{result}` envelope, native `tail`/cursor, dotted relation select). Confirm a method exists on this portal's v3 via `rest.documentation.openapi` if unsure.
-- Version auto-detection (the deprecated legacy `callMethod`/`callBatch` shims) defaults to v2; v3 is opt-in only via the explicit `actions.v3.*` surface.
+- There is no version auto-detection: the legacy `callMethod`/`callBatch` shims that defaulted to v2 are gone, so the protocol is always whichever `actions.v2.*` / `actions.v3.*` you name.
 
 ## Decision tree
 
@@ -33,12 +33,14 @@ Rule of thumb:
 | Read a small list (<1000 items) and process in memory | `actions.v{2,3}.callList.make` |
 | Read a large list with low memory footprint | `actions.v{2,3}.fetchList.make` (async iterator) |
 | Read a v3 method that exposes a native `tail` (keyset) action — e.g. `main.eventlog.tail` | `actions.v3.callTail.make` / `actions.v3.fetchTail.make` (v3 only) |
-| Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only, **`@experimental`** — unverified live; fall back to `callList` + reduce if the endpoint isn't available) |
+| Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only, **`@experimental`** — the contract is measured, but no shipped module publishes `*.aggregate` on any portal yet measured, so fall back to `callList` + reduce when the endpoint isn't there. Values come back as **strings**, and `null` when the filter matched nothing) |
 
 There is no manual-pagination path any more — the list helpers page for you. Two mechanisms exist, and they are not interchangeable:
 
 - **`callList` / `fetchList`** *emulate* a cursor on top of the `list` action by injecting a `[idField, '>', n]` condition into `filter` and forcing `order`. Works for any `*.list` method (v2 and v3).
 - **`callTail` / `fetchTail`** (v3 only) drive the server's *native* `tail` action via its `cursor: { field, value, order, limit }` parameter. Use these when a method publishes a `*.tail` endpoint. The cursor field must **not** appear in `filter` (the server rejects it), is auto-added to `select`, and `order: 'DESC'` requires an explicit `initialValue`.
+
+Every example uses `$b24` of type `TypeB24`, but **`actions.v3.batch` is the one place the three entry points are not interchangeable** — it does not work under `B24Frame`. See the anti-patterns at the end.
 
 `filter` on v3 is the array form or a `FilterV3` logic group — never the v2 object dialect (`{ '>id': 100 }`), which the portal rejects on every v3 method. All four walkers refuse it client-side. `callList` / `fetchList` additionally require an **array**, because they extend it with the page condition, and throw `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`; `callTail` / `fetchTail` forward `filter` untouched, so a bare group is fine there and only the v2 dialect throws — `JSSDK_ACTION_V3_TAIL_FILTER_INVALID`.
 
@@ -296,6 +298,58 @@ const items = response.getData()! // CrmItem[]
 
 > **`order` is ignored** by `callList.make`. The action forces `order: { [cursorIdKey]: 'ASC' }` for cursor stability and **logs a warning** when you pass an `order` (see the `order` warning in `actions/v2/call-list.ts`). Use `filter` to narrow results.
 
+## Bounding a walk — `maxPages`, `signal`, `progress`
+
+All six walkers (`callList` / `fetchList` on both versions, `callTail` / `fetchTail` on v3) accept:
+
+| option | what it does |
+| --- | --- |
+| `maxPages?: number` | Ceiling. Raises `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. **Default 10 000** — a backstop, not a policy (500 000 rows at the default page size of 50; ~83 min at the default drain rate). Must be a positive integer, or `JSSDK_ACTION_INVALID_MAX_PAGES` is raised at call time. |
+| `signal?: AbortSignal` | Throws `JSSDK_ACTION_ABORTED`. Checked at the top of each iteration, so an already-aborted signal costs no request. |
+| `progress?` | `({ pages, rows }) => void`, **eager walkers only** (`callList` / `callTail`). Counts, not a percentage — cursor paging reads no total. The streaming walkers hand you each page instead. |
+
+Neither error discards data. The eager walkers (`callList` / `callTail`) **resolve** with the rows they read and the error attached, so check `isSuccess` rather than assuming a returned list is whole — those rows are correct, merely incomplete. `fetchList` / `fetchTail` throw, having already yielded every page they read.
+
+A stalled cursor is different and still throws everywhere: there the extra rows are duplicates of ones already held, so there is nothing worth handing back.
+
+```ts
+const controller = new AbortController()
+
+const response = await $b24.actions.v3.callList.make({
+  method: 'main.eventlog.list',
+  customKeyForResult: 'items',
+  idKey: 'id',
+  maxPages: 200,
+  signal: controller.signal,
+  progress: ({ pages, rows }) => console.log(`${pages} pages, ${rows} rows`)
+})
+```
+
+The default ceiling does not replace `JSSDK_ACTION_CURSOR_STALLED`, which fires far earlier and says something more specific: the cursor came back equal to the one just sent. The ceiling catches what that guard cannot — a cursor that *moves* but never ends, including one cycling between values (#495).
+
+## On `restApi:v2`, conditions go in lowercase `filter` — never `FILTER`
+
+Applies to **both** `callList.make` and `fetchList.make`.
+
+They page by writing their own lowercase `filter`, `order` and `start`, and the portal keeps only the later of two top-level keys that differ by case. Older list methods (`user.get`, `task.item.list`, …) are *documented* with uppercase `FILTER` / `SORT` / `ORDER`, so following that documentation here is the mistake.
+
+```ts
+// ❌ conditions silently dropped — this returns every user, not employees.
+// Note there is no cast here: `TypeCallParams` carries an index signature, so
+// this type-checks. Nothing but the runtime warning catches it.
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { FILTER: { USER_TYPE: 'employee' } }, idKey: 'ID' })
+
+// ❌ worse — half-migrated. `FILTER` is now the later key, so it overwrites the
+// walker's own `>ID` cursor: the same page arrives for ever and the walk throws
+// JSSDK_ACTION_CURSOR_STALLED.
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { USER_TYPE: 'employee' }, FILTER: { ACTIVE: 'Y' } }, idKey: 'ID' })
+
+// ✅ moved across, uppercase key removed
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { USER_TYPE: 'employee', ACTIVE: 'Y' } }, idKey: 'ID' })
+```
+
+Measured on `user.get` with four users: `FILTER: { ID: 4 }` returns all four, `filter: { ID: 4 }` returns one. `SORT` is worse and louder — on `user.get` it makes the walker's own injected `order` fail the method's validation, so the request throws `ERROR_ARGUMENT` / *"Order must be a string"*. All of these are reported with a `warning` (#483), emitted through `LoggerFactory.forcedLog`, so it reaches `console.warn` even with the default logger. This is `restApi:v2` only; v3 has no uppercase contract — its parameters are camelCase and its `filter` is the array form.
+
 ## `fetchList.make` — large lists, streaming
 
 Async iterator that yields chunks. Same shape as `callList.make` plus an optional `limit` for v3.
@@ -342,7 +396,7 @@ const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
 
 `idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method spells the id one way in the request and another in the response — `tasks.task.list` **on v2** is the known case (request `ID`, response `id`), and it breaks in two different ways depending on which half you get wrong. Leave `idKey` at its default `'ID'` and the cursor reads a field the response does not carry: the walk warns and stops after the first 50 rows. Set `idKey: 'id'` but leave `cursorIdKey` defaulting to it and the opposite happens — the read works, but the request filters on `>id`, which the method ignores, so the same page returns for ever; that one now throws `JSSDK_ACTION_CURSOR_STALLED` instead of hanging. Set both. On the **v3** endpoint the same method is all-lowercase (`id` both ways, rows under `result.items`), so no override is needed.
 
-Ask the portal rather than guess: **`<entity>.field.list`** returns every field with `type`, `filterable`, `sortable`, `editable` and `requiredGroups`, under `result.items`; `<entity>.field.get` returns one, under `result.item`. Both take an optional `select` that narrows the descriptor keys. A v3 field without `Filterable` / `Sortable` is **refused**, not ignored — `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` with the offending name in `validation[].field`. On the portal measured, `tasks.task` exposes exactly one filterable field: `id`.
+Ask the portal rather than guess: **`<entity>.field.list`** returns every field with `type`, `filterable`, `sortable`, `editable` and `requiredGroups`, under `result.items`; `<entity>.field.get` returns one, under `result.item`. Both take an optional `select` that narrows the descriptor keys. A v3 field without `Filterable` / `Sortable` is **refused**, not ignored — `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` with the offending name in `validation[].field`. It arrives **soft** (`isSuccess === false`), not thrown: a 4xx in the v3 envelope is not an exception. `Filterable` also gates an aggregate `select`, not just `filter`. On the portal measured, `tasks.task` exposes exactly one filterable field: `id`.
 
 | Method | `idKey` (response) | `cursorIdKey` (request) | `customKeyForResult` |
 | --- | --- | --- | --- |
@@ -403,7 +457,9 @@ On a **`restApi:v3`** response both return their empty value — `0` and `false`
 
 `getNext(http)` / `fetchNext(http)` re-run the query at the reported `next` offset. Under `restApi:v3` they **throw** `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` rather than returning empty, because a silent `false` would be indistinguishable from "last page". For new paging code still prefer `callList.make` / `fetchList.make` — they hide the offset bookkeeping and work under both versions.
 
-For a v3 count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action. Note that action is `@experimental` and **has not been verified against a live portal** — most modules do not expose `*.aggregate` yet. If it is unavailable, reduce a `callList` client-side.
+For a v3 count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action. The count arrives as a **string** (`'18'`), keyed by function then field — `getData()?.count?.id` — so convert it with `Text.toNumber()`. The action stays `@experimental` because **no shipped module publishes `*.aggregate`** on any of the four portals checked, not because the shape is unknown; if the endpoint isn't there, reduce a `callList` client-side.
+
+**Every aggregated field must be filterable**, which is not the same as selectable. `<entity>.field.list` reports a `filterable` flag per field; only fields where it is `true` may be aggregated — on `tasks.task` that is one field of ninety-five, so assume nothing and ask. A selectable-but-not-filterable field answers a **soft** `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` naming it in `validation[].field` — measured. Match on the code and the field, never on the message: it is localised.
 
 ## Null result is passthrough
 
@@ -499,9 +555,9 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 
 ## Anti-patterns
 
-- ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — `@deprecated`, removed in 3.0.0. Use the actions API.
+- ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — removed in 3.0.0, these are compile errors now. Use the actions API.
 - ❌ `res.getNext()` / `res.fetchNext()` against a **v3** client — they throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`. Under v2 they work and are supported; for new code prefer `callList` / `fetchList`, which work under both versions.
-- ❌ Reading `res.getTotal()` or `res.isMore()` on a **v3** response — not an error, but they always answer `0` / `false` there because v3 sends no `total` / `next`. Under v2 they are correct and supported. For a v3 count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action, and treat it as unverified.
+- ❌ Reading `res.getTotal()` or `res.isMore()` on a **v3** response — not an error, but they always answer `0` / `false` there because v3 sends no `total` / `next`. Under v2 they are correct and supported. For a v3 count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action — remembering the count is a string, not a number.
 <!-- @check-ignore: `crm.item.get` is the deliberate anti-example this bullet is about — v3 publishes no `crm.item.*` -->
 - ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — `crm.*` is v2-only, so the v3 server returns a `METHODNOTFOUNDEXCEPTION` soft error (`response.isSuccess === false`); use `actions.v2.*` for CRM. (The SDK no longer pre-flight-throws here.)
 - ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.
@@ -517,6 +573,7 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 - ❌ Reaching for `batch.make` on a bulk load that must not duplicate — a batch carries no key. Loop single calls and accept the throughput cost, or accept the duplicates.
 - ❌ `idempotencyKey: crypto.randomUUID()` written at the call site for a job that can be retried by a *different* process — the restart mints a new key and writes a duplicate anyway. Derive the key from the operation (`deal-${orderId}-create`), or persist a minted one with the job before calling.
 - ❌ Reusing one `idempotencyKey` for two different writes — the portal answers HTTP 422 `…IDEMPOTENCYKEYREUSEDEXCEPTION` rather than deduplicating. Prefix by operation: `deal-42-create` vs `deal-42-close`.
+- ⚠️ `actions.v3.batch.make` / `batchByChunk.make` from a browser (`B24Frame`, or `B24OAuth` client-side) works, but the credential goes in the **query string** — on v3 the commands *are* the request body, leaving nowhere inside it for a token, and the portal's CORS preflight allows only `origin, content-type, accept`, so an `Authorization` header cannot be sent. The token then reaches the portal's access log, which a request body would not. It is not newly exposed to the user (it is in the page's JavaScript already), but if that server-side record matters, run the batch on a backend or use `actions.v2.batch.make` where the methods exist on v2. `B24Hook` appends nothing — its secret is in the URL path already.
 - ❌ `B24Hook` in a browser bundle — leaks the webhook secret. Use `B24Frame` there.
 
 ## Cross-reference

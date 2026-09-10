@@ -128,6 +128,33 @@ export type TypePrepareParams = TypeCallParams & {
 }
 
 /**
+ * Does this runtime apply CORS to an outbound request?
+ *
+ * Deliberately not `isServerSide()`, which asks a different question and answers
+ * this one wrongly. That predicate is `getEnvironment() !== BROWSE`, and
+ * `getEnvironment()` recognises a browser by `window.document` — which a Web
+ * Worker, a Shared Worker and a Service Worker do not have. All three would be
+ * read as "server", while CORS applies in them exactly as it does on the main
+ * thread. `WorkerGlobalScope` is the global the HTML specification gives all
+ * three, and nothing else.
+ *
+ * Being wrong in the two directions costs very different things, which is why
+ * the test is shaped to fail towards "yes". A false **yes** in a runtime without
+ * CORS — an edge worker that happens to define the global — leaves that runtime
+ * exactly where it is today: the credential stays in the body and the portal
+ * answers a visible 400. A false **no** in a browser context asks for a header
+ * the portal's preflight does not allow, and the request never leaves at all,
+ * which is an opaque network error after the retry budget burns.
+ */
+function isCorsEnforcedRuntime(): boolean {
+  if (getEnvironment() === Environment.BROWSE) {
+    return true
+  }
+
+  return 'undefined' !== typeof (globalThis as { WorkerGlobalScope?: unknown }).WorkerGlobalScope
+}
+
+/**
  * Abstract base class for all Bitrix24 REST API HTTP transports.
  *
  * Provides shared infrastructure used by {@link HttpV2} and {@link HttpV3}: Axios instance
@@ -610,12 +637,164 @@ export abstract class AbstractHttp implements TypeHttp {
   }
 
   protected async _makeAxiosRequest<T>(requestId: string, method: string, params: TypeCallParams, authData: AuthData, requestConfig?: AxiosRequestConfig): Promise<AjaxResponse<T>> {
-    const methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
+    let methodFormatted = this._prepareMethod(requestId, method, this.getBaseUrl())
 
-    const paramsFormatted = this._prepareParams(authData, params)
+    // A `restApi:v3` batch sends its commands AS the request body — a bare
+    // top-level array, no envelope (see `HttpV3.batch`). Everything else sends an
+    // object, and `_prepareParams` is built for that: it spreads `params` into a
+    // fresh object, which turns an array into `{ '0': …, '1': … }`, and then adds
+    // the OAuth `auth` as one more top-level entry.
+    //
+    // The portal iterates every top-level entry of a batch body and demands
+    // `method` and `query` on each, so that extra entry rejects the whole batch
+    // with `INVALIDSELECTEXCEPTION` before a command runs. Three cases follow,
+    // decided by where the credential can live:
+    //
+    // 1. A webhook authenticates through the URL, so the body can be the array
+    //    the portal's grammar describes. Measured live: accepted.
+    // 2. A non-hook transport on a server sends the token in the standard
+    //    header, which the portal accepts and prefers over any body or query
+    //    parameter (`rest/lib/oauth/auth.php`, `getAuthKey()`).
+    // 3. A non-hook transport **where CORS applies** cannot use that header: the
+    //    portal answers the preflight with `Access-Control-Allow-Headers: origin,
+    //    content-type, accept` (`CRestUtil::sendHeaders()`), so asking for
+    //    `Authorization` fails the preflight and the request never leaves. The
+    //    credential goes in the **query string** instead — `?auth=<token>`,
+    //    which the portal reads through the same dictionary as a body `auth`
+    //    (`CRestUtil::getRequestData()` merges GET and POST with
+    //    `array_replace`, so `getAuthKey()` cannot tell the two apart). Measured
+    //    accepted on a live portal. A query parameter costs nothing on a
+    //    preflight the request is already making for its `Content-Type`.
+    //
+    //    This is the one place the SDK puts an OAuth token in a URL, so the
+    //    reasoning is worth keeping: in a frame app the token is in the page's
+    //    JavaScript already — devtools, the body of every non-batch call — so
+    //    the query string reveals it to nobody who could not already read it.
+    //    What it does add is a server-side record: `?auth=` reaches the portal's
+    //    access log and, when an administrator switches the module's diagnostic
+    //    logger on, its `REQUEST_URI` field. That was weighed and accepted; the
+    //    alternative was leaving every browser app unable to batch on v3 at all,
+    //    since this SDK is the only official one that runs in a browser.
+    //
+    //    Delete this branch the day `authorization` appears in the portal's
+    //    `Access-Control-Allow-Headers` — then a browser takes the same header
+    //    path as a server and nothing else here needs to change.
+    //
+    // Case 3 asks about CORS rather than about "is this a server", because those
+    // are not the same question and `isServerSide()` answers the wrong one: it is
+    // `getEnvironment() !== BROWSE`, and `getEnvironment()` recognises a browser
+    // by `window.document`, which a Web Worker does not have. A worker would be
+    // read as a server and get the header — in a context where CORS applies
+    // exactly as it does on the main thread. See {@link isCorsEnforcedRuntime}.
+    //
+    // The webhook case is not conditioned on any of this: it adds no header, so
+    // there is no preflight to fail. Its body does change shape everywhere,
+    // browser included — from `{ '0': … }` to the array — which the portal reads
+    // identically, because PHP's `json_decode` cannot tell a list from a map with
+    // sequential integer keys.
+    //
+    // Gated on the version AND the method, not merely on the body being an array.
+    // `TypeCallParams` carries an index signature, so an array satisfies it, and
+    // `getHttpClient(ApiVersion.v2).call('task.commentitem.getlist', [taskId, …])`
+    // — the documented positional shape for the legacy `task.*` family — reaches
+    // this function with an array on `restApi:v2`. Everything reasoned about
+    // above is about a v3 batch; on v2 the body would change shape AND the
+    // credential would move to a header whose acceptance nothing here has
+    // established. The comment describes one case, so the code tests for that
+    // one case.
+    const isV3Batch = ApiVersion.v3 === this._version && 'batch' === method
+    const isBareArrayBody = isV3Batch && Array.isArray(params)
+    // Load-bearing, not defensive: `AuthHookManager` returns the webhook secret
+    // as `access_token` (`hook/auth.ts`), so dropping this term would put a
+    // portal-wide secret into an `Authorization` header.
+    const isHook = 'hook' === authData.refresh_token
+    // An absent or empty token would go out as the literal `Bearer undefined`.
+    // `_prepareParams` used to drop it silently — `JSON.stringify` omits an
+    // `undefined` value — so require a real one rather than put a nonsense
+    // credential on the wire. Trimmed, because a token of blanks is not a token
+    // and `Bearer   ` is a malformed header rather than a failed authentication:
+    // it earns a portal error that names neither the header nor the token, where
+    // the body fallback at least fails the way this transport already fails.
+    const hasAccessToken = 'string' === typeof authData.access_token && authData.access_token.trim().length > 0
+    const canSendAuthHeader = isBareArrayBody && !isHook && hasAccessToken && !isCorsEnforcedRuntime()
+    // Same conditions as the header, on the other side of the CORS question: a
+    // browser cannot send `Authorization`, so the token rides in the query
+    // string. A hook is excluded for the same reason it is excluded above — its
+    // credential is already in the URL path, and `_prepareParams` skips it.
+    //
+    // This branch takes `maxRedirects: 0` as well, for a narrower reason than
+    // the header does. A credential in a query string does not follow a redirect
+    // the way a header does: `follow-redirects` re-sends `Authorization` to a
+    // same-host or subdomain hop, whereas a redirect target is whatever
+    // `Location` names and carries the original query only if the server echoes
+    // it back. Some do — an nginx or Apache rule built from `$request_uri` on a
+    // scheme or trailing-slash hop preserves the query string, and the hop is
+    // then a token handed to whatever serves the target.
+    //
+    // Whether the option bites depends on the adapter, and that is not decided
+    // by "is this a browser". `getAdapter()` walks the default
+    // `['xhr', 'http', 'fetch']` and takes the first *supported* entry. XHR is
+    // supported wherever `XMLHttpRequest` exists — a window, a dedicated worker,
+    // a shared worker — and the XHR adapter ignores `maxRedirects` outright. A
+    // **service worker** has no `XMLHttpRequest`, so the list falls through
+    // `http` (Node only) to `fetch`, and the fetch adapter does read it, as
+    // `redirect: 'manual'`. Inert on the common path, load-bearing on that one:
+    // reason enough to set it rather than reason to leave it out.
+    const useQueryAuth = isBareArrayBody && !isHook && hasAccessToken && isCorsEnforcedRuntime()
+    const sendBareArray = isBareArrayBody && (isHook || canSendAuthHeader || useQueryAuth)
+
+    const paramsFormatted = sendBareArray
+      ? params as unknown as TypePrepareParams
+      : this._prepareParams(authData, params)
+
+    // Merged into whatever the caller's own config already carries — today the
+    // `Idempotency-Key` header — rather than replacing it.
+    //
+    // `maxRedirects: 0` comes with the header and only with it. A credential in
+    // the body was safe across a redirect by accident: a 301/302 turns POST into
+    // GET and drops the body, so the old `auth` never travelled. A header does —
+    // `follow-redirects` strips `Authorization` when the host changes, but keeps
+    // it for the same host and for a **subdomain**, so a portal answering
+    // `301 Location: https://cdn.<portal>/…` would hand the token to whatever
+    // serves that name.
+    //
+    // Set here rather than on the axios instance because the instance carries
+    // every request the SDK makes, and a redirect somewhere in that traffic may
+    // be load-bearing for someone. This branch is different: it is reached only
+    // by a v3 batch on a non-hook transport, which fails on every portal today —
+    // there is no working behaviour here to preserve. A deployment that does
+    // redirect gets a rejection through `validateStatus` instead of a silent hop
+    // with a credential attached — as a legible 301 on the Node adapter, and as
+    // an opaque `status: 0` on `fetch`, where `redirect: 'manual'` is what
+    // `maxRedirects: 0` becomes and the response carries no status of its own.
+    //
+    // Before the spread, not after, so it is a default rather than a lock: a
+    // transport that overrides `_prepareRequestConfig` — `HttpV2` already does —
+    // can hand back a `maxRedirects` and win. `TypeCallOptions` carries no such
+    // field today, so there is no way for an ordinary caller to reopen it, which
+    // is the right way round for a credential.
+    const effectiveConfig: AxiosRequestConfig | undefined = canSendAuthHeader
+      ? {
+          maxRedirects: 0,
+          ...requestConfig,
+          headers: {
+            ...requestConfig?.headers,
+            Authorization: `Bearer ${authData.access_token}`
+          }
+        }
+      : useQueryAuth
+        ? { maxRedirects: 0, ...requestConfig }
+        : requestConfig
+
     // `paramsFormatted` carries the OAuth `auth` (access_token) for non-hook flows;
     // log a redacted copy so the secret never enters logger context, while axios
     // still receives the original below. (#39)
+    // The `Authorization` header is deliberately NOT logged, and nothing here may
+    // start logging it: `redactSensitiveParams` walks `params` and never touches
+    // headers, so a token put into logger context would arrive in the clear —
+    // the #39 defect, in a channel neither the redactor nor the local
+    // `no-credential-in-logger` rule can see. Pinned by a test rather than left
+    // to this comment.
     const paramsFormattedForLog = JSON.stringify(redactSensitiveParams(paramsFormatted), null, 0)
 
     this.getLogger().info(
@@ -626,7 +805,15 @@ export abstract class AbstractHttp implements TypeHttp {
       }
     ).catch(() => {})
 
-    const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted, requestConfig)
+    if (useQueryAuth) {
+      // `_prepareMethod` always emits a query string for a `batch` (the `task.`
+      // carve-out cannot match it), so a separator is not in question — but ask
+      // rather than assume, since that carve-out is one regex away from moving.
+      const separator = methodFormatted.includes('?') ? '&' : '?'
+      methodFormatted += `${separator}auth=${encodeURIComponent(authData.access_token)}`
+    }
+
+    const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted, effectiveConfig)
 
     // Redact the log-bound copy only; callers still receive the untouched
     // `response.data` below. First-party success bodies don't embed credentials

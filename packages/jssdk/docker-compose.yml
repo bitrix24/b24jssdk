@@ -1,7 +1,7 @@
 # Local cross-runtime smoke: mirrors the CI `test` job's Node matrix (22 + 24),
 # the supported+validated lines. EOL Node 18 was removed with the `engines`
-# drop in #174; Node 20 stays in `engines` for now but is EOL and slated for
-# removal in #312, so it is not exercised here.
+# drop in #174, and EOL Node 20 with #312 — so this file, the CI matrix and
+# `engines` now describe the same set, with nothing advertised that is not run.
 services:
   test-node22:
     image: node:22-alpine

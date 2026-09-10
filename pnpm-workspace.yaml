@@ -102,6 +102,12 @@ overrides:
   # during the build — a dev dependency that executes in CI, so it is in scope.
   # The tree carries only the 4.x line.
   svgo: '>=4.1.0 <5'
+  # GHSA-7w5x-hrqm-74c2 — denial of service via a malformed TOML document.
+  # Reaches us only through `markdownlint-cli2`, a dev dependency the `lint:md`
+  # gate runs in CI, and only on input the repository controls; the floor is
+  # raised because the audit step is tree-wide and does not care about that
+  # distinction. The tree carries only the 1.x line.
+  smol-toml: '>=1.7.1 <2'
   # esbuild is 0.x — every minor is a breaking release, so the ceiling is the minor
   esbuild: '>=0.28.1 <0.29'
   form-data: '>=4.0.6 <5'

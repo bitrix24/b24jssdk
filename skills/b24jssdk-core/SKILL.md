@@ -274,9 +274,10 @@ clientAxios.defaults.timeout = 120_000
 ```
 
 There is a second channel, and it is the one to reach for when the setting has to
-apply from the first request: `httpOptions` at construction, on `B24Frame`,
-`B24Hook`, `B24Hook.fromWebhookUrl` and `B24OAuth`, merged over the SDK's own
-axios defaults.
+apply from the first request: `httpOptions` at construction, on
+`initializeB24Frame` (the frame boot — it forwards the option to `B24Frame`
+unchanged), `B24Hook`, `B24Hook.fromWebhookUrl` and `B24OAuth`, merged over the
+SDK's own axios defaults.
 
 ```ts
 import { B24Hook } from '@bitrix24/b24jssdk'
@@ -298,7 +299,9 @@ go back, which is also the answer for a `jsdom` suite whose test double stubs
 `maxRedirects`, `maxContentLength`, `maxBodyLength`, `decompress`,
 `withCredentials`. `baseURL`, `transformRequest`, `paramsSerializer`,
 `validateStatus` and `headers` are how the SDK reaches the portal and are not
-offered there — `defaults` above still reaches them, where it reads as the
+offered there — a key outside the list is dropped at construction and its name
+logged, since a type cannot stop a value that arrives through a variable or from
+plain JavaScript — `defaults` above still reaches them, where it reads as the
 deliberate act it is. Note `defaults.headers['Content-Type']` no longer changes
 SDK traffic: the SDK states the JSON content type per request (see the
 `b24jssdk-filtering` skill for why that matters).

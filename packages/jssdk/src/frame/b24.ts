@@ -56,7 +56,12 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
       restrictionParams?: Partial<RestrictionParams>
       /**
        * Axios settings for both transports, merged over the SDK's own defaults.
-       * See {@link TypeHttpOptions} — the key it exists for is `adapter`.
+       * See {@link TypeHttpOptions} — the key it exists for is `adapter`, and a
+       * frame app is the audience for it: a browser is where the SDK asks axios
+       * for `fetch`, and `{ adapter: 'xhr' }` is the way back.
+       *
+       * Callers reach this through `initializeB24Frame()`, which forwards it
+       * unchanged — this constructor is not meant to be called directly.
        */
       httpOptions?: TypeHttpOptions
     }

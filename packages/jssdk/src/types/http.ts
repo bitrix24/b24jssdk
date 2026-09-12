@@ -6,6 +6,7 @@ import type { RestrictionParams, RestrictionManagerStats } from './limiters'
 import type { ApiVersion } from './b24'
 import type { FilterV3Group } from '../tools/filter-v3'
 import type { AxiosInstance, AxiosRequestConfig } from 'axios'
+import type { HTTP_OPTION_KEYS } from '../core/http/http-options'
 
 /**
  * Types for HTTP communication with the Bitrix24 REST API: call parameters (filtering, ordering,
@@ -210,24 +211,17 @@ export type AjaxIdempotency = {
  * thing. `baseURL`, `transformRequest`, `paramsSerializer`, `validateStatus`
  * and `headers` are how the SDK talks to the portal — a `transformRequest` here
  * replaces the request body wholesale, with no error on either side and a
- * portal-side failure only — so they are not offered. Anything outside this
- * list is still reachable after construction through
+ * portal-side failure only — so they are not offered, and a key outside the list
+ * is **dropped at construction** rather than merely rejected by the compiler:
+ * excess-property checking does not fire on a variable, and plain JavaScript has
+ * no compiler at all. The dropped names are logged. Anything outside this list
+ * is still reachable after construction through
  * `getHttpClient(version).ajaxClient.defaults`, where it reads as the
  * deliberate act it is.
  */
 export type TypeHttpOptions = Pick<
   AxiosRequestConfig,
-  | 'adapter'
-  | 'timeout'
-  | 'timeoutErrorMessage'
-  | 'proxy'
-  | 'httpAgent'
-  | 'httpsAgent'
-  | 'maxRedirects'
-  | 'maxContentLength'
-  | 'maxBodyLength'
-  | 'decompress'
-  | 'withCredentials'
+  typeof HTTP_OPTION_KEYS[number]
 >
 
 /**

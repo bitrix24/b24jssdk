@@ -24,6 +24,7 @@ import { AjaxError } from './ajax-error'
 import { parseErrorPayload } from './parse-error-payload'
 import { AjaxResult } from './ajax-result'
 import { redactSensitiveParams } from './redact'
+import { HTTP_OPTION_KEYS, pickHttpOptions } from './http-options'
 import { Type } from '../../tools/type'
 import { Environment, getEnvironment } from '../../tools/environment'
 import { ApiVersion } from '../../types/b24'
@@ -255,18 +256,47 @@ export abstract class AbstractHttp implements TypeHttp {
     this._authActions = authActions
     this._requestIdGenerator = new RequestIdGenerator()
 
+    // Filtered rather than spread as given: `TypeHttpOptions` names the keys a
+    // caller may set, but a type cannot enforce that. Excess-property checking
+    // fires only on a direct object literal with no overlapping key, so one
+    // allowed key beside `transformRequest` — or a variable, or a call from
+    // plain JavaScript — used to carry anything straight into axios. See
+    // `pickHttpOptions`, which is also where the key list lives.
+    const { picked: httpOptions, dropped: droppedHttpOptions } = pickHttpOptions(options)
+
     this._clientAxios = axios.create({
       timeout: 30_000,
       timeoutErrorMessage: 'Request timeout exceeded',
       ...preferredAdapter(),
-      ...(options ?? {}),
+      ...httpOptions,
       // headers last so the merged default + caller headers aren't wiped by an
       // `options.headers` (or the previous `headers: undefined`) spread (#144).
+      // Read from `options` rather than from the filtered config: the merge
+      // predates `TypeHttpOptions` and is left as it was, while the SDK's own
+      // `Content-Type` and `Authorization` are decided per request, where an
+      // instance header cannot reach them.
       headers: {
         ...defaultHeaders,
         ...((options as any)?.headers ?? {})
       }
     })
+
+    if (droppedHttpOptions.length > 0) {
+      // Names only, never values: a `headers` entry a caller tried to set here
+      // can carry an `Authorization` token, and this reaches whatever sink the
+      // app wired up. Forced, because the default logger is silent and a
+      // silently ignored option is the failure this guard exists to prevent.
+      LoggerFactory.forcedLog(
+        this._logger,
+        'warning',
+        'httpOptions: keys not accepted at construction were dropped',
+        {
+          dropped: droppedHttpOptions.join(', '),
+          accepted: HTTP_OPTION_KEYS.join(', '),
+          hint: 'set them on getHttpClient(version).ajaxClient.defaults instead'
+        }
+      ).catch(() => {})
+    }
 
     /**
      * Basic parameters of restrictions
@@ -905,7 +935,15 @@ export abstract class AbstractHttp implements TypeHttp {
     //
     // Scoped to the branch that set `maxRedirects: 0`, so an ordinary status-0
     // network failure keeps its existing classification.
-    if (0 === effectiveConfig?.maxRedirects && 0 === response.status) {
+    // The effective value, not only the per-request one: `maxRedirects` is
+    // settable at construction too, and an instance-level `0` makes every
+    // request `redirect: 'manual'` on the fetch adapter — where the per-request
+    // config is absent, which used to leave a blocked redirect resolving as an
+    // empty success on an ordinary call.
+    const effectiveMaxRedirects = effectiveConfig?.maxRedirects
+      ?? this._clientAxios.defaults.maxRedirects
+
+    if (0 === effectiveMaxRedirects && 0 === response.status) {
       throw new AjaxError({
         code: 'JSSDK_HTTP_REDIRECT_BLOCKED',
         description: 'The portal answered with a redirect, which this request does not follow: it carries an access token, '

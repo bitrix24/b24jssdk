@@ -175,9 +175,15 @@ function isCorsEnforcedRuntime(): boolean {
  * `redirect: 'manual'`; the XHR adapter ignores it outright. The only branch that
  * sets it in a browser is the query-auth one below, which exists to stop an
  * access token following a redirect — so the change is that the guard now bites
- * where it used to be inert, and a redirecting deployment gets an opaque
- * `status: 0` instead of a silent hop carrying the credential. That is the
- * guard doing its job, but it is a change, not a no-op.
+ * where it used to be inert: a redirecting deployment gets an opaque response
+ * (status 0, empty body) instead of a silent hop carrying the credential.
+ *
+ * Opaque is not the same as rejected. `settle` resolves any response whose
+ * status is falsy *before* `validateStatus` is consulted, and unlike the XHR
+ * adapter — which rejects `status === 0` as `ECONNABORTED` on its own — the
+ * fetch adapter has no such guard, so that blocked redirect would otherwise
+ * reach the caller as an empty **success**. `_makeAxiosRequest` states it
+ * instead, on the branch that asked for `maxRedirects: 0` and nowhere else.
  *
  * Returned as a spread-able object rather than a value so "no opinion" and
  * "`undefined` on purpose" stay distinguishable, and placed **before** the
@@ -801,10 +807,12 @@ export abstract class AbstractHttp implements TypeHttp {
     // be load-bearing for someone. This branch is different: it is reached only
     // by a v3 batch on a non-hook transport, which fails on every portal today —
     // there is no working behaviour here to preserve. A deployment that does
-    // redirect gets a rejection through `validateStatus` instead of a silent hop
-    // with a credential attached — as a legible 301 on the Node adapter, and as
-    // an opaque `status: 0` on `fetch`, where `redirect: 'manual'` is what
-    // `maxRedirects: 0` becomes and the response carries no status of its own.
+    // redirect gets an error instead of a silent hop with a credential attached —
+    // a legible 301 through `validateStatus` on the Node adapter, and on `fetch`,
+    // where `redirect: 'manual'` is what `maxRedirects: 0` becomes and the
+    // response carries no status of its own, the explicit status-0 check after
+    // the `post` below (axios resolves an opaque response rather than rejecting
+    // it).
     //
     // Before the spread, not after, so it is a default rather than a lock: a
     // transport that overrides `_prepareRequestConfig` — `HttpV2` already does —
@@ -829,8 +837,12 @@ export abstract class AbstractHttp implements TypeHttp {
     // boundary axios computes for them. This states what the SDK's own traffic
     // depends on without deciding anything for traffic it does not own.
     //
-    // After the `requestConfig` spread so a transport can still override it;
-    // none does today.
+    // Spread first inside `headers`, so anything a transport puts in
+    // `requestConfig.headers` overrides it; none does today. What this does not
+    // reach is a request interceptor installed on the public `ajaxClient` — that
+    // runs after the config is assembled and can still replace the header (and
+    // with it the encoding). Documented rather than defended: the instance is
+    // public on purpose.
     const jsonBody = { 'Content-Type': 'application/json' }
 
     const effectiveConfig: AxiosRequestConfig | undefined = canSendAuthHeader
@@ -882,6 +894,26 @@ export abstract class AbstractHttp implements TypeHttp {
     }
 
     const response = await this._clientAxios.post<SuccessPayload<T>>(methodFormatted, paramsFormatted, effectiveConfig)
+
+    // A blocked redirect is not an error on every adapter, so say so here.
+    // `settle` resolves any response with a falsy status before `validateStatus`
+    // runs, and the fetch adapter — what a browser now gets — turns
+    // `redirect: 'manual'` into an opaque response: status 0, empty body, no
+    // headers. The XHR adapter rejected that shape itself (`ECONNABORTED`);
+    // fetch does not, so without this the caller gets a successful, silently
+    // empty answer to a request the SDK deliberately refused to follow.
+    //
+    // Scoped to the branch that set `maxRedirects: 0`, so an ordinary status-0
+    // network failure keeps its existing classification.
+    if (0 === effectiveConfig?.maxRedirects && 0 === response.status) {
+      throw new AjaxError({
+        code: 'JSSDK_HTTP_REDIRECT_BLOCKED',
+        description: 'The portal answered with a redirect, which this request does not follow: it carries an access token, '
+          + 'and a redirect to a subdomain would take the credential along. Point the SDK at the final URL instead.',
+        status: 0,
+        requestInfo: { method, params, requestId }
+      })
+    }
 
     // Redact the log-bound copy only; callers still receive the untouched
     // `response.data` below. First-party success bodies don't embed credentials

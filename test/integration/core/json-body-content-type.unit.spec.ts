@@ -22,9 +22,31 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { ApiVersion, B24Hook } from '../../../packages/jssdk/src/'
+import { B24OAuth } from '../../../packages/jssdk/src/oauth/b24'
 
 function buildHook(): B24Hook {
   return B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/secret/')
+}
+
+/**
+ * A non-hook transport, which takes the two other branches of the per-request
+ * config: `Authorization: Bearer` on a server, and `?auth=` in a browser.
+ */
+function buildOAuth(): B24OAuth {
+  return new B24OAuth(
+    {
+      accessToken: 'ACCESS_TOKEN_PLACEHOLDER',
+      refreshToken: 'REFRESH_TOKEN_PLACEHOLDER',
+      expires: 2_000_000_000,
+      expiresIn: 3600,
+      domain: 'example.bitrix24.com',
+      memberId: 'member',
+      clientEndpoint: 'https://example.bitrix24.com/rest/',
+      serverEndpoint: 'https://oauth.bitrix.info/rest/',
+      status: 'L'
+    } as never,
+    { clientId: 'local.test', clientSecret: 'secret' } as never
+  )
 }
 
 const okResponse = {
@@ -36,7 +58,7 @@ const okResponse = {
 }
 
 describe('the JSON content type is stated, not inherited (#533)', () => {
-  let b24: B24Hook | null = null
+  let b24: B24Hook | B24OAuth | null = null
 
   afterEach(() => {
     vi.restoreAllMocks()
@@ -65,6 +87,77 @@ describe('the JSON content type is stated, not inherited (#533)', () => {
     await client.call('user.get', { filter: { ACTIVE: false } }, 'req-533')
 
     expect(post.mock.calls[0]?.[2]?.headers?.['Content-Type']).toBe('application/json')
+  })
+
+  // The header is built in three branches — webhook, `Authorization: Bearer`,
+  // and the browser's query-auth — and only the first is exercised above. Each
+  // one composes the header object separately, so each one can lose it
+  // separately.
+  it('the Bearer branch states it too', async () => {
+    // That branch is narrower than it looks: a bare-array body on a non-hook
+    // transport outside a browser, i.e. a v3 batch. An ordinary OAuth call
+    // still carries its credential in the body.
+    b24 = buildOAuth()
+    const client = b24.getHttpClient(ApiVersion.v3)
+    const post = vi.spyOn(client.ajaxClient, 'post').mockResolvedValue({
+      ...okResponse,
+      data: { result: [{ items: [] }], time: {} }
+    } as never)
+
+    await client.batch([['user.get', {}]])
+
+    const headers = post.mock.calls[0]?.[2]?.headers as Record<string, string>
+    expect(headers['Content-Type']).toBe('application/json')
+    // And the credential still rides alongside it rather than replacing it.
+    expect(headers['Authorization']).toBe('Bearer ACCESS_TOKEN_PLACEHOLDER')
+  })
+
+  it('the browser query-auth branch states it too', async () => {
+    const originalWindow = (globalThis as { window?: unknown }).window
+    ;(globalThis as { window?: unknown }).window = { document: {} }
+
+    try {
+      b24 = buildOAuth()
+      const client = b24.getHttpClient(ApiVersion.v3)
+      const post = vi.spyOn(client.ajaxClient, 'post').mockResolvedValue({
+        ...okResponse,
+        data: { result: [{ items: [] }], time: {} }
+      } as never)
+
+      await client.batch([['user.get', {}]])
+
+      const headers = post.mock.calls[0]?.[2]?.headers as Record<string, string>
+      expect(headers['Content-Type']).toBe('application/json')
+      expect(headers['Authorization']).toBeUndefined()
+    } finally {
+      if (typeof originalWindow === 'undefined') {
+        delete (globalThis as { window?: unknown }).window
+      } else {
+        ;(globalThis as { window?: unknown }).window = originalWindow
+      }
+    }
+  })
+
+  // The header is a default, not a lock: it is spread before
+  // `requestConfig.headers`, so a transport that overrides
+  // `_prepareRequestConfig` can still name its own. Nothing in the SDK does
+  // today — this pins the ordering the source comment promises, which is what
+  // keeps the next edit from silently turning it into a lock.
+  it('a transport-supplied content type wins over it', async () => {
+    b24 = buildHook()
+    const client = b24.getHttpClient(ApiVersion.v2)
+
+    ;(client as unknown as {
+      _prepareRequestConfig: () => object
+    })._prepareRequestConfig = () => ({
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    const post = vi.spyOn(client.ajaxClient, 'post').mockResolvedValue(okResponse as never)
+
+    await client.call('user.get', {}, 'req-533')
+
+    expect(post.mock.calls[0]?.[2]?.headers?.['Content-Type']).toBe('multipart/form-data')
   })
 
   // Per request rather than on the instance, deliberately. Measured: an

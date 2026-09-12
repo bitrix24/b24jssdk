@@ -11,8 +11,10 @@
  * `*.unit.spec.ts` — no portal required.
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import { ApiVersion, B24Hook } from '../../../packages/jssdk/src/'
+import { ApiVersion, B24Frame, B24Hook } from '../../../packages/jssdk/src/'
+import { B24OAuth } from '../../../packages/jssdk/src/oauth/b24'
 import type { TypeB24 } from '../../../packages/jssdk/src/'
+import { defineGlobal, restoreGlobal } from '../../0_setup/browser-globals'
 
 const AXIOS_DEFAULT_ORDER = ['xhr', 'http', 'fetch']
 
@@ -47,7 +49,7 @@ function asBrowserLikeRuntime(run: () => void): void {
 }
 
 describe('which axios adapter the SDK asks for', () => {
-  let b24: B24Hook | null = null
+  let b24: B24Hook | B24OAuth | null = null
 
   afterEach(() => {
     b24?.destroy()
@@ -78,6 +80,71 @@ describe('which axios adapter the SDK asks for', () => {
 
       expect(adapterOf(b24)).toBe('xhr')
     })
+  })
+
+  // `B24Frame` is the entry point that runs in a browser — the only one without
+  // the "server only" warning the other two carry — so it is the one the adapter
+  // preference applies to, and the one where `maxRedirects` stops being inert.
+  // An earlier revision gave the option to the two server-side classes and not
+  // to this one, which put the documented opt-out out of reach of the audience
+  // it was written for.
+  //
+  // Asserted on the plumbing rather than on a built client: the frame creates
+  // its transports inside `init()`, which needs a portal to answer the
+  // handshake. What has to hold here is that the constructor carries the option
+  // through to where `init()` will read it.
+  it('carries the option through on the browser entry point too', () => {
+    defineGlobal('window', { addEventListener() {}, removeEventListener() {} })
+
+    try {
+      class ProbeFrame extends B24Frame {
+        public optionsHandedToTransports(): null | object {
+          return this._getHttpOptions()
+        }
+      }
+
+      const frame = new ProbeFrame(
+        { DOMAIN: 'example.bitrix24.com', PROTOCOL: true, APP_SID: 'sid', LANG: 'en' },
+        { httpOptions: { adapter: 'xhr' } }
+      )
+
+      expect(frame.optionsHandedToTransports()).toEqual({ adapter: 'xhr' })
+    } finally {
+      restoreGlobal('window')
+    }
+  })
+
+  // Each entry point assigns `_httpOptions` for itself, so each one can drop it
+  // for itself — the hook path above cannot speak for this one.
+  it('carries the option through on the OAuth entry point too', () => {
+    b24 = new B24OAuth(
+      {
+        accessToken: 'ACCESS_TOKEN_PLACEHOLDER',
+        refreshToken: 'REFRESH_TOKEN_PLACEHOLDER',
+        expires: 2_000_000_000,
+        expiresIn: 3600,
+        domain: 'example.bitrix24.com',
+        memberId: 'member',
+        clientEndpoint: 'https://example.bitrix24.com/rest/',
+        serverEndpoint: 'https://oauth.bitrix.info/rest/',
+        status: 'L'
+      } as never,
+      { clientId: 'local.test', clientSecret: 'secret' } as never,
+      { httpOptions: { adapter: 'xhr' } }
+    )
+
+    expect(adapterOf(b24)).toBe('xhr')
+  })
+
+  // `fromWebhookUrl` is the factory the documentation recommends everywhere, so
+  // an escape hatch it cannot reach is not an escape hatch.
+  it('reaches the option through the recommended factory', () => {
+    b24 = B24Hook.fromWebhookUrl(
+      'https://example.bitrix24.com/rest/1/secret/',
+      { httpOptions: { adapter: 'xhr' } }
+    )
+
+    expect(adapterOf(b24)).toBe('xhr')
   })
 
   // Guarded on `fetch` being reachable rather than on a version check: the point

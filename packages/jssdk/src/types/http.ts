@@ -5,7 +5,7 @@ import type { PayloadTime } from './payloads'
 import type { RestrictionParams, RestrictionManagerStats } from './limiters'
 import type { ApiVersion } from './b24'
 import type { FilterV3Group } from '../tools/filter-v3'
-import type { AxiosInstance } from 'axios'
+import type { AxiosInstance, AxiosRequestConfig } from 'axios'
 
 /**
  * Types for HTTP communication with the Bitrix24 REST API: call parameters (filtering, ordering,
@@ -196,6 +196,39 @@ export type AjaxIdempotency = {
   /** `true` only when the portal marked the body as a replayed response. */
   replayed: boolean
 }
+
+/**
+ * Axios settings a caller may hand the SDK at construction, merged over the
+ * SDK's own defaults for both transports.
+ *
+ * The key this exists for is `adapter`: in a browser the SDK asks for `fetch`,
+ * because axios would otherwise walk `['xhr', 'http', 'fetch']` and take XHR by
+ * list order. Pass `{ adapter: 'xhr' }` to go back, or name any adapter axios
+ * accepts.
+ *
+ * Deliberately a narrow slice of `AxiosRequestConfig` rather than the whole
+ * thing. `baseURL`, `transformRequest`, `paramsSerializer`, `validateStatus`
+ * and `headers` are how the SDK talks to the portal — a `transformRequest` here
+ * replaces the request body wholesale, with no error on either side and a
+ * portal-side failure only — so they are not offered. Anything outside this
+ * list is still reachable after construction through
+ * `getHttpClient(version).ajaxClient.defaults`, where it reads as the
+ * deliberate act it is.
+ */
+export type TypeHttpOptions = Pick<
+  AxiosRequestConfig,
+  | 'adapter'
+  | 'timeout'
+  | 'timeoutErrorMessage'
+  | 'proxy'
+  | 'httpAgent'
+  | 'httpsAgent'
+  | 'maxRedirects'
+  | 'maxContentLength'
+  | 'maxBodyLength'
+  | 'decompress'
+  | 'withCredentials'
+>
 
 /**
  * Per-request transport options — the things that belong to one call rather

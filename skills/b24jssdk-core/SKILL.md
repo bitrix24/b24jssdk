@@ -297,12 +297,23 @@ go back, which is also the answer for a `jsdom` suite whose test double stubs
 `httpOptions` is a narrow slice of `AxiosRequestConfig` (`TypeHttpOptions`):
 `adapter`, `timeout`, `timeoutErrorMessage`, `proxy`, `httpAgent`, `httpsAgent`,
 `maxRedirects`, `maxContentLength`, `maxBodyLength`, `decompress`,
-`withCredentials`. `baseURL`, `transformRequest`, `paramsSerializer`,
-`validateStatus` and `headers` are how the SDK reaches the portal and are not
-offered there — a key outside the list is dropped at construction and its name
-logged, since a type cannot stop a value that arrives through a variable or from
-plain JavaScript — `defaults` above still reaches them, where it reads as the
-deliberate act it is. Note `defaults.headers['Content-Type']` no longer changes
+`withCredentials`. `baseURL`, `transformRequest`, `paramsSerializer`
+and `validateStatus` are how the SDK reaches the portal and are not offered
+there — a key outside the list is dropped at construction and its name logged
+(the warning reads `httpOptions: keys not accepted at construction were
+dropped`), since a type cannot stop a value that arrives through a variable or
+from plain JavaScript. `headers` is not offered either — the type rejects it —
+though the transport still merges one that reaches it from untyped code, as it
+has since #144. All of them stay reachable through `defaults` above, where it
+reads as the deliberate act it is.
+
+The list keeps out what breaks the SDK by accident; it is not a security
+boundary. `adapter` replaces the whole transport and `proxy` / `httpAgent` route
+token-bearing traffic wherever the caller points them — both are on the list,
+because `adapter` is what the option exists for. And it reaches the two REST
+transports only: the OAuth token-refresh client builds its own axios instance, so
+`adapter`, `timeout` and `proxy` do not apply to the request that posts
+`client_secret` to the OAuth server. Note `defaults.headers['Content-Type']` no longer changes
 SDK traffic: the SDK states the JSON content type per request (see the
 `b24jssdk-filtering` skill for why that matters).
 

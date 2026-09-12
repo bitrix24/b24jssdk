@@ -41,7 +41,8 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
       restrictionParams?: Partial<RestrictionParams>
       /**
        * Axios settings for both transports, merged over the SDK's own defaults.
-       * See {@link TypeHttpOptions} — the key it exists for is `adapter`.
+       * See {@link TypeHttpOptions} — the key it exists for is `adapter`, and a
+       * key outside that type is dropped at construction with its name logged.
        */
       httpOptions?: TypeHttpOptions
     }

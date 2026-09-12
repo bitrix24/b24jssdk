@@ -19,6 +19,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import { ApiVersion, B24Hook } from '../../../packages/jssdk/src/'
+import { HTTP_OPTION_KEYS, pickHttpOptions } from '../../../packages/jssdk/src/core/http/http-options'
 
 function buildHook(httpOptions: object): B24Hook {
   return new B24Hook(
@@ -77,5 +78,38 @@ describe('httpOptions drops what it does not accept', () => {
     const headers = JSON.stringify(b24.getHttpClient(ApiVersion.v2).ajaxClient.defaults.headers)
 
     expect(headers).toContain('X-Test-Header')
+  })
+
+  // The dropped keys are reported by NAME and never by value: a `headers` entry
+  // a caller tried to set here can carry an `Authorization` token, and the
+  // report reaches whatever sink the app wired up. Asserted on `pickHttpOptions`
+  // directly, because `LoggerFactory.forcedLog` returns early under vitest — so
+  // the log line itself is unobservable from a spec, and the property that
+  // matters would otherwise rest on a comment.
+  it('reports dropped keys by name and never their values', () => {
+    const { picked, dropped } = pickHttpOptions({
+      timeout: 5000,
+      baseURL: 'https://elsewhere.example/',
+      transformRequest: [() => 'SECRET_BODY'],
+      headers: { Authorization: 'Bearer SECRET_TOKEN' }
+    })
+
+    expect(dropped).toEqual(['baseURL', 'transformRequest'])
+    expect(Object.keys(picked)).toEqual(['timeout'])
+    // `headers` is the documented exception: handled by the caller of this
+    // function, so neither kept here nor named as dropped.
+    expect(dropped).not.toContain('headers')
+    // Nothing in the report is a value.
+    expect(JSON.stringify(dropped)).not.toContain('SECRET')
+    expect(JSON.stringify(dropped)).not.toContain('elsewhere.example')
+  })
+
+  // The type and the runtime filter are one list, derived from the same const —
+  // this pins that they have not drifted apart in the other direction.
+  it('accepts exactly the keys the public type names', () => {
+    const everyKey = Object.fromEntries(HTTP_OPTION_KEYS.map(key => [key, 1]))
+
+    expect(Object.keys(pickHttpOptions(everyKey).picked)).toEqual([...HTTP_OPTION_KEYS])
+    expect(pickHttpOptions(everyKey).dropped).toEqual([])
   })
 })

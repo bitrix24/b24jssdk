@@ -208,8 +208,8 @@ export type AjaxIdempotency = {
  * accepts.
  *
  * Deliberately a narrow slice of `AxiosRequestConfig` rather than the whole
- * thing. `baseURL`, `transformRequest`, `paramsSerializer`, `validateStatus`
- * and `headers` are how the SDK talks to the portal — a `transformRequest` here
+ * thing. `baseURL`, `transformRequest`, `paramsSerializer` and `validateStatus`
+ * are how the SDK talks to the portal — a `transformRequest` here
  * replaces the request body wholesale, with no error on either side and a
  * portal-side failure only — so they are not offered, and a key outside the list
  * is **dropped at construction** rather than merely rejected by the compiler:
@@ -218,6 +218,10 @@ export type AjaxIdempotency = {
  * is still reachable after construction through
  * `getHttpClient(version).ajaxClient.defaults`, where it reads as the
  * deliberate act it is.
+ *
+ * `headers` is not offered here either, and this type rejects it — but the
+ * transport still merges a `headers` object that reaches it from untyped code or
+ * from a direct `new HttpV2(...)`, as it has since #144.
  */
 export type TypeHttpOptions = Pick<
   AxiosRequestConfig,

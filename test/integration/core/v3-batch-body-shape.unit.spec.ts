@@ -97,7 +97,13 @@ describe('the body of a v3 batch', () => {
     expect(body).toHaveLength(2)
     expect(body).not.toHaveProperty('auth')
     // A webhook authenticates through the URL; nothing to put in a header.
-    expect(config).toBeUndefined()
+    // The per-request config is no longer absent: every call now states
+    // `Content-Type: application/json`, because the portal reads a `filter`
+    // boolean only from a JSON body and axios was supplying that by default
+    // rather than by intent. What this case guards is unchanged — no credential
+    // rides in the config.
+    expect(Object.keys(config ?? {})).toEqual(['headers'])
+    expect(config?.headers).toEqual({ 'Content-Type': 'application/json' })
   })
 
   it('@apiV3 keeps the OAuth token out of the array and sends it as a header', async () => {
@@ -155,7 +161,13 @@ describe('the body of a v3 batch', () => {
     // moving it too would be an untestable change to how every OAuth request
     // authenticates.
     expect((body as { auth?: string }).auth).toBe('ACCESS_TOKEN_PLACEHOLDER')
-    expect(config).toBeUndefined()
+    // The per-request config is no longer absent: every call now states
+    // `Content-Type: application/json`, because the portal reads a `filter`
+    // boolean only from a JSON body and axios was supplying that by default
+    // rather than by intent. What this case guards is unchanged — no credential
+    // rides in the config.
+    expect(Object.keys(config ?? {})).toEqual(['headers'])
+    expect(config?.headers).toEqual({ 'Content-Type': 'application/json' })
   })
 
   it('@apiV3 a browser sends the array and puts the token in the query string', async () => {
@@ -554,7 +566,13 @@ describe('the body of a v3 batch', () => {
 
       const [url, body, config] = post.mock.calls[0]!
       expect(Array.isArray(body)).toBe(true)
-      expect(config).toBeUndefined()
+      // The per-request config is no longer absent: every call now states
+      // `Content-Type: application/json`, because the portal reads a `filter`
+      // boolean only from a JSON body and axios was supplying that by default
+      // rather than by intent. What this case guards is unchanged — no credential
+      // rides in the config.
+      expect(Object.keys(config ?? {})).toEqual(['headers'])
+      expect(config?.headers).toEqual({ 'Content-Type': 'application/json' })
       // And no `?auth=`. A hook's credential is already in the URL **path**,
       // where the portal documents it; appending it again as a query parameter
       // would put a portal-wide, non-expiring secret in a second place for no
@@ -628,7 +646,13 @@ describe('the body of a v3 batch', () => {
     await b24.actions.v3.batch.make({ calls: COMMANDS })
 
     const [, body, config] = post.mock.calls[0]!
-    expect(config).toBeUndefined()
+    // The per-request config is no longer absent: every call now states
+    // `Content-Type: application/json`, because the portal reads a `filter`
+    // boolean only from a JSON body and axios was supplying that by default
+    // rather than by intent. What this case guards is unchanged — no credential
+    // rides in the config.
+    expect(Object.keys(config ?? {})).toEqual(['headers'])
+    expect(config?.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(Array.isArray(body)).toBe(false)
     expect(JSON.stringify(config ?? {})).not.toContain('Bearer undefined')
   })

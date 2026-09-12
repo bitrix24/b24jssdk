@@ -773,18 +773,48 @@ export abstract class AbstractHttp implements TypeHttp {
     // can hand back a `maxRedirects` and win. `TypeCallOptions` carries no such
     // field today, so there is no way for an ordinary caller to reopen it, which
     // is the right way round for a credential.
+    // The portal reads a `filter` value as a boolean only when the body is JSON.
+    // Under `application/x-www-form-urlencoded`, `ACTIVE: false` arrives as the
+    // string `"false"`, the condition is dropped, and the call answers with rows
+    // it should have excluded — no error on either side. Measured on
+    // `user.get` (`filter: { ACTIVE: false }` → 0 rows as JSON, 1 as form data,
+    // against the same portal in the same minute).
+    //
+    // The SDK has always sent JSON, but never asked for it: axios picks
+    // `application/json` on its own for a plain-object body. That default is
+    // reachable — `ajaxClient` is public and the docs encourage touching it to
+    // raise `defaults.timeout` — so one header on the instance silently breaks
+    // every boolean filter portal-wide.
+    //
+    // Per request rather than on the instance, deliberately: a caller who posts
+    // `FormData` through `ajaxClient` themselves still gets the multipart
+    // boundary axios computes for them. This states what the SDK's own traffic
+    // depends on without deciding anything for traffic it does not own.
+    //
+    // After the `requestConfig` spread so a transport can still override it;
+    // none does today.
+    const jsonBody = { 'Content-Type': 'application/json' }
+
     const effectiveConfig: AxiosRequestConfig | undefined = canSendAuthHeader
       ? {
           maxRedirects: 0,
           ...requestConfig,
           headers: {
+            ...jsonBody,
             ...requestConfig?.headers,
             Authorization: `Bearer ${authData.access_token}`
           }
         }
       : useQueryAuth
-        ? { maxRedirects: 0, ...requestConfig }
-        : requestConfig
+        ? {
+            maxRedirects: 0,
+            ...requestConfig,
+            headers: { ...jsonBody, ...requestConfig?.headers }
+          }
+        : {
+            ...requestConfig,
+            headers: { ...jsonBody, ...requestConfig?.headers }
+          }
 
     // `paramsFormatted` carries the OAuth `auth` (access_token) for non-hook flows;
     // log a redacted copy so the secret never enters logger context, while axios

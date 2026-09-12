@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios'
 import type { AuthActions, B24OAuthParams, B24OAuthSecret, CallbackRefreshAuth, CustomRefreshAuth } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
 import type { TypeB24, ApiVersion } from '../types/b24'
@@ -38,6 +39,15 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     oAuthSecret: B24OAuthSecret,
     options?: {
       restrictionParams?: Partial<RestrictionParams>
+      /**
+       * Axios config for both transports, merged over the SDK's own defaults.
+       *
+       * The key this exists for is `adapter`. In a browser the SDK asks for
+       * `fetch`, because axios would otherwise pick XHR by list order; pass
+       * `{ adapter: 'xhr' }` to go back, or name any adapter axios accepts.
+       * Everywhere else nothing is asked for and axios decides.
+       */
+      httpOptions?: AxiosRequestConfig
     }
   ) {
     super()
@@ -48,6 +58,8 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
     )
 
     const warningText = 'The B24OAuth object is intended exclusively for use on the server.\nA webhook contains a secret access key, which MUST NOT be used in client-side code (browser, mobile app).'
+
+    this._httpOptions = options?.httpOptions ?? null
 
     this._httpV2 = new HttpV2(this.#authOAuthManager, this._getHttpOptions(), options?.restrictionParams)
     this._httpV2.setClientSideWarning(true, warningText)

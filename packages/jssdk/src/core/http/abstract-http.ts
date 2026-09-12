@@ -155,6 +155,43 @@ function isCorsEnforcedRuntime(): boolean {
 }
 
 /**
+ * Which axios adapter to ask for, when there is a reason to ask at all.
+ *
+ * Axios walks its default `['xhr', 'http', 'fetch']` and takes the first
+ * supported* entry, so anywhere `XMLHttpRequest` exists — a window, a dedicated
+ * worker, a shared worker — it picks **XHR** and never reaches `fetch`. That is a
+ * 1999 API chosen by ordering rather than by merit: no streaming, no
+ * `AbortSignal` beyond `abort()`, and headers that arrive as one folded string.
+ *
+ * So in a browser-like runtime this asks for `fetch` instead. Everywhere else —
+ * Node, most obviously — nothing is returned and axios decides for itself: there
+ * XHR does not exist, the `http` adapter is already what gets picked, and it is
+ * the better one for that runtime.
+ *
+ * Guarded on `fetch` actually being there rather than on a version check, since
+ * the point is to reach it, not to assert an era.
+ *
+ * **One behaviour moves with it.** The fetch adapter reads `maxRedirects`, as
+ * `redirect: 'manual'`; the XHR adapter ignores it outright. The only branch that
+ * sets it in a browser is the query-auth one below, which exists to stop an
+ * access token following a redirect — so the change is that the guard now bites
+ * where it used to be inert, and a redirecting deployment gets an opaque
+ * `status: 0` instead of a silent hop carrying the credential. That is the
+ * guard doing its job, but it is a change, not a no-op.
+ *
+ * Returned as a spread-able object rather than a value so "no opinion" and
+ * "`undefined` on purpose" stay distinguishable, and placed **before** the
+ * caller's `options` so an explicit `adapter` always wins.
+ */
+function preferredAdapter(): { adapter?: 'fetch' } {
+  if (!isCorsEnforcedRuntime()) {
+    return {}
+  }
+
+  return 'function' === typeof globalThis.fetch ? { adapter: 'fetch' } : {}
+}
+
+/**
  * Abstract base class for all Bitrix24 REST API HTTP transports.
  *
  * Provides shared infrastructure used by {@link HttpV2} and {@link HttpV3}: Axios instance
@@ -215,6 +252,7 @@ export abstract class AbstractHttp implements TypeHttp {
     this._clientAxios = axios.create({
       timeout: 30_000,
       timeoutErrorMessage: 'Request timeout exceeded',
+      ...preferredAdapter(),
       ...(options ?? {}),
       // headers last so the merged default + caller headers aren't wiped by an
       // `options.headers` (or the previous `headers: undefined`) spread (#144).

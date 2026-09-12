@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios'
 import { SdkError } from '../core/sdk-error'
 import type { AuthActions, B24HookParams } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
@@ -34,6 +35,15 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     b24HookParams: B24HookParams,
     options?: {
       restrictionParams?: Partial<RestrictionParams>
+      /**
+       * Axios config for both transports, merged over the SDK's own defaults.
+       *
+       * The key this exists for is `adapter`. In a browser the SDK asks for
+       * `fetch`, because axios would otherwise pick XHR by list order; pass
+       * `{ adapter: 'xhr' }` to go back, or name any adapter axios accepts.
+       * Everywhere else nothing is asked for and axios decides.
+       */
+      httpOptions?: AxiosRequestConfig
     }
   ) {
     super()
@@ -43,6 +53,8 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     )
 
     const warningText = 'The B24Hook object is intended exclusively for use on the server.\nA webhook contains a secret access key, which MUST NOT be used in client-side code (browser, mobile app).'
+
+    this._httpOptions = options?.httpOptions ?? null
 
     this._httpV2 = new HttpV2(this.#authHookManager, this._getHttpOptions(), options?.restrictionParams)
     this._httpV2.setClientSideWarning(true, warningText)

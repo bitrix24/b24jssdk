@@ -179,9 +179,11 @@ export abstract class AbstractB24 implements TypeB24 {
    * entry point that takes no such option from its caller has nothing to add.
    * The entry points that do accept one assign this before building the clients.
    *
-   * Whatever lands here is spread **after** the transport's own defaults, so a
-   * caller wins on any key they name — including `adapter`, which is the reason
-   * this channel is open to callers at all.
+   * Whatever lands here is filtered against the allowlist in `pickHttpOptions`
+   * and then spread **after** the transport's own defaults, so a caller wins on
+   * any key the allowlist accepts — including `adapter`, which is the reason
+   * this channel is open to callers at all. A key outside it is dropped at
+   * construction and its name logged.
    */
   protected _httpOptions: null | TypeHttpOptions = null
 

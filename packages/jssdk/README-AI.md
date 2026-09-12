@@ -84,7 +84,7 @@ Use when your app runs inside Bitrix24 as an iframe placement. The SDK initializ
 
 Minimal contract
 
-- `initializeB24Frame(): Promise<B24Frame>`
+- `initializeB24Frame(options?: { restrictionParams?, httpOptions? }): Promise<B24Frame>` — `httpOptions` is axios config (`adapter` above all: a browser gets `fetch`, `{ adapter: 'xhr' }` goes back) — allowlisted keys only, others are dropped at construction and their names logged; the first call's options win, a later call returns the frame already built
 - `B24Frame.isInit`: boolean (after init)
 - Auth auto-refresh on 401 (expired/invalid token)
 

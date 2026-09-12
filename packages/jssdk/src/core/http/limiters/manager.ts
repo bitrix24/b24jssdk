@@ -366,6 +366,13 @@ export class RestrictionManager {
     // it stays loud; the neighbouring `…ACCESSDENIEDEXCEPTION` is a permission
     // check and stays soft. (#460)
     'BITRIX_REST_V3_EXCEPTION_INSUFFICIENTSCOPEEXCEPTION',
+    // A refused redirect is deterministic: the portal will answer the next
+    // attempt the same way, and every retry re-sends a request carrying an
+    // access token to a host that wants to redirect it. Measured before this
+    // line existed: three POSTs of the token-bearing batch before the error
+    // surfaced, because the code arrives with `status: 0` and so misses the
+    // non-retryable-4xx branch.
+    'JSSDK_HTTP_REDIRECT_BLOCKED',
     'ERROR_MANIFEST_IS_NOT_AVAILABLE',
     'allowed_only_intranet_user',
     'NOT_FOUND',

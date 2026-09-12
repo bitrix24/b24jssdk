@@ -24,6 +24,7 @@ import { AjaxError } from './ajax-error'
 import { parseErrorPayload } from './parse-error-payload'
 import { AjaxResult } from './ajax-result'
 import { redactSensitiveParams } from './redact'
+import { HTTP_OPTION_KEYS, pickHttpOptions } from './http-options'
 import { Type } from '../../tools/type'
 import { Environment, getEnvironment } from '../../tools/environment'
 import { ApiVersion } from '../../types/b24'
@@ -189,6 +190,13 @@ function isCorsEnforcedRuntime(): boolean {
  * "`undefined` on purpose" stay distinguishable, and placed **before** the
  * caller's `options` so an explicit `adapter` always wins.
  */
+/**
+ * Options objects whose dropped keys have already been reported, so the second
+ * transport built from the same object stays quiet. Weak, so nothing here keeps
+ * a caller's config alive.
+ */
+const reportedHttpOptions = new WeakSet<object>()
+
 function preferredAdapter(): { adapter?: 'fetch' } {
   if (!isCorsEnforcedRuntime()) {
     return {}
@@ -255,18 +263,55 @@ export abstract class AbstractHttp implements TypeHttp {
     this._authActions = authActions
     this._requestIdGenerator = new RequestIdGenerator()
 
+    // Filtered rather than spread as given: `TypeHttpOptions` names the keys a
+    // caller may set, but a type cannot enforce that. Excess-property checking
+    // fires only on a direct object literal with no overlapping key, so one
+    // allowed key beside `transformRequest` — or a variable, or a call from
+    // plain JavaScript — used to carry anything straight into axios. See
+    // `pickHttpOptions`, which is also where the key list lives.
+    const { picked: httpOptions, dropped: droppedHttpOptions } = pickHttpOptions(options)
+
     this._clientAxios = axios.create({
       timeout: 30_000,
       timeoutErrorMessage: 'Request timeout exceeded',
       ...preferredAdapter(),
-      ...(options ?? {}),
+      ...httpOptions,
       // headers last so the merged default + caller headers aren't wiped by an
       // `options.headers` (or the previous `headers: undefined`) spread (#144).
+      // Read from `options` rather than from the filtered config: the merge
+      // predates `TypeHttpOptions` and is left as it was. The SDK's own
+      // `Content-Type` is decided per request and beats anything set here
+      // (measured, lowercase spelling included); `Authorization` is per-request
+      // only on the OAuth header branch, so on a webhook an instance header of
+      // that name does reach the wire — which is one more reason the type does
+      // not offer this key.
       headers: {
         ...defaultHeaders,
         ...((options as any)?.headers ?? {})
       }
     })
+
+    // Once per options object, not once per transport: a `B24Hook` builds
+    // `HttpV2` and `HttpV3` from the same object, and two identical warnings
+    // naming neither transport read as a bug in the warning.
+    if (droppedHttpOptions.length > 0 && !reportedHttpOptions.has(options as object)) {
+      reportedHttpOptions.add(options as object)
+
+      // Names only, never values: a `headers` entry a caller tried to set here
+      // can carry an `Authorization` token, and this reaches whatever sink the
+      // app wired up. Forced, because the default logger is silent and a
+      // silently ignored option is the failure this guard exists to prevent.
+      LoggerFactory.forcedLog(
+        this._logger,
+        'warning',
+        'httpOptions: keys not accepted at construction were dropped',
+        {
+          dropped: droppedHttpOptions.join(', '),
+          accepted: HTTP_OPTION_KEYS.join(', '),
+          hint: 'set them on getHttpClient(version).ajaxClient.defaults instead'
+        }
+      ).catch(() => {})
+    }
 
     /**
      * Basic parameters of restrictions
@@ -903,13 +948,31 @@ export abstract class AbstractHttp implements TypeHttp {
     // fetch does not, so without this the caller gets a successful, silently
     // empty answer to a request the SDK deliberately refused to follow.
     //
-    // Scoped to the branch that set `maxRedirects: 0`, so an ordinary status-0
-    // network failure keeps its existing classification.
-    if (0 === effectiveConfig?.maxRedirects && 0 === response.status) {
+    // The **effective** value, not only the per-request one: `maxRedirects` is
+    // an allowed `httpOptions` key, and an instance-level `0` makes every
+    // request `redirect: 'manual'` on the fetch adapter — where the per-request
+    // config is absent, which left a blocked redirect resolving as an empty
+    // success on an ordinary call.
+    //
+    // That scope is wider than the SDK's own branch, and deliberately so: an
+    // opaque response carries nothing to tell a blocked redirect from a dropped
+    // connection, and a request that asked not to follow redirects is better
+    // answered with an error than with a silently empty success. The cost is
+    // that a caller who sets `maxRedirects: 0` themselves puts every status-0
+    // answer in this bucket, retries included — stated in the error text and on
+    // the Http page rather than left to be discovered. A caller who does not set
+    // it is unaffected: the only branch that sets it is a `restApi:v3` batch on
+    // a non-hook transport.
+    const effectiveMaxRedirects = effectiveConfig?.maxRedirects
+      ?? this._clientAxios.defaults.maxRedirects
+
+    if (0 === effectiveMaxRedirects && 0 === response.status) {
       throw new AjaxError({
         code: 'JSSDK_HTTP_REDIRECT_BLOCKED',
-        description: 'The portal answered with a redirect, which this request does not follow: it carries an access token, '
-          + 'and a redirect to a subdomain would take the credential along. Point the SDK at the final URL instead.',
+        description: 'This request does not follow redirects (`maxRedirects: 0`) and the answer carried no status of its own — '
+          + 'which is what a refused redirect looks like on the fetch adapter, and what a dropped connection can look like too. '
+          + 'The SDK sets `maxRedirects: 0` on one request, a `restApi:v3` batch on a non-hook transport, because it carries an '
+          + 'access token a redirect to a subdomain would take along. Point the SDK at the final URL instead.',
         status: 0,
         requestInfo: { method, params, requestId }
       })

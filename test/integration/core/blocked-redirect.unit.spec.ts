@@ -65,6 +65,40 @@ describe('a redirect the SDK refuses to follow', () => {
     expect((error as { code?: string })?.code).toBe('JSSDK_HTTP_REDIRECT_BLOCKED')
   })
 
+  // Deterministic, so it must not be retried: every attempt re-sends a request
+  // carrying an access token to a host that wants to redirect it. Measured
+  // before `JSSDK_HTTP_REDIRECT_BLOCKED` joined the built-in hard codes: three
+  // POSTs, because `status: 0` misses the non-retryable-4xx branch.
+  it('@apiV3 is not retried', async () => {
+    b24 = buildOAuth()
+    const client = b24.getHttpClient(ApiVersion.v3)
+    const post = vi.spyOn(client.ajaxClient, 'post').mockResolvedValue(OPAQUE_REDIRECT as never)
+
+    const error = await client.batch([['user.get', {}]]).catch((e: unknown) => e)
+
+    // Both halves in one case: a count of 1 is also what "the guard never fired"
+    // looks like, so the code is asserted beside it.
+    expect((error as { code?: string })?.code).toBe('JSSDK_HTTP_REDIRECT_BLOCKED')
+    expect(post.mock.calls).toHaveLength(1)
+  })
+
+  // `maxRedirects` is settable at construction as well, and an instance-level
+  // `0` makes every request `redirect: 'manual'` on the fetch adapter — where
+  // the per-request config is absent. Reading only that config left an ordinary
+  // call resolving a blocked redirect as an empty success.
+  it('is caught when maxRedirects was set on the instance instead', async () => {
+    b24 = B24Hook.fromWebhookUrl(
+      'https://example.bitrix24.com/rest/1/secret/',
+      { httpOptions: { maxRedirects: 0 } }
+    )
+    const client = b24.getHttpClient(ApiVersion.v2)
+    vi.spyOn(client.ajaxClient, 'post').mockResolvedValue(OPAQUE_REDIRECT as never)
+
+    const error = await client.call('user.get', {}, 'req-redirect').catch((e: unknown) => e)
+
+    expect((error as { code?: string })?.code).toBe('JSSDK_HTTP_REDIRECT_BLOCKED')
+  })
+
   // The narrow scope matters as much as the check: every other request the SDK
   // makes leaves redirects alone, and a status 0 there means something else
   // entirely — a dropped connection, a blocked request — which must keep

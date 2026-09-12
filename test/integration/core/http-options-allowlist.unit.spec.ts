@@ -17,9 +17,10 @@
  *
  * `*.unit.spec.ts` — no portal required.
  */
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { ApiVersion, B24Hook } from '../../../packages/jssdk/src/'
 import { HTTP_OPTION_KEYS, pickHttpOptions } from '../../../packages/jssdk/src/core/http/http-options'
+import { LoggerFactory } from '../../../packages/jssdk/src/logger'
 
 function buildHook(httpOptions: object): B24Hook {
   return new B24Hook(
@@ -61,15 +62,30 @@ describe('httpOptions drops what it does not accept', () => {
     expect(defaults['timeout']).toBe(5000)
   })
 
-  it('keeps every accepted key', () => {
-    b24 = buildHook({ adapter: 'xhr', timeout: 1234, maxRedirects: 7, decompress: false })
+  // Derived from the list rather than a hand-picked subset of it: a key removed
+  // from `HTTP_OPTION_KEYS` and from the type's literal union in the same edit —
+  // the "deliberate two-file edit" the allowlist is meant to require — would
+  // otherwise stop reaching axios with nothing failing at runtime.
+  const SAMPLE_VALUE: Record<typeof HTTP_OPTION_KEYS[number], unknown> = {
+    adapter: 'xhr',
+    timeout: 1234,
+    timeoutErrorMessage: 'nope',
+    proxy: { host: '10.0.0.1', port: 3128 },
+    httpAgent: { sample: true },
+    httpsAgent: { sample: true },
+    maxRedirects: 7,
+    maxContentLength: 4096,
+    maxBodyLength: 8192,
+    decompress: false,
+    withCredentials: true
+  }
 
-    const defaults = b24.getHttpClient(ApiVersion.v2).ajaxClient.defaults
+  it.each([...HTTP_OPTION_KEYS])('keeps %s', (key) => {
+    b24 = buildHook({ [key]: SAMPLE_VALUE[key] })
 
-    expect(defaults.adapter).toBe('xhr')
-    expect(defaults.timeout).toBe(1234)
-    expect(defaults.maxRedirects).toBe(7)
-    expect(defaults.decompress).toBe(false)
+    const defaults = b24.getHttpClient(ApiVersion.v2).ajaxClient.defaults as Record<string, unknown>
+
+    expect(defaults[key]).toEqual(SAMPLE_VALUE[key])
   })
 
   it('still merges a caller header over the SDK defaults (#144)', () => {
@@ -111,5 +127,44 @@ describe('httpOptions drops what it does not accept', () => {
 
     expect(Object.keys(pickHttpOptions(everyKey).picked)).toEqual([...HTTP_OPTION_KEYS])
     expect(pickHttpOptions(everyKey).dropped).toEqual([])
+  })
+
+  // The reporting half, pinned through the one channel a spec can observe:
+  // `LoggerFactory.forcedLog` returns early under vitest, so the warning itself
+  // is unobservable — but the call, and what it carries, are not.
+  it('warns once, naming the dropped keys and no values', () => {
+    const forced = vi.spyOn(LoggerFactory, 'forcedLog').mockResolvedValue(undefined)
+
+    b24 = buildHook({
+      timeout: 5000,
+      baseURL: 'https://elsewhere.example/',
+      transformRequest: [() => 'SECRET_BODY'],
+      headers: { Authorization: 'Bearer SECRET_TOKEN' }
+    })
+
+    // Once per options object, though a hook builds two transports from it.
+    expect(forced).toHaveBeenCalledTimes(1)
+
+    const [, level, , context] = forced.mock.calls[0]!
+    expect(level).toBe('warning')
+    expect(String((context as { dropped: string }).dropped)).toBe('baseURL, transformRequest')
+
+    // Names only. A `headers` entry a caller tried to set here can carry a
+    // credential, and this reaches whatever sink the app wired up.
+    const serialised = JSON.stringify(context)
+    expect(serialised).not.toContain('SECRET')
+    expect(serialised).not.toContain('elsewhere.example')
+
+    forced.mockRestore()
+  })
+
+  it('stays quiet when only accepted keys and headers are passed', () => {
+    const forced = vi.spyOn(LoggerFactory, 'forcedLog').mockResolvedValue(undefined)
+
+    b24 = buildHook({ timeout: 5000, headers: { Authorization: 'Bearer SECRET_TOKEN' } })
+
+    expect(forced).not.toHaveBeenCalled()
+
+    forced.mockRestore()
   })
 })

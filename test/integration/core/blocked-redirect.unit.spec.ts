@@ -74,8 +74,11 @@ describe('a redirect the SDK refuses to follow', () => {
     const client = b24.getHttpClient(ApiVersion.v3)
     const post = vi.spyOn(client.ajaxClient, 'post').mockResolvedValue(OPAQUE_REDIRECT as never)
 
-    await client.batch([['user.get', {}]]).catch(() => {})
+    const error = await client.batch([['user.get', {}]]).catch((e: unknown) => e)
 
+    // Both halves in one case: a count of 1 is also what "the guard never fired"
+    // looks like, so the code is asserted beside it.
+    expect((error as { code?: string })?.code).toBe('JSSDK_HTTP_REDIRECT_BLOCKED')
     expect(post.mock.calls).toHaveLength(1)
   })
 

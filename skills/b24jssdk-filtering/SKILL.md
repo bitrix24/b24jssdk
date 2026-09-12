@@ -140,6 +140,27 @@ If you need a specific sort order, drop down to `call.make` and page manually �
 - **v2**: object with values `'asc' | 'desc' | 'ASC' | 'DESC'` — `order: { id: 'asc', amount: 'desc' }`.
 - **v3**: object form **only** (`{ field: 'asc' | 'desc' }`). Arrays throw `InvalidOrderException`. The DTO field must carry the server-side `#[Sortable]` attribute, or the request is **refused**: HTTP 400 with `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` and the field name in `validation[].field`. (The specific PHP class is `DtoFieldRequiredAttributeException`, but it inherits that code and gets none of its own, so match on the code and the field — never on the message, which is localised.) `<entity>.field.list` tells you which fields are `sortable` before you send anything.
 
+## A boolean condition needs a JSON body
+
+A boolean in a `filter` survives only if the request body is **JSON**. Sent as
+`application/x-www-form-urlencoded` it arrives as the string `"false"`, the
+condition is dropped, and the call answers with rows it should have excluded —
+no error on either side. Measured on `user.get` / `ACTIVE`: JSON
+`{ ACTIVE: false }` → 0 rows, form-encoded → 1 row.
+
+The SDK states `Content-Type: application/json` on every request, per request, so
+this is handled — with two ways to undo it:
+
+- a **request interceptor** on `getHttpClient(v).ajaxClient` that sets
+  `Content-Type` runs after the SDK's config and changes the encoding;
+- building the same call **by hand** (`curl`, a webhook tester, your own client)
+  and posting form data.
+
+```ts
+// ✅ through the SDK — JSON, so the condition holds
+await $b24.actions.v2.call.make({ method: 'user.get', params: { filter: { ACTIVE: false } } })
+```
+
 ## Dates
 
 Use the SDK helper `Text.toB24Format(date)` — it produces the Bitrix24 format `yyyy-MM-dd'T'HH:mm:ssZZ` and handles `Date | DateTime | string` inputs (see `Text.toB24Format` in `packages/jssdk/src/tools/text.ts`).

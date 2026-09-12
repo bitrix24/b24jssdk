@@ -1,6 +1,6 @@
 import type { LoggerInterface } from '../logger'
 import type { TypeB24 } from '../types/b24'
-import type { TypeHttp } from '../types/http'
+import type { TypeHttp, TypeHttpOptions } from '../types/http'
 import type { AuthActions } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
 import { SdkError } from './sdk-error'
@@ -173,11 +173,25 @@ export abstract class AbstractB24 implements TypeB24 {
   }
 
   /**
-   * Returns settings for http connection
+   * Axios config handed to both transports at construction.
+   *
+   * `null` by default: the transports already choose sensible defaults, and an
+   * entry point that takes no such option from its caller has nothing to add.
+   * The entry points that do accept one assign this before building the clients.
+   *
+   * Whatever lands here is spread **after** the transport's own defaults, so a
+   * caller wins on any key they name — including `adapter`, which is the reason
+   * this channel is open to callers at all.
+   */
+  protected _httpOptions: null | TypeHttpOptions = null
+
+  /**
+   * Settings for the http connection, read once per transport at construction.
+   *
    * @protected
    */
-  protected _getHttpOptions(): null | object {
-    return null
+  protected _getHttpOptions(): null | TypeHttpOptions {
+    return this._httpOptions
   }
 
   /**

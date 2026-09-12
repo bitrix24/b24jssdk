@@ -1,3 +1,4 @@
+import type { TypeHttpOptions } from '../types/http'
 import { SdkError } from '../core/sdk-error'
 import type { AuthActions, B24HookParams } from '../types/auth'
 import type { RestrictionParams } from '../types/limiters'
@@ -34,6 +35,11 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     b24HookParams: B24HookParams,
     options?: {
       restrictionParams?: Partial<RestrictionParams>
+      /**
+       * Axios settings for both transports, merged over the SDK's own defaults.
+       * See {@link TypeHttpOptions} — the key it exists for is `adapter`.
+       */
+      httpOptions?: TypeHttpOptions
     }
   ) {
     super()
@@ -43,6 +49,8 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
     )
 
     const warningText = 'The B24Hook object is intended exclusively for use on the server.\nA webhook contains a secret access key, which MUST NOT be used in client-side code (browser, mobile app).'
+
+    this._httpOptions = options?.httpOptions ?? null
 
     this._httpV2 = new HttpV2(this.#authHookManager, this._getHttpOptions(), options?.restrictionParams)
     this._httpV2.setClientSideWarning(true, warningText)
@@ -101,7 +109,10 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
    * without echoing the URL (which contains the secret).
    *
    * @param url - Full webhook URL as shown in the Bitrix24 admin panel.
-   * @param options - Optional restriction parameters (rate limits, etc.).
+   * @param options - Optional restriction parameters (rate limits, etc.) and
+   *     `httpOptions`, forwarded to the constructor unchanged — this is the
+   *     factory the documentation recommends, so the escape hatch has to be
+   *     reachable from it.
    * @returns A ready-to-use `B24Hook` instance.
    * @throws {SdkError} If the URL is empty (`JSSDK_HOOK_URL_EMPTY`), unparseable
    *     (`JSSDK_HOOK_URL_INVALID`), not HTTPS (`JSSDK_HOOK_URL_NOT_HTTPS`),
@@ -110,7 +121,10 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
    */
   public static fromWebhookUrl(
     url: string,
-    options?: { restrictionParams?: Partial<RestrictionParams> }
+    options?: {
+      restrictionParams?: Partial<RestrictionParams>
+      httpOptions?: TypeHttpOptions
+    }
   ): B24Hook {
     if (!url.trim()) {
       throw new SdkError({ code: 'JSSDK_HOOK_URL_EMPTY', description: 'Webhook URL cannot be empty', status: 0 })

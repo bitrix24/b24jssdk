@@ -111,9 +111,10 @@ describe('Idempotency-Key on restApi:v3 (issue #462)', () => {
       params: { fields: { name: 'audit-v3 idem' } }
     })
 
-    // Not merely "the value is undefined": the whole per-request config must
-    // stay absent, so an ordinary call is byte-for-byte what it was before.
-    expect(postSpy.mock.calls[0]?.[2]).toBeUndefined()
+    // The per-request config is no longer absent — every call now states
+    // `Content-Type: application/json` — so the pin is that it carries *only*
+    // that, and no idempotency header crept in beside it.
+    expect(postSpy.mock.calls[0]?.[2]?.headers).toEqual({ 'Content-Type': 'application/json' })
   })
 
   it('@apiV3 reports a replayed response through `isIdempotentReplay()`', async () => {
@@ -361,13 +362,16 @@ describe('Idempotency-Key on restApi:v3 (issue #462)', () => {
     expect(warning).toHaveBeenCalledTimes(1)
   })
 
-  it('@apiV2 stays on the two-argument post when no key is given', async () => {
+  it('@apiV2 sends nothing but the JSON content type when no key is given', async () => {
     b24 = buildHook()
     const httpClient = b24.getHttpClient(ApiVersion.v2)
     const postSpy = vi.spyOn(httpClient.ajaxClient, 'post').mockResolvedValue(writeResponse())
 
     await httpClient.call('crm.deal.add', {}, 'req-v2-plain')
 
-    expect(postSpy.mock.calls[0]?.[2]).toBeUndefined()
+    // This used to assert the third argument was absent altogether. It is not
+    // any more — the JSON content type is stated on every call rather than
+    // inherited from axios — so what is pinned is that nothing else joined it.
+    expect(postSpy.mock.calls[0]?.[2]?.headers).toEqual({ 'Content-Type': 'application/json' })
   })
 })

@@ -1,3 +1,4 @@
+import type { TypeHttpOptions } from '../types/http'
 import { SdkError } from '../core/sdk-error'
 import type { LoggerInterface } from '../logger'
 import type { B24LangList } from '../core/language/list'
@@ -53,11 +54,17 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
     queryParams: B24FrameQueryParams,
     options?: {
       restrictionParams?: Partial<RestrictionParams>
+      /**
+       * Axios settings for both transports, merged over the SDK's own defaults.
+       * See {@link TypeHttpOptions} — the key it exists for is `adapter`.
+       */
+      httpOptions?: TypeHttpOptions
     }
   ) {
     super()
 
     this.#restrictionParams = options?.restrictionParams
+    this._httpOptions = options?.httpOptions ?? null
 
     this.#appFrame = new AppFrame(queryParams)
 

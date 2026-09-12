@@ -352,6 +352,16 @@ await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { US
 
 Measured on `user.get` with four users: `FILTER: { ID: 4 }` returns all four, `filter: { ID: 4 }` returns one. `SORT` is worse and louder — on `user.get` it makes the walker's own injected `order` fail the method's validation, so the request throws `ERROR_ARGUMENT` / *"Order must be a string"*. All of these are reported with a `warning` (#483), emitted through `LoggerFactory.forcedLog`, so it reaches `console.warn` even with the default logger. This is `restApi:v2` only; v3 has no uppercase contract — its parameters are camelCase and its `filter` is the array form.
 
+## A `filter` boolean needs a JSON body
+
+`false` in a filter is only a boolean while the body is JSON. Form-encoded it is
+the string `"false"` and the portal drops the condition — rows you meant to
+exclude come back, silently. The SDK sends JSON and states the header per
+request, so ordinary calls are fine; a request interceptor installed on
+`getHttpClient(version).ajaxClient` still outranks it, and a call you rebuild by
+hand outside the SDK has to set the content type itself. See the
+`b24jssdk-filtering` skill.
+
 ## `fetchList.make` — large lists, streaming
 
 Async iterator that yields chunks. Same shape as `callList.make` plus an optional `limit` for v3.

@@ -1,3 +1,4 @@
+import type { TypeHttpOptions } from './types/http'
 import type { B24FrameQueryParams } from './types/auth'
 import type { RestrictionParams } from './types/limiters'
 import type { ApiVersion } from './types/b24'
@@ -35,6 +36,7 @@ async function makeFrame(
   options?: {
     version?: ApiVersion
     restrictionParams?: Partial<RestrictionParams>
+    httpOptions?: TypeHttpOptions
   }
 ): Promise<B24Frame> {
   const queryParams = parseFrameQueryParams()
@@ -74,6 +76,16 @@ export async function initializeB24Frame(
   options?: {
     version?: ApiVersion
     restrictionParams?: Partial<RestrictionParams>
+    /**
+     * Axios settings for both transports, merged over the SDK's own defaults —
+     * see {@link TypeHttpOptions}. Forwarded to the `B24Frame` constructor
+     * unchanged: this factory is the documented way to build a frame, so an
+     * option it cannot carry is an option a frame app does not have. The key it
+     * exists for is `adapter`, and a frame app is exactly the audience for it —
+     * a browser is where the SDK asks axios for `fetch`, and
+     * `{ adapter: 'xhr' }` here is the way back.
+     */
+    httpOptions?: TypeHttpOptions
   }
 ): Promise<B24Frame> {
   // Concurrent callers (and calls after a success) share the one promise — a

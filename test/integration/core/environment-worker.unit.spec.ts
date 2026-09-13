@@ -29,7 +29,7 @@ import { ApiVersion, B24Hook } from '../../../packages/jssdk/src/'
 import { Environment, getEnvironment, isBrowserLikeRuntime } from '../../../packages/jssdk/src/tools/environment'
 import { LoggerFactory, LogLevel } from '../../../packages/jssdk/src/logger'
 import { TelegramHandler } from '../../../packages/jssdk/src/logger/handler/telegram-handler'
-import { defineGlobal, installBrowserWorkerGlobals, restoreGlobal } from '../../0_setup/browser-globals'
+import { defineGlobal, hideNodeVersion, installBrowserWorkerGlobals, restoreGlobal } from '../../0_setup/browser-globals'
 
 /** A constructor the current global answers to — a worker scope, minus the Node hiding. */
 function workerScopeStandIn(): unknown {
@@ -146,14 +146,13 @@ describe('a Web Worker is browser-like without being a browser (#505)', () => {
     // case passes without the `instanceof` ever being consulted — which is
     // exactly what it is here to check.
     defineGlobal('WorkerGlobalScope', function NotThisScope() {})
-    const versions = process.versions
-    Object.defineProperty(process, 'versions', { value: {}, configurable: true })
+    const restoreVersions = hideNodeVersion()
 
     try {
       expect(getEnvironment()).toBe(Environment.UNKNOWN)
       expect(isBrowserLikeRuntime()).toBe(false)
     } finally {
-      Object.defineProperty(process, 'versions', { value: versions, configurable: true })
+      restoreVersions()
       restoreGlobal('WorkerGlobalScope')
     }
   })
@@ -162,14 +161,13 @@ describe('a Web Worker is browser-like without being a browser (#505)', () => {
   // which on this path would be a crash where an answer was expected.
   it('survives a WorkerGlobalScope that is not a constructor', () => {
     defineGlobal('WorkerGlobalScope', 42)
-    const versions = process.versions
-    Object.defineProperty(process, 'versions', { value: {}, configurable: true })
+    const restoreVersions = hideNodeVersion()
 
     try {
       expect(() => getEnvironment()).not.toThrow()
       expect(getEnvironment()).toBe(Environment.UNKNOWN)
     } finally {
-      Object.defineProperty(process, 'versions', { value: versions, configurable: true })
+      restoreVersions()
       restoreGlobal('WorkerGlobalScope')
     }
   })
@@ -225,7 +223,7 @@ describe('a Web Worker is browser-like without being a browser (#505)', () => {
     }
   })
 
-  it('warns about a webhook used in a plain browser either', async () => {
+  it('warns about a webhook used in a plain browser too', async () => {
     const forced = vi.spyOn(LoggerFactory, 'forcedLog').mockResolvedValue(undefined)
 
     defineGlobal('window', { document: {} })
@@ -261,16 +259,96 @@ describe('a Web Worker is browser-like without being a browser (#505)', () => {
     defineGlobal('WorkerGlobalScope', WorkerGlobalScope)
     Object.setPrototypeOf(globalThis, DedicatedWorkerGlobalScope.prototype)
 
-    const versions = process.versions
-    Object.defineProperty(process, 'versions', { value: {}, configurable: true })
+    const restoreVersions = hideNodeVersion()
 
     try {
       expect(getEnvironment()).toBe(Environment.WORKER)
       expect(isBrowserLikeRuntime()).toBe(true)
     } finally {
-      Object.defineProperty(process, 'versions', { value: versions, configurable: true })
+      restoreVersions()
       Object.setPrototypeOf(globalThis, original)
       restoreGlobal('WorkerGlobalScope')
+    }
+  })
+
+  // The helper hides `process.versions` and puts it back, and the whole suite
+  // runs serially in one process — so "puts it back" has to mean every attribute,
+  // not just the value. Measured: the value-only form happens to be harmless on
+  // Node 22, because `defineProperty` leaves an existing property's other
+  // attributes alone. This pins the outcome rather than the mechanism, so it
+  // holds if either the helper or that assumption changes.
+  it('leaves process.versions exactly as it found it', () => {
+    const before = Object.getOwnPropertyDescriptor(process, 'versions')
+
+    asWorker(() => {
+      expect(process.versions.node).toBeUndefined()
+    })
+
+    const after = Object.getOwnPropertyDescriptor(process, 'versions')
+
+    expect(after?.enumerable).toBe(before?.enumerable)
+    expect(after?.writable).toBe(before?.writable)
+    expect(after?.configurable).toBe(before?.configurable)
+    expect(after?.value).toBe(before?.value)
+    expect(Object.keys(process)).toContain('versions')
+  })
+
+  // A global that only exists when read — a lazily-defined one — is an accessor,
+  // and an accessor can throw. `getEnvironment()` is called by every transport,
+  // so that would be a crash on a path nobody expects to fail.
+  it('survives a WorkerGlobalScope whose getter throws', () => {
+    const saved = Object.getOwnPropertyDescriptor(globalThis, 'WorkerGlobalScope')
+    Object.defineProperty(globalThis, 'WorkerGlobalScope', {
+      get() {
+        throw new Error('lazy global')
+      },
+      configurable: true
+    })
+    const restoreVersions = hideNodeVersion()
+
+    try {
+      expect(() => getEnvironment()).not.toThrow()
+      expect(getEnvironment()).toBe(Environment.UNKNOWN)
+    } finally {
+      restoreVersions()
+      if (saved) {
+        Object.defineProperty(globalThis, 'WorkerGlobalScope', saved)
+      } else {
+        delete (globalThis as never as Record<string, unknown>)['WorkerGlobalScope']
+      }
+    }
+  })
+
+  // The handler's browser arm is the half its docblock advertises: it warns that
+  // sending would expose the bot token. Only `testConnection()` was pinned, so
+  // reverting `handle()` to a DOM test left the suite green.
+  it('routes handle() through the browser arm in a worker', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      { json: async () => ({ ok: true }) } as never
+    )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const restoreWorker = installBrowserWorkerGlobals()
+
+    try {
+      const handler = new TelegramHandler(LogLevel.ERROR, { botToken: 'BOT_TOKEN_PLACEHOLDER', chatId: 1 })
+
+      const sent = await handler.handle({
+        level: LogLevel.ERROR,
+        message: 'boom',
+        context: {},
+        datetime: new Date(),
+        channel: 'test',
+        extra: {}
+      } as never)
+
+      expect(sent).toBe(false)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(warn.mock.calls.flat().join(' ')).toContain('expose your bot token')
+    } finally {
+      restoreWorker()
+      warn.mockRestore()
+      fetchSpy.mockRestore()
     }
   })
 })

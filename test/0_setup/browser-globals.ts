@@ -26,6 +26,11 @@
  * so a file leaves the process as it found it, and the next file's assumptions
  * about Node's built-ins stay true.
  *
+ * The file has a second job now, on the same principle: standing in for a
+ * **browser worker**, which takes a global (`WorkerGlobalScope`) and one
+ * property of `process` (`versions`). Both are saved and restored by descriptor,
+ * for the reason above.
+ *
  * Exercised directly by
  * `test/integration/pull/pull-globals-descriptor.unit.spec.ts`.
  */
@@ -52,6 +57,43 @@ export function restoreGlobal(name: string): void {
     delete (globalThis as never as Record<string, unknown>)[name]
   }
   savedDescriptors.delete(name)
+}
+
+/**
+ * Hide the Node version for the duration of a test, and put it back **by
+ * descriptor**.
+ *
+ * By descriptor, like everything else here — though for a different reason than
+ * the globals above, and the difference is worth writing down because it is easy
+ * to get backwards. A restore that passes only `{ value, configurable: true }`
+ * would *not* silently make the property non-enumerable: `defineProperty` on an
+ * **existing** property leaves unspecified attributes alone, and the
+ * default-to-`false` rule applies only when creating one. Measured on Node 22:
+ * `process.versions` keeps `enumerable: true, writable: false` through hide and
+ * restore either way.
+ *
+ * The descriptor is saved anyway, because the value-only form is right by
+ * accident rather than by rule: it depends on the property already existing with
+ * the attributes you want back, which is not something a test should have to
+ * know about Node's internals. `jsSdk:unit` runs its files serially in one
+ * process, and a property left in the wrong shape is the #511 class of defect —
+ * cheap to prevent, invisible when it happens.
+ *
+ * @returns the undo, to call from a `finally`.
+ */
+export function hideNodeVersion(): () => void {
+  const saved = Object.getOwnPropertyDescriptor(process, 'versions')
+
+  Object.defineProperty(process, 'versions', { value: {}, configurable: true })
+
+  return () => {
+    if (saved) {
+      Object.defineProperty(process, 'versions', saved)
+      return
+    }
+
+    delete (process as never as Record<string, unknown>)['versions']
+  }
 }
 
 /**
@@ -85,11 +127,10 @@ export function installBrowserWorkerGlobals(): () => void {
 
   defineGlobal('WorkerGlobalScope', WorkerGlobalScope)
 
-  const versions = process.versions
-  Object.defineProperty(process, 'versions', { value: {}, configurable: true })
+  const restoreVersions = hideNodeVersion()
 
   return () => {
-    Object.defineProperty(process, 'versions', { value: versions, configurable: true })
+    restoreVersions()
     restoreGlobal('WorkerGlobalScope')
   }
 }

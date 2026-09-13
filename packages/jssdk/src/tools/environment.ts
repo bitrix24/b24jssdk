@@ -23,18 +23,23 @@ export enum Environment {
  * Is the global object of *this* scope a worker scope?
  *
  * Separate from the enum so the `instanceof` — and the reason it is an
- * `instanceof` rather than a `typeof` — stays readable. Never throws: a global
- * that is not a constructor makes `instanceof` throw a `TypeError`, which a
- * hostile or merely odd runtime could otherwise turn into a crash on import.
+ * `instanceof` rather than a `typeof` — stays readable. Never throws, and that
+ * covers the read as well as the comparison: a global that is not a constructor
+ * makes `instanceof` throw a `TypeError`, and a lazily-defined one is an
+ * accessor that can throw on read. Either would otherwise become a crash on
+ * import, in a function every transport calls.
  */
 function isWorkerGlobalScope(): boolean {
-  const scope = (globalThis as { WorkerGlobalScope?: unknown }).WorkerGlobalScope
-
-  if ('undefined' === typeof scope) {
-    return false
-  }
-
   try {
+    // The read is inside the `try`, not before it: a lazily-defined global is an
+    // accessor, and an accessor can throw. That is the likeliest hostile shape of
+    // the three this guard covers, and it was the one left outside.
+    const scope = (globalThis as { WorkerGlobalScope?: unknown }).WorkerGlobalScope
+
+    if ('undefined' === typeof scope) {
+      return false
+    }
+
     return globalThis instanceof (scope as new () => unknown)
   } catch {
     return false
@@ -47,23 +52,29 @@ export function getEnvironment(): Environment {
     return Environment.BROWSE
   }
 
-  // Node before the worker test, and the order was measured rather than
-  // reasoned. The tempting argument is the other way round — "a bundler that
-  // shims `process` would make a worker look like a server" — but both canonical
-  // shims (`process@0.11.10`, `unenv`) set `process.versions = {}`, so
-  // `process.versions.node` is `undefined` and the Node branch is not reachable
-  // from a shimmed worker anyway. What the order does decide is the runtimes
-  // that genuinely have both: a Deno worker and a Cloudflare Worker with
-  // `nodejs_compat` define `WorkerGlobalScope` *and* report a Node version.
-  // Those are servers, where running a webhook is entirely legitimate, and
-  // calling them browser-like would keep credentials out of headers for no
-  // reason and — worse — warn on every call that a private secret had leaked.
+  // Node before the worker test. This is a trade with a real cost on both sides,
+  // so both are written down.
   //
-  // The residual case runs the other way: a browser worker under a shim that
-  // fakes a `versions.node` string would be read as a server, and an OAuth v3
-  // batch there would ask for a header the portal's preflight refuses. No shim
-  // measured does that, and a worker is not where the SDK's credential-bearing
-  // clients belong in the first place.
+  // What the order buys: the runtimes that report **both** — a Deno worker, and
+  // a Cloudflare Worker with `nodejs_compat` — are servers. Running a webhook
+  // there is entirely legitimate, and calling them browser-like would keep
+  // credentials out of headers for no reason and, worse, warn on every call that
+  // a private secret had leaked. A false security alarm on a correct deployment
+  // is not a cheap failure.
+  //
+  // What it costs: a **browser** worker that reports a Node version is read as a
+  // server. That is not hypothetical — `process@0.11.10` sets
+  // `process.versions = {}`, but `unenv`, the polyfill behind Nitro and Nuxt,
+  // answers `{ node: '22.14.0' }` from a getter and installs itself as
+  // `globalThis.process`. A bundle that pulls it into a worker therefore lands
+  // in this branch. What that costs there is narrow: a `User-Agent` the browser
+  // drops anyway, a missing client-side warning, and — the one that bites — an
+  // `Authorization` header on a `restApi:v3` OAuth batch, which the portal's
+  // preflight refuses. That path is already the one the SDK documents as not
+  // working from a browser.
+  //
+  // Measured both, rather than reasoned: `process@0.11.10/browser.js:160` and
+  // `unenv/dist/runtime/node/internal/process/process.mjs:67`.
   //
   // Check for the presence of process (Node.js)
   if (typeof process !== 'undefined' && process.versions && process.versions.node) {

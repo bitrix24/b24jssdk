@@ -96,7 +96,7 @@ export class TelegramHandler extends AbstractHandler implements Handler {
   protected async _handleInBrowser(_message: string, record: LogRecord): Promise<boolean> {
     if (this.warnInBrowser) {
       const warningMessage
-        = `⚠️ TelegramHandler: Cannot send logs to Telegram from browser environment.\n`
+        = `⚠️ TelegramHandler: Cannot send logs to Telegram from a browser-like environment.\n`
           + `This would expose your bot token. Consider disabling this handler in browser.\n`
           + `Log message: ${record.message}\n`
           + `If you need to send logs from browser, use a proxy server.`

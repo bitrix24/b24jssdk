@@ -288,7 +288,8 @@ const b24 = B24Hook.fromWebhookUrl(
 )
 ```
 
-`adapter` is what it exists for. In a browser the SDK asks axios for `fetch` —
+`adapter` is what it exists for. In a browser — or a worker, which the SDK treats
+alike here — it asks axios for `fetch` —
 left alone, axios walks `['xhr', 'http', 'fetch']` and takes XHR by list order,
 not by merit; outside a browser it asks for nothing. Pass `{ adapter: 'xhr' }` to
 go back, which is also the answer for a `jsdom` suite whose test double stubs

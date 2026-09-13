@@ -130,7 +130,14 @@ export abstract class AbstractInteractionBatch {
       })
     }
 
-    this._warnUnreadCommandKeys(calls)
+    try {
+      this._warnUnreadCommandKeys(calls)
+    } catch {
+      // A diagnostic must not be able to fail a call that would have worked.
+      // Reading a caller's object runs their code: a `Proxy` whose `ownKeys`
+      // throws, or a getter that does, would otherwise escape `addCommands` —
+      // measured, before this guard.
+    }
 
     this._commands = this.processingStrategy.prepareCommands(calls, {
       parallelDefaultValue: this.parallelDefaultValue
@@ -168,10 +175,11 @@ export abstract class AbstractInteractionBatch {
    * `forcedLog`, because the default logger is silent and a caller who has not
    * wired one up is exactly who this is for (#483).
    *
-   * Once per `addCommands`, not once per command: 50 commands built from one bad
-   * template would otherwise be 50 identical console lines, and again for every
-   * `batchByChunk` chunk. The keys are collected across the batch and reported
-   * together, with the command positions that carried them.
+   * Once per `addCommands` — i.e. once per batch **request** — not once per
+   * command: 50 commands built from one bad template would otherwise be 50
+   * identical console lines. The keys are collected across the batch and
+   * reported together, with the positions that carried them. A `batchByChunk`
+   * walk still warns once per chunk, since each chunk is its own request.
    *
    * Own enumerable string keys only, so a key on a prototype, a symbol key, or a
    * non-enumerable one is not seen — and a tuple carrying extra elements is not
@@ -198,7 +206,12 @@ export abstract class AbstractInteractionBatch {
       // way a value can. `local/no-credential-in-logger` cannot see through the
       // string building below, so a later "show the value too, it's friendlier"
       // edit would pass lint — it is a security change and should read as one.
-      const rowUnread = Object.keys(row).filter(key => !READ_COMMAND_KEYS.includes(key))
+      // A key whose value is `undefined` carries nothing and costs nothing — it
+      // is what a spread of a partly-filled template leaves behind.
+      const rowUnread = Object.keys(row).filter(key => (
+        !READ_COMMAND_KEYS.includes(key)
+        && undefined !== (row as unknown as Record<string, unknown>)[key]
+      ))
 
       if (0 === rowUnread.length) {
         continue
@@ -213,8 +226,22 @@ export abstract class AbstractInteractionBatch {
       // `params` nor `query` but some other key does still warn: nothing here
       // tells an argument-less command apart from one whose arguments went
       // astray under a name nobody reads.
-      const hasParams = undefined !== (row as { params?: unknown }).params
-      const namesTheWireKey = rowUnread.includes('query')
+      // "Has arguments" means a non-empty object, not merely "not undefined".
+      // `params: null`, `params: {}` and `params: false` are what a config-driven
+      // builder leaves behind when it initialises the key and then merges the
+      // wrong one — treating those as arguments silenced the very typo this
+      // exists to catch. A **function** is worse than absent: `ParseRow` puts it
+      // in `query`, `JSON.stringify` drops it, and the item reaches the portal
+      // with no `query` at all — which is rejected, taking every sibling command
+      // with it.
+      const params = (row as { params?: unknown }).params
+      const hasParams = null !== params
+        && 'object' === typeof params
+        && Object.keys(params as object).length > 0
+
+      // Case-folded: `Query` and `QUERY` lose the arguments exactly as `query`
+      // does, and a caller translating a reference is as likely to write either.
+      const namesTheWireKey = rowUnread.some(key => 'query' === key.toLowerCase())
 
       if (hasParams && !namesTheWireKey) {
         continue

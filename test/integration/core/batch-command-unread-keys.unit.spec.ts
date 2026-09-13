@@ -277,4 +277,83 @@ describe('a batch command key the parser does not read (#461)', () => {
 
     expect(error?.code).toBe('JSSDK_INTERACTION_BATCH_ROW_FAIL')
   })
+
+  // "Has arguments" is a non-empty object, not merely "not undefined". A
+  // placeholder `params` beside a typo'd key is what a config-driven builder
+  // leaves behind, and treating it as arguments silenced the very mistake this
+  // exists to catch.
+  it.each([
+    ['null', null],
+    ['an empty object', {}],
+    ['false', false],
+    // Worse than absent: `ParseRow` puts it in `query`, `JSON.stringify` drops
+    // it, and the item reaches the portal with no `query` at all — rejected,
+    // taking every sibling command with it.
+    ['a function', () => ({ a: 1 })]
+  ])('warns about a typo\'d key beside params: %s', (_label, params) => {
+    const { calls, restore } = captureWarnings()
+
+    addCommands([{ method: 'user.get', params, parms: { filter: {} } }])
+
+    restore()
+
+    expect((calls()[0]?.[3] as { unread?: string })?.unread).toBe('parms')
+  })
+
+  // A caller translating the portal reference is as likely to write either.
+  it.each(['Query', 'QUERY'])('treats %s as the wire key too', (key) => {
+    const { calls, restore } = captureWarnings()
+
+    addCommands([{ method: 'user.get', params: { filter: {} }, [key]: { a: 1 } }])
+
+    restore()
+
+    expect((calls()[0]?.[3] as { unread?: string })?.unread).toBe(key)
+  })
+
+  // What a spread of a partly-filled template leaves behind: the key is there,
+  // it carries nothing, and nothing was lost.
+  it('stays silent for a key whose value is undefined', () => {
+    const { calls, restore } = captureWarnings()
+
+    addCommands([{ method: 'user.get', params: { filter: {} }, query: undefined }])
+
+    restore()
+
+    expect(calls()).toHaveLength(0)
+  })
+
+  // Reading a caller's object runs the caller's code. A diagnostic must not be
+  // able to fail a call that would have worked.
+  it('never throws out of addCommands', () => {
+    const hostile = new Proxy({ method: 'user.get' }, {
+      ownKeys() {
+        throw new Error('ownKeys')
+      }
+    })
+
+    expect(() => addCommands([hostile])).not.toThrow()
+  })
+
+  // The parse failure is reached by exactly the mistake that carries arguments —
+  // a mistyped `method` beside a populated `params` — and an `SdkError`
+  // description is not redacted. Only the command's shape is described.
+  it('describes the failing command by shape, never by value', () => {
+    const error = (() => {
+      try {
+        ParseRow.getBatchCommand(
+          { methodd: 'user.get', params: { auth: 'SECRET_TOKEN_PLACEHOLDER' } } as never,
+          { parallelDefaultValue: false }
+        )
+        return null
+      } catch (e: unknown) {
+        return e as Error & { code?: string }
+      }
+    })()
+
+    expect(error?.code).toBe('JSSDK_INTERACTION_BATCH_ROW_FAIL')
+    expect(error?.message).not.toContain('SECRET_TOKEN_PLACEHOLDER')
+    // Enough to find the bad command: its keys.
+    expect(error?.message).toContain('methodd')
+  })
 })

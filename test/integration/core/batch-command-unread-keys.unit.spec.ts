@@ -78,7 +78,15 @@ describe('a batch command key the parser does not read (#461)', () => {
     // The context, not the message text: `query` and `params` both appear in the
     // static half of the message, so asserting on those words there passes even
     // when the key list is dropped.
-    expect((context as { unread?: string })?.unread).toBe('query')
+    // The whole context, not one field: `read` is what a reader compares their
+    // own command against, and nothing else would notice it drifting from
+    // `READ_COMMAND_KEYS`.
+    expect(context).toEqual({
+      code: 'JSSDK_BATCH_UNREAD_COMMAND_KEY',
+      unread: 'query',
+      read: 'method, params, as, parallel',
+      commands: '0'
+    })
     expect(String(message)).toContain('params')
 
     // And the command still goes out — warned, not refused. The arguments are

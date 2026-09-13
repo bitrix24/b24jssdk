@@ -26,7 +26,7 @@ import { AjaxResult } from './ajax-result'
 import { redactSensitiveParams } from './redact'
 import { HTTP_OPTION_KEYS, pickHttpOptions } from './http-options'
 import { Type } from '../../tools/type'
-import { Environment, getEnvironment } from '../../tools/environment'
+import { isBrowserLikeRuntime } from '../../tools/environment'
 import { ApiVersion } from '../../types/b24'
 import { SdkError } from '../sdk-error'
 
@@ -131,28 +131,19 @@ export type TypePrepareParams = TypeCallParams & {
 /**
  * Does this runtime apply CORS to an outbound request?
  *
- * Deliberately not `isServerSide()`, which asks a different question and answers
- * this one wrongly. That predicate is `getEnvironment() !== BROWSE`, and
- * `getEnvironment()` recognises a browser by `window.document` — which a Web
- * Worker, a Shared Worker and a Service Worker do not have. All three would be
- * read as "server", while CORS applies in them exactly as it does on the main
- * thread. `WorkerGlobalScope` is the global the HTML specification gives all
- * three, and nothing else.
+ * One question, one predicate: {@link isBrowserLikeRuntime}, which is true for a
+ * browser and for all three worker kinds. This wrapper exists so the call sites
+ * below read as the question they are actually asking — a credential decision —
+ * rather than as a runtime check whose relevance the reader has to reconstruct.
  *
- * Being wrong in the two directions costs very different things, which is why
- * the test is shaped to fail towards "yes". A false **yes** in a runtime without
- * CORS — an edge worker that happens to define the global — leaves that runtime
- * exactly where it is today: the credential stays in the body and the portal
- * answers a visible 400. A false **no** in a browser context asks for a header
- * the portal's preflight does not allow, and the request never leaves at all,
- * which is an opaque network error after the retry budget burns.
+ * It used to probe `WorkerGlobalScope` here, beside a `getEnvironment()` that
+ * called a worker a server. Two near-identical predicates invited exactly the
+ * "simplification" that would have reopened the worker case, in a code path
+ * whose failure mode is a request that never leaves the browser (#505). The
+ * worker now has a name of its own, and this is a rename of that name.
  */
 function isCorsEnforcedRuntime(): boolean {
-  if (getEnvironment() === Environment.BROWSE) {
-    return true
-  }
-
-  return 'undefined' !== typeof (globalThis as { WorkerGlobalScope?: unknown }).WorkerGlobalScope
+  return isBrowserLikeRuntime()
 }
 
 /**
@@ -198,7 +189,11 @@ function isCorsEnforcedRuntime(): boolean {
 const reportedHttpOptions = new WeakSet<object>()
 
 function preferredAdapter(): { adapter?: 'fetch' } {
-  if (!isCorsEnforcedRuntime()) {
+  // `isBrowserLikeRuntime`, not `isCorsEnforcedRuntime`: the two are the same
+  // predicate today, and this is not a credential decision — it asks which
+  // adapter belongs in this runtime. Naming the question it asks is what keeps
+  // the two free to diverge.
+  if (!isBrowserLikeRuntime()) {
     return {}
   }
 
@@ -770,11 +765,11 @@ export abstract class AbstractHttp implements TypeHttp {
     //    path as a server and nothing else here needs to change.
     //
     // Case 3 asks about CORS rather than about "is this a server", because those
-    // are not the same question and `isServerSide()` answers the wrong one: it is
-    // `getEnvironment() !== BROWSE`, and `getEnvironment()` recognises a browser
-    // by `window.document`, which a Web Worker does not have. A worker would be
-    // read as a server and get the header — in a context where CORS applies
-    // exactly as it does on the main thread. See {@link isCorsEnforcedRuntime}.
+    // are not the same question. Both are answered by `isBrowserLikeRuntime()`,
+    // which counts a worker as browser-like: a worker has no `window.document`,
+    // so the older DOM test read it as a server and would have given it the
+    // header — in a context where CORS applies exactly as it does on the main
+    // thread. See {@link isCorsEnforcedRuntime}.
     //
     // The webhook case is not conditioned on any of this: it adds no header, so
     // there is no preflight to fail. Its body does change shape everywhere,
@@ -1207,7 +1202,7 @@ export abstract class AbstractHttp implements TypeHttp {
    * @protected
    */
   protected isServerSide(): boolean {
-    return (getEnvironment() !== Environment.BROWSE)
+    return !isBrowserLikeRuntime()
   }
 
   /**

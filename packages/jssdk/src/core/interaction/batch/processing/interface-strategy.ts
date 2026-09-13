@@ -1,5 +1,4 @@
 import type { BatchCommandV3, ICallBatchResult } from '../../../../types/http'
-import type { LoggerInterface } from '../../../../types/logger'
 import type { BatchResponsePayload } from '../abstract-interaction-batch'
 import type { AjaxResult } from '../../../http/ajax-result'
 import type { RestrictionManager } from '../../../http/limiters/manager'
@@ -9,11 +8,6 @@ import { AjaxError } from '../../../http/ajax-error'
 export type GetCommandsOptions = {
   // @memo this regeneration `isHaltOnError` -> !isHaltOnError
   parallelDefaultValue: boolean
-  /**
-   * The transport's logger, so `ParseRow` can warn about a command key it does
-   * not read. Optional: a strategy built by hand in a test has nothing to say.
-   */
-  logger?: LoggerInterface
 }
 
 export type ResponseHelper<T> = {

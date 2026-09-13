@@ -138,8 +138,8 @@ describe('action option types', () => {
 
   // #461 — `query` is the portal's name for a command's arguments, and the name
   // in every `curl` example; the SDK's key is `params` and it translates. A
-  // command written with `query` loses its arguments, and the portal then
-  // answers about the very key the caller wrote. The compiler catches a fresh
+  // command written with `query` loses its arguments: it goes out with an empty
+  // `query` and the portal answers with the method's defaults. The compiler catches a fresh
   // literal; the runtime warning in `batch-command-unread-keys.unit.spec.ts`
   // covers everyone else.
   it('reject a batch command whose arguments are spelled `query`', () => {

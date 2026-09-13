@@ -5,79 +5,22 @@ import type {
   CommandObject,
   CommandTuple
 } from '../../../types/http'
-import type { LoggerInterface } from '../../../types/logger'
 import { SdkError } from '../../sdk-error'
-import { LoggerFactory } from '../../../logger'
-
-/**
- * The keys `getBatchCommand` reads off a command object. Anything else a caller
- * put there is ignored, and the one that matters is `query`: it is the name the
- * portal's own reference uses for a command's arguments, so a caller reading
- * that reference — or translating a `curl` example — reaches for it naturally.
- */
-const READ_COMMAND_KEYS: readonly string[] = ['method', 'params', 'as', 'parallel']
 
 /**
  * Class for formatting/parsing a set of Batch commands
  */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class ParseRow {
-  /**
-   * Warns when a command object carries a key this parser does not read.
-   *
-   * `query` is the reason it exists. The portal's reference calls a command's
-   * arguments `query`, and so does every `curl` example; the SDK's own key is
-   * `params`, and it does the translation. Write `query` and the command runs with no arguments at all: the portal accepts it — the SDK
-   * sends `query: {}`, which satisfies the per-item rule — and answers with
-   * whatever the method returns by default. Measured on `main.eventlog.list`:
-   * `params: { select: ['id'], pagination: { limit: 2 } }` returns two rows of
-   * one field; the same spelled `query` returns full records at the default page
-   * size, HTTP 200, no error anywhere.
-   *
-   * So there is nothing to notice: no error, no empty result, just more data
-   * than was asked for. A filter written that way is a wrong answer, not a
-   * failure.
-   *
-   * TypeScript catches a fresh object literal and nothing more: assign the same
-   * literal to a variable first, or build the commands from a config object, a
-   * `JSON.parse`, or plain JavaScript, and the compiler never sees it. Same hole
-   * `_warnMisplacedOptions` was written for (#426).
-   *
-   * Warn rather than throw, for the same reason as #426: the call still does
-   * something, and breaking a running integration over a misplaced key is the
-   * worse outcome. Through `forcedLog`, because the default logger is silent and
-   * a caller who has not wired one up is exactly the caller this is for (#483).
-   */
-  protected static _warnUnreadCommandKeys(row: object, logger?: LoggerInterface): void {
-    const unread = Object.keys(row).filter(key => !READ_COMMAND_KEYS.includes(key))
-
-    if (0 === unread.length) {
-      return
-    }
-
-    LoggerFactory.forcedLog(
-      logger ?? LoggerFactory.createNullLogger(),
-      'warning',
-      `[b24jssdk] batch command: ${unread.join(', ')} `
-      + `${1 === unread.length ? 'is' : 'are'} ignored — `
-      + 'a command\'s arguments go in `params`, which the SDK sends to the portal as `query`. '
-      + `Write \`params: { … }\`.`,
-      { unread: unread.join(', '), read: READ_COMMAND_KEYS.join(', ') }
-    ).catch(() => {})
-  }
-
   public static getBatchCommand(
     row: CommandObject | CommandTuple,
     options: {
       parallelDefaultValue: boolean
       asDefaultValue?: string
-      logger?: LoggerInterface
     }
   ): BatchCommandV3 {
     if (row) {
       if (typeof row === 'object' && 'method' in row && typeof row.method === 'string') {
-        ParseRow._warnUnreadCommandKeys(row, options.logger)
-
         return {
           method: row.method,
           // `?? {}` because `params` is optional on both command shapes while
@@ -104,10 +47,18 @@ export class ParseRow {
       }
     }
 
+    // Destructured rather than serialised whole: an `SdkError` description is
+    // NOT run through `redactSensitiveParams` (AGENTS.md), so whatever ends up
+    // in `options` travels into logs and failure reports unscrubbed. Today that
+    // is two booleans-and-a-string; naming them keeps it that way, and an
+    // earlier revision of this change that put the caller's `logger` in here
+    // proved the hazard is not hypothetical.
+    const { parallelDefaultValue, asDefaultValue } = options
+
     throw new SdkError({
       code: 'JSSDK_INTERACTION_BATCH_ROW_FAIL',
       description: `There were difficulties parsing the command for batch.\n${JSON.stringify({
-        row, options
+        row, options: { parallelDefaultValue, asDefaultValue }
       })}`,
       status: 500
     })

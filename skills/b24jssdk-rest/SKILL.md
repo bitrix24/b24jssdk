@@ -206,13 +206,19 @@ On the wire a v3 batch item is `{ method, query, as, parallel }` — `query` is 
 portal's name for the arguments, and what its reference and every `curl` example
 show. The SDK's key is **`params`**, and it does the translation.
 
+A `v2` batch loses them the same way by a different route: there the arguments
+are serialised into the `cmd` querystring from `params`, so a command written
+with `query` goes out as `method?` with nothing after it. Measured on `user.get`:
+`params: { filter: { ACTIVE: 'N' } }` returns no rows, the same spelled `query`
+returns the active users the filter was meant to exclude.
+
 ```ts
 // ✅
 await $b24.actions.v3.batch.make({ calls: [{ method: 'main.eventlog.list', params: { select: ['id'] } }] })
 
 // ❌ arguments read by nobody — the command goes out with an empty `query`, which
-// the portal accepts: HTTP 200, every row, no `select`, no error. A wrong answer,
-// not a failure. Measured on main.eventlog.list.
+// the portal accepts: HTTP 200, full records at the default page size, no
+// `select`, no error. A wrong answer, not a failure. Measured on main.eventlog.list.
 await $b24.actions.v3.batch.make({ calls: [{ method: 'main.eventlog.list', query: { select: ['id'] } } as never] })
 ```
 

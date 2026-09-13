@@ -140,8 +140,17 @@ export interface ICallBatchResult<T = unknown> {
   time?: PayloadTime
 }
 
+/**
+ * Wire shape of one batch command. Built by the SDK from {@link CommandObject};
+ * a caller never writes it.
+ */
 export type BatchCommandV3 = {
   method: string
+  /**
+   * The command's arguments as the portal names them. Built from
+   * `CommandObject.params` — on `restApi:v3` it is sent under this name, on
+   * `restApi:v2` it is serialised into the `cmd` querystring instead.
+   */
   query?: Record<string, unknown>
   as?: string
   parallel?: boolean
@@ -151,6 +160,13 @@ export type CommandTuple<M extends string = string, P = undefined | TypeCallPara
 /**
  * Object form of a batch command. The `as`, `parallel`, and `params.cursor` / `params.pagination`
  * fields are supported in API v3 only; `params.start` is the v2 equivalent for offset pagination.
+ *
+ * **`params` is the only key read for a command's arguments.** The portal's v3
+ * reference calls them `query`, and the SDK writes that wire name for you — so a
+ * command written with `query` loses its arguments silently: it goes out empty,
+ * the portal answers HTTP 200, and the result is whatever the method returns by
+ * default. TypeScript catches a fresh object literal; for everyone else the SDK
+ * warns at run time (#461).
  */
 export interface CommandObject<M extends string = string, P = undefined | TypeCallParams> { method: M, params?: P, as?: string, parallel?: boolean }
 export type CommandUniversal<M extends string = string, P = undefined | TypeCallParams>

@@ -53,3 +53,43 @@ export function restoreGlobal(name: string): void {
   }
   savedDescriptors.delete(name)
 }
+
+/**
+ * Make this process look like a **browser** worker for the duration of a test.
+ *
+ * Two globals decide it, and both matter:
+ *
+ *   - `globalThis instanceof WorkerGlobalScope` — the SDK asks whether this
+ *     scope *is* a worker scope, not whether the constructor exists, so the
+ *     stand-in answers through `Symbol.hasInstance` rather than by pretending to
+ *     be a prototype;
+ *   - no Node version. That is what separates a browser worker from a Deno
+ *     worker or a Cloudflare Worker, which report one and are servers —
+ *     `getEnvironment()` tests Node first for exactly that reason. This suite
+ *     runs under a real Node, so modelling the browser case means hiding it.
+ *
+ * Shared rather than re-invented per spec: written the short way (define the
+ * global and nothing else) a test claims to describe a browser worker and
+ * describes a Deno one.
+ *
+ * @returns the undo, to call from a `finally`.
+ */
+export function installBrowserWorkerGlobals(): () => void {
+  const WorkerGlobalScope = function WorkerGlobalScope() {} as unknown as {
+    [Symbol.hasInstance](value: unknown): boolean
+  }
+
+  Object.defineProperty(WorkerGlobalScope, Symbol.hasInstance, {
+    value: (value: unknown) => value === globalThis
+  })
+
+  defineGlobal('WorkerGlobalScope', WorkerGlobalScope)
+
+  const versions = process.versions
+  Object.defineProperty(process, 'versions', { value: {}, configurable: true })
+
+  return () => {
+    Object.defineProperty(process, 'versions', { value: versions, configurable: true })
+    restoreGlobal('WorkerGlobalScope')
+  }
+}

@@ -1197,7 +1197,10 @@ export abstract class AbstractHttp implements TypeHttp {
 
   // region Tools ////
   /**
-   * Tests whether the code is executed on the client side
+   * Tests whether the code is running outside a browser-like runtime — that is,
+   * on a server. The inverse of {@link isBrowserLikeRuntime}, and a worker is
+   * **not** server-side: it has no DOM, but the browser's rules apply to it.
+   *
    * @return {boolean}
    * @protected
    */

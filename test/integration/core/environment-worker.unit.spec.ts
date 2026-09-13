@@ -27,15 +27,23 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { ApiVersion, B24Hook } from '../../../packages/jssdk/src/'
 import { Environment, getEnvironment, isBrowserLikeRuntime } from '../../../packages/jssdk/src/tools/environment'
-import { LoggerFactory } from '../../../packages/jssdk/src/logger'
-import { defineGlobal, restoreGlobal } from '../../0_setup/browser-globals'
+import { LoggerFactory, LogLevel } from '../../../packages/jssdk/src/logger'
+import { TelegramHandler } from '../../../packages/jssdk/src/logger/handler/telegram-handler'
+import { defineGlobal, installBrowserWorkerGlobals, restoreGlobal } from '../../0_setup/browser-globals'
+
+/** A constructor the current global answers to — a worker scope, minus the Node hiding. */
+function workerScopeStandIn(): unknown {
+  const scope = function WorkerGlobalScope() {}
+  Object.defineProperty(scope, Symbol.hasInstance, { value: (value: unknown) => value === globalThis })
+  return scope
+}
 
 function asWorker<T>(run: () => T): T {
-  defineGlobal('WorkerGlobalScope', function WorkerGlobalScope() {})
+  const restore = installBrowserWorkerGlobals()
   try {
     return run()
   } finally {
-    restoreGlobal('WorkerGlobalScope')
+    restore()
   }
 }
 
@@ -59,12 +67,30 @@ describe('a Web Worker is browser-like without being a browser (#505)', () => {
     expect(isBrowserLikeRuntime()).toBe(false)
   })
 
-  // A worker's globals win over a `process` shim a bundler may have injected:
-  // being wrong in that direction is what the member exists to prevent.
-  it('prefers WORKER over the Node branch', () => {
+  // The ordering, measured rather than reasoned. A runtime that reports a Node
+  // version is a server even when it models itself on the Worker API — a Deno
+  // worker and a Cloudflare Worker with `nodejs_compat` define both — and
+  // calling those browser-like would warn, on every call, that a private secret
+  // had leaked. A browser worker has no `process` at all, and the two canonical
+  // shims set `process.versions = {}`, so neither reaches this branch.
+  it('reports NODE, not WORKER, where a real Node version is present', () => {
+    defineGlobal('WorkerGlobalScope', workerScopeStandIn())
+
+    try {
+      expect(process.versions.node).toBeTruthy()
+      expect(getEnvironment()).toBe(Environment.NODE)
+      expect(isBrowserLikeRuntime()).toBe(false)
+    } finally {
+      restoreGlobal('WorkerGlobalScope')
+    }
+  })
+
+  // And with no Node version — a browser worker, shimmed or not — the worker
+  // branch is what answers.
+  it('reports WORKER where there is no Node version', () => {
     asWorker(() => {
-      expect(typeof process).toBe('object')
       expect(getEnvironment()).toBe(Environment.WORKER)
+      expect(isBrowserLikeRuntime()).toBe(true)
     })
   })
 
@@ -92,7 +118,7 @@ describe('a Web Worker is browser-like without being a browser (#505)', () => {
     // Installed for the whole call rather than around a callback: the check runs
     // after the rate limiter awaits, so a scope that ends synchronously would be
     // gone by the time it is consulted.
-    defineGlobal('WorkerGlobalScope', function WorkerGlobalScope() {})
+    const restoreWorker = installBrowserWorkerGlobals()
 
     try {
       const b24 = B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/secret/')
@@ -105,10 +131,146 @@ describe('a Web Worker is browser-like without being a browser (#505)', () => {
 
       b24.destroy()
     } finally {
-      restoreGlobal('WorkerGlobalScope')
+      restoreWorker()
     }
 
     const messages = forced.mock.calls.map(call => String(call[2]))
     expect(messages.some(message => message.includes('exclusively for use on the server'))).toBe(true)
+  })
+
+  // The precision the `instanceof` buys: a runtime that merely knows the name —
+  // an edge runtime modelled on the Worker API, say — is not a worker, and must
+  // not be told its secrets are public.
+  it('is not fooled by a runtime that only defines the constructor', () => {
+    // The Node version is hidden, or the branch above answers first and this
+    // case passes without the `instanceof` ever being consulted — which is
+    // exactly what it is here to check.
+    defineGlobal('WorkerGlobalScope', function NotThisScope() {})
+    const versions = process.versions
+    Object.defineProperty(process, 'versions', { value: {}, configurable: true })
+
+    try {
+      expect(getEnvironment()).toBe(Environment.UNKNOWN)
+      expect(isBrowserLikeRuntime()).toBe(false)
+    } finally {
+      Object.defineProperty(process, 'versions', { value: versions, configurable: true })
+      restoreGlobal('WorkerGlobalScope')
+    }
+  })
+
+  // A global that is not a constructor at all would make `instanceof` throw,
+  // which on this path would be a crash where an answer was expected.
+  it('survives a WorkerGlobalScope that is not a constructor', () => {
+    defineGlobal('WorkerGlobalScope', 42)
+    const versions = process.versions
+    Object.defineProperty(process, 'versions', { value: {}, configurable: true })
+
+    try {
+      expect(() => getEnvironment()).not.toThrow()
+      expect(getEnvironment()).toBe(Environment.UNKNOWN)
+    } finally {
+      Object.defineProperty(process, 'versions', { value: versions, configurable: true })
+      restoreGlobal('WorkerGlobalScope')
+    }
+  })
+
+  // The Telegram handler puts the bot token in the request URL, so it refuses to
+  // run anywhere the code is public. A worker used to miss that: it fell through
+  // to "unknown environment" and `testConnection()` would have contacted
+  // Telegram from a scope anyone can read.
+  it('keeps the Telegram bot token off the network in a worker', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      { json: async () => ({ ok: true }) } as never
+    )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const restoreWorker = installBrowserWorkerGlobals()
+
+    try {
+      const handler = new TelegramHandler(LogLevel.ERROR, { botToken: 'BOT_TOKEN_PLACEHOLDER', chatId: 1 })
+
+      await expect(handler.testConnection()).resolves.toBe(false)
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      restoreWorker()
+      warn.mockRestore()
+      fetchSpy.mockRestore()
+    }
+
+    // And on a server it still does its job.
+    const handler = new TelegramHandler(LogLevel.ERROR, { botToken: 'BOT_TOKEN_PLACEHOLDER', chatId: 1 })
+    const serverFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      { json: async () => ({ ok: true }) } as never
+    )
+    await expect(handler.testConnection()).resolves.toBe(true)
+    expect(serverFetch).toHaveBeenCalledOnce()
+    serverFetch.mockRestore()
+  })
+
+  // The plain, DOM-having browser — the case the two guards were written for —
+  // had no test at all: every existing one pins the worker, and a mutation that
+  // broke only the ordinary browser's answer went unnoticed. Both outcomes must
+  // hold there too, for the same reason and by the same predicate.
+  it('does not set the User-Agent header in a plain browser either', () => {
+    defineGlobal('window', { document: {} })
+
+    try {
+      const b24 = B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/secret/')
+      const headers = b24.getHttpClient(ApiVersion.v2).ajaxClient.defaults.headers
+      b24.destroy()
+
+      expect(headers['User-Agent']).toBeUndefined()
+    } finally {
+      restoreGlobal('window')
+    }
+  })
+
+  it('warns about a webhook used in a plain browser either', async () => {
+    const forced = vi.spyOn(LoggerFactory, 'forcedLog').mockResolvedValue(undefined)
+
+    defineGlobal('window', { document: {} })
+
+    try {
+      const b24 = B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/secret/')
+      const client = b24.getHttpClient(ApiVersion.v2)
+      vi.spyOn(client.ajaxClient, 'post').mockResolvedValue({
+        status: 200, statusText: 'OK', headers: {}, config: {} as never, data: { result: [], time: {} }
+      } as never)
+
+      await client.call('user.get', {}, 'req-505')
+
+      b24.destroy()
+    } finally {
+      restoreGlobal('window')
+    }
+
+    const messages = forced.mock.calls.map(call => String(call[2]))
+    expect(messages.some(message => message.includes('exclusively for use on the server'))).toBe(true)
+  })
+
+  // Every real worker is detected *by* prototype chain; the shared helper models
+  // the answer rather than the mechanism, so this case models the mechanism —
+  // a global whose prototype chain genuinely reaches `WorkerGlobalScope`, the
+  // way the specification builds one.
+  it('detects a scope whose prototype chain really reaches WorkerGlobalScope', () => {
+    const WorkerGlobalScope = function WorkerGlobalScope() {} as unknown as { prototype: object }
+    const DedicatedWorkerGlobalScope = function DedicatedWorkerGlobalScope() {} as unknown as { prototype: object }
+    Object.setPrototypeOf(DedicatedWorkerGlobalScope.prototype, WorkerGlobalScope.prototype)
+
+    const original = Object.getPrototypeOf(globalThis) as object
+    defineGlobal('WorkerGlobalScope', WorkerGlobalScope)
+    Object.setPrototypeOf(globalThis, DedicatedWorkerGlobalScope.prototype)
+
+    const versions = process.versions
+    Object.defineProperty(process, 'versions', { value: {}, configurable: true })
+
+    try {
+      expect(getEnvironment()).toBe(Environment.WORKER)
+      expect(isBrowserLikeRuntime()).toBe(true)
+    } finally {
+      Object.defineProperty(process, 'versions', { value: versions, configurable: true })
+      Object.setPrototypeOf(globalThis, original)
+      restoreGlobal('WorkerGlobalScope')
+    }
   })
 })

@@ -2,7 +2,7 @@ import type { Handler, HandlerOptions, LogRecord } from '../../types/logger'
 import { LogLevel } from '../../types/logger'
 import { AbstractHandler } from './abstract-handler'
 import { TelegramFormatter } from '../formatter'
-import { Environment, getEnvironment } from '../../tools/environment'
+import { Environment, getEnvironment, isBrowserLikeRuntime } from '../../tools/environment'
 
 export interface TelegramHandlerOptions extends HandlerOptions {
   botToken: string
@@ -18,8 +18,13 @@ export interface TelegramHandlerOptions extends HandlerOptions {
  * Telegram Handler
  *
  * Sends logs to Telegram chat.
- * The browser displays a warning in the console.
  * In Node.js, sends a message via the Telegram Bot API.
+ *
+ * In a **browser-like** runtime — the main thread or any Web, Shared or Service
+ * Worker — it sends nothing and warns in the console instead: the request would
+ * carry the bot token, and code in either scope is equally readable. A worker
+ * used to miss that warning, because it was read as an unrecognised environment
+ * rather than as browser-like (#505).
  */
 export class TelegramHandler extends AbstractHandler implements Handler {
   protected botToken: string
@@ -28,6 +33,8 @@ export class TelegramHandler extends AbstractHandler implements Handler {
   protected disableNotification: boolean
   protected disableWebPagePreview: boolean
   protected readonly environment: Environment
+  /** Captured beside {@link environment}: does the browser's rulebook apply here? */
+  protected readonly isBrowserLike: boolean
   protected warnInBrowser: boolean
 
   constructor(
@@ -50,6 +57,7 @@ export class TelegramHandler extends AbstractHandler implements Handler {
     this.disableNotification = options.disableNotification || false
     this.disableWebPagePreview = options.disableWebPagePreview || true
     this.environment = getEnvironment()
+    this.isBrowserLike = isBrowserLikeRuntime()
     this.warnInBrowser = options.warnInBrowser !== false // By default, we warn you in the browser
 
     // Set the default formatter
@@ -68,8 +76,11 @@ export class TelegramHandler extends AbstractHandler implements Handler {
 
     const message = formatter.format(record)
 
-    // Depending on the environment, we process it differently.
-    if (this.environment === Environment.BROWSE) {
+    // Depending on the environment, we process it differently. The browser
+    // branch is keyed on `isBrowserLikeRuntime()` rather than on `BROWSE`: a
+    // worker has no DOM but is just as public, and its console is where the
+    // token warning belongs.
+    if (this.isBrowserLike) {
       return this._handleInBrowser(message, record)
     } else if (this.environment === Environment.NODE) {
       return this._handleInNode(message, record)
@@ -171,8 +182,11 @@ export class TelegramHandler extends AbstractHandler implements Handler {
    * Check if the Telegram API is available
    */
   public async testConnection(): Promise<boolean> {
-    if (this.environment === 'browser') {
-      console.warn('TelegramHandler: Cannot test connection in browser environment')
+    if (this.isBrowserLike) {
+      // Not merely a courtesy: the request below puts the bot token in a URL, so
+      // running it from a browser or a worker hands the token to the network
+      // from code anyone can read.
+      console.warn('TelegramHandler: Cannot test connection in a browser-like environment')
       return false
     }
 

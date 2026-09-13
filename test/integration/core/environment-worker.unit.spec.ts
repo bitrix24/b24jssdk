@@ -351,4 +351,60 @@ describe('a Web Worker is browser-like without being a browser (#505)', () => {
       fetchSpy.mockRestore()
     }
   })
+
+  // The counterweight: without it, "sends nothing in a worker" is also satisfied
+  // by a handler that sends nowhere at all.
+  it('still posts to Telegram from a server', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      { json: async () => ({ ok: true }) } as never
+    )
+
+    try {
+      const handler = new TelegramHandler(LogLevel.ERROR, { botToken: 'BOT_TOKEN_PLACEHOLDER', chatId: 1 })
+
+      await handler.handle({
+        level: LogLevel.ERROR,
+        message: 'boom',
+        context: {},
+        datetime: new Date(),
+        channel: 'test',
+        extra: {}
+      } as never)
+
+      expect(fetchSpy).toHaveBeenCalledOnce()
+      expect(String(fetchSpy.mock.calls[0]?.[0])).toContain('api.telegram.org')
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  // `window` without a `document` is not a browser — a bare `window` shim is a
+  // thing bundlers do, and the DOM is what `BROWSE` claims to mean.
+  it('does not call a window without a document a browser', () => {
+    defineGlobal('window', {})
+    const restoreVersions = hideNodeVersion()
+
+    try {
+      expect(getEnvironment()).toBe(Environment.UNKNOWN)
+      expect(isBrowserLikeRuntime()).toBe(false)
+    } finally {
+      restoreVersions()
+      restoreGlobal('window')
+    }
+  })
+
+  // …and the realistic shape of that shim: a bare `window` inside a worker. The
+  // worker branch is what must answer, not the browser one.
+  it('reports WORKER for a bare window shim inside a worker', () => {
+    defineGlobal('window', {})
+    const restoreWorker = installBrowserWorkerGlobals()
+
+    try {
+      expect(getEnvironment()).toBe(Environment.WORKER)
+      expect(isBrowserLikeRuntime()).toBe(true)
+    } finally {
+      restoreWorker()
+      restoreGlobal('window')
+    }
+  })
 })

@@ -67,11 +67,16 @@ export function getEnvironment(): Environment {
   // `process.versions = {}`, but `unenv`, the polyfill behind Nitro and Nuxt,
   // answers `{ node: '22.14.0' }` from a getter and installs itself as
   // `globalThis.process`. A bundle that pulls it into a worker therefore lands
-  // in this branch. What that costs there is narrow: a `User-Agent` the browser
-  // drops anyway, a missing client-side warning, and — the one that bites — an
-  // `Authorization` header on a `restApi:v3` OAuth batch, which the portal's
-  // preflight refuses. That path is already the one the SDK documents as not
-  // working from a browser.
+  // in this branch. What that costs there, worst first: `TelegramHandler` would
+  // send, putting the bot token in a URL from code anyone can read — the only
+  // item on this list where a secret leaves the machine. Then an `Authorization`
+  // header on a `restApi:v3` OAuth batch, which the portal's preflight refuses —
+  // a path already documented as not working from a browser. Then a missing
+  // client-side warning, and a `User-Agent` the browser drops anyway.
+  //
+  // The handler is the one that matters, and detection cannot be its only
+  // defence: its own page says not to register it in code that ships to a
+  // browser or a worker, precisely because a runtime can lie about which it is.
   //
   // Measured both, rather than reasoned: `process@0.11.10/browser.js:160` and
   // `unenv/dist/runtime/node/internal/process/process.mjs:67`.

@@ -41,6 +41,13 @@ It is read-only.
 | `b24jssdk-helpers` | `initB24Helper` over a webhook loads Profile + Currency; `currency.format` uses the portal's own rules (the formatted value is printed) |
 | `b24jssdk-vibecode` | the SDK-side calls the skill documents succeed |
 
+**Measured by hand, not part of `skills:verify`:** a batch command whose arguments
+are spelled `query` returns the method's defaults rather than the selected fields
+— checked on both versions (`main.eventlog.list` on `restApi:v3`, `user.get` on
+`restApi:v2`). The SDK-side half of that claim is pinned portal-free in
+`test/integration/core/batch-command-unread-keys.unit.spec.ts`, which the
+`jsSdk:unit` project runs; nothing in `test/integration/skills/` covers it.
+
 ### The one question this run is expected to answer: does any shipped module expose `*.aggregate` yet?
 
 **The contract itself is no longer in question.** It was measured against a

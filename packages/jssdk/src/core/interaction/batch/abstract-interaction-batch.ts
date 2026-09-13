@@ -11,7 +11,17 @@ import type { Result } from '../../result'
 import type { AjaxResult } from '../../http/ajax-result'
 import type { NumberString } from '../../../types/common'
 import type { TypeDescriptionError } from '../../../types/auth'
+import type { LoggerInterface } from '../../../types/logger'
 import { SdkError } from '../../sdk-error'
+import { LoggerFactory } from '../../../logger'
+
+/**
+ * The keys a batch command object is read for. Anything else a caller put there
+ * is ignored, and the one that matters is `query`: on `restApi:v3` that is the
+ * portal's own wire name for a command's arguments, so a caller reading the
+ * portal reference — or translating a `curl` example — reaches for it naturally.
+ */
+const READ_COMMAND_KEYS: readonly string[] = ['method', 'params', 'as', 'parallel']
 
 export interface BatchResponseData<T = unknown> {
   readonly result?: T[] | Record<string | number, T>
@@ -60,6 +70,8 @@ export type InteractionBatchOptions = Required<Omit<ICallBatchOptions, 'isHaltOn
   parallelDefaultValue: boolean
   restrictionManager: RestrictionManager
   processingStrategy?: IProcessingStrategy
+  /** The transport's logger, used by {@link AbstractInteractionBatch._warnUnreadCommandKeys}. */
+  logger?: LoggerInterface
 }
 
 export type ResponseHelper = {
@@ -76,6 +88,7 @@ export abstract class AbstractInteractionBatch {
   protected parallelDefaultValue: boolean
   protected requestId: string
   protected restrictionManager: RestrictionManager
+  protected logger?: LoggerInterface
   // @memo this regeneration -> isObjectMode
   protected processingStrategy?: IProcessingStrategy
 
@@ -86,6 +99,7 @@ export abstract class AbstractInteractionBatch {
     this.requestId = options.requestId
     this.restrictionManager = options.restrictionManager
     this.processingStrategy = options.processingStrategy
+    this.logger = options.logger
   }
 
   // region Setter Strategy ////
@@ -116,9 +130,152 @@ export abstract class AbstractInteractionBatch {
       })
     }
 
+    try {
+      this._warnUnreadCommandKeys(calls)
+    } catch {
+      // A diagnostic must not be able to fail a call that would have worked.
+      // Reading a caller's object runs their code: a `Proxy` whose `ownKeys`
+      // throws, or a getter that does, would otherwise escape `addCommands` —
+      // measured, before this guard.
+    }
+
     this._commands = this.processingStrategy.prepareCommands(calls, {
       parallelDefaultValue: this.parallelDefaultValue
     })
+  }
+
+  /**
+   * Warns, once per `addCommands`, when a batch command lost its arguments to a
+   * key the parser does not read — a command with no `params`, or one naming
+   * `query`. A key beside a populated `params` is left alone.
+   *
+   * `query` is the reason this exists. On `restApi:v3` the portal's own
+   * reference calls a command's arguments `query`, and so does every `curl`
+   * example; the SDK's key is `params`, and it writes the wire name for you.
+   * Write `query` yourself and the arguments are read by nobody — the command
+   * goes out with an empty `query`, which the portal **accepts**. Measured on
+   * `main.eventlog.list` with `select: ['id']` and `pagination: { limit: 2 }`:
+   * under `params` the portal answered 2 rows of 1 field, the same request
+   * spelled `query` answered 50 rows of 13 fields — the whole default page, with
+   * the `select` and the limit both gone. HTTP 200 either way, no error
+   * anywhere.
+   *
+   * `restApi:v2` loses them just as quietly by a different route: there the
+   * arguments are serialised into the `cmd` querystring from `params`, so the
+   * command goes out as `method?` with nothing after it. Measured on `user.get`
+   * with `filter: { ACTIVE: 'N' }`, against a portal whose only user is active:
+   * under `params` the portal answered 0 rows — the filter worked — and the same
+   * request spelled `query` answered 1 row, the user the filter was meant to
+   * exclude.
+   *
+   * So there is nothing to notice on either version: no error, no empty result,
+   * just an answer to a question nobody asked.
+   *
+   * TypeScript catches a fresh object literal and nothing more — assign it to a
+   * variable first, or build the commands from a config object, a `JSON.parse`,
+   * or plain JavaScript, and the compiler never sees it. Same hole
+   * `_warnMisplacedOptions` was written for (#426), and the same trade: warn
+   * rather than throw, because the call still does something. Through
+   * `forcedLog`, because the default logger is silent and a caller who has not
+   * wired one up is exactly who this is for (#483).
+   *
+   * Once per `addCommands` — i.e. once per batch **request** — not once per
+   * command: 50 commands built from one bad template would otherwise be 50
+   * identical console lines. The keys are collected across the batch and
+   * reported together, with the positions that carried them. A `batchByChunk`
+   * walk still warns once per chunk, since each chunk is its own request.
+   *
+   * Own enumerable string keys only, so a key on a prototype, a symbol key, or a
+   * non-enumerable one is not seen — and a tuple carrying extra elements is not
+   * checked at all. All are the quiet direction: this exists to catch the
+   * ordinary mistake, not to validate every shape a caller can build.
+   *
+   * `forcedLog` reaches the console only while the app has wired no logger of
+   * its own. One that filters by level may drop this, like every other SDK
+   * warning.
+   */
+  protected _warnUnreadCommandKeys(
+    calls: BatchCommandsArrayUniversal | BatchCommandsObjectUniversal | BatchNamedCommandsUniversal
+  ): void {
+    const unread = new Set<string>()
+    const positions: string[] = []
+
+    for (const [index, row] of Object.entries(calls)) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) {
+        continue
+      }
+
+      // `Object.keys`, never `Object.values`, and that is load-bearing: what
+      // reaches the message is key NAMES, which cannot carry a credential the
+      // way a value can. `local/no-credential-in-logger` cannot see through the
+      // string building below, so a later "show the value too, it's friendlier"
+      // edit would pass lint — it is a security change and should read as one.
+      // A key whose value is `undefined` carries nothing and costs nothing — it
+      // is what a spread of a partly-filled template leaves behind.
+      const rowUnread = Object.keys(row).filter(key => (
+        !READ_COMMAND_KEYS.includes(key)
+        && undefined !== (row as unknown as Record<string, unknown>)[key]
+      ))
+
+      if (0 === rowUnread.length) {
+        continue
+      }
+
+      // Narrow on purpose: an unread key is only worth saying something about
+      // when the arguments are actually missing, or when it is `query` — the one
+      // name that is never right here. A caller who carries their own `id`,
+      // `label` or `_meta` beside a populated `params` has lost nothing, and
+      // warning them on every command of every batch, with advice to move it
+      // into `params`, would be both noise and wrong. A command carrying neither
+      // `params` nor `query` but some other key does still warn: nothing here
+      // tells an argument-less command apart from one whose arguments went
+      // astray under a name nobody reads.
+      // "Has arguments" means a non-empty object, not merely "not undefined".
+      // `params: null`, `params: {}` and `params: false` are what a config-driven
+      // builder leaves behind when it initialises the key and then merges the
+      // wrong one — treating those as arguments silenced the very typo this
+      // exists to catch. A **function** is worse than absent: `ParseRow` puts it
+      // in `query`, `JSON.stringify` drops it, and the item reaches the portal
+      // with no `query` at all — which is rejected, taking every sibling command
+      // with it.
+      const params = (row as { params?: unknown }).params
+      const hasParams = null !== params
+        && 'object' === typeof params
+        && Object.keys(params as object).length > 0
+
+      // Case-folded: `Query` and `QUERY` lose the arguments exactly as `query`
+      // does, and a caller translating a reference is as likely to write either.
+      const namesTheWireKey = rowUnread.some(key => 'query' === key.toLowerCase())
+
+      if (hasParams && !namesTheWireKey) {
+        continue
+      }
+
+      rowUnread.forEach(key => unread.add(key))
+      positions.push(index)
+    }
+
+    if (0 === unread.size) {
+      return
+    }
+
+    const keys = [...unread]
+
+    LoggerFactory.forcedLog(
+      this.logger ?? LoggerFactory.createNullLogger(),
+      'warning',
+      `[b24jssdk] batch command: ${keys.join(', ')} `
+      + `${1 === keys.length ? 'is' : 'are'} ignored — `
+      + 'a command\'s arguments go in `params`. Write `params: { … }`. '
+      + '(`query` is the portal\'s own wire spelling on `restApi:v3`, which the SDK writes for you; '
+      + 'on `restApi:v2` the arguments are serialised into the `cmd` querystring instead.)',
+      {
+        code: 'JSSDK_BATCH_UNREAD_COMMAND_KEY',
+        unread: keys.join(', '),
+        read: READ_COMMAND_KEYS.join(', '),
+        commands: positions.join(', ')
+      }
+    ).catch(() => {})
   }
 
   public getCommandsForCall(): unknown {

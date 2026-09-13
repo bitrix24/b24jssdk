@@ -88,6 +88,7 @@ describe('a batch command key the parser does not read (#461)', () => {
       commands: '0'
     })
     expect(String(message)).toContain('params')
+    expect(String(message)).toContain('is ignored')
 
     // And the command still goes out — warned, not refused. The arguments are
     // gone, which is the whole point of saying something.
@@ -166,6 +167,9 @@ describe('a batch command key the parser does not read (#461)', () => {
     const message = String(calls()[0]?.[2])
     expect(message).toContain('parms')
     expect(message).toContain('halt')
+    // Two keys, so the sentence agrees — the conditional is dead weight if
+    // nothing ever reads it.
+    expect(message).toContain('are ignored')
   })
 
   it('stays silent for the documented form', () => {
@@ -212,7 +216,7 @@ describe('a batch command key the parser does not read (#461)', () => {
       } as never)
 
       // A logger of this client's own, so the assertion below can tell the
-      // transport's logger from the null logger `ParseRow` falls back to —
+      // transport's logger from the null logger the check falls back to —
       // without it, cutting the plumbing at any point still "passes", because
       // the warning is emitted either way, just into nothing.
       const logger = LoggerFactory.createNullLogger()
@@ -355,5 +359,38 @@ describe('a batch command key the parser does not read (#461)', () => {
     expect(error?.message).not.toContain('SECRET_TOKEN_PLACEHOLDER')
     // Enough to find the bad command: its keys.
     expect(error?.message).toContain('methodd')
+  })
+
+  // With `params` populated the narrowing short-circuits before the key list is
+  // consulted, so the documented-form case above cannot pin `READ_COMMAND_KEYS`:
+  // `as`, `parallel` and `method` could all be dropped from it with nothing
+  // going red. This command has no arguments, so the list is what decides.
+  it('stays silent for the read keys when there are no arguments', () => {
+    const { calls, restore } = captureWarnings()
+
+    addCommands([{ method: 'rest.scope.list', as: 'first', parallel: true }])
+
+    restore()
+
+    expect(calls()).toHaveLength(0)
+  })
+
+  // A caller's config object graph is a realistic circular value, and it arrives
+  // in `row`. Describing the command by shape rather than serialising it means
+  // the parse failure survives one.
+  it('survives a self-referential command', () => {
+    const circular: Record<string, unknown> = { notAMethod: 1 }
+    circular['self'] = circular
+
+    const error = (() => {
+      try {
+        ParseRow.getBatchCommand(circular as never, { parallelDefaultValue: false })
+        return null
+      } catch (e: unknown) {
+        return e as { code?: string }
+      }
+    })()
+
+    expect(error?.code).toBe('JSSDK_INTERACTION_BATCH_ROW_FAIL')
   })
 })

@@ -40,6 +40,7 @@ import type { ActionFetchTailV3 } from '../../../packages/jssdk/src/core/actions
 import type { ActionAggregateV3 } from '../../../packages/jssdk/src/core/actions/v3/aggregate'
 import type { ActionBatchByChunkV2 } from '../../../packages/jssdk/src/core/actions/v2/batch-by-chunk'
 import type { ActionBatchByChunkV3 } from '../../../packages/jssdk/src/core/actions/v3/batch-by-chunk'
+import type { BatchCommandsObjectUniversal, BatchNamedCommandsUniversal } from '../../../packages/jssdk/src/'
 
 const CALLS = { a: ['server.time', {}] } as never
 
@@ -133,6 +134,34 @@ describe('action option types', () => {
     }
 
     expect([callV3, listV3, fetchV2, fetchV3, tailV3, fetchTailV3, aggV3, chunkV2, chunkV3]).toHaveLength(9)
+  })
+
+  // #461 — `query` is the portal's name for a command's arguments, and the name
+  // in every `curl` example; the SDK's key is `params` and it translates. A
+  // command written with `query` loses its arguments, and the portal then
+  // answers about the very key the caller wrote. The compiler catches a fresh
+  // literal; the runtime warning in `batch-command-unread-keys.unit.spec.ts`
+  // covers everyone else.
+  it('reject a batch command whose arguments are spelled `query`', () => {
+    const asArray: BatchCommandsObjectUniversal = [
+      {
+        method: 'main.eventlog.list',
+        // @ts-expect-error the SDK's key is `params`; `query` is the wire
+        // spelling and is read by nobody here (#461).
+        query: { select: ['id'] }
+      }
+    ]
+
+    const asNamed: BatchNamedCommandsUniversal = {
+      first: {
+        method: 'main.eventlog.list',
+        // @ts-expect-error same in the named form.
+        query: { select: ['id'] }
+      }
+    }
+
+    expect(asArray).toHaveLength(1)
+    expect(asNamed.first).toBeDefined()
   })
 
   it('still accept every documented shape', () => {

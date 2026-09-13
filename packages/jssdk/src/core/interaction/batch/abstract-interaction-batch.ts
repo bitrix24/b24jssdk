@@ -11,6 +11,7 @@ import type { Result } from '../../result'
 import type { AjaxResult } from '../../http/ajax-result'
 import type { NumberString } from '../../../types/common'
 import type { TypeDescriptionError } from '../../../types/auth'
+import type { LoggerInterface } from '../../../types/logger'
 import { SdkError } from '../../sdk-error'
 
 export interface BatchResponseData<T = unknown> {
@@ -60,6 +61,8 @@ export type InteractionBatchOptions = Required<Omit<ICallBatchOptions, 'isHaltOn
   parallelDefaultValue: boolean
   restrictionManager: RestrictionManager
   processingStrategy?: IProcessingStrategy
+  /** The transport's logger, forwarded to `ParseRow` for its command-key warning. */
+  logger?: LoggerInterface
 }
 
 export type ResponseHelper = {
@@ -76,6 +79,7 @@ export abstract class AbstractInteractionBatch {
   protected parallelDefaultValue: boolean
   protected requestId: string
   protected restrictionManager: RestrictionManager
+  protected logger?: LoggerInterface
   // @memo this regeneration -> isObjectMode
   protected processingStrategy?: IProcessingStrategy
 
@@ -86,6 +90,7 @@ export abstract class AbstractInteractionBatch {
     this.requestId = options.requestId
     this.restrictionManager = options.restrictionManager
     this.processingStrategy = options.processingStrategy
+    this.logger = options.logger
   }
 
   // region Setter Strategy ////
@@ -117,7 +122,8 @@ export abstract class AbstractInteractionBatch {
     }
 
     this._commands = this.processingStrategy.prepareCommands(calls, {
-      parallelDefaultValue: this.parallelDefaultValue
+      parallelDefaultValue: this.parallelDefaultValue,
+      logger: this.logger
     })
   }
 

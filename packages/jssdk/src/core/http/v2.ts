@@ -78,7 +78,8 @@ export class HttpV2 extends AbstractHttp implements TypeHttp {
     const interactionBatch = new InteractionBatchV2({
       requestId,
       parallelDefaultValue: !(opts.isHaltOnError),
-      restrictionManager: this._restrictionManager
+      restrictionManager: this._restrictionManager,
+      logger: this.getLogger()
     })
 
     if (Array.isArray(calls)) {

@@ -200,6 +200,26 @@ for (const r of results) {
 }
 ```
 
+## A command's arguments go in `params`, never `query`
+
+On the wire a v3 batch item is `{ method, query, as, parallel }` — `query` is the
+portal's name for the arguments, and what its reference and every `curl` example
+show. The SDK's key is **`params`**, and it does the translation.
+
+```ts
+// ✅
+await $b24.actions.v3.batch.make({ calls: [{ method: 'main.eventlog.list', params: { select: ['id'] } }] })
+
+// ❌ arguments read by nobody — the command goes out with an empty `query`, which
+// the portal accepts: HTTP 200, every row, no `select`, no error. A wrong answer,
+// not a failure. Measured on main.eventlog.list.
+await $b24.actions.v3.batch.make({ calls: [{ method: 'main.eventlog.list', query: { select: ['id'] } } as never] })
+```
+
+A fresh object literal is a compile error. A literal assigned to a variable
+first, or commands built from a config object, a `JSON.parse`, or plain
+JavaScript, is not — the SDK warns at run time instead, naming the ignored key.
+
 ## `batch.make` — named object form
 
 ```ts

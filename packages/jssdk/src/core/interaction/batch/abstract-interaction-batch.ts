@@ -154,15 +154,19 @@ export abstract class AbstractInteractionBatch {
    * example; the SDK's key is `params`, and it writes the wire name for you.
    * Write `query` yourself and the arguments are read by nobody — the command
    * goes out with an empty `query`, which the portal **accepts**. Measured on
-   * `main.eventlog.list`: `params: { select: ['id'], pagination: { limit: 2 } }`
-   * returns two rows of one field, the same spelled `query` returns full records
-   * at the default page size. HTTP 200, no error anywhere.
+   * `main.eventlog.list` with `select: ['id']` and `pagination: { limit: 2 }`:
+   * under `params` the portal answered 2 rows of 1 field, the same request
+   * spelled `query` answered 50 rows of 13 fields — the whole default page, with
+   * the `select` and the limit both gone. HTTP 200 either way, no error
+   * anywhere.
    *
    * `restApi:v2` loses them just as quietly by a different route: there the
    * arguments are serialised into the `cmd` querystring from `params`, so the
-   * command goes out as `method?` with nothing after it. Measured on `user.get`:
-   * `params: { filter: { ACTIVE: 'N' } }` returns no rows, the same spelled
-   * `query` returns the active users the filter was meant to exclude.
+   * command goes out as `method?` with nothing after it. Measured on `user.get`
+   * with `filter: { ACTIVE: 'N' }`, against a portal whose only user is active:
+   * under `params` the portal answered 0 rows — the filter worked — and the same
+   * request spelled `query` answered 1 row, the user the filter was meant to
+   * exclude.
    *
    * So there is nothing to notice on either version: no error, no empty result,
    * just an answer to a question nobody asked.

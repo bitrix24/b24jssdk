@@ -208,24 +208,27 @@ show. The SDK's key is **`params`**, and it does the translation.
 
 A `v2` batch loses them the same way by a different route: there the arguments
 are serialised into the `cmd` querystring from `params`, so a command written
-with `query` goes out as `method?` with nothing after it. Measured on `user.get`:
-`params: { filter: { ACTIVE: 'N' } }` returns no rows, the same spelled `query`
-returns the active users the filter was meant to exclude.
+with `query` goes out as `method?` with nothing after it. Measured on `user.get` with
+`filter: { ACTIVE: 'N' }`, against a portal whose only user is active: under
+`params` the portal answered 0 rows — the filter worked — and the same request
+spelled `query` answered 1 row, the active user the filter was meant to
+exclude.
 
 ```ts
 // ✅
 await $b24.actions.v3.batch.make({ calls: [{ method: 'main.eventlog.list', params: { select: ['id'] } }] })
 
 // ❌ arguments read by nobody — the command goes out with an empty `query`, which
-// the portal accepts: HTTP 200, full records at the default page size, no
-// `select`, no error. A wrong answer, not a failure. Measured on main.eventlog.list.
+// the portal accepts. Measured on main.eventlog.list with select+limit: 2 rows of
+// 1 field under `params`, 50 rows of 13 fields spelled `query` — the whole
+// default page, HTTP 200, no error. A wrong answer, not a failure.
 await $b24.actions.v3.batch.make({ calls: [{ method: 'main.eventlog.list', query: { select: ['id'] } } as never] })
 ```
 
 A fresh object literal is a compile error. A literal assigned to a variable
 first, or commands built from a config object, a `JSON.parse`, or plain
-JavaScript, is not — the SDK warns at run time instead, once per call, naming the
-ignored keys and the commands that carried them. It warns only where the
+JavaScript, is not — the SDK warns at run time instead, one line per batch
+request, naming the ignored keys and the commands that carried them. It warns only where the
 arguments were actually lost: a command with no `params`, or one naming `query`.
 Your own `id` or `label` beside a populated `params` is left alone.
 

@@ -70,7 +70,7 @@ export type InteractionBatchOptions = Required<Omit<ICallBatchOptions, 'isHaltOn
   parallelDefaultValue: boolean
   restrictionManager: RestrictionManager
   processingStrategy?: IProcessingStrategy
-  /** The transport's logger, forwarded to `ParseRow` for its command-key warning. */
+  /** The transport's logger, used by {@link AbstractInteractionBatch._warnUnreadCommandKeys}. */
   logger?: LoggerInterface
 }
 
@@ -138,7 +138,9 @@ export abstract class AbstractInteractionBatch {
   }
 
   /**
-   * Warns when a command carries a key the parser does not read.
+   * Warns, once per `addCommands`, when a batch command lost its arguments to a
+   * key the parser does not read — a command with no `params`, or one naming
+   * `query`. A key beside a populated `params` is left alone.
    *
    * `query` is the reason this exists. On `restApi:v3` the portal's own
    * reference calls a command's arguments `query`, and so does every `curl`
@@ -207,7 +209,10 @@ export abstract class AbstractInteractionBatch {
       // name that is never right here. A caller who carries their own `id`,
       // `label` or `_meta` beside a populated `params` has lost nothing, and
       // warning them on every command of every batch, with advice to move it
-      // into `params`, would be both noise and wrong.
+      // into `params`, would be both noise and wrong. A command carrying neither
+      // `params` nor `query` but some other key does still warn: nothing here
+      // tells an argument-less command apart from one whose arguments went
+      // astray under a name nobody reads.
       const hasParams = undefined !== (row as { params?: unknown }).params
       const namesTheWireKey = rowUnread.includes('query')
 

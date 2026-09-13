@@ -224,7 +224,10 @@ await $b24.actions.v3.batch.make({ calls: [{ method: 'main.eventlog.list', query
 
 A fresh object literal is a compile error. A literal assigned to a variable
 first, or commands built from a config object, a `JSON.parse`, or plain
-JavaScript, is not — the SDK warns at run time instead, naming the ignored key.
+JavaScript, is not — the SDK warns at run time instead, once per call, naming the
+ignored keys and the commands that carried them. It warns only where the
+arguments were actually lost: a command with no `params`, or one naming `query`.
+Your own `id` or `label` beside a populated `params` is left alone.
 
 ## `batch.make` — named object form
 

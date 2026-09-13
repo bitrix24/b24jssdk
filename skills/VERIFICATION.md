@@ -36,10 +36,17 @@ It is read-only.
 | Skill | Verified |
 | --- | --- |
 | `b24jssdk-core` | boot snippet reaches the portal; an unknown method is a **soft** error on the `Result`, not a throw; the operating-budget fields the skill documents are present |
-| `b24jssdk-rest` | `actions.v2.batch` (one result per command), `v2.callList`, `v2.fetchList` (chunked), `v3.call`, `v3.callList` on `tasks.task.list` **without** a `cursorIdKey` override — the claim in the skill's table; a non-v3 method fails softly rather than throwing; **`v3.aggregate` availability asked of the portal in one call** and reported, not asserted — see below; **a batch command whose arguments are spelled `query` returns the method's defaults rather than the selected fields** — measured on both versions (`main.eventlog.list` on v3, `user.get` on v2), and pinned portal-free in `test/integration/core/batch-command-unread-keys.unit.spec.ts` |
+| `b24jssdk-rest` | `actions.v2.batch` (one result per command), `v2.callList`, `v2.fetchList` (chunked), `v3.call`, `v3.callList` on `tasks.task.list` **without** a `cursorIdKey` override — the claim in the skill's table; a non-v3 method fails softly rather than throwing; **`v3.aggregate` availability asked of the portal in one call** and reported, not asserted — see below |
 | `b24jssdk-filtering` | a v2 prefix-keyed filter actually narrows rows; a v3 array-of-triples filter is accepted; `callList` **strips a caller-supplied `order`** — asks for `DESC`, asserts the rows come back ascending |
 | `b24jssdk-helpers` | `initB24Helper` over a webhook loads Profile + Currency; `currency.format` uses the portal's own rules (the formatted value is printed) |
 | `b24jssdk-vibecode` | the SDK-side calls the skill documents succeed |
+
+**Measured by hand, not part of `skills:verify`:** a batch command whose arguments
+are spelled `query` returns the method's defaults rather than the selected fields
+— checked on both versions (`main.eventlog.list` on `restApi:v3`, `user.get` on
+`restApi:v2`). The SDK-side half of that claim is pinned portal-free in
+`test/integration/core/batch-command-unread-keys.unit.spec.ts`, which the
+`jsSdk:unit` project runs; nothing in `test/integration/skills/` covers it.
 
 ### The one question this run is expected to answer: does any shipped module expose `*.aggregate` yet?
 

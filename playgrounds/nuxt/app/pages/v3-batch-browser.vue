@@ -4,7 +4,8 @@
  *
  * A `restApi:v3` batch sends its commands **as** the request body — a bare
  * array, no envelope, nowhere inside for a credential. On a server the SDK puts
- * the token in an `Authorization: Bearer` header. A browser cannot: the portal
+ * the token in an `Authorization: Bearer` header. A browser cannot — nor a
+ * worker, which the SDK treats alike here: the portal
  * answers the CORS preflight with
  * `Access-Control-Allow-Headers: origin, content-type, accept`, so that header
  * would fail the preflight and the request would never leave. So in a browser

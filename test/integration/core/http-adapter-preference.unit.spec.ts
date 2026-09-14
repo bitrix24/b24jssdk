@@ -14,7 +14,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { ApiVersion, B24Frame, B24Hook } from '../../../packages/jssdk/src/'
 import { B24OAuth } from '../../../packages/jssdk/src/oauth/b24'
 import type { TypeB24 } from '../../../packages/jssdk/src/'
-import { defineGlobal, restoreGlobal } from '../../0_setup/browser-globals'
+import { defineGlobal, installBrowserWorkerGlobals, restoreGlobal } from '../../0_setup/browser-globals'
 
 const AXIOS_DEFAULT_ORDER = ['xhr', 'http', 'fetch']
 
@@ -30,21 +30,17 @@ function buildHook(options?: { httpOptions?: { adapter?: string } }): B24Hook {
 }
 
 /**
- * `isCorsEnforcedRuntime()` reads `WorkerGlobalScope` as well as the browser
- * environment, and a worker is the branch reachable from Node — no `window` or
- * `document` has to be invented for it.
+ * A browser worker is the browser-like branch reachable from Node — no `window`
+ * or `document` has to be invented for it. The helper also hides the Node
+ * version, because `getEnvironment()` tests Node first: a stand-in that only
+ * defines the global describes a Deno worker, which is a server.
  */
 function asBrowserLikeRuntime(run: () => void): void {
-  const saved = (globalThis as { WorkerGlobalScope?: unknown }).WorkerGlobalScope
-  ;(globalThis as { WorkerGlobalScope?: unknown }).WorkerGlobalScope = function () {}
+  const restore = installBrowserWorkerGlobals()
   try {
     run()
   } finally {
-    if (undefined === saved) {
-      delete (globalThis as { WorkerGlobalScope?: unknown }).WorkerGlobalScope
-    } else {
-      ;(globalThis as { WorkerGlobalScope?: unknown }).WorkerGlobalScope = saved
-    }
+    restore()
   }
 }
 

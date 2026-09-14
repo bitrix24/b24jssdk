@@ -288,7 +288,8 @@ const b24 = B24Hook.fromWebhookUrl(
 )
 ```
 
-`adapter` is what it exists for. In a browser the SDK asks axios for `fetch` —
+`adapter` is what it exists for. In a browser — or a worker, which the SDK treats
+alike here — it asks axios for `fetch` —
 left alone, axios walks `['xhr', 'http', 'fetch']` and takes XHR by list order,
 not by merit; outside a browser it asks for nothing. Pass `{ adapter: 'xhr' }` to
 go back, which is also the answer for a `jsdom` suite whose test double stubs
@@ -335,7 +336,7 @@ When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth in
 - [ ] **Verify `application_token` for outbound webhooks.** Compare `payload.auth?.application_token` against the value from your Bitrix24 dev console (typically supplied via env var). On mismatch — log and ignore. Without this, any caller that knows the URL can replay arbitrary events.
 - [ ] **Verify `application_token` against persisted credentials on uninstall.** On `ONAPPUNINSTALL`, look up the stored creds for the incoming `member_id`, compare `application_token`, and only delete on match. Without this, anyone who reaches `/uninstall` can erase credentials for any portal whose `member_id` they guess.
 - [ ] **Persist refreshed OAuth tokens.** Always call `setCallbackRefreshAuth` on every `B24OAuth` instance to write fresh tokens back to your store. The next cold start expects them.
-- [ ] **Keep `B24Hook` server-side.** It bundles a long-lived secret, and nothing in the SDK stops that secret reaching a browser bundle — keeping it out is the application's job. The client-side warning is a smoke alarm, not a guard: it fires only in a browser (`_checkClientSideWarning` returns early when `isServerSide()`), so on Node there is nothing to silence, and `offClientSideWarning()` there is a no-op. Do not call it in application code — per [AGENTS.md](https://github.com/bitrix24/b24jssdk/blob/main/AGENTS.md), suppressing warnings is for testing only. Calling it in a server template is worse than pointless: it silences nothing where it sits, and travels with the code if that code is ever copied into a browser, taking the one signal about the leaked secret with it.
+- [ ] **Keep `B24Hook` server-side.** It bundles a long-lived secret, and nothing in the SDK stops that secret reaching a browser bundle — keeping it out is the application's job. The client-side warning is a smoke alarm, not a guard: it fires wherever the browser's rules apply — the main thread and any Web, Shared or Service Worker (`_checkClientSideWarning` returns early when `isServerSide()`, which is `!isBrowserLikeRuntime()`) — so on Node there is nothing to silence, and `offClientSideWarning()` there is a no-op. Do not call it in application code — per [AGENTS.md](https://github.com/bitrix24/b24jssdk/blob/main/AGENTS.md), suppressing warnings is for testing only. Calling it in a server template is worse than pointless: it silences nothing where it sits, and travels with the code if that code is ever copied into a browser, taking the one signal about the leaked secret with it.
 - [ ] **HTML-escape user input before posting to chat / IM.** When sending CRM text through `parse_mode: 'HTML'` (Telegram) or `im.message.add` HTML, escape `<` / `>` / `&` in the payload.
 
 ## Picking method names

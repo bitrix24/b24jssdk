@@ -31,6 +31,7 @@
  * `*.unit.spec.ts` — no real Bitrix24 portal required (axios is mocked).
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
+import { installBrowserWorkerGlobals } from '../../0_setup/browser-globals'
 import { ApiVersion, B24Hook } from '../../../packages/jssdk/src/'
 import { B24OAuth } from '../../../packages/jssdk/src/oauth/b24'
 
@@ -596,9 +597,11 @@ describe('the body of a v3 batch', () => {
     // have been added where CORS forbids it, producing exactly the opaque failure
     // this change exists to avoid. The guard asks about CORS instead, so a worker
     // takes the browser route: array body, credential in the query string.
-    const scope = globalThis as { WorkerGlobalScope?: unknown }
-    const original = scope.WorkerGlobalScope
-    scope.WorkerGlobalScope = function WorkerGlobalScope() {}
+    // Through the shared helper, which hides the Node version as well as
+    // installing the scope: `getEnvironment()` tests Node first, so a stand-in
+    // that only defines the global describes a Deno worker — a server — rather
+    // than the browser worker this case is about.
+    const restoreWorker = installBrowserWorkerGlobals()
 
     try {
       b24 = oauthClient()
@@ -613,11 +616,7 @@ describe('the body of a v3 batch', () => {
       expect(JSON.stringify(body)).not.toContain('ACCESS_TOKEN_PLACEHOLDER')
       expect(String(url)).toContain('auth=ACCESS_TOKEN_PLACEHOLDER')
     } finally {
-      if (typeof original === 'undefined') {
-        delete scope.WorkerGlobalScope
-      } else {
-        scope.WorkerGlobalScope = original
-      }
+      restoreWorker()
     }
   })
 

@@ -618,7 +618,7 @@ const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
 - ❌ `idempotencyKey: crypto.randomUUID()` written at the call site for a job that can be retried by a *different* process — the restart mints a new key and writes a duplicate anyway. Derive the key from the operation (`deal-${orderId}-create`), or persist a minted one with the job before calling.
 - ❌ Reusing one `idempotencyKey` for two different writes — the portal answers HTTP 422 `…IDEMPOTENCYKEYREUSEDEXCEPTION` rather than deduplicating. Prefix by operation: `deal-42-create` vs `deal-42-close`.
 - ⚠️ `actions.v3.batch.make` / `batchByChunk.make` from a browser (`B24Frame`, or `B24OAuth` client-side) works, but the credential goes in the **query string** — on v3 the commands *are* the request body, leaving nowhere inside it for a token, and the portal's CORS preflight allows only `origin, content-type, accept`, so an `Authorization` header cannot be sent. The token then reaches the portal's access log, which a request body would not. It is not newly exposed to the user (it is in the page's JavaScript already), but if that server-side record matters, run the batch on a backend or use `actions.v2.batch.make` where the methods exist on v2. `B24Hook` appends nothing — its secret is in the URL path already.
-- ❌ `B24Hook` in a browser bundle — leaks the webhook secret. Use `B24Frame` there.
+- ❌ `B24Hook` in a browser **or worker** bundle — leaks the webhook secret; a worker's script is fetched over the network and readable in devtools like any other. Use `B24Frame` there.
 
 ## Cross-reference
 

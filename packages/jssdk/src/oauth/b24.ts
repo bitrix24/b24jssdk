@@ -54,7 +54,7 @@ export class B24OAuth extends AbstractB24 implements TypeB24 {
       oAuthSecret
     )
 
-    const warningText = 'The B24OAuth object is intended exclusively for use on the server.\nA webhook contains a secret access key, which MUST NOT be used in client-side code (browser, mobile app).'
+    const warningText = 'The B24OAuth object is intended exclusively for use on the server.\nA webhook contains a secret access key, which MUST NOT be used in client-side code (browser, worker, mobile app).'
 
     this._httpOptions = options?.httpOptions ?? null
 

@@ -14,8 +14,10 @@ import { versionManager } from '../core/version-manager'
  *
  * Use this class to make REST API calls from a backend service using a
  * pre-configured webhook. The webhook URL embeds a secret access key and
- * therefore **must never be used in browser or mobile code** — instantiating
- * `B24Hook` automatically enables a client-side warning for every HTTP call.
+ * therefore **must never be used in browser, worker or mobile code** — a
+ * worker's bundle is fetched over the network and readable in devtools exactly
+ * like the main thread's. Instantiating `B24Hook` automatically enables a
+ * client-side warning for every HTTP call, which fires in a worker too.
  *
  * @example
  * ```ts
@@ -49,7 +51,7 @@ export class B24Hook extends AbstractB24 implements TypeB24 {
       b24HookParams
     )
 
-    const warningText = 'The B24Hook object is intended exclusively for use on the server.\nA webhook contains a secret access key, which MUST NOT be used in client-side code (browser, mobile app).'
+    const warningText = 'The B24Hook object is intended exclusively for use on the server.\nA webhook contains a secret access key, which MUST NOT be used in client-side code (browser, worker, mobile app).'
 
     this._httpOptions = options?.httpOptions ?? null
 

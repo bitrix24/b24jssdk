@@ -461,6 +461,7 @@ describe('the comparison itself', () => {
     ['descending walk going down', 5, 10, 'DESC', true],
     ['descending walk going up', 10, 5, 'DESC', false],
     ['ISO timestamps in one zone', '2026-09-14T00:00:01Z', '2026-09-14T00:00:00Z', 'ASC', true],
+    ['ISO timestamps in one offset', '2026-09-14T00:00:01+03:00', '2026-09-14T00:00:00+03:00', 'ASC', true],
     // Without a string pair expected `false`, disabling the direction check for
     // every string cursor would leave this suite green — and strings are what a
     // tail walk over a datetime field actually carries.
@@ -488,6 +489,14 @@ describe('the comparison itself', () => {
     ['unpadded string ids', '10', '9'],
     ['NaN', Number.NaN, 5],
     ['timestamps stated in different zones', '2024-10-27T02:00:00+01:00', '2024-10-27T02:59:00+02:00'],
+    // A datetime with no offset at all — what a MySQL `DATETIME` column prints.
+    // The clocks going back repeat the wall-clock hour, so 02:15 standard time
+    // is a later instant than 02:30 summer time and still sorts before it.
+    // "Neither states a zone" is not "both state the same zone".
+    ['timestamps stating no zone', '2024-10-27 02:15:00', '2024-10-27 02:30:00'],
+    // `'T'` is 0x54 and `' '` is 0x20, so a `T`-form value sorts after every
+    // space-form value with the same date, whatever the time says.
+    ['timestamps written with different separators', '2026-01-01 00:00:02Z', '2026-01-01T00:00:01Z'],
     ['mixed-case ids a collation may order either way', 'B1', 'a1']
   ] as const)('lets %s through rather than guessing', (_label, next, previous) => {
     expect(cursorProgressed(next, previous, 'ASC')).toBe(true)

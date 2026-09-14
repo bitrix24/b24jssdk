@@ -2,11 +2,21 @@
 export type CursorDirection = 'ASC' | 'DESC'
 
 /**
- * An ISO-8601 datetime, split into the instant and the zone it is stated in.
- * Two such strings order lexicographically only when the zone is the same —
- * which is exactly what a DST transition breaks.
+ * An ISO-8601 datetime, capturing the two things that have to match before two
+ * of them can be ordered as text: the date/time separator, and the zone.
+ *
+ * The **zone is mandatory**, which is the point. A rendering that states no
+ * offset at all — `2024-10-27 02:15:00`, what a MySQL `DATETIME` column prints —
+ * repeats the wall-clock hour when the clocks go back, so 02:15 standard time
+ * is a later instant than 02:30 summer time and yet sorts before it. Making the
+ * zone optional would have let that pair through under "same zone: neither has
+ * one", which is the very shape this check exists to decline.
+ *
+ * The separator is captured for the same reason: `'T'` is `0x54` and `' '` is
+ * `0x20`, so a `T`-form value sorts after *every* space-form value with the same
+ * date, whatever the time says.
  */
-const ISO_DATETIME = /^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?)(Z|[+-]\d{2}:?\d{2})?$/
+const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}([T ])\d{2}:\d{2}:\d{2}(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})$/
 
 const DIGITS_ONLY = /^\d+$/
 
@@ -47,7 +57,10 @@ function isComparableCursorPair(next: number | string, previous: number | string
     const nextIso = ISO_DATETIME.exec(next)
     const previousIso = ISO_DATETIME.exec(previous)
 
-    return null !== nextIso && null !== previousIso && nextIso[2] === previousIso[2]
+    return null !== nextIso
+      && null !== previousIso
+      && nextIso[1] === previousIso[1]
+      && nextIso[2] === previousIso[2]
   }
 
   return false
@@ -78,18 +91,17 @@ function isComparableCursorPair(next: number | string, previous: number | string
  * - it catches a cursor that simply **moves backwards**, which loses rows
  *   silently rather than looping, and which nothing looked for before.
  *
- * **Only when the two values are comparable**, which here means the same
- * `typeof` and both primitive. A cursor is read off the response, and a
- * `cursorField` naming something the SDK cannot order — or a server changing
- * `100` to `'100'` — must not be reported as a failure to advance. Mixed types
- * fall back to the equality check this generalises, which is exactly the
- * behaviour they had before.
+ * **Only when the two values are comparable**, and that is a deliberately narrow
+ * set — see {@link isComparableCursorPair} for what qualifies and why. A cursor
+ * is read off the response, and a `cursorField` naming something the SDK cannot
+ * order — or a server changing `100` to `'100'` — must not be reported as a
+ * failure to advance. Everything the check declines falls back to the equality
+ * test this generalises, which is exactly the behaviour it had before.
  *
- * String cursors are judged only where JS order is certain to agree with the
- * server's, which is a narrow set — see {@link isComparableCursorPair}. Every
- * other pair is answered by returning `true` rather than by guessing: a guard
- * that stops a healthy walk is worse than one that misses a sick one, and the
- * equality check underneath still catches a true repeat.
+ * Strings in particular are judged only where JS order is certain to agree with
+ * the server's. Every other pair is answered by returning `true` rather than by
+ * guessing: a guard that stops a healthy walk is worse than one that misses a
+ * sick one, and the equality check underneath still catches a true repeat.
  *
  * Returns `true` when the walk may continue, `false` when it cannot make
  * progress. Equality always answers `false`, whatever the types — that is the

@@ -6,6 +6,7 @@ import type {
 } from '../../../packages/jssdk/src/'
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
+import { expectOperatingCounters } from '../../0_setup/expect-operating-counters'
 import { AjaxResult, Text } from '../../../packages/jssdk/src/'
 
 describe('core callBatch @apiV3', () => {
@@ -47,10 +48,7 @@ describe('core callBatch @apiV3', () => {
       }
 
       const time = rowData.time!
-      expect(time).toHaveProperty('operating')
-      // @todo waite apiV3 fix docs
-      expect(time.operating).toEqual(0)
-      expect(time.operating_reset_at).toBeGreaterThan(0)
+      expectOperatingCounters(time, '@apiV3 batch row')
     }
   })
   it('as BatchCommandsObjectUniversal @apiV3 isSuccess isHaltOnError returnAjax', async () => {
@@ -91,10 +89,7 @@ describe('core callBatch @apiV3', () => {
       }
 
       const time = rowData.time!
-      expect(time).toHaveProperty('operating')
-      // @todo waite apiV3 fix docs
-      expect(time.operating).toEqual(0)
-      expect(time.operating_reset_at).toBeGreaterThan(0)
+      expectOperatingCounters(time, '@apiV3 batch row')
     }
   })
   it('as BatchNamedCommandsUniversal @apiV3 isSuccess isHaltOnError returnAjax', async () => {
@@ -145,10 +140,7 @@ describe('core callBatch @apiV3', () => {
       }
 
       const time = rowData.time!
-      expect(time).toHaveProperty('operating')
-      // @todo waite apiV3 fix docs
-      expect(time.operating).toEqual(0)
-      expect(time.operating_reset_at).toBeGreaterThan(0)
+      expectOperatingCounters(time, '@apiV3 batch row')
     }
   })
 
@@ -660,10 +652,7 @@ describe('core callBatch @apiV3', () => {
       expect(rowData.result).toHaveProperty('items')
       // expect(rowData.result.items.length).toBe(2)
       const time = rowData.time!
-      expect(time).toHaveProperty('operating')
-      // @todo waite apiV3 fix docs
-      expect(time.operating).toEqual(0)
-      expect(time.operating_reset_at).toBeGreaterThan(0)
+      expectOperatingCounters(time, '@apiV3 batch row')
     }
     // EventLogMessagesList2
     {

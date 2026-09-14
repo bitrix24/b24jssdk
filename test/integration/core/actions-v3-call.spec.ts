@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
+import { expectOperatingCounters } from '../../0_setup/expect-operating-counters'
 import { AjaxError, type SdkError } from '../../../packages/jssdk/src/'
 
 /**
@@ -45,9 +46,7 @@ describe('core.actions.call @apiV3', () => {
     expect(result.item.title).toBeDefined()
 
     const time = response.getData()!.time!
-    expect(time).toHaveProperty('operating')
-    expect(time.operating).toBeGreaterThanOrEqual(0)
-    expect(time.operating_reset_at).toBeGreaterThan(0)
+    expectOperatingCounters(time, method)
   })
 
   it('tasks.task.get @apiV3 !isSuccess fail Id', async () => {

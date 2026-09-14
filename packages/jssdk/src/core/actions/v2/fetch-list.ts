@@ -4,7 +4,8 @@ import type { TypeCallParams, TypeCallParamsV2, TypeFilterV2 } from '../../../ty
 import type { AjaxResult } from '../../http/ajax-result'
 import { AbstractAction } from '../abstract-action'
 import { SdkError } from '../../sdk-error'
-import { cursorStalledError, CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
+import { cursorStalledError, cursorWentBackwardsError, CURSOR_STALLED_HINT_LIST } from '../_cursor-stalled'
+import { cursorProgressed } from '../_cursor-progress'
 import { warnOnShadowedUppercaseParams } from './_uppercase-list-params'
 
 export type ActionFetchListV2 = WalkBoundsOptions & {
@@ -170,9 +171,15 @@ export class FetchListV2 extends AbstractAction {
       // by this check; the correct diagnosis is.
       assertNotAborted(options?.signal, 'fetchList.make', options.method)
 
-      if (resultData.length < batchSize) {
-        break
-      }
+      // Read rather than acted on: the cursor is checked first, and only
+      // then does a short page end the walk. A page shorter than the one
+      // asked for used to end it as "end of data" whatever the cursor did, so
+      // a stalled page that happened to be capped returned a truncated,
+      // overlapping result and reported success (#496). The two are
+      // separable: `>idKey` asks for rows strictly past the cursor, so a row
+      // at or before it cannot be in an answer that honoured the condition,
+      // however short the page.
+      const isShortPage = resultData.length < batchSize
 
       // Update the filter for the next iteration
       const lastItem = resultData[resultData.length - 1] as Record<string, any>
@@ -185,6 +192,20 @@ export class FetchListV2 extends AbstractAction {
         if (cursorValue === requestParams.filter[moreIdKey]) {
           throw cursorStalledError('fetchList.make', CURSOR_STALLED_HINT_LIST)
         }
+
+        // …and a cursor that moved the wrong way. A server alternating between
+        // two pages never repeats the immediately preceding value, so the
+        // check above never fires and the walk runs for ever (#495). Every
+        // cycle steps backwards somewhere, and this is that step.
+        if (!cursorProgressed(cursorValue, requestParams.filter[moreIdKey] as number, 'ASC')) {
+          throw cursorWentBackwardsError('fetchList.make', CURSOR_STALLED_HINT_LIST)
+        }
+
+        // End of data, now that the cursor has been vouched for.
+        if (isShortPage) {
+          break
+        }
+
         requestParams.filter[moreIdKey] = cursorValue
 
         // Last, so every cheaper stop wins: a stalled cursor is still reported
@@ -197,12 +218,16 @@ export class FetchListV2 extends AbstractAction {
           throw maxPagesExceededError('fetchList.make', options.method, maxPages)
         }
       } else {
-        // A full page came back, yet no usable numeric cursor id could be read from
-        // its items via `idKey` — almost always an `idKey` that doesn't match the
+        // No usable numeric cursor id could be read from the page's items via
+        // `idKey` — almost always an `idKey` that doesn't match the
         // response field (e.g. a request that sorts by `ID` while the response
         // carries a lowercase `id`). Without a cursor we can't advance, so stop and
         // tell the caller how to fix it instead of silently truncating.
-        this._logger.warning(`fetchList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`).catch(() => {})
+        // A short page is simply the end of the data, so say nothing about a
+        // cursor the walk never needed.
+        if (!isShortPage) {
+          this._logger.warning(`fetchList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`).catch(() => {})
+        }
         break
       }
     }

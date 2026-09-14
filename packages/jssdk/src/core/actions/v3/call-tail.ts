@@ -7,6 +7,7 @@ import { SdkError } from '../../sdk-error'
 import type { FilterV3Group } from '../../../tools/filter-v3'
 import { assertTailFilter, filterMentionsField, keysetPaginate, KeysetPaginationError } from './_keyset-paginate'
 import { CURSOR_STALLED_HINT_TAIL } from '../_cursor-stalled'
+import { DESC_ORDER, resolveCursorDirection } from '../_cursor-progress'
 
 export type ActionCallTailV3 = WalkBoundsOptions & {
   /** Called after each collected page; see `WalkProgress`. */
@@ -99,7 +100,7 @@ export class CallTailV3 extends AbstractAction {
     // DESC keyset needs an explicit start: the server pages by `field < value`,
     // so the default first-page value 0 would match nothing for a non-negative
     // field. Require `initialValue` (the type maximum / newest value) for DESC.
-    if (/desc/i.test(order) && options?.initialValue === undefined) {
+    if (DESC_ORDER.test(order) && options?.initialValue === undefined) {
       throw new SdkError({
         code: 'JSSDK_CORE_B24_CALL_TAIL_DESC_REQUIRES_INITIAL_VALUE',
         description: 'callTail.make: order "DESC" requires an explicit `initialValue` (the server pages by `field < value`, so the default 0 returns nothing). Pass `initialValue` set to the type maximum / newest value.',
@@ -150,6 +151,10 @@ export class CallTailV3 extends AbstractAction {
         errorLabel: 'callTailMethod',
         actionLabel: 'callTail.make',
         stalledCursorHint: CURSOR_STALLED_HINT_TAIL,
+        // The caller's own `order`, normalised: the server pages by
+        // `field > value` for ASC and `field < value` for DESC, so which way the
+        // cursor must move is their choice rather than a constant here.
+        cursorDirection: resolveCursorDirection(order),
         maxPages: options?.maxPages,
         signal: options?.signal
       })) {

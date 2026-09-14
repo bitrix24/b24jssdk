@@ -226,12 +226,16 @@ export class CallListV2 extends AbstractAction {
             throw maxPagesExceededError('callList.make', options.method, maxPages)
           }
         } else {
-          // A full page came back, yet no usable numeric cursor id could be read from
-          // its items via `idKey` — almost always an `idKey` that doesn't match the
+          // No usable numeric cursor id could be read from the page's items via
+          // `idKey` — almost always an `idKey` that doesn't match the
           // response field (e.g. a request that sorts by `ID` while the response
           // carries a lowercase `id`). Without a cursor we can't advance, so stop and
           // tell the caller how to fix it instead of silently truncating.
-          this._logger.warning(`callList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`).catch(() => {})
+          // A short page is simply the end of the data, so say nothing about a
+          // cursor the walk never needed.
+          if (!isShortPage) {
+            this._logger.warning(`callList.make: pagination stops here — no numeric id could be read from the returned items via idKey "${idKey}". Make sure idKey matches the id field in the response; if the sortable field name differs from it, also set cursorIdKey (e.g. idKey: 'id', cursorIdKey: 'ID').`).catch(() => {})
+          }
           break
         }
       }

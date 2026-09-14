@@ -44,6 +44,7 @@ import { FetchListV2 } from '../../../packages/jssdk/src/core/actions/v2/fetch-l
 import { CallListV3 } from '../../../packages/jssdk/src/core/actions/v3/call-list'
 import { FetchListV3 } from '../../../packages/jssdk/src/core/actions/v3/fetch-list'
 import { CallTailV3 } from '../../../packages/jssdk/src/core/actions/v3/call-tail'
+import { FetchTailV3 } from '../../../packages/jssdk/src/core/actions/v3/fetch-tail'
 import { cursorProgressed } from '../../../packages/jssdk/src/core/actions/_cursor-progress'
 
 type Item = { id: string, title: string }
@@ -73,6 +74,19 @@ function b24V3(make: unknown) {
 }
 
 const page = (ids: number[]): Item[] => ids.map(id => ({ id: String(id), title: `row ${id}` }))
+
+/**
+ * Drives either walker shape to completion: `callList` resolves a result,
+ * `fetchList` yields batches and does nothing at all until it is consumed.
+ */
+async function drain(walk: unknown): Promise<void> {
+  const it = walk as AsyncIterable<unknown>
+  if (typeof it?.[Symbol.asyncIterator] === 'function') {
+    for await (const _batch of it) { /* consume */ }
+    return
+  }
+  await walk
+}
 
 /** 50 rows, because the v2 walkers stop on any page shorter than their fixed 50. */
 const v2Page = (start: number): Item[] => page(Array.from({ length: 50 }, (_, i) => start + i))
@@ -209,8 +223,45 @@ describe('a cursor that cycles rather than repeating (#495)', () => {
       initialValue: 1000
     })
 
-    // Descending values are progress here, not a cycle: the walk completes.
+    // Descending values are progress here, not a cycle: the walk completes, and
+    // it walks — asserting only `isSuccess` would not tell a three-page walk
+    // from one that gave up after the first page.
     expect(result.isSuccess).toBe(true)
+    expect((result.getData() as Item[]).map(row => row.id)).toEqual(['98', '97', '96', '95', '94', '93'])
+    expect(descending.calls).toHaveLength(4)
+  })
+
+  // `fetchTail` derives its direction separately from `callTail`, and hardcoding
+  // it to ASC there passed the whole suite: the existing tail spec checks the
+  // `order` sent on the first request, which is not the same thing as the
+  // direction the guard is told about on the second.
+  it('@apiV3 fetchTail derives DESC for the guard too', async () => {
+    const calls: unknown[] = []
+    const make = async (callOpts: { params: unknown }) => {
+      calls.push(structuredClone(callOpts.params))
+      const slice = calls.length > 3 ? [] : page([100 - calls.length * 2, 99 - calls.length * 2])
+      return {
+        isSuccess: true,
+        getData: () => ({ result: { items: slice } }),
+        getErrorMessages: () => [],
+        errors: [] as Array<[number, Error]>
+      } as never
+    }
+
+    const action = new FetchTailV3(b24V3(make), makeLogger().logger)
+
+    const seen: string[] = []
+    for await (const batch of action.make({
+      method: 'main.eventlog.tail',
+      customKeyForResult: 'items',
+      cursorField: 'id',
+      order: 'DESC',
+      initialValue: 1000
+    })) {
+      seen.push(...(batch as Item[]).map(row => row.id))
+    }
+
+    expect(seen).toEqual(['98', '97', '96', '95', '94', '93'])
   })
 })
 
@@ -244,6 +295,58 @@ describe('a short page that is actually a stall (#496)', () => {
       .catch((e: unknown) => e)
 
     expect((error as { code?: string })?.code).toBe(STALLED)
+  })
+
+  // The v2 loops are a separate implementation of the same ordering, and were a
+  // blind spot: reverting the reorder there left the whole suite green. Page one
+  // is the full 50 the v2 walkers expect; page two is short and ends on an id
+  // already read, so it is a server ignoring `>ID`, not the data running out.
+  it.each([
+    ['callList', CallListV2],
+    ['fetchList', FetchListV2]
+  ] as const)('@apiV2 %s reports a short stalled page instead of returning it', async (_label, Action) => {
+    const calls: unknown[] = []
+    const make = async (callOpts: { params: unknown }) => {
+      calls.push(structuredClone(callOpts.params))
+      const slice = calls.length === 1 ? v2Page(1) : page([48, 49, 50])
+      return {
+        isSuccess: true,
+        getData: () => ({ result: slice }),
+        getErrorMessages: () => [],
+        errors: [] as Array<[number, Error]>
+      } as never
+    }
+
+    const action = new Action(b24V2(make), makeLogger().logger)
+
+    const error = await drain(action.make({ method: 'tasks.task.list', idKey: 'id' })).catch((e: unknown) => e)
+
+    expect((error as { code?: string })?.code).toBe(STALLED)
+    expect(calls).toHaveLength(2)
+  })
+
+  // …and the same walk ending on a short page that *did* advance must finish.
+  it.each([
+    ['callList', CallListV2],
+    ['fetchList', FetchListV2]
+  ] as const)('@apiV2 %s still ends quietly on a short page that advanced', async (_label, Action) => {
+    const calls: unknown[] = []
+    const make = async (callOpts: { params: unknown }) => {
+      calls.push(structuredClone(callOpts.params))
+      const slice = calls.length === 1 ? v2Page(1) : page([51, 52])
+      return {
+        isSuccess: true,
+        getData: () => ({ result: slice }),
+        getErrorMessages: () => [],
+        errors: [] as Array<[number, Error]>
+      } as never
+    }
+
+    const action = new Action(b24V2(make), makeLogger().logger)
+
+    await drain(action.make({ method: 'tasks.task.list', idKey: 'id' }))
+
+    expect(calls).toHaveLength(2)
   })
 
   // The other half of the same ordering: a short page whose cursor *did* move is
@@ -303,6 +406,51 @@ describe('a short page that is actually a stall (#496)', () => {
 
     expect(warnings.filter(w => w.includes('cursor'))).toHaveLength(0)
   })
+
+  // The v2 walkers read the cursor before they call a short page the end, so a
+  // short *final* page whose rows carry no parsable `idKey` now reaches the
+  // no-cursor branch that used to be unreachable for it. End of data is not a
+  // misconfiguration, so it must stay silent — the warning is for a full page
+  // that could not be advanced past.
+  it.each([
+    ['callList', CallListV2],
+    ['fetchList', FetchListV2]
+  ] as const)('@apiV2 %s says nothing about an idKey a finished walk did not need', async (_label, Action) => {
+    const make = async () => ({
+      isSuccess: true,
+      getData: () => ({ result: [{ title: 'no id here' }] as never as Item[] }),
+      getErrorMessages: () => [],
+      errors: [] as Array<[number, Error]>
+    } as never)
+
+    const { logger, warnings } = makeLogger()
+    const action = new Action(b24V2(make), logger)
+
+    await drain(action.make({ method: 'tasks.task.list', idKey: 'id' }))
+
+    expect(warnings.filter(w => w.includes('idKey'))).toHaveLength(0)
+  })
+
+  // …and the same walk stopped by a *full* page it cannot advance past must
+  // still say so, or the guard above would have silenced a real diagnosis.
+  it.each([
+    ['callList', CallListV2],
+    ['fetchList', FetchListV2]
+  ] as const)('@apiV2 %s still reports an idKey it could not read on a full page', async (_label, Action) => {
+    const make = async () => ({
+      isSuccess: true,
+      getData: () => ({ result: v2Page(1).map(({ title }) => ({ title })) as never as Item[] }),
+      getErrorMessages: () => [],
+      errors: [] as Array<[number, Error]>
+    } as never)
+
+    const { logger, warnings } = makeLogger()
+    const action = new Action(b24V2(make), logger)
+
+    await drain(action.make({ method: 'tasks.task.list', idKey: 'id' }))
+
+    expect(warnings.filter(w => w.includes('idKey'))).toHaveLength(1)
+  })
 })
 
 describe('the comparison itself', () => {
@@ -312,7 +460,14 @@ describe('the comparison itself', () => {
     ['backwards numbers', 5, 10, 'ASC', false],
     ['descending walk going down', 5, 10, 'DESC', true],
     ['descending walk going up', 10, 5, 'DESC', false],
-    ['ISO timestamps, same length', '2026-09-14T00:00:01Z', '2026-09-14T00:00:00Z', 'ASC', true]
+    ['ISO timestamps in one zone', '2026-09-14T00:00:01Z', '2026-09-14T00:00:00Z', 'ASC', true],
+    // Without a string pair expected `false`, disabling the direction check for
+    // every string cursor would leave this suite green — and strings are what a
+    // tail walk over a datetime field actually carries.
+    ['ISO timestamps going backwards', '2026-09-14T00:00:00Z', '2026-09-14T00:00:01Z', 'ASC', false],
+    ['ISO timestamps in a DESC walk', '2026-09-14T00:00:00Z', '2026-09-14T00:00:01Z', 'DESC', true],
+    ['zero-padded ids', '0010', '0009', 'ASC', true],
+    ['zero-padded ids going backwards', '0009', '0010', 'ASC', false]
   ] as const)('%s', (_label, next, previous, direction, expected) => {
     expect(cursorProgressed(next, previous, direction)).toBe(expected)
   })
@@ -321,10 +476,19 @@ describe('the comparison itself', () => {
   // changes only the type of a cursor, or an id spelled without padding
   // (`'9'` then `'10'`), must keep walking — the equality check still catches a
   // true repeat underneath.
+  //
+  // The two that matter most are the last pair. Across a DST transition
+  // `02:00:00+01:00` is 01:00Z and genuinely later than `02:59:00+02:00`
+  // (00:59Z), yet sorts before it as text — and both are the same length, so
+  // length alone would not save it. And a mixed-case field under MySQL's
+  // default case-insensitive collation orders `a1` before `B1` while JS orders
+  // them the other way round. Judging either would abort a healthy walk.
   it.each([
     ['a type change', 100, '100'],
     ['unpadded string ids', '10', '9'],
-    ['NaN', Number.NaN, 5]
+    ['NaN', Number.NaN, 5],
+    ['timestamps stated in different zones', '2024-10-27T02:00:00+01:00', '2024-10-27T02:59:00+02:00'],
+    ['mixed-case ids a collation may order either way', 'B1', 'a1']
   ] as const)('lets %s through rather than guessing', (_label, next, previous) => {
     expect(cursorProgressed(next, previous, 'ASC')).toBe(true)
   })

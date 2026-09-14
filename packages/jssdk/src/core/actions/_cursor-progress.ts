@@ -1,3 +1,58 @@
+/** Which way a walk paginates: `ASC` ids grow, `DESC` ids shrink. */
+export type CursorDirection = 'ASC' | 'DESC'
+
+/**
+ * An ISO-8601 datetime, split into the instant and the zone it is stated in.
+ * Two such strings order lexicographically only when the zone is the same —
+ * which is exactly what a DST transition breaks.
+ */
+const ISO_DATETIME = /^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?)(Z|[+-]\d{2}:?\d{2})?$/
+
+const DIGITS_ONLY = /^\d+$/
+
+/**
+ * Can these two cursor values be ordered against each other with confidence?
+ *
+ * Numbers: both finite. Strings: only the two shapes where JS code-unit order
+ * provably matches the order the server sorted by.
+ *
+ * - **Digits only, same length** — a zero-padded id. Same length is what makes
+ *   lexicographic and numeric order agree; `'9'` vs `'10'` is false one way and
+ *   true the other, so unpadded ids are declined.
+ * - **ISO-8601 datetimes stated in the same zone.** The zone matters: across a
+ *   DST transition `2024-10-27T02:59:00+02:00` (00:59Z) is *earlier* than
+ *   `2024-10-27T02:00:00+01:00` (01:00Z), yet sorts after it as text. Both are
+ *   the same length, so length alone would not have caught it.
+ *
+ * Everything else is declined — deliberately, and letters are the reason. A
+ * mixed-case `cursorField` under MySQL's default case-insensitive collation
+ * orders `a1` before `B1`; JS orders `'B1'` before `'a1'`. There is no way to
+ * tell from the values which collation sorted them, so a walk over such a field
+ * must not be called backwards.
+ */
+function isComparableCursorPair(next: number | string, previous: number | string): boolean {
+  if ('number' === typeof next && 'number' === typeof previous) {
+    return Number.isFinite(next) && Number.isFinite(previous)
+  }
+
+  if ('string' === typeof next && 'string' === typeof previous) {
+    if (next.length !== previous.length) {
+      return false
+    }
+
+    if (DIGITS_ONLY.test(next) && DIGITS_ONLY.test(previous)) {
+      return true
+    }
+
+    const nextIso = ISO_DATETIME.exec(next)
+    const previousIso = ISO_DATETIME.exec(previous)
+
+    return null !== nextIso && null !== previousIso && nextIso[2] === previousIso[2]
+  }
+
+  return false
+}
+
 /**
  * Did the cursor move in the direction the walk paginates in?
  *
@@ -30,40 +85,16 @@
  * fall back to the equality check this generalises, which is exactly the
  * behaviour they had before.
  *
- * String cursors compare lexicographically, which is right for the shapes that
- * reach here: an ISO-8601 timestamp and a zero-padded id both order correctly
- * that way. A string id without padding (`'9'` vs `'10'`) does not, and would
- * read as backwards — so that case is answered by returning `true` for any pair
- * the check cannot be confident about, rather than by guessing. See
- * {@link isComparableCursorPair}.
- */
-export type CursorDirection = 'ASC' | 'DESC'
-
-/**
- * Can these two cursor values be ordered against each other with confidence?
+ * String cursors are judged only where JS order is certain to agree with the
+ * server's, which is a narrow set — see {@link isComparableCursorPair}. Every
+ * other pair is answered by returning `true` rather than by guessing: a guard
+ * that stops a healthy walk is worse than one that misses a sick one, and the
+ * equality check underneath still catches a true repeat.
  *
- * Both primitive, both the same type, and — for strings — the same length, so
- * lexicographic order and numeric order agree. `'9' < '10'` is false
- * lexicographically and true numerically; refusing to compare there is what
- * keeps a legitimate walk over unpadded string ids from being called backwards.
- */
-function isComparableCursorPair(next: number | string, previous: number | string): boolean {
-  if ('number' === typeof next && 'number' === typeof previous) {
-    return Number.isFinite(next) && Number.isFinite(previous)
-  }
-
-  if ('string' === typeof next && 'string' === typeof previous) {
-    return next.length === previous.length
-  }
-
-  return false
-}
-
-/**
- * `true` when the walk may continue, `false` when it cannot make progress.
- *
- * Equality always answers `false`, whatever the types — that is the check this
- * replaces, and it holds for pairs the direction test declines to judge.
+ * Returns `true` when the walk may continue, `false` when it cannot make
+ * progress. Equality always answers `false`, whatever the types — that is the
+ * check this generalises, and it holds for pairs the direction test declines
+ * to judge.
  *
  * @param next - The cursor read from the page just received.
  * @param previous - The cursor that page was requested with.
@@ -79,7 +110,7 @@ export function cursorProgressed(
   }
 
   if (!isComparableCursorPair(next, previous)) {
-    // Different types, or strings of different lengths: not equal, and not
+    // A pair whose order the SDK cannot vouch for: not equal, and not
     // something to call backwards. The walk continues, as it did before this
     // check existed.
     return true

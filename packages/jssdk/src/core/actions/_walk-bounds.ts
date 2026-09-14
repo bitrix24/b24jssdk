@@ -10,11 +10,12 @@ import { SdkError } from '../sdk-error'
  * a fifth for a cursor that stops moving.
  *
  * None of them bounds a walk whose cursor *does* move. A method with more rows
- * than anyone expected, a filter that matched far more than intended, or the
- * cycling cursor #495 describes — `A, B, A, B` never repeats the immediately
- * preceding value, so the stall guard never fires — all keep issuing requests
- * against the customer's portal, which is the thing the restriction manager
- * exists to prevent. And once started, a walk could not be stopped: there was
+ * than anyone expected, or a filter that matched far more than intended, keeps
+ * issuing requests against the customer's portal, which is the thing the
+ * restriction manager exists to prevent. (#495 added a sixth exit for a cursor
+ * that moves *backwards*, which is how a cycle is caught now — but only for
+ * cursor values the SDK can order, so the ceiling is still what remains for the
+ * rest.) And once started, a walk could not be stopped: there was
  * nowhere to hand a signal (#484).
  *
  * ## Why the ceiling errors rather than truncating
@@ -142,7 +143,8 @@ export function maxPagesExceededError(action: string, method: string, maxPages: 
     code: 'JSSDK_ACTION_MAX_PAGES_EXCEEDED',
     description: `${action}: stopped after ${maxPages} pages of \`${method}\` without reaching the end of the data. `
       + `Either the read is genuinely larger than the ceiling — raise \`maxPages\` — or the walk is not making progress, `
-      + `which happens when the page condition is not applied and the cursor cycles rather than advancing. `
+      + `which happens when the page condition is not applied and the cursor repeats values whose order the SDK cannot judge `
+      + `(a cursor that demonstrably moves backwards is reported earlier, as JSSDK_ACTION_CURSOR_WENT_BACKWARDS). `
       + `The eager helpers (callList / callTail) return the pages they did read, with this error `
       + `attached — so check \`isSuccess\` rather than assuming a returned list is whole. `
       + `A streaming helper (fetchList / fetchTail) has already yielded every page it read, and `

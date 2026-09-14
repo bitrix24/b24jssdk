@@ -23,6 +23,16 @@ interface OperatingStats {
  * quota per method and blocks further calls (via {@link ILimiter.canProceed})
  * until the reset timestamp has passed, preventing `QUERY_LIMIT_EXCEEDED`
  * errors caused by heavy requests exhausting the portal's operating budget.
+ *
+ * **It is inert on a default self-hosted portal, and that is the correct
+ * behaviour, not a gap.** Such a portal sends no counters, because its own
+ * `LoadLimiter` is switched off — and the same switch gates enforcement, so it
+ * is not refusing calls either. There is no budget to track. `RateLimiter` and
+ * `AdaptiveDelayer` are unaffected.
+ *
+ * @see https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/limiters/#enabling-the-operating-limiter-on-a-self-hosted-portal
+ *   for how a box owner switches the portal's limiter on, including the
+ *   half-configured state in which the counters arrive but never accumulate.
  */
 export class OperatingLimiter implements ILimiter {
   #config: OperatingLimitConfig
@@ -150,10 +160,11 @@ export class OperatingLimiter implements ILimiter {
    *
    * A `time` block that arrives *without* the counters is a second, separate
    * case and was never the crash — the `operating === undefined` check below has
-   * always caught it. It is the normal on-premise state, because the operating
-   * limiter is off by default there (the `rest` module's `load_limiter_active`
-   * option, default `N`, which nothing in the product ever sets), so the
-   * counters are missing from every response on such a portal.
+   * always caught it. It is the normal self-hosted state, because the portal's
+   * own limiter is off by default there (the `rest` module's
+   * `load_limiter_active` option, default `N`, which nothing in the product ever
+   * sets), so the counters are missing from every response on such a portal —
+   * which is also a portal that is not enforcing anything.
    *
    * No counters are synthesised when the block is absent. A fabricated
    * `operating: 0` is indistinguishable from a real "nothing consumed yet" and

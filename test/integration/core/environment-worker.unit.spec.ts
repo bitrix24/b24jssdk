@@ -67,12 +67,16 @@ describe('a Web Worker is browser-like without being a browser (#505)', () => {
     expect(isBrowserLikeRuntime()).toBe(false)
   })
 
-  // The ordering, measured rather than reasoned. A runtime that reports a Node
-  // version is a server even when it models itself on the Worker API — a Deno
-  // worker and a Cloudflare Worker with `nodejs_compat` define both — and
-  // calling those browser-like would warn, on every call, that a private secret
-  // had leaked. A browser worker has no `process` at all, and the two canonical
-  // shims set `process.versions = {}`, so neither reaches this branch.
+  // The ordering, and it is a trade rather than a free win. A runtime that
+  // reports a Node version is a server even when it models itself on the Worker
+  // API — a Deno worker and a Cloudflare Worker with `nodejs_compat` report
+  // both — and calling those browser-like would warn, on every call, that a
+  // private secret had leaked. The cost runs the other way: a browser worker
+  // bundled with a `process` polyfill that reports a version lands here too.
+  // `process@0.11.10` leaves `versions` empty, but `unenv` — the polyfill behind
+  // Nitro and Nuxt — answers `{ node: '22.14.0' }`. See the source comment for
+  // what that costs, and `66.logger-telegram.md` for why detection is not the
+  // only defence.
   it('reports NODE, not WORKER, where a real Node version is present', () => {
     defineGlobal('WorkerGlobalScope', workerScopeStandIn())
 

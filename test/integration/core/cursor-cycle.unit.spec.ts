@@ -468,7 +468,15 @@ describe('the comparison itself', () => {
     ['ISO timestamps going backwards', '2026-09-14T00:00:00Z', '2026-09-14T00:00:01Z', 'ASC', false],
     ['ISO timestamps in a DESC walk', '2026-09-14T00:00:00Z', '2026-09-14T00:00:01Z', 'DESC', true],
     ['zero-padded ids', '0010', '0009', 'ASC', true],
-    ['zero-padded ids going backwards', '0009', '0010', 'ASC', false]
+    ['zero-padded ids going backwards', '0009', '0010', 'ASC', false],
+    // The shapes the ISO pattern deliberately admits, each pinned so that
+    // narrowing the pattern stops being a silent loss of detection: a
+    // space-separated datetime, and sub-second precision.
+    ['space-separated datetimes', '2026-09-14 00:00:00Z', '2026-09-14 00:00:01Z', 'ASC', false],
+    ['sub-second datetimes', '2026-09-14T00:00:00.250Z', '2026-09-14T00:00:00.500Z', 'ASC', false],
+    // Equality answers `false` whatever the types — including a pair the
+    // direction check would decline to order.
+    ['an equal pair the check cannot order', 'abc', 'abc', 'ASC', false]
   ] as const)('%s', (_label, next, previous, direction, expected) => {
     expect(cursorProgressed(next, previous, direction)).toBe(expected)
   })

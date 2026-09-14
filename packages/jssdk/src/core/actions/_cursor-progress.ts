@@ -21,6 +21,22 @@ const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}([T ])\d{2}:\d{2}:\d{2}(?:\.\d+)?(Z|[+-]
 const DIGITS_ONLY = /^\d+$/
 
 /**
+ * Which way does a walk ordered by `order` paginate?
+ *
+ * Shared so that the string sent to the server and the direction the cursor is
+ * audited against can never disagree. If they did, the SDK would ask the portal
+ * to page one way and then reject every correct answer for going the other —
+ * failing the walks that work, which is the one outcome this guard must not
+ * produce.
+ */
+export function resolveCursorDirection(order: string): CursorDirection {
+  return DESC_ORDER.test(order) ? 'DESC' : 'ASC'
+}
+
+/** Matches the `DESC` half of an `order` value, however the caller spelled it. */
+export const DESC_ORDER = /desc/i
+
+/**
  * Can these two cursor values be ordered against each other with confidence?
  *
  * Numbers: both finite. Strings: only the two shapes where JS code-unit order

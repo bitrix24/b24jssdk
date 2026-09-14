@@ -320,11 +320,16 @@ export type KeysetPaginateStrategy = {
  * decides whether to fold it into a `Result` (eager) or rethrow as an
  * `SdkError` (streaming).
  *
- * A cursor that stops advancing is a different case and throws `SdkError`
- * directly, past that fold — see the guard below for why.
+ * A cursor that does not carry the walk forward is a different case and throws
+ * `SdkError` directly, past that fold — see the guards below for why.
  *
  * @throws {KeysetPaginationError} when the underlying `call` reports a soft error
- * @throws {SdkError} `JSSDK_ACTION_CURSOR_STALLED`
+ * @throws {SdkError} `JSSDK_ACTION_CURSOR_STALLED` when the cursor comes back
+ *   equal to the one just sent
+ * @throws {SdkError} `JSSDK_ACTION_CURSOR_WENT_BACKWARDS` when it moves against
+ *   the walk's own direction
+ * @throws {SdkError} `JSSDK_ACTION_MAX_PAGES_EXCEEDED` when the walk reaches its
+ *   page ceiling, and `JSSDK_ACTION_ABORTED` when its `signal` fires
  */
 export async function* keysetPaginate<T = unknown>(
   b24: TypeB24,

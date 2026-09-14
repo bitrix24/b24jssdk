@@ -150,6 +150,10 @@ export class CallTailV3 extends AbstractAction {
         errorLabel: 'callTailMethod',
         actionLabel: 'callTail.make',
         stalledCursorHint: CURSOR_STALLED_HINT_TAIL,
+        // The caller's own `order`, normalised: the server pages by
+        // `field > value` for ASC and `field < value` for DESC, so which way the
+        // cursor must move is their choice rather than a constant here.
+        cursorDirection: /desc/i.test(order) ? 'DESC' : 'ASC',
         maxPages: options?.maxPages,
         signal: options?.signal
       })) {

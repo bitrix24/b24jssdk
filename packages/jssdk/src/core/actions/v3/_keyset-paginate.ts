@@ -4,7 +4,9 @@ import type { TypeCallParams, TypeFilterV3 } from '../../../types/http'
 import type { AjaxResult } from '../../http/ajax-result'
 import { SdkError } from '../../sdk-error'
 import { assertNotAborted, maxPagesExceededError, resolveMaxPages } from '../_walk-bounds'
-import { cursorStalledError } from '../_cursor-stalled'
+import { cursorStalledError, cursorWentBackwardsError } from '../_cursor-stalled'
+import { cursorProgressed } from '../_cursor-progress'
+import type { CursorDirection } from '../_cursor-progress'
 
 /**
  * Reject a non-array `filter` for the emulated-keyset list actions.
@@ -287,6 +289,15 @@ export type KeysetPaginateStrategy = {
    * expose `cursorField`. See `actions/_cursor-stalled.ts` for the two texts.
    */
   stalledCursorHint: string
+  /**
+   * Which way this walk paginates, so the loop can tell a cursor that advanced
+   * from one that went backwards.
+   *
+   * The list walkers are always `ASC` — they append `[cursorIdKey, '>', cursor]`
+   * — while the tail walkers take the caller's `order`. See
+   * `actions/_cursor-progress.ts` for what the direction buys.
+   */
+  cursorDirection: CursorDirection
   /** Page ceiling; see `_walk-bounds.ts`. */
   maxPages?: number
   /** Cancellation; see `_walk-bounds.ts`. */
@@ -367,9 +378,9 @@ export async function* keysetPaginate<T = unknown>(
     assertNotAborted(strategy.signal, strategy.actionLabel, strategy.method)
 
     maxPageSize = Math.max(maxPageSize, resultData.length)
-    if (resultData.length < maxPageSize) {
-      break
-    }
+    // Read rather than acted on: the cursor is inspected first, and only then
+    // does a short page end the walk. See the note below the cursor checks.
+    const isShortPage = resultData.length < maxPageSize
 
     const lastItem = resultData[resultData.length - 1] as Record<string, any>
     const next = lastItem ? strategy.readNextCursor(lastItem) : null
@@ -389,29 +400,47 @@ export async function* keysetPaginate<T = unknown>(
     // replaces; the list walkers hand back `null` for an unparsable id and keep
     // the behaviour they had.
     if (typeof next !== 'number' && typeof next !== 'string') {
-      logger.warning(strategy.noCursorWarning).catch(() => {})
+      // Silent when the page is short: the walk is ending here anyway, and a
+      // warning about an unreadable cursor on the page that proves end-of-data
+      // would fire at the close of every successful walk whose last page is
+      // shaped differently. Only a full page needs the cursor.
+      if (!isShortPage) {
+        logger.warning(strategy.noCursorWarning).catch(() => {})
+      }
       break
     }
 
-    // Nothing above this line catches a repeating page: the `maxPageSize` stop
-    // fires on a page *shorter* than the largest seen, and a repeated page is
-    // the same size as itself. See `actions/_cursor-stalled.ts` for what the
-    // error says and why it throws rather than folding into the `Result`.
+    // Both cursor checks run **before** the short-page stop, and that ordering is
+    // the fix for #496 rather than an accident. A page shorter than the largest
+    // seen used to end the walk as "end of data" whatever the cursor did — so a
+    // stalled page that happened to be short returned a truncated, overlapping
+    // result and reported success. The two cases are separable after all: the
+    // page condition asks for rows strictly past the cursor, so a row at or
+    // before it cannot be in an answer that honoured the condition, however
+    // short the page. A short page whose cursor did not move is a server
+    // ignoring the condition, not the data running out.
     //
     // `===` rather than `==`, so no genuinely different value is read as a stall
     // — `0 == ''` and `0 == false` are true, and stopping on one of those would
     // be stopping on a lie. The cost is one extra request when a server changes
     // only the type of an identical cursor (`100` → `'100'`): that reads as
     // movement, and the guard fires on the next page once the type settles.
-    //
-    // Two limits, both deliberate. It catches a repeat of the **immediately
-    // preceding** cursor, not a longer cycle — a server alternating between two
-    // pages still loops, and seeing that needs a set of every cursor so far,
-    // which grows with the walk. And it sits after the `maxPageSize` stop, so a
-    // stalled page that happens to be shorter than an earlier one ends the walk
-    // quietly instead of reaching here; that is how that check already behaved.
     if (next === cursor) {
       throw cursorStalledError(strategy.actionLabel, strategy.stalledCursorHint)
+    }
+
+    // …and a cursor that moved, but the wrong way. A server alternating between
+    // two pages never repeats the immediately preceding value, so the check
+    // above never fires and the walk runs for ever (#495). Every cycle steps
+    // backwards somewhere, and this is that step — for the price of a comparison
+    // rather than the set of every cursor seen that deferred the issue.
+    if (!cursorProgressed(next, cursor, strategy.cursorDirection)) {
+      throw cursorWentBackwardsError(strategy.actionLabel, strategy.stalledCursorHint)
+    }
+
+    // End of data, now that the cursor has been vouched for.
+    if (isShortPage) {
+      break
     }
 
     // Last, so every cheaper stop wins: a stalled cursor is still reported

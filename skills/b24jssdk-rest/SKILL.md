@@ -44,7 +44,7 @@ Every example uses `$b24` of type `TypeB24`, but **`actions.v3.batch` is the one
 
 `filter` on v3 is the array form or a `FilterV3` logic group — never the v2 object dialect (`{ '>id': 100 }`), which the portal rejects on every v3 method. All four walkers refuse it client-side. `callList` / `fetchList` additionally require an **array**, because they extend it with the page condition, and throw `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`; `callTail` / `fetchTail` forward `filter` untouched, so a bare group is fine there and only the v2 dialect throws — `JSSDK_ACTION_V3_TAIL_FILTER_INVALID`.
 
-All of them — and the two `restApi:v2` list walkers — also throw `JSSDK_ACTION_CURSOR_STALLED` when a full page comes back and the cursor read from it equals the one just sent. That means the page condition was dropped, so the walk can never end; it rejects rather than collecting the same page for ever.
+All of them — and the two `restApi:v2` list walkers — also throw `JSSDK_ACTION_CURSOR_STALLED` when the cursor read from a page equals the one just sent, and `JSSDK_ACTION_CURSOR_WENT_BACKWARDS` when it moves the wrong way (a server alternating between two pages never repeats the value just sent, so the first code cannot see it). Either means the page condition was dropped, so the walk can never end; it rejects rather than collecting the same pages for ever. Both checks run **before** the end-of-data stop, so a short page that repeats is reported instead of ending the walk with a truncated, overlapping result.
 
 ```ts
 import { B24Hook, FilterV3 } from '@bitrix24/b24jssdk'
@@ -359,7 +359,7 @@ const response = await $b24.actions.v3.callList.make({
 })
 ```
 
-The default ceiling does not replace `JSSDK_ACTION_CURSOR_STALLED`, which fires far earlier and says something more specific: the cursor came back equal to the one just sent. The ceiling catches what that guard cannot — a cursor that *moves* but never ends, including one cycling between values (#495).
+The default ceiling does not replace the two cursor guards, which fire far earlier and say something more specific: the cursor came back equal to the one just sent (`JSSDK_ACTION_CURSOR_STALLED`), or moved into a value the walk had already passed (`JSSDK_ACTION_CURSOR_WENT_BACKWARDS` — a cycle of any length steps backwards somewhere, and that step is what it catches). The ceiling is what remains for a walk that is genuinely larger than expected, or one whose cursor the SDK cannot order — a type change, or string ids of different lengths, where the direction check declines to judge.
 
 ## On `restApi:v2`, conditions go in lowercase `filter` — never `FILTER`
 

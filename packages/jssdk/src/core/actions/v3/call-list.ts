@@ -155,6 +155,10 @@ export class CallListV3 extends AbstractAction {
         errorLabel: 'callFastListMethod',
         actionLabel: 'callList.make',
         stalledCursorHint: CURSOR_STALLED_HINT_LIST,
+        // Always ascending: the page condition is `[cursorIdKey, '>', cursor]`
+        // and the request sorts by the same field, so the cursor read off each
+        // page is strictly greater than the one it was requested with.
+        cursorDirection: 'ASC',
         maxPages: options?.maxPages,
         signal: options?.signal
       })) {

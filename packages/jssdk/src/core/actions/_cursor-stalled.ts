@@ -63,3 +63,35 @@ export const CURSOR_STALLED_HINT_LIST
 /** What to check when a native **tail** walk stalls. */
 export const CURSOR_STALLED_HINT_TAIL
   = 'Check `cursorField`: it must name the field the server actually pages by, it must be readable in the response (include it in `select`), and its values must advance from page to page — a block of rows sharing one value is enough to stall the walk, so prefer a unique field. With `order: \'DESC\'`, check `initialValue` too.'
+
+/**
+ * The error a keyset walk raises when its cursor moves the **wrong way**.
+ *
+ * Separate from {@link cursorStalledError} because the name of a code is a
+ * promise: `STALLED` says the cursor did not move, and here it did — backwards,
+ * or into a value it had already passed. A caller matching on the string should
+ * not have to read the description to find out which of the two happened, and a
+ * code that covers both would make `STALLED` untrue of half its uses.
+ *
+ * What it catches that the stall check cannot: a server alternating between two
+ * pages — `A, B, A, B` — never repeats the *immediately preceding* cursor, so
+ * the stall check never fires, and the walk runs for ever. Every cycle has to
+ * step backwards somewhere; this is that step. It also catches a cursor that
+ * moves backwards without cycling at all, which loses rows rather than looping
+ * and which nothing looked for before (#495).
+ *
+ * Same `status: 500` and the same throw-rather-than-fold reasoning as its
+ * sibling — see the note there, which applies unchanged.
+ */
+export function cursorWentBackwardsError(action: string, hint: string): SdkError {
+  // Static text plus the two action-chosen labels. No cursor value: `SdkError`
+  // does not run its description through `redactSensitiveParams`, and a cursor
+  // is a field value read off the response.
+  return new SdkError({
+    code: 'JSSDK_ACTION_CURSOR_WENT_BACKWARDS',
+    description: `${action}: the cursor moved backwards — the server answered with a page it had already passed, so this walk can never finish. ${hint} `
+      + `A server that alternates between two pages produces exactly this, and the "did not move" check cannot see it: the value differs from the one just sent, it is simply one the walk had already used. `
+      + `Stopping instead of looping for ever. Note that a streaming helper (fetchList / fetchTail) has already yielded every page it read, so a consumer that persisted them has to undo that.`,
+    status: 500
+  })
+}

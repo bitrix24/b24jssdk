@@ -131,12 +131,12 @@ export class RateLimiter implements ILimiter {
    * Successful request handler.
    * If everything is OK, we'll restore the limits.
    */
-  async updateStats(requestId: string, method: string, _data: PayloadTime | undefined): Promise<void> {
-    // skip accounting of `batch` subqueries
-    if (method.startsWith('batch::')) {
-      return
-    }
-
+  async updateStats(requestId: string, _method: string, _data: PayloadTime | undefined): Promise<void> {
+    // A `batch::<method>` guard stood here, skipping the synthetic per-sub-method
+    // updates the v2 batch path used to emit. Nothing emits them any more — a
+    // batch is accounted under `batch`, which is one request and should count as
+    // one success here — so the guard could only ever be dead code pretending to
+    // be a rule. (#459)
     await this.#acquireLock(requestId)
 
     try {

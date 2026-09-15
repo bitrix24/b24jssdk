@@ -69,9 +69,13 @@ export abstract class AbstractProcessingV3 extends AbstractProcessing implements
     /**
      * `time` on the v3 response is the batch-level time, not per-command.
      * We forward it to AjaxResult so callers can still inspect it, but we do
-     * not feed it into `restrictionManager.updateStats(batch::<method>, …)`
-     * — attributing the whole-batch duration to every method would distort
-     * the rate-limiter stats.
+     * not report it per method — attributing the whole-batch duration to every
+     * method would distort the limiter's statistics.
+     *
+     * That judgement turned out to match the portal, which bills a batch to the
+     * method `batch` and leaves the methods inside it untouched. The batch's own
+     * figure is recorded from the envelope by the ordinary response path, under
+     * that key; v2 has since stopped spreading it per method too. (#459)
      */
     const resultTime = responseHelper.response.getData()!.time
 

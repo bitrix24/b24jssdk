@@ -39,6 +39,7 @@ import { AjaxResult } from '../../../packages/jssdk/src/core/http/ajax-result'
 import type { AuthActions } from '../../../packages/jssdk/src/types/auth'
 import type { BatchCommandsArrayUniversal } from '../../../packages/jssdk/src/types/http'
 import { OperatingLimiter } from '../../../packages/jssdk/src/core/http/limiters/operating-limiter'
+import { AdaptiveDelayer } from '../../../packages/jssdk/src/core/http/limiters/adaptive-delayer'
 import { ParamsFactory } from '../../../packages/jssdk/src/core/http/limiters/params-factory'
 import type { PayloadTime } from '../../../packages/jssdk/src/types/payloads'
 
@@ -116,6 +117,50 @@ describe('a batch spends the `batch` budget', () => {
 
     expect(withoutCmd).toBe(withCmd)
     expect(withoutCmd).toBeGreaterThan(0)
+  })
+})
+
+describe('the adaptive delay follows the same budget', () => {
+  const ADAPTIVE = ParamsFactory.getDefault().adaptiveConfig!
+
+  /**
+   * `AdaptiveDelayer` had the same shape of special case as the limiter: it fanned
+   * out over a batch's command list and read `batch::<method>` statistics. Left
+   * alone it would have quietly stopped delaying batches altogether once those
+   * keys were no longer written, which is the regression these cases exist to
+   * catch.
+   */
+  function pair(): { limiter: OperatingLimiter, delayer: AdaptiveDelayer } {
+    const limiter = build()
+    return { limiter, delayer: new AdaptiveDelayer(ADAPTIVE, limiter) }
+  }
+
+  it('delays a batch once the `batch` budget is past the threshold', async () => {
+    const { limiter, delayer } = pair()
+    await limiter.updateStats('unit', 'batch', timeBlock(EXHAUSTED_SECONDS))
+
+    const delay = await delayer.waitIfNeeded('unit', 'batch', { cmd: ['tasks.task.list'] })
+
+    expect(delay).toBeGreaterThan(0)
+  })
+
+  it('does not delay a batch on a method budget it is not billed against', async () => {
+    const { limiter, delayer } = pair()
+    await limiter.updateStats('unit', 'tasks.task.list', timeBlock(EXHAUSTED_SECONDS))
+
+    const delay = await delayer.waitIfNeeded('unit', 'batch', { cmd: ['tasks.task.list'] })
+
+    expect(delay).toBe(0)
+  })
+
+  it('needs no command list to decide', async () => {
+    const { limiter, delayer } = pair()
+    await limiter.updateStats('unit', 'batch', timeBlock(EXHAUSTED_SECONDS))
+
+    const withCmd = await delayer.waitIfNeeded('unit', 'batch', { cmd: ['a.b'] })
+    const withoutCmd = await delayer.waitIfNeeded('unit', 'batch')
+
+    expect(withoutCmd).toBe(withCmd)
   })
 })
 

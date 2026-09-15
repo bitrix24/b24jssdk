@@ -39,6 +39,7 @@ import { AjaxResult } from '../../../packages/jssdk/src/core/http/ajax-result'
 import type { AuthActions } from '../../../packages/jssdk/src/types/auth'
 import type { BatchCommandsArrayUniversal } from '../../../packages/jssdk/src/types/http'
 import { OperatingLimiter } from '../../../packages/jssdk/src/core/http/limiters/operating-limiter'
+import { RestrictionManager } from '../../../packages/jssdk/src/core/http/limiters/manager'
 import { AdaptiveDelayer } from '../../../packages/jssdk/src/core/http/limiters/adaptive-delayer'
 import { ParamsFactory } from '../../../packages/jssdk/src/core/http/limiters/params-factory'
 import type { PayloadTime } from '../../../packages/jssdk/src/types/payloads'
@@ -220,5 +221,36 @@ describe('the v2 batch path stops inventing per-sub-method budgets', () => {
     for (const row of rows) {
       expect(row.getData()?.time?.operating).toBe(1.228)
     }
+  })
+})
+
+describe('the retry backoff after an operating-limit refusal', () => {
+  /**
+   * A second path the same change reaches, and worth pinning separately: it is
+   * error handling, not the pre-flight wait.
+   *
+   * `RestrictionManager.handleError` floors an operating-limit wait at 10 s and
+   * otherwise asks `OperatingLimiter.getTimeToFree`. For a batch that used to
+   * answer 0 — the old special case bailed out unless it found a v2-shaped
+   * command list, and a v3 batch never carries one — so the retry happened after
+   * a flat 10 seconds, back into a bucket that was still locked. It now waits
+   * for the reset the portal reported.
+   */
+  it('waits for the reset rather than the 10-second floor once `batch` is exhausted', async () => {
+    const manager = new RestrictionManager(ParamsFactory.getDefault())
+    await manager.updateStats('unit', 'batch', timeBlock(EXHAUSTED_SECONDS, 300))
+
+    const wait = await manager.handleError('unit', 'batch', {}, { message: '', code: 'OPERATION_TIME_LIMIT', status: 429 }, 0)
+
+    // ~5 minutes of reset, not the floor.
+    expect(wait).toBeGreaterThan(60_000)
+  })
+
+  it('still floors at 10 seconds when nothing is known about the budget', async () => {
+    const manager = new RestrictionManager(ParamsFactory.getDefault())
+
+    const wait = await manager.handleError('unit', 'batch', {}, { message: '', code: 'OPERATION_TIME_LIMIT', status: 429 }, 0)
+
+    expect(wait).toBe(10_000)
   })
 })

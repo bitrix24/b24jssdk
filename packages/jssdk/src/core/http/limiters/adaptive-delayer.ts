@@ -49,14 +49,19 @@ export class AdaptiveDelayer implements ILimiter {
   }
 
   /**
-   * Returns an adaptive delay based on previous experience
+   * Returns an adaptive delay based on previous experience.
+   *
+   * `_params` is unused: it carried the batch command list, which mattered only
+   * while a batch was delayed on the busiest method inside it. A batch is now
+   * delayed on the `batch` budget the portal bills it against. The parameter
+   * stays because {@link ILimiter} declares it.
    */
-  async waitIfNeeded(requestId: string, method: string, params?: any): Promise<number> {
+  async waitIfNeeded(requestId: string, method: string, _params?: any): Promise<number> {
     if (!this.#config.enabled) {
       return 0
     }
 
-    const delay = this.#calculateDelay(requestId, method, params)
+    const delay = this.#calculateDelay(requestId, method)
     if (delay > 0) {
       this.incrementAdaptiveDelays()
       this.#stats.totalAdaptiveDelay += delay
@@ -68,7 +73,7 @@ export class AdaptiveDelayer implements ILimiter {
   /**
    * Calculates adaptive delay based on previous experience
    */
-  #calculateDelay(requestId: string, method: string, _params?: any): number {
+  #calculateDelay(requestId: string, method: string): number {
     // `batch` is looked up like any other method, for the same reason
     // `OperatingLimiter.getTimeToFree` does: the portal charges a batch to the
     // method `batch`, and that is the entry the response path records. This used

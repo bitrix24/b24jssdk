@@ -133,10 +133,11 @@ export class RateLimiter implements ILimiter {
    */
   async updateStats(requestId: string, _method: string, _data: PayloadTime | undefined): Promise<void> {
     // A `batch::<method>` guard stood here, skipping the synthetic per-sub-method
-    // updates the v2 batch path used to emit. Nothing emits them any more — a
-    // batch is accounted under `batch`, which is one request and should count as
-    // one success here — so the guard could only ever be dead code pretending to
-    // be a rule. (#459)
+    // updates the v2 batch path emitted — and it was load-bearing while they
+    // existed: without it a 50-command batch counted as 51 successes rather than
+    // one. Removing their emitter left it with nothing to skip. The envelope
+    // update under `batch` never matched the guard anyway, so the success count
+    // per batch is one before and after. (#459)
     await this.#acquireLock(requestId)
 
     try {

@@ -21,8 +21,10 @@ interface OperatingStats {
  * Bitrix24 charges each REST call against a rolling 10-minute CPU-time
  * quota (`operating` field in the response). This limiter tracks that
  * quota per method and blocks further calls (via {@link ILimiter.canProceed})
- * until the reset timestamp has passed, preventing `QUERY_LIMIT_EXCEEDED`
- * errors caused by heavy requests exhausting the portal's operating budget.
+ * until the reset timestamp has passed, preventing the `OPERATION_TIME_LIMIT`
+ * refusal (HTTP 429) that heavy requests earn by exhausting that budget.
+ * `QUERY_LIMIT_EXCEEDED` is a different limit — requests per second — and
+ * belongs to {@link RateLimiter}.
  *
  * **It is inert on a default self-hosted portal, and that is the correct
  * behaviour, not a gap.** Such a portal sends no counters, because its own
@@ -92,12 +94,14 @@ export class OperatingLimiter implements ILimiter {
    * This is a fairly strict lock based on the limit:
    *   - not reached - no lock
    *   - reached - lock until the unlock time + 1 second
+   *
+   * `_requestId` and `_params` went unused when the batch budget started being
+   * read under its own `batch` key: the special case that recursed per
+   * sub-command was what needed them. They stay in the signature because
+   * `RestrictionManager.getTimeToFree` and the public `Http.getTimeToFree`
+   * forward all four arguments through.
    */
   async getTimeToFree(
-    // `_requestId` and `_params` are unused since the batch budget started being
-    // read under its own `batch` key: the old special case recursed per
-    // sub-command, and that recursion was what needed them. Kept so the
-    // signature still matches `ILimiter`.
     _requestId: string,
     method: string,
     _params?: any,
@@ -114,8 +118,8 @@ export class OperatingLimiter implements ILimiter {
     // the one stored under `batch`, which `_createAjaxResultFromResponse` already
     // records from the envelope.
     //
-    // This used to route to a helper that summed synthetic `batch::<method>`
-    // entries instead. Those modelled a per-sub-method batch budget the portal
+    // This used to route to a helper that took the largest wait across synthetic
+    // `batch::<method>` entries instead. Those modelled a per-sub-method batch budget the portal
     // does not keep, and on v2 they were fed each sub-result's `time` — which
     // carries the batch-wide running sum, identical across all fifty rows, not
     // that command's own cost. The real `batch` entry was written on every call

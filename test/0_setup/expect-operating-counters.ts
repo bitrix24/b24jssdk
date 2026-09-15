@@ -13,11 +13,10 @@ import type { PayloadTime } from '../../packages/jssdk/src/types/payloads'
  * it. A cloud portal always sends them, on `restApi:v2` and `restApi:v3` alike,
  * so against the cloud these assertions still run on every call. (#459)
  *
- * What is *not* tolerated is half of the pair: a response carrying `operating`
- * without `operating_reset_at` is a shape problem worth reporting, and is what
- * this still fails on. That is deliberately stricter than the SDK, which
- * tolerates the half-pair by guarding each counter separately — the limiter has
- * to survive it, but a portal doing it is news.
+ * Half of the pair is tolerated too, and deliberately: `operating` without
+ * `operating_reset_at` is the measured state of a portal whose limiter is on but
+ * has no storage configured. What is still checked is that a counter which *did*
+ * arrive makes sense.
  *
  * @param time - The `time` block from the response, if one came back at all.
  * @param label - Names the call in a failure message, since these run across
@@ -34,5 +33,17 @@ export function expectOperatingCounters(time: PayloadTime | undefined, label: st
   }
 
   expect(time.operating, `${label} operating`).toBeGreaterThanOrEqual(0)
-  expect(time.operating_reset_at, `${label} sent operating without operating_reset_at`).toBeGreaterThan(0)
+
+  // Half a pair is tolerated, because it is a measured portal state rather than
+  // a malformed envelope: with the portal's limiter switched on but no storage
+  // configured, `operating` arrives on every response and `operating_reset_at`
+  // never does. The SDK survives it — `updateStats` guards each counter
+  // separately and keeps the previous reset point — so a suite run against such
+  // a portal should not go red. When the value *is* there it still has to make
+  // sense.
+  if (undefined === time.operating_reset_at || null === time.operating_reset_at) {
+    return
+  }
+
+  expect(time.operating_reset_at, `${label} operating_reset_at`).toBeGreaterThan(0)
 }

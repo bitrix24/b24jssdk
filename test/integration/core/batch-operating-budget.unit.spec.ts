@@ -35,6 +35,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { HttpV2 } from '../../../packages/jssdk/src/core/http/v2'
+import { HttpV3 } from '../../../packages/jssdk/src/core/http/v3'
 import { AjaxResult } from '../../../packages/jssdk/src/core/http/ajax-result'
 import type { AuthActions } from '../../../packages/jssdk/src/types/auth'
 import type { BatchCommandsArrayUniversal } from '../../../packages/jssdk/src/types/http'
@@ -108,6 +109,18 @@ describe('a batch spends the `batch` budget', () => {
     expect(wait).toBe(0)
   })
 
+  // The other blocking outcome of the rewired function: a budget that is spent
+  // but whose reset has already passed. Reachable for `batch` for the first time
+  // now that it goes through the ordinary lookup.
+  it('falls back to a short wait when the reset has already lapsed', async () => {
+    const limiter = build()
+    await limiter.updateStats('unit', 'batch', timeBlock(EXHAUSTED_SECONDS, -60))
+
+    const wait = await limiter.getTimeToFree('unit', 'batch')
+
+    expect(wait).toBe(5_000)
+  })
+
   it('treats `batch` like any other method — no special routing left', async () => {
     const limiter = build()
     await limiter.updateStats('unit', 'batch', timeBlock(EXHAUSTED_SECONDS))
@@ -162,6 +175,9 @@ describe('the adaptive delay follows the same budget', () => {
     const withoutCmd = await delayer.waitIfNeeded('unit', 'batch')
 
     expect(withoutCmd).toBe(withCmd)
+    // Anchored, or the case would pass with both sides at zero — which is
+    // exactly what restoring the old command-list fan-out produces.
+    expect(withoutCmd).toBeGreaterThan(0)
   })
 })
 
@@ -252,5 +268,34 @@ describe('the retry backoff after an operating-limit refusal', () => {
     const wait = await manager.handleError('unit', 'batch', {}, { message: '', code: 'OPERATION_TIME_LIMIT', status: 429 }, 0)
 
     expect(wait).toBe(10_000)
+  })
+})
+
+describe('the other half of the model: the `batch` entry gets recorded', () => {
+  /**
+   * Everything above tests that the limiter *reads* `batch`. Nothing tested that
+   * anything *writes* it — the limiter cases feed `updateStats` by hand, and the
+   * `HttpV2` cases stub `call`, which is the very method that records it. So if
+   * `_createAjaxResultFromResponse` ever stopped writing the entry, batches would
+   * silently go back to being unthrottled and this suite would stay green: the
+   * regression #459 is about, arriving from the other end.
+   *
+   * This drives the real recording path instead, for both API versions.
+   */
+  it.each([
+    ['v2', HttpV2],
+    ['v3', HttpV3]
+  ] as const)('%s records the batch envelope under `batch`', async (_label, Http) => {
+    const http = new Http({} as unknown as AuthActions, null, {}) as any
+
+    const envelopeResponse = {
+      payload: { result: { result: {} }, time: timeBlock(2) },
+      status: 200
+    }
+    await http._createAjaxResultFromResponse(envelopeResponse, 'r-459', 'batch', {})
+
+    const stats = http._restrictionManager.getStats().operatingStats
+    expect(stats).toHaveProperty('batch')
+    expect(Object.keys(stats)).toEqual(['batch'])
   })
 })

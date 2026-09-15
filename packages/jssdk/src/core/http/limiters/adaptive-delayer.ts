@@ -49,14 +49,19 @@ export class AdaptiveDelayer implements ILimiter {
   }
 
   /**
-   * Returns an adaptive delay based on previous experience
+   * Returns an adaptive delay based on previous experience.
+   *
+   * `_params` is unused: it carried the batch command list, which mattered only
+   * while a batch was delayed on the busiest method inside it. A batch is now
+   * delayed on the `batch` budget the portal bills it against. The parameter
+   * stays because {@link ILimiter} declares it.
    */
-  async waitIfNeeded(requestId: string, method: string, params?: any): Promise<number> {
+  async waitIfNeeded(requestId: string, method: string, _params?: any): Promise<number> {
     if (!this.#config.enabled) {
       return 0
     }
 
-    const delay = this.#calculateDelay(requestId, method, params)
+    const delay = this.#calculateDelay(requestId, method)
     if (delay > 0) {
       this.incrementAdaptiveDelays()
       this.#stats.totalAdaptiveDelay += delay
@@ -68,11 +73,13 @@ export class AdaptiveDelayer implements ILimiter {
   /**
    * Calculates adaptive delay based on previous experience
    */
-  #calculateDelay(requestId: string, method: string, params?: any): number {
-    if (method === 'batch') {
-      return this.#calculateBatchDelay(requestId, params)
-    }
-
+  #calculateDelay(requestId: string, method: string): number {
+    // `batch` is looked up like any other method, for the same reason
+    // `OperatingLimiter.getTimeToFree` does: the portal charges a batch to the
+    // method `batch`, and that is the entry the response path records. This used
+    // to fan out over the command list and read synthetic `batch::<method>`
+    // statistics, which are no longer written — and were a batch-wide figure
+    // copied into a bucket per method even when they were. (#459)
     const stats = this.#operatingLimiter.getMethodStat(method)
 
     if (typeof stats === 'undefined') {
@@ -99,30 +106,6 @@ export class AdaptiveDelayer implements ILimiter {
     }
 
     return 0
-  }
-
-  /**
-   * For `batch`, applies adaptive delay based on previous experience from commands
-   */
-  #calculateBatchDelay(requestId: string, params: any): number {
-    let maxDelay = 0
-
-    if (!params?.cmd || !Array.isArray(params.cmd)) {
-      return maxDelay
-    }
-
-    const batchMethods = params.cmd
-      .map((row: string) => row.split('?')[0])
-      .filter(Boolean)
-
-    const batchMethodsUnique = [...new Set(batchMethods)]
-
-    for (const methodName of batchMethodsUnique) {
-      const delay = this.#calculateDelay(requestId, `batch::${methodName}`, {})
-      maxDelay = Math.max(maxDelay, delay)
-    }
-
-    return maxDelay
   }
 
   async updateStats(_requestId: string, _method: string, _data: PayloadTime | undefined): Promise<void> {

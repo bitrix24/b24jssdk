@@ -27,6 +27,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
+import { expectOperatingCounters } from '../../0_setup/expect-operating-counters'
 import { FilterV3, LoadDataType, useB24Helper } from '../../../packages/jssdk/src/'
 
 /** Ids discovered from the portal, or null when it has no such entity. */
@@ -206,14 +207,15 @@ describe('skills-live @skills', () => {
       })).rejects.toThrow()
     })
 
-    portalIt('the response carries the operating-budget fields the skill documents', async () => {
+    // The counters are optional, and a self-hosted portal not configured for the
+    // operating limiter sends none at all — so this checks their shape when they
+    // arrive rather than demanding them. (#459)
+    portalIt('the operating-budget fields the skill documents have the shape it claims', async () => {
       const response = await getB24Client().actions.v2.call.make({
         method: 'server.time',
         requestId: 'skills-live/core-operating'
       })
-      const time = response.getData()!.time
-      expect(time).toHaveProperty('operating')
-      expect(time).toHaveProperty('operating_reset_at')
+      expectOperatingCounters(response.getData()!.time, 'server.time')
     })
   })
 

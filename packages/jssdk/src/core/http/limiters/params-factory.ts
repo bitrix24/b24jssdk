@@ -62,11 +62,11 @@ export class ParamsFactory {
       operatingLimit: {
         windowMs: 600_000,
         limitMs: 480_000,
-        heavyPercent: 50 // Higher threshold for notifications
+        heavyPercent: 50 // Warn earlier than the default 80%: this profile is for long runs
       },
       adaptiveConfig: {
         enabled: true,
-        thresholdPercent: 50, // More threshold
+        thresholdPercent: 50, // Start delaying earlier than the default 80%
         coefficient: 0.015, // More pause
         maxDelay: 10_000 // Max 10 seconds
       },

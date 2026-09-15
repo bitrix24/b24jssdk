@@ -6,6 +6,7 @@ import type {
 } from '../../../packages/jssdk/src/'
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
+import { expectOperatingCounters } from '../../0_setup/expect-operating-counters'
 import { EnumCrmEntityTypeId, AjaxResult } from '../../../packages/jssdk/src/'
 
 /**
@@ -42,9 +43,7 @@ describe('core callBatch @apiV2', () => {
       expect(result.items.length).toBeGreaterThan(0)
 
       const time = rowData.time!
-      expect(time).toHaveProperty('operating')
-      expect(time.operating).toBeGreaterThanOrEqual(0)
-      expect(time.operating_reset_at).toBeGreaterThan(0)
+      expectOperatingCounters(time, '@apiV2 batch row')
     }
   })
   it('as BatchCommandsObjectUniversal @apiV2 isSuccess isHaltOnError returnAjax', async () => {
@@ -77,9 +76,7 @@ describe('core callBatch @apiV2', () => {
       expect(result.items.length).toBeGreaterThan(0)
 
       const time = rowData.time!
-      expect(time).toHaveProperty('operating')
-      expect(time.operating).toBeGreaterThanOrEqual(0)
-      expect(time.operating_reset_at).toBeGreaterThan(0)
+      expectOperatingCounters(time, '@apiV2 batch row')
     }
   })
   it('as BatchNamedCommandsUniversal @apiV2 isSuccess isHaltOnError returnAjax', async () => {
@@ -127,9 +124,7 @@ describe('core callBatch @apiV2', () => {
       expect(result.items.length).toBeGreaterThan(0)
 
       const time = rowData.time!
-      expect(time).toHaveProperty('operating')
-      expect(time.operating).toBeGreaterThanOrEqual(0)
-      expect(time.operating_reset_at).toBeGreaterThan(0)
+      expectOperatingCounters(time, '@apiV2 batch row')
     }
   })
 
@@ -199,9 +194,7 @@ describe('core callBatch @apiV2', () => {
         expect(result.items.length).toBeGreaterThan(0)
 
         const time = rowData.time!
-        expect(time).toHaveProperty('operating')
-        expect(time.operating).toBeGreaterThanOrEqual(0)
-        expect(time.operating_reset_at).toBeGreaterThan(0)
+        expectOperatingCounters(time, '@apiV2 batch row')
       } else {
         const errors = Array.from(resultRow.getErrors()) as SdkError[]
         const mainError = errors.find(error => error?.code === 'INVALID_ARG_VALUE')
@@ -248,9 +241,7 @@ describe('core callBatch @apiV2', () => {
         expect(result.items.length).toBeGreaterThan(0)
 
         const time = rowData.time!
-        expect(time).toHaveProperty('operating')
-        expect(time.operating).toBeGreaterThanOrEqual(0)
-        expect(time.operating_reset_at).toBeGreaterThan(0)
+        expectOperatingCounters(time, '@apiV2 batch row')
       } else {
         const errors = Array.from(resultRow.getErrors()) as SdkError[]
         const mainError = errors.find(error => error?.code === 'INVALID_ARG_VALUE')
@@ -326,9 +317,7 @@ describe('core callBatch @apiV2', () => {
         expect(result.items.length).toBeGreaterThan(0)
 
         const time = rowData.time!
-        expect(time).toHaveProperty('operating')
-        expect(time.operating).toBeGreaterThanOrEqual(0)
-        expect(time.operating_reset_at).toBeGreaterThan(0)
+        expectOperatingCounters(time, '@apiV2 batch row')
       } else {
         expect(keys).toContain(index)
         const errors = Array.from(resultRow.getErrors()) as SdkError[]
@@ -411,9 +400,7 @@ describe('core callBatch @apiV2', () => {
         expect(result.items.length).toBeGreaterThan(0)
 
         const time = rowData.time!
-        expect(time).toHaveProperty('operating')
-        expect(time.operating).toBeGreaterThanOrEqual(0)
-        expect(time.operating_reset_at).toBeGreaterThan(0)
+        expectOperatingCounters(time, '@apiV2 batch row')
       } else {
         const errors = Array.from(resultRow.getErrors()) as SdkError[]
         const mainError = errors.find(error => error?.code === 'INVALID_ARG_VALUE')
@@ -459,9 +446,7 @@ describe('core callBatch @apiV2', () => {
         expect(result.items.length).toBeGreaterThan(0)
 
         const time = rowData.time!
-        expect(time).toHaveProperty('operating')
-        expect(time.operating).toBeGreaterThanOrEqual(0)
-        expect(time.operating_reset_at).toBeGreaterThan(0)
+        expectOperatingCounters(time, '@apiV2 batch row')
       } else {
         const errors = Array.from(resultRow.getErrors()) as SdkError[]
         const mainError = errors.find(error => error?.code === 'INVALID_ARG_VALUE')
@@ -536,9 +521,7 @@ describe('core callBatch @apiV2', () => {
         expect(result.items.length).toBeGreaterThan(0)
 
         const time = rowData.time!
-        expect(time).toHaveProperty('operating')
-        expect(time.operating).toBeGreaterThanOrEqual(0)
-        expect(time.operating_reset_at).toBeGreaterThan(0)
+        expectOperatingCounters(time, '@apiV2 batch row')
       } else {
         expect(keys).toContain(index)
         const errors = Array.from(resultRow.getErrors()) as SdkError[]

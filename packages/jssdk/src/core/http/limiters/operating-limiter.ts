@@ -21,8 +21,20 @@ interface OperatingStats {
  * Bitrix24 charges each REST call against a rolling 10-minute CPU-time
  * quota (`operating` field in the response). This limiter tracks that
  * quota per method and blocks further calls (via {@link ILimiter.canProceed})
- * until the reset timestamp has passed, preventing `QUERY_LIMIT_EXCEEDED`
- * errors caused by heavy requests exhausting the portal's operating budget.
+ * until the reset timestamp has passed, preventing the `OPERATION_TIME_LIMIT`
+ * refusal (HTTP 429) that heavy requests earn by exhausting that budget.
+ * `QUERY_LIMIT_EXCEEDED` is a different limit — requests per second — and
+ * belongs to {@link RateLimiter}.
+ *
+ * **It is inert on a default self-hosted portal, and that is the correct
+ * behaviour, not a gap.** Such a portal sends no counters, because its own
+ * `LoadLimiter` is switched off — and the same switch gates enforcement, so it
+ * is not refusing calls either. There is no budget to track. `RateLimiter` and
+ * `AdaptiveDelayer` are unaffected.
+ *
+ * @see https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/limiters/#enabling-the-operating-limiter-on-a-self-hosted-portal
+ *   for how a box owner switches the portal's limiter on, including the
+ *   half-configured state in which the counters arrive but never accumulate.
  */
 export class OperatingLimiter implements ILimiter {
   #config: OperatingLimitConfig
@@ -82,19 +94,36 @@ export class OperatingLimiter implements ILimiter {
    * This is a fairly strict lock based on the limit:
    *   - not reached - no lock
    *   - reached - lock until the unlock time + 1 second
+   *
+   * `_requestId` and `_params` went unused when the batch budget started being
+   * read under its own `batch` key: the special case that recursed per
+   * sub-command was what needed them. They stay in the signature because
+   * `RestrictionManager.getTimeToFree` and the public `Http.getTimeToFree`
+   * forward all four arguments through.
    */
   async getTimeToFree(
-    requestId: string,
+    _requestId: string,
     method: string,
-    params?: any,
+    _params?: any,
     _error?: any
   ): Promise<number> {
     this.#cleanupOldStats()
 
-    if (method === 'batch') {
-      return this.#getTimeToFreeBatch(requestId, params)
-    }
-
+    // `batch` is read here like any other method, and that is the point.
+    //
+    // The portal keys its operating budget on the triple (auth type, credential,
+    // method) and charges a batch to the method `batch` — measured on a live
+    // portal, where `batch` stood at 1.228 while `tasks.task.list` read 0 at the
+    // same moment, on both API versions. So the budget a batch spends against is
+    // the one stored under `batch`, which `_createAjaxResultFromResponse` already
+    // records from the envelope.
+    //
+    // This used to route to a helper that took the largest wait across synthetic
+    // `batch::<method>` entries instead. Those modelled a per-sub-method batch budget the portal
+    // does not keep, and on v2 they were fed each sub-result's `time` — which
+    // carries the batch-wide running sum, identical across all fifty rows, not
+    // that command's own cost. The real `batch` entry was written on every call
+    // and never read. (#459)
     const stats = this.#methodStats.get(method)
     if (!stats) {
       return 0
@@ -115,28 +144,6 @@ export class OperatingLimiter implements ILimiter {
   }
 
   /**
-   * For `batch` commands, returns the maximum time until the method reaches the operating limit (in ms)
-   */
-  async #getTimeToFreeBatch(requestId: string, params: any): Promise<number> {
-    let maxWait = 0
-
-    if (!params?.cmd || !Array.isArray(params.cmd)) {
-      return maxWait
-    }
-
-    const batchMethods = params.cmd
-      .map((row: string) => row.split('?')[0])
-      .filter(Boolean)
-
-    for (const methodName of batchMethods) {
-      const waitTime = await this.getTimeToFree(requestId, `batch::${methodName}`, {})
-      maxWait = Math.max(maxWait, waitTime)
-    }
-
-    return maxWait
-  }
-
-  /**
    * Updates operating time statistics for the method.
    *
    * `data` is optional because **a successful response without a `time` block at
@@ -150,10 +157,11 @@ export class OperatingLimiter implements ILimiter {
    *
    * A `time` block that arrives *without* the counters is a second, separate
    * case and was never the crash — the `operating === undefined` check below has
-   * always caught it. It is the normal on-premise state, because the operating
-   * limiter is off by default there (the `rest` module's `load_limiter_active`
-   * option, default `N`, which nothing in the product ever sets), so the
-   * counters are missing from every response on such a portal.
+   * always caught it. It is the normal self-hosted state, because the portal's
+   * own limiter is off by default there (the `rest` module's
+   * `load_limiter_active` option, default `N`, which nothing in the product ever
+   * sets), so the counters are missing from every response on such a portal —
+   * which is also a portal that is not enforcing anything.
    *
    * No counters are synthesised when the block is absent. A fabricated
    * `operating: 0` is indistinguishable from a real "nothing consumed yet" and

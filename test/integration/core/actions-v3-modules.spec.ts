@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
+import { expectOperatingCounters } from '../../0_setup/expect-operating-counters'
 
 /**
  * Read-path smoke tests for the rest-v3 modules added in #203 — `mail.*`,
@@ -12,8 +13,8 @@ import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
  * there is no client-side signal left at all. A live call is the only check.
  *
  * What is asserted. One list method per module, and the v3 envelope around it:
- * `result` present, and a `time` block whose `operating` counters are the shape
- * the limiter reads. Nothing about the records themselves — a portal may hold
+ * `result` present, a `time` block present, and — *if* the portal sent the
+ * operating counters — their shape. Nothing about the records themselves — a portal may hold
  * none, and an empty list is a perfectly good round-trip.
  *
  * **Local-only.** These need `B24_HOOK`, and CI does not run Vitest at all (see
@@ -34,6 +35,13 @@ import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
  * a missing scope (`insufficient_scope`) is a webhook fix, `METHODNOTFOUND` means
  * the module is absent or the method is not on v3 after all, and anything else is
  * a real shape problem worth reporting.
+ *
+ * A fourth thing a red run used to mean is no longer red at all: a response
+ * whose `time` block carries no `operating` counters. That is portal
+ * configuration — the operating limiter is off by default on-premise — so those
+ * assertions run only when the counters arrive. The trade is real and worth
+ * knowing: against such a portal this spec passes with less coverage than
+ * against the cloud, and says nothing about it.
  */
 
 async function smokeList(
@@ -58,10 +66,11 @@ async function smokeList(
   expect(data.result, `${method} returned no result envelope`).toBeDefined()
   expect(data.result, `${method} returned an empty result envelope`).not.toBeNull()
 
-  const time = data.time!
-  expect(time).toHaveProperty('operating')
-  expect(time.operating).toBeGreaterThanOrEqual(0)
-  expect(time.operating_reset_at).toBeGreaterThan(0)
+  // Not `data.time!`: the block itself is optional, and a spec whose subject is
+  // "the envelope carries less than we assumed" should not assert otherwise one
+  // line later. The helper reports an absent block, and skips the counters when
+  // the portal simply did not send them.
+  expectOperatingCounters(data.time, method)
 }
 
 describe('core.actions.call @apiV3 — modules from #203', () => {

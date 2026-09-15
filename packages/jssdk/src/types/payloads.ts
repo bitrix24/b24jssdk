@@ -9,21 +9,44 @@ export type PayloadTime = {
   readonly date_start: ISODate
   readonly date_finish: ISODate
   /**
-   * timestamp - when part of the limit for this method will be released.
+   * Timestamp — when part of the limit for this method will be released.
    *
-   * Optional: absent whenever `operating` is — see below.
+   * Optional, and absent in two different situations. It is missing whenever
+   * `operating` is (see below), and *also* when the portal's limiter is active
+   * but has nowhere to store its buckets — measured on a self-hosted build,
+   * where `operating` arrived on every response and this one never did.
+   *
+   * When it is present it means one of two things, and the response gives no
+   * way to tell them apart: the expiry of the stored buckets, or — with nothing
+   * stored — simply the start of that request plus the window. Treat it as a
+   * hint, not as a deadline.
    */
   readonly operating_reset_at?: number
   /**
-   * indicates the execution time of a request to a specific method.
+   * Operating time charged against this method's budget, in seconds.
    *
-   * Optional, and missing is the *normal* on-premise state rather than an edge
-   * case: `CRestServer::appendDebugInfo()` adds the counters only when the
-   * operating limiter is active, which on-premise reads the `rest` module option
+   * Optional, and missing is the *normal* self-hosted state rather than an edge
+   * case: the portal adds the counters only while its own `LoadLimiter` is
+   * active, which on-premise reads the `rest` module option
    * `load_limiter_active` — default `N`, and nothing in the product ever sets
-   * it. `OperatingLimiter` therefore skips its bookkeeping instead of assuming a
-   * number, and does not synthesise a `0`: that value is indistinguishable from
-   * a real "nothing consumed yet".
+   * it. The same switch gates enforcement, so a portal that sends no counters
+   * is not limiting either. `OperatingLimiter` skips its bookkeeping instead of
+   * assuming a number, and does not synthesise a `0`: that value is
+   * indistinguishable from a real "nothing consumed yet".
+   *
+   * **Present does not mean meaningful.** On a portal where the limiter is
+   * switched on but has no storage configured, this arrives on every response
+   * and never accumulates — measured at `0.16`, `0`, `0.157` across three
+   * identical batch runs. It is the sum within that one request, which is why a
+   * call finishing under the portal's 0.1 s floor reads `0`. Throttling on it
+   * would never throttle.
+   *
+   * The budget behind it is per method — a batch is charged to `batch`, at half
+   * weight, not to the methods inside it.
+   *
+   * @see https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/limiters/#enabling-the-operating-limiter-on-a-self-hosted-portal
+   *   for how a self-hosted portal is configured to report these, and the
+   *   misconfiguration that silently looks like success.
    */
   readonly operating?: number
 }

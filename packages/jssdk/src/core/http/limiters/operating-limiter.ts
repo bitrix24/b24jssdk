@@ -94,17 +94,32 @@ export class OperatingLimiter implements ILimiter {
    *   - reached - lock until the unlock time + 1 second
    */
   async getTimeToFree(
-    requestId: string,
+    // `_requestId` and `_params` are unused since the batch budget started being
+    // read under its own `batch` key: the old special case recursed per
+    // sub-command, and that recursion was what needed them. Kept so the
+    // signature still matches `ILimiter`.
+    _requestId: string,
     method: string,
-    params?: any,
+    _params?: any,
     _error?: any
   ): Promise<number> {
     this.#cleanupOldStats()
 
-    if (method === 'batch') {
-      return this.#getTimeToFreeBatch(requestId, params)
-    }
-
+    // `batch` is read here like any other method, and that is the point.
+    //
+    // The portal keys its operating budget on the triple (auth type, credential,
+    // method) and charges a batch to the method `batch` — measured on a live
+    // portal, where `batch` stood at 1.228 while `tasks.task.list` read 0 at the
+    // same moment, on both API versions. So the budget a batch spends against is
+    // the one stored under `batch`, which `_createAjaxResultFromResponse` already
+    // records from the envelope.
+    //
+    // This used to route to a helper that summed synthetic `batch::<method>`
+    // entries instead. Those modelled a per-sub-method batch budget the portal
+    // does not keep, and on v2 they were fed each sub-result's `time` — which
+    // carries the batch-wide running sum, identical across all fifty rows, not
+    // that command's own cost. The real `batch` entry was written on every call
+    // and never read. (#459)
     const stats = this.#methodStats.get(method)
     if (!stats) {
       return 0
@@ -122,28 +137,6 @@ export class OperatingLimiter implements ILimiter {
     }
 
     return 0
-  }
-
-  /**
-   * For `batch` commands, returns the maximum time until the method reaches the operating limit (in ms)
-   */
-  async #getTimeToFreeBatch(requestId: string, params: any): Promise<number> {
-    let maxWait = 0
-
-    if (!params?.cmd || !Array.isArray(params.cmd)) {
-      return maxWait
-    }
-
-    const batchMethods = params.cmd
-      .map((row: string) => row.split('?')[0])
-      .filter(Boolean)
-
-    for (const methodName of batchMethods) {
-      const waitTime = await this.getTimeToFree(requestId, `batch::${methodName}`, {})
-      maxWait = Math.max(maxWait, waitTime)
-    }
-
-    return maxWait
   }
 
   /**

@@ -80,13 +80,28 @@ export abstract class AbstractProcessingV2 extends AbstractProcessing implements
       || typeof resultError !== 'undefined'
     ) {
       const methodName = command.method
-
-      // Update operating statistics for each method in the batch
       const resultTime = this._getBatchResultByIndex(responseResult.result_time, index)
-      if (typeof resultTime !== 'undefined') {
-        await responseHelper.restrictionManager.updateStats(responseHelper.requestId, `batch::${methodName}`, resultTime)
-      }
 
+      /**
+       * `time` on a v2 sub-result is **not** that command's own cost, and it is
+       * no longer fed to the limiter.
+       *
+       * Measured on a live portal: all fifty sub-results of a batch carry the
+       * same `operating` value — the sum accumulated within the request so far,
+       * frozen at whatever the one command that crossed the portal's 0.1 s floor
+       * put there. Feeding it to `updateStats('batch::<method>', …)` wrote that
+       * batch-wide number into a separate bucket for every method in the batch,
+       * modelling a per-sub-method batch budget the portal does not keep: it
+       * charges a batch to the method `batch`, and `tasks.task.list` read 0 while
+       * `batch` stood at 1.228 at the same moment.
+       *
+       * The real `batch` entry is recorded from the envelope by
+       * `_createAjaxResultFromResponse`, and `OperatingLimiter` now reads it. The
+       * `time` block still reaches the caller on each `AjaxResult` below,
+       * unchanged — only the limiter stopped believing it. (#459)
+       *
+       * `restApi:v3` never fed these keys; this brings v2 into line with it.
+       */
       const result = new AjaxResult<T>({
         answer: {
           error: resultError ? (typeof resultError === 'string' ? resultError : resultError.error) : undefined,

@@ -55,7 +55,8 @@ export class CallTailV3 extends AbstractAction {
    *     - `requestId?: string` - Unique request identifier for tracking.
    *     - `maxPages?: number` - Stop after this many pages and throw
    *         `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. Defaults to 10 000 — a
-   *         backstop, not a policy. Nothing is returned when it fires.
+   *         backstop, not a policy. The rows already collected come back with the
+   *         error attached rather than discarded — check `isSuccess`.
    *     - `signal?: AbortSignal` - Stop the walk. Checked at the top of each iteration, so an
    *         already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
    *     - `progress?: (p: { pages: number, rows: number }) => void` - Called after each

@@ -78,7 +78,7 @@ export class CallTailV3 extends AbstractAction {
    * @example
    * const response = await b24.actions.v3.callTail.make<{ id: string }>({
    *   method: 'main.eventlog.tail',
-   *   params: { select: ['id', 'auditType'] },
+   *   params: { select: ['id', 'auditTypeId'] },
    *   cursorField: 'id',
    *   customKeyForResult: 'items'
    * })

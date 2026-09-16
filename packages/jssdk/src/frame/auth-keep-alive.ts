@@ -1,0 +1,292 @@
+import type { AuthData } from '../types/auth'
+import type { LoggerInterface } from '../logger'
+
+/**
+ * Opt-in keep-alive for the frame access token (#532).
+ *
+ * The SDK's automatic refresh hangs off the request path: `_ensureAuth` before
+ * a call and `_makeRequestWithAuthRetry` on a 401. An app that reads the token
+ * with `auth.getAuthData()` and hands it to its OWN backend makes no `$b24`
+ * calls at all, so neither path ever fires and the token quietly dies in an
+ * idle tab — the app then looks broken although nothing changed.
+ *
+ * This module is the timer that closes that gap. It costs no REST: refreshing
+ * the frame token is a `postMessage` to the parent window.
+ */
+
+/**
+ * Refresh once less than this remains of the token's lifetime.
+ *
+ * @default 5 minutes
+ */
+export const FRAME_REFRESH_MARGIN_MS = 5 * 60_000
+
+/**
+ * Lower bound on the sleep between checks. Bitrix warns that refreshing too
+ * often risks an application being auto-blocked, so the floor is deliberate:
+ * a pathological `expires` cannot turn the pulse into a tight loop.
+ *
+ * @default 30 seconds
+ */
+export const FRAME_PULSE_MIN_MS = 30_000
+
+/**
+ * Upper bound on the sleep between checks. It keeps the pulse from sleeping
+ * past a token whose lifetime shrank under it, at the cost of one wake-up per
+ * 10 minutes in the worst case.
+ *
+ * @default 10 minutes
+ */
+export const FRAME_PULSE_MAX_MS = 10 * 60_000
+
+/**
+ * Tunables for {@link frameTokenDue} / {@link frameTokenDelayMs}. All three are
+ * optional; each falls back to the constant of the same name.
+ */
+export type KeepAuthFreshParams = {
+  /**
+   * How long before expiry a refresh becomes due, in milliseconds.
+   * @default 300000 (5 minutes)
+   */
+  marginMs?: number
+  /**
+   * Shortest sleep between checks, in milliseconds.
+   * @default 30000 (30 seconds)
+   */
+  minDelayMs?: number
+  /**
+   * Longest sleep between checks, in milliseconds.
+   * @default 600000 (10 minutes)
+   */
+  maxDelayMs?: number
+}
+
+type ResolvedParams = Required<KeepAuthFreshParams>
+
+/**
+ * Normalises {@link KeepAuthFreshParams}, dropping values that cannot describe
+ * a delay (non-finite, zero, negative) in favour of the defaults, and ordering
+ * the bounds so `minDelayMs <= maxDelayMs` holds whatever the caller passed.
+ */
+export function resolveKeepAuthFreshParams(params?: KeepAuthFreshParams): ResolvedParams {
+  const pick = (value: undefined | number, fallback: number): number => {
+    return Number.isFinite(value) && (value as number) > 0
+      ? (value as number)
+      : fallback
+  }
+
+  const marginMs = pick(params?.marginMs, FRAME_REFRESH_MARGIN_MS)
+  const minDelayMs = pick(params?.minDelayMs, FRAME_PULSE_MIN_MS)
+  const maxDelayMs = pick(params?.maxDelayMs, FRAME_PULSE_MAX_MS)
+
+  return {
+    marginMs,
+    minDelayMs,
+    // A caller that inverts the bounds gets the wider of the two as the
+    // ceiling rather than a `Math.min(max, Math.max(min, …))` that silently
+    // collapses to `min` for every input.
+    maxDelayMs: Math.max(minDelayMs, maxDelayMs)
+  }
+}
+
+/**
+ * Is the token due for a refresh?
+ *
+ * An unreadable `expires` counts as due: the cost of one extra `postMessage`
+ * is nothing next to the cost of missing the only chance to refresh.
+ *
+ * @param expiresSec expiry as a UNIX timestamp in **seconds** — the unit
+ *   `AuthData.expires` uses.
+ * @param nowMs current time in milliseconds (`Date.now()`).
+ */
+export function frameTokenDue(
+  expiresSec: undefined | number,
+  nowMs: number,
+  params?: KeepAuthFreshParams
+): boolean {
+  if (!Number.isFinite(expiresSec) || (expiresSec as number) <= 0) {
+    return true
+  }
+
+  const { marginMs } = resolveKeepAuthFreshParams(params)
+  return (expiresSec as number) * 1_000 - nowMs <= marginMs
+}
+
+/**
+ * How long to sleep before the next check, clamped to the configured bounds.
+ *
+ * Aimed at "expiry minus margin", so the pulse sleeps through the part of the
+ * token's life where there is nothing to do rather than waking on a fixed tick.
+ * The clamp still applies: with the defaults, anything further out than 15
+ * minutes sleeps the 10-minute maximum.
+ *
+ * @param expiresSec expiry as a UNIX timestamp in **seconds**.
+ * @param nowMs current time in milliseconds (`Date.now()`).
+ */
+export function frameTokenDelayMs(
+  expiresSec: undefined | number,
+  nowMs: number,
+  params?: KeepAuthFreshParams
+): number {
+  const { marginMs, minDelayMs, maxDelayMs } = resolveKeepAuthFreshParams(params)
+
+  if (!Number.isFinite(expiresSec) || (expiresSec as number) <= 0) {
+    return minDelayMs
+  }
+
+  const untilRefresh = (expiresSec as number) * 1_000 - nowMs - marginMs
+  return Math.min(maxDelayMs, Math.max(minDelayMs, untilRefresh))
+}
+
+/**
+ * The slice of `AuthActions` the pulse needs. Structural on purpose: it keeps
+ * this module independent of `AuthManager` and makes the driver testable with a
+ * two-method stub.
+ */
+export type KeepAuthFreshActions = {
+  getAuthData: () => false | AuthData
+  refreshAuth: () => Promise<AuthData>
+}
+
+/**
+ * The timer itself: wakes up, refreshes the token if it is due, and schedules
+ * the next wake-up from the new expiry.
+ *
+ * Two properties matter more than the schedule:
+ *
+ * - **It never throws.** A refusal from the portal is a state, not an exception
+ *   for the app: a failed tick is logged through the SDK logger (which is the
+ *   null logger unless the app wired one, so production stays silent) and the
+ *   pulse retries after the minimum delay.
+ * - **It listens to `visibilitychange`.** A background tab's timers are
+ *   throttled and a frozen tab's are not run at all, so a timer alone would
+ *   come back to a dead token. Returning to the tab checks immediately.
+ */
+export class AuthKeepAlive {
+  readonly #actions: KeepAuthFreshActions
+  readonly #params: ResolvedParams
+  readonly #getLogger: () => LoggerInterface
+
+  #timer: null | ReturnType<typeof setTimeout> = null
+  #isRunning: boolean = false
+  #isTicking: boolean = false
+  #onVisibilityChange: null | (() => void) = null
+
+  constructor(
+    actions: KeepAuthFreshActions,
+    getLogger: () => LoggerInterface,
+    params?: KeepAuthFreshParams
+  ) {
+    this.#actions = actions
+    this.#getLogger = getLogger
+    this.#params = resolveKeepAuthFreshParams(params)
+  }
+
+  /**
+   * Starts the pulse. Idempotent, and a no-op outside a browser (SSR): there is
+   * no parent window to postMessage to, and no `document` to watch.
+   */
+  public start(): void {
+    if (this.#isRunning || typeof window === 'undefined') {
+      return
+    }
+
+    this.#isRunning = true
+
+    if (typeof document !== 'undefined') {
+      this.#onVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          // Coming back to the tab is the one moment a throttled timer is
+          // certainly stale — drop it and check now.
+          this.#clearTimer()
+          void this.#tick()
+        }
+      }
+      document.addEventListener('visibilitychange', this.#onVisibilityChange)
+    }
+
+    void this.#tick()
+  }
+
+  /**
+   * Stops the pulse and detaches the listener. Idempotent; safe to call on a
+   * pulse that never started.
+   */
+  public stop(): void {
+    this.#isRunning = false
+    this.#clearTimer()
+
+    if (this.#onVisibilityChange !== null && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.#onVisibilityChange)
+    }
+
+    this.#onVisibilityChange = null
+  }
+
+  /**
+   * True while the pulse is scheduled. Exposed for tests and for an app that
+   * wants to show the state.
+   */
+  public get isRunning(): boolean {
+    return this.#isRunning
+  }
+
+  async #tick(): Promise<void> {
+    if (!this.#isRunning || this.#isTicking) {
+      return
+    }
+
+    this.#isTicking = true
+
+    let delay = this.#params.minDelayMs
+
+    try {
+      const authData = this.#actions.getAuthData()
+      // `getAuthData()` returns `false` once the token has already expired —
+      // that is `due` too, and the reason the pulse exists is to get ahead of it.
+      const expires = authData === false ? undefined : authData.expires
+
+      if (frameTokenDue(expires, Date.now(), this.#params)) {
+        const refreshed = await this.#actions.refreshAuth()
+        delay = frameTokenDelayMs(refreshed?.expires, Date.now(), this.#params)
+      } else {
+        delay = frameTokenDelayMs(expires, Date.now(), this.#params)
+      }
+    } catch (error) {
+      // Never surface to the app. The logger is the null logger by default, so
+      // this is silent in production unless the app wired a sink itself.
+      this.#getLogger().warning('keepAuthFresh: refresh failed, will retry', {
+        error: error instanceof Error ? error.message : String(error)
+      }).catch(() => {})
+    } finally {
+      this.#isTicking = false
+      this.#schedule(delay)
+    }
+  }
+
+  #schedule(delayMs: number): void {
+    if (!this.#isRunning) {
+      return
+    }
+
+    this.#clearTimer()
+    this.#timer = setTimeout(() => {
+      this.#timer = null
+      void this.#tick()
+    }, delayMs)
+
+    // Node keeps the process alive for a pending timer; a keep-alive must not.
+    // Browsers have no `unref`, hence the guard.
+    const timer = this.#timer as unknown as { unref?: () => void }
+    if (typeof timer?.unref === 'function') {
+      timer.unref()
+    }
+  }
+
+  #clearTimer(): void {
+    if (this.#timer !== null) {
+      clearTimeout(this.#timer)
+      this.#timer = null
+    }
+  }
+}

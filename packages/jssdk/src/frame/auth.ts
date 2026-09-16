@@ -23,6 +23,19 @@ export class AuthManager implements AuthActions {
 
   #isAdmin: boolean = false
 
+  // The one in-flight `refreshAuth()`, shared by every caller (#532).
+  //
+  // `AbstractHttp` coalesces too, but per http client — and `B24Frame` builds
+  // TWO of them (v2 and v3) over ONE `AuthManager`, so a v2 call and a v3 call
+  // racing an expiry already refreshed twice. The keep-alive adds a third
+  // caller. Coalescing here, at the single point that actually talks to the
+  // parent window, covers all of them: refreshing too often is what Bitrix
+  // warns can get an application auto-blocked.
+  #pendingRefresh: null | Promise<AuthData> = null
+  // Identifies which refresh owns the slot, so a settling refresh can only
+  // clear its own — never one started after it.
+  #refreshGeneration: number = 0
+
   #appFrame: AppFrame
   #messageManager: MessageManager
 
@@ -75,7 +88,36 @@ export class AuthManager implements AuthActions {
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-functions/bx24-refresh-auth.html
    */
-  public async refreshAuth(): Promise<AuthData> {
+  public refreshAuth(): Promise<AuthData> {
+    if (this.#pendingRefresh !== null) {
+      return this.#pendingRefresh
+    }
+
+    // The slot is released inside the promise the callers await, not in a
+    // `.finally()` chained onto it — a chained handler runs one microtask AFTER
+    // the caller resumes, so `await refreshAuth(); refreshAuth()` would have
+    // been handed back the settled promise instead of refreshing.
+    //
+    // Only the refresh that owns the slot clears it: a later refresh must not
+    // be cleared by an earlier one settling.
+    const generation = ++this.#refreshGeneration
+
+    const pending = (async () => {
+      try {
+        return await this.#doRefreshAuth()
+      } finally {
+        if (this.#refreshGeneration === generation) {
+          this.#pendingRefresh = null
+        }
+      }
+    })()
+
+    this.#pendingRefresh = pending
+
+    return pending
+  }
+
+  async #doRefreshAuth(): Promise<AuthData> {
     // Bound the wait: `MessageManager.send` has no timeout of its own here, and
     // its `isSafely` mode auto-*resolves* with `{ isSafely: true }` — which is
     // NOT valid `AuthData`. So race the send against a timer that *rejects*, so

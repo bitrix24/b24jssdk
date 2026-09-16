@@ -1,6 +1,7 @@
 export * from './message'
 export * from './b24'
 export * from './auth'
+export * from './auth-keep-alive'
 export * from './frame'
 export * from './options'
 export * from './parent'

@@ -2,6 +2,7 @@ import type { TypeHttpOptions } from './types/http'
 import type { B24FrameQueryParams } from './types/auth'
 import type { RestrictionParams } from './types/limiters'
 import type { ApiVersion } from './types/b24'
+import type { KeepAuthFreshParams } from './frame/auth-keep-alive'
 import { B24Frame } from './frame'
 import { SdkError } from './core/sdk-error'
 
@@ -37,6 +38,7 @@ async function makeFrame(
     version?: ApiVersion
     restrictionParams?: Partial<RestrictionParams>
     httpOptions?: TypeHttpOptions
+    keepAuthFresh?: boolean | KeepAuthFreshParams
   }
 ): Promise<B24Frame> {
   const queryParams = parseFrameQueryParams()
@@ -86,6 +88,31 @@ export async function initializeB24Frame(
      * `{ adapter: 'xhr' }` here is the way back.
      */
     httpOptions?: TypeHttpOptions
+    /**
+     * Keep the frame access token alive while the tab is open (#532).
+     *
+     * Off by default. The SDK's automatic refresh only runs when a request goes
+     * through `$b24`, so an app that reads the token with `auth.getAuthData()`
+     * and sends it to its own backend never refreshes: after `AUTH_EXPIRES`
+     * seconds of an idle tab the token is gone and the app's own calls start
+     * answering 401.
+     *
+     * ```ts
+     * const $b24 = await initializeB24Frame({ keepAuthFresh: true })
+     * ```
+     *
+     * With it on, a timer refreshes the token shortly before it expires and
+     * re-checks whenever the tab becomes visible again (a background tab's
+     * timers are throttled, a frozen tab's do not run at all). Refreshing the
+     * frame token is a `postMessage` to the parent window, so this costs no
+     * REST calls, and a failed refresh is never thrown at the app.
+     *
+     * Pass an object to tune the schedule — see {@link KeepAuthFreshParams}.
+     * It stays opt-in because it changes when an app talks to the parent
+     * window, and Bitrix warns that refreshing too often risks an application
+     * being auto-blocked.
+     */
+    keepAuthFresh?: boolean | KeepAuthFreshParams
   }
 ): Promise<B24Frame> {
   // Concurrent callers (and calls after a success) share the one promise — a

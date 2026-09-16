@@ -247,6 +247,28 @@ const sid = $b24.getAppSid()
 ```
 
 The SDK auto-refreshes auth on 401 — manual `refreshAuth()` is rarely needed.
+Concurrent `refreshAuth()` calls are coalesced into one message to the parent window.
+
+### Token keep-alive — for apps that use the token outside the SDK
+
+The auto-refresh runs **only on the request path** (before a call, and on a 401).
+An app that reads the token and sends it to **its own backend** makes no `$b24`
+call, so nothing ever refreshes it: after `AUTH_EXPIRES` seconds of an idle tab
+the token is gone and the app's own requests start answering 401.
+
+```ts
+// Opt in — off by default. Refreshes ahead of expiry and re-checks when the
+// tab becomes visible again. Costs no REST call (it is a postMessage), never
+// throws at the app, and stops with $b24.destroy().
+const $b24 = await initializeB24Frame({ keepAuthFresh: true })
+
+// Tune it if the portal hands out short-lived tokens:
+// keepAuthFresh: { marginMs: 120_000, minDelayMs: 30_000, maxDelayMs: 120_000 }
+```
+
+Turn it on when the token leaves the SDK, or when the page sits open and idle.
+Leave it off when every request goes through `$b24` — Bitrix warns that
+refreshing too often risks an app being auto-blocked.
 
 ## Lifecycle template (Vue 3)
 

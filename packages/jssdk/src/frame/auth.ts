@@ -32,9 +32,6 @@ export class AuthManager implements AuthActions {
   // parent window, covers all of them: refreshing too often is what Bitrix
   // warns can get an application auto-blocked.
   #pendingRefresh: null | Promise<AuthData> = null
-  // Identifies which refresh owns the slot, so a settling refresh can only
-  // clear its own — never one started after it.
-  #refreshGeneration: number = 0
 
   #appFrame: AppFrame
   #messageManager: MessageManager
@@ -98,17 +95,14 @@ export class AuthManager implements AuthActions {
     // the caller resumes, so `await refreshAuth(); refreshAuth()` would have
     // been handed back the settled promise instead of refreshing.
     //
-    // Only the refresh that owns the slot clears it: a later refresh must not
-    // be cleared by an earlier one settling.
-    const generation = ++this.#refreshGeneration
-
+    // Clearing unconditionally is safe: the early return above means a second
+    // refresh cannot start while this one holds the slot, so the slot at settle
+    // time is always this refresh's own.
     const pending = (async () => {
       try {
         return await this.#doRefreshAuth()
       } finally {
-        if (this.#refreshGeneration === generation) {
-          this.#pendingRefresh = null
-        }
+        this.#pendingRefresh = null
       }
     })()
 
@@ -140,9 +134,30 @@ export class AuthManager implements AuthActions {
         timeout
       ])
 
+      // Validate BEFORE writing anything. `Number.parseInt` on a missing, empty
+      // or non-numeric `AUTH_EXPIRES` yields NaN, which used to be written
+      // straight into `#authExpires`: `NaN > Date.now()` is false, so
+      // `getAuthData()` then returned `false` — for good — and this method
+      // handed that `false` back cast as `AuthData`. A single malformed answer
+      // therefore destroyed a still-valid token and left the manager
+      // permanently unauthenticated. Reject instead, and keep the old token:
+      // the caller can retry, and the keep-alive backs off. (#532)
+      const expiresIn = Number.parseInt(data?.AUTH_EXPIRES)
+
+      if (!Number.isFinite(expiresIn) || expiresIn <= 0) {
+        // The description names the field, never its value: an SdkError message
+        // is not redacted, and this payload carries the tokens. (#43)
+        throw new SdkError({
+          code: 'JSSDK_FRAME_REFRESH_AUTH_BAD_RESPONSE',
+          status: 500,
+          description: 'refreshAuth: the parent window answered without a usable AUTH_EXPIRES'
+        })
+      }
+
       this.#accessToken = data.AUTH_ID
       this.#refreshId = data.REFRESH_ID
-      this.#authExpires = Date.now() + Number.parseInt(data.AUTH_EXPIRES) * 1_000
+      this.#authExpiresIn = expiresIn
+      this.#authExpires = Date.now() + expiresIn * 1_000
 
       return this.getAuthData() as AuthData
     } finally {

@@ -45,7 +45,7 @@ describe('#532 AuthManager.refreshAuth() coalescing', () => {
     expect(c).toBe(a)
   })
 
-  it('releases the slot after success, so a later refresh really refreshes', async () => {
+  it('releases the slot before the caller resumes, so a refresh in the continuation really refreshes', async () => {
     const send = vi.fn(async () => ({
       AUTH_ID: 'NEW_ACCESS',
       REFRESH_ID: 'NEW_REFRESH',
@@ -53,8 +53,15 @@ describe('#532 AuthManager.refreshAuth() coalescing', () => {
     }))
     const auth = buildAuthManager(send)
 
-    await auth.refreshAuth()
-    await auth.refreshAuth()
+    // The second call is made IN the continuation of the first, with no
+    // intervening `await` of our own. That is the shape that matters: if the
+    // slot were released by a `.finally()` chained onto the promise, the
+    // handler would not have run yet at this point and this call would be
+    // handed the already-settled promise instead of refreshing.
+    //
+    // Writing this as `await refreshAuth(); await refreshAuth()` passes either
+    // way — the test's own second `await` donates the missing microtask.
+    await auth.refreshAuth().then(() => auth.refreshAuth())
 
     expect(send).toHaveBeenCalledTimes(2)
   })

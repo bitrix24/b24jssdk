@@ -22,9 +22,11 @@ import type { LoggerInterface } from '../logger'
 export const FRAME_REFRESH_MARGIN_MS = 5 * 60_000
 
 /**
- * Lower bound on the sleep between checks. Bitrix warns that refreshing too
- * often risks an application being auto-blocked, so the floor is deliberate:
- * a pathological `expires` cannot turn the pulse into a tight loop.
+ * Hard lower bound on the sleep between checks, and the default. Bitrix warns
+ * that refreshing too often risks an application being auto-blocked, so this
+ * one is a floor rather than a default: `minDelayMs` can only raise it. A
+ * one-character slip (`minDelayMs: 30`, meaning seconds) would otherwise be a
+ * thousand `postMessage` round-trips a second.
  *
  * @default 30 seconds
  */
@@ -50,7 +52,9 @@ export type KeepAuthFreshParams = {
    */
   marginMs?: number
   /**
-   * Shortest sleep between checks, in milliseconds.
+   * Shortest sleep between checks, in milliseconds. Values below
+   * {@link FRAME_PULSE_MIN_MS} are raised to it — this knob can only slow the
+   * pulse down, never speed it past the safety floor.
    * @default 30000 (30 seconds)
    */
   minDelayMs?: number
@@ -76,7 +80,8 @@ export function resolveKeepAuthFreshParams(params?: KeepAuthFreshParams): Resolv
   }
 
   const marginMs = pick(params?.marginMs, FRAME_REFRESH_MARGIN_MS)
-  const minDelayMs = pick(params?.minDelayMs, FRAME_PULSE_MIN_MS)
+  // The floor is not negotiable — see FRAME_PULSE_MIN_MS.
+  const minDelayMs = Math.max(FRAME_PULSE_MIN_MS, pick(params?.minDelayMs, FRAME_PULSE_MIN_MS))
   const maxDelayMs = pick(params?.maxDelayMs, FRAME_PULSE_MAX_MS)
 
   return {
@@ -172,6 +177,16 @@ export class AuthKeepAlive {
   #isTicking: boolean = false
   #onVisibilityChange: null | (() => void) = null
 
+  // Identifies the current start()..stop() run. A tick or timer from an earlier
+  // run must not schedule work for a later one, and `#isTicking` alone cannot
+  // tell them apart because `stop()` cannot cancel a refresh already in flight.
+  #runId: number = 0
+  // Consecutive ticks that did not end with a usable token. Drives the backoff.
+  #failures: number = 0
+  // When the last tick ran, so a burst of `visibilitychange` events cannot
+  // check more often than the floor allows.
+  #lastCheckAtMs: number = 0
+
   constructor(
     actions: KeepAuthFreshActions,
     getLogger: () => LoggerInterface,
@@ -192,20 +207,45 @@ export class AuthKeepAlive {
     }
 
     this.#isRunning = true
+    this.#failures = 0
+
+    const runId = ++this.#runId
 
     if (typeof document !== 'undefined') {
       this.#onVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
-          // Coming back to the tab is the one moment a throttled timer is
-          // certainly stale — drop it and check now.
-          this.#clearTimer()
-          void this.#tick()
+        if (document.visibilityState !== 'visible') {
+          return
         }
+
+        // Coming back to the tab is the one moment a throttled timer is
+        // certainly stale. Both branches below go through `#schedule`, which
+        // clears the old timer before arming a new one, so there is nothing to
+        // drop here first.
+        //
+        // A tab switch is not a licence to refresh, though: alt-tabbing fifty
+        // times must not send fifty messages, so a check that would land inside
+        // the floor is scheduled rather than run.
+        const currentRunId = this.#runId
+        const sinceLastCheck = Date.now() - this.#lastCheckAtMs
+        if (sinceLastCheck < this.#params.minDelayMs) {
+          this.#schedule(this.#params.minDelayMs - sinceLastCheck, currentRunId)
+          return
+        }
+
+        void this.#tick(currentRunId)
       }
       document.addEventListener('visibilitychange', this.#onVisibilityChange)
     }
 
-    void this.#tick()
+    if (this.#isTicking) {
+      // A tick from the previous run is still awaiting its refresh. It belongs
+      // to a stale run and will not schedule anything, so this run arms its own
+      // timer rather than waiting on it.
+      this.#schedule(this.#params.minDelayMs, runId)
+      return
+    }
+
+    void this.#tick(runId)
   }
 
   /**
@@ -214,6 +254,9 @@ export class AuthKeepAlive {
    */
   public stop(): void {
     this.#isRunning = false
+    // Invalidate the run so a refresh already in flight cannot re-arm the timer
+    // when it settles — `stop()` cannot cancel it, only disown it.
+    this.#runId += 1
     this.#clearTimer()
 
     if (this.#onVisibilityChange !== null && typeof document !== 'undefined') {
@@ -231,12 +274,13 @@ export class AuthKeepAlive {
     return this.#isRunning
   }
 
-  async #tick(): Promise<void> {
-    if (!this.#isRunning || this.#isTicking) {
+  async #tick(runId: number): Promise<void> {
+    if (!this.#isRunning || this.#runId !== runId || this.#isTicking) {
       return
     }
 
     this.#isTicking = true
+    this.#lastCheckAtMs = Date.now()
 
     let delay = this.#params.minDelayMs
 
@@ -246,33 +290,72 @@ export class AuthKeepAlive {
       // that is `due` too, and the reason the pulse exists is to get ahead of it.
       const expires = authData === false ? undefined : authData.expires
 
-      if (frameTokenDue(expires, Date.now(), this.#params)) {
-        const refreshed = await this.#actions.refreshAuth()
-        delay = frameTokenDelayMs(refreshed?.expires, Date.now(), this.#params)
-      } else {
+      if (!frameTokenDue(expires, Date.now(), this.#params)) {
+        this.#failures = 0
         delay = frameTokenDelayMs(expires, Date.now(), this.#params)
+      } else {
+        const refreshed = await this.#actions.refreshAuth()
+        // Not `refreshed?.expires`: optional chaining does not short-circuit on
+        // `false`, and a frame refresh can resolve falsy.
+        const freshExpires = refreshed ? refreshed.expires : undefined
+
+        if (frameTokenDue(freshExpires, Date.now(), this.#params)) {
+          // The refresh succeeded and bought no headroom: the token's whole
+          // life is shorter than the margin, or the portal answered with an
+          // expiry we cannot use. Ticking again at the floor would mean a
+          // `postMessage` every 30 seconds for as long as the tab is open —
+          // the auto-block pattern. Back off instead.
+          this.#failures += 1
+          delay = this.#backoffDelayMs()
+        } else {
+          this.#failures = 0
+          delay = frameTokenDelayMs(freshExpires, Date.now(), this.#params)
+        }
       }
     } catch (error) {
       // Never surface to the app. The logger is the null logger by default, so
       // this is silent in production unless the app wired a sink itself.
+      //
+      // Only `error.message` — never the error object or the payload, which on
+      // this path carries the tokens. (#43)
+      this.#failures += 1
+      delay = this.#backoffDelayMs()
+
       this.#getLogger().warning('keepAuthFresh: refresh failed, will retry', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        failures: this.#failures,
+        retryInMs: delay
       }).catch(() => {})
     } finally {
       this.#isTicking = false
-      this.#schedule(delay)
+      this.#schedule(delay, runId)
     }
   }
 
-  #schedule(delayMs: number): void {
-    if (!this.#isRunning) {
+  /**
+   * Exponential backoff over consecutive failed (or useless) refreshes, from
+   * the floor up to the ceiling: 30s, 1m, 2m, 4m, 8m, then 10m forever.
+   *
+   * A parent window that is navigated away, blocked or refusing is the case
+   * `REFRESH_AUTH_TIMEOUT` exists for, and each attempt costs a message plus a
+   * 10-second reject timer. Retrying it at a flat 30 seconds for the life of
+   * the tab is the behaviour this exists to prevent.
+   */
+  #backoffDelayMs(): number {
+    // Capped before the shift so a long-lived tab cannot overflow the exponent.
+    const steps = Math.min(Math.max(this.#failures - 1, 0), 10)
+    return Math.min(this.#params.maxDelayMs, this.#params.minDelayMs * 2 ** steps)
+  }
+
+  #schedule(delayMs: number, runId: number): void {
+    if (!this.#isRunning || this.#runId !== runId) {
       return
     }
 
     this.#clearTimer()
     this.#timer = setTimeout(() => {
       this.#timer = null
-      void this.#tick()
+      void this.#tick(runId)
     }, delayMs)
 
     // Node keeps the process alive for a pending timer; a keep-alive must not.

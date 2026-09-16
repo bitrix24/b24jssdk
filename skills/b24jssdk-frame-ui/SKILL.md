@@ -257,9 +257,13 @@ call, so nothing ever refreshes it: after `AUTH_EXPIRES` seconds of an idle tab
 the token is gone and the app's own requests start answering 401.
 
 ```ts
-// Opt in — off by default. Refreshes ahead of expiry and re-checks when the
-// tab becomes visible again. Costs no REST call (it is a postMessage), never
-// throws at the app, and stops with $b24.destroy().
+import { initializeB24Frame } from '@bitrix24/b24jssdk'
+
+// Opt in — off by default, and pass it at the app's FIRST init (the first
+// caller's options win). Refreshes ahead of expiry, re-checks when the tab
+// becomes visible again, backs off when the parent window refuses. Costs no
+// REST call (it is a postMessage), never throws at the app, stops with
+// $b24.destroy().
 const $b24 = await initializeB24Frame({ keepAuthFresh: true })
 
 // Tune it if the portal hands out short-lived tokens:

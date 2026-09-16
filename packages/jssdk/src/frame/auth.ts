@@ -23,6 +23,16 @@ export class AuthManager implements AuthActions {
 
   #isAdmin: boolean = false
 
+  // The one in-flight `refreshAuth()`, shared by every caller (#532).
+  //
+  // `AbstractHttp` coalesces too, but per http client — and `B24Frame` builds
+  // TWO of them (v2 and v3) over ONE `AuthManager`, so a v2 call and a v3 call
+  // racing an expiry already refreshed twice. The keep-alive adds a third
+  // caller. Coalescing here, at the single point that actually talks to the
+  // parent window, covers all of them: refreshing too often is what Bitrix
+  // warns can get an application auto-blocked.
+  #pendingRefresh: null | Promise<AuthData> = null
+
   #appFrame: AppFrame
   #messageManager: MessageManager
 
@@ -75,7 +85,33 @@ export class AuthManager implements AuthActions {
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-functions/bx24-refresh-auth.html
    */
-  public async refreshAuth(): Promise<AuthData> {
+  public refreshAuth(): Promise<AuthData> {
+    if (this.#pendingRefresh !== null) {
+      return this.#pendingRefresh
+    }
+
+    // The slot is released inside the promise the callers await, not in a
+    // `.finally()` chained onto it — a chained handler runs one microtask AFTER
+    // the caller resumes, so `await refreshAuth(); refreshAuth()` would have
+    // been handed back the settled promise instead of refreshing.
+    //
+    // Clearing unconditionally is safe: the early return above means a second
+    // refresh cannot start while this one holds the slot, so the slot at settle
+    // time is always this refresh's own.
+    const pending = (async () => {
+      try {
+        return await this.#doRefreshAuth()
+      } finally {
+        this.#pendingRefresh = null
+      }
+    })()
+
+    this.#pendingRefresh = pending
+
+    return pending
+  }
+
+  async #doRefreshAuth(): Promise<AuthData> {
     // Bound the wait: `MessageManager.send` has no timeout of its own here, and
     // its `isSafely` mode auto-*resolves* with `{ isSafely: true }` — which is
     // NOT valid `AuthData`. So race the send against a timer that *rejects*, so
@@ -98,9 +134,30 @@ export class AuthManager implements AuthActions {
         timeout
       ])
 
+      // Validate BEFORE writing anything. `Number.parseInt` on a missing, empty
+      // or non-numeric `AUTH_EXPIRES` yields NaN, which used to be written
+      // straight into `#authExpires`: `NaN > Date.now()` is false, so
+      // `getAuthData()` then returned `false` — for good — and this method
+      // handed that `false` back cast as `AuthData`. A single malformed answer
+      // therefore destroyed a still-valid token and left the manager
+      // permanently unauthenticated. Reject instead, and keep the old token:
+      // the caller can retry, and the keep-alive backs off. (#532)
+      const expiresIn = Number.parseInt(data?.AUTH_EXPIRES)
+
+      if (!Number.isFinite(expiresIn) || expiresIn <= 0) {
+        // The description names the field, never its value: an SdkError message
+        // is not redacted, and this payload carries the tokens. (#43)
+        throw new SdkError({
+          code: 'JSSDK_FRAME_REFRESH_AUTH_BAD_RESPONSE',
+          status: 500,
+          description: 'refreshAuth: the parent window answered without a usable AUTH_EXPIRES'
+        })
+      }
+
       this.#accessToken = data.AUTH_ID
       this.#refreshId = data.REFRESH_ID
-      this.#authExpires = Date.now() + Number.parseInt(data.AUTH_EXPIRES) * 1_000
+      this.#authExpiresIn = expiresIn
+      this.#authExpires = Date.now() + expiresIn * 1_000
 
       return this.getAuthData() as AuthData
     } finally {

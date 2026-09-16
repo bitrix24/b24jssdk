@@ -16,6 +16,8 @@ import { OptionsManager } from './options'
 import { DialogManager } from './dialog'
 import { SliderManager } from './slider'
 import { PlacementManager } from './placement'
+import { AuthKeepAlive } from './auth-keep-alive'
+import type { KeepAuthFreshParams } from './auth-keep-alive'
 
 /**
  * Bitrix24 client for applications embedded in an iframe (frame placement).
@@ -49,6 +51,9 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
 
   readonly #restrictionParams: undefined | Partial<RestrictionParams>
 
+  readonly #keepAuthFresh: undefined | boolean | KeepAuthFreshParams
+  #authKeepAlive: null | AuthKeepAlive = null
+
   // region Init ////
   constructor(
     queryParams: B24FrameQueryParams,
@@ -64,11 +69,28 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
        * unchanged — this constructor is not meant to be called directly.
        */
       httpOptions?: TypeHttpOptions
+      /**
+       * Keep the frame access token alive while the tab is open (#532).
+       *
+       * Off by default. The SDK refreshes on the request path only, so an app
+       * that reads the token with `auth.getAuthData()` and passes it to its own
+       * backend never triggers a refresh and loses the token in an idle tab.
+       * Turning this on runs a timer that refreshes ahead of expiry (a
+       * `postMessage` to the parent window, no REST call) and re-checks when
+       * the tab becomes visible again.
+       *
+       * `true` uses the defaults; an object overrides them — see
+       * {@link KeepAuthFreshParams}. It is opt-in because it changes when an app
+       * talks to the parent window, and Bitrix warns that refreshing too often
+       * risks an application being auto-blocked.
+       */
+      keepAuthFresh?: boolean | KeepAuthFreshParams
     }
   ) {
     super()
 
     this.#restrictionParams = options?.restrictionParams
+    this.#keepAuthFresh = options?.keepAuthFresh
     this._httpOptions = options?.httpOptions ?? null
 
     this.#appFrame = new AppFrame(queryParams)
@@ -166,6 +188,8 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
 
     this._isInit = true
 
+    this.#startKeepAuthFresh()
+
     /**
      * @memo Writes the fact of the 1st launch to `app_options`
      */
@@ -181,8 +205,29 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
    * Removes an event subscription
    */
   public override destroy() {
+    this.#authKeepAlive?.stop()
+    this.#authKeepAlive = null
     this.#messageManager.unsubscribe()
     super.destroy()
+  }
+
+  /**
+   * Starts the token keep-alive when the caller asked for it (#532).
+   *
+   * Called from `init()` — before that there is no token to keep alive — and
+   * torn down in `destroy()`.
+   */
+  #startKeepAuthFresh(): void {
+    if (!this.#keepAuthFresh || this.#authKeepAlive !== null) {
+      return
+    }
+
+    this.#authKeepAlive = new AuthKeepAlive(
+      this.#authManager,
+      () => this.getLogger(),
+      this.#keepAuthFresh === true ? undefined : this.#keepAuthFresh
+    )
+    this.#authKeepAlive.start()
   }
   // endregion ////
 

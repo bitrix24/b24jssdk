@@ -64,6 +64,9 @@ let $b24: B24Frame
 async function boot() {
   $b24 = await initializeB24Frame()
   // The frame handles auth transparently; refresh on 401 is automatic.
+  // If you pass the token to your OWN backend instead of calling through $b24,
+  // that path never runs — use `initializeB24Frame({ keepAuthFresh: true })`.
+  // See the `b24jssdk-frame-ui` skill.
 }
 
 function teardown() {

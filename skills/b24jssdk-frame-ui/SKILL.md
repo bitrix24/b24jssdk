@@ -251,7 +251,8 @@ Concurrent `refreshAuth()` calls are coalesced into one message to the parent wi
 
 ### Token keep-alive — for apps that use the token outside the SDK
 
-The auto-refresh runs **only on the request path** (before a call, and on a 401).
+The auto-refresh runs **only on the request path**: an already-expired token is
+renewed before a call (a valid one is used as is), and again on a 401.
 An app that reads the token and sends it to **its own backend** makes no `$b24`
 call, so nothing ever refreshes it: after `AUTH_EXPIRES` seconds of an idle tab
 the token is gone and the app's own requests start answering 401.

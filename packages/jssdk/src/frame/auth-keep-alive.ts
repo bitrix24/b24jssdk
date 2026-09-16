@@ -162,10 +162,13 @@ export type KeepAuthFreshActions = {
  * - **It never throws.** A refusal from the portal is a state, not an exception
  *   for the app: a failed tick is logged through the SDK logger (which is the
  *   null logger unless the app wired one, so production stays silent) and the
- *   pulse retries after the minimum delay.
+ *   pulse backs off — see `#backoffDelayMs`: 30s, 1m, 2m, 4m, 8m, then every
+ *   10m, reset by the first check that ends with a usable token.
  * - **It listens to `visibilitychange`.** A background tab's timers are
  *   throttled and a frozen tab's are not run at all, so a timer alone would
- *   come back to a dead token. Returning to the tab checks immediately.
+ *   come back to a dead token. On return the pulse re-arms from the time the
+ *   next check was due: if that moment has passed it checks at once, and if it
+ *   has not, a tab switch does not get to walk past the backoff.
  */
 export class AuthKeepAlive {
   readonly #actions: KeepAuthFreshActions
@@ -251,6 +254,10 @@ export class AuthKeepAlive {
       // A tick from the previous run is still awaiting its refresh. It belongs
       // to a stale run and will not schedule anything, so this run arms its own
       // timer rather than waiting on it.
+      //
+      // That briefly leaves two refreshes in flight across the two runs, which
+      // is fine: `AuthManager.refreshAuth()` coalesces them into one message to
+      // the parent window.
       this.#schedule(this.#params.minDelayMs, runId)
       return
     }
@@ -277,8 +284,9 @@ export class AuthKeepAlive {
   }
 
   /**
-   * True while the pulse is scheduled. Exposed for tests and for an app that
-   * wants to show the state.
+   * True between `start()` and `stop()`. Internal: the class does not leave the
+   * package (only {@link KeepAuthFreshParams} is exported), so this is for the
+   * owning `B24Frame` and for tests.
    */
   public get isRunning(): boolean {
     return this.#isRunning

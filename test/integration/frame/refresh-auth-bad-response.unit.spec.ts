@@ -8,8 +8,8 @@
  * cast as `AuthData`. One malformed answer destroyed a still-valid token and
  * left the frame unauthenticated for the rest of the page's life.
  *
- * The assertion that matters in every case below is the second one: the OLD
- * token is still there afterwards. A version that validates only after writing
+ * The assertion that matters is the one in the table below: the OLD token is
+ * still there after the rejection. A version that validates only after writing
  * would satisfy the rejection but not that.
  */
 import { describe, it, expect, vi } from 'vitest'

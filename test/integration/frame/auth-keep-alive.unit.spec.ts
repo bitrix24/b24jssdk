@@ -218,7 +218,7 @@ describe('#532 AuthKeepAlive', () => {
     pulse.stop()
   })
 
-  it('checks immediately when the tab becomes visible again', async () => {
+  it('checks immediately on return when the due time passed while the tab was frozen', async () => {
     const refreshAuth = vi.fn(async () => authData(sec(60 * 60_000)))
     const pulse = new AuthKeepAlive(
       { getAuthData: () => false, refreshAuth },
@@ -235,12 +235,44 @@ describe('#532 AuthKeepAlive', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(refreshAuth).toHaveBeenCalledTimes(1)
 
-    // The floor applies to the immediate check too, so advance past it first.
-    await vi.advanceTimersByTimeAsync(FRAME_PULSE_MIN_MS)
+    // A frozen tab: wall-clock time passes but its timers do NOT run. Moving
+    // the system clock without advancing timers is exactly that, and it is the
+    // case the visibility listener exists for — a plain timer would come back
+    // to a dead token.
+    vi.setSystemTime(Date.now() + FRAME_PULSE_MAX_MS * 2)
     const before = refreshAuth.mock.calls.length
+
     fireVisibilityChange('visible')
     await vi.advanceTimersByTimeAsync(0)
     expect(refreshAuth).toHaveBeenCalledTimes(before + 1)
+
+    pulse.stop()
+  })
+
+  it('does not check ahead of the due time just because the tab came back', async () => {
+    // The mirror image of the test above, and the reason the gate is on the
+    // due time rather than on the floor: alt-tabbing against a refusing parent
+    // must not walk past the backoff and restore a 30-second retry.
+    const refreshAuth = vi.fn(async () => {
+      throw new Error('parent is refusing')
+    })
+    const pulse = new AuthKeepAlive({ getAuthData: () => false, refreshAuth }, logger)
+
+    pulse.start()
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(30_000)
+    await vi.advanceTimersByTimeAsync(60_000)
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(refreshAuth).toHaveBeenCalledTimes(4)
+
+    // Backoff now stands at 4 minutes. Switch tabs every 31 seconds for the
+    // whole of it: not one extra message.
+    for (let elapsed = 0; elapsed < 240_000 - 31_000; elapsed += 31_000) {
+      fireVisibilityChange('hidden')
+      fireVisibilityChange('visible')
+      await vi.advanceTimersByTimeAsync(31_000)
+    }
+    expect(refreshAuth).toHaveBeenCalledTimes(4)
 
     pulse.stop()
   })
@@ -465,9 +497,154 @@ describe('#532 AuthKeepAlive', () => {
     await vi.advanceTimersByTimeAsync(120_000)
     expect(refreshAuth).toHaveBeenCalledTimes(4)
 
-    // Back on the normal schedule — the ceiling, not a backoff step. A pulse
-    // that kept its failure count would have waited 4 minutes here.
+    // Back on the normal schedule — the ceiling, not a backoff step.
     await vi.advanceTimersByTimeAsync(FRAME_PULSE_MAX_MS - 1)
+    expect(refreshAuth).toHaveBeenCalledTimes(4)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(refreshAuth).toHaveBeenCalledTimes(5)
+
+    // The reset is only observable on the NEXT failure: every success path
+    // recomputes the delay from the token's expiry, which hides a stale
+    // failure count. So fail again and check the retry lands at the floor
+    // rather than at the 4-minute step the old count would have produced.
+    healthy = false
+    await vi.advanceTimersByTimeAsync(FRAME_PULSE_MAX_MS)
+    expect(refreshAuth).toHaveBeenCalledTimes(6)
+
+    await vi.advanceTimersByTimeAsync(FRAME_PULSE_MIN_MS - 1)
+    expect(refreshAuth).toHaveBeenCalledTimes(6)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(refreshAuth).toHaveBeenCalledTimes(7)
+
+    pulse.stop()
+  })
+
+  it('a healthy tick between failures resets the backoff too', async () => {
+    // The not-due branch has its own reset, and it is invisible unless a
+    // failure follows a tick that had nothing to do.
+    let due = true
+    let failing = true
+    const refreshAuth = vi.fn(async () => {
+      if (failing) {
+        throw new Error('not yet')
+      }
+      return authData(sec(60 * 60_000))
+    })
+    const pulse = new AuthKeepAlive(
+      { getAuthData: () => (due ? false : authData(sec(12 * 60_000))), refreshAuth },
+      logger
+    )
+
+    pulse.start()
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(30_000)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(refreshAuth).toHaveBeenCalledTimes(3)
+
+    // A tick with plenty of headroom: no refresh, and the failure count clears.
+    due = false
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(refreshAuth).toHaveBeenCalledTimes(3)
+
+    // Next failure starts from the floor again, not from the 4-minute step the
+    // pre-reset count would have produced. Measure the gap between the two
+    // attempts rather than guessing where on the timeline they land.
+    due = true
+    failing = true
+
+    const attempts: number[] = []
+    refreshAuth.mockImplementation(async () => {
+      attempts.push(Date.now())
+      throw new Error('failing again')
+    })
+
+    await vi.advanceTimersByTimeAsync(30 * 60_000)
+    expect(attempts.length).toBeGreaterThanOrEqual(2)
+    expect(attempts[1]! - attempts[0]!).toBe(FRAME_PULSE_MIN_MS)
+
+    pulse.stop()
+  })
+
+  it('a restarted pulse keeps ticking even if the old tick outlives the new timer', async () => {
+    // The stall this guards: if the ticking flag were not run-scoped, the new
+    // run's first timer would hit it, return without scheduling, and the old
+    // run's tick would then be turned away by the run check — leaving
+    // `isRunning === true` with no timer at all, forever.
+    let release: () => void = () => {}
+    const refreshAuth = vi.fn(() => new Promise<AuthData>((resolve) => {
+      release = () => resolve(authData(sec(60 * 60_000)))
+    }))
+    const pulse = new AuthKeepAlive({ getAuthData: () => false, refreshAuth }, logger)
+
+    pulse.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(refreshAuth).toHaveBeenCalledTimes(1)
+
+    pulse.stop()
+    pulse.start()
+
+    // The new run's timer fires while the abandoned refresh is STILL pending.
+    await vi.advanceTimersByTimeAsync(FRAME_PULSE_MIN_MS)
+    expect(refreshAuth).toHaveBeenCalledTimes(2)
+
+    release()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(pulse.isRunning).toBe(true)
+    expect(vi.getTimerCount()).toBe(1)
+
+    pulse.stop()
+  })
+
+  it('a tick from a stopped run cannot reschedule the run that replaced it', async () => {
+    // The stale tick computes its delay from the run it belonged to. If it
+    // were allowed to schedule, it would silently replace the new run's timer
+    // with its own — the new run would look alive and tick on the old
+    // schedule. Nothing about the timer count shows that, so the assertion has
+    // to be on WHEN the next check happens.
+    const resolvers: ((value: AuthData) => void)[] = []
+    const refreshAuth = vi.fn(() => new Promise<AuthData>((resolve) => {
+      resolvers.push(resolve)
+    }))
+    const pulse = new AuthKeepAlive({ getAuthData: () => false, refreshAuth }, logger)
+
+    pulse.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(refreshAuth).toHaveBeenCalledTimes(1)
+
+    pulse.stop()
+    pulse.start()
+
+    // The abandoned refresh lands with an hour-long token, so its delay would
+    // be the 10-minute ceiling — far past the new run's 30-second timer.
+    resolvers[0]!(authData(sec(60 * 60_000)))
+    await vi.advanceTimersByTimeAsync(0)
+
+    await vi.advanceTimersByTimeAsync(FRAME_PULSE_MIN_MS)
+    expect(refreshAuth).toHaveBeenCalledTimes(2)
+
+    pulse.stop()
+  })
+
+  it('start() clears the backoff from the previous run', async () => {
+    const refreshAuth = vi.fn(async () => {
+      throw new Error('parent is gone')
+    })
+    const pulse = new AuthKeepAlive({ getAuthData: () => false, refreshAuth }, logger)
+
+    pulse.start()
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(30_000)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(refreshAuth).toHaveBeenCalledTimes(3)
+
+    // A fresh run is a fresh start: the next retry is at the floor, not at the
+    // 4-minute step the abandoned run had reached.
+    pulse.stop()
+    pulse.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(refreshAuth).toHaveBeenCalledTimes(4)
+
+    await vi.advanceTimersByTimeAsync(FRAME_PULSE_MIN_MS - 1)
     expect(refreshAuth).toHaveBeenCalledTimes(4)
     await vi.advanceTimersByTimeAsync(1)
     expect(refreshAuth).toHaveBeenCalledTimes(5)
@@ -523,8 +700,11 @@ describe('#532 AuthKeepAlive', () => {
     release()
     await vi.advanceTimersByTimeAsync(0)
 
+    // The settling tick is turned away by the run check, so it neither
+    // re-arms the timer nor runs another check of its own.
     expect(vi.getTimerCount()).toBe(0)
     expect(pulse.isRunning).toBe(false)
+    expect(refreshAuth).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(10 * FRAME_PULSE_MIN_MS)
     expect(refreshAuth).toHaveBeenCalledTimes(1)
@@ -548,10 +728,21 @@ describe('#532 AuthKeepAlive', () => {
     // The abandoned tick must not leave the new run without a timer.
     expect(vi.getTimerCount()).toBe(1)
 
+    // Releasing the abandoned refresh must not add a second timer beside the
+    // new run's — the old run has to be disowned, not merely outlived.
     release()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(vi.getTimerCount()).toBe(1)
+
     await vi.advanceTimersByTimeAsync(FRAME_PULSE_MIN_MS)
     expect(refreshAuth).toHaveBeenCalledTimes(2)
     expect(pulse.isRunning).toBe(true)
+
+    // And the two runs do not both keep ticking: over a full ceiling the count
+    // advances at one schedule's pace, not two.
+    const after = refreshAuth.mock.calls.length
+    await vi.advanceTimersByTimeAsync(FRAME_PULSE_MIN_MS * 4)
+    expect(refreshAuth.mock.calls.length - after).toBeLessThanOrEqual(4)
 
     pulse.stop()
   })

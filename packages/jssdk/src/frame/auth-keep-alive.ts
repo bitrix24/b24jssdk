@@ -174,18 +174,22 @@ export class AuthKeepAlive {
 
   #timer: null | ReturnType<typeof setTimeout> = null
   #isRunning: boolean = false
-  #isTicking: boolean = false
+  // The run whose tick is currently in flight, or `null`. Run-scoped rather
+  // than a plain flag: a tick left over from an earlier run must not block a
+  // newer run's tick, or the pulse strands itself with nothing scheduled.
+  #tickingRunId: null | number = null
   #onVisibilityChange: null | (() => void) = null
 
   // Identifies the current start()..stop() run. A tick or timer from an earlier
-  // run must not schedule work for a later one, and `#isTicking` alone cannot
+  // run must not schedule work for a later one, and a bare ticking flag cannot
   // tell them apart because `stop()` cannot cancel a refresh already in flight.
   #runId: number = 0
   // Consecutive ticks that did not end with a usable token. Drives the backoff.
   #failures: number = 0
-  // When the last tick ran, so a burst of `visibilitychange` events cannot
-  // check more often than the floor allows.
-  #lastCheckAtMs: number = 0
+  // When the next check is due. Everything that wants to check early — the
+  // visibility handler above all — defers to this, so a tab switch cannot walk
+  // past the backoff and turn a refusing parent back into a 30-second retry.
+  #nextCheckAtMs: number = 0
 
   constructor(
     actions: KeepAuthFreshActions,
@@ -209,7 +213,10 @@ export class AuthKeepAlive {
     this.#isRunning = true
     this.#failures = 0
 
-    const runId = ++this.#runId
+    // The run id is bumped by `stop()`, which is the only thing that needs to
+    // invalidate one. Bumping here as well would be a second mechanism doing
+    // the same job, and neither would be observable on its own.
+    const runId = this.#runId
 
     if (typeof document !== 'undefined') {
       this.#onVisibilityChange = () => {
@@ -218,17 +225,20 @@ export class AuthKeepAlive {
         }
 
         // Coming back to the tab is the one moment a throttled timer is
-        // certainly stale. Both branches below go through `#schedule`, which
-        // clears the old timer before arming a new one, so there is nothing to
-        // drop here first.
+        // certainly stale: a frozen tab's timers do not run at all, so the
+        // check that was due while we were away never happened. Re-arming from
+        // the deadline handles both halves of that — if the deadline has
+        // passed, check now; if it has not, the timer we would have replaced
+        // was not late after all.
         //
-        // A tab switch is not a licence to refresh, though: alt-tabbing fifty
-        // times must not send fifty messages, so a check that would land inside
-        // the floor is scheduled rather than run.
+        // Gating on the deadline rather than on the floor is what keeps a tab
+        // switch from walking past the backoff: fifty alt-tabs against a
+        // refusing parent must not become fifty messages.
         const currentRunId = this.#runId
-        const sinceLastCheck = Date.now() - this.#lastCheckAtMs
-        if (sinceLastCheck < this.#params.minDelayMs) {
-          this.#schedule(this.#params.minDelayMs - sinceLastCheck, currentRunId)
+        const waitMs = this.#nextCheckAtMs - Date.now()
+
+        if (waitMs > 0) {
+          this.#schedule(waitMs, currentRunId)
           return
         }
 
@@ -237,7 +247,7 @@ export class AuthKeepAlive {
       document.addEventListener('visibilitychange', this.#onVisibilityChange)
     }
 
-    if (this.#isTicking) {
+    if (this.#tickingRunId !== null) {
       // A tick from the previous run is still awaiting its refresh. It belongs
       // to a stale run and will not schedule anything, so this run arms its own
       // timer rather than waiting on it.
@@ -275,12 +285,21 @@ export class AuthKeepAlive {
   }
 
   async #tick(runId: number): Promise<void> {
-    if (!this.#isRunning || this.#runId !== runId || this.#isTicking) {
+    // `#tickingRunId === runId` is the re-entrancy guard: one check at a time
+    // within a run, so a visibility event cannot send a second refresh on top
+    // of one already in flight. A tick from an OLDER run is not a reason to
+    // skip this one — it has been disowned and will schedule nothing.
+    //
+    // There is deliberately no `#runId !== runId` check here. `#schedule` is
+    // the gate that disowns a stale run, and it is the only way a tick is ever
+    // armed: every caller passes the run id it read a statement earlier, and
+    // `stop()` clears the pending timer. A check here would be unreachable, and
+    // an unreachable guard is a claim no test can keep honest.
+    if (!this.#isRunning || this.#tickingRunId === runId) {
       return
     }
 
-    this.#isTicking = true
-    this.#lastCheckAtMs = Date.now()
+    this.#tickingRunId = runId
 
     let delay = this.#params.minDelayMs
 
@@ -321,13 +340,20 @@ export class AuthKeepAlive {
       this.#failures += 1
       delay = this.#backoffDelayMs()
 
-      this.#getLogger().warning('keepAuthFresh: refresh failed, will retry', {
-        error: error instanceof Error ? error.message : String(error),
-        failures: this.#failures,
-        retryInMs: delay
-      }).catch(() => {})
+      try {
+        this.#getLogger().warning('keepAuthFresh: refresh failed, will retry', {
+          error: error instanceof Error ? error.message : String(error),
+          failures: this.#failures,
+          retryInMs: delay
+        }).catch(() => {})
+      } catch {
+        // A logger that throws on the way in is still not the app's problem.
+      }
     } finally {
-      this.#isTicking = false
+      if (this.#tickingRunId === runId) {
+        this.#tickingRunId = null
+      }
+
       this.#schedule(delay, runId)
     }
   }
@@ -353,6 +379,7 @@ export class AuthKeepAlive {
     }
 
     this.#clearTimer()
+    this.#nextCheckAtMs = Date.now() + delayMs
     this.#timer = setTimeout(() => {
       this.#timer = null
       void this.#tick(runId)

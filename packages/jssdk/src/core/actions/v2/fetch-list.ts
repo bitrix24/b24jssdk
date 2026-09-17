@@ -9,11 +9,36 @@ import { cursorProgressed } from '../_cursor-progress'
 import { warnOnShadowedUppercaseParams } from './_uppercase-list-params'
 
 export type ActionFetchListV2 = WalkBoundsOptions & {
+  /** REST list method that returns rows, e.g. `crm.item.list`, `tasks.task.list`. */
   method: string
+  /**
+   * Request parameters. `start` and `order` are excluded: the walk writes both
+   * itself on every page. Use `filter` and `select` to narrow the selection.
+   *
+   * Conditions must go in the **lowercase** `filter`, with any uppercase
+   * `FILTER` removed — see {@link warnOnShadowedUppercaseParams} for what the
+   * portal does with two keys differing only by case, and why it is silent.
+   */
   params?: Omit<TypeCallParamsV2, 'start' | 'order'>
+  /**
+   * Name of the id field **as it appears in each response item**; its value
+   * drives the cursor. Default `'ID'` — `crm.item.list` and other camelCase
+   * methods return `id`, so they need `idKey: 'id'`.
+   */
   idKey?: string
+  /**
+   * Field name used in the **request**, for `order` and the `>` page filter.
+   * Defaults to `idKey`. Set it only when a method spells the id differently in
+   * the two: `tasks.task.list` sorts and filters by `ID` but returns `id`, so it
+   * needs `idKey: 'id', cursorIdKey: 'ID'`.
+   */
   cursorIdKey?: string
+  /** Key the rows are nested under in the response, e.g. `items` for CRM items. */
   customKeyForResult?: string
+  /**
+   * Sent as the `bx24_request_id` query parameter, for tracing. It does **not**
+   * deduplicate anything — for that see `idempotencyKey` on `restApi:v3`.
+   */
   requestId?: string
 }
 
@@ -30,25 +55,31 @@ export class FetchListV2 extends AbstractAction {
    * Calls a REST API list method and returns an async generator, for walking a
    * large dataset without holding all of it in memory.
    *
-   * **Every option is documented on the page below — read it before changing
-   * behaviour here.** Not repeated: that copy is link-checked and compiled on
-   * every CI run, this one is watched by nothing, and two copies drift (#420).
-   * https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/fetch-list-rest-api-ver2/
+   * **Every option is documented on the [fetchList v2 page](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/fetch-list-rest-api-ver2/),
+   * and each one on {@link ActionFetchListV2}.** Not repeated here: nothing
+   * watches a sentence in a comment, while the page is link-checked and its
+   * code compiled on every CI run.
    *
-   * The invariants this file must not break:
+   * What matters while editing this file:
    *
    * - The cursor only advances if rows arrive sorted by `cursorIdKey` ascending,
    *   so the walk writes its own `order` and strips a caller's with a `warning`.
-   * - `idKey` reads the RESPONSE; `cursorIdKey` writes the REQUEST. Conflating
-   *   them stalls the walk instead of failing at the call.
-   * - End of data is decided by page size against the largest page seen, never
-   *   by a constant: a method that caps pages below the ask must still walk on.
-   * - `maxPages` yields nothing when it fires. A short list that looks complete
-   *   is the failure this refuses to produce.
+   * - `idKey` reads the RESPONSE, `cursorIdKey` writes the REQUEST. A wrong
+   *   `cursorIdKey` stalls the walk; a wrong `idKey` truncates it with a
+   *   `warning` — see {@link cursorStalledError}.
+   * - Page size on `restApi:v2` is a fixed 50 — there is no `limit` to ask with,
+   *   so a page shorter than that ends the walk, but only once the cursor read
+   *   from it has been vouched for.
+   * - The portal keeps only the later of two top-level keys differing by case,
+   *   so a caller's uppercase `FILTER` can drop either their conditions or this
+   *   walk's cursor. Both are warned about, neither can be fixed from in here —
+   *   see {@link warnOnShadowedUppercaseParams}.
+   * - `maxPages` never ends a walk silently. Every page up to the ceiling has
+   *   already been yielded and is the consumer's; the throw is what stops a
+   *   truncated walk from reading as a finished one.
    *
    * @template T - The type of items in the returned arrays (default is `unknown`).
-   * @param {ActionFetchListV2} options - see the page above for every field; the
-   *     type carries the contract.
+   * @param {ActionFetchListV2} options - every field is documented on the type.
    * @returns {AsyncGenerator<T[]>} An async generator yielding one page of rows
    *     at a time until the dataset is exhausted.
    *

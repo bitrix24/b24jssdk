@@ -20,10 +20,30 @@ export type ActionCallListV3 = WalkBoundsOptions & {
    * then threw `filter is not iterable` at runtime, one page into the walk.
    */
   params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'filter'> & { filter?: TypeFilterV3 }
+  /**
+   * Name of the id field **as it appears in each response item**; its value
+   * drives the cursor. Default `'id'`.
+   */
   idKey?: string
+  /**
+   * Field name used in the **request**, for `order` and the `[field, '>', n]`
+   * page filter. Defaults to `idKey`, which is usually right on `restApi:v3`
+   * where names are camelCase in both directions.
+   */
   cursorIdKey?: string
+  /** Key the rows are nested under in the response, e.g. `items` for CRM items. */
   customKeyForResult: string
+  /**
+   * Sent as the `bx24_request_id` query parameter, for tracing. It does **not**
+   * deduplicate anything — for that see `idempotencyKey`.
+   */
   requestId?: string
+  /**
+   * Rows per page. Default `50`, and **a request rather than a guarantee**:
+   * every method applies its own maximum, so a page shorter than `limit` is not
+   * the end of the data. The walk allows for that; hand-rolled paging on
+   * `call.make` does not.
+   */
   limit?: number
 }
 
@@ -43,28 +63,27 @@ export class CallListV3 extends AbstractAction {
   /**
    * Fast data retrieval without counting the total number of records.
    *
-   * **Every option is documented on the page below — read it before changing
-   * behaviour here.** Not repeated: that copy is link-checked and compiled on
-   * every CI run, this one is watched by nothing, and two copies drift (#420).
-   * https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-list-rest-api-ver3/
+   * **Every option is documented on the [callList v3 page](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-list-rest-api-ver3/),
+   * and each one on {@link ActionCallListV3}.** Not repeated here: nothing
+   * watches a sentence in a comment, while the page is link-checked and its
+   * code compiled on every CI run.
    *
-   * The invariants this file must not break:
+   * What matters while editing this file:
    *
    * - The cursor only advances if rows arrive sorted by `cursorIdKey` ascending,
    *   so the walk writes its own `order` and strips a caller's with a `warning`.
-   * - `filter` must be the v3 ARRAY form: the walk appends
-   *   `[cursorIdKey, '>', n]` to it each page, so an object has nothing to
-   *   extend — refused at the call, not mid-walk.
-   * - `idKey` reads the RESPONSE; `cursorIdKey` writes the REQUEST. Conflating
-   *   them stalls the walk instead of failing at the call.
-   * - End of data is decided by page size against the largest page seen, never
-   *   by `limit`, which methods are free to cap below the ask.
-   * - `maxPages` yields nothing when it fires. A short list that looks complete
-   *   is the failure this refuses to produce.
+   * - `idKey` reads the RESPONSE, `cursorIdKey` writes the REQUEST. A wrong
+   *   `cursorIdKey` stalls the walk; a wrong `idKey` truncates it with a
+   *   `warning` — see {@link cursorStalledError}.
+   * - End of data is decided against the largest page seen, never against
+   *   `limit`, which methods are free to cap below the ask. The rule lives in
+   *   {@link keysetPaginate}, which this delegates to.
+   * - `maxPages` never ends a walk silently: the rows already read come back
+   *   with `JSSDK_ACTION_MAX_PAGES_EXCEEDED` attached, so a short list that
+   *   looks complete is never what a caller gets.
    *
    * @template T - The type of the elements of the returned array (default is `unknown`).
-   * @param {ActionCallListV3} options - see the page above for every field; the
-   *     type carries the contract.
+   * @param {ActionCallListV3} options - every field is documented on the type.
    * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.
    *
    * @example

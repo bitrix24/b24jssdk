@@ -120,6 +120,15 @@ async function loadStore(): Promise<Record<string, StoredCredentials>> {
     throw error
   }
 
+  // An empty file is an empty store, not a corrupt one. Two ordinary ways to
+  // get one: an operator pre-creating the file with the 0o600 this recipe asks
+  // for, and the non-atomic write below being interrupted after it truncates.
+  // Both used to self-heal; refusing them would be a permanent outage needing a
+  // human to delete a file.
+  if (text.trim() === '') {
+    return Object.create(null)
+  }
+
   const parsed: unknown = JSON.parse(text)
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     // Valid JSON, wrong shape. Refuse rather than build a pseudo-store out of
@@ -143,6 +152,14 @@ async function saveCredentials(memberId: string, creds: StoredCredentials): Prom
   logger.info(`  persisted credentials for member ${memberId}`)
 }
 
+/**
+ * Exported so the tests can pin the `?? null` below — the guard in
+ * `clientForMember` depends on it. Prefer `clientForMember` in your own code:
+ * this hands back the raw tokens, and they belong in an SDK client, not in
+ * application code that might log them.
+ *
+ * @internal
+ */
 export async function getCredentials(memberId: string): Promise<StoredCredentials | null> {
   const store = await loadStore()
   return store[memberId] ?? null
@@ -251,9 +268,13 @@ export async function handleInstall(req: Request, res: Response) {
   }
 
   if (!MEMBER_ID_PATTERN.test(payload.auth.member_id)) {
-    // The id is NOT echoed: it is the untrusted value, and putting it in the
-    // line would print the very thing the check just refused.
-    logger.warning('[install] refusing an implausible member_id')
+    // Echoed through JSON.stringify and truncated: a raw id here would print
+    // the very newline the check just refused, but saying nothing at all leaves
+    // an operator whose installs have silently stopped with no way to tell why.
+    // JSON.stringify escapes the control characters, so the line stays one line.
+    logger.warning(
+      `[install] refusing an implausible member_id: ${JSON.stringify(payload.auth.member_id.slice(0, 32))}`
+    )
     return
   }
 
@@ -347,10 +368,14 @@ export async function clientForMember(memberId: string): Promise<B24OAuth> {
 
   // CRITICAL: persist refreshed tokens so the next cold start sees the latest pair.
   $b24.setCallbackRefreshAuth(async ({ b24OAuthParams }) => {
-    // Keyed by the id the record was LOADED under. The refresh response
-    // carries the same value today — the SDK does not change `memberId` on
-    // refresh — so this is a choice about which one is the source of truth
-    // rather than a bug being fixed, and no test can tell the two apart.
+    // Keyed by the id the record was LOADED under, not by the one inside the
+    // refreshed params. They agree whenever the store key equals the record's
+    // own `memberId` — but a store where they disagree is what a hand-edited or
+    // migrated file looks like, and then keying off the params would write this
+    // portal's refreshed tokens over ANOTHER portal's record.
+    //
+    // Not covered by the unit tests: reaching this line needs a real token
+    // refresh against the portal, and the callback is private to the SDK.
     await saveCredentials(memberId, {
       ...b24OAuthParams,
       applicationToken: creds.applicationToken // unchanged on refresh
@@ -415,7 +440,12 @@ async function main() {
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined
       })
-      res.status(200).send('ok')
+      // Log only — do NOT answer here. The handler sends its 200 on its first
+      // line, before anything can throw, so a second send hits an already
+      // finished response: Express throws ERR_HTTP_HEADERS_SENT, and because we
+      // are inside a `.catch` callback that becomes an unhandled rejection and
+      // Node exits. An unreadable token file would take the server down on
+      // every install POST.
     })
   })
 
@@ -428,7 +458,7 @@ async function main() {
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined
       })
-      res.status(200).send('ok')
+      // Log only — see the note on /install above.
     })
   })
 
@@ -450,6 +480,11 @@ async function main() {
     }
 
     try {
+      // Not shape-checked, on purpose: this path is read-only, the id is never
+      // logged, and it cannot create a store key — the only write below it
+      // happens after a lookup succeeded, which means the key passed the check
+      // at install time. Re-check here if you make this a datastore lookup,
+      // where an unbounded segment becomes an unbounded key.
       const $b24 = await clientForMember(req.params.memberId)
       const profile = await demoCall($b24)
       res.json(profile)

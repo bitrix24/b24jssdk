@@ -525,7 +525,7 @@ describe('a member_id that collides with Object.prototype (recipe 12, #454)', ()
     // lives on Object.prototype, this says so before the rest looks pointless.
     const plain = JSON.parse('{}')
     for (const name of INHERITED) {
-      expect(Boolean(plain[name] ?? null), `${name} should be truthy on a plain object`).toBe(true)
+      expect(Boolean(plain[name]), `${name} should be truthy on a plain object`).toBe(true)
     }
     expect(INHERITED).toContain('__proto__')
     expect(INHERITED.length).toBeGreaterThan(3)
@@ -599,7 +599,12 @@ describe('a member_id that collides with Object.prototype (recipe 12, #454)', ()
     expect(onDisk[WRITE_HAZARD].accessToken).toBe('proto-secret')
   })
 
-  it.each(INHERITED)('uninstalls member_id=%s like any other portal', async (memberId) => {
+  // Narrowed from all twelve to two. Under the unfixed code the twelve-row
+  // version passed for the WRONG reason on `__proto__` — the record was
+  // swallowed at load, so it was absent after the delete anyway, and the
+  // assertion was satisfied by the bug. The lookup tables below are where all
+  // twelve genuinely differ; here two names are enough to show the path works.
+  it.each([WRITE_HAZARD, 'valueOf'])('uninstalls member_id=%s like any other portal', async (memberId) => {
     writeStore({
       [memberId]: { applicationToken: 'app-token-secret', accessToken: 'at-1' },
       'member-other': { applicationToken: 'other', accessToken: 'keep-me' }
@@ -614,7 +619,7 @@ describe('a member_id that collides with Object.prototype (recipe 12, #454)', ()
     expect(onDisk['member-other'].accessToken).toBe('keep-me')
   })
 
-  it.each(INHERITED)('refuses to delete member_id=%s on a token mismatch', async (memberId) => {
+  it.each([WRITE_HAZARD, 'valueOf'])('refuses to delete member_id=%s on a token mismatch', async (memberId) => {
     writeStore({ [memberId]: { applicationToken: 'app-token-secret' } })
     const { handleUninstall } = await loadRecipe()
     const { res } = fakeRes()
@@ -652,7 +657,11 @@ describe('a member_id that collides with Object.prototype (recipe 12, #454)', ()
     }
   )
 
-  it.each(INHERITED)('getCredentials returns the record for %s once installed', async (memberId) => {
+  it.each([WRITE_HAZARD, 'valueOf'])('getCredentials returns the record for %s once installed', async (memberId) => {
+    // Also narrowed, and this was the most misleading of the three: under the
+    // unfixed code `Object.assign({}, parsed)` sets the new object's PROTOTYPE
+    // to the stored record, so `store.__proto__` is that record and the
+    // assertion passed precisely because the hazard was live.
     writeStore({ [memberId]: { applicationToken: 'app-token-secret', accessToken: 'at-1' } })
     const { getCredentials } = await loadRecipe()
 
@@ -685,12 +694,59 @@ describe('a store file that cannot be read as a store (recipe 12, #454)', () => 
     // EACCES, EISDIR, a bad mount. Only ENOENT means "no store yet"; treating
     // the rest the same way is how the next save overwrites a store that was
     // simply unreachable for a moment.
+    // A directory rather than `chmod 000`: this suite runs as root in CI, where
+    // a permissions-based test would pass vacuously.
     rmSync(storeFile, { force: true })
     mkdirSync(storeFile, { recursive: true })
     const { getCredentials } = await loadRecipe()
 
-    await expect(getCredentials('member-abc')).rejects.toThrow(/EISDIR|EACCES|illegal operation/i)
+    // On `code`, which is the stable contract — the message wording is not.
+    await expect(getCredentials('member-abc')).rejects.toMatchObject({ code: 'EISDIR' })
   })
+
+  it.each([['zero bytes', ''], ['whitespace only', '  \n  ']])(
+    'treats a store file of %s as an empty store, not a corrupt one',
+    async (_label, body) => {
+      // Two ordinary ways to get one: an operator pre-creating the file with
+      // the 0o600 the recipe asks for, and the non-atomic write being
+      // interrupted after it truncates. Refusing these would be a permanent
+      // outage that needs a human to delete a file.
+      writeFileSync(storeFile, body, 'utf8')
+      const { handleInstall } = await loadRecipe()
+      const { res, state } = fakeRes()
+
+      // Installed under `__proto__`, because this is a THIRD path that produces
+      // an empty store and it has to produce the same kind of empty store as
+      // the other two. With a plain id the prototype would not matter and the
+      // test would pass either way.
+      await handleInstall({
+        body: {
+          event: 'ONAPPINSTALL',
+          data: { VERSION: '1', ACTIVE: '1', LANGUAGE_ID: 'en' },
+          ts: '1893456000',
+          auth: authPayload({ member_id: '__proto__' })
+        }
+      } as never, res as never)
+
+      expect(state.code).toBe(200)
+      expect(readStore()['__proto__'].accessToken).toBe('at-1')
+    }
+  )
+
+  it.each([['0', 0], ['an empty string', ''], ['false', false]])(
+    'reports a missing install when the stored record is %s',
+    async (_label, stored) => {
+      // A falsy-but-not-nullish record slips through a `?? null` / `== null`
+      // pair and reaches `new B24OAuth` as the credentials, producing the exact
+      // SDK-internal TypeError the guard exists to replace.
+      writeStore({ 'member-abc': stored })
+      const { clientForMember } = await loadRecipe()
+
+      await expect(clientForMember('member-abc')).rejects.toThrow(
+        'No credentials stored for member member-abc. Install the app first.'
+      )
+    }
+  )
 
   it('does not silently empty the store when the file is corrupt', async () => {
     // The data-loss path: a bare `catch` reads unparseable JSON as "no store
@@ -750,6 +806,49 @@ describe('an implausible member_id is refused at the boundary (recipe 12, #454)'
     // Still 200 — Bitrix24 must not retry for 24h — but nothing is stored.
     expect(state.code).toBe(200)
     expect(readStore()).toEqual({})
+  })
+
+  it('names what it refused without letting it forge a line', async () => {
+    // The line exists so an operator whose installs stopped can tell why, and
+    // the id is the untrusted value, so both halves need pinning: it has to
+    // appear, and it must not be able to break out of its own line.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      writeStore({})
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await handleInstall(install('aaa\n[ONAPPINSTALL] member=victim-portal') as never, res as never)
+
+      const lines = warn.mock.calls.map(call => String(call[0]))
+      const refusal = lines.find(line => line.includes('implausible member_id'))
+      expect(refusal, `no refusal line in ${JSON.stringify(lines)}`).toBeTruthy()
+      // Diagnosable…
+      expect(refusal).toContain('aaa')
+      // …and one line: the newline is escaped, not printed.
+      expect(refusal).not.toContain('\n')
+      expect(refusal).toContain('\\n')
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('truncates a very long id rather than pasting it into the log', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      writeStore({})
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await handleInstall(install('b'.repeat(500)) as never, res as never)
+
+      const refusal = warn.mock.calls.map(call => String(call[0]))
+        .find(line => line.includes('implausible member_id'))
+      expect(refusal).toBeTruthy()
+      expect(refusal!.length).toBeLessThan(200)
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   it.each([

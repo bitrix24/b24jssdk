@@ -21,7 +21,9 @@ jobs:
   # Docs lint runs in its own job with full history because docs:lint-pages
   # reads `git log -1 -- <source>` and needs each linked source file's real
   # last-modification date. Kept separate from `build` so the rest of CI can
-  # stay on a shallow checkout. The frontmatter parser (scripts/_docs-utils.mjs)
+  # stay on a shallow checkout. Do not trim `fetch-depth` here: on a shallow
+  # checkout the script skips the audit-freshness check outright and says so
+  # (#524), so the job would stay green while checking nothing. The frontmatter parser (scripts/_docs-utils.mjs)
   # now depends on `js-yaml` (#63), so this job installs deps too — a frozen
   # install without dev:prepare, which is still far lighter than a full build.
   docs-lint:

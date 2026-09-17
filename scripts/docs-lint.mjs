@@ -26,6 +26,25 @@ const ACTION_LIKE_CATEGORIES = new Set(['actions', 'tools'])
 
 const GITHUB_SOURCE_PREFIX = 'https://github.com/bitrix24/b24jssdk/blob/main/'
 
+/**
+ * Options shared by every `git` call here.
+ *
+ * `GIT_DIR` beats `cwd`, so an inherited one — from a hook, a CI wrapper, a
+ * `git bisect run` — would silently point these checks at a different
+ * repository than the one being linted. Clearing it (and `GIT_WORK_TREE` with
+ * it) makes `cwd: REPO_ROOT` mean what it says.
+ *
+ * git's own `fatal:` lines are dropped: every call here treats failure as an
+ * answer rather than an error, so the diagnostics would only paste noise above
+ * an otherwise-clean report.
+ */
+const GIT_EXEC_OPTIONS = {
+  cwd: REPO_ROOT,
+  encoding: 'utf8',
+  env: { ...process.env, GIT_DIR: undefined, GIT_WORK_TREE: undefined },
+  stdio: ['ignore', 'pipe', 'ignore']
+}
+
 const STRICT = process.argv.includes('--strict')
 
 const report = createReporter({ label: 'docs-lint', root: REPO_ROOT })
@@ -98,7 +117,7 @@ function isDirty(localPath) {
   if (dirtyPaths === null) {
     try {
       dirtyPaths = parseDirtyPaths(
-        execFileSync('git', ['status', '--porcelain'], { cwd: REPO_ROOT, encoding: 'utf8' })
+        execFileSync('git', ['status', '--porcelain'], GIT_EXEC_OPTIONS)
       )
     } catch {
       // No git, or not a repository. Freshness then rests on `git log` alone,
@@ -123,7 +142,7 @@ export function gitLastCommitDate(localPath, isDirtyImpl = isDirty) {
     const out = execFileSync(
       'git',
       ['log', '-1', '--format=%cI', '--', localPath],
-      { cwd: REPO_ROOT, encoding: 'utf8' }
+      GIT_EXEC_OPTIONS
     ).trim()
 
     // An uncommitted edit counts as "modified now".
@@ -174,16 +193,19 @@ export function gitLastCommitDate(localPath, isDirtyImpl = isDirty) {
  */
 export function isShallowRepository(execImpl = execFileSync) {
   try {
-    return execImpl('git', ['rev-parse', '--is-shallow-repository'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8'
-    }).trim() === 'true'
+    return execImpl('git', ['rev-parse', '--is-shallow-repository'], GIT_EXEC_OPTIONS).trim() === 'true'
   } catch {
+    // git missing, not a repository, or refusing the directory as
+    // "dubious ownership": `false` keeps the freshness check no worse off than
+    // it was before this existed. It does NOT mean the check then has an
+    // answer — every `git log` will fail the same way — which is why the
+    // summary counts comparisons that actually happened rather than pages that
+    // asked for one.
     return false
   }
 }
 
-const UNSHALLOW_HINT = 'run `git fetch --unshallow` and re-run this check'
+const UNSHALLOW_HINT = 'run `git fetch --unshallow` to check it'
 
 function checkActionSkeleton(file, body) {
   // Use the heading text (trimmed) as the comparison key so a trailing space
@@ -224,16 +246,24 @@ function checkActionSkeleton(file, body) {
 // (see `isFreshnessTrackedSource`). This avoids a 1→N `audited:` bump cascade
 // whenever a widely-cited skill or the changelog is edited.
 export function checkAuditFreshness(file, frontmatter, deps = {}) {
-  if (!frontmatter.audited) return
+  if (!frontmatter.audited) return 0
   // Dependency seams so tests can exercise the skip logic without a git history.
   const getCommitDate = deps.getCommitDate || (path => gitLastCommitDate(path, deps.isDirty))
   const warn = deps.warn || ((f, m) => log('warn', f, m))
   const auditedDate = new Date(frontmatter.audited + 'T23:59:59Z')
   const ghPaths = extractGithubLinkPaths(frontmatter.links || [])
+  // Counted and returned, because "how many pages have an `audited:` stamp" and
+  // "how many pages were actually compared against one" are different numbers,
+  // and only the second one is what the summary may claim. A page can cite no
+  // freshness-tracked source at all, and a git that cannot answer returns null
+  // for every source it is asked about (#524).
+  let compared = 0
+
   for (const localPath of ghPaths) {
     if (!isFreshnessTrackedSource(localPath)) continue
     const lastCommit = getCommitDate(localPath)
     if (!lastCommit) continue
+    compared++
     if (new Date(lastCommit) > auditedDate) {
       warn(
         file,
@@ -241,6 +271,8 @@ export function checkAuditFreshness(file, frontmatter, deps = {}) {
       )
     }
   }
+
+  return compared
 }
 
 // Frontmatter `links:` point at the source files a page documents. A renamed or
@@ -302,14 +334,36 @@ function main() {
   // trust, a wrong answer is worse than no answer (#524).
   const shallow = isShallowRepository()
   if (shallow) {
-    log(
-      'warn',
-      null,
-      `shallow clone — audit freshness NOT checked: git reports the shallow boundary as a file's last change, which both invents stale pages and hides real ones. To check it, ${UNSHALLOW_HINT}`
+    // A note, not a warning — deliberately, and it took a review round to get
+    // right. `--strict` runs in exactly one place, the CI job that checks out
+    // with `fetch-depth: 0`, so a warning here can NEVER fire where the gate is
+    // enforced and can ONLY fire where it is wrong: a contributor's shallow
+    // checkout, a container, someone offline who cannot fetch at all. For them
+    // `--strict` would stop meaning "my docs are in order" and start meaning
+    // "my clone is deep enough".
+    //
+    // Nothing is lost by declining to fail: the thing worth preventing is a
+    // reader taking `0 warnings` for a clean bill of health, and the summary
+    // note below says otherwise on every run, with or without `--strict`.
+    //
+    // `check-v3-method-refs.mjs` answers the same shape of problem — a
+    // sub-check that cannot run for an environmental reason, fixed by one local
+    // command — with a note as well. Two gates answering "this did not run"
+    // with two different exit codes is the divergence #418 existed to stop.
+    console.log(
+      'docs-lint: audit freshness was not checked — this clone has only part of the git history, '
+      + 'so `git log` cannot tell when a source file really last changed. '
+      + 'To check it: git fetch --unshallow && node scripts/docs-lint.mjs'
     )
   }
 
-  let freshnessChecked = 0
+  // Pages whose `audited:` stamp was actually compared against something, not
+  // pages that carry one. Three of this repo's stamped pages cite no
+  // freshness-tracked source, and a git that cannot answer at all produces zero
+  // comparisons while every page still asks — which would print a clean bill of
+  // health for a check that examined nothing (#524).
+  let pagesCompared = 0
+  let pagesStamped = 0
 
   for (const file of files) {
     const raw = readFileSync(file, 'utf8')
@@ -321,9 +375,10 @@ function main() {
         log('warn', file, `missing frontmatter "audited: YYYY-MM-DD"`)
       }
     }
-    if (!shallow) {
-      checkAuditFreshness(file, frontmatter)
-      if (frontmatter.audited) freshnessChecked++
+    if (frontmatter.audited) pagesStamped++
+
+    if (!shallow && checkAuditFreshness(file, frontmatter) > 0) {
+      pagesCompared++
     }
 
     checkFrontmatterLinkTargets(file, frontmatter)
@@ -331,11 +386,23 @@ function main() {
 
   // Say what was looked at, so a clean run cannot be misread as a clean bill of
   // health on something that was never examined — same reasoning as #519.
-  report.note(
-    shallow
-      ? `audit freshness SKIPPED (shallow clone — ${UNSHALLOW_HINT})`
-      : `${freshnessChecked} page(s) checked for audit freshness`
-  )
+  if (shallow) {
+    report.note(`audit freshness NOT CHECKED (partial git history — ${UNSHALLOW_HINT})`)
+  } else if (pagesCompared === 0 && pagesStamped > 0) {
+    // Not shallow, and still nothing to compare against: git could not be asked
+    // at all — missing, not a repository, or refusing the directory as
+    // "dubious ownership", which is ordinary in a container whose checkout is
+    // mounted with a different owner. Saying "0 page(s) checked" would be true
+    // but easy to skim past; saying it did not run is the same honesty the
+    // shallow branch owes.
+    console.log(
+      'docs-lint: audit freshness was not checked — git answered for none of the cited sources. '
+      + 'Is this a git repository, and is git able to read it?'
+    )
+    report.note('audit freshness NOT CHECKED (git answered for no source)')
+  } else {
+    report.note(`${pagesCompared} of ${pagesStamped} page(s) with audited: compared against git`)
+  }
 
   const ignoreCount = countCheckIgnoreMarkers(files)
   if (ignoreCount > CHECK_IGNORE_WARN_THRESHOLD) {

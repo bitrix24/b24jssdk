@@ -72,9 +72,14 @@ export class CallListV3 extends AbstractAction {
    *
    * - The cursor only advances if rows arrive sorted by `cursorIdKey` ascending,
    *   so the walk writes its own `order` and strips a caller's with a `warning`.
-   * - `idKey` reads the RESPONSE, `cursorIdKey` writes the REQUEST. A wrong
-   *   `cursorIdKey` stalls the walk; a wrong `idKey` truncates it with a
-   *   `warning` — see {@link cursorStalledError}.
+   * - `idKey` reads the RESPONSE, `cursorIdKey` writes the REQUEST, and the two
+   *   fail differently. A wrong `cursorIdKey` means the page condition never
+   *   matches, the same page keeps arriving, and the walk stops with
+   *   `JSSDK_ACTION_CURSOR_STALLED`
+   *   ({@link CURSOR_STALLED_HINT_LIST} names the usual causes). A wrong `idKey` is quieter: if the value
+   *   cannot be read as a number the walk warns and stops short, and if it
+   *   names a *different numeric* field it advances a cursor the request never
+   *   sorts by — which skips rows rather than reporting anything.
    * - End of data is decided against the largest page seen, never against
    *   `limit`, which methods are free to cap below the ask. The rule lives in
    *   {@link keysetPaginate}, which this delegates to.

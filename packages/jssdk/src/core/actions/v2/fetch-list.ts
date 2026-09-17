@@ -64,9 +64,13 @@ export class FetchListV2 extends AbstractAction {
    *
    * - The cursor only advances if rows arrive sorted by `cursorIdKey` ascending,
    *   so the walk writes its own `order` and strips a caller's with a `warning`.
-   * - `idKey` reads the RESPONSE, `cursorIdKey` writes the REQUEST. A wrong
-   *   `cursorIdKey` stalls the walk; a wrong `idKey` truncates it with a
-   *   `warning` — see {@link cursorStalledError}.
+   * - `idKey` reads the RESPONSE, `cursorIdKey` writes the REQUEST, and the two
+   *   fail differently. A wrong `cursorIdKey` means the page condition never
+   *   matches, the same page keeps arriving, and the walk stops with
+   *   {@link cursorStalledError}. A wrong `idKey` is quieter: if the value
+   *   cannot be read as a number the walk warns and stops short, and if it
+   *   names a *different numeric* field it advances a cursor the request never
+   *   sorts by — which skips rows rather than reporting anything.
    * - Page size on `restApi:v2` is a fixed 50 — there is no `limit` to ask with,
    *   so a page shorter than that ends the walk, but only once the cursor read
    *   from it has been vouched for.

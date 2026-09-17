@@ -401,10 +401,10 @@ test('docs-lint: missing required section → exits 1', () => {
 
 // ── shallow clone (#524) ──────────────────────────────────────────────────
 
-// These two tests are POSIX-only: they need `/dev/null` for git-config
-// isolation, a `file://` URL that a Windows path cannot form, and a symlink
-// that Windows refuses without Developer Mode. Skipped explicitly rather than
-// left to fail confusingly for a contributor on Windows.
+// The git-backed tests below are POSIX-only: between them they need `/dev/null`
+// for git-config isolation, a `file://` URL that a Windows path cannot form, a
+// symlink that Windows refuses without Developer Mode, and a `#!/bin/sh` stub.
+// Skipped explicitly rather than left to fail confusingly on Windows.
 const POSIX_ONLY = process.platform === 'win32'
   ? { skip: 'POSIX-only: needs /dev/null, file:// URLs and symlinks' }
   : {}
@@ -550,7 +550,12 @@ test('docs-lint in a shallow clone: skips freshness, says so, invents no stale p
 
     // And the summary must say freshness did not run, so `0 warning(s)` on the
     // same line cannot be read as a clean bill of health.
-    assert.match(r.stdout, /audit freshness NOT CHECKED \(partial git history/)
+    // Including the remedy: the code comment claims the summary note carries
+    // it too, and an assertion that stops at the em dash does not check that.
+    assert.match(
+      r.stdout,
+      /audit freshness NOT CHECKED \(partial git history — run `git fetch --unshallow` to check it\)/
+    )
 
     // It must not FAIL, either. `--strict` is enforced in exactly one place —
     // the CI job that checks out with full history — so failing here would fire
@@ -571,7 +576,13 @@ test('docs-lint with full history: the summary counts what was really compared',
   // `assert.ok(true)` here reported `ok` and `# skipped 0`, indistinguishable
   // from a run that exercised the branch — the silent pass the comment beside
   // it claimed not to be.
-  skip: isShallowRepository() ? 'this checkout is itself shallow' : false
+  // Asked of git directly, not through `isShallowRepository()`: a bug that made
+  // that function always answer `true` would turn this test into a silent skip
+  // — hiding the very thing it exists to check.
+  skip: spawnSync('git', ['rev-parse', '--is-shallow-repository'], { cwd: REPO_ROOT, encoding: 'utf8' })
+    .stdout?.trim() === 'true'
+    ? 'this checkout is itself shallow'
+    : false
 }, () => {
   const r = runDocsLint([])
 
@@ -589,6 +600,20 @@ test('docs-lint with full history: the summary counts what was really compared',
     .length
 
   assert.equal(Number(match[2]), stamped, 'the denominator must be every page carrying an audited: stamp')
+
+  // …and a second count that does NOT go through the production walker. The
+  // check above recomputes the denominator with the same `walkMarkdownFiles`
+  // the script uses, so a walk that silently lost a subtree would move both
+  // sides together and pass. `grep -rl` has no such shared fate.
+  const grepped = spawnSync('grep', ['-rlE', '^audited:', DOCS_ROOT, '--include=*.md'], { encoding: 'utf8' })
+  if (grepped.status === 0) {
+    const greppedCount = grepped.stdout.split('\n').filter(Boolean).length
+    assert.equal(
+      stamped,
+      greppedCount,
+      'the walker and a plain grep must find the same stamped pages — if they disagree, the walker is dropping files'
+    )
+  }
   assert.ok(Number(match[1]) > 0, 'a full-history run must actually compare something')
   assert.ok(Number(match[1]) <= stamped, 'cannot compare more pages than carry a stamp')
   assert.doesNotMatch(r.stdout, /NOT CHECKED/)
@@ -603,8 +628,11 @@ test('docs-lint when git cannot answer at all: says so instead of claiming a cle
   const root = mkdtempSync(join(tmpdir(), 'docs-lint-nogit-'))
   try {
     // A `git` that fails the way a real one does, first on PATH.
-    writeFileSync(join(root, 'git'), '#!/bin/sh\necho "fatal: detected dubious ownership" >&2\nexit 128\n')
-    spawnSync('chmod', ['+x', join(root, 'git')])
+    writeFileSync(
+      join(root, 'git'),
+      '#!/bin/sh\necho "fatal: detected dubious ownership" >&2\nexit 128\n',
+      { mode: 0o755 }
+    )
 
     const r = spawnSync(process.execPath, [DOCS_LINT], {
       cwd: REPO_ROOT,
@@ -623,7 +651,7 @@ test('docs-lint when git cannot answer at all: says so instead of claiming a cle
   }
 })
 
-test('docs-lint ignores an inherited GIT_DIR and lints the repository it was pointed at', POSIX_ONLY, () => {
+test('docs-lint ignores inherited git env vars and lints the repository it was pointed at', POSIX_ONLY, () => {
   // GIT_DIR beats cwd. Inherited from a hook, a CI wrapper or `git bisect run`,
   // it would make the shallow decision describe a DIFFERENT repository than the
   // one being linted — suppressing the freshness check on a full checkout, or,
@@ -635,11 +663,20 @@ test('docs-lint ignores an inherited GIT_DIR and lints the repository it was poi
     git(['-c', 'protocol.file.allow=always', 'clone', '--depth', '1', '--no-local', `file://${REPO_ROOT}`, clone, '-q'], root)
     assert.equal(git(['rev-parse', '--is-shallow-repository'], clone), 'true')
 
-    // cwd is the full repository; GIT_DIR points at the shallow clone.
+    // cwd is the full repository; the git variables point at the shallow clone.
+    // Set together, the way git itself sets them for a hook or a rebase —
+    // `GIT_WORK_TREE` and `GIT_INDEX_FILE` are only honoured alongside
+    // `GIT_DIR`, so this is the only shape in which they can do damage, and
+    // therefore the only shape worth asserting.
     const r = spawnSync(process.execPath, [DOCS_LINT], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
-      env: { ...process.env, GIT_DIR: join(clone, '.git') }
+      env: {
+        ...process.env,
+        GIT_DIR: join(clone, '.git'),
+        GIT_WORK_TREE: clone,
+        GIT_INDEX_FILE: join(clone, '.git', 'index')
+      }
     })
 
     assert.match(
@@ -648,6 +685,47 @@ test('docs-lint ignores an inherited GIT_DIR and lints the repository it was poi
       `the lint must follow cwd, not GIT_DIR:\n${r.stdout}`
     )
     assert.doesNotMatch(r.stdout, /NOT CHECKED/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('docs-lint when git answers for only some sources: names the gap', POSIX_ONLY, () => {
+  // The quiet failure between the two extremes. git works, the clone is not
+  // shallow, but some `git log` calls fail — a corrupt object, a path git
+  // cannot read. The page count stays truthful and easy to read past ("2 of
+  // 52"), so the run has to say outright how many sources went unanswered.
+  const root = mkdtempSync(join(tmpdir(), 'docs-lint-partial-'))
+  try {
+    const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim()
+    assert.ok(realGit, 'need a real git to delegate to')
+
+    // Fails for any argument naming a source under src/, delegates otherwise.
+    writeFileSync(
+      join(root, 'git'),
+      [
+        '#!/bin/sh',
+        'for a in "$@"; do',
+        '  case "$a" in',
+        '    */src/*) echo "fatal: bad object" >&2; exit 128;;',
+        '  esac',
+        'done',
+        `exec ${realGit} "$@"`,
+        ''
+      ].join('\n'),
+      { mode: 0o755 }
+    )
+
+    const r = spawnSync(process.execPath, [DOCS_LINT], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${root}:${process.env.PATH}` }
+    })
+
+    assert.match(r.stdout, /audit freshness is incomplete — git answered for \d+ of \d+ cited source\(s\)/)
+    assert.match(r.stdout, /\d+ cited source\(s\) UNANSWERED by git/)
+    // Still reports what it did manage, rather than collapsing to NOT CHECKED.
+    assert.match(r.stdout, /page\(s\) with audited: compared against git/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

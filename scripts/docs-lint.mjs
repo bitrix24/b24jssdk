@@ -31,8 +31,14 @@ const GITHUB_SOURCE_PREFIX = 'https://github.com/bitrix24/b24jssdk/blob/main/'
  *
  * `GIT_DIR` beats `cwd`, so an inherited one — from a hook, a CI wrapper, a
  * `git bisect run` — would silently point these checks at a different
- * repository than the one being linted. Clearing it (and `GIT_WORK_TREE` with
- * it) makes `cwd: REPO_ROOT` mean what it says.
+ * repository than the one being linted. Clearing it makes `cwd: REPO_ROOT` mean
+ * what it says.
+ *
+ * `GIT_WORK_TREE` and `GIT_INDEX_FILE` are cleared with it rather than on their
+ * own account: git honours neither unless `GIT_DIR` is also set (measured, not
+ * assumed), so they cannot do damage alone — but git sets all three together
+ * for a hook or a rebase, and clearing one of a matched set is how you end up
+ * with `git status` reading one repository's index against another's tree.
  *
  * git's own `fatal:` lines are dropped: every call here treats failure as an
  * answer rather than an error, so the diagnostics would only paste noise above
@@ -41,7 +47,7 @@ const GITHUB_SOURCE_PREFIX = 'https://github.com/bitrix24/b24jssdk/blob/main/'
 const GIT_EXEC_OPTIONS = {
   cwd: REPO_ROOT,
   encoding: 'utf8',
-  env: { ...process.env, GIT_DIR: undefined, GIT_WORK_TREE: undefined },
+  env: { ...process.env, GIT_DIR: undefined, GIT_WORK_TREE: undefined, GIT_INDEX_FILE: undefined },
   stdio: ['ignore', 'pipe', 'ignore']
 }
 
@@ -246,21 +252,26 @@ function checkActionSkeleton(file, body) {
 // (see `isFreshnessTrackedSource`). This avoids a 1→N `audited:` bump cascade
 // whenever a widely-cited skill or the changelog is edited.
 export function checkAuditFreshness(file, frontmatter, deps = {}) {
-  if (!frontmatter.audited) return 0
+  if (!frontmatter.audited) return { asked: 0, compared: 0 }
   // Dependency seams so tests can exercise the skip logic without a git history.
   const getCommitDate = deps.getCommitDate || (path => gitLastCommitDate(path, deps.isDirty))
   const warn = deps.warn || ((f, m) => log('warn', f, m))
   const auditedDate = new Date(frontmatter.audited + 'T23:59:59Z')
   const ghPaths = extractGithubLinkPaths(frontmatter.links || [])
-  // Counted and returned, because "how many pages have an `audited:` stamp" and
-  // "how many pages were actually compared against one" are different numbers,
-  // and only the second one is what the summary may claim. A page can cite no
-  // freshness-tracked source at all, and a git that cannot answer returns null
-  // for every source it is asked about (#524).
+  // Both numbers are returned, and the distance between them is the point.
+  //
+  // `asked` counts the freshness-tracked sources this page cites; `compared`
+  // counts the ones git actually answered for. A page that cites none has
+  // nothing to check and is not a problem. A page that cites several and gets
+  // no answer means git could not be read — and telling those two apart is the
+  // difference between an accurate report and confidently sending a reader
+  // after a git problem that does not exist (#524).
+  let asked = 0
   let compared = 0
 
   for (const localPath of ghPaths) {
     if (!isFreshnessTrackedSource(localPath)) continue
+    asked++
     const lastCommit = getCommitDate(localPath)
     if (!lastCommit) continue
     compared++
@@ -272,7 +283,7 @@ export function checkAuditFreshness(file, frontmatter, deps = {}) {
     }
   }
 
-  return compared
+  return { asked, compared }
 }
 
 // Frontmatter `links:` point at the source files a page documents. A renamed or
@@ -358,12 +369,16 @@ function main() {
   }
 
   // Pages whose `audited:` stamp was actually compared against something, not
-  // pages that carry one. Three of this repo's stamped pages cite no
+  // pages that carry one. Some of this repo's stamped pages cite no
   // freshness-tracked source, and a git that cannot answer at all produces zero
   // comparisons while every page still asks — which would print a clean bill of
   // health for a check that examined nothing (#524).
   let pagesCompared = 0
   let pagesStamped = 0
+  // Sources, not pages: `sourcesAsked - sourcesCompared` is exactly the number
+  // git failed to answer for, with no threshold to tune and nothing to rot.
+  let sourcesAsked = 0
+  let sourcesCompared = 0
 
   for (const file of files) {
     const raw = readFileSync(file, 'utf8')
@@ -377,8 +392,11 @@ function main() {
     }
     if (frontmatter.audited) pagesStamped++
 
-    if (!shallow && checkAuditFreshness(file, frontmatter) > 0) {
-      pagesCompared++
+    if (!shallow) {
+      const { asked, compared } = checkAuditFreshness(file, frontmatter)
+      sourcesAsked += asked
+      sourcesCompared += compared
+      if (compared > 0) pagesCompared++
     }
 
     checkFrontmatterLinkTargets(file, frontmatter)
@@ -388,19 +406,35 @@ function main() {
   // health on something that was never examined — same reasoning as #519.
   if (shallow) {
     report.note(`audit freshness NOT CHECKED (partial git history — ${UNSHALLOW_HINT})`)
-  } else if (pagesCompared === 0 && pagesStamped > 0) {
-    // Not shallow, and still nothing to compare against: git could not be asked
-    // at all — missing, not a repository, or refusing the directory as
+  } else if (sourcesAsked === 0) {
+    // Nothing cited a freshness-tracked source. Not a git problem, and saying
+    // it were one would send a reader after a fault that does not exist.
+    report.note('audit freshness had nothing to check (no page cites a non-Markdown source)')
+  } else if (sourcesCompared === 0) {
+    // Sources were cited and git answered for none of them: it could not be
+    // asked at all — missing, not a repository, or refusing the directory as
     // "dubious ownership", which is ordinary in a container whose checkout is
     // mounted with a different owner. Saying "0 page(s) checked" would be true
     // but easy to skim past; saying it did not run is the same honesty the
     // shallow branch owes.
     console.log(
-      'docs-lint: audit freshness was not checked — git answered for none of the cited sources. '
-      + 'Is this a git repository, and is git able to read it?'
+      'docs-lint: audit freshness was not checked — git answered for none of the '
+      + `${sourcesAsked} cited source(s). Is this a git repository, and is git able to read it?`
     )
     report.note('audit freshness NOT CHECKED (git answered for no source)')
   } else {
+    if (sourcesCompared < sourcesAsked) {
+      // A partial answer is the quiet failure: the count below stays truthful,
+      // but "2 of 52" is easy to read past. Name the gap rather than leave it
+      // to be noticed. No threshold is involved — a source that was asked
+      // about and not answered for is a fact, not a heuristic.
+      console.log(
+        `docs-lint: audit freshness is incomplete — git answered for ${sourcesCompared} `
+        + `of ${sourcesAsked} cited source(s); the rest were not checked.`
+      )
+      report.note(`${sourcesAsked - sourcesCompared} cited source(s) UNANSWERED by git`)
+    }
+
     report.note(`${pagesCompared} of ${pagesStamped} page(s) with audited: compared against git`)
   }
 

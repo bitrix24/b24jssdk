@@ -16,7 +16,7 @@
  * a temp file through B24_OAUTH_STORE. jsSdk:unit.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -493,14 +493,21 @@ describe('checkPortalUrls (recipe 12)', () => {
   })
 })
 
-// ── #454: member_id is an object key, and three of them are special ──────────
+// ── #454: member_id is an object key ────────────────────────────────────────
 
 describe('a member_id that collides with Object.prototype (recipe 12, #454)', () => {
-  // `auth.member_id` comes straight from the event payload and is used as a key
-  // in the credential store. A plain `{}` inherits three reachable slots, and
-  // each fails differently — which is why all three are here rather than just
-  // the famous one.
-  const RESERVED = ['__proto__', 'constructor', 'toString']
+  // Every property on `Object.prototype`, not a hand-picked three. A denylist
+  // of the famous names is the wrong shape of fix, and a test that only tries
+  // the famous names cannot tell a real fix from one.
+  const INHERITED = Object.getOwnPropertyNames(Object.prototype)
+
+  // `__proto__` is the only one that breaks the WRITE path: it is an accessor,
+  // so assignment reassigns the prototype and stores nothing. The other eleven
+  // are writable data properties, so `store[id] = creds` shadows them and
+  // round-trips even on the unfixed code. Keeping them in the storage tables
+  // would be ballast that passes with the fix deleted — they belong in the
+  // lookup tests, where they genuinely differ.
+  const WRITE_HAZARD = '__proto__'
 
   const installPayload = (memberId: string) => ({
     event: 'ONAPPINSTALL',
@@ -509,46 +516,133 @@ describe('a member_id that collides with Object.prototype (recipe 12, #454)', ()
     auth: authPayload({ member_id: memberId })
   })
 
-  it.each(RESERVED)('stores and reads back an install for member_id=%s', async (memberId) => {
-    // Before the fix `__proto__` reassigned the store's prototype instead of
-    // adding a property, so `JSON.stringify` emitted `{}`: the install answered
-    // 200 and persisted nothing, and the next lookup said "install the app
-    // first" with no trace of why.
+  const uninstallReq = (memberId: string, token = 'app-token-secret') => ({
+    body: { event: 'ONAPPUNINSTALL', auth: { member_id: memberId, application_token: token } }
+  })
+
+  it('sanity: every inherited name is truthy on a plain object, which is the bug', () => {
+    // Pins the premise rather than trusting it. If a future V8 changes what
+    // lives on Object.prototype, this says so before the rest looks pointless.
+    const plain = JSON.parse('{}')
+    for (const name of INHERITED) {
+      expect(Boolean(plain[name] ?? null), `${name} should be truthy on a plain object`).toBe(true)
+    }
+    expect(INHERITED).toContain('__proto__')
+    expect(INHERITED.length).toBeGreaterThan(3)
+  })
+
+  it(`stores and reads back an install for member_id=${WRITE_HAZARD}`, async () => {
+    // Before the fix this reassigned the store's prototype instead of adding a
+    // property, so `JSON.stringify` emitted `{}`: the install answered 200 and
+    // persisted nothing, and the next lookup said "install the app first".
     writeStore({})
     const { handleInstall } = await loadRecipe()
     const { res, state } = fakeRes()
 
-    await handleInstall({ body: installPayload(memberId) } as never, res as never)
+    await handleInstall({ body: installPayload(WRITE_HAZARD) } as never, res as never)
 
     expect(state.code).toBe(200)
-
     const onDisk = readStore()
-    expect(Object.hasOwn(onDisk, memberId)).toBe(true)
-    expect(onDisk[memberId].accessToken).toBe('at-1')
-    expect(onDisk[memberId].memberId).toBe(memberId)
+    expect(Object.hasOwn(onDisk, WRITE_HAZARD)).toBe(true)
+    expect(onDisk[WRITE_HAZARD].accessToken).toBe('at-1')
   })
 
-  it.each(RESERVED)('does not disturb other portals when storing member_id=%s', async (memberId) => {
-    writeStore({ 'member-other': { accessToken: 'keep-me' } })
+  it(`stores member_id=${WRITE_HAZARD} on the very first install, with no store file yet`, async () => {
+    // `loadStore` has two ways to produce an empty store — an empty file, and
+    // the missing-file branch — and only the second is what a real deployment
+    // hits first. Every other test writes the file.
+    rmSync(storeFile, { force: true })
+    expect(existsSync(storeFile)).toBe(false)
+
     const { handleInstall } = await loadRecipe()
     const { res } = fakeRes()
 
-    await handleInstall({ body: installPayload(memberId) } as never, res as never)
+    await handleInstall({ body: installPayload(WRITE_HAZARD) } as never, res as never)
 
-    const onDisk = readStore()
-    expect(onDisk['member-other'].accessToken).toBe('keep-me')
-    expect(onDisk[memberId].accessToken).toBe('at-1')
+    expect(readStore()[WRITE_HAZARD].accessToken).toBe('at-1')
   })
 
-  it.each([...RESERVED, 'never-installed'])(
-    'reports a missing install for %s instead of failing on an inherited value',
+  it('installs another portal without losing a stored __proto__ record', async () => {
+    // The read-modify-write cycle: load a store that already holds the hazard,
+    // add someone else, save. This is the path a deployment upgraded from an
+    // older version takes, and the one where a plain-object copy loses the
+    // record without anyone noticing.
+    writeStore({ [WRITE_HAZARD]: { applicationToken: 'p', accessToken: 'proto-secret' } })
+    const { handleInstall } = await loadRecipe()
+    const { res } = fakeRes()
+
+    await handleInstall({ body: installPayload('member-other') } as never, res as never)
+
+    const onDisk = readStore()
+    expect(onDisk[WRITE_HAZARD].accessToken).toBe('proto-secret')
+    expect(onDisk['member-other'].accessToken).toBe('at-1')
+  })
+
+  it('uninstalling one portal does not take a stored __proto__ record with it', async () => {
+    // The assertion `deleteCredentials`' comment stands on. Copying the store
+    // key by key into a `{}` — an entirely reasonable-looking refactor — sends
+    // the `__proto__` record through the prototype setter and writes `{}`:
+    // removing one portal silently destroys another's credentials.
+    writeStore({
+      [WRITE_HAZARD]: { applicationToken: 'p', accessToken: 'proto-secret' },
+      'member-other': { applicationToken: 'app-token-secret', accessToken: 'keep' }
+    })
+    const { handleUninstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleUninstall(uninstallReq('member-other') as never, res as never)
+
+    expect(state.code).toBe(200)
+    const onDisk = readStore()
+    expect(Object.hasOwn(onDisk, 'member-other')).toBe(false)
+    expect(Object.hasOwn(onDisk, WRITE_HAZARD)).toBe(true)
+    expect(onDisk[WRITE_HAZARD].accessToken).toBe('proto-secret')
+  })
+
+  it.each(INHERITED)('uninstalls member_id=%s like any other portal', async (memberId) => {
+    writeStore({
+      [memberId]: { applicationToken: 'app-token-secret', accessToken: 'at-1' },
+      'member-other': { applicationToken: 'other', accessToken: 'keep-me' }
+    })
+    const { handleUninstall } = await loadRecipe()
+    const { res } = fakeRes()
+
+    await handleUninstall(uninstallReq(memberId) as never, res as never)
+
+    const onDisk = readStore()
+    expect(Object.hasOwn(onDisk, memberId)).toBe(false)
+    expect(onDisk['member-other'].accessToken).toBe('keep-me')
+  })
+
+  it.each(INHERITED)('refuses to delete member_id=%s on a token mismatch', async (memberId) => {
+    writeStore({ [memberId]: { applicationToken: 'app-token-secret' } })
+    const { handleUninstall } = await loadRecipe()
+    const { res } = fakeRes()
+
+    await handleUninstall(uninstallReq(memberId, 'wrong-token') as never, res as never)
+
+    expect(readStore()[memberId].applicationToken).toBe('app-token-secret')
+  })
+
+  // ── the read path, where all twelve differ ──────────────────────────────
+
+  it.each(INHERITED)('getCredentials returns null for %s when nothing is stored', async (memberId) => {
+    // Pins the normalisation `clientForMember`'s guard depends on. Without it,
+    // a lookup returns an inherited FUNCTION — truthy — and the guard is
+    // bypassed. Asserted here as well as through the guard so that a refactor
+    // of either one cannot quietly reopen the other.
+    writeStore({})
+    const { getCredentials } = await loadRecipe()
+
+    await expect(getCredentials(memberId)).resolves.toBeNull()
+  })
+
+  it.each([...INHERITED, 'never-installed'])(
+    'clientForMember reports a missing install for %s',
     async (memberId) => {
-      // The other half, and the one that needs no install at all: reading
-      // `constructor` or `toString` out of a plain object returns an inherited
-      // FUNCTION, and `__proto__` returns `Object.prototype`. All three are
-      // truthy, so they passed the `if (!creds)` guard and the caller got
-      // `TypeError: Cannot read properties of undefined (reading 'replaceAll')`
-      // from inside the SDK rather than the message written for this case.
+      // Before the fix the caller got `TypeError: Cannot read properties of
+      // undefined (reading 'replaceAll')` from inside the SDK instead of the
+      // message written for exactly this case.
       writeStore({})
       const { clientForMember } = await loadRecipe()
 
@@ -558,79 +652,118 @@ describe('a member_id that collides with Object.prototype (recipe 12, #454)', ()
     }
   )
 
-  it.each(RESERVED)('uninstalls member_id=%s like any other portal', async (memberId) => {
-    writeStore({
-      [memberId]: { applicationToken: 'app-token-secret', accessToken: 'at-1' },
-      'member-other': { applicationToken: 'other', accessToken: 'keep-me' }
-    })
-    const { handleUninstall } = await loadRecipe()
-    const { res, state } = fakeRes()
+  it.each(INHERITED)('getCredentials returns the record for %s once installed', async (memberId) => {
+    writeStore({ [memberId]: { applicationToken: 'app-token-secret', accessToken: 'at-1' } })
+    const { getCredentials } = await loadRecipe()
 
-    await handleUninstall({
-      body: {
-        event: 'ONAPPUNINSTALL',
-        auth: { member_id: memberId, application_token: 'app-token-secret' }
-      }
-    } as never, res as never)
+    const creds = await getCredentials(memberId)
+    expect(creds?.accessToken).toBe('at-1')
+  })
+})
 
-    expect(state.code).toBe(200)
-    const onDisk = readStore()
-    expect(Object.hasOwn(onDisk, memberId)).toBe(false)
-    // …and the delete did not take the rest of the store with it.
-    expect(onDisk['member-other'].accessToken).toBe('keep-me')
+// ── #454 (cont.): the store file itself ─────────────────────────────────────
+
+describe('a store file that cannot be read as a store (recipe 12, #454)', () => {
+  it('refuses valid JSON that is not an object, rather than building a pseudo-store', async () => {
+    // `Object.assign(Object.create(null), "hello")` yields {"0":"h","1":"e",…},
+    // which the next save would write back over the real file.
+    writeFileSync(storeFile, '"hello"', 'utf8')
+    const { getCredentials } = await loadRecipe()
+
+    await expect(getCredentials('member-abc')).rejects.toThrow(/not a JSON object/)
   })
 
-  it.each(RESERVED)('refuses to delete member_id=%s on a token mismatch', async (memberId) => {
-    // The guard that protects every other portal has to protect these too:
-    // before the fix, a lookup for a never-installed `constructor` returned a
-    // function whose `.applicationToken` was `undefined`, so the comparison was
-    // being made against a value that was not a credential record at all.
-    writeStore({ [memberId]: { applicationToken: 'app-token-secret' } })
-    const { handleUninstall } = await loadRecipe()
-    const { res } = fakeRes()
+  it.each(['123', 'true', 'null', '[{"a":1}]'])('refuses a store file containing %s', async (body) => {
+    writeFileSync(storeFile, body, 'utf8')
+    const { getCredentials } = await loadRecipe()
 
-    await handleUninstall({
-      body: {
-        event: 'ONAPPUNINSTALL',
-        auth: { member_id: memberId, application_token: 'wrong-token' }
-      }
-    } as never, res as never)
-
-    expect(readStore()[memberId].applicationToken).toBe('app-token-secret')
+    await expect(getCredentials('member-abc')).rejects.toThrow(/not a JSON object/)
   })
 
-  it.each(RESERVED)('stores member_id=%s on the very first install, with no store file yet', async (memberId) => {
-    // `loadStore` has two ways to produce an empty store: parsing `{}` off disk,
-    // and the `catch` for a file that does not exist yet. The second is the one
-    // a real deployment hits first — every test above writes the file, so
-    // without this the catch branch could go back to `{}` unnoticed.
+  it('refuses a store path that cannot be read at all, rather than reading it as empty', async () => {
+    // A directory where the file should be stands in for the whole class —
+    // EACCES, EISDIR, a bad mount. Only ENOENT means "no store yet"; treating
+    // the rest the same way is how the next save overwrites a store that was
+    // simply unreachable for a moment.
     rmSync(storeFile, { force: true })
-    expect(existsSync(storeFile)).toBe(false)
+    mkdirSync(storeFile, { recursive: true })
+    const { getCredentials } = await loadRecipe()
 
+    await expect(getCredentials('member-abc')).rejects.toThrow(/EISDIR|EACCES|illegal operation/i)
+  })
+
+  it('does not silently empty the store when the file is corrupt', async () => {
+    // The data-loss path: a bare `catch` reads unparseable JSON as "no store
+    // yet", and the next install overwrites every portal's credentials with a
+    // single record.
+    writeFileSync(storeFile, '{"member-abc": {"accessToken": "at-1"', 'utf8')
     const { handleInstall } = await loadRecipe()
     const { res, state } = fakeRes()
 
-    await handleInstall({ body: installPayload(memberId) } as never, res as never)
+    // It fails loudly. The route registration wraps the handler in `.catch`
+    // and logs, so the operator sees the corrupt file named — which is the
+    // point: the alternative was reading it as "no store yet" and overwriting
+    // every portal's credentials with this one record.
+    await expect(handleInstall({
+      body: {
+        event: 'ONAPPINSTALL',
+        data: { VERSION: '1', ACTIVE: '1', LANGUAGE_ID: 'en' },
+        ts: '1893456000',
+        auth: authPayload({ member_id: 'member-new' })
+      }
+    } as never, res as never)).rejects.toThrow(SyntaxError)
 
+    // Bitrix24 still got its 200 before the failure, so it will not retry.
     expect(state.code).toBe(200)
-    expect(readStore()[memberId].accessToken).toBe('at-1')
+    // And the file is exactly as it was.
+    expect(readFileSync(storeFile, 'utf8')).toBe('{"member-abc": {"accessToken": "at-1"')
+  })
+})
+
+// ── #454 (cont.): member_id is also a log line ──────────────────────────────
+
+describe('an implausible member_id is refused at the boundary (recipe 12, #454)', () => {
+  const install = (memberId: string) => ({
+    body: {
+      event: 'ONAPPINSTALL',
+      data: { VERSION: '1', ACTIVE: '1', LANGUAGE_ID: 'en' },
+      ts: '1893456000',
+      auth: authPayload({ member_id: memberId })
+    }
   })
 
-  it('survives a second install over a stored __proto__ record', async () => {
-    // The read-modify-write cycle is where a prototype reintroduced by object
-    // rest or by a plain literal would resurface: load, overwrite, save.
+  it.each([
+    ['a newline, which forges a second log line', 'aaa\n[ONAPPINSTALL] member=victim-portal'],
+    ['a carriage return', 'aaa\r[ONAPPINSTALL] member=victim'],
+    ['an ANSI escape', `aaa${String.fromCharCode(27)}[31m`],
+    ['a tab', 'aaa\tbbb'],
+    ['a path separator', '../../etc/passwd'],
+    ['a colon, which collides in a Redis keyspace', 'portal:admin'],
+    ['65 characters', 'a'.repeat(65)]
+  ])('refuses %s', async (_label, memberId) => {
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleInstall(install(memberId) as never, res as never)
+
+    // Still 200 — Bitrix24 must not retry for 24h — but nothing is stored.
+    expect(state.code).toBe(200)
+    expect(readStore()).toEqual({})
+  })
+
+  it.each([
+    ['the id shape the SDK documents', '3xx2030386cyy1b'],
+    ['the fixture id used across this suite', 'member-abc'],
+    ['64 characters', 'a'.repeat(64)],
+    ['a prototype name, which the STORE handles rather than this check', '__proto__']
+  ])('accepts %s', async (_label, memberId) => {
     writeStore({})
     const { handleInstall } = await loadRecipe()
     const { res } = fakeRes()
 
-    await handleInstall({ body: installPayload('__proto__') } as never, res as never)
-    await handleInstall({
-      body: {
-        ...installPayload('__proto__'),
-        auth: authPayload({ member_id: '__proto__', access_token: 'at-2' })
-      }
-    } as never, res as never)
+    await handleInstall(install(memberId) as never, res as never)
 
-    expect(readStore()['__proto__'].accessToken).toBe('at-2')
+    expect(readStore()[memberId].accessToken).toBe('at-1')
   })
 })

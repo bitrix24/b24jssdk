@@ -146,10 +146,13 @@ export type { TypeMyPayload } from './types/payloads'
 
 ## How much of a JSDoc block belongs in the code
 
-The longest block in `packages/jssdk/src/` was 97 lines when this was written;
-it is 55 now, and seventeen of the 746 blocks are still over thirty. Long
-comments are not the problem — the ones explaining *why* are the most valuable
-thing in this codebase. **Placement** is (#420).
+Long comments are not the problem — the ones explaining *why* are the most
+valuable thing in this codebase. **Placement** is (#420).
+
+This section used to open with counts — the longest block, how many were over
+thirty. They were wrong within two passes, because nothing measures them. Either
+a script does it, and then the numbers can be quoted, or they should not appear
+in prose at all. Until one exists, measure before you cite.
 
 ### The threshold
 

@@ -46,6 +46,30 @@ import { checkPortalUrls } from '../lib/portal-url'
 const logger = Logger.create('OAuthInstall')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
+/**
+ * Shape check for `auth.member_id`, which arrives on an endpoint that by design
+ * cannot authenticate its caller.
+ *
+ * Charset and length, not a denylist. Two things this buys, and one it does NOT:
+ *
+ * - **Log integrity.** The id is interpolated into log lines. A newline in it
+ *   prints a second line that reads exactly like a real install for a different
+ *   portal, which is precisely what the "overwriting existing credentials"
+ *   warning below exists to make visible. A control character can repaint the
+ *   terminal or forge a CI workflow command.
+ * - **A bound on the key.** A megabyte-long id becomes a megabyte-long key in
+ *   whatever store replaces this file.
+ * - **It does NOT close the prototype hazard**: `__proto__`, `constructor` and
+ *   `toString` are all ordinary word characters and pass this check. That is
+ *   the store's job — see `loadStore`. The two defences are separate because
+ *   they answer different questions.
+ *
+ * Deliberately permissive: the SDK documents `member_id` only as a string
+ * (`@example '3xx2030386cyy1b'`), so a stricter rule — 32 hex characters, say —
+ * would refuse ids that the platform itself shows.
+ */
+const MEMBER_ID_PATTERN = /^[\w-]{1,64}$/
+
 const SECRET: B24OAuthSecret = {
   clientId: process.env.B24_CLIENT_ID ?? '',
   clientSecret: process.env.B24_CLIENT_SECRET ?? ''
@@ -64,13 +88,55 @@ const STORE_FILE = process.env.B24_OAUTH_STORE ?? path.join(process.cwd(), '.oau
 // B24OAuthParams already carries applicationToken; aliasing for clarity at storage boundary.
 type StoredCredentials = B24OAuthParams
 
+// The keys of this store come from the event payload — `auth.member_id` —
+// which this endpoint cannot authenticate. A plain `{}` inherits from
+// `Object.prototype`, and every one of its twelve properties is reachable as a
+// key: `__proto__` (a setter, so the write is swallowed and the install stores
+// nothing), and `constructor`, `toString`, `valueOf`, `hasOwnProperty` and the
+// rest, which a LOOKUP finds as inherited functions — truthy, so they sail past
+// the `if (!creds)` guard in `clientForMember`.
+//
+// Twelve, not three: a denylist of the famous names is the wrong shape of fix.
+// `Object.create(null)` has no prototype and therefore no such keys, so every
+// member_id behaves the same way. Express 5 makes `req.params` null-prototype
+// for exactly this reason.
+//
+// The habit is what to take from this, not the line: an in-memory collection
+// keyed by strings someone else chose is not a record type. A `Map` does the
+// same job (`Result` in the SDK keys its errors that way) at the cost of an
+// `Object.fromEntries` before `JSON.stringify`. (#454)
 async function loadStore(): Promise<Record<string, StoredCredentials>> {
+  let text: string
   try {
-    const text = await fs.readFile(STORE_FILE, 'utf8')
-    return JSON.parse(text)
-  } catch {
-    return {}
+    text = await fs.readFile(STORE_FILE, 'utf8')
+  } catch (error) {
+    // No file yet is the normal first run. Anything else — a permission
+    // problem, a directory where the file should be — must NOT look like an
+    // empty store: the next save would overwrite the real file and take every
+    // portal's credentials with it.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return Object.create(null)
+    }
+    throw error
   }
+
+  // An empty file is an empty store, not a corrupt one. Two ordinary ways to
+  // get one: an operator pre-creating the file with the 0o600 this recipe asks
+  // for, and the non-atomic write below being interrupted after it truncates.
+  // Both used to self-heal; refusing them would be a permanent outage needing a
+  // human to delete a file.
+  if (text.trim() === '') {
+    return Object.create(null)
+  }
+
+  const parsed: unknown = JSON.parse(text)
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    // Valid JSON, wrong shape. Refuse rather than build a pseudo-store out of
+    // a string's character indices and write it back over the real one.
+    throw new Error(`OAuth store at ${STORE_FILE} is not a JSON object`)
+  }
+
+  return Object.assign(Object.create(null), parsed)
 }
 
 // File mode 0o600: only the file owner can read/write. Tokens MUST NOT be
@@ -86,13 +152,27 @@ async function saveCredentials(memberId: string, creds: StoredCredentials): Prom
   logger.info(`  persisted credentials for member ${memberId}`)
 }
 
-async function getCredentials(memberId: string): Promise<StoredCredentials | null> {
+/**
+ * Exported so the tests can pin the `?? null` below — the guard in
+ * `clientForMember` depends on it. Prefer `clientForMember` in your own code:
+ * this hands back the raw tokens, and they belong in an SDK client, not in
+ * application code that might log them.
+ *
+ * @internal
+ */
+export async function getCredentials(memberId: string): Promise<StoredCredentials | null> {
   const store = await loadStore()
   return store[memberId] ?? null
 }
 
 async function deleteCredentials(memberId: string): Promise<void> {
   const store = await loadStore()
+  // Object rest is safe here even though the copy is a plain object again:
+  // spreading uses CreateDataProperty, not assignment, so a stored `__proto__`
+  // record belonging to ANOTHER portal is carried across as an own property
+  // rather than swallowed by the prototype setter. Copying key by key into a
+  // `{}` would lose it — and losing it here means deleting one portal wipes
+  // another's credentials.
   const { [memberId]: _removed, ...rest } = store
   await fs.writeFile(STORE_FILE, JSON.stringify(rest, null, 2), { mode: 0o600 })
 }
@@ -187,6 +267,29 @@ export async function handleInstall(req: Request, res: Response) {
     return
   }
 
+  // `typeof` first, because the two checks below both lie about a non-string.
+  // `express.json()` lets a caller choose the JS TYPE, not just the characters:
+  // `RegExp.test` runs ToString on its argument, so `member_id: 12345` — or an
+  // object with a `toString` — passes the pattern and becomes a store key,
+  // persisted as a number. And `.slice(0, 32)` on an array (which
+  // `express.urlencoded({ extended: true })` produces for `auth[member_id][]=`)
+  // slices the array, not the string, so the length bound below is bypassed.
+  if (typeof payload.auth.member_id !== 'string'
+    || !MEMBER_ID_PATTERN.test(payload.auth.member_id)) {
+    // Echoed through JSON.stringify and truncated: a raw id here would print
+    // the very newline the check just refused, but saying nothing at all leaves
+    // an operator whose installs have silently stopped with no way to tell why.
+    // JSON.stringify escapes the control characters, so the line stays one line.
+    // `String(...)` so a non-string is still named rather than throwing here,
+    // and an ellipsis so a truncated id cannot be mistaken for a short one.
+    const shown = String(payload.auth.member_id)
+    logger.warning(
+      `[install] refusing an implausible member_id: ${JSON.stringify(shown.slice(0, 32))}`
+      + (shown.length > 32 ? ` (truncated from ${shown.length})` : '')
+    )
+    return
+  }
+
   const badUrls = checkPortalUrls(payload.auth)
   if (badUrls !== null) {
     // Log the reason, answer nothing: telling the caller which check it tripped
@@ -253,7 +356,7 @@ export async function handleUninstall(req: Request, res: Response) {
 //  hit Bitrix24 for a specific portal.
 // ────────────────────────────────────────────────────────────────────────
 
-async function clientForMember(memberId: string): Promise<B24OAuth> {
+export async function clientForMember(memberId: string): Promise<B24OAuth> {
   const creds = await getCredentials(memberId)
   if (!creds) throw new Error(`No credentials stored for member ${memberId}. Install the app first.`)
 
@@ -277,7 +380,15 @@ async function clientForMember(memberId: string): Promise<B24OAuth> {
 
   // CRITICAL: persist refreshed tokens so the next cold start sees the latest pair.
   $b24.setCallbackRefreshAuth(async ({ b24OAuthParams }) => {
-    await saveCredentials(b24OAuthParams.memberId, {
+    // Keyed by the id the record was LOADED under, not by the one inside the
+    // refreshed params. They agree whenever the store key equals the record's
+    // own `memberId` — but a store where they disagree is what a hand-edited or
+    // migrated file looks like, and then keying off the params would write this
+    // portal's refreshed tokens over ANOTHER portal's record.
+    //
+    // Not covered by the unit tests: reaching this line needs a real token
+    // refresh against the portal, and the callback is private to the SDK.
+    await saveCredentials(memberId, {
       ...b24OAuthParams,
       applicationToken: creds.applicationToken // unchanged on refresh
     })
@@ -341,7 +452,12 @@ async function main() {
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined
       })
-      res.status(200).send('ok')
+      // Log only — do NOT answer here. The handler sends its 200 on its first
+      // line, before anything can throw, so a second send hits an already
+      // finished response: Express throws ERR_HTTP_HEADERS_SENT, and because we
+      // are inside a `.catch` callback that becomes an unhandled rejection and
+      // Node exits. An unreadable token file would take the server down on
+      // every install POST.
     })
   })
 
@@ -354,7 +470,7 @@ async function main() {
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined
       })
-      res.status(200).send('ok')
+      // Log only — see the note on /install above.
     })
   })
 
@@ -376,6 +492,11 @@ async function main() {
     }
 
     try {
+      // Not shape-checked, on purpose: this path is read-only, the id is never
+      // logged, and it cannot create a store key — the only write below it
+      // happens after a lookup succeeded, which means the key passed the check
+      // at install time. Re-check here if you make this a datastore lookup,
+      // where an unbounded segment becomes an unbounded key.
       const $b24 = await clientForMember(req.params.memberId)
       const profile = await demoCall($b24)
       res.json(profile)

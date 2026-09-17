@@ -492,3 +492,145 @@ describe('checkPortalUrls (recipe 12)', () => {
     })).toMatch(/^domain host is not allowed/)
   })
 })
+
+// ── #454: member_id is an object key, and three of them are special ──────────
+
+describe('a member_id that collides with Object.prototype (recipe 12, #454)', () => {
+  // `auth.member_id` comes straight from the event payload and is used as a key
+  // in the credential store. A plain `{}` inherits three reachable slots, and
+  // each fails differently — which is why all three are here rather than just
+  // the famous one.
+  const RESERVED = ['__proto__', 'constructor', 'toString']
+
+  const installPayload = (memberId: string) => ({
+    event: 'ONAPPINSTALL',
+    data: { VERSION: '1', ACTIVE: '1', LANGUAGE_ID: 'en' },
+    ts: '1893456000',
+    auth: authPayload({ member_id: memberId })
+  })
+
+  it.each(RESERVED)('stores and reads back an install for member_id=%s', async (memberId) => {
+    // Before the fix `__proto__` reassigned the store's prototype instead of
+    // adding a property, so `JSON.stringify` emitted `{}`: the install answered
+    // 200 and persisted nothing, and the next lookup said "install the app
+    // first" with no trace of why.
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleInstall({ body: installPayload(memberId) } as never, res as never)
+
+    expect(state.code).toBe(200)
+
+    const onDisk = readStore()
+    expect(Object.hasOwn(onDisk, memberId)).toBe(true)
+    expect(onDisk[memberId].accessToken).toBe('at-1')
+    expect(onDisk[memberId].memberId).toBe(memberId)
+  })
+
+  it.each(RESERVED)('does not disturb other portals when storing member_id=%s', async (memberId) => {
+    writeStore({ 'member-other': { accessToken: 'keep-me' } })
+    const { handleInstall } = await loadRecipe()
+    const { res } = fakeRes()
+
+    await handleInstall({ body: installPayload(memberId) } as never, res as never)
+
+    const onDisk = readStore()
+    expect(onDisk['member-other'].accessToken).toBe('keep-me')
+    expect(onDisk[memberId].accessToken).toBe('at-1')
+  })
+
+  it.each([...RESERVED, 'never-installed'])(
+    'reports a missing install for %s instead of failing on an inherited value',
+    async (memberId) => {
+      // The other half, and the one that needs no install at all: reading
+      // `constructor` or `toString` out of a plain object returns an inherited
+      // FUNCTION, and `__proto__` returns `Object.prototype`. All three are
+      // truthy, so they passed the `if (!creds)` guard and the caller got
+      // `TypeError: Cannot read properties of undefined (reading 'replaceAll')`
+      // from inside the SDK rather than the message written for this case.
+      writeStore({})
+      const { clientForMember } = await loadRecipe()
+
+      await expect(clientForMember(memberId)).rejects.toThrow(
+        `No credentials stored for member ${memberId}. Install the app first.`
+      )
+    }
+  )
+
+  it.each(RESERVED)('uninstalls member_id=%s like any other portal', async (memberId) => {
+    writeStore({
+      [memberId]: { applicationToken: 'app-token-secret', accessToken: 'at-1' },
+      'member-other': { applicationToken: 'other', accessToken: 'keep-me' }
+    })
+    const { handleUninstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleUninstall({
+      body: {
+        event: 'ONAPPUNINSTALL',
+        auth: { member_id: memberId, application_token: 'app-token-secret' }
+      }
+    } as never, res as never)
+
+    expect(state.code).toBe(200)
+    const onDisk = readStore()
+    expect(Object.hasOwn(onDisk, memberId)).toBe(false)
+    // …and the delete did not take the rest of the store with it.
+    expect(onDisk['member-other'].accessToken).toBe('keep-me')
+  })
+
+  it.each(RESERVED)('refuses to delete member_id=%s on a token mismatch', async (memberId) => {
+    // The guard that protects every other portal has to protect these too:
+    // before the fix, a lookup for a never-installed `constructor` returned a
+    // function whose `.applicationToken` was `undefined`, so the comparison was
+    // being made against a value that was not a credential record at all.
+    writeStore({ [memberId]: { applicationToken: 'app-token-secret' } })
+    const { handleUninstall } = await loadRecipe()
+    const { res } = fakeRes()
+
+    await handleUninstall({
+      body: {
+        event: 'ONAPPUNINSTALL',
+        auth: { member_id: memberId, application_token: 'wrong-token' }
+      }
+    } as never, res as never)
+
+    expect(readStore()[memberId].applicationToken).toBe('app-token-secret')
+  })
+
+  it.each(RESERVED)('stores member_id=%s on the very first install, with no store file yet', async (memberId) => {
+    // `loadStore` has two ways to produce an empty store: parsing `{}` off disk,
+    // and the `catch` for a file that does not exist yet. The second is the one
+    // a real deployment hits first — every test above writes the file, so
+    // without this the catch branch could go back to `{}` unnoticed.
+    rmSync(storeFile, { force: true })
+    expect(existsSync(storeFile)).toBe(false)
+
+    const { handleInstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleInstall({ body: installPayload(memberId) } as never, res as never)
+
+    expect(state.code).toBe(200)
+    expect(readStore()[memberId].accessToken).toBe('at-1')
+  })
+
+  it('survives a second install over a stored __proto__ record', async () => {
+    // The read-modify-write cycle is where a prototype reintroduced by object
+    // rest or by a plain literal would resurface: load, overwrite, save.
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res } = fakeRes()
+
+    await handleInstall({ body: installPayload('__proto__') } as never, res as never)
+    await handleInstall({
+      body: {
+        ...installPayload('__proto__'),
+        auth: authPayload({ member_id: '__proto__', access_token: 'at-2' })
+      }
+    } as never, res as never)
+
+    expect(readStore()['__proto__'].accessToken).toBe('at-2')
+  })
+})

@@ -64,12 +64,31 @@ const STORE_FILE = process.env.B24_OAUTH_STORE ?? path.join(process.cwd(), '.oau
 // B24OAuthParams already carries applicationToken; aliasing for clarity at storage boundary.
 type StoredCredentials = B24OAuthParams
 
+// The keys of this store come from the event payload — `auth.member_id`, which
+// a caller chooses — so it must not be a plain object literal.
+//
+// A plain `{}` inherits from `Object.prototype`, and three of its slots are
+// reachable as keys. Writing to `__proto__` reassigns the prototype instead of
+// adding a property, so `JSON.stringify` then emits `{}` and the install
+// succeeds while storing nothing. Reading `constructor` or `toString` for a
+// portal that never installed returns an inherited function rather than
+// `undefined` — truthy, so it sails past the `if (!creds)` guard in
+// `clientForMember` and fails later with an unrelated TypeError instead of the
+// "install the app first" message written for exactly that case.
+//
+// `Object.create(null)` has no prototype and therefore no such slots: every
+// member_id behaves the same way. It survives the JSON round trip in both
+// directions — `JSON.parse` defines `__proto__` as an own property, and
+// `JSON.stringify` emits it. (#454)
+//
+// The habit generalises past this recipe: a store keyed by strings someone else
+// chose should not be a record type. A `Map` would do as well.
 async function loadStore(): Promise<Record<string, StoredCredentials>> {
   try {
     const text = await fs.readFile(STORE_FILE, 'utf8')
-    return JSON.parse(text)
+    return Object.assign(Object.create(null), JSON.parse(text))
   } catch {
-    return {}
+    return Object.create(null)
   }
 }
 
@@ -93,6 +112,11 @@ async function getCredentials(memberId: string): Promise<StoredCredentials | nul
 
 async function deleteCredentials(memberId: string): Promise<void> {
   const store = await loadStore()
+  // Object rest is safe here even though it produces a plain object again: the
+  // copy is serialised immediately and never read, and spreading defines own
+  // properties, so a stored `__proto__` record survives the copy rather than
+  // being swallowed by the prototype setter. (The repo's lint rule against a
+  // dynamic `delete` points the same way.)
   const { [memberId]: _removed, ...rest } = store
   await fs.writeFile(STORE_FILE, JSON.stringify(rest, null, 2), { mode: 0o600 })
 }
@@ -253,7 +277,10 @@ export async function handleUninstall(req: Request, res: Response) {
 //  hit Bitrix24 for a specific portal.
 // ────────────────────────────────────────────────────────────────────────
 
-async function clientForMember(memberId: string): Promise<B24OAuth> {
+// Exported: this is the function the rest of your app calls, and it is the one
+// place a missing install turns into a message a human can act on — worth being
+// able to call, and to test, on its own.
+export async function clientForMember(memberId: string): Promise<B24OAuth> {
   const creds = await getCredentials(memberId)
   if (!creds) throw new Error(`No credentials stored for member ${memberId}. Install the app first.`)
 

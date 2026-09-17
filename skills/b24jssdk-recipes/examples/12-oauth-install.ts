@@ -267,13 +267,25 @@ export async function handleInstall(req: Request, res: Response) {
     return
   }
 
-  if (!MEMBER_ID_PATTERN.test(payload.auth.member_id)) {
+  // `typeof` first, because the two checks below both lie about a non-string.
+  // `express.json()` lets a caller choose the JS TYPE, not just the characters:
+  // `RegExp.test` runs ToString on its argument, so `member_id: 12345` — or an
+  // object with a `toString` — passes the pattern and becomes a store key,
+  // persisted as a number. And `.slice(0, 32)` on an array (which
+  // `express.urlencoded({ extended: true })` produces for `auth[member_id][]=`)
+  // slices the array, not the string, so the length bound below is bypassed.
+  if (typeof payload.auth.member_id !== 'string'
+    || !MEMBER_ID_PATTERN.test(payload.auth.member_id)) {
     // Echoed through JSON.stringify and truncated: a raw id here would print
     // the very newline the check just refused, but saying nothing at all leaves
     // an operator whose installs have silently stopped with no way to tell why.
     // JSON.stringify escapes the control characters, so the line stays one line.
+    // `String(...)` so a non-string is still named rather than throwing here,
+    // and an ellipsis so a truncated id cannot be mistaken for a short one.
+    const shown = String(payload.auth.member_id)
     logger.warning(
-      `[install] refusing an implausible member_id: ${JSON.stringify(payload.auth.member_id.slice(0, 32))}`
+      `[install] refusing an implausible member_id: ${JSON.stringify(shown.slice(0, 32))}`
+      + (shown.length > 32 ? ` (truncated from ${shown.length})` : '')
     )
     return
   }

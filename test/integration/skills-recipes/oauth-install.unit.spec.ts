@@ -852,6 +852,61 @@ describe('an implausible member_id is refused at the boundary (recipe 12, #454)'
   })
 
   it.each([
+    ['a number', 12345],
+    ['a boolean', true],
+    ['an object with a toString', { toString: () => 'coerces-to-this' }],
+    ['an array, which urlencoded bodies produce', ['aaa']]
+  ])('refuses %s, which the pattern alone would coerce and accept', async (_label, memberId) => {
+    // `express.json()` lets the caller pick the JS TYPE. `RegExp.test` runs
+    // ToString on its argument, so without an explicit `typeof` check a numeric
+    // member_id passed the pattern and was persisted as a number under its
+    // stringified key — and an array slipped the length bound, because
+    // `.slice(0, 32)` on an array slices the array.
+    writeStore({})
+    const { handleInstall } = await loadRecipe()
+    const { res, state } = fakeRes()
+
+    await handleInstall({
+      body: {
+        event: 'ONAPPINSTALL',
+        data: { VERSION: '1', ACTIVE: '1', LANGUAGE_ID: 'en' },
+        ts: '1893456000',
+        auth: { ...authPayload(), member_id: memberId }
+      }
+    } as never, res as never)
+
+    expect(state.code).toBe(200)
+    expect(readStore()).toEqual({})
+  })
+
+  it('bounds the logged id even when the value is an array', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      writeStore({})
+      const { handleInstall } = await loadRecipe()
+      const { res } = fakeRes()
+
+      await handleInstall({
+        body: {
+          event: 'ONAPPINSTALL',
+          data: { VERSION: '1', ACTIVE: '1', LANGUAGE_ID: 'en' },
+          ts: '1893456000',
+          auth: { ...authPayload(), member_id: ['c'.repeat(400)] }
+        }
+      } as never, res as never)
+
+      const refusal = warn.mock.calls.map(call => String(call[0]))
+        .find(line => line.includes('implausible member_id'))
+      expect(refusal).toBeTruthy()
+      expect(refusal!.length).toBeLessThan(200)
+      // And it says the id was cut, so a truncated one cannot read as short.
+      expect(refusal).toMatch(/truncated from \d+/)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it.each([
     ['the id shape the SDK documents', '3xx2030386cyy1b'],
     ['the fixture id used across this suite', 'member-abc'],
     ['64 characters', 'a'.repeat(64)],

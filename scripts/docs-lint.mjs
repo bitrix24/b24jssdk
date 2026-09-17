@@ -150,6 +150,41 @@ export function gitLastCommitDate(localPath, isDirtyImpl = isDirty) {
   }
 }
 
+/**
+ * Is this a shallow clone (`--depth`, or a container that cloned truncated)?
+ *
+ * It decides whether the freshness check can run at all. `git log -1 -- <file>`
+ * has no honest answer for a file that was not touched inside the downloaded
+ * commits, and rather than saying so it returns the date of the shallow
+ * boundary — the graft commit. The freshness check then compares that boundary
+ * against `audited:` and reports pages as stale that are not.
+ *
+ * Measured on a `--depth 20` clone of this repository: 22 warnings, every one
+ * of them naming the boundary date, none of them real. It reads as plausible —
+ * twenty-two pages going stale on one day is the only clue — and it cost a real
+ * detour before the repeated date gave it away (#524).
+ *
+ * The truncation cuts the other way too, which is the more expensive half: a
+ * page whose source genuinely moved *before* the boundary is invisible, so a
+ * shallow run reporting `0 warnings` is evidence about nothing.
+ *
+ * @param {(cmd: string, args: string[], opts: object) => string} [execImpl]
+ * @returns {boolean} false when git cannot be asked at all — the freshness
+ *   check is then no worse off than it was before this existed.
+ */
+export function isShallowRepository(execImpl = execFileSync) {
+  try {
+    return execImpl('git', ['rev-parse', '--is-shallow-repository'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8'
+    }).trim() === 'true'
+  } catch {
+    return false
+  }
+}
+
+const UNSHALLOW_HINT = 'run `git fetch --unshallow` and re-run this check'
+
 function checkActionSkeleton(file, body) {
   // Use the heading text (trimmed) as the comparison key so a trailing space
   // on the markdown side doesn't make the contract fail surprisingly.
@@ -260,6 +295,22 @@ function countCheckIgnoreMarkers(files) {
 
 function main() {
   const files = walkMarkdownFiles(DOCS_ROOT)
+
+  // Decided once, not per page: the answer cannot change mid-run, and a
+  // per-page "possibly a shallow-clone artefact" would be closer to noise than
+  // to signal. Skipping outright is the honest option — for a gate people
+  // trust, a wrong answer is worse than no answer (#524).
+  const shallow = isShallowRepository()
+  if (shallow) {
+    log(
+      'warn',
+      null,
+      `shallow clone — audit freshness NOT checked: git reports the shallow boundary as a file's last change, which both invents stale pages and hides real ones. To check it, ${UNSHALLOW_HINT}`
+    )
+  }
+
+  let freshnessChecked = 0
+
   for (const file of files) {
     const raw = readFileSync(file, 'utf8')
     const { frontmatter, body } = parseFrontmatter(raw)
@@ -270,9 +321,21 @@ function main() {
         log('warn', file, `missing frontmatter "audited: YYYY-MM-DD"`)
       }
     }
-    checkAuditFreshness(file, frontmatter)
+    if (!shallow) {
+      checkAuditFreshness(file, frontmatter)
+      if (frontmatter.audited) freshnessChecked++
+    }
+
     checkFrontmatterLinkTargets(file, frontmatter)
   }
+
+  // Say what was looked at, so a clean run cannot be misread as a clean bill of
+  // health on something that was never examined — same reasoning as #519.
+  report.note(
+    shallow
+      ? `audit freshness SKIPPED (shallow clone — ${UNSHALLOW_HINT})`
+      : `${freshnessChecked} page(s) checked for audit freshness`
+  )
 
   const ignoreCount = countCheckIgnoreMarkers(files)
   if (ignoreCount > CHECK_IGNORE_WARN_THRESHOLD) {

@@ -8,7 +8,7 @@
 //
 // Run with: node --test scripts/__tests__/docs-lint.test.mjs
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, copyFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseFrontmatter, walkMarkdownFiles, isFreshnessTrackedSource } from '../_docs-utils.mjs'
-import { checkAuditFreshness, checkFrontmatterLinkTargets, parseDirtyPaths, gitLastCommitDate } from '../docs-lint.mjs'
+import { checkAuditFreshness, checkFrontmatterLinkTargets, parseDirtyPaths, gitLastCommitDate, isShallowRepository } from '../docs-lint.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..', '..')
@@ -396,4 +396,133 @@ test('docs-lint: missing required section → exits 1', () => {
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+// ── shallow clone (#524) ──────────────────────────────────────────────────
+
+function git(args, cwd, env = {}) {
+  const r = spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null', ...env }
+  })
+  assert.equal(r.status, 0, `git ${args.join(' ')} failed:\n${r.stderr}`)
+  return r.stdout.trim()
+}
+
+test('isShallowRepository: reads git\'s answer, and says no when git cannot be asked', () => {
+  assert.equal(isShallowRepository(() => 'true\n'), true)
+  assert.equal(isShallowRepository(() => 'false\n'), false)
+  // No git, no repository, no permission: the freshness check is then no worse
+  // off than it was before this function existed, so `false` is the safe read.
+  const throws = () => {
+    throw new Error('not a git repository')
+  }
+  assert.equal(isShallowRepository(throws), false)
+})
+
+test('git reports the shallow boundary as a file\'s last change — the premise of #524', () => {
+  // Not a test of our code: it pins the git behaviour the whole fix is built
+  // on, in eight lines and without cloning anything large. If git ever stops
+  // doing this, this test says so before the rest of the fix looks pointless.
+  const root = mkdtempSync(join(tmpdir(), 'docs-lint-graft-'))
+  try {
+    const origin = join(root, 'origin')
+    mkdirSync(origin, { recursive: true })
+    git(['init', '-q', '--initial-branch=main', '.'], origin)
+    git(['config', 'user.email', 'test@example.com'], origin)
+    git(['config', 'user.name', 'Test'], origin)
+
+    writeFileSync(join(origin, 'old.ts'), '// untouched since 2020\n')
+    git(['add', '-A'], origin)
+    // GIT_COMMITTER_DATE, not `--date`: that flag moves the AUTHOR date, and
+    // the check reads `%cI`. Getting this wrong made the first version of this
+    // test compare two identical "now"s and pass for no reason.
+    git(['commit', '-q', '-m', 'first'], origin, {
+      GIT_COMMITTER_DATE: '2020-01-01T00:00:00Z',
+      GIT_AUTHOR_DATE: '2020-01-01T00:00:00Z'
+    })
+
+    writeFileSync(join(origin, 'new.ts'), '// recent\n')
+    git(['add', '-A'], origin)
+    git(['commit', '-q', '-m', 'second'], origin)
+
+    const truth = git(['log', '-1', '--format=%cI', '--', 'old.ts'], origin)
+
+    const shallow = join(root, 'shallow')
+    // `--no-local` forces the real transport; a local clone would hardlink the
+    // whole object store and ignore --depth.
+    git(['clone', '--depth', '1', '--no-local', `file://${origin}`, shallow, '-q'], root)
+
+    assert.equal(git(['rev-parse', '--is-shallow-repository'], shallow), 'true')
+
+    const reported = git(['log', '-1', '--format=%cI', '--', 'old.ts'], shallow)
+    const boundary = git(['log', '-1', '--format=%cI'], shallow)
+
+    assert.equal(reported, boundary, 'git answers with the graft date, not the file\'s own')
+    assert.notEqual(reported, truth, 'and that is not when the file actually changed')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('docs-lint in a shallow clone: skips freshness, says so, invents no stale pages', () => {
+  // The end-to-end case, run against a real shallow clone of this repository
+  // rather than a fixture — the bug is about what git answers for THIS history,
+  // and a synthetic tree would not reproduce it. A depth-1 clone takes well
+  // under a second.
+  const root = mkdtempSync(join(tmpdir(), 'docs-lint-shallow-'))
+  try {
+    const clone = join(root, 'repo')
+    git(['clone', '--depth', '1', '--no-local', `file://${REPO_ROOT}`, clone, '-q'], root)
+    assert.equal(git(['rev-parse', '--is-shallow-repository'], clone), 'true')
+
+    // A clone carries the COMMITTED scripts, so without this the test would
+    // exercise whatever docs-lint looked like at HEAD rather than the version
+    // under test — green before the fix is committed, and blind to a later
+    // regression in the working tree.
+    for (const script of ['docs-lint.mjs', '_docs-utils.mjs', '_reporter.mjs']) {
+      copyFileSync(join(REPO_ROOT, 'scripts', script), join(clone, 'scripts', script))
+    }
+
+    // The script imports js-yaml; borrow the installed tree rather than install.
+    symlinkSync(join(REPO_ROOT, 'node_modules'), join(clone, 'node_modules'), 'dir')
+
+    const r = spawnSync(process.execPath, [join(clone, 'scripts', 'docs-lint.mjs')], {
+      cwd: clone,
+      encoding: 'utf8'
+    })
+
+    // The bug: 22 pages reported stale on the graft date, none of them real.
+    assert.doesNotMatch(
+      r.stdout,
+      /after audited=/,
+      `no page may be called stale on the strength of the graft date:\n${r.stdout}`
+    )
+    // Asserted on the WARN line itself, not anywhere in the output: the
+    // summary note carries the same hint, so a loose match over the whole
+    // stdout passes even with the warning stripped of its remedy.
+    const warnLine = r.stdout.split('\n').find(line => line.includes('WARN'))
+    assert.ok(warnLine, `expected a warning about the shallow clone:\n${r.stdout}`)
+    assert.match(warnLine, /shallow clone/)
+    assert.match(warnLine, /git fetch --unshallow/)
+    // And the summary must say freshness did not run, so `0 warning(s)` on the
+    // same line cannot be read as a clean bill of health.
+    assert.match(r.stdout, /audit freshness SKIPPED \(shallow clone/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('docs-lint with full history: the summary says how many pages were checked', () => {
+  // The other half of the same contract — a gate should say what it looked at.
+  if (isShallowRepository()) {
+    // Not a silent pass: this environment cannot exercise the branch.
+    assert.ok(true, 'skipped — this checkout is itself shallow')
+    return
+  }
+
+  const r = runDocsLint([])
+  assert.match(r.stdout, /\d+ page\(s\) checked for audit freshness/)
+  assert.doesNotMatch(r.stdout, /SKIPPED/)
 })

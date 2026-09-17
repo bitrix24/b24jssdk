@@ -8,7 +8,7 @@
 //
 // Run with: node --test scripts/__tests__/docs-lint.test.mjs
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, copyFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,11 +16,12 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseFrontmatter, walkMarkdownFiles, isFreshnessTrackedSource } from '../_docs-utils.mjs'
-import { checkAuditFreshness, checkFrontmatterLinkTargets, parseDirtyPaths, gitLastCommitDate } from '../docs-lint.mjs'
+import { checkAuditFreshness, checkFrontmatterLinkTargets, parseDirtyPaths, gitLastCommitDate, isShallowRepository } from '../docs-lint.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..', '..')
 const DOCS_LINT = resolve(__dirname, '..', 'docs-lint.mjs')
+const DOCS_ROOT = resolve(REPO_ROOT, 'docs', 'content', 'docs')
 
 // ── parseFrontmatter ──────────────────────────────────────────────────────
 
@@ -393,6 +394,338 @@ test('docs-lint: missing required section → exits 1', () => {
       encoding: 'utf8'
     })
     assert.equal(r.status, 1, `stdout:\n${r.stdout}\nstderr:\n${r.stderr}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ── shallow clone (#524) ──────────────────────────────────────────────────
+
+// The git-backed tests below are POSIX-only: between them they need `/dev/null`
+// for git-config isolation, a `file://` URL that a Windows path cannot form, a
+// symlink that Windows refuses without Developer Mode, and a `#!/bin/sh` stub.
+// Skipped explicitly rather than left to fail confusingly on Windows.
+const POSIX_ONLY = process.platform === 'win32'
+  ? { skip: 'POSIX-only: needs /dev/null, file:// URLs and symlinks' }
+  : {}
+
+function git(args, cwd, env = {}) {
+  const r = spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      // Neutralise the developer's own config (`commit.gpgsign`, a mandatory
+      // `core.hooksPath`) and anything that would redirect or forbid the
+      // operations below: GIT_DIR beats cwd, and GIT_ALLOW_PROTOCOL without
+      // `file` makes the clones fail. Relying on the config files alone left
+      // the `file://` transport working by luck rather than by intent.
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_DIR: undefined,
+      GIT_WORK_TREE: undefined,
+      GIT_ALLOW_PROTOCOL: undefined,
+      ...env
+    }
+  })
+  assert.equal(r.status, 0, `git ${args.join(' ')} failed:\n${r.stderr}`)
+  return r.stdout.trim()
+}
+
+test('isShallowRepository: reads git\'s answer, and says no when git cannot be asked', () => {
+  assert.equal(isShallowRepository(() => 'true\n'), true)
+  assert.equal(isShallowRepository(() => 'false\n'), false)
+  // No git, no repository, no permission: the freshness check is then no worse
+  // off than it was before this function existed, so `false` is the safe read.
+  const throws = () => {
+    throw new Error('not a git repository')
+  }
+  assert.equal(isShallowRepository(throws), false)
+})
+
+test('git reports the shallow boundary as a file\'s last change — the premise of #524', POSIX_ONLY, () => {
+  // Not a test of our code: it pins the git behaviour the whole fix is built
+  // on, in eight lines and without cloning anything large. If git ever stops
+  // doing this, this test says so before the rest of the fix looks pointless.
+  const root = mkdtempSync(join(tmpdir(), 'docs-lint-graft-'))
+  try {
+    const origin = join(root, 'origin')
+    mkdirSync(origin, { recursive: true })
+    git(['init', '-q', '--initial-branch=main', '.'], origin)
+    git(['config', 'user.email', 'test@example.com'], origin)
+    git(['config', 'user.name', 'Test'], origin)
+
+    writeFileSync(join(origin, 'old.ts'), '// untouched since 2020\n')
+    git(['add', '-A'], origin)
+    // GIT_COMMITTER_DATE, not `--date`: that flag moves the AUTHOR date, and
+    // the check reads `%cI`. Getting this wrong made the first version of this
+    // test compare two identical "now"s and pass for no reason.
+    git(['commit', '-q', '-m', 'first'], origin, {
+      GIT_COMMITTER_DATE: '2020-01-01T00:00:00Z',
+      GIT_AUTHOR_DATE: '2020-01-01T00:00:00Z'
+    })
+
+    writeFileSync(join(origin, 'new.ts'), '// recent\n')
+    git(['add', '-A'], origin)
+    git(['commit', '-q', '-m', 'second'], origin)
+
+    const truth = git(['log', '-1', '--format=%cI', '--', 'old.ts'], origin)
+
+    const shallow = join(root, 'shallow')
+    // `--no-local` forces the real transport; a local clone would hardlink the
+    // whole object store and ignore --depth.
+    git(['-c', 'protocol.file.allow=always', 'clone', '--depth', '1', '--no-local', `file://${origin}`, shallow, '-q'], root)
+
+    assert.equal(git(['rev-parse', '--is-shallow-repository'], shallow), 'true')
+
+    const reported = git(['log', '-1', '--format=%cI', '--', 'old.ts'], shallow)
+    const boundary = git(['log', '-1', '--format=%cI'], shallow)
+
+    assert.equal(reported, boundary, 'git answers with the graft date, not the file\'s own')
+    assert.notEqual(reported, truth, 'and that is not when the file actually changed')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('docs-lint in a shallow clone: skips freshness, says so, invents no stale pages', POSIX_ONLY, () => {
+  // The end-to-end case, run against a real shallow clone of this repository
+  // rather than a fixture — the bug is about what git answers for THIS history,
+  // and a synthetic tree would not reproduce it. A depth-1 clone takes well
+  // under a second.
+  const root = mkdtempSync(join(tmpdir(), 'docs-lint-shallow-'))
+  try {
+    const clone = join(root, 'repo')
+    git(['-c', 'protocol.file.allow=always', 'clone', '--depth', '1', '--no-local', `file://${REPO_ROOT}`, clone, '-q'], root)
+    assert.equal(git(['rev-parse', '--is-shallow-repository'], clone), 'true')
+
+    // A clone carries the COMMITTED scripts, so without this the test would
+    // exercise whatever docs-lint looked like at HEAD rather than the version
+    // under test — green before the fix is committed, and blind to a later
+    // regression in the working tree.
+    //
+    // The list is docs-lint.mjs plus everything it imports from `scripts/`.
+    // Keep it in step with those imports: a NEW helper would crash the run
+    // loudly, but a helper that already exists at HEAD would quietly be used in
+    // its committed form, which is the exact blindness this copy prevents.
+    for (const script of ['docs-lint.mjs', '_docs-utils.mjs', '_reporter.mjs']) {
+      copyFileSync(join(REPO_ROOT, 'scripts', script), join(clone, 'scripts', script))
+    }
+
+    // The script imports js-yaml; borrow the installed tree rather than install.
+    symlinkSync(join(REPO_ROOT, 'node_modules'), join(clone, 'node_modules'), 'dir')
+
+    const runInClone = args => spawnSync(process.execPath, [join(clone, 'scripts', 'docs-lint.mjs'), ...args], {
+      cwd: clone,
+      encoding: 'utf8',
+      // The child shells out to git three ways; isolate it exactly as the
+      // helper above isolates its own calls, or the developer's global config
+      // decides what this test measures.
+      env: {
+        ...process.env,
+        GIT_CONFIG_GLOBAL: '/dev/null',
+        GIT_CONFIG_SYSTEM: '/dev/null',
+        GIT_DIR: undefined,
+        GIT_WORK_TREE: undefined
+      }
+    })
+
+    const r = runInClone([])
+
+    // The bug: 22 pages reported stale on the graft date, none of them real.
+    assert.doesNotMatch(
+      r.stdout,
+      /after audited=/,
+      `no page may be called stale on the strength of the graft date:\n${r.stdout}`
+    )
+    // Asserted on the advisory line itself, not anywhere in the output: the
+    // summary note carries the same remedy, so a loose match over the whole
+    // stdout passes even with the advisory stripped of it.
+    const advisory = r.stdout
+      .split('\n')
+      .filter(line => line.includes('audit freshness was not checked'))
+    assert.equal(advisory.length, 1, `expected exactly one advisory, not one per page:\n${r.stdout}`)
+    assert.match(advisory[0], /only part of the git history/)
+    assert.match(advisory[0], /git fetch --unshallow/)
+
+    // And the summary must say freshness did not run, so `0 warning(s)` on the
+    // same line cannot be read as a clean bill of health.
+    // Including the remedy: the code comment claims the summary note carries
+    // it too, and an assertion that stops at the em dash does not check that.
+    assert.match(
+      r.stdout,
+      /audit freshness NOT CHECKED \(partial git history — run `git fetch --unshallow` to check it\)/
+    )
+
+    // It must not FAIL, either. `--strict` is enforced in exactly one place —
+    // the CI job that checks out with full history — so failing here would fire
+    // only where it is wrong: a contributor who cannot deepen their clone.
+    assert.equal(r.status, 0, `a shallow clone must not fail the run:\n${r.stdout}`)
+    assert.equal(
+      runInClone(['--strict']).status,
+      0,
+      'nor under --strict, where the only audience is someone who cannot fix it'
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('docs-lint with full history: the summary counts what was really compared', {
+  // A real skip, so it lands in the runner's `# skipped` count. An
+  // `assert.ok(true)` here reported `ok` and `# skipped 0`, indistinguishable
+  // from a run that exercised the branch — the silent pass the comment beside
+  // it claimed not to be.
+  // Asked of git directly, not through `isShallowRepository()`: a bug that made
+  // that function always answer `true` would turn this test into a silent skip
+  // — hiding the very thing it exists to check.
+  skip: spawnSync('git', ['rev-parse', '--is-shallow-repository'], { cwd: REPO_ROOT, encoding: 'utf8' })
+    .stdout?.trim() === 'true'
+    ? 'this checkout is itself shallow'
+    : false
+}, () => {
+  const r = runDocsLint([])
+
+  const summary = r.stdout.split('\n').find(line => line.startsWith('docs-lint:'))
+  assert.ok(summary, `no summary line:\n${r.stdout}`)
+
+  const match = summary.match(/(\d+) of (\d+) page\(s\) with audited: compared against git/)
+  assert.ok(match, `summary must report what was compared, got: ${summary}`)
+
+  // Tied to the tree, not to a regex: a run that compared nothing would
+  // otherwise satisfy `\d+` and read as a clean bill of health, which is the
+  // failure the note exists to prevent.
+  const stamped = walkMarkdownFiles(DOCS_ROOT)
+    .filter(file => parseFrontmatter(readFileSync(file, 'utf8')).frontmatter.audited)
+    .length
+
+  assert.equal(Number(match[2]), stamped, 'the denominator must be every page carrying an audited: stamp')
+
+  // …and a second count that does NOT go through the production walker. The
+  // check above recomputes the denominator with the same `walkMarkdownFiles`
+  // the script uses, so a walk that silently lost a subtree would move both
+  // sides together and pass. `grep -rl` has no such shared fate.
+  const grepped = spawnSync('grep', ['-rlE', '^audited:', DOCS_ROOT, '--include=*.md'], { encoding: 'utf8' })
+  if (grepped.status === 0) {
+    const greppedCount = grepped.stdout.split('\n').filter(Boolean).length
+    assert.equal(
+      stamped,
+      greppedCount,
+      'the walker and a plain grep must find the same stamped pages — if they disagree, the walker is dropping files'
+    )
+  }
+  assert.ok(Number(match[1]) > 0, 'a full-history run must actually compare something')
+  assert.ok(Number(match[1]) <= stamped, 'cannot compare more pages than carry a stamp')
+  assert.doesNotMatch(r.stdout, /NOT CHECKED/)
+})
+
+test('docs-lint when git cannot answer at all: says so instead of claiming a clean run', POSIX_ONLY, () => {
+  // Not shallow, but git refuses everything — missing, not a repository, or the
+  // "dubious ownership" refusal, which is ordinary in a container whose
+  // checkout is mounted with a different owner uid. Every `git log` then fails,
+  // every page is skipped, and the summary used to report all of them as
+  // checked: a clean bill of health from a check that examined nothing.
+  const root = mkdtempSync(join(tmpdir(), 'docs-lint-nogit-'))
+  try {
+    // A `git` that fails the way a real one does, first on PATH.
+    writeFileSync(
+      join(root, 'git'),
+      '#!/bin/sh\necho "fatal: detected dubious ownership" >&2\nexit 128\n',
+      { mode: 0o755 }
+    )
+
+    const r = spawnSync(process.execPath, [DOCS_LINT], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${root}:${process.env.PATH}` }
+    })
+
+    assert.match(r.stdout, /audit freshness NOT CHECKED \(git answered for no source\)/)
+    assert.doesNotMatch(r.stdout, /compared against git/)
+    // git's own `fatal:` lines must not be pasted above an otherwise-clean
+    // report: every call here treats failure as an answer, not an error.
+    assert.doesNotMatch(r.stdout, /dubious ownership/)
+    assert.doesNotMatch(r.stderr, /dubious ownership/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('docs-lint ignores inherited git env vars and lints the repository it was pointed at', POSIX_ONLY, () => {
+  // GIT_DIR beats cwd. Inherited from a hook, a CI wrapper or `git bisect run`,
+  // it would make the shallow decision describe a DIFFERENT repository than the
+  // one being linted — suppressing the freshness check on a full checkout, or,
+  // worse, re-enabling it on a shallow one and bringing the invented warnings
+  // back.
+  const root = mkdtempSync(join(tmpdir(), 'docs-lint-gitdir-'))
+  try {
+    const clone = join(root, 'shallow')
+    git(['-c', 'protocol.file.allow=always', 'clone', '--depth', '1', '--no-local', `file://${REPO_ROOT}`, clone, '-q'], root)
+    assert.equal(git(['rev-parse', '--is-shallow-repository'], clone), 'true')
+
+    // cwd is the full repository; the git variables point at the shallow clone.
+    // Set together, the way git itself sets them for a hook or a rebase —
+    // `GIT_WORK_TREE` and `GIT_INDEX_FILE` are only honoured alongside
+    // `GIT_DIR`, so this is the only shape in which they can do damage, and
+    // therefore the only shape worth asserting.
+    const r = spawnSync(process.execPath, [DOCS_LINT], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GIT_DIR: join(clone, '.git'),
+        GIT_WORK_TREE: clone,
+        GIT_INDEX_FILE: join(clone, '.git', 'index')
+      }
+    })
+
+    assert.match(
+      r.stdout,
+      /compared against git/,
+      `the lint must follow cwd, not GIT_DIR:\n${r.stdout}`
+    )
+    assert.doesNotMatch(r.stdout, /NOT CHECKED/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('docs-lint when git answers for only some sources: names the gap', POSIX_ONLY, () => {
+  // The quiet failure between the two extremes. git works, the clone is not
+  // shallow, but some `git log` calls fail — a corrupt object, a path git
+  // cannot read. The page count stays truthful and easy to read past ("2 of
+  // 52"), so the run has to say outright how many sources went unanswered.
+  const root = mkdtempSync(join(tmpdir(), 'docs-lint-partial-'))
+  try {
+    const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim()
+    assert.ok(realGit, 'need a real git to delegate to')
+
+    // Fails for any argument naming a source under src/, delegates otherwise.
+    writeFileSync(
+      join(root, 'git'),
+      [
+        '#!/bin/sh',
+        'for a in "$@"; do',
+        '  case "$a" in',
+        '    */src/*) echo "fatal: bad object" >&2; exit 128;;',
+        '  esac',
+        'done',
+        `exec ${realGit} "$@"`,
+        ''
+      ].join('\n'),
+      { mode: 0o755 }
+    )
+
+    const r = spawnSync(process.execPath, [DOCS_LINT], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${root}:${process.env.PATH}` }
+    })
+
+    assert.match(r.stdout, /audit freshness is incomplete — git answered for \d+ of \d+ cited source\(s\)/)
+    assert.match(r.stdout, /\d+ cited source\(s\) UNANSWERED by git/)
+    // Still reports what it did manage, rather than collapsing to NOT CHECKED.
+    assert.match(r.stdout, /page\(s\) with audited: compared against git/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

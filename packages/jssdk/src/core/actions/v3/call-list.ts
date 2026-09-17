@@ -43,44 +43,28 @@ export class CallListV3 extends AbstractAction {
   /**
    * Fast data retrieval without counting the total number of records.
    *
+   * **Every option is documented on the page below — read it before changing
+   * behaviour here.** Not repeated: that copy is link-checked and compiled on
+   * every CI run, this one is watched by nothing, and two copies drift (#420).
+   * https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-list-rest-api-ver3/
+   *
+   * The invariants this file must not break:
+   *
+   * - The cursor only advances if rows arrive sorted by `cursorIdKey` ascending,
+   *   so the walk writes its own `order` and strips a caller's with a `warning`.
+   * - `filter` must be the v3 ARRAY form: the walk appends
+   *   `[cursorIdKey, '>', n]` to it each page, so an object has nothing to
+   *   extend — refused at the call, not mid-walk.
+   * - `idKey` reads the RESPONSE; `cursorIdKey` writes the REQUEST. Conflating
+   *   them stalls the walk instead of failing at the call.
+   * - End of data is decided by page size against the largest page seen, never
+   *   by `limit`, which methods are free to cap below the ask.
+   * - `maxPages` yields nothing when it fires. A short list that looks complete
+   *   is the failure this refuses to produce.
+   *
    * @template T - The type of the elements of the returned array (default is `unknown`).
-   *
-   * @param {ActionCallListV3} options - parameters for executing the request.
-   *     - `method: string` - The name of the REST API method that returns a list of data (for example: `tasks.task.list`, `main.eventlog.list`)
-   *     - `params?: Omit<TypeCallParamsV3, 'pagination' | 'order' | 'filter'> & { filter?: TypeFilterV3 }` - Request parameters, excluding the `pagination` and `order` parameters,
-   *         since the method is designed to obtain all data in one call.
-   *         Note: Use `filter`, `order`, and `select` to control the selection.
-   *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
-   *         drives the cursor. Default is 'id'. Set it to match the id field the method returns.
-   *     - `cursorIdKey?: string` - The field name used in the REQUEST for `order` and the
-   *         `[field, '>', n]` page filter. Defaults to `idKey`. Set it only when the sortable /
-   *         filterable field name differs from the response field name (e.g. an uppercase request
-   *         field but a lowercase response id): pass `idKey: 'id', cursorIdKey: 'ID'`.
-   *     - `customKeyForResult: string` - A custom key indicating that the response REST API will be
-   *        grouped by this field.
-   *        Example: `items` to group a list of CRM items.
-   *    - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
-   *    - `maxPages?: number` - Stop after this many pages and throw
-   *        `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. Defaults to 10 000 — a backstop,
-   *        not a policy: on `restApi:v2` that is 500 000 rows, and at the default drain rate
-   *        about 83 minutes of requests, so a walk that never ends is bounded without capping
-   *        a read anyone performs. Nothing is returned when it fires; a short list that looks
-   *        complete is the failure this refuses to produce.
-   *    - `signal?: AbortSignal` - Stop the walk. Checked at the top of each iteration, so an
-   *        already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
-   *    - `progress?: (p: { pages: number, rows: number }) => void` - Called after each
-   *        collected page. Counts, not a percentage: cursor paging reads no total, and
-   *        inventing a denominator would be worse than an honest count.
-   *    - `limit?: number` - How many records to retrieve at a time. Default is `50`.
-   *        **A request, not a guarantee.** Each method applies its own maximum and a page
-   *        shorter than `limit` is not the end of the data — `tasks.task.list` answers 50
-   *        however much you ask for, measured with 60 rows available. This walker is
-   *        cap-tolerant; hand-rolled paging on `call.make` is not. On the build measured, a
-   *        `limit` of `0` or a non-numeric one was refused with
-   *        `INVALIDPAGINATIONEXCEPTION` and a negative one answered a bare 500 — one
-   *        method on one on-premise build, so treat the codes as what to expect rather
-   *        than a contract.
-   *
+   * @param {ActionCallListV3} options - see the page above for every field; the
+   *     type carries the contract.
    * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.
    *
    * @example

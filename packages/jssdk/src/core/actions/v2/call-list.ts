@@ -31,48 +31,25 @@ export class CallListV2 extends AbstractAction {
   /**
    * Fast data retrieval without counting the total number of records.
    *
+   * **Every option is documented on the page below — read it before changing
+   * behaviour here.** Not repeated: that copy is link-checked and compiled on
+   * every CI run, this one is watched by nothing, and two copies drift (#420).
+   * https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-list-rest-api-ver2/
+   *
+   * The invariants this file must not break:
+   *
+   * - The cursor only advances if rows arrive sorted by `cursorIdKey` ascending,
+   *   so the walk writes its own `order` and strips a caller's with a `warning`.
+   * - `idKey` reads the RESPONSE; `cursorIdKey` writes the REQUEST. Conflating
+   *   them stalls the walk instead of failing at the call.
+   * - End of data is decided by page size against the largest page seen, never
+   *   by a constant: a method that caps pages below the ask must still walk on.
+   * - `maxPages` yields nothing when it fires. A short list that looks complete
+   *   is the failure this refuses to produce.
+   *
    * @template T - The type of the elements of the returned array (default is `unknown`).
-   *
-   * @param {ActionCallListV2} options - parameters for executing the request.
-   *     - `method: string` - The name of the REST API method that returns a list of data (for example: `crm.item.list`, `tasks.task.list`)
-   *     - `params?: Omit<TypeCallParamsV2, 'start' | 'order'>` - Request parameters, excluding the `start` and `order` parameters,
-   *         since the method is designed to obtain all data in one call.
-   *         Note: Use `filter` and `select` to control the selection. `order` is NOT one of
-   *         them — cursor paging must order by `cursorIdKey`, so a caller-supplied `order` is
-   *         stripped with a `warning` (it is `Omit`ted from the type for the same reason —
-   *         though the inherited `[key: string]: unknown` index signature still lets one compile).
-   *
-   *         **Conditions go in lowercase `filter`, and the uppercase key must be removed.**
-   *         This walker pages by writing its own lowercase `filter`, `order` and `start`, and the
-   *         portal keeps only the later of two top-level keys that differ by case. So a method
-   *         documented with uppercase `FILTER` / `SORT` / `ORDER` needs its parameters *moved* to
-   *         the lowercase shape: passing `FILTER` alone drops the conditions silently and returns
-   *         rows they should have excluded (#483), while passing `FILTER` *and* `filter` drops the
-   *         walker's cursor instead and fails the walk as stalled. `SORT` fails the request
-   *         outright. All of these are reported with a `warning`.
-   *     - `idKey?: string` - The name of the id field as it appears in each RESPONSE item; its value
-   *         drives the cursor. Default is 'ID' (uppercase). For methods that return a lowercase /
-   *         camelCase id (for example `tasks.task.list` returns `id`), set `idKey: 'id'`.
-   *     - `cursorIdKey?: string` - The field name used in the REQUEST for `order` and the `>` page
-   *         filter. Defaults to `idKey`. Set it only when the sortable / filterable field name differs
-   *         from the response field name — e.g. `tasks.task.list` sorts and filters by `ID` (uppercase)
-   *         but returns `id` (lowercase): pass `idKey: 'id', cursorIdKey: 'ID'`.
-   *     - `customKeyForResult?: string` - A custom key indicating that the response REST API will be
-   *        grouped by this field.
-   *        Example: `items` to group a list of CRM items.
-   *    - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
-   *    - `maxPages?: number` - Stop after this many pages and throw
-   *        `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. Defaults to 10 000 — a backstop,
-   *        not a policy: on `restApi:v2` that is 500 000 rows, and at the default drain rate
-   *        about 83 minutes of requests, so a walk that never ends is bounded without capping
-   *        a read anyone performs. Nothing is returned when it fires; a short list that looks
-   *        complete is the failure this refuses to produce.
-   *    - `signal?: AbortSignal` - Stop the walk. Checked at the top of each iteration, so an
-   *        already-aborted signal costs no request. Throws `JSSDK_ACTION_ABORTED`.
-   *    - `progress?: (p: { pages: number, rows: number }) => void` - Called after each
-   *        collected page. Counts, not a percentage: cursor paging reads no total, and
-   *        inventing a denominator would be worse than an honest count.
-   *
+   * @param {ActionCallListV2} options - see the page above for every field; the
+   *     type carries the contract.
    * @returns {Promise<Result<T[]>>} A promise that resolves to the result of an REST API call.
    *
    * @example

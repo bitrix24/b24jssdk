@@ -343,7 +343,10 @@ which is why nothing here would have noticed. The copy is held in step by `#396 
 from the shared base` in
 [`recipe-hygiene.unit.spec.ts`](../../test/integration/skills-recipes/recipe-hygiene.unit.spec.ts),
 which fails on any flag outside the departures it names — three of them across
-four keys, since the language level is `target` plus `lib`.
+four keys, since the language level is `target` plus `lib`. It also pins the
+file's whole top-level shape, not a list of keys someone thought to check:
+`exclude` can empty the input set while `include` still reads correctly, and
+`extends`, `files` and `references` are the same blind spot.
 
 Two groups stay out of the base:
 

@@ -27,6 +27,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { load } from 'js-yaml'
+import ts from 'typescript'
 
 const examplesDir = resolve(__dirname, '../../../skills/b24jssdk-recipes/examples')
 const exampleFiles = readdirSync(examplesDir).filter(name => name.endsWith('.ts'))
@@ -285,35 +286,57 @@ describe('#65 — recipe dependencies are isolated from the workspace root', () 
  * cannot: `docs/nuxt.config.ts` serves the whole `skills/` tree at
  * `/.well-known/skills`, so a consumer gets this directory with no repository
  * around it and an `extends: "../../tsconfig.base.json"` does not resolve.
- * TypeScript does not fail hard on that — it reports TS5083 and falls back to
- * compiler defaults, losing everything the base sets beyond those defaults,
- * while every in-repo run stays green.
+ * TypeScript reports TS5083 and exits non-zero — after falling back to compiler
+ * defaults, which is the part that matters for anyone whose tooling reads past
+ * the first error.
  *
- * The comparison is over the UNION of both files' keys, not the base's alone.
- * A first draft of this test iterated the base's keys, and three drifts walked
- * straight through it: a flag present only in the recipes (`"useUnknownIn-
- * CatchVariables": false` loosens `strict` and was invisible), a flag DELETED
- * from the base (its row simply vanished, and a shrinking green suite reads the
- * same as a passing one), and a change to `include` (pointing it at a
- * non-existent glob left the shipped config type-checking nothing, green).
+ * Three drafts, three holes, so the shape below is deliberate:
+ *
+ * 1. Iterating the base's keys missed a flag present only in the recipes
+ *    (`useUnknownInCatchVariables: false` loosens `strict` and was invisible)
+ *    and made a key DELETED from the base drop its row silently — a shrinking
+ *    green suite reads exactly like a passing one. Hence the **union**.
+ * 2. An exception whose base key had been deleted still passed, because
+ *    `not.toStrictEqual` is satisfied by `undefined`. Hence OVERRIDES and
+ *    ADDITIONS being separate, with opposite assertions.
+ * 3. Pinning `include` was pinning half the input set: adding
+ *    `"exclude": ["examples", "lib"]` left the shipped config compiling nothing
+ *    (`TS18003`) and the suite green. Hence asserting the whole top-level
+ *    shape rather than the keys we happened to think of — `exclude`, `files`
+ *    and `references` are all reachable the same way.
  *
  * Text comparison of two JSON files, no portal — jsSdk:unit.
  */
 describe('#396 — the recipes tsconfig does not drift from the shared base', () => {
   const repoRoot = resolve(__dirname, '../../..')
 
-  /** Both files carry `//` comments, which `JSON.parse` will not take. */
-  const readJsonc = (rel: string) => JSON.parse(
-    readFileSync(join(repoRoot, rel), 'utf8').replaceAll(/^\s*\/\/.*$/gm, '')
-  ) as { compilerOptions: Record<string, unknown>, include?: string[] }
+  /**
+   * Both files are JSONC, so they need a JSONC reader — and specifically this
+   * one, the compiler's own. Two home-made alternatives were tried and both
+   * were wrong: a regex matching only whole-line comments drops a legal
+   * trailing comment into `JSON.parse` and takes the entire spec file down at
+   * collection time, with a character offset instead of a failure naming the
+   * file at fault; and the `stripComments` helper above blanks a double slash
+   * anywhere it appears, which eats the one inside
+   * `"$schema": "https://…"`. `parseConfigFileTextToJson` reads exactly what
+   * `tsc` reads, trailing commas included.
+   */
+  const readJsonc = (rel: string) => {
+    const path = join(repoRoot, rel)
+    const parsed = ts.parseConfigFileTextToJson(path, readFileSync(path, 'utf8'))
+
+    expect(parsed.error, `${rel} is not valid JSONC`).toBeUndefined()
+
+    return parsed.config as { compilerOptions: Record<string, unknown>, include?: string[] }
+  }
 
   const base = readJsonc('tsconfig.base.json')
   const recipes = readJsonc('skills/b24jssdk-recipes/tsconfig.json')
 
   /**
-   * Options the recipes are allowed to set differently from the base. Each one
-   * must still BE a departure — if the base adopts the same value, the
-   * exception has stopped earning its keep and this test says so.
+   * Options the recipes set differently from the base. Each must still BE a
+   * departure: if the base adopts the same value, the exception has stopped
+   * earning its keep and this test says so.
    */
   const OVERRIDES: Record<string, unknown> = {
     // A language level chosen for the reader: these are copy-paste starting
@@ -327,11 +350,17 @@ describe('#396 — the recipes tsconfig does not drift from the shared base', ()
   }
 
   /**
-   * Options the recipes add that the base does not carry at all. Kept separate
-   * from `OVERRIDES` because the two need opposite assertions: an override has
-   * to disagree with a base value that exists, an addition has to have no base
+   * Options the recipes add that the base does not carry at all. Separate from
+   * OVERRIDES because the two need opposite assertions — an override has to
+   * disagree with a base value that exists, an addition has to have no base
    * value to disagree with. Folding them together is how a stale exception
-   * survives — an override whose base key was deleted then passes vacuously.
+   * survives.
+   *
+   * A third category is conceivable — the recipes deliberately NOT setting
+   * something the base sets — and is out of scope: there is no such departure
+   * today, and expressing one as `OVERRIDES: { x: undefined }` would pass by
+   * accident rather than by design. Add a REMOVALS table with its own
+   * assertions if one ever appears.
    */
   const ADDITIONS: Record<string, unknown> = {
     // Silences TS 6.0 deprecation warnings for options the workspace still uses.
@@ -346,15 +375,22 @@ describe('#396 — the recipes tsconfig does not drift from the shared base', ()
     ...Object.keys(recipes.compilerOptions)
   ])].filter(flag => !(flag in EXCEPTIONS)).sort()
 
-  it('does not extend the base, because it ships without it', () => {
-    expect((recipes as Record<string, unknown>)['extends']).toBeUndefined()
+  it('carries exactly the top-level keys it is supposed to', () => {
+    // Deliberately the whole shape, not a list of keys we thought to check.
+    // `extends` would break the shipped copy; `exclude` can empty the input set
+    // while `include` still reads correctly; `files` and `references` are the
+    // same blind spot. A legitimate fourth key should fail here and be argued
+    // for, not appear quietly.
+    expect(Object.keys(recipes as Record<string, unknown>).sort())
+      .toStrictEqual(['compilerOptions', 'include'])
   })
 
-  it('compares a plausible number of flags, so a shrunken base is not a pass', () => {
-    // Guards the suite itself: `it.each` over an empty or gutted list reports
-    // green. If the base is legitimately trimmed below this, move the number
-    // deliberately.
-    expect(allFlags.length).toBeGreaterThanOrEqual(25)
+  it('both files still carry a full flag set, so a gutted pair is not a pass', () => {
+    // Floored per side, not on the union: deleting keys from the base alone
+    // does not shrink `allFlags` (the recipes side keeps them, and each then
+    // fails its own row), so a union floor would not cover what this does.
+    expect(Object.keys(base.compilerOptions).length).toBeGreaterThanOrEqual(30)
+    expect(Object.keys(recipes.compilerOptions).length).toBeGreaterThanOrEqual(30)
   })
 
   it.each(allFlags)('%s matches the base', (flag) => {
@@ -376,9 +412,6 @@ describe('#396 — the recipes tsconfig does not drift from the shared base', ()
   })
 
   it('still points at the files it is supposed to check', () => {
-    // `include` is not inherited by `extends` anywhere, so it is not part of the
-    // flag comparison — but a config that compiles nothing passes every other
-    // assertion in this block.
     expect(recipes.include).toStrictEqual(['examples/*.ts', 'lib/*.ts'])
 
     for (const glob of recipes.include ?? []) {

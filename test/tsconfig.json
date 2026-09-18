@@ -1,12 +1,15 @@
 {
-  // Extends the package config rather than restating its flags. A hand-copied
+  // Extends the shared base rather than restating its flags — a hand-copied
   // strict-flag set drifts silently: `strict` does not imply `noUnusedLocals`,
   // `noImplicitReturns` or `noPropertyAccessFromIndexSignature`, so a pin file
-  // could have passed here while the real build rejected it — which defeats the
-  // point of a project whose whole job is to catch what the other passes miss.
+  // could pass here while the real build rejects it, which defeats the point of
+  // a project whose whole job is to catch what the other passes miss.
   //
-  // Only the emit settings are overridden: this config never emits, it just
-  // type-checks the test tree.
+  // It used to extend `packages/jssdk/tsconfig.json` — the package *build*
+  // config — so a build-motivated edit there reached into this gate with no
+  // signal to whoever made it. #396 inverted that: both now extend the same
+  // base, and this file needs no `rootDir` override, because the base does not
+  // emit declarations and so infers no `rootDir` to be outside of.
   //
   // Scope: **every** `.ts` under `test/`, not only the `*.types.spec.ts` pins.
   // It used to be the pins alone, and that left the rest of the tree compiled
@@ -15,12 +18,8 @@
   // notice; #425 is the case that made this worth fixing, where six cases read
   // `getData()!.result` off a `Result<T[]>` and `.result` on an array is not a
   // type error anyone was looking for (#428).
-  "extends": "../packages/jssdk/tsconfig.json",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true,
-    "declaration": false,
-    "declarationMap": false,
-    "sourceMap": false,
     // Relaxed for tests only, and deliberately. The flag forbids `obj.foo` when
     // `foo` comes from an index signature, which is right for library source
     // and wrong here: a test reaching into a portal payload or a batch result
@@ -28,11 +27,6 @@
     // it on would trade real type coverage for a bracket-notation rewrite that
     // makes the assertions harder to read.
     "noPropertyAccessFromIndexSignature": false,
-    // The parent emits declarations, so it infers a `rootDir` from the inputs —
-    // here that would be `test/`, and every `import` reaching into
-    // `packages/jssdk/src` would be "not under rootDir". Widened to the
-    // repository root. Nothing is written: `noEmit` is on.
-    "rootDir": "..",
     "types": ["node", "vitest/globals"]
   },
   "include": ["./**/*.ts"],

@@ -1,23 +1,26 @@
 {
+  // Extends the shared base (#396). It used to carry `strict` plus two
+  // `noUnused*` flags and nothing else, so the recipes — which are shipped to
+  // agents as copy-paste starting points — were checked far more loosely than
+  // the SDK they call.
+  //
+  // This package is deliberately outside the pnpm workspace (its `grammy` /
+  // `node-cron` / `openai` deps are opt-in), so `pnpm run skills:install` has
+  // to run before `tsc -p` here.
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "esModuleInterop": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "isolatedModules": true,
-    "allowSyntheticDefaultImports": true,
+    // Relaxed here, as in `test/tsconfig.json`, and for the same reason. The
+    // flag forbids `obj.foo` when `foo` comes from an index signature, and
+    // `process.env.B24_HOOK` is exactly that. These files are shipped to agents
+    // and read by people as copy-paste starting points, so `process.env.X` is
+    // the form they should carry; rewriting ~30 of them to `process.env['X']`
+    // would trade readability for no type safety — the values are
+    // `string | undefined` either way.
+    "noPropertyAccessFromIndexSignature": false,
     // Silence TS 6.0 deprecation warnings for compiler options the workspace
     // still uses (e.g. some lib types). Remove once the deprecated options
     // here are gone.
-    "ignoreDeprecations": "6.0",
-    "types": ["node"],
-    "lib": ["ES2022", "DOM"]
+    "ignoreDeprecations": "6.0"
   },
   "include": [
     "examples/*.ts",

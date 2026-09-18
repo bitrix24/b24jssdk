@@ -1,28 +1,19 @@
 {
+  // Extends the shared base (#396). It used to carry a hand-copied strict-flag
+  // subset that had drifted from the package's: `strictFunctionTypes`,
+  // `strictBindCallApply`, `strictPropertyInitialization`, `noImplicitOverride`
+  // and `noPropertyAccessFromIndexSignature` were all missing, so this
+  // playground was checked more loosely than the SDK it exercises.
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    // No DOM. This is a Node CLI, and the base includes `DOM` for the browser
+    // side of the SDK — inheriting it here would let `document` / `window`
+    // type-check in a program that has neither at runtime.
     "lib": ["ESNext"],
-
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
-    "noUncheckedIndexedAccess": true,
-
-    "noEmit": true,
-    "skipLibCheck": true,
-    "types": ["node"]
+    // Relaxed as in `test/` and the recipes: the one use is
+    // `process.env.B24_HOOK`, which the flag forbids and which is
+    // `string | undefined` with or without it.
+    "noPropertyAccessFromIndexSignature": false
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

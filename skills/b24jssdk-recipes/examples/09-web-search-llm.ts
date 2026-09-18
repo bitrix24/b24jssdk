@@ -71,7 +71,9 @@ async function askLlm(question: string, sources: SearchResult[]): Promise<string
       }
     ]
   })
-  return completion.choices[0].message.content ?? ''
+  // `choices` can come back empty — a filtered or truncated completion has no
+  // first element, and reading `.message` off it throws.
+  return completion.choices[0]?.message.content ?? ''
 }
 
 async function postTimelineComment($b24: TypeB24, dealId: number, comment: string) {

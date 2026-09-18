@@ -108,9 +108,9 @@ async function main() {
   for (const s of storages) {
     logger.info(`  [${s.ID}] ${s.NAME} (${s.ENTITY_TYPE}) — root: ${s.ROOT_OBJECT_ID}`)
   }
-  if (storages.length === 0) return
-
   const storage = storages[0]
+  if (!storage) return
+
   logger.info(`\nRoot of storage ${storage.ID}:`)
   const children = await listFolderChildren($b24, storage.ROOT_OBJECT_ID)
   for (const it of children.slice(0, 20)) {
@@ -147,8 +147,17 @@ async function main() {
   if (!batch.isSuccess) throw new Error(batch.getErrorMessages().join('; '))
 
   const results = batch.getData()! as Record<string, AjaxResult<Storage[] | DiskItem[]>>
-  const batchedStorages = (results.Storages.getData()!.result as Storage[]) ?? []
-  const batchedChildren = (results.Children.getData()!.result as DiskItem[]) ?? []
+  // A `Record<string, ...>` promises a value for every key; the batch response
+  // only carries the keys the portal answered. Read them through the index and
+  // check, rather than calling `.getData()` on something that may not be there.
+  const storagesResult = results['Storages']
+  const childrenResult = results['Children']
+  if (!storagesResult || !childrenResult) {
+    throw new Error('Batch answered without both named commands')
+  }
+
+  const batchedStorages = (storagesResult.getData()!.result as Storage[]) ?? []
+  const batchedChildren = (childrenResult.getData()!.result as DiskItem[]) ?? []
   logger.info(`\nBatch: ${batchedStorages.length} storages, ${batchedChildren.length} root items`)
 }
 

@@ -1,9 +1,11 @@
 {
   // Semantics live in `tsconfig.base.json`. This config used to extend
   // `packages/jssdk/tsconfig.json` — the package *build* config — which is what
-  // #396 was about; see `.github/contributing/testing.md`, "What type-checks
-  // what", for the reasoning and for why there is no `rootDir` override here
-  // any more.
+  // #396 was about; see `.github/contributing/testing.md`, "Where the compiler
+  // flags live", for the reasoning. There is no `rootDir` override here any
+  // more either: it existed only because the old parent emitted declarations
+  // and so inferred a `rootDir` this tree sat outside of. The base does not
+  // emit, so there is nothing to be outside of.
   //
   // Scope: **every** `.ts` under `test/`, not only the `*.types.spec.ts` pins.
   // It used to be the pins alone, and that left the rest of the tree compiled

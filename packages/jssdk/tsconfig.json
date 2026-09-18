@@ -4,14 +4,15 @@
   // flags live", for why the two are separate (#396).
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    // This config drives `tsc --noEmit` only. The shipped declarations come from
-    // unbuild, which sets its own `declarationOptions` in `build.config.ts`.
+    // The base sets `noEmit: true` and nothing here turns it back on: this
+    // config drives `tsc --noEmit` only, and the shipped declarations come from
+    // unbuild's own `declarationOptions` in `build.config.ts`.
     //
-    // `declaration`, `declarationMap`, `outDir: "./dist/types-temp"` and
-    // `noEmit: false` used to sit here and were removed in #396 after measuring
-    // that they changed nothing: a full build with and without them produces a
-    // byte-identical `dist`, and `dist/types-temp` has never been written.
-    "sourceMap": true,
+    // These two are kept anyway, because unbuild's declaration pass reads this
+    // file: flipping either to `true` moves 30,640 lines of `dist`. Measured,
+    // not assumed — `sourceMap` was here too and moved nothing, so it is gone,
+    // as are `declaration`, `declarationMap`, `outDir: "./dist/types-temp"` and
+    // `noEmit: false`, which `dist` proved dead in the same way (#396).
     "removeComments": false,
     "stripInternal": false
   },

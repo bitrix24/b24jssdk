@@ -12,8 +12,10 @@
   // what". Keep the reasoning there rather than here — it was six copies once,
   // and two of them disagreed on the first day (#396).
   //
-  // Nothing about emitting belongs here. This config never emits; the one
-  // consumer that does turns `noEmit` off and adds its own emit settings.
+  // Nothing about emitting belongs here, and nothing extending it emits either:
+  // `noEmit` is on and no consumer turns it off. The package's shipped
+  // declarations come from unbuild, which reads `packages/jssdk/tsconfig.json`
+  // for its declaration pass but does its own emitting.
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",

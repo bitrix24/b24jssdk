@@ -243,11 +243,14 @@ points here instead.
 
 Last verified by injection 2026-09-01, after `jsdoc:typecheck-blocks` was added
 and `README-AI.md` joined the skills gate. The *areas* have not changed since;
-issue #396 moved four of these rows onto a shared base,
-but by resolved config only two had a *checking* flag change —
+issue #396 put four of these rows on a shared flag set —
+three by `extends` and the recipes by a pinned copy — but by resolved config
+only two had a *checking* flag change:
 `playground-cli:typecheck` and `skills:typecheck`. `package-jssdk:typecheck`
 changed emit options only, and `test:typecheck` changed nothing at all. All four
-were re-probed on 2026-09-18; an injected unused local goes red on each. Re-measure the rows you change: the
+were re-probed on 2026-09-18; an injected unused local goes red on each.
+
+ Re-measure the rows you change: the
 claim is "only this pass", and that is a property of the whole set, not of the
 pass you happen to be editing.
 
@@ -322,7 +325,7 @@ the person making it had no reason to look in `test/`.
 
 | config | relationship to the base | what it overrides |
 | --- | --- | --- |
-| `packages/jssdk` | extends | the emit settings; it is the only config that emits |
+| `packages/jssdk` | extends | `removeComments`, `stripInternal` — read by unbuild's declaration pass, not by any `tsc` this repo runs |
 | `test/` | extends | `noPropertyAccessFromIndexSignature`, `types` |
 | `playgrounds/cli` | extends | `lib` (no `DOM` — it is a Node CLI), `noPropertyAccessFromIndexSignature` |
 | `skills/b24jssdk-recipes` | **copies**, pinned by a test | `target` / `lib` (ES2022), `noPropertyAccessFromIndexSignature`, `ignoreDeprecations` |
@@ -394,9 +397,12 @@ Measured that way for #396, the two hand-copied configs gained:
 | `skills/b24jssdk-recipes` | `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUncheckedIndexedAccess`, `noImplicitOverride` |
 
 `noUncheckedIndexedAccess` is the one that then found three unchecked indexed
-reads in shipped recipe code. Both configs also picked up `allowJs`,
-`useDefineForClassFields` and — the recipes — `resolveJsonModule`, none of which
-changes a diagnostic on the files they compile.
+reads in shipped recipe code — seven diagnostics, since one of the three is read
+at four call sites. Both configs also picked up `allowJs`,
+`useDefineForClassFields`, `moduleDetection: "force"`, `incremental: false` and
+— the recipes — `resolveJsonModule`. None of those changes a diagnostic on the
+files they compile today: there is no `.js` in either tree, and every file in
+both already has imports, so `moduleDetection` has nothing to decide.
 `noPropertyAccessFromIndexSignature` is on in the base and off in both of these,
 so it is not a gain either.
 

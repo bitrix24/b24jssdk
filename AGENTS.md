@@ -331,7 +331,9 @@ Check these before adding to the repository, not after:
   than restate a strict-flag set: `strict: true` implies neither
   `noUnusedLocals` nor `noImplicitReturns` nor
   `noPropertyAccessFromIndexSignature`, and both hand-copied subsets in this
-  repository had silently drifted by the time #396 replaced them.
+  repository had silently drifted by the time #396 dealt with them — one now
+  extends the base, and the one that ships standalone and cannot is a copy
+  pinned by a test.
 - **A JSDoc block longer than the function it documents.** The longest in the SDK
   is 55 lines. If the reasoning is that long it belongs in
   `.github/contributing/`, with a pointer from the code — see #420 for the

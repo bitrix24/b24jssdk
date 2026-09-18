@@ -464,12 +464,106 @@ function writeSnapshot(document, kind) {
   return { file: basename(file), totals: reduced.totals }
 }
 
+/**
+ * What the committed snapshots say about their own staleness (#472).
+ *
+ * The issue asked how current a snapshot has to be and recorded the honest
+ * answer — nobody knew, because no series existed. Two now do, so the rate is
+ * measured here rather than written down as a number that would itself go
+ * stale: the oldest and newest snapshot of one portal kind, differenced.
+ *
+ * Deliberately not a threshold and never an error. A contributor without a
+ * portal cannot refresh, so this is a line in `--coverage` — the report a docs
+ * PR already cites — and nothing else. `ageDays` is null when a snapshot has no
+ * usable `snapshotDate`, which is a truncated file rather than an old one.
+ */
+export function measureDrift(snapshots, today = new Date()) {
+  const dated = snapshots
+    .map(s => ({ ...s, date: Date.parse(`${s.raw.snapshotDate}T00:00:00Z`) }))
+    .filter(s => Number.isFinite(s.date))
+
+  const ageDays = date => Math.floor((today.getTime() - date) / 86_400_000)
+
+  if (dated.length === 0) {
+    return { newestAgeDays: null, rate: null }
+  }
+
+  const newest = dated.reduce((a, b) => (a.date >= b.date ? a : b))
+  const result = { newestAgeDays: ageDays(newest.date), rate: null }
+
+  // Per portal kind: two cloud portals disagreeing is not the same measurement
+  // as one portal changing over time, and mixing them would report portal
+  // disagreement as drift.
+  const byKind = {}
+  for (const s of dated) {
+    (byKind[s.raw.portalKind] ??= []).push(s)
+  }
+
+  let widest = null
+  for (const group of Object.values(byKind)) {
+    if (group.length < 2) {
+      continue
+    }
+    const first = group.reduce((a, b) => (a.date <= b.date ? a : b))
+    const last = group.reduce((a, b) => (a.date >= b.date ? a : b))
+    const spanDays = Math.round((last.date - first.date) / 86_400_000)
+    if (spanDays > 0 && (widest === null || spanDays > widest.spanDays)) {
+      widest = {
+        kind: last.raw.portalKind,
+        spanDays,
+        added: [...last.methods].filter(m => !first.methods.has(m)).length,
+        removed: [...first.methods].filter(m => !last.methods.has(m)).length
+      }
+    }
+  }
+
+  if (widest) {
+    result.rate = { ...widest, perDay: widest.added / widest.spanDays }
+  }
+
+  return result
+}
+
+function printDrift(snapshots, today = new Date()) {
+  const { newestAgeDays, rate } = measureDrift(snapshots, today)
+  if (newestAgeDays === null) {
+    return
+  }
+
+  console.log(`newest snapshot: ${newestAgeDays} day(s) old`)
+
+  if (!rate) {
+    // One snapshot per kind is a point, and a point has no slope. Say that
+    // rather than printing nothing, so the absence is legible.
+    console.log('drift: not measurable yet — it needs two snapshots of one portal kind, taken apart')
+    return
+  }
+
+  console.log(
+    `drift, measured: ${rate.kind} gained ${rate.added} and lost ${rate.removed} method name(s) `
+    + `over ${rate.spanDays} day(s) between the two furthest-apart snapshots`
+  )
+  const behind = Math.round(rate.perDay * newestAgeDays)
+  console.log(
+    behind > 0
+      ? `so the newest snapshot is missing roughly ${behind} name(s) Bitrix24 has published `
+      + 'since — each one a false failure for whoever documents it first.'
+      : 'the newest snapshot is recent enough that the projection rounds to nothing.'
+  )
+  // Two points are a line, not a trend, and nothing here knows whether the
+  // portals behind the snapshots are the same one. Said out loud so the
+  // projection is read as the order of magnitude it is.
+  console.log('(two points, and possibly two portals — read it as an order of magnitude, not a forecast)')
+  console.log('')
+}
+
 function printCoverage(snapshots, documented) {
   if (snapshots.length === 0) {
     console.log('coverage: no snapshot committed under scripts/data/ — run with --refresh against a portal.')
     return
   }
   console.log('v3 method coverage — portal snapshots against what this repository documents\n')
+  printDrift(snapshots)
   for (const snapshot of snapshots) {
     const published = snapshot.raw.methods
     const covered = published.filter(m => documented.has(m.method))

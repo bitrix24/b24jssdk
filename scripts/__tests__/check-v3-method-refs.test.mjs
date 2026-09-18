@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { reduceDocument } from '../check-v3-method-refs.mjs'
+import { reduceDocument, measureDrift } from '../check-v3-method-refs.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -515,4 +515,112 @@ test('result key: a v2 sample later on the page is not attributed to a v3 call a
   }, (root) => {
     assert.equal(runCheck(root).status, 0)
   })
+})
+
+// --- #472: what the committed snapshots say about their own staleness --------
+//
+// The projection printed by `--coverage` is only as honest as this function, and
+// the thing it must never do is report portal disagreement as drift over time:
+// two cloud portals measured a day apart already differed by 28 method names.
+
+const snap = (kind, date, methods) => ({
+  name: `openapi-${kind}-${date}.json`,
+  methods: new Set(methods),
+  raw: { portalKind: kind, snapshotDate: date, methods: methods.map(m => ({ method: m })) }
+})
+
+const AT = new Date('2026-09-20T00:00:00Z')
+
+test('#472: no snapshots means no age and no rate, not a zero', () => {
+  // Zero would read as "fresh". The caller prints nothing at all instead.
+  assert.deepEqual(measureDrift([], AT), { newestAgeDays: null, rate: null })
+})
+
+test('#472: one snapshot has an age but no slope', () => {
+  const result = measureDrift([snap('cloud', '2026-09-05', ['a'])], AT)
+  assert.equal(result.newestAgeDays, 15)
+  assert.equal(result.rate, null)
+})
+
+test('#472: age is taken from the newest snapshot, not the first or last loaded', () => {
+  // `loadSnapshots` sorts by FILENAME, which is portal kind before date, so the
+  // newest snapshot is at neither end of the array in general. This fixture is
+  // in that real order — `openapi-cloud-2026-01-01`, `openapi-cloud-2026-09-18`,
+  // `openapi-on-premise-2026-02-01` — so reading `dated[0]` or the last element
+  // gives 262 or 231 days instead of 2.
+  const result = measureDrift([
+    snap('cloud', '2026-01-01', ['a']),
+    snap('cloud', '2026-09-18', ['a']),
+    snap('on-premise', '2026-02-01', ['a'])
+  ], AT)
+  assert.equal(result.newestAgeDays, 2)
+})
+
+test('#472: the rate is added, removed and the span between the furthest apart', () => {
+  const result = measureDrift([
+    snap('cloud', '2026-09-05', ['a', 'b', 'gone']),
+    snap('cloud', '2026-09-18', ['a', 'b', 'new1', 'new2'])
+  ], AT)
+  assert.deepEqual(
+    { ...result.rate, perDay: Number(result.rate.perDay.toFixed(4)) },
+    { kind: 'cloud', spanDays: 13, added: 2, removed: 1, perDay: Number((2 / 13).toFixed(4)) }
+  )
+})
+
+test('#472: two portal KINDS are not a rate — that would report disagreement as drift', () => {
+  // The measurement behind this: every on-premise method exists in the cloud,
+  // and 98 cloud methods do not exist on the box. Differencing the two would
+  // report 98 "new" names that nothing new published.
+  const result = measureDrift([
+    snap('cloud', '2026-09-18', ['a', 'b', 'c']),
+    snap('on-premise', '2026-09-05', ['a'])
+  ], AT)
+  assert.equal(result.rate, null)
+})
+
+test('#472: two snapshots of one kind on the SAME day give no rate, not a divide by zero', () => {
+  const result = measureDrift([
+    snap('cloud', '2026-09-18', ['a']),
+    snap('cloud', '2026-09-18', ['a', 'b'])
+  ], AT)
+  assert.equal(result.rate, null)
+})
+
+test('#472: when every snapshot has an unusable date, there is no age to print', () => {
+  // This is where the date filter earns its place. Without it the single
+  // unusable entry becomes the newest, and the age comes out `NaN` — which the
+  // caller's `=== null` check does not catch, so `--coverage` prints
+  // "newest snapshot: NaN day(s) old". With a valid snapshot in the mix the
+  // NaN loses every comparison and drops out by itself, so this case is the
+  // only one that can tell the filter apart from nothing.
+  const result = measureDrift([snap('cloud', 'truncated', ['a'])], AT)
+  assert.equal(result.newestAgeDays, null)
+  assert.equal(result.rate, null)
+})
+
+test('#472: a snapshot with an unusable date is skipped rather than read as epoch', () => {
+  // `Date.parse` on a truncated file yields NaN. Two valid snapshots are here
+  // too, because with only one the NaN entry collapses the span to zero and the
+  // rate comes out null either way — the bug would pass. With a real pair, an
+  // unfiltered NaN makes every comparison false and drags the span to it.
+  const result = measureDrift([
+    snap('cloud', 'not-a-date', ['a', 'phantom']),
+    snap('cloud', '2026-09-05', ['a']),
+    snap('cloud', '2026-09-18', ['a', 'b'])
+  ], AT)
+  assert.equal(result.newestAgeDays, 2)
+  assert.deepEqual(
+    { kind: result.rate.kind, spanDays: result.rate.spanDays, added: result.rate.added, removed: result.rate.removed },
+    { kind: 'cloud', spanDays: 13, added: 1, removed: 0 }
+  )
+})
+
+test('#472: the rate spans the widest pair, not the newest adjacent one', () => {
+  const result = measureDrift([
+    snap('cloud', '2026-09-01', ['a']),
+    snap('cloud', '2026-09-10', ['a', 'b']),
+    snap('cloud', '2026-09-18', ['a', 'b', 'c'])
+  ], AT)
+  assert.equal(result.rate.spanDays, 17)
+  assert.equal(result.rate.added, 2)
 })

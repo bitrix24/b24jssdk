@@ -183,7 +183,13 @@ B24_HOOK='https://<portal>/rest/<userId>/<secret>/' V3_SNAPSHOT_KIND=cloud \
   node scripts/check-v3-method-refs.mjs --refresh
 ```
 
-`V3_SNAPSHOT_KIND` is the portal kind (`cloud`, `on-premise`), never a domain. Re-run it when a Bitrix24 release adds v3 methods, or when a name you know is real is rejected; commit the new file and delete the one it replaces if it is the same kind. `--coverage` prints the per-module table and always exits 0 — that is the number to quote in a PR.
+`V3_SNAPSHOT_KIND` is the portal kind (`cloud`, `on-premise`), never a domain. Re-run it when a Bitrix24 release adds v3 methods, or when a name you know is real is rejected. `--coverage` prints the per-module table and always exits 0 — that is the number to quote in a PR.
+
+**Commit the new file and keep the old one.** An earlier version of this guide said to delete the snapshot it replaces; that was wrong in two ways, and #472 measured both. Methods *disappear* as well as appear — `crm.lead.timeline.activity.email.send` and `.list` were published on 2026-09-05 and gone by 2026-09-18 — and since the gate accepts a name published by **any** snapshot, deleting the older one is what would turn a still-correct page into a failure. Keeping both is also the only way the drift below can be measured at all. Prune only when a snapshot is old enough that nothing it uniquely publishes is documented here, and say so in the PR.
+
+**How fast a snapshot goes stale** is no longer a guess. Between the two committed cloud snapshots, 13 days apart, the portal **gained 35 method names and lost 2**, and a whole module appeared (`landing`) — 245 methods became 278, a 13% change in under a fortnight. So a snapshot a few months old is not a mild inconvenience: it is dozens of real method names that a contributor documenting them first would be told do not exist. `--coverage` prints that projection from the committed snapshots themselves, rather than from a number written here that would go stale in the same way.
+
+Two caveats it prints with, and they are the reason it is a report and not a gate: two points are a line rather than a trend, and nothing in the repository knows whether the snapshots came from the same portal — two cloud portals measured a day apart already disagreed on 28 names, so part of any gap may be disagreement rather than change.
 
 (Separate from `// @check-ignore` used alone, which skips the `docs:typecheck-blocks` TypeScript pass.)
 

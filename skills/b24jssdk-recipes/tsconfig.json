@@ -5,14 +5,18 @@
   // This package ships. `docs/nuxt.config.ts` serves the whole `skills/` tree at
   // `/.well-known/skills`, so a consumer receives this directory on its own,
   // with no repository above it, and an `extends: "../../"` would not resolve.
-  // TypeScript does not fail hard on that — it reports TS5083 and carries on
-  // with compiler *defaults*, so the strictest config in the repository would
-  // quietly become the loosest, `strict` included, while every in-repo run
-  // stayed green.
+  // TypeScript reports TS5083 and exits non-zero, so a consumer's own
+  // `tsc -p tsconfig.json` breaks outright — and it breaks *after* falling back
+  // to compiler *defaults*, losing everything the base sets beyond them —
+  // `noUncheckedIndexedAccess`, `noImplicitOverride`, the `noUnused*` pair,
+  // `noImplicitReturns`, `noFallthroughCasesInSwitch`, plus `skipLibCheck`,
+  // `types`, `lib`, `target` and `moduleResolution` — while every in-repo run
+  // stayed green. (`strict` itself survives: TypeScript 6 defaults it on.)
   //
   // The copy is pinned, not trusted: `test/integration/skills-recipes/
   // recipe-hygiene.unit.spec.ts` fails if these options and the base's disagree
-  // on anything outside the three departures marked below.
+  // on anything outside the departures marked below (the language level counts
+  // as one departure across two keys, `target` and `lib`).
   "compilerOptions": {
     // Departure 1: held at ES2022, where this config already had it, while the
     // base is on ESNext. These recipes are copy-paste starting points run on

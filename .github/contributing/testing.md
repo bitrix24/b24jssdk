@@ -243,10 +243,11 @@ points here instead.
 
 Last verified by injection 2026-09-01, after `jsdoc:typecheck-blocks` was added
 and `README-AI.md` joined the skills gate. The *areas* have not changed since;
-issue #396 changed the compiler flags behind four of these rows
-(`package-jssdk:typecheck`, `test:typecheck`, `playground-cli:typecheck`,
-`skills:typecheck`) and re-probed each of those four on 2026-09-18 — an unused
-local and a missing return go red on every one of them through the shared base. Re-measure the rows you change: the
+issue #396 moved four of these rows onto a shared base,
+but by resolved config only two had a *checking* flag change —
+`playground-cli:typecheck` and `skills:typecheck`. `package-jssdk:typecheck`
+changed emit options only, and `test:typecheck` changed nothing at all. All four
+were re-probed on 2026-09-18; an injected unused local goes red on each. Re-measure the rows you change: the
 claim is "only this pass", and that is a property of the whole set, not of the
 pass you happen to be editing.
 
@@ -329,13 +330,20 @@ the person making it had no reason to look in `test/`.
 The recipes are the exception, and not for convenience. `docs/nuxt.config.ts`
 serves the whole `skills/` tree at `/.well-known/skills`, so a consumer receives
 that directory with no repository above it and an `extends: "../../"` does not
-resolve. TypeScript does not fail hard on a missing `extends` — it reports
-TS5083 and continues with compiler **defaults**, so the strictest config in the
-repository would quietly become the loosest while every in-repo run stayed
-green. The copy is held in step by `#396 — the recipes tsconfig does not drift
+resolve. TypeScript reports TS5083 and exits non-zero, so the consumer's own
+`pnpm typecheck` breaks outright — but it breaks *after* falling back to
+compiler **defaults**, and that fallback is the part that bites anyone who
+reads past the first line or wraps `tsc` in something that keeps going:
+`strict` survives, because TypeScript 6 defaults it on, while everything the
+base adds on top of it does not — `noUncheckedIndexedAccess`,
+`noImplicitOverride`, the `noUnused*` pair, `noImplicitReturns`,
+`noFallthroughCasesInSwitch`, and with them `skipLibCheck`, `types`, `lib`,
+`target` and `moduleResolution`. Every in-repo run stays green throughout,
+which is why nothing here would have noticed. The copy is held in step by `#396 — the recipes tsconfig does not drift
 from the shared base` in
 [`recipe-hygiene.unit.spec.ts`](../../test/integration/skills-recipes/recipe-hygiene.unit.spec.ts),
-which fails on any flag outside the three departures it names.
+which fails on any flag outside the departures it names — three of them across
+four keys, since the language level is `target` plus `lib`.
 
 Two groups stay out of the base:
 
@@ -352,17 +360,29 @@ Two groups stay out of the base:
   impossible; it was simply not done here, and what it would add is essentially
   the `noUnused*` family.
 
-A note on how the drift is described. `strict: true` already implies
-`noImplicitAny`, `strictNullChecks`, `strictFunctionTypes`, `strictBindCallApply`,
-`strictPropertyInitialization`, `alwaysStrict` and `noImplicitThis`, so a config
-carrying `strict` is not missing those. What it does **not** imply is
-`noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`,
-`noFallthroughCasesInSwitch`, `noUncheckedIndexedAccess`, `noImplicitOverride`
-and `noPropertyAccessFromIndexSignature` — and that is where the two hand-copied
-configs had actually drifted. Measured at the time of #396: `playgrounds/cli`
-was genuinely short of `noImplicitOverride` alone, while the recipes were short
-of five, `noUncheckedIndexedAccess` among them — which is the flag that then
-found three unchecked indexed reads in shipped recipe code.
+A note on how the drift is described, because getting it wrong is easy and #396
+got it wrong twice before this wording settled. `strict: true` switches on a
+family of flags, and TypeScript defaults several others on as well —
+`forceConsistentCasingInFileNames` among them — so reading two configs side by
+side and subtracting key lists **overstates** the difference every time. The
+honest measure is the resolved one: `tsc --showConfig -p <config>`, with every
+boolean that is absent filled in from `ts.optionDeclarations` (`strictFlag`
+members follow `strict`, the rest take their own default), compared before and
+after.
+
+Measured that way for #396, the two hand-copied configs gained:
+
+| config | checking flags it did not have, in effect |
+| --- | --- |
+| `playgrounds/cli` | `noImplicitOverride` |
+| `skills/b24jssdk-recipes` | `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUncheckedIndexedAccess`, `noImplicitOverride` |
+
+`noUncheckedIndexedAccess` is the one that then found three unchecked indexed
+reads in shipped recipe code. Both configs also picked up `allowJs`,
+`useDefineForClassFields` and — the recipes — `resolveJsonModule`, none of which
+changes a diagnostic on the files they compile.
+`noPropertyAccessFromIndexSignature` is on in the base and off in both of these,
+so it is not a gain either.
 
 Two settings in `test/tsconfig.json` are worth knowing about:
 

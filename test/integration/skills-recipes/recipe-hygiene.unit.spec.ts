@@ -286,8 +286,16 @@ describe('#65 — recipe dependencies are isolated from the workspace root', () 
  * `/.well-known/skills`, so a consumer gets this directory with no repository
  * around it and an `extends: "../../tsconfig.base.json"` does not resolve.
  * TypeScript does not fail hard on that — it reports TS5083 and falls back to
- * compiler defaults, so the strictest config in the repo would quietly become
- * the loosest while every in-repo run stayed green.
+ * compiler defaults, losing everything the base sets beyond those defaults,
+ * while every in-repo run stays green.
+ *
+ * The comparison is over the UNION of both files' keys, not the base's alone.
+ * A first draft of this test iterated the base's keys, and three drifts walked
+ * straight through it: a flag present only in the recipes (`"useUnknownIn-
+ * CatchVariables": false` loosens `strict` and was invisible), a flag DELETED
+ * from the base (its row simply vanished, and a shrinking green suite reads the
+ * same as a passing one), and a change to `include` (pointing it at a
+ * non-existent glob left the shipped config type-checking nothing, green).
  *
  * Text comparison of two JSON files, no portal — jsSdk:unit.
  */
@@ -297,15 +305,17 @@ describe('#396 — the recipes tsconfig does not drift from the shared base', ()
   /** Both files carry `//` comments, which `JSON.parse` will not take. */
   const readJsonc = (rel: string) => JSON.parse(
     readFileSync(join(repoRoot, rel), 'utf8').replaceAll(/^\s*\/\/.*$/gm, '')
-  ) as { compilerOptions: Record<string, unknown> }
+  ) as { compilerOptions: Record<string, unknown>, include?: string[] }
+
+  const base = readJsonc('tsconfig.base.json')
+  const recipes = readJsonc('skills/b24jssdk-recipes/tsconfig.json')
 
   /**
-   * The two options the recipes config is allowed to differ on, each with the
-   * reason it differs. A third entry appearing here should be an argument in a
-   * PR, not a quiet addition — which is why the list is a literal and not
-   * derived from the file it checks.
+   * Options the recipes are allowed to set differently from the base. Each one
+   * must still BE a departure — if the base adopts the same value, the
+   * exception has stopped earning its keep and this test says so.
    */
-  const ALLOWED_DEPARTURES: Record<string, unknown> = {
+  const OVERRIDES: Record<string, unknown> = {
     // A language level chosen for the reader: these are copy-paste starting
     // points, and the base's `ESNext` would type-check proposal-stage members
     // against whatever runtime they happen to have.
@@ -313,33 +323,68 @@ describe('#396 — the recipes tsconfig does not drift from the shared base', ()
     lib: ['ES2022', 'DOM'],
     // `process.env.B24_HOOK` is an index-signature read, and these files are
     // read as copy-paste starting points. Off in `test/tsconfig.json` too.
-    noPropertyAccessFromIndexSignature: false,
-    // Not in the base at all; silences TS 6.0 deprecation warnings.
+    noPropertyAccessFromIndexSignature: false
+  }
+
+  /**
+   * Options the recipes add that the base does not carry at all. Kept separate
+   * from `OVERRIDES` because the two need opposite assertions: an override has
+   * to disagree with a base value that exists, an addition has to have no base
+   * value to disagree with. Folding them together is how a stale exception
+   * survives — an override whose base key was deleted then passes vacuously.
+   */
+  const ADDITIONS: Record<string, unknown> = {
+    // Silences TS 6.0 deprecation warnings for options the workspace still uses.
     ignoreDeprecations: '6.0'
   }
 
+  const EXCEPTIONS = { ...OVERRIDES, ...ADDITIONS }
+
+  /** Every key either file sets — so a recipes-only flag cannot hide. */
+  const allFlags = [...new Set([
+    ...Object.keys(base.compilerOptions),
+    ...Object.keys(recipes.compilerOptions)
+  ])].filter(flag => !(flag in EXCEPTIONS)).sort()
+
   it('does not extend the base, because it ships without it', () => {
-    const recipes = readJsonc('skills/b24jssdk-recipes/tsconfig.json') as Record<string, unknown>
-    expect(recipes['extends']).toBeUndefined()
+    expect((recipes as Record<string, unknown>)['extends']).toBeUndefined()
   })
 
-  it.each(
-    Object.keys(readJsonc('tsconfig.base.json').compilerOptions)
-      .filter(flag => !(flag in ALLOWED_DEPARTURES))
-  )('%s matches the base', (flag) => {
-    const base = readJsonc('tsconfig.base.json').compilerOptions
-    const recipes = readJsonc('skills/b24jssdk-recipes/tsconfig.json').compilerOptions
-
-    expect(recipes[flag]).toStrictEqual(base[flag])
+  it('compares a plausible number of flags, so a shrunken base is not a pass', () => {
+    // Guards the suite itself: `it.each` over an empty or gutted list reports
+    // green. If the base is legitimately trimmed below this, move the number
+    // deliberately.
+    expect(allFlags.length).toBeGreaterThanOrEqual(25)
   })
 
-  it.each(Object.entries(ALLOWED_DEPARTURES))('departs from the base on %s, deliberately', (flag, value) => {
-    const base = readJsonc('tsconfig.base.json').compilerOptions
-    const recipes = readJsonc('skills/b24jssdk-recipes/tsconfig.json').compilerOptions
+  it.each(allFlags)('%s matches the base', (flag) => {
+    expect(recipes.compilerOptions[flag]).toStrictEqual(base.compilerOptions[flag])
+  })
 
-    // Each departure has to still BE a departure: if the base ever adopts the
-    // same value, the exception has stopped earning its keep and should go.
-    expect(recipes[flag]).toStrictEqual(value)
-    expect(base[flag]).not.toStrictEqual(value)
+  it.each(Object.entries(OVERRIDES))('overrides %s, deliberately', (flag, value) => {
+    expect(recipes.compilerOptions[flag]).toStrictEqual(value)
+    // The base must still carry this key with a DIFFERENT value. `not.toStrictEqual`
+    // alone would be satisfied by `undefined`, letting the exception outlive the
+    // setting it departs from.
+    expect(base.compilerOptions).toHaveProperty(flag)
+    expect(base.compilerOptions[flag]).not.toStrictEqual(value)
+  })
+
+  it.each(Object.entries(ADDITIONS))('adds %s, which the base does not set', (flag, value) => {
+    expect(recipes.compilerOptions[flag]).toStrictEqual(value)
+    expect(base.compilerOptions).not.toHaveProperty(flag)
+  })
+
+  it('still points at the files it is supposed to check', () => {
+    // `include` is not inherited by `extends` anywhere, so it is not part of the
+    // flag comparison — but a config that compiles nothing passes every other
+    // assertion in this block.
+    expect(recipes.include).toStrictEqual(['examples/*.ts', 'lib/*.ts'])
+
+    for (const glob of recipes.include ?? []) {
+      const dir = join(repoRoot, 'skills/b24jssdk-recipes', glob.replace(/\/\*.*$/, ''))
+      expect(existsSync(dir), `${glob} points at a directory that exists`).toBe(true)
+      expect(readdirSync(dir).some(name => name.endsWith('.ts'))).toBe(true)
+    }
   })
 })

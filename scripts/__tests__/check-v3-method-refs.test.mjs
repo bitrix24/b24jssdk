@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { reduceDocument } from '../check-v3-method-refs.mjs'
+import { reduceDocument, measureDrift } from '../check-v3-method-refs.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -515,4 +515,165 @@ test('result key: a v2 sample later on the page is not attributed to a v3 call a
   }, (root) => {
     assert.equal(runCheck(root).status, 0)
   })
+})
+
+// --- #472: what the committed snapshots say about their own staleness --------
+//
+// Everything `measureDrift` reports is per portal Kind, including the age, and
+// the rate comes from the two most recent snapshots of that kind. Three earlier
+// drafts got this wrong in ways that each looked right, so the tests below name
+// the draft they kill rather than the line they cover.
+//
+// `AT` deliberately carries a time of day. A midnight fixture makes every
+// difference land on a day boundary, which left `Math.floor` → `Math.ceil` and
+// dropping the rounding entirely both green — and in production `today` is
+// `new Date()`, which is essentially never midnight.
+
+const snap = (kind, date, methods) => ({
+  name: `openapi-${kind}-${date}.json`,
+  methods: new Set(methods),
+  raw: { portalKind: kind, snapshotDate: date, methods: methods.map(m => ({ method: m })) }
+})
+
+const AT = new Date('2026-09-20T07:30:00Z')
+const kindOf = (result, kind) => result.kinds.find(k => k.kind === kind)
+
+test('#472: no snapshots is an empty report, not a zero-aged one', () => {
+  assert.deepEqual(measureDrift([], AT), { kinds: [], unusable: 0 })
+})
+
+test('#472: one snapshot of a kind has an age but no slope', () => {
+  const result = measureDrift([snap('cloud', '2026-09-05', ['a'])], AT)
+  assert.equal(result.kinds.length, 1)
+  assert.equal(kindOf(result, 'cloud').ageDays, 15)
+  assert.equal(kindOf(result, 'cloud').rate, null)
+})
+
+test('#472: the age is floored, not rounded, from a real time of day', () => {
+  // 15 days and 7.5 hours. `Math.ceil` would say 16, and no rounding at all
+  // would print 15.3125 day(s).
+  assert.equal(kindOf(measureDrift([snap('cloud', '2026-09-05', ['a'])], AT), 'cloud').ageDays, 15)
+})
+
+test('#472: a fresh snapshot of one kind does not make another kind look current', () => {
+  // The first draft took the age across all kinds and multiplied it by a rate
+  // measured within one. Committing a single fresh on-premise snapshot then
+  // reported hundred-day-old cloud snapshots as current.
+  const result = measureDrift([
+    snap('cloud', '2026-06-01', ['a']),
+    snap('cloud', '2026-06-12', ['a', 'b']),
+    snap('on-premise', '2026-09-20', ['a'])
+  ], AT)
+  assert.equal(kindOf(result, 'cloud').ageDays, 100)
+  assert.equal(kindOf(result, 'on-premise').ageDays, 0)
+})
+
+test('#472: the rate comes from the two most recent, so keeping old snapshots does not degrade it', () => {
+  // The second draft used the furthest-apart pair. The guide in this same change
+  // tells contributors to keep old snapshots, so that number fell every time
+  // somebody followed it — a two-year-old file took 2.7 names a day to 0.055.
+  const recentPair = [
+    snap('cloud', '2026-09-05', ['a']),
+    snap('cloud', '2026-09-18', ['a', 'b', 'c'])
+  ]
+  const withAncient = [snap('cloud', '2024-09-18', []), ...recentPair]
+
+  assert.deepEqual(kindOf(measureDrift(recentPair, AT), 'cloud').rate, kindOf(measureDrift(withAncient, AT), 'cloud').rate)
+  assert.equal(kindOf(measureDrift(withAncient, AT), 'cloud').rate.spanDays, 13)
+})
+
+test('#472: added and removed are counted in the right direction', () => {
+  const rate = kindOf(measureDrift([
+    snap('cloud', '2026-09-05', ['keep', 'gone1', 'gone2']),
+    snap('cloud', '2026-09-18', ['keep', 'new1', 'new2', 'new3'])
+  ], AT), 'cloud').rate
+  assert.equal(rate.added, 3)
+  assert.equal(rate.removed, 2)
+  assert.equal(rate.perDay, 3 / 13)
+})
+
+test('#472: each kind is measured on its own pair, with two pairs in play', () => {
+  // Weaker fixtures prove only that kinds are not merged. This one also proves
+  // the right pair is chosen inside each kind while another kind has a pair too.
+  const result = measureDrift([
+    snap('cloud', '2026-09-05', ['a']),
+    snap('cloud', '2026-09-18', ['a', 'b', 'c']),
+    snap('on-premise', '2026-09-10', ['a']),
+    snap('on-premise', '2026-09-20', ['a', 'b'])
+  ], AT)
+  assert.deepEqual(result.kinds.map(k => k.kind), ['cloud', 'on-premise'])
+  assert.equal(kindOf(result, 'cloud').rate.added, 2)
+  assert.equal(kindOf(result, 'cloud').rate.spanDays, 13)
+  assert.equal(kindOf(result, 'on-premise').rate.added, 1)
+  assert.equal(kindOf(result, 'on-premise').rate.spanDays, 10)
+})
+
+test('#472: two snapshots of one kind on the same day give no rate, not a division by zero', () => {
+  const result = measureDrift([
+    snap('cloud', '2026-09-18', ['a']),
+    snap('cloud', '2026-09-18', ['a', 'b'])
+  ], AT)
+  assert.equal(kindOf(result, 'cloud').rate, null)
+})
+
+test('#472: a file missing a date or a kind is counted, never grouped under undefined', () => {
+  // Grouping an unnamed kind under `undefined` would pair an on-premise file
+  // with a cloud one, which is the single thing this must not do. `loadSnapshots`
+  // validates only `methods`, so both fields really can be absent.
+  const result = measureDrift([
+    snap('cloud', 'truncated', ['a']),
+    { name: 'openapi-nokind.json', methods: new Set(['a']), raw: { snapshotDate: '2026-09-18', methods: [] } },
+    snap('cloud', '2026-09-18', ['a', 'b'])
+  ], AT)
+  assert.equal(result.unusable, 2)
+  assert.deepEqual(result.kinds.map(k => k.kind), ['cloud'])
+  assert.equal(kindOf(result, 'cloud').rate, null)
+})
+
+test('#472: a future-dated snapshot is flagged, not silently treated as fresh', () => {
+  // The third draft printed "-74 day(s) old" and then declared it recent.
+  const result = measureDrift([snap('cloud', '2026-12-01', ['a'])], AT)
+  assert.equal(kindOf(result, 'cloud').future, true)
+  assert.ok(kindOf(result, 'cloud').ageDays < 0)
+})
+
+test('#472: the projection stops well short of extrapolating a short window across a year', () => {
+  // Linear extrapolation of a 13-day window to a year printed "missing roughly
+  // 983 name(s)" against a surface of 278. Four times the window is the limit.
+  const pair = newestDate => [
+    snap('cloud', '2026-09-05', ['a']),
+    snap('cloud', newestDate, ['a', 'b', 'c'])
+  ]
+  // 13-day window, newest 15 days old: inside 4x, so it projects.
+  const near = kindOf(measureDrift(pair('2026-09-05'), AT), 'cloud')
+  assert.equal(near.rate, null)
+
+  const inside = kindOf(measureDrift([
+    snap('cloud', '2026-08-20', ['a']),
+    snap('cloud', '2026-09-02', ['a', 'b', 'c'])
+  ], AT), 'cloud')
+  assert.equal(inside.rate.spanDays, 13)
+  assert.equal(inside.ageDays, 18)
+  assert.equal(inside.projectable, true)
+  assert.equal(inside.behind, Math.round((2 / 13) * 18))
+
+  const outside = kindOf(measureDrift([
+    snap('cloud', '2026-01-01', ['a']),
+    snap('cloud', '2026-01-14', ['a', 'b', 'c'])
+  ], AT), 'cloud')
+  assert.equal(outside.rate.spanDays, 13)
+  assert.equal(outside.projectable, false)
+  assert.equal(outside.behind, null)
+})
+
+test('#472: a pair that added nothing has a rate of zero, not a missing one', () => {
+  // "Recent enough that the projection rounds to nothing" used to print here,
+  // on a snapshot 335 days old, because rounding to zero was read as recency.
+  const result = kindOf(measureDrift([
+    snap('cloud', '2026-09-05', ['a', 'b', 'c']),
+    snap('cloud', '2026-09-18', ['a'])
+  ], AT), 'cloud')
+  assert.equal(result.rate.added, 0)
+  assert.equal(result.rate.removed, 2)
+  assert.equal(result.ageDays, 2)
 })

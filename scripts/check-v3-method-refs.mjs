@@ -386,7 +386,12 @@ async function refresh() {
     response = await fetch(`${base}rest.documentation.openapi`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}'
+      body: '{}',
+      // The webhook URL *is* the credential, and it is carried in the path. A
+      // 30x — a misconfigured vanity domain, a captive portal, hijacked DNS —
+      // would hand that path to whatever host `Location` names, silently. This
+      // is the only way the secret can leave the origin it was meant for.
+      redirect: 'error'
     })
   } catch {
     console.error('could not reach the portal (network error)')
@@ -405,8 +410,12 @@ async function refresh() {
     console.error('the portal did not answer with JSON')
     process.exit(1)
   }
-  if (typeof document?.paths !== 'object') {
-    console.error('the response carried no `paths` — not an OpenAPI document')
+  // `typeof null === 'object'`, so a body carrying `"paths": null` passed this
+  // and wrote a snapshot of zero methods — which `loadSnapshots` then accepts,
+  // because an empty array is a valid array. As the newest file of its kind it
+  // would report the whole surface as lost.
+  if (document?.paths === null || typeof document?.paths !== 'object' || Array.isArray(document.paths)) {
+    console.error('the response carried no usable `paths` object — not an OpenAPI document')
     process.exit(1)
   }
 
@@ -458,10 +467,157 @@ export function reduceDocument(document, kind, today = new Date()) {
 
 function writeSnapshot(document, kind) {
   const reduced = reduceDocument(document, kind)
+  if (reduced.methods.length === 0) {
+    // Writing this would be worse than failing: as the newest file of its kind
+    // it makes every method the portal publishes look withdrawn.
+    console.error('the portal answered with no methods at all — refusing to write an empty snapshot')
+    process.exit(1)
+  }
   mkdirSync(SNAPSHOT_DIR, { recursive: true })
   const file = join(SNAPSHOT_DIR, `openapi-${kind}-${reduced.snapshotDate}.json`)
   writeFileSync(file, `${JSON.stringify(reduced, null, 2)}\n`)
   return { file: basename(file), totals: reduced.totals }
+}
+
+/**
+ * What the committed snapshots say about their own staleness (#472).
+ *
+ * The issue asked how current a snapshot has to be and recorded the honest
+ * answer — nobody knew, because no series existed. One exists now, so the rate
+ * is measured here rather than written down as a number that would itself go
+ * stale.
+ *
+ * Everything is **per portal kind**, including the age. Three earlier drafts
+ * were wrong in ways worth keeping written down, because each looked right:
+ *
+ *  - An age taken across all kinds, multiplied by a rate measured within one.
+ *    Committing a single fresh on-premise snapshot then reported the cloud
+ *    snapshots as current while they were a hundred days stale.
+ *  - A rate measured between the **furthest apart** pair. The guide tells
+ *    contributors to keep old snapshots, so that number degrades every time
+ *    someone follows it: adding a two-year-old file took the measured rate from
+ *    2.7 names a day to 0.055. The rate now comes from the two most recent
+ *    snapshots of the kind, which is the only pair that describes now.
+ *  - "Recent enough" printed whenever the projection rounded to zero, which is
+ *    a statement about the rate and not about the age. A 335-day-old snapshot
+ *    that had gained nothing was announced as recent.
+ *
+ * Deliberately never an error, on either the default run or `--coverage`: a
+ * contributor without a portal cannot refresh, and a check that is red by
+ * design gets switched off.
+ */
+export function measureDrift(snapshots, today = new Date()) {
+  const DAY_MS = 86_400_000
+  const PROJECTION_LIMIT = 4
+  const dated = []
+  let unusable = 0
+
+  for (const snapshot of snapshots) {
+    const date = Date.parse(`${snapshot.raw?.snapshotDate}T00:00:00Z`)
+    const kind = snapshot.raw?.portalKind
+    // A file missing either field is skipped rather than defaulted. Grouping an
+    // unnamed kind under `undefined` would pair an on-premise snapshot with a
+    // cloud one, which is the single thing this function must not do.
+    if (!Number.isFinite(date) || typeof kind !== 'string' || kind === '') {
+      unusable++
+      continue
+    }
+    dated.push({ ...snapshot, date, kind })
+  }
+
+  const byKind = {}
+  for (const snapshot of dated) {
+    (byKind[snapshot.kind] ??= []).push(snapshot)
+  }
+
+  const kinds = Object.entries(byKind).map(([kind, group]) => {
+    const ordered = [...group].sort((a, b) => a.date - b.date)
+    const newest = ordered[ordered.length - 1]
+    const ageDays = Math.floor((today.getTime() - newest.date) / DAY_MS)
+
+    const measured = { kind, ageDays, future: ageDays < 0, rate: null, behind: null, projectable: false }
+
+    // The two most recent, not the two furthest apart. Same-day pairs give no
+    // slope rather than a division by zero.
+    const previous = ordered[ordered.length - 2]
+    const spanDays = previous ? Math.round((newest.date - previous.date) / DAY_MS) : 0
+
+    if (previous && spanDays > 0) {
+      const added = [...newest.methods].filter(m => !previous.methods.has(m)).length
+      const removed = [...previous.methods].filter(m => !newest.methods.has(m)).length
+      measured.rate = { spanDays, added, removed, perDay: added / spanDays }
+      // Projected only a little way past the window it was measured over.
+      // Linear extrapolation of 13 days to a year produced "missing roughly 983
+      // name(s)" against a surface of 278 — not an order of magnitude, just
+      // visibly broken arithmetic, and on the line a docs PR quotes. Four times
+      // the window is already generous for a rate built from two points.
+      measured.projectable = ageDays >= 0 && ageDays <= spanDays * PROJECTION_LIMIT
+      measured.behind = measured.projectable ? Math.round((added / spanDays) * ageDays) : null
+    }
+
+    return measured
+  }).sort((a, b) => a.kind.localeCompare(b.kind))
+
+  return { kinds, unusable }
+}
+
+/**
+ * One block per portal kind. `documented` is only used for the share, which is
+ * what keeps the projection from being read as a count of failures: a name the
+ * newest snapshot is missing costs nothing unless somebody documents it, and
+ * this repository names about one published method in twenty.
+ */
+function printDrift(snapshots, documented, today = new Date()) {
+  const { kinds, unusable } = measureDrift(snapshots, today)
+
+  if (unusable > 0) {
+    console.log(`${unusable} snapshot(s) skipped — no usable snapshotDate or portalKind; re-run --refresh`)
+  }
+  if (kinds.length === 0) {
+    return
+  }
+
+  for (const { kind, ageDays, future, rate, behind } of kinds) {
+    if (future) {
+      console.log(`${kind}: newest snapshot is dated ${-ageDays} day(s) in the FUTURE — check the clock that wrote it`)
+      continue
+    }
+
+    console.log(`${kind}: newest snapshot is ${ageDays} day(s) old`)
+
+    if (!rate) {
+      // One snapshot of a kind is a point, and a point has no slope. Said out
+      // loud so the absence is legible rather than looking like zero drift.
+      console.log(`  drift: not measurable — needs two ${kind} snapshots taken on different days`)
+      continue
+    }
+
+    console.log(
+      `  measured over the last ${rate.spanDays} day(s) between snapshots: `
+      + `+${rate.added} method name(s), -${rate.removed}`
+    )
+
+    if (rate.added === 0) {
+      console.log('  nothing was added across that pair, so there is no rate to project')
+    } else if (behind === null) {
+      console.log(
+        `  no projection: ${ageDays} day(s) is too far past the ${rate.spanDays}-day window the rate `
+        + 'was measured over for the extrapolation to mean anything — refresh instead'
+      )
+    } else if (behind > 0) {
+      // Deliberately not "N failures". A missing name is a failure only if
+      // somebody documents it, and the share below is the honest scale.
+      const share = documented.size > 0 && rate ? ` — this repository names ${documented.size} v3 method(s) in total` : ''
+      console.log(`  at that rate it is missing roughly ${behind} name(s) published since${share}`)
+      console.log('  any one of those would fail the gate if a page named it, until a refresh')
+    }
+  }
+
+  // Two points are a line, not a trend, and nothing here knows whether the
+  // snapshots of one kind came from the same portal — two cloud portals
+  // measured a day apart already disagreed on 28 names.
+  console.log('(two points per kind, possibly two portals — an order of magnitude, not a forecast)')
+  console.log('')
 }
 
 function printCoverage(snapshots, documented) {
@@ -470,11 +626,44 @@ function printCoverage(snapshots, documented) {
     return
   }
   console.log('v3 method coverage — portal snapshots against what this repository documents\n')
+  printDrift(snapshots, documented)
+
+  // The per-module table is the useful part and the long part: 23 lines each.
+  // "Keep both, prune deliberately" grows this monotonically — ten snapshots was
+  // 188 lines, past the point where anyone pastes it into a PR. So the newest of
+  // each kind gets the table and the rest get a line.
+  const newestOfKind = new Set()
+  for (const kind of new Set(snapshots.map(s => s.raw.portalKind))) {
+    const ofKind = snapshots.filter(s => s.raw.portalKind === kind)
+    newestOfKind.add(ofKind.reduce((a, b) => (a.raw.snapshotDate >= b.raw.snapshotDate ? a : b)).name)
+  }
+
   for (const snapshot of snapshots) {
     const published = snapshot.raw.methods
     const covered = published.filter(m => documented.has(m.method))
+
+    // What only THIS snapshot publishes and this repository documents. It is
+    // the number the guide's pruning rule asks for: at zero, dropping the file
+    // narrows the union without red-lighting a page that is correct today.
+    const uniqueAndDocumented = [...snapshot.methods]
+      .filter(name => documented.has(name) && !snapshots.some(other => other !== snapshot && other.methods.has(name)))
+
     console.log(`${snapshot.name}  (${snapshot.raw.portalKind}, ${snapshot.raw.snapshotDate})`)
-    console.log(`  publishes ${published.length}, documented here ${covered.length}, never named ${published.length - covered.length}`)
+    console.log(
+      `  publishes ${published.length}, documented here ${covered.length}, never named ${published.length - covered.length}`
+      + `, unique to it and documented ${uniqueAndDocumented.length}`
+      + (uniqueAndDocumented.length > 0
+        ? ` (${uniqueAndDocumented.sort().join(', ')})`
+        // Only an older snapshot is a pruning candidate. Saying this of the
+        // newest of a kind would invite deleting the only current baseline.
+        : newestOfKind.has(snapshot.name) ? '' : ' — safe to prune')
+    )
+
+    if (!newestOfKind.has(snapshot.name)) {
+      console.log('')
+      continue
+    }
+
     const perModule = {}
     for (const m of published) {
       perModule[m.module] ??= { total: 0, covered: 0 }
@@ -488,6 +677,7 @@ function printCoverage(snapshots, documented) {
     }
     console.log('')
   }
+
   const unpublished = [...documented].filter(name => !snapshots.some(s => s.methods.has(name))).sort()
   console.log(`named here in a v3 position: ${documented.size}`)
   if (unpublished.length > 0) {

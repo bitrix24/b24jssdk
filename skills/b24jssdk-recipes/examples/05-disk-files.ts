@@ -148,10 +148,10 @@ async function main() {
 
   const results = batch.getData()! as Record<string, AjaxResult<Storage[] | DiskItem[]>>
   // A `Record<string, ...>` promises a value for every key; the batch response
-  // only carries the keys the portal answered. Read them through the index and
-  // check, rather than calling `.getData()` on something that may not be there.
-  const storagesResult = results['Storages']
-  const childrenResult = results['Children']
+  // only carries the keys the portal answered. Check before calling
+  // `.getData()` on something that may not be there.
+  const storagesResult = results.Storages
+  const childrenResult = results.Children
   if (!storagesResult || !childrenResult) {
     throw new Error('Batch answered without both named commands')
   }

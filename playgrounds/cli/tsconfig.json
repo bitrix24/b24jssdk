@@ -1,18 +1,16 @@
 {
-  // Extends the shared base (#396). It used to carry a hand-copied strict-flag
-  // subset that had drifted from the package's: `strictFunctionTypes`,
-  // `strictBindCallApply`, `strictPropertyInitialization`, `noImplicitOverride`
-  // and `noPropertyAccessFromIndexSignature` were all missing, so this
-  // playground was checked more loosely than the SDK it exercises.
+  // Semantics live in `tsconfig.base.json` (#396). This config used to restate
+  // a strict-flag subset by hand; the one flag it was genuinely missing, once
+  // the ones `strict: true` already implies are discounted, is
+  // `noImplicitOverride`.
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     // No DOM. This is a Node CLI, and the base includes `DOM` for the browser
     // side of the SDK — inheriting it here would let `document` / `window`
     // type-check in a program that has neither at runtime.
     "lib": ["ESNext"],
-    // Relaxed as in `test/` and the recipes: the one use is
-    // `process.env.B24_HOOK`, which the flag forbids and which is
-    // `string | undefined` with or without it.
+    // Off as in `test/` and the recipes: the one use is `process.env.B24_HOOK`,
+    // which the flag forbids and which is `string | undefined` either way.
     "noPropertyAccessFromIndexSignature": false
   },
   "include": ["src"],

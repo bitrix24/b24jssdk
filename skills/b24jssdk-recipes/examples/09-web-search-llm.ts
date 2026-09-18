@@ -72,8 +72,17 @@ async function askLlm(question: string, sources: SearchResult[]): Promise<string
     ]
   })
   // `choices` can come back empty — a filtered or truncated completion has no
-  // first element, and reading `.message` off it throws.
-  return completion.choices[0]?.message.content ?? ''
+  // first element, and reading `.message` off it throws. Guard the empty answer
+  // too, exactly as `08-ai-assistant.ts` does: `main()` posts whatever comes
+  // back to the deal timeline without looking at it, so returning `''` here
+  // would write a comment with a blank answer onto a real CRM record. Failing
+  // loudly is the right outcome — nothing has been written yet at this point.
+  const answer = completion.choices[0]?.message?.content ?? ''
+  if (!answer) {
+    throw new Error('GPT returned empty content (likely rate-limit or content filter)')
+  }
+
+  return answer
 }
 
 async function postTimelineComment($b24: TypeB24, dealId: number, comment: string) {

@@ -276,3 +276,70 @@ describe('#65 — recipe dependencies are isolated from the workspace root', () 
     expect(existsSync(join(repoRoot, 'skills/b24jssdk-recipes/pnpm-lock.yaml'))).toBe(true)
   })
 })
+
+/**
+ * #396 — the recipes' tsconfig is a deliberate copy of `tsconfig.base.json`,
+ * and this is what keeps the copy honest.
+ *
+ * Every other strict config in the repository extends the root base. This one
+ * cannot: `docs/nuxt.config.ts` serves the whole `skills/` tree at
+ * `/.well-known/skills`, so a consumer gets this directory with no repository
+ * around it and an `extends: "../../tsconfig.base.json"` does not resolve.
+ * TypeScript does not fail hard on that — it reports TS5083 and falls back to
+ * compiler defaults, so the strictest config in the repo would quietly become
+ * the loosest while every in-repo run stayed green.
+ *
+ * Text comparison of two JSON files, no portal — jsSdk:unit.
+ */
+describe('#396 — the recipes tsconfig does not drift from the shared base', () => {
+  const repoRoot = resolve(__dirname, '../../..')
+
+  /** Both files carry `//` comments, which `JSON.parse` will not take. */
+  const readJsonc = (rel: string) => JSON.parse(
+    readFileSync(join(repoRoot, rel), 'utf8').replaceAll(/^\s*\/\/.*$/gm, '')
+  ) as { compilerOptions: Record<string, unknown> }
+
+  /**
+   * The two options the recipes config is allowed to differ on, each with the
+   * reason it differs. A third entry appearing here should be an argument in a
+   * PR, not a quiet addition — which is why the list is a literal and not
+   * derived from the file it checks.
+   */
+  const ALLOWED_DEPARTURES: Record<string, unknown> = {
+    // A language level chosen for the reader: these are copy-paste starting
+    // points, and the base's `ESNext` would type-check proposal-stage members
+    // against whatever runtime they happen to have.
+    target: 'ES2022',
+    lib: ['ES2022', 'DOM'],
+    // `process.env.B24_HOOK` is an index-signature read, and these files are
+    // read as copy-paste starting points. Off in `test/tsconfig.json` too.
+    noPropertyAccessFromIndexSignature: false,
+    // Not in the base at all; silences TS 6.0 deprecation warnings.
+    ignoreDeprecations: '6.0'
+  }
+
+  it('does not extend the base, because it ships without it', () => {
+    const recipes = readJsonc('skills/b24jssdk-recipes/tsconfig.json') as Record<string, unknown>
+    expect(recipes['extends']).toBeUndefined()
+  })
+
+  it.each(
+    Object.keys(readJsonc('tsconfig.base.json').compilerOptions)
+      .filter(flag => !(flag in ALLOWED_DEPARTURES))
+  )('%s matches the base', (flag) => {
+    const base = readJsonc('tsconfig.base.json').compilerOptions
+    const recipes = readJsonc('skills/b24jssdk-recipes/tsconfig.json').compilerOptions
+
+    expect(recipes[flag]).toStrictEqual(base[flag])
+  })
+
+  it.each(Object.entries(ALLOWED_DEPARTURES))('departs from the base on %s, deliberately', (flag, value) => {
+    const base = readJsonc('tsconfig.base.json').compilerOptions
+    const recipes = readJsonc('skills/b24jssdk-recipes/tsconfig.json').compilerOptions
+
+    // Each departure has to still BE a departure: if the base ever adopts the
+    // same value, the exception has stopped earning its keep and should go.
+    expect(recipes[flag]).toStrictEqual(value)
+    expect(base[flag]).not.toStrictEqual(value)
+  })
+})

@@ -1,23 +1,19 @@
 {
-  // Semantics live in `tsconfig.base.json` at the repository root; this file
-  // adds only what is specific to *building this package*. Before #396 the
-  // strict-flag set lived here and `test/tsconfig.json` extended it, which made
-  // every build-motivated edit here a silent change to the type-pin gate.
+  // Semantics live in `tsconfig.base.json`; this file adds only what is specific
+  // to this package. See `.github/contributing/testing.md`, "Where the compiler
+  // flags live", for why the two are separate (#396).
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    // `pnpm --filter ./packages/jssdk typecheck` is `tsc --noEmit`, and the
-    // shipped declarations are emitted by unbuild (see `build.config.ts`,
-    // which sets its own `declarationOptions`). These stay because they
-    // describe the package's intent and unbuild reads this config for the
-    // declaration pass.
-    "declaration": true,
-    "declarationMap": true,
+    // This config drives `tsc --noEmit` only. The shipped declarations come from
+    // unbuild, which sets its own `declarationOptions` in `build.config.ts`.
+    //
+    // `declaration`, `declarationMap`, `outDir: "./dist/types-temp"` and
+    // `noEmit: false` used to sit here and were removed in #396 after measuring
+    // that they changed nothing: a full build with and without them produces a
+    // byte-identical `dist`, and `dist/types-temp` has never been written.
     "sourceMap": true,
     "removeComments": false,
-    "stripInternal": false,
-
-    "outDir": "./dist/types-temp",
-    "noEmit": false
+    "stripInternal": false
   },
   "include": [
     "src"

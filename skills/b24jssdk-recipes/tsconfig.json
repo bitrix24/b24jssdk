@@ -1,23 +1,83 @@
 {
+  // NOTE: this file CANNOT extend `tsconfig.base.json`, so the flag set below is
+  // a deliberate copy of it rather than an oversight (#396).
+  //
+  // This package ships. `docs/nuxt.config.ts` serves the whole `skills/` tree at
+  // `/.well-known/skills`, so a consumer receives this directory on its own,
+  // with no repository above it, and an `extends: "../../"` would not resolve.
+  // TypeScript reports TS5083 and exits non-zero, so a consumer's own
+  // `tsc -p tsconfig.json` breaks outright — and it breaks *after* falling back
+  // to compiler *defaults*, losing everything the base sets beyond them —
+  // `noUncheckedIndexedAccess`, `noImplicitOverride`, the `noUnused*` pair,
+  // `noImplicitReturns`, `noFallthroughCasesInSwitch`, plus `skipLibCheck`,
+  // `types`, `lib`, `target` and `moduleResolution` — while every in-repo run
+  // stayed green. (`strict` itself survives: TypeScript 6 defaults it on.)
+  //
+  // The copy is pinned, not trusted: `test/integration/skills-recipes/
+  // recipe-hygiene.unit.spec.ts` fails if these options and the base's disagree
+  // on anything outside the departures marked below (the language level counts
+  // as one departure across two keys, `target` and `lib`).
   "compilerOptions": {
+    // Departure 1: held at ES2022, where this config already had it, while the
+    // base is on ESNext. These recipes are copy-paste starting points run on
+    // whatever the reader has; an `ESNext` lib would let a recipe type-check
+    // green against a proposal-stage member their runtime may not carry. The
+    // package declares no `engines` of its own — the SDK it calls requires Node
+    // 22 — so this is a floor chosen for the reader, not one derived from a
+    // manifest.
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+
     "strict": true,
     "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "alwaysStrict": true,
+    "noImplicitThis": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+
     "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false,
+
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+
+    "useDefineForClassFields": true,
+    "moduleDetection": "force",
+    "incremental": false,
+
     "noEmit": true,
-    "isolatedModules": true,
-    "allowSyntheticDefaultImports": true,
-    // Silence TS 6.0 deprecation warnings for compiler options the workspace
+
+    "types": ["node"],
+
+    // Departure 2: relaxed as in `test/tsconfig.json`, and for the same reason. The flag
+    // forbids `obj.foo` when `foo` comes from an index signature, and
+    // `process.env.B24_HOOK` is exactly that. These files are read as
+    // copy-paste starting points, so `process.env.X` is the form they should
+    // carry; the value is `string | undefined` either way.
+    "noPropertyAccessFromIndexSignature": false,
+    // Departure 3: silence TS 6.0 deprecation warnings for compiler options the workspace
     // still uses (e.g. some lib types). Remove once the deprecated options
     // here are gone.
-    "ignoreDeprecations": "6.0",
-    "types": ["node"],
-    "lib": ["ES2022", "DOM"]
+    "ignoreDeprecations": "6.0"
   },
   "include": [
     "examples/*.ts",

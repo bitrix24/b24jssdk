@@ -1,64 +1,20 @@
 {
-  // NOTE: this config has a second consumer. `test/tsconfig.json` extends it so
-  // the type-level pins in `test/**/*.types.spec.ts` are checked under exactly
-  // the flags the build uses — a hand-copied subset drifted, and a pin that
-  // passes where the build fails is worse than no pin.
-  //
-  // So a change here motivated purely by build concerns (`paths`,
-  // `moduleResolution`, `lib`, `target`, whether declarations are emitted) also
-  // changes what that gate checks. See bitrix24/b24jssdk#396 for the proposal
-  // to invert this into a shared base config.
+  // Semantics live in `tsconfig.base.json`; this file adds only what is specific
+  // to this package. See `.github/contributing/testing.md`, "Where the compiler
+  // flags live", for why the two are separate (#396).
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "lib": ["ESNext", "DOM"],
-
-    "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": false,
-
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "alwaysStrict": true,
-    "noImplicitThis": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "exactOptionalPropertyTypes": false,
-    "forceConsistentCasingInFileNames": true,
-
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    // The base sets `noEmit: true` and nothing here turns it back on: this
+    // config drives `tsc --noEmit` only, and the shipped declarations come from
+    // unbuild's own `declarationOptions` in `build.config.ts`.
+    //
+    // These two are kept anyway, because unbuild's declaration pass reads this
+    // file: flipping either to `true` moves 30,640 lines of `dist`. Measured,
+    // not assumed — `sourceMap` was here too and moved nothing, so it is gone,
+    // as are `declaration`, `declarationMap`, `outDir: "./dist/types-temp"` and
+    // `noEmit: false`, which `dist` proved dead in the same way (#396).
     "removeComments": false,
-    "stripInternal": false,
-
-    "skipLibCheck": true,
-    "allowJs": true,
-    "checkJs": false,
-
-    "experimentalDecorators": false,
-    "emitDecoratorMetadata": false,
-
-    "outDir": "./dist/types-temp",
-    "noEmit": false,
-
-    "useDefineForClassFields": true,
-    "moduleDetection": "force",
-    "incremental": false,
-
-    "types": ["node"]
+    "stripInternal": false
   },
   "include": [
     "src"

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+
+  // The one place the repository's TypeScript *semantics* are written down:
+  // language level, module resolution and the full strict-flag set. Extended by
+  // `packages/jssdk`, `test/`, `playgrounds/cli`; copied, under test, by
+  // `skills/b24jssdk-recipes`, which ships standalone and so cannot reach a file
+  // above its own root.
+  //
+  // Why it exists, which configs stay out of it and why, and what each consumer
+  // is allowed to override: `.github/contributing/testing.md`, "What type-checks
+  // what". Keep the reasoning there rather than here — it was six copies once,
+  // and two of them disagreed on the first day (#396).
+  //
+  // Nothing about emitting belongs here, and nothing extending it emits either:
+  // `noEmit` is on and no consumer turns it off. The package's shipped
+  // declarations come from unbuild, which reads `packages/jssdk/tsconfig.json`
+  // for its declaration pass but does its own emitting.
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM"],
+
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "alwaysStrict": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false,
+
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+
+    "useDefineForClassFields": true,
+    "moduleDetection": "force",
+    "incremental": false,
+
+    "noEmit": true,
+
+    "types": ["node"]
+  }
+}

@@ -242,7 +242,15 @@ points here instead.
 | `contributing:typecheck-blocks` | `ts` fences in `.github/contributing/**/*.md` |
 
 Last verified by injection 2026-09-01, after `jsdoc:typecheck-blocks` was added
-and `README-AI.md` joined the skills gate. Re-measure the rows you change: the
+and `README-AI.md` joined the skills gate. The *areas* have not changed since;
+issue #396 put four of these rows on a shared flag set —
+three by `extends` and the recipes by a pinned copy — but by resolved config
+only two had a *checking* flag change:
+`playground-cli:typecheck` and `skills:typecheck`. `package-jssdk:typecheck`
+changed emit options only, and `test:typecheck` changed nothing at all. All four
+were re-probed on 2026-09-18; an injected unused local goes red on each.
+
+ Re-measure the rows you change: the
 claim is "only this pass", and that is a property of the whole set, not of the
 pass you happen to be editing.
 
@@ -305,9 +313,103 @@ disappearing.
 
 Until #428 the first row did not exist: only `*.types.spec.ts` was compiled, and everything else under `test/` was transpiled by esbuild, which strips types without checking them. A spec could assert against a shape the SDK does not have and nothing would say so. That is not hypothetical — six cases in the live skill suite read `getData()!.result` off a `Result<T[]>`, and `.result` on an array went unnoticed until someone ran the suite against a portal by hand (#425).
 
+### Where the compiler flags live
+
+[`tsconfig.base.json`](../../tsconfig.base.json) at the repository root is the
+one place the language level, module resolution and the strict-flag set are
+written down. Until #396 there was no such file: `test/tsconfig.json` extended
+`packages/jssdk/tsconfig.json` — the package **build** config — so an edit there
+made for build reasons (`paths`, `moduleResolution`, `lib`, `target`, whether
+declarations are emitted) silently changed what the type-pin gate checks, and
+the person making it had no reason to look in `test/`.
+
+| config | relationship to the base | what it overrides |
+| --- | --- | --- |
+| `packages/jssdk` | extends | `removeComments`, `stripInternal` — read by unbuild's declaration pass, not by any `tsc` this repo runs |
+| `test/` | extends | `noPropertyAccessFromIndexSignature`, `types` |
+| `playgrounds/cli` | extends | `lib` (no `DOM` — it is a Node CLI), `noPropertyAccessFromIndexSignature` |
+| `skills/b24jssdk-recipes` | **copies**, pinned by a test | `target` / `lib` (ES2022), `noPropertyAccessFromIndexSignature`, `ignoreDeprecations` |
+
+The recipes are the exception, and not for convenience. `docs/nuxt.config.ts`
+serves the whole `skills/` tree at `/.well-known/skills`, so a consumer receives
+that directory with no repository above it and an `extends: "../../"` does not
+resolve. TypeScript reports TS5083 and exits non-zero, so the consumer's own
+`pnpm typecheck` breaks outright — but it breaks *after* falling back to
+compiler **defaults**, and that fallback is the part that bites anyone who
+reads past the first line or wraps `tsc` in something that keeps going:
+`strict` survives, because TypeScript 6 defaults it on, while everything the
+base adds on top of it does not — `noUncheckedIndexedAccess`,
+`noImplicitOverride`, the `noUnused*` pair, `noImplicitReturns`,
+`noFallthroughCasesInSwitch`, and with them `skipLibCheck`, `types`, `lib`,
+`target` and `moduleResolution`. Every in-repo run stays green throughout,
+which is why nothing here would have noticed. The copy is held in step by `#396 — the recipes tsconfig does not drift
+from the shared base` in
+[`recipe-hygiene.unit.spec.ts`](../../test/integration/skills-recipes/recipe-hygiene.unit.spec.ts),
+which fails on any flag outside the departures it names — three of them across
+four keys, since the language level is `target` plus `lib`. It also pins the
+file's whole top-level shape, not a list of keys someone thought to check:
+`exclude` can empty the input set while `include` still reads correctly, and
+`extends`, `files` and `references` are the same blind spot. And because
+comparing two documents assumes both ends are real, it pins the base's own
+shape (an `extends` *there* would hide everything it inherited), the three
+extending configs' `extends` targets (so the base cannot be copied elsewhere
+and the recipes left pinned to a file nobody uses), the recipes package's
+`typecheck` script and its single project file (so a `tsconfig.build.json`
+cannot make the pinned one decoration), and an explicit list of flags that must
+be `true` in both — gutting the two files in step otherwise keeps every
+comparison green, since they still agree, on `false`.
+
+What it does not cover: it compares documents, not resolved programs. Identical
+path-valued options mean different directories in two locations, and
+`types: ["node"]` already resolves to different `@types/node` versions, because
+the recipes package installs its own.
+
+Two groups stay out of the base:
+
+- **The four `.*-typecheck/tsconfig.json`** (`docs`, `jsdoc`, `skills`,
+  `contributing`). These are hand-written and tracked — only their `tmp/`
+  directories are generated by the block-check scripts — and they are
+  `strict: false` because they compile illustrative fragments extracted from
+  markdown, where `noUnusedLocals` alone would reject most snippets. That is a
+  deliberate looseness, not a verified-safe one: those blocks ship to users and
+  to agents, and nothing says the whole base could not be narrowed towards them.
+- **`docs/`, `packages/jssdk-nuxt` and `playgrounds/nuxt`**, which extend a
+  Nuxt-generated `.nuxt/tsconfig.json`. TypeScript 5+ accepts an array of
+  `extends`, so layering the base underneath Nuxt's is possible rather than
+  impossible; it was simply not done here, and what it would add is essentially
+  the `noUnused*` family.
+
+A note on how the drift is described, because getting it wrong is easy and #396
+got it wrong twice before this wording settled. `strict: true` switches on a
+family of flags, and TypeScript defaults several others on as well —
+`forceConsistentCasingInFileNames` among them — so reading two configs side by
+side and subtracting key lists **overstates** the difference every time. The
+honest measure is the resolved one: `tsc --showConfig -p <config>`, with every
+boolean that is absent filled in from `ts.optionDeclarations` (`strictFlag`
+members follow `strict`, the rest take their own default), compared before and
+after.
+
+Measured that way for #396, the two hand-copied configs gained:
+
+| config | checking flags it did not have, in effect |
+| --- | --- |
+| `playgrounds/cli` | `noImplicitOverride` |
+| `skills/b24jssdk-recipes` | `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUncheckedIndexedAccess`, `noImplicitOverride` |
+
+`noUncheckedIndexedAccess` is the one that then found three unchecked indexed
+reads in shipped recipe code — seven diagnostics, since one of the three is read
+at four call sites. Both configs also picked up `allowJs`,
+`useDefineForClassFields`, `moduleDetection: "force"`, `incremental: false` and
+— the recipes — `resolveJsonModule`. None of those changes a diagnostic on the
+files they compile today: there is no `.js` in either tree, and every file in
+both already has imports, so `moduleDetection` has nothing to decide.
+`noPropertyAccessFromIndexSignature` is on in the base and off in both of these,
+so it is not a gain either.
+
 Two settings in `test/tsconfig.json` are worth knowing about:
 
-- **`noPropertyAccessFromIndexSignature` is off here**, and only here. The flag forbids `obj.foo` when `foo` comes from an index signature — right for library source, wrong for a test reaching into a portal payload or a batch result keyed by command name, which is deliberate and happens some 218 times. Turning it on would trade real type coverage for a bracket-notation rewrite that makes assertions harder to read.
+- **`noPropertyAccessFromIndexSignature` is off here**, as it also is in
+  `playgrounds/cli` and the recipes, and for the same reason. The flag forbids `obj.foo` when `foo` comes from an index signature — right for library source, wrong for a test reaching into a portal payload or a batch result keyed by command name, which is deliberate and happens some 218 times. Turning it on would trade real type coverage for a bracket-notation rewrite that makes assertions harder to read.
 - **`test/integration/docs/**` is excluded.** Those two specs import the docs Nuxt app, whose modules rely on auto-imports and generated types that resolve under `docs:typecheck` and cannot resolve here. Excluding a spec is a real gap rather than a tidy-up — if a third one appears, widen the pass instead of the exclusion.
 
 Use this naming when the test is about the **SDK's internal behaviour**, not about a REST request/response shape. Document the reason in a JSDoc header at the top of the file — see [`test/integration/core/http-logger-redaction.unit.spec.ts`](../../test/integration/core/http-logger-redaction.unit.spec.ts) (lines 1–19) for the reference shape. For anything that touches a real REST method's request or response shape — no mocks.

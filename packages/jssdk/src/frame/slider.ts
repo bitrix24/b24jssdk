@@ -32,9 +32,39 @@ export class SliderManager {
   /**
    * When the method is called, a pop-up window with the application frame will be opened.
    *
+   * **The promise resolves when the slider is CLOSED, not when it opens** — so
+   * `await slider.openSliderAppPage(...)` means "wait until the person closes
+   * the window". Anything you want to happen while it is open belongs before
+   * the call.
+   *
+   * **On a client the portal does not answer from, it never settles at all.**
+   * Nothing here starts a timer: `params` is forwarded as given, and only the
+   * parent window's reply resolves the promise. So a fallback guarded by that
+   * `await` never runs and the click appears to do nothing, with no error
+   * anywhere. If you need the fallback, either do not `await`, or bound the wait
+   * — `isSafely` and `safelyTime` are stripped from the payload before it is
+   * sent, so they are yours to pass. See the example below.
+   *
+   * **It opens the application's REGISTERED handler URL**, not a path passed in
+   * `params`. Everything in the argument reaches the new frame as
+   * `PLACEMENT_OPTIONS`, so use it to tell the opened frame which screen to
+   * render; routing is the application's job. `openPath` is the one that opens
+   * a portal path.
+   *
    * Settings are passed via `bx24_`-prefixed keys (e.g. `bx24_title`, `bx24_width`).
    * `bx24_title` sets the slider title; the portal also reflects it to the browser tab title
    * (`document.title`) — unlike `ParentManager.setTitle`, which only updates the in-layout `#pagetitle`.
+   *
+   * @example
+   * const status = await $b24.slider.openSliderAppPage({
+   *   bx24_title: 'Report',
+   *   isSafely: true,
+   *   safelyTime: 3_000
+   * })
+   *
+   * if ((status as { isSafely?: boolean })?.isSafely) {
+   *   // the portal never answered within safelyTime — take the fallback path
+   * }
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-open-application.html
    */

@@ -25,7 +25,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { load } from 'js-yaml'
 import ts from 'typescript'
 
@@ -304,6 +304,21 @@ describe('#65 — recipe dependencies are isolated from the workspace root', () 
  *    (`TS18003`) and the suite green. Hence asserting the whole top-level
  *    shape rather than the keys we happened to think of — `exclude`, `files`
  *    and `references` are all reachable the same way.
+ * 4. Comparing two documents assumed both ends were real, and neither was
+ *    pinned: an `extends` in the BASE hid everything it inherited; the base
+ *    could be copied elsewhere and the three real consumers repointed, leaving
+ *    the recipes pinned to a file nobody extends; a `tsconfig.build.json` plus
+ *    a one-word script change made the pinned file decoration; and gutting
+ *    both files in step kept every comparison green, because they still
+ *    agreed — on `false`. Hence the base's own shape, the consumers' `extends`
+ *    targets, the package script, and REQUIRED_TRUE.
+ *
+ * Out of scope, and worth knowing: this compares documents, not resolved
+ * programs. Two identical path-valued options mean different directories in
+ * two locations, and `types: ["node"]` already resolves to different
+ * `@types/node` versions here — the recipes package installs its own. Closing
+ * that would mean comparing `tsc --showConfig` output, which is a bigger test
+ * than this one.
  *
  * Text comparison of two JSON files, no portal — jsSdk:unit.
  */
@@ -385,12 +400,68 @@ describe('#396 — the recipes tsconfig does not drift from the shared base', ()
       .toStrictEqual(['compilerOptions', 'include'])
   })
 
-  it('both files still carry a full flag set, so a gutted pair is not a pass', () => {
-    // Floored per side, not on the union: deleting keys from the base alone
-    // does not shrink `allFlags` (the recipes side keeps them, and each then
-    // fails its own row), so a union floor would not cover what this does.
-    expect(Object.keys(base.compilerOptions).length).toBeGreaterThanOrEqual(30)
-    expect(Object.keys(recipes.compilerOptions).length).toBeGreaterThanOrEqual(30)
+  it('the base carries exactly the top-level keys it is supposed to', () => {
+    // The shape test above covers the recipes side. This is the other end, and
+    // it is the one that inverts the whole premise if it is missed: `extends`
+    // is *legal* here, and refactoring the base into base + a shared fragment
+    // is the natural thing to do. `readJsonc` reads one document, so anything
+    // the base inherited would be invisible to every comparison below — the
+    // recipes could then ship weaker than the SDK with this block green.
+    expect(Object.keys(base as Record<string, unknown>).sort())
+      .toStrictEqual(['$schema', 'compilerOptions'])
+  })
+
+  it.each([
+    'packages/jssdk/tsconfig.json',
+    'test/tsconfig.json',
+    'playgrounds/cli/tsconfig.json'
+  ])('%s still extends the base this test pins', (rel) => {
+    // Otherwise the base can be copied elsewhere, the three real consumers
+    // repointed at the copy, and the recipes left pinned to a file nobody
+    // extends any more — every assertion here green, and the SDK type-checked
+    // under something else entirely.
+    const config = readJsonc(rel) as Record<string, unknown>
+    const expected = relative(dirname(join(repoRoot, rel)), join(repoRoot, 'tsconfig.base.json'))
+
+    expect(config['extends']).toBe(expected.split(sep).join('/'))
+  })
+
+  it('is the config the shipped package actually compiles with', () => {
+    // Pinning a file the package has stopped using is the same as pinning
+    // nothing: a `tsconfig.build.json` plus a one-word script change would
+    // leave everything below green and every recipe compiled under defaults.
+    const pkg = JSON.parse(
+      readFileSync(join(repoRoot, 'skills/b24jssdk-recipes/package.json'), 'utf8')
+    ) as { scripts?: Record<string, string> }
+
+    expect(pkg.scripts?.['typecheck']).toBe('tsc -p tsconfig.json')
+    expect(
+      readdirSync(join(repoRoot, 'skills/b24jssdk-recipes'))
+        .filter(name => name.startsWith('tsconfig') && name.endsWith('.json'))
+    ).toStrictEqual(['tsconfig.json'])
+  })
+
+  /**
+   * The flags the arrangement exists to deliver. Named explicitly because
+   * matching the base is only half the guarantee: gutting BOTH files in step
+   * keeps every comparison above green — the values still agree, they just
+   * agree on `false` — and a key count cannot tell "still strict" from "still
+   * thirty keys". A deliberate relaxation should have to delete a line here
+   * and argue for it.
+   */
+  const REQUIRED_TRUE = [
+    'strict',
+    'noUnusedLocals',
+    'noUnusedParameters',
+    'noImplicitReturns',
+    'noFallthroughCasesInSwitch',
+    'noUncheckedIndexedAccess',
+    'noImplicitOverride'
+  ]
+
+  it.each(REQUIRED_TRUE)('%s is on in both files', (flag) => {
+    expect(base.compilerOptions[flag]).toBe(true)
+    expect(recipes.compilerOptions[flag]).toBe(true)
   })
 
   it.each(allFlags)('%s matches the base', (flag) => {

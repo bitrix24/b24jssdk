@@ -95,7 +95,13 @@ overrides:
   # Two advisories, and the later one has the higher floor: 6.15.4 patches the
   # first, 6.16.0 the second, so the override has to be the latter.
   qs: '>=6.16.0 <7'
-  devalue: '>=5.8.1 <6'
+  # GHSA-9rgm-9g3h-6x36 — DoS parsing a malformed payload. The floor was
+  # >=5.8.1 for an earlier advisory in the same package; this one patches at
+  # 5.9.1, so the floor moves rather than a second entry appearing. Reaches us
+  # only through `nuxt`, which declares `^5.9.0` and would have resolved above
+  # the advisory on its own — the old floor is what held the tree at 5.8.2.
+  # The tree carries only the 5.x line.
+  devalue: '>=5.9.1 <6'
   # GHSA-w27v-7q3p-w38r and GHSA-4vpr-x523-8j87 — `removeScripts` lets executable
   # links through via namespace prefixes, and incompletely sanitizes executable
   # HTML. Reaches us only through the docs app, where `cssnano` runs `postcss-svgo`

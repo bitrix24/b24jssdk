@@ -235,6 +235,31 @@ export class B24Frame extends AbstractB24 implements TypeB24 {
   /**
    * Signals that the installer or application setup has finished running.
    *
+   * Until this lands the portal treats the application as half-installed and
+   * delivers no events to it, silently — so the install flow must always reach
+   * it. The portal reloads the page in response, which makes it the last
+   * statement of that flow.
+   *
+   * It has **two** failure modes, and they carry different codes:
+   *
+   * - outside install mode — `JSSDK_FRAME_INSTALL_ALREADY_FINISHED`, rejected
+   *   locally with `status: 0`, nothing sent to the parent window. Guard with
+   *   `isInstallMode` rather than catching it.
+   * - before `init()` has resolved — `JSSDK_CORE_B24_NOT_INIT`, thrown by the
+   *   `isInstallMode` getter this method reads. A caller discriminating on the
+   *   code above falls straight through it. Reachable only by constructing
+   *   `B24Frame` directly; `initializeB24Frame()` awaits `init()` for you.
+   *
+   * Both are pinned in `test/integration/frame/install-finish-guard.unit.spec.ts`,
+   * because the first one's code and message are quoted verbatim by three
+   * documentation pages (#379).
+   *
+   * @example
+   * if ($b24.isInstallMode) {
+   *   // provision fields, register placements, seed options…
+   *   await $b24.installFinish()
+   * }
+   *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/system-functions/bx24-install-finish.html
    */
   public async installFinish(): Promise<any> {

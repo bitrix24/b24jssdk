@@ -9,6 +9,8 @@ import { JsonRpc } from './json-rpc'
 import { SharedConfig } from './shared-config'
 import { ChannelManager } from './channel-manager'
 import { ResponseBatch, RequestBatch, IncomingMessage, Receiver } from './protobuf'
+import { decodeResponseBatch, encodeRequestBatch } from './protobuf-lite/messages'
+import type { LiteIncomingMessage } from './protobuf-lite/messages'
 import { CloseReasons, ConnectionType, PullStatus, RpcMethod, SenderType, ServerMode, SubscriptionType, SystemCommands, LsKeys } from '../types/pull'
 import { WebSocketConnector } from './web-socket-connector'
 import { LongPollingConnector } from './long-polling-connector'
@@ -96,6 +98,13 @@ export class PullClient implements ConnectorParent {
   private _jsonRpcAdapter: null | JsonRpc = null
 
   /**
+   * `true` selects the hand-written codec over the vendored protobuf.js (#PULL).
+   * Off by default: the two are pinned byte-identical by a differential test,
+   * but only the vendored path has run against a live portal.
+   */
+  private _useLiteProtobuf: boolean = false
+
+  /**
    * @depricate
    */
   // private _notificationPopup: null = null
@@ -173,6 +182,7 @@ export class PullClient implements ConnectorParent {
     this._restClient = params.b24
     this._status = PullStatus.Offline
     this._context = 'master'
+    this._useLiteProtobuf = params.protobufCodec === 'lite'
 
     // region RestApplication ////
     if (params.restApplication) {
@@ -1686,6 +1696,18 @@ export class PullClient implements ConnectorParent {
       ]
     })
 
+    if (this._useLiteProtobuf) {
+      // Same value, same bytes — the differential test asserts exactly that, on
+      // the shape built above.
+      //
+      // Cast, and deliberately: both paths hand back a `Uint8Array` at runtime
+      // (protobuf.js's `.finish()` does too), and the caller passes it straight
+      // to `send()`, which accepts one. The vendored branch type-checks only
+      // because the library is typed `any`, so this states what that branch
+      // relies on silently.
+      return encodeRequestBatch(messages as LiteIncomingMessage[]) as unknown as ArrayBuffer
+    }
+
     return RequestBatch.encode(requestBatch).finish()
   }
 
@@ -2459,7 +2481,9 @@ export class PullClient implements ConnectorParent {
     const result = []
 
     try {
-      const responseBatch = ResponseBatch.decode(new Uint8Array(pullEvent))
+      const responseBatch = this._useLiteProtobuf
+        ? decodeResponseBatch(new Uint8Array(pullEvent))
+        : ResponseBatch.decode(new Uint8Array(pullEvent))
       for (let i = 0; i < responseBatch.responses.length; i++) {
         const response = responseBatch.responses[i]
         if (response.command !== 'outgoingMessages') {

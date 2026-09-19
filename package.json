@@ -52,6 +52,7 @@
     "skills:typecheck": "pnpm run skills:install && tsc -p skills/b24jssdk-recipes/tsconfig.json",
     "package-jssdk:test:run-unit": "vitest run --project jsSdk:unit",
     "package-jssdk:test:run-types": "pnpm run skills:install && vitest run --project jsSdk:types",
+    "pull:test-codec": "vitest run --project jsSdk:unit test/integration/pull/protobuf-lite-differential.unit.spec.ts test/integration/pull/protobuf-codec-switch.unit.spec.ts",
     "skills:test": "pnpm run skills:install && vitest run --project skills:unit",
     "skills:verify": "vitest run --project skills:live",
     "package-jssdk:test": "vitest --project jsSdk:integration",

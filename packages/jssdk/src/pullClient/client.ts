@@ -8,9 +8,9 @@ import { StorageManager } from './storage-manager'
 import { JsonRpc } from './json-rpc'
 import { SharedConfig } from './shared-config'
 import { ChannelManager } from './channel-manager'
-import { ResponseBatch, RequestBatch, IncomingMessage, Receiver } from './protobuf'
+import { ResponseBatch, RequestBatch } from './protobuf'
 import { decodeResponseBatch, encodeRequestBatch } from './protobuf-lite/messages'
-import type { LiteIncomingMessage } from './protobuf-lite/messages'
+import type { LiteIncomingMessage, LiteReceiver } from './protobuf-lite/messages'
 import { CloseReasons, ConnectionType, PullStatus, RpcMethod, SenderType, ServerMode, SubscriptionType, SystemCommands, LsKeys } from '../types/pull'
 import { WebSocketConnector } from './web-socket-connector'
 import { LongPollingConnector } from './long-polling-connector'
@@ -1628,12 +1628,12 @@ export class PullClient implements ConnectorParent {
     messageBatchList: TypePullClientMessageBatch[],
     publicIds: Record<number, TypeChanel>
   ): ArrayBuffer | string {
-    const messages: any[] = []
+    const messages: LiteIncomingMessage[] = []
 
     messageBatchList.forEach((messageFields) => {
       const messageBody = messageFields.body
 
-      let receivers: any[] = []
+      let receivers: LiteReceiver[] = []
       if (messageFields.userList) {
         receivers = this.createMessageReceivers(
           messageFields.userList,
@@ -1669,57 +1669,49 @@ export class PullClient implements ConnectorParent {
             )
           }
 
-          receivers.push(
-            Receiver.create({
-              id: this.encodeId(publicId!),
-              signature: this.encodeId(signature!)
-            })
-          )
+          receivers.push({
+            id: this.encodeId(publicId!),
+            signature: this.encodeId(signature!)
+          })
         })
       }
 
-      const message = IncomingMessage.create({
-        receivers: receivers,
+      messages.push({
+        receivers,
         body: JSON.stringify(messageBody),
         expiry: messageFields.expiry || 0
       })
-      messages.push(message)
     })
 
-    const requestBatch = RequestBatch.create({
-      requests: [
-        {
-          incomingMessages: {
-            messages: messages
-          }
-        }
-      ]
-    })
-
+    // The frame is described ONCE, as plain data, and each codec serialises it.
+    //
+    // It used to be built with `Receiver.create` / `IncomingMessage.create` /
+    // `RequestBatch.create` before the branch, which meant the lite path still
+    // required the library at runtime — so opting in cost 4 kB and saved
+    // nothing, and the library could not be deleted by flipping a default.
+    // It also forced the codec to reproduce protobuf.js's prototype defaults
+    // (`isPrivate = false`, `type = ''`), a trap that simply does not exist for
+    // plain objects.
     if (this._useLiteProtobuf) {
-      // Same value, same bytes — the differential test asserts exactly that, on
-      // the shape built above.
-      //
-      // Cast, and deliberately: both paths hand back a `Uint8Array` at runtime
-      // (protobuf.js's `.finish()` does too), and the caller passes it straight
-      // to `send()`, which accepts one. The vendored branch type-checks only
-      // because the library is typed `any`, so this states what that branch
-      // relies on silently.
-      return encodeRequestBatch(messages as LiteIncomingMessage[]) as unknown as ArrayBuffer
+      // A `Uint8Array`, like `.finish()` on the other branch. The declared
+      // return type has always been wrong for both — see `abstract-connector`,
+      // whose `send()` really accepts an `ArrayBufferView`.
+      return encodeRequestBatch(messages) as unknown as ArrayBuffer
     }
 
-    return RequestBatch.encode(requestBatch).finish()
+    return RequestBatch.encode(RequestBatch.create({
+      requests: [{ incomingMessages: { messages } }]
+    })).finish()
   }
 
   /**
-   * @memo fix return type
    * @param users
    * @param publicIds
    */
   private createMessageReceivers(
     users: number[],
     publicIds: Record<number, TypeChanel>
-  ): any[] {
+  ): LiteReceiver[] {
     const result = []
 
     for (const userId of users) {
@@ -1727,12 +1719,10 @@ export class PullClient implements ConnectorParent {
         throw new Error(`Could not determine public id for user ${userId}`)
       }
 
-      result.push(
-        Receiver.create({
-          id: this.encodeId(publicIds[userId].publicId),
-          signature: this.encodeId(publicIds[userId].signature)
-        })
-      )
+      result.push({
+        id: this.encodeId(publicIds[userId].publicId),
+        signature: this.encodeId(publicIds[userId].signature)
+      })
     }
 
     return result

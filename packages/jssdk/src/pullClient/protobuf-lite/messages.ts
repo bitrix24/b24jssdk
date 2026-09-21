@@ -127,13 +127,18 @@ export function encodeRequestBatch(messages: LiteIncomingMessage[]): Uint8Array 
 
 function readSender(view: Uint8Array): LiteSender {
   const r = new Reader(view)
-  const sender: LiteSender = {}
+  // Defaults, not `{}`. protobuf.js hands the caller a message whose unset
+  // fields carry the schema's defaults; leaving them `undefined` here is what
+  // made a frame without `id` throw inside `decodeId` and take the whole batch
+  // with it (the catch in `extractProtobufMessages` is around the loop, not
+  // around one message).
+  const sender: LiteSender = { type: 0, id: new Uint8Array(0) }
   while (!r.done) {
     const key = r.varint()
     const field = key >>> 3
     const wireType = key & 7
     if (field === 1 && wireType === WIRE_VARINT) {
-      sender.type = r.varint()
+      sender.type = r.uint32()
     } else if (field === 2 && wireType === WIRE_BYTES) {
       sender.id = r.bytes()
     } else {
@@ -146,7 +151,15 @@ function readSender(view: Uint8Array): LiteSender {
 
 function readOutgoingMessage(view: Uint8Array): LiteOutgoingMessage {
   const r = new Reader(view)
-  const message: LiteOutgoingMessage = {}
+  // See `readSender`: these are protobuf.js's defaults for the field types —
+  // `bytes` empty, `string` empty, numbers zero. `sender` stays absent, as the
+  // library leaves an unset message field null.
+  const message: LiteOutgoingMessage = {
+    id: new Uint8Array(0),
+    body: '',
+    expiry: 0,
+    created: 0
+  }
   while (!r.done) {
     const key = r.varint()
     const field = key >>> 3
@@ -156,7 +169,9 @@ function readOutgoingMessage(view: Uint8Array): LiteOutgoingMessage {
     } else if (field === 2 && wireType === WIRE_BYTES) {
       message.body = r.string()
     } else if (field === 3 && wireType === WIRE_VARINT) {
-      message.expiry = r.varint()
+      // `uint32`, masked the way the library masks it: a wire value of 2^32
+      // reads back as 0 there and would read as 4294967296 here.
+      message.expiry = r.uint32()
     } else if (field === 4 && wireType === WIRE_FIXED32) {
       // The schema's only fixed32.
       message.created = r.fixed32()

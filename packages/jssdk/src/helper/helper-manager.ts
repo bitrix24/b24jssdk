@@ -12,7 +12,7 @@ import { Text } from '../tools/text'
 import { LoadDataType, TypeSpecificUrl } from '../types/b24-helper'
 import type { TypeApp, TypeB24Form, TypeEnumAppStatus, TypeLicense, TypePayment, TypeUser } from '../types/b24-helper'
 import type { GenderString } from '../types/common'
-import type { TypePullMessage } from '../types/pull'
+import type { TypePullClientParams, TypePullMessage } from '../types/pull'
 import type { BatchNamedCommandsUniversal } from '../types/http'
 
 /**
@@ -410,7 +410,8 @@ export class B24HelperManager {
   // region Pull.Client ////
   public usePullClient(
     prefix: string = 'prefix',
-    userId?: number
+    userId?: number,
+    protobufCodec?: TypePullClientParams['protobufCodec']
   ): B24HelperManager {
     if (this._b24PullClient) {
       return this
@@ -418,7 +419,8 @@ export class B24HelperManager {
 
     this.initializePullClient(
       typeof userId === 'undefined' ? this.profileInfo.data.id || 0 : userId,
-      prefix
+      prefix,
+      protobufCodec
     )
 
     return this
@@ -426,12 +428,14 @@ export class B24HelperManager {
 
   private initializePullClient(
     userId: number,
-    prefix: string = 'prefix'
+    prefix: string = 'prefix',
+    protobufCodec?: TypePullClientParams['protobufCodec']
   ): void {
     this._b24PullClient = new B24PullClientManager({
       b24: this._b24,
       restApplication: this._b24.auth.getUniq(prefix),
-      userId
+      userId,
+      ...(protobufCodec === undefined ? {} : { protobufCodec })
     })
   }
 

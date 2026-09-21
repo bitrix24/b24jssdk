@@ -10,19 +10,45 @@ beside it can be checked against something other than the library it replaces.
 
 ## What it costs
 
-Measured on `dist`, bundling a test app with esbuild:
+All figures are **minified and NOT gzipped**, so the over-the-wire cost is
+roughly a third of them. Reproduce with:
+
+```sh
+pnpm --filter ./packages/jssdk build
+echo "export { B24Hook } from './packages/jssdk/dist/esm/index.mjs'" > /tmp/a.mjs
+echo "export { B24Hook, B24PullClientManager } from './packages/jssdk/dist/esm/index.mjs'" > /tmp/b.mjs
+npx esbuild /tmp/a.mjs /tmp/b.mjs --bundle --minify --format=esm --outdir=/tmp/out
+```
 
 | bundle | minified |
 | --- | --- |
 | SDK without `B24PullClientManager` | 228 kB |
-| SDK with it | 374 kB |
-| **Pull's share** | **146 kB** |
-| **of which protobuf.js alone** | **94 kB** |
+| SDK with it | 379 kB |
+| **Pull's share** | **150 kB** |
+| **of which the vendored `protobuf/` directory** | **94 kB** |
+| — protobuf.js itself | 79 kB |
+| — the generated model | 15 kB |
+| the hand-written codec | 4.5 kB |
 
-Tree-shaking already works: a consumer who never imports the Pull client gets
-none of this — verified, `protobuf` does not appear in the no-Pull bundle. So
-the weight lands on two groups: applications that use Pull, and anyone loading
-the UMD build with a `<script>` tag, where nothing can be shaken out.
+The absolute pair moves with the entry point (a `B24Frame` entry measures
+higher); the **delta is what is stable**, and it is the delta that matters.
+
+Tree-shaking works, with one real exception: `protobuf` does not appear in the
+no-Pull bundle at all — but `B24HelperManager` imports `B24PullClientManager`
+statically, so **any consumer of the helper ships all 150 kB whatever they
+import**. The weight therefore lands on three groups: applications that use
+Pull, applications that use the helper, and anyone loading the UMD build with a
+`<script>` tag, where nothing can be shaken out.
+
+## Why this is not only about bytes
+
+`protobuf/protobuf.js` is protobuf.js **v6.8.6, compiled 26 Feb 2018**. It is
+not in `package.json` and not in `pnpm-lock.yaml`, and it is listed in
+`eslint.config.mjs` as ignored. The practical consequence: it is invisible to
+`pnpm audit`, to Dependabot and to the linter, so the coverage `SECURITY.md`
+describes does not in fact reach it. An eight-year-old parser that reads bytes
+straight off a socket is the part of this change that is worth more than the
+94 kB.
 
 ## Where the schema comes from
 
@@ -38,7 +64,8 @@ Facts established at the same time, worth not re-establishing:
 - **Protobuf is tied to push-server version exactly 4.** From version 5 the
   stock client switches to JSON-RPC and does not touch protobuf at all
   (`connector.js:913-921`). Both the current box and the cloud are on 4
-  (`CLOUD_SERVER_VERSION = 4`), and no version 5 exists yet — so protobuf
+  (`CLOUD_SERVER_VERSION = 4` — a box-side constant, not verifiable from this
+  repository), and no version 5 exists yet — so protobuf
   cannot simply be deleted.
 - **This SDK already implements JSON-RPC**, with the same version gate
   (`client.ts`, `isProtobufSupported()` / `isJsonRpc()`), and `json-rpc.ts`
@@ -79,8 +106,11 @@ both go, and the 94 kB lands.
 
 Until then both ship, and the honest accounting is that this **costs** rather
 than saves: measured the same way as the table above, the Pull bundle went from
-374 kB to 378 kB — **+4 kB** for the second codec. The 94 kB is not banked, it
-is made collectable without a flag day.
+375 kB to 379 kB — **+4 kB** for the second codec. What the change buys is that
+the 94 kB becomes collectable: with `protobufCodec: 'lite'` the vendored library
+is no longer reachable from the encode or the decode path, so deleting it is a
+one-line change rather than a rewrite. Measured by stubbing the vendored import
+out of `dist`, the same bundle drops from 379 kB to **285 kB**.
 
 ## How the two are held together
 
@@ -98,3 +128,29 @@ give a client that writes with one codec and reads with the other.
 When the vendored library is deleted, the differential test loses its oracle.
 Convert it then into golden vectors from the fixtures it already carries; do not
 simply delete it.
+
+### What the differential test cannot catch
+
+Both codecs were derived from the same descriptors, so the suite proves they
+**agree**, not that they are **right**. A wrong field number in the restored
+schema is reproduced identically on both sides and stays green — if
+`OutgoingMessage.created` were really at a different number, or `sfixed32`
+rather than `fixed32`, nothing here would say so. `pull.proto` is checked by
+eye against the generated `model.js`, not by code; nothing parses it.
+
+That class of bug is only closed by bytes from a real server. The exit criterion
+for dropping the vendored library is therefore **not** a green suite: it is a
+recorded `ResponseBatch` from a live portal, committed as a fixture and decoded
+by both codecs. Until that fixture exists, the default must stay on the library.
+
+### Known divergences from protobuf.js
+
+Both are outside anything the push server sends, and are recorded so they are
+not rediscovered as bugs:
+
+- **Lone surrogates in a body.** `TextEncoder` substitutes U+FFFD; protobuf.js's
+  own UTF-8 writer emits the unpaired surrogate bytes. A JSON body cannot
+  contain one, so this never arises in practice.
+- **Sign extension.** The codec reads `uint32` for every numeric field in the
+  schema, which is what the schema declares. It has no `int32` reader, so a
+  negative value — which the schema cannot express — would not round-trip.

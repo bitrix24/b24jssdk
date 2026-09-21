@@ -91,25 +91,36 @@ describe('pull: the protobufCodec switch', () => {
     })).finish()
 
     const spyLite = vi.spyOn(lite, 'decodeResponseBatch')
+    const spyVendored = vi.spyOn(vendored.ResponseBatch, 'decode')
     try {
       decode(build('lite'), raw.buffer as ArrayBuffer)
       expect(spyLite).toHaveBeenCalled()
+      expect(spyVendored).not.toHaveBeenCalled()
     } finally {
       spyLite.mockRestore()
+      spyVendored.mockRestore()
     }
   })
 
-  it('the default decode path does not reach the lite codec', () => {
+  it('the default decode path runs the library and not the lite codec', () => {
+    // Both halves are asserted on purpose. The negative alone is satisfied by a
+    // client that reads through the lite codec under a binding the spy cannot
+    // see — a module-scope alias captured before `vi.spyOn` patches the
+    // namespace. Review demonstrated exactly that false pass, so the positive
+    // assertion on the library is what actually pins the default.
     const raw = vendored.ResponseBatch.encode(vendored.ResponseBatch.create({
       responses: [{ outgoingMessages: { messages: [{ id: Uint8Array.from([1]), body: '{"module_id":"main"}' }] } }]
     })).finish()
 
     const spyLite = vi.spyOn(lite, 'decodeResponseBatch')
+    const spyVendored = vi.spyOn(vendored.ResponseBatch, 'decode')
     try {
       decode(build(), raw.buffer as ArrayBuffer)
+      expect(spyVendored).toHaveBeenCalled()
       expect(spyLite).not.toHaveBeenCalled()
     } finally {
       spyLite.mockRestore()
+      spyVendored.mockRestore()
     }
   })
 })

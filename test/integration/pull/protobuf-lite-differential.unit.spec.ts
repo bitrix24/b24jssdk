@@ -29,6 +29,7 @@ function encodeWithVendored(messages: LiteIncomingMessage[]): Uint8Array {
       ...(receiver.isPrivate === undefined ? {} : { isPrivate: receiver.isPrivate }),
       ...(receiver.signature === undefined ? {} : { signature: receiver.signature })
     })),
+    ...(message.sender === undefined ? {} : { sender: message.sender }),
     ...(message.body === undefined ? {} : { body: message.body }),
     ...(message.expiry === undefined ? {} : { expiry: message.expiry }),
     ...(message.type === undefined ? {} : { type: message.type })
@@ -70,6 +71,10 @@ describe('pull protobuf-lite — encoding agrees with the vendored library', () 
       expiry: 0
     }]],
     ['a type field', [{ receivers: [{ id: bytes(1), signature: bytes(2) }], body: '{}', expiry: 0, type: 'text' }]],
+    // `client.ts` never sets a sender today, so `writeSender()` and its field
+    // number on the SEND side had no oracle at all until these two cases.
+    ['a sender', [{ receivers: [{ id: bytes(1), signature: bytes(2) }], body: '{}', expiry: 0, sender: { type: 1, id: bytes(4, 5) } }]],
+    ['a sender carrying only a type', [{ receivers: [{ id: bytes(1) }], body: '{}', sender: { type: 2 } }]],
     ['no receivers at all', [{ body: '{}', expiry: 0 }]],
     ['empty batch', []],
     ['an expiry past one byte of varint', [{ receivers: [{ id: bytes(1), signature: bytes(2) }], body: '{}', expiry: 300 }]],
@@ -191,6 +196,22 @@ describe('pull protobuf-lite — decoding agrees with the vendored library', () 
     expect(decodeResponseBatch(raw).responses[0]!.command).toBe('channelStats')
   })
 
+  it('a key that is present but undefined is omitted, as the library omits it', () => {
+    // `has()` guards on BOTH ownership and null/undefined. Ownership is pinned
+    // by the instance cases above; this pins the other half. `client.ts` builds
+    // its objects with optional keys, so a key sitting there holding
+    // `undefined` is the shape that actually occurs — and writing it would put
+    // a garbage field on the wire where the library puts nothing.
+    const sparse = [{
+      receivers: [{ id: bytes(1), isPrivate: undefined, signature: bytes(2) }],
+      body: '{}',
+      expiry: undefined,
+      type: undefined
+    }] as LiteIncomingMessage[]
+
+    expect(hex(encodeRequestBatch(sparse))).toBe(hex(encodeWithVendored(sparse)))
+  })
+
   it('an empty batch decodes to an empty list, not to a throw', () => {
     const raw = encodeResponseBatch([])
 
@@ -218,12 +239,46 @@ describe('pull protobuf-lite — decoding agrees with the vendored library', () 
     expect(decodeResponseBatch(withUnknown).responses[0]!.command).toBe('outgoingMessages')
   })
 
-  it('a field of a type nothing in the schema uses is skipped, not thrown on', () => {
-    // A batch whose trailing unknown field is fixed32 — the one `skip()` branch
-    // no other case reaches, because the schema's own fixed32 is a KNOWN field.
-    const raw = Uint8Array.from([...encodeResponseBatch([]), (13 << 3) | 5, 9, 9, 9, 9])
+  it('ignores an unknown field added to a nested message, not only to the batch', () => {
+    // The realistic shape of "the server grew a field" is a new field on
+    // `OutgoingMessage` or `Sender`, not a trailer on the outermost frame.
+    // Trailing the batch only exercises `decodeResponseBatch`'s own `skip()`;
+    // every inner reader has its own, and a missing one there desynchronises
+    // the reader mid-message and corrupts the rest of it.
+    //
+    // The library cannot express "encode a field that is not in the schema", so
+    // the frame is laid out by hand. `len` stays a single byte throughout
+    // because every payload here is well under 128 bytes.
+    const len = (field: number, wire: number, payload: number[]) =>
+      [(field << 3) | wire, payload.length, ...payload]
+    const sender = [
+      ...len(2, 2, [7]), // id
+      0x08, 1, // type = 1 (varint, #1)
+      0x58, 42 // unknown varint at #11
+    ]
+    const body = [...new TextEncoder().encode('{"module_id":"main"}')]
+    const outgoing = [
+      ...len(1, 2, [1]), // id
+      ...len(2, 2, body), // body
+      ...len(5, 2, sender), // sender
+      0x50, 7 // unknown varint at #10
+    ]
+    // One unknown field at EVERY depth: `Sender`, `OutgoingMessage`,
+    // `OutgoingMessagesResponse`, `Response`. Each reader has its own `skip()`,
+    // and a trailer on the outermost frame exercises none of the inner ones.
+    const messagesResponse = [...len(1, 2, outgoing), 0x50, 3]
+    const response = [...len(1, 2, messagesResponse), 0x50, 4]
+    const raw = Uint8Array.from(len(1, 2, response))
 
-    expect(decodeResponseBatch(raw).responses).toStrictEqual([])
+    // The library agrees this is a valid frame with the same content.
+    expect(ResponseBatch.decode(raw).responses[0]!.outgoingMessages!.messages[0]!.body)
+      .toBe('{"module_id":"main"}')
+
+    expect(() => decodeResponseBatch(raw)).not.toThrow()
+    const message = decodeResponseBatch(raw).responses[0]!.outgoingMessages!.messages[0]!
+    expect(message.body).toBe('{"module_id":"main"}')
+    expect(message.sender!.type).toBe(1)
+    expect(hex(message.sender!.id!)).toBe('07')
   })
 
   it('round-trips what the lite encoder produced back through the library', () => {

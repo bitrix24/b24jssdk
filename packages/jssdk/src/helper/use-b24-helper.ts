@@ -2,7 +2,7 @@ import { SdkError } from '../core/sdk-error'
 import { B24HelperManager } from './helper-manager'
 import { LoadDataType } from '../types/b24-helper'
 import type { TypeB24 } from '../types/b24'
-import type { TypePullMessage } from '../types/pull'
+import type { TypePullClientParams, TypePullMessage } from '../types/pull'
 
 export const useB24Helper = () => {
   let $isInitB24Helper = false
@@ -52,7 +52,11 @@ export const useB24Helper = () => {
     return $b24Helper
   }
 
-  const usePullClient = () => {
+  const usePullClient = (
+    prefix?: string,
+    userId?: number,
+    protobufCodec?: TypePullClientParams['protobufCodec']
+  ) => {
     if (null === $b24Helper) {
       throw new SdkError({
         code: 'JSSDK_HELPER_NOT_INIT',
@@ -61,7 +65,7 @@ export const useB24Helper = () => {
       })
     }
 
-    $b24Helper.usePullClient()
+    $b24Helper.usePullClient(prefix, userId, protobufCodec)
     $isInitPullClient = true
   }
 

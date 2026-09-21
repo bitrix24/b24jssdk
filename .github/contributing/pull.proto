@@ -1,11 +1,11 @@
-// Схема сообщений Pull/push-сервера Битрикс24, восстановленная из исходников коробки:
-//   www/bitrix/modules/pull/lib/protobuf/*.php  (дескрипторы полей)
-// Семантика proto2: все скалярные поля optional, списки repeated.
-// ВАЖНО: required-полей нет ни одного (LABEL_REQUIRED не встречается в модуле).
+// Message schema of the Bitrix24 Pull/push server, restored from the on-premise sources:
+//   www/bitrix/modules/pull/lib/protobuf/*.php  (field descriptors)
+// proto2 semantics: every scalar field is optional, every list is repeated.
+// NOTE: there is no required field anywhere (LABEL_REQUIRED never appears in the module).
 
 syntax = "proto2";
 
-// ======================= верхний уровень =======================
+// ======================= top level =======================
 
 // requestbatch.php:133-137
 message RequestBatch {
@@ -27,14 +27,14 @@ message Request {
 }
 
 // response.php:195-213
-// NB: поле 3 называется serverStats, но имеет тип JsonResponse (асимметрия с Request).
+// NB: field 3 is named serverStats but carries JsonResponse — it is not symmetric with Request.
 message Response {
   optional OutgoingMessagesResponse outgoingMessages = 1;
   optional ChannelStatsResponse     channelStats     = 2;
   optional JsonResponse             serverStats      = 3;
 }
 
-// ======================= отправка: клиент -> сервер =======================
+// ======================= sending: client -> server =======================
 
 // incomingmessagesrequest.php:133-137
 message IncomingMessagesRequest {
@@ -57,7 +57,7 @@ message Receiver {
   optional bytes signature = 3;
 }
 
-// ======================= приём: сервер -> клиент =======================
+// ======================= receiving: server -> client =======================
 
 // outgoingmessagesresponse.php:133-137
 message OutgoingMessagesResponse {
@@ -65,17 +65,17 @@ message OutgoingMessagesResponse {
 }
 
 // outgoingmessage.php:277-305
-// ВНИМАНИЕ: раскладка ОТЛИЧАЕТСЯ от IncomingMessage — нет receivers и type,
-// есть created (fixed32!), sender сдвинут на #5.
+// WARNING: the layout DIFFERS from IncomingMessage — no receivers and no type,
+// there is a created (fixed32!), and sender moves to #5.
 message OutgoingMessage {
   optional bytes   id      = 1;
   optional string  body    = 2;
   optional uint32  expiry  = 3;
-  optional fixed32 created = 4;   // единственный fixed32 во всей схеме (wire type 5)
+  optional fixed32 created = 4;   // the only fixed32 in the whole schema (wire type 5)
   optional Sender  sender  = 5;
 }
 
-// ======================= общее =======================
+// ======================= shared =======================
 
 // sender.php:160-170
 message Sender {
@@ -90,17 +90,17 @@ enum SenderType {
   BACKEND = 2;
 }
 
-// ======================= статистика (клиенту обычно не нужна) =======================
+// ======================= statistics (a client rarely needs these) =======================
 
 message ChannelStatsRequest  { repeated ChannelId    channels = 1; }
 message ChannelStatsResponse { repeated ChannelStats channels = 1; }
 
-// serverstatsrequest.php — полей нет вообще
+// serverstatsrequest.php — it has no fields at all
 message ServerStatsRequest { }
 
 message JsonResponse { optional string json = 1; }
 
-// channelid.php — раскладка идентична Receiver, можно переиспользовать кодек
+// channelid.php — the layout is identical to Receiver, so the codec can be reused
 message ChannelId {
   optional bytes id        = 1;
   optional bool  isPrivate = 2;

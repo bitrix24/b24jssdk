@@ -3,9 +3,11 @@
  *
  * The schema it serves has no `required` fields, no packed repeats, no maps and
  * no 64-bit numbers — only `bytes`, `string`, `bool`, `uint32`, one `fixed32`
- * and nested messages. That is why 1.1 kB of code replaces a 94 kB library;
- * it is also why this file must never grow to cover protobuf in general. If a
- * new field type appears in `pull.proto`, add it here deliberately.
+ * and nested messages. That is why 4.5 kB minified replaces the 94 kB vendored
+ * `protobuf/` directory (79 kB of it is protobuf.js itself, the rest is the
+ * generated model); it is also why this file must never grow to cover protobuf
+ * in general. If a new field type appears in `pull.proto`, add it here
+ * deliberately. The doc records how those figures are measured.
  *
  * Restored from the box's own descriptors (`modules/pull/lib/protobuf/*.php`),
  * not reverse-engineered from traffic — see `.github/contributing/pull-protobuf.md`.

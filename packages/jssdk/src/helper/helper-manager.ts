@@ -408,6 +408,15 @@ export class B24HelperManager {
   // endregion ////
 
   // region Pull.Client ////
+  /**
+   * @param prefix - namespace for the application's Pull channel
+   * @param userId - defaults to the current user from the loaded profile
+   * @param protobufCodec - `@internal`, see
+   *   {@link TypePullClientParams.protobufCodec}. Threaded through because the
+   *   helper is how most callers construct the Pull client, so a switch the
+   *   helper cannot reach is a switch nobody can try. Not part of the public
+   *   contract and removed with the option.
+   */
   public usePullClient(
     prefix: string = 'prefix',
     userId?: number,

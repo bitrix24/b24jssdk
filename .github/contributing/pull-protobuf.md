@@ -97,12 +97,27 @@ not null.
 
 ## The switch
 
-`new PullClient({ ..., protobufCodec: 'lite' })` selects the hand-written codec.
+`new PullClient({ ..., protobufCodec: 'lite' })` selects the hand-written codec,
+and `usePullClient(prefix, userId, 'lite')` reaches it through the helper — which
+matters, because the helper is how most callers construct a Pull client at all.
 It is **opt-in, and the default stays on the vendored library**, because the
 lite codec has not yet run against a live portal.
 
-This is deliberately temporary. Once it has, the vendored library and the option
-both go, and the 94 kB lands.
+The option is tagged **`@internal`**: it is the SDK's own migration switch, off
+the documentation site, and it will be removed without a deprecation cycle. That
+is the whole reason it can exist as a runtime option — see the carve-out in
+[`package-structure.md`](package-structure.md#adding-to-the-public-surface).
+
+A separate entry point (`@bitrix24/b24jssdk/pull-lite`) was the alternative, and
+it is the only shape that banks the 94 kB **today** rather than making it
+collectable: the vendored library would simply not be reachable from that entry.
+It was not taken, for two reasons. `B24HelperManager` lives in the main entry and
+imports the vendored `PullClient` statically, so the most common way of using
+Pull would not have been covered without duplicating the helper too; and the UMD
+build is a single file with no subpaths, so `<script>` users would have been left
+behind either way. Revisit this if the lite codec is proven but the vendored one
+still has to ship for some other reason — that is the case the subpath answers
+and the option does not.
 
 Until then both ship, and the honest accounting is that this **costs** rather
 than saves: measured the same way as the table above, the Pull bundle went from

@@ -9,6 +9,7 @@ The application requires the following Bitrix24 REST API scopes:
 - `crm`
 - `entity`
 - `user_brief`
+- `pull` — only for `/pull-lab`; without it `pull.application.event.add` fails
 
 ## Setup
 
@@ -112,3 +113,72 @@ and why the outcome column distinguishes a real answer from the timer firing.
 Give it [MESSENGER-PROBE-BRIEF.md](MESSENGER-PROBE-BRIEF.md) together with the
 console output. The harness shows what an app can see; the assistant works in the
 top window, where the answer actually lives.
+
+## Pull lab: comparing the two protobuf codecs (`/pull-lab`)
+
+Route: **`/pull-lab`**.
+
+The SDK ships two protobuf implementations — the vendored protobuf.js that has
+always been there, and a hand-written one — selected by an `@internal` switch.
+They are held byte-identical by unit tests, but those tests derive both sides
+from the same schema, so they prove the two *agree*, not that either is *right*.
+Only a real portal can settle that. This page is how.
+
+### What it does
+
+Each tab builds its own Pull client on one codec and pushes everything through
+`pull.application.event.add`, the REST method for an application's RT channel: a
+`COMMAND` string, a free-form `PARAMS` object, and an optional `USER_ID` that
+switches between the shared channel and the caller's private one. That covers
+both directions asked of it — the server pushing to the front, and one tab
+reaching the other (which necessarily goes through the server; Pull has no
+browser-to-browser path).
+
+Eight checks run in order:
+
+| # | check | what a failure would mean |
+| --- | --- | --- |
+| 1 | the client reaches `online` | nothing below is meaningful |
+| 2 | **the frames really are protobuf** | see the warning below |
+| 3 | push-server version and the protobuf gate agree | the portal moved off version 4 |
+| 4 | a message on the **shared** channel comes back | the application channel is not wired |
+| 5 | a message on the **private** channel comes back | `USER_ID` routing or its signature is wrong |
+| 6 | **a payload of awkward values survives** | this is where a codec bug shows |
+| 7 | a large body survives | a length prefix or buffer-growth bug |
+| 8 | a burst of 20 arrives complete and in order | messages lost or reordered inside one batch |
+
+Check 6 is the one that earns the exercise. The body is a JSON string on the
+wire, so the values that matter are multi-byte UTF-8 (an encoder counting
+characters instead of bytes truncates it) and a string past 127 bytes (where the
+length prefix stops being a single byte). Emoji, Cyrillic, a 300-character
+string, empty strings, nulls, floats and nested objects all go out in one
+message and are compared structurally on the way back.
+
+### The one result that invalidates everything else
+
+**If the WebSocket mode is not `protobuf`, neither codec ran.** A portal on
+push-server v5 speaks JSON-RPC, and a long-polling fallback is not protobuf at
+all. In either case both tabs would agree perfectly while testing nothing. The
+page says so in a banner and check 2 fails rather than passing quietly — read
+that line before reading any other.
+
+### Running the lab
+
+1. Add the `pull` scope to the application, `pnpm dev` here, expose it through a
+   tunnel and install it as a placement app on a **test** portal.
+2. Open the placement, then open `/pull-lab` in **two tabs**.
+3. Set one tab to `vendored` and the other to `lite` (the buttons reload the
+   page — a codec is chosen when the client is constructed).
+4. Press **Run checks** in both. Then **Ping the other tab**, and send a line or
+   two through the message box, so the cross-tab path is exercised as well.
+5. Press **Download JSON** in each tab and hand both files over.
+
+### What is in the report, and what is not
+
+The report carries the connection panel, every check with its verdict and
+timing, the latency samples and the full event log. It also carries the SDK's
+own `getDebugInfo()` dump, which **masks the push JWT and the private channel
+id** before returning — so the file is safe to pass around as it stands.
+
+Two reports that agree on checks 4-8 while check 2 says `protobuf` in both is
+the evidence the codec work is waiting on.

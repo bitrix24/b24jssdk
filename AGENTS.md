@@ -2,7 +2,7 @@
 
 <sub>Last reviewed: 2026-09-09.</sub>
 
-This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The four detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
+This file is the single source of truth for AI coding agents and human contributors working on the `@bitrix24/b24jssdk` repository. The detailed guides under `.github/contributing/` are referenced from the relevant sections below — load them only when they apply to your task.
 
 ## Project Overview
 
@@ -142,6 +142,7 @@ Three Vitest projects, defined in [vitest.config.ts](vitest.config.ts):
 
 ```bash
 pnpm run package-jssdk:test:run-unit              # one-shot, unit project (no portal — also runs in CI)
+pnpm run pull:test-codec                          # unit subset: the two Pull protobuf codecs agree, and the switch selects them
 
 pnpm run package-jssdk:test                       # watch, integration project
 pnpm run package-jssdk:test:run                   # one-shot, integration project
@@ -203,6 +204,7 @@ Load these based on your task. **Do not load all files at once** — only load w
 | **[.github/contributing/testing.md](.github/contributing/testing.md)** | Vitest projects (integration + under-load), `.env.test`, `setupB24Tests()`, naming filters, no-mock policy + `*.unit.spec.ts` exception |
 | **[.github/contributing/documentation.md](.github/contributing/documentation.md)** | `docs/content/docs/` Markdown structure, frontmatter (`links`, `category`, `restApiVersion`), MDC blocks (`::warning`, `::caution`, `::rest-api-version-only`), examples |
 | **[.github/contributing/reproducing-user-reports.md](.github/contributing/reproducing-user-reports.md)** | Turning a user report into a runnable REST chain via the nuxt playground `IssueReproHarness.vue`, running it in the app OAuth context, reading the request/response transcript, and deciding SDK-bug vs caller-context vs platform |
+| **[.github/contributing/pull-protobuf.md](.github/contributing/pull-protobuf.md)** | The Pull wire format: the restored [`pull.proto`](.github/contributing/pull.proto), the vendored protobuf.js and what it costs, the `protobufCodec` switch between it and the hand-written codec, and what has to be true before the vendored copy can be deleted |
 | **[.github/contributing/telegram-release-post.md](.github/contributing/telegram-release-post.md)** | Drafting the Russian Telegram release announcement for the community: single paste-ready block, structure, verified + compiling code examples, soft breaking-change framing, tone/safety rules, the base64 docs cipher |
 
 ### Code Conventions

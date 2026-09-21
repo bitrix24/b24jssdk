@@ -314,6 +314,34 @@ export type TypePullClientParams = {
   getPublicListMethod?: string
   skipStorageInit?: boolean
   configTimestamp?: number
+
+  /**
+   * Which protobuf implementation encodes and decodes the push-server frames.
+   *
+   * - `'vendored'` (default) — the copy of protobuf.js that has always shipped
+   *   with the SDK. Proven, and 94 kB of the bundle.
+   * - `'lite'` — the hand-written codec for the ten structures this client
+   *   actually uses. Same bytes, no library.
+   *
+   * **Not part of the public contract.** This is the SDK's own migration switch,
+   * visible only because the type it sits on is exported. It is kept off the
+   * documentation site, and it will be **removed without a deprecation cycle**
+   * — see the `@internal` carve-out in
+   * `.github/contributing/package-structure.md`. Do not build on it.
+   *
+   * @internal
+   *
+   * @experimental The two codecs are held byte-identical by
+   * `test/integration/pull/protobuf-lite-differential.unit.spec.ts`, but that
+   * proves they agree, not that they are right: both were derived from the same
+   * descriptors. The lite codec has never run against a live portal, which is
+   * exactly why the default stays on the proven path.
+   *
+   * What ends it: a `ResponseBatch` recorded from a real portal and committed as
+   * a fixture. At that point the vendored library goes and this option goes with
+   * it. See `.github/contributing/pull-protobuf.md`.
+   */
+  protobufCodec?: 'vendored' | 'lite'
 }
 
 export type TypePullClientConfig = {

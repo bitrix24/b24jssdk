@@ -110,6 +110,14 @@ export type { TypeMyPayload } from './types/payloads'
 ```
 
 - Prefer `export { Foo } from './…'` over star re-exports for public types — it keeps the contract auditable.
+- A member of an exported type is part of that contract too — **unless it is
+  tagged `@internal`**, which is the one carve-out. `@internal` means the SDK's
+  own wiring, exposed because the type is exported and for no other reason: it
+  is kept out of the documentation site, it may be removed in any release, and
+  the deprecation cycle does not apply to it. Use it only where the alternative
+  would be to lock in a switch nobody outside the SDK should be flipping, and
+  say in the JSDoc what makes it temporary and what ends it. `TypePullClientParams.protobufCodec`
+  is the current example — see [`pull-protobuf.md`](pull-protobuf.md).
 - Star re-exports are acceptable for `src/types/index.ts` because that file is an internal aggregator.
 - Removing or renaming a public export is a **breaking change** and must go through a deprecation cycle.
 

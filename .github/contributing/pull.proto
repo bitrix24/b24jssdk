@@ -1,0 +1,114 @@
+// Message schema of the Bitrix24 Pull/push server, restored from the on-premise sources:
+//   www/bitrix/modules/pull/lib/protobuf/*.php  (field descriptors)
+// proto2 semantics: every scalar field is optional, every list is repeated.
+// NOTE: there is no required field anywhere (LABEL_REQUIRED never appears in the module).
+
+syntax = "proto2";
+
+// ======================= top level =======================
+
+// requestbatch.php:133-137
+message RequestBatch {
+  repeated Request requests = 1;
+}
+
+// responsebatch.php:133-137
+message ResponseBatch {
+  repeated Response responses = 1;
+}
+
+// ======================= Request / Response =======================
+
+// request.php:195-213
+message Request {
+  optional IncomingMessagesRequest incomingMessages = 1;
+  optional ChannelStatsRequest     channelStats     = 2;
+  optional ServerStatsRequest      serverStats      = 3;
+}
+
+// response.php:195-213
+// NB: field 3 is named serverStats but carries JsonResponse — it is not symmetric with Request.
+message Response {
+  optional OutgoingMessagesResponse outgoingMessages = 1;
+  optional ChannelStatsResponse     channelStats     = 2;
+  optional JsonResponse             serverStats      = 3;
+}
+
+// ======================= sending: client -> server =======================
+
+// incomingmessagesrequest.php:133-137
+message IncomingMessagesRequest {
+  repeated IncomingMessage messages = 1;
+}
+
+// incomingmessage.php:290-319
+message IncomingMessage {
+  repeated Receiver receivers = 1;
+  optional Sender   sender    = 2;
+  optional string   body      = 3;
+  optional uint32   expiry    = 4;
+  optional string   type      = 5;
+}
+
+// receiver.php:203-218
+message Receiver {
+  optional bytes id        = 1;
+  optional bool  isPrivate = 2;
+  optional bytes signature = 3;
+}
+
+// ======================= receiving: server -> client =======================
+
+// outgoingmessagesresponse.php:133-137
+message OutgoingMessagesResponse {
+  repeated OutgoingMessage messages = 1;
+}
+
+// outgoingmessage.php:277-305
+// WARNING: the layout DIFFERS from IncomingMessage — no receivers and no type,
+// there is a created (fixed32!), and sender moves to #5.
+message OutgoingMessage {
+  optional bytes   id      = 1;
+  optional string  body    = 2;
+  optional uint32  expiry  = 3;
+  optional fixed32 created = 4;   // the only fixed32 in the whole schema (wire type 5)
+  optional Sender  sender  = 5;
+}
+
+// ======================= shared =======================
+
+// sender.php:160-170
+message Sender {
+  optional SenderType type = 1;
+  optional bytes      id   = 2;
+}
+
+// sendertype.php:21,26,31
+enum SenderType {
+  UNKNOWN = 0;
+  CLIENT  = 1;
+  BACKEND = 2;
+}
+
+// ======================= statistics (a client rarely needs these) =======================
+
+message ChannelStatsRequest  { repeated ChannelId    channels = 1; }
+message ChannelStatsResponse { repeated ChannelStats channels = 1; }
+
+// serverstatsrequest.php — it has no fields at all
+message ServerStatsRequest { }
+
+message JsonResponse { optional string json = 1; }
+
+// channelid.php — the layout is identical to Receiver, so the codec can be reused
+message ChannelId {
+  optional bytes id        = 1;
+  optional bool  isPrivate = 2;
+  optional bytes signature = 3;
+}
+
+message ChannelStats {
+  optional bytes id        = 1;
+  optional bool  isPrivate = 2;
+  optional bool  isOnline  = 3;
+}

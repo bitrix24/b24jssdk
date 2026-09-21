@@ -2,7 +2,7 @@ import { SdkError } from '../core/sdk-error'
 import { B24HelperManager } from './helper-manager'
 import { LoadDataType } from '../types/b24-helper'
 import type { TypeB24 } from '../types/b24'
-import type { TypePullMessage } from '../types/pull'
+import type { TypePullClientParams, TypePullMessage } from '../types/pull'
 
 export const useB24Helper = () => {
   let $isInitB24Helper = false
@@ -52,7 +52,20 @@ export const useB24Helper = () => {
     return $b24Helper
   }
 
-  const usePullClient = () => {
+  /**
+   * @param prefix - namespace for the application's Pull channel
+   * @param userId - defaults to the current user from the loaded profile
+   * @param protobufCodec - `@internal`, see
+   *   {@link TypePullClientParams.protobufCodec}. Threaded through because the
+   *   helper is how most callers construct the Pull client, so a switch the
+   *   helper cannot reach is a switch nobody can try. Not part of the public
+   *   contract and removed with the option.
+   */
+  const usePullClient = (
+    prefix?: string,
+    userId?: number,
+    protobufCodec?: TypePullClientParams['protobufCodec']
+  ) => {
     if (null === $b24Helper) {
       throw new SdkError({
         code: 'JSSDK_HELPER_NOT_INIT',
@@ -61,7 +74,7 @@ export const useB24Helper = () => {
       })
     }
 
-    $b24Helper.usePullClient()
+    $b24Helper.usePullClient(prefix, userId, protobufCodec)
     $isInitPullClient = true
   }
 

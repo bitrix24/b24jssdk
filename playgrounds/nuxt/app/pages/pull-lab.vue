@@ -1,27 +1,53 @@
 <script setup lang="ts">
 /**
- * Pull lab — compare the two protobuf codecs against a live portal.
+ * Pull lab — exercise the two protobuf codecs against a live portal.
  *
  * Open this route in TWO tabs and set a different codec in each
  * (`?codec=vendored` and `?codec=lite`). Each tab builds its own
- * `B24PullClientManager`, so the two connections are independent and the only
- * difference between them is which codec encodes and decodes the frames.
+ * `B24PullClientManager`, so the codec is the difference the page controls —
+ * see the caveat below about what it does not control.
  *
- * Everything that travels goes through `pull.application.event.add`, which is
- * the REST method for pushing into an application's RT channel: a COMMAND
- * string, a free-form PARAMS object, and an optional USER_ID that switches
- * between the shared channel and the caller's private one. That covers both
- * halves of what this page is for — the server sending data to the front, and
- * one tab sending to the other (which necessarily goes through the server;
- * there is no browser-to-browser path in Pull).
+ * ## What this page can and cannot see
  *
- * **The checks are only meaningful when the frames are actually protobuf.**
- * If the portal negotiates JSON-RPC (push-server v5+) or falls back to
- * long-polling, neither codec is exercised and the comparison is vacuous. The
- * connection panel says which mode is live, and check 2 fails loudly rather
- * than quietly passing.
+ * Most of it travels through `pull.application.event.add` — a COMMAND string, a
+ * free-form PARAMS object, and an optional USER_ID that switches between the
+ * shared application channel and the caller's private one. That is plain REST
+ * on the way out and protobuf only on the way back, so **it exercises the
+ * DECODE half of the codec and nothing else**.
  *
- * Needs the `pull` scope on the application.
+ * The encode half (`encodeRequestBatch`) is only reachable through
+ * `PullClient.sendMessage()`, which the portal refuses unless it has granted
+ * `publish_enabled`. Check 9 runs it when the portal allows and reports `skip`
+ * when it does not — it never quietly passes. This matters because two of the
+ * three traps named in `.github/contributing/pull-protobuf.md` live on the
+ * encode side.
+ *
+ * The transport does NOT decide whether the codec runs. On a version-4 portal
+ * the long-polling connector sets `responseType = 'arraybuffer'` too, and
+ * `extractMessages` dispatches on the payload type alone — so long-polling
+ * decodes through the codec under test exactly as the WebSocket does. What
+ * turns the codec off is JSON-RPC (push-server 5+), not the fallback.
+ *
+ * The two tabs are also not perfectly independent: `SharedConfig` keeps the
+ * blocked-transport flags in `localStorage` keyed by user and site, so one tab
+ * being pushed onto long-polling can drag the other with it. The codec is the
+ * only difference this page controls, not the only difference there is.
+ *
+ * ## What actually settles the codec question
+ *
+ * `pull-protobuf.md` asks for a `ResponseBatch` recorded from a real portal and
+ * committed as a fixture. Decoded results are not that. "Capture raw frames"
+ * taps the WebSocket and puts the bytes in the report, which is the artefact —
+ * and, incidentally, the only honest proof that binary protobuf frames are
+ * arriving at all rather than the client merely having asked for them.
+ *
+ * **The tap sees every frame on the connection, including events from other
+ * applications and portal modules.** That is why it is a button and not the
+ * default, and why the export carries a warning instead of a reassurance.
+ *
+ * Needs the `pull` scope. Test portals only — check 4 and everything after it
+ * broadcast to the shared channel, which reaches every user with this
+ * application open.
  */
 import { onMounted, onUnmounted, ref, computed, reactive } from 'vue'
 import type { B24Frame, TypePullMessage } from '@bitrix24/b24jssdk'
@@ -33,14 +59,19 @@ const $logger = LoggerFactory.createForBrowserDevelopment('[playground] PullLab'
 const MODULE_ID = 'application'
 /** How long any single message is waited for before it counts as lost. */
 const AWAIT_MS = 15_000
+/** The event log is exported whole, so it is bounded. */
+const MAX_EVENTS = 2000
+/** Raw frames are large and carry other applications' traffic. */
+const MAX_FRAMES = 40
 
 type Codec = 'vendored' | 'lite'
-type CheckState = 'idle' | 'running' | 'pass' | 'warn' | 'fail'
+type CheckState = 'idle' | 'running' | 'pass' | 'warn' | 'skip' | 'fail'
 
 type LogEvent = {
+  id: number
   at: string
   ms: number
-  kind: 'sent' | 'received' | 'status' | 'check' | 'note'
+  kind: 'sent' | 'received' | 'frame' | 'check' | 'note'
   text: string
   data?: unknown
 }
@@ -48,11 +79,20 @@ type LogEvent = {
 type Check = {
   id: string
   title: string
-  /** Why this check exists — carried into the exported log. */
+  /** Why this check exists — carried into the exported report. */
   why: string
   state: CheckState
   detail: string
   ms: number
+}
+
+/** A raw WebSocket frame, as the fixture #552 asks for. */
+type RawFrame = {
+  ms: number
+  binary: boolean
+  byteLength: number
+  /** base64 — decode with `Uint8Array.from(atob(b64), c => c.charCodeAt(0))`. */
+  base64: string
 }
 
 /** The envelope every lab message carries inside PARAMS. */
@@ -84,16 +124,23 @@ const debugInfo = ref<Record<string, unknown>>({})
 const serverVersion = ref(0)
 const connectionType = ref('-')
 const wsMode = ref('-')
+const publishingEnabled = ref(false)
 
 const events = ref<LogEvent[]>([])
+const frames = ref<RawFrame[]>([])
+const isCapturing = ref(false)
+/** Set once a binary frame has actually been observed, not merely requested. */
+const sawBinaryFrame = ref(false)
 const chatDraft = ref('')
 const startedAt = Date.now()
 let seq = 0
+let eventId = 0
 
 let $b24: B24Frame
 let pull: B24PullClientManager | null = null
 let unsubscribe: (() => void) | null = null
 let refreshTimer = 0
+let tappedSocket: WebSocket | null = null
 
 /** Messages this tab is waiting for, keyed by envelope id. */
 const pending = new Map<string, (envelope: LabEnvelope) => void>()
@@ -109,8 +156,8 @@ const checks = reactive<Check[]>([
   },
   {
     id: 'mode',
-    title: '2 · the frames really are protobuf',
-    why: 'Under JSON-RPC or long-polling neither codec runs, so a green suite would be measuring nothing. This check exists to stop that false result.',
+    title: '2 · the codec under test is actually on the decode path',
+    why: 'What switches the codec off is JSON-RPC (push-server 5+), not the transport: long-polling on a version-4 portal also receives an ArrayBuffer and decodes through the same codec. So this keys on the SDK\'s own gate rather than on the WebSocket. An observed binary frame is stronger evidence still and is reported when there is one, but it can only be seen on the WebSocket — its absence under long-polling means nothing.',
     state: 'idle',
     detail: '',
     ms: 0
@@ -126,7 +173,7 @@ const checks = reactive<Check[]>([
   {
     id: 'shared',
     title: '4 · a message on the SHARED channel comes back',
-    why: 'pull.application.event.add without USER_ID publishes to the application channel every tab listens on.',
+    why: 'pull.application.event.add without USER_ID publishes to the application channel every client of this app is subscribed to.',
     state: 'idle',
     detail: '',
     ms: 0
@@ -134,15 +181,15 @@ const checks = reactive<Check[]>([
   {
     id: 'private',
     title: '5 · a message on the PRIVATE channel comes back',
-    why: 'With USER_ID set the portal publishes to the caller\'s own channel, which is a different subscription and a different signature.',
+    why: 'With USER_ID set the portal publishes to that user\'s own channel, which is a different subscription with a different signature. Both tabs run as the same user, so this separates CHANNELS, not recipients.',
     state: 'idle',
     detail: '',
     ms: 0
   },
   {
     id: 'fidelity',
-    title: '6 · a payload of awkward values survives the round trip',
-    why: 'This is the check a codec bug actually shows up in. The body is a JSON string on the wire, so multi-byte UTF-8 and a length past 127 bytes are the two cases most likely to be encoded wrongly.',
+    title: '6 · a body of awkward values survives the round trip',
+    why: 'The body is one opaque length-delimited blob on the wire, so this is a weak codec test by construction: most of the values below exercise JSON, not protobuf. What it does reach is the length prefix and the UTF-8 decode — the sizes are chosen to sit either side of the varint boundary at 127 bytes.',
     state: 'idle',
     detail: '',
     ms: 0
@@ -150,15 +197,23 @@ const checks = reactive<Check[]>([
   {
     id: 'large',
     title: '7 · a large body survives',
-    why: 'A body over 16 kB pushes the length prefix into a three-byte varint, and large frames are where a buffer-growth bug would surface.',
+    why: 'The most valuable of the payload checks: a body over 16 kB forces a three-byte varint length prefix, which is the one wire-level read the ordinary traffic never reaches.',
     state: 'idle',
     detail: '',
     ms: 0
   },
   {
     id: 'burst',
-    title: '8 · a burst arrives complete and in order',
-    why: 'Several messages can share one batch. Dropping or reordering inside a batch is invisible when you only ever send one message.',
+    title: '8 · a sequence arrives complete and in the order it was sent',
+    why: 'Sent one at a time so the send order is real. The SDK rate limiter paces these, so they will usually NOT share one batch — this checks delivery, not batch handling, and says so rather than claiming more.',
+    state: 'idle',
+    detail: '',
+    ms: 0
+  },
+  {
+    id: 'encode',
+    title: '9 · the ENCODE half of the codec runs',
+    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs encodeRequestBatch — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled on the portal; without it the check reports skip, because a pass here would be a lie.',
     state: 'idle',
     detail: '',
     ms: 0
@@ -175,12 +230,28 @@ const now = () => Date.now() - startedAt
 
 function log(kind: LogEvent['kind'], text: string, data?: unknown): void {
   events.value.push({
+    id: ++eventId,
     at: new Date().toISOString(),
     ms: now(),
     kind,
     text,
     ...(data === undefined ? {} : { data })
   })
+  if (events.value.length > MAX_EVENTS) {
+    events.value.splice(0, events.value.length - MAX_EVENTS)
+  }
+}
+
+/**
+ * Errors go into a file that leaves this machine, so only the message does.
+ *
+ * `String(error)` on an `AjaxError` appends its stack trace, and in a browser
+ * that carries the app's origin — the tunnel hostname, in the documented
+ * workflow. The SDK redacts error *params*, not portal prose, so even the
+ * message is read before sending rather than trusted.
+ */
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function findCheck(id: string): Check {
@@ -208,9 +279,107 @@ const pretty = (value: unknown): string => {
   }
 }
 
-/** Structural comparison — what came back must be what went out, exactly. */
+/**
+ * Structural comparison, insensitive to key order.
+ *
+ * The payload is re-serialised by PHP on the way through, and PHP is free to
+ * hand the keys back in a different order. A plain `JSON.stringify` comparison
+ * would call that a codec bug — the most expensive wrong answer this page can
+ * give, since check 6 is the one people will read first.
+ */
 function sameValue(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
+  if (a === b) {
+    return true
+  }
+  if (typeof a !== typeof b || a === null || b === null) {
+    return false
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+      return false
+    }
+
+    return a.every((item, index) => sameValue(item, b[index]))
+  }
+  if (typeof a === 'object') {
+    const left = a as Record<string, unknown>
+    const right = b as Record<string, unknown>
+    const leftKeys = Object.keys(left).sort()
+    const rightKeys = Object.keys(right).sort()
+    if (leftKeys.length !== rightKeys.length || leftKeys.some((key, i) => key !== rightKeys[i])) {
+      return false
+    }
+
+    return leftKeys.every(key => sameValue(left[key], right[key]))
+  }
+
+  return false
+}
+
+// endregion ////
+
+// region raw frame capture ////
+
+function toBase64(buffer: ArrayBuffer): string {
+  const view = new Uint8Array(buffer)
+  let binary = ''
+  for (const byte of view) {
+    binary += String.fromCharCode(byte)
+  }
+
+  return btoa(binary)
+}
+
+function onSocketFrame(event: MessageEvent): void {
+  const binary = event.data instanceof ArrayBuffer
+  if (binary) {
+    sawBinaryFrame.value = true
+  }
+
+  if (!isCapturing.value || frames.value.length >= MAX_FRAMES) {
+    return
+  }
+
+  if (binary) {
+    const buffer = event.data as ArrayBuffer
+    frames.value.push({
+      ms: now(),
+      binary: true,
+      byteLength: buffer.byteLength,
+      base64: toBase64(buffer)
+    })
+    log('frame', `captured ${buffer.byteLength} raw bytes (${frames.value.length}/${MAX_FRAMES})`)
+  }
+}
+
+/**
+ * Listen alongside the SDK rather than in front of it.
+ *
+ * `addEventListener` does not displace the connector's own handler, so the
+ * client keeps working exactly as it would without the lab. The socket is
+ * replaced on every reconnect, hence the identity check on each refresh.
+ */
+function attachFrameTap(): void {
+  const socket = (pull?.connector as unknown as { socket?: WebSocket } | null)?.socket ?? null
+  if (!socket || socket === tappedSocket) {
+    return
+  }
+
+  tappedSocket?.removeEventListener('message', onSocketFrame)
+  socket.addEventListener('message', onSocketFrame)
+  tappedSocket = socket
+}
+
+function toggleCapture(): void {
+  isCapturing.value = !isCapturing.value
+  log('note', isCapturing.value
+    ? `capturing raw frames — this records EVERY frame on the connection, including other applications' events`
+    : 'raw frame capture stopped')
+}
+
+function clearFrames(): void {
+  frames.value = []
+  log('note', 'captured frames discarded')
 }
 
 // endregion ////
@@ -226,10 +395,10 @@ function sameValue(a: unknown, b: unknown): boolean {
 async function send(
   command: string,
   payload: unknown,
-  options: { to?: string | null, toUserId?: number } = {}
+  options: { to?: string | null, toUserId?: number, envelopeId?: string } = {}
 ): Promise<LabEnvelope> {
   const envelope: LabEnvelope = {
-    id: Text.getUuidRfc4122(),
+    id: options.envelopeId ?? Text.getUuidRfc4122(),
     from: tabId.value,
     fromCodec: codec.value,
     to: options.to ?? null,
@@ -238,59 +407,86 @@ async function send(
     payload
   }
 
+  // `> 0` rather than a truthiness test: a `userId` of 0 would silently omit
+  // USER_ID and publish to the SHARED channel while the check above it claimed
+  // to be testing the private one.
+  const toPrivate = typeof options.toUserId === 'number' && options.toUserId > 0
   const params: Record<string, unknown> = {
     COMMAND: command,
     MODULE_ID: MODULE_ID,
     PARAMS: { lab: envelope }
   }
-  if (options.toUserId) {
+  if (toPrivate) {
     params.USER_ID = options.toUserId
   }
 
   const response = await $b24.actions.v2.call.make({
     method: 'pull.application.event.add',
     params,
-    requestId: Text.getUuidRfc4122()
+    // Descriptive rather than a bare uuid: these show up in portal-side logs,
+    // and `pull-lab/...` is searchable where a uuid is not.
+    requestId: `pull-lab/${tabId.value}/${command}/${envelope.seq}`
   })
 
   if (!response.isSuccess) {
     throw new Error(response.getErrorMessages().join('; '))
   }
 
-  log('sent', `${command} → ${options.toUserId ? 'private' : 'shared'} channel`, {
+  log('sent', `${command} → ${toPrivate ? 'private' : 'shared'} channel`, {
     id: envelope.id,
     seq: envelope.seq,
-    bytes: JSON.stringify(envelope.payload).length
+    // UTF-16 code units, not bytes — named honestly because the byte/character
+    // distinction is the very thing some of these checks are about.
+    chars: JSON.stringify(envelope.payload).length
   })
 
   return envelope
 }
 
-/** Send, then wait for that exact envelope to come back through Pull. */
+/**
+ * Send, then wait for that exact envelope to come back through Pull.
+ *
+ * The waiter is registered BEFORE the send. The push frame and the REST
+ * response are independent paths and the portal publishes before it answers, so
+ * registering afterwards loses any reply that beats the HTTP response — which
+ * is the ordinary case on a healthy portal, and would be reported as "nothing
+ * came back" for a codec that worked perfectly.
+ */
 async function sendAndAwait(
   command: string,
   payload: unknown,
   options: { toUserId?: number, timeout?: number } = {}
 ): Promise<{ envelope: LabEnvelope, ms: number }> {
   const timeout = options.timeout ?? AWAIT_MS
+  const envelopeId = Text.getUuidRfc4122()
+
   let resolveFn: (envelope: LabEnvelope) => void = () => {}
   const received = new Promise<LabEnvelope>((resolve) => {
     resolveFn = resolve
   })
+  pending.set(envelopeId, resolveFn)
 
-  const sent = await send(command, payload, { toUserId: options.toUserId })
-  pending.set(sent.id, resolveFn)
-
-  const timer = new Promise<null>(resolve => window.setTimeout(() => resolve(null), timeout))
   const startedWaiting = Date.now()
-  const winner = await Promise.race([received, timer])
-  pending.delete(sent.id)
+  let timer = 0
+  try {
+    await send(command, payload, { toUserId: options.toUserId, envelopeId })
 
-  if (winner === null) {
-    throw new Error(`nothing came back within ${timeout} ms`)
+    const expired = new Promise<null>((resolve) => {
+      timer = window.setTimeout(() => resolve(null), timeout)
+    })
+    const winner = await Promise.race([received, expired])
+    if (winner === null) {
+      throw new Error(`nothing came back within ${timeout} ms`)
+    }
+
+    return { envelope: winner, ms: Date.now() - startedWaiting }
+  } finally {
+    // Otherwise every successful wait leaves a live timer and its closure.
+    if (timer) {
+      window.clearTimeout(timer)
+    }
+    pending.delete(envelopeId)
   }
-
-  return { envelope: winner, ms: Date.now() - startedWaiting }
 }
 
 // endregion ////
@@ -300,7 +496,7 @@ async function sendAndAwait(
 function onPullMessage(message: TypePullMessage): void {
   const envelope = message.params?.lab as LabEnvelope | undefined
   if (!envelope || typeof envelope.id !== 'string') {
-    log('received', `${message.command} (not a lab message)`, message.params)
+    log('received', `${message.command} (not a lab message)`)
     return
   }
 
@@ -319,8 +515,12 @@ function onPullMessage(message: TypePullMessage): void {
   // Answer another tab's ping so the round trip can be measured from there.
   if (message.command === 'lab_ping' && !mine) {
     void send('lab_pong', envelope.payload, { to: envelope.from }).catch((error) => {
-      log('note', 'pong failed: ' + String(error))
+      log('note', 'pong failed: ' + errorText(error))
     })
+  }
+
+  if (message.command === 'lab_pong' && envelope.to === tabId.value) {
+    log('note', `pong from ${envelope.from} (${envelope.fromCodec})`)
   }
 
   const waiting = pending.get(envelope.id)
@@ -354,22 +554,25 @@ async function runChecks(): Promise<void> {
       await new Promise(resolve => window.setTimeout(resolve, 250))
     }
     refreshConnection()
-    if (pull.status === PullStatus.Online) {
-      setCheck('connect', 'pass', `status=${pull.status}, transport=${connectionType.value}`, Date.now() - connectedAt)
-    } else {
+    if (pull.status !== PullStatus.Online) {
       setCheck('connect', 'fail', `status stuck at ${pull.status}`, Date.now() - connectedAt)
       return
     }
+    setCheck('connect', 'pass', `status=${pull.status}, transport=${connectionType.value}`, Date.now() - connectedAt)
 
-    // ---- 2 · protobuf actually in use -------------------------------------
+    // ---- 2 · protobuf observed, not assumed --------------------------------
     setCheck('mode', 'running', '')
-    if (wsMode.value === 'protobuf') {
-      setCheck('mode', 'pass', 'WebSocket in binary mode — the codec under test is doing the work')
+    const codecOnPath = pull.isProtobufSupported() && !pull.isJsonRpc()
+    const observed = sawBinaryFrame.value
+      ? 'and a binary frame was observed on the socket'
+      : `and no binary frame was observed — expected under long-polling, which this page cannot tap (transport: ${connectionType.value})`
+    if (codecOnPath) {
+      setCheck('mode', 'pass', `isProtobufSupported() && !isJsonRpc() ${observed}`)
     } else {
       setCheck(
         'mode',
         'fail',
-        `WebSocket mode is "${wsMode.value}". Neither codec runs in this mode, so everything below tells you nothing about the codec — it only tells you the portal works.`
+        `the protobuf path is off (isProtobufSupported()=${pull.isProtobufSupported()}, isJsonRpc()=${pull.isJsonRpc()}). Neither codec runs, so everything below tells you about the portal, not about the codec.`
       )
     }
 
@@ -399,47 +602,56 @@ async function runChecks(): Promise<void> {
         result.ms
       )
     } catch (error) {
-      setCheck('shared', 'fail', String(error instanceof Error ? error.message : error))
+      setCheck('shared', 'fail', errorText(error))
     }
 
     // ---- 5 · private channel -----------------------------------------------
     setCheck('private', 'running', '')
-    try {
-      const probe = { probe: 'private', at: Date.now() }
-      const result = await sendAndAwait('lab_probe', probe, { toUserId: userId.value })
-      setCheck(
-        'private',
-        sameValue(result.envelope.payload, probe) ? 'pass' : 'fail',
-        sameValue(result.envelope.payload, probe)
-          ? `returned in ${result.ms} ms`
-          : `returned in ${result.ms} ms but the payload differs`,
-        result.ms
-      )
-    } catch (error) {
-      setCheck('private', 'fail', String(error instanceof Error ? error.message : error))
+    if (userId.value <= 0) {
+      setCheck('private', 'fail', 'no user id — without it the probe would go to the SHARED channel and pass while testing nothing')
+    } else {
+      try {
+        const probe = { probe: 'private', at: Date.now() }
+        const result = await sendAndAwait('lab_probe', probe, { toUserId: userId.value })
+        setCheck(
+          'private',
+          sameValue(result.envelope.payload, probe) ? 'pass' : 'fail',
+          sameValue(result.envelope.payload, probe)
+            ? `returned in ${result.ms} ms`
+            : `returned in ${result.ms} ms but the payload differs`,
+          result.ms
+        )
+      } catch (error) {
+        setCheck('private', 'fail', errorText(error))
+      }
     }
 
     // ---- 6 · payload fidelity ----------------------------------------------
     setCheck('fidelity', 'running', '')
     const battery = {
       emptyString: '',
-      ascii: 'plain',
-      // Multi-byte UTF-8: an encoder that counts characters instead of bytes
-      // writes a length prefix that is too small and truncates the body.
+      // Multi-byte UTF-8 on the way back is `TextDecoder`'s job; these are here
+      // to confirm the body survives the portal, not to test the codec deeply.
       cyrillic: 'Проверка кодека',
       emoji: '🚀 конец 🇷🇺',
-      // Past 127 bytes the length prefix stops being a single byte.
-      long: 'x'.repeat(300),
+      // Not a varint-boundary probe, despite the sizes: the length prefix
+      // covers the WHOLE body, and the envelope alone (a uuid, the tab id, the
+      // counters) already carries it past 127 bytes. Check 7 is what reaches a
+      // prefix boundary. These two are here for bulk, honestly labelled.
+      shortish: 'x'.repeat(100),
+      longer: 'y'.repeat(200),
       zero: 0,
       negative: -42,
       big: 2_147_483_647,
-      float: 3.141_592_653_589_793,
       flagTrue: true,
       flagFalse: false,
       nullValue: null,
       list: [1, 'two', false, null, { deep: true }],
       nested: { a: { b: { c: 'deep' } } },
-      quotes: 'he said "hi"\nand a tab\there'
+      quotes: 'he said "hi"\nand a tab\there',
+      // The one divergence pull-protobuf.md records as unreachable: JSON escapes
+      // a lone surrogate, so this is where that claim is confirmed or broken.
+      loneSurrogate: '\uD800'
     }
     try {
       const result = await sendAndAwait('lab_probe', battery)
@@ -454,7 +666,7 @@ async function runChecks(): Promise<void> {
         log('note', 'fidelity mismatch', { sent: battery, got: result.envelope.payload })
       }
     } catch (error) {
-      setCheck('fidelity', 'fail', String(error instanceof Error ? error.message : error))
+      setCheck('fidelity', 'fail', errorText(error))
     }
 
     // ---- 7 · large body ------------------------------------------------------
@@ -462,48 +674,100 @@ async function runChecks(): Promise<void> {
     const large = { blob: 'ab'.repeat(10_000) }
     try {
       const result = await sendAndAwait('lab_probe', large, { timeout: 30_000 })
+      const returned = (result.envelope.payload as { blob?: string })?.blob?.length ?? 0
       setCheck(
         'large',
         sameValue(result.envelope.payload, large) ? 'pass' : 'fail',
         sameValue(result.envelope.payload, large)
-          ? `${JSON.stringify(large).length} bytes returned intact in ${result.ms} ms`
-          : `returned but corrupted (${String((result.envelope.payload as { blob?: string })?.blob?.length)} chars instead of 20000)`,
+          ? `${JSON.stringify(large).length} chars returned intact in ${result.ms} ms`
+          : `returned but corrupted (${returned} chars instead of 20000)`,
         result.ms
       )
     } catch (error) {
-      setCheck('large', 'fail', String(error instanceof Error ? error.message : error))
+      setCheck('large', 'fail', errorText(error))
     }
 
-    // ---- 8 · burst -----------------------------------------------------------
+    // ---- 8 · sequence ---------------------------------------------------------
     setCheck('burst', 'running', '')
-    const count = 20
+    const count = 10
     const arrived: number[] = []
-    const waiters: Array<Promise<unknown>> = []
-    try {
-      for (let index = 1; index <= count; index++) {
-        waiters.push(
-          sendAndAwait('lab_probe', { burst: index }, { timeout: 30_000 })
-            .then((result) => {
-              arrived.push((result.envelope.payload as { burst: number }).burst)
-            })
-            .catch(() => {})
-        )
+    let sendFailures = 0
+    let lost = 0
+    for (let index = 1; index <= count; index++) {
+      try {
+        // Sequential on purpose: concurrent sends have no defined send order,
+        // so an ordering assertion over them would be measuring HTTP racing.
+        const result = await sendAndAwait('lab_probe', { burst: index }, { timeout: 20_000 })
+        arrived.push((result.envelope.payload as { burst: number }).burst)
+      } catch (error) {
+        if (errorText(error).startsWith('nothing came back')) {
+          lost++
+        } else {
+          // A REST refusal (rate limit, scope) is not a delivery failure, and
+          // reporting it as one would point the reader at the codec.
+          sendFailures++
+          log('note', `burst #${index} was never sent: ${errorText(error)}`)
+        }
       }
-      await Promise.all(waiters)
-      // `arrived` is receipt order; they were sent as 1..count, so anything
-      // other than that sequence means the batch was reordered on the way back.
-      const ordered = arrived.every((value, index) => value === index + 1)
-      const sorted = [...arrived].sort((a, b) => a - b)
-      const complete = sorted.length === count && sorted.every((value, index) => value === index + 1)
-      if (complete && ordered) {
-        setCheck('burst', 'pass', `all ${count} arrived; order as sent: ${arrived.join(',')}`)
-      } else if (complete) {
-        setCheck('burst', 'warn', `all ${count} arrived but out of order: ${arrived.join(',')}`)
-      } else {
-        setCheck('burst', 'fail', `${arrived.length} of ${count} arrived: ${arrived.join(',')}`)
+    }
+    const ordered = arrived.every((value, index) => value === index + 1)
+    if (sendFailures > 0) {
+      setCheck('burst', 'warn', `${sendFailures} of ${count} could not be SENT (a portal or rate-limit problem, not a delivery one); ${arrived.length} of the rest arrived`)
+    } else if (arrived.length === count && ordered) {
+      setCheck('burst', 'pass', `all ${count} arrived in order`)
+    } else if (arrived.length === count) {
+      setCheck('burst', 'warn', `all ${count} arrived, out of order: ${arrived.join(',')}`)
+    } else {
+      setCheck('burst', 'fail', `${lost} lost; arrived: ${arrived.join(',')}`)
+    }
+
+    // ---- 9 · the encode path ---------------------------------------------------
+    setCheck('encode', 'running', '')
+    if (!pull.isPublishingEnabled()) {
+      setCheck(
+        'encode',
+        'skip',
+        'publish_enabled is off on this portal, so PullClient.sendMessage() is refused and encodeRequestBatch cannot be reached. The encode half of the codec is UNTESTED by this run — say so when reporting.'
+      )
+    } else {
+      const envelopeId = Text.getUuidRfc4122()
+      let resolveFn: (envelope: LabEnvelope) => void = () => {}
+      const received = new Promise<LabEnvelope>((resolve) => {
+        resolveFn = resolve
+      })
+      pending.set(envelopeId, resolveFn)
+      let timer = 0
+      const startedWaiting = Date.now()
+      try {
+        // This is the call that runs encodeRequestBatch under the chosen codec.
+        await pull.sendMessage([userId.value], MODULE_ID, 'lab_probe', {
+          lab: {
+            id: envelopeId,
+            from: tabId.value,
+            fromCodec: codec.value,
+            to: null,
+            seq: ++seq,
+            sentAt: Date.now(),
+            payload: { probe: 'encode', text: 'Проверка кодека 🚀', pad: 'z'.repeat(200) }
+          } satisfies LabEnvelope
+        })
+        const expired = new Promise<null>((resolve) => {
+          timer = window.setTimeout(() => resolve(null), AWAIT_MS)
+        })
+        const winner = await Promise.race([received, expired])
+        if (winner === null) {
+          setCheck('encode', 'fail', `sendMessage() was accepted but nothing came back within ${AWAIT_MS} ms`)
+        } else {
+          setCheck('encode', 'pass', `encoded by the "${codec.value}" codec and returned in ${Date.now() - startedWaiting} ms`, Date.now() - startedWaiting)
+        }
+      } catch (error) {
+        setCheck('encode', 'fail', errorText(error))
+      } finally {
+        if (timer) {
+          window.clearTimeout(timer)
+        }
+        pending.delete(envelopeId)
       }
-    } catch (error) {
-      setCheck('burst', 'fail', String(error instanceof Error ? error.message : error))
     }
   } finally {
     refreshConnection()
@@ -516,32 +780,13 @@ async function runChecks(): Promise<void> {
 // region cross-tab ////
 
 async function pingOtherTab(): Promise<void> {
-  const token = Text.getUuidRfc4122()
-  const sentAt = Date.now()
-  let answered = false
-
-  const stop = pull?.subscribe({
-    moduleId: MODULE_ID,
-    callback: (message: TypePullMessage) => {
-      const envelope = message.params?.lab as LabEnvelope | undefined
-      if (
-        message.command === 'lab_pong'
-        && envelope
-        && envelope.to === tabId.value
-        && (envelope.payload as { token?: string })?.token === token
-      ) {
-        answered = true
-        log('note', `pong from ${envelope.from} (${envelope.fromCodec}) — round trip ${Date.now() - sentAt} ms`)
-      }
-    }
-  })
-
-  await send('lab_ping', { token })
-  await new Promise(resolve => window.setTimeout(resolve, AWAIT_MS))
-  stop?.()
-
-  if (!answered) {
-    log('note', 'no pong — is the other tab open, started, and on the same application?')
+  // `onPullMessage` already sees every frame, so the reply is picked up there
+  // rather than through a second subscription that has to be cleaned up.
+  try {
+    await send('lab_ping', { token: Text.getUuidRfc4122() })
+    log('note', 'ping sent — a pong line will appear below if another tab answers')
+  } catch (error) {
+    log('note', 'ping failed: ' + errorText(error))
   }
 }
 
@@ -552,7 +797,11 @@ async function sendChat(): Promise<void> {
   }
 
   chatDraft.value = ''
-  await send('lab_chat', { text })
+  try {
+    await send('lab_chat', { text })
+  } catch (error) {
+    log('note', 'chat failed: ' + errorText(error))
+  }
 }
 
 // endregion ////
@@ -566,6 +815,7 @@ function refreshConnection(): void {
 
   status.value = pull.status
   serverVersion.value = pull.getServerVersion()
+  publishingEnabled.value = pull.isPublishingEnabled()
   const info = pull.getDebugInfo() as Record<string, unknown>
   debugInfo.value = info
   wsMode.value = String(info['WebSocket mode'] ?? '-')
@@ -574,29 +824,54 @@ function refreshConnection(): void {
   connectionType.value = info['WebSocket connected'] === 'Y'
     ? 'webSocket'
     : (pull.isConnected() ? 'longPolling' : '-')
+  attachFrameTap()
 }
-
-const protobufLive = computed(() => wsMode.value === 'protobuf')
 
 // endregion ////
 
 // region export ////
 
+/**
+ * The SDK masks the push JWT and the private channel id, but not everything.
+ *
+ * `Path` still carries the push-server host and, in shared mode, `clientId` —
+ * a portal-scoped identifier that is not in the SDK's redaction list. Neither
+ * is an access credential, but this file is destined for a chat log, so they
+ * are removed here rather than explained away.
+ */
+function scrubDebugInfo(info: Record<string, unknown>): Record<string, unknown> {
+  const copy: Record<string, unknown> = { ...info }
+  if (typeof copy.Path === 'string') {
+    copy.Path = copy.Path
+      .replace(/^[a-z]+:\/\/[^/]+/i, '<push-host>')
+      .replace(/([?&]clientId=)[^&]*/gi, '$1<redacted>')
+  }
+  // Always serialises as `{}` — it is a MapIterator, not data.
+  delete copy['Watch tags']
+
+  return copy
+}
+
 const report = computed(() => ({
   generatedAt: new Date().toISOString(),
+  readBeforeSending: [
+    'This file is a portal fingerprint, not just a debug dump. Read it before you send it.',
+    'It contains: your portal user id, the push-server version, whether the portal is cloud or on-premise, timings, and any portal error text a failed check produced.',
+    'The push JWT, the private channel id, the push host and clientId are masked.',
+    'Captured raw frames, if any, are EVERY frame on this connection — including other applications\' events. Check them before sharing.'
+  ],
   tabId: tabId.value,
   codec: codec.value,
-  userId: userId.value,
   connection: {
     status: status.value,
     transport: connectionType.value,
-    webSocketMode: wsMode.value,
+    webSocketModeReported: wsMode.value,
+    binaryFrameObserved: sawBinaryFrame.value,
     serverVersion: serverVersion.value,
-    protobufActuallyInUse: protobufLive.value
+    publishingEnabled: publishingEnabled.value,
+    encodePathExercised: findCheck('encode').state === 'pass'
   },
-  // `getDebugInfo()` masks the push JWT and the private channel id before
-  // returning, so this dump is safe to hand over as-is.
-  debugInfo: debugInfo.value,
+  debugInfo: scrubDebugInfo(debugInfo.value),
   checks: checks.map(check => ({
     id: check.id,
     title: check.title,
@@ -606,17 +881,20 @@ const report = computed(() => ({
     ms: check.ms
   })),
   latencyMs: latencies.value,
+  rawFrames: frames.value,
   events: events.value
 }))
 
 const reportText = computed(() => pretty(report.value))
+const reversedEvents = computed(() => [...events.value].reverse())
+const isReportOpen = ref(false)
 
 async function copyReport(): Promise<void> {
   try {
     await navigator.clipboard.writeText(reportText.value)
     log('note', 'report copied to the clipboard')
   } catch {
-    log('note', 'clipboard refused — select the text below and copy it manually')
+    log('note', 'clipboard refused — open the report below and copy it manually')
   }
 }
 
@@ -631,7 +909,9 @@ function downloadReport(): void {
 }
 
 function switchCodec(next: Codec): void {
-  // A codec is chosen when the client is constructed, so the page reloads.
+  // A codec is chosen when the client is constructed, so the page reloads —
+  // and a reload skips Vue's unmount hooks, hence the explicit teardown.
+  pull?.destroy()
   void router.replace({ query: { ...route.query, codec: next } }).then(() => {
     window.location.reload()
   })
@@ -642,21 +922,20 @@ function switchCodec(next: Codec): void {
 onMounted(async () => {
   try {
     tabId.value = Math.random().toString(36).slice(2, 7)
+    // Deliberately no `installFinish()` here, unlike some repro harnesses:
+    // completing an application's installation is not something a diagnostic
+    // page should do as a side effect of being opened.
     $b24 = await $initializeB24Frame()
-    if ($b24.isInstallMode) {
-      try {
-        await $b24.installFinish()
-      } catch (error) {
-        $logger.info('installFinish', { error })
-      }
-    }
 
     const profile = await $b24.actions.v2.call.make({
       method: 'profile',
       params: {},
-      requestId: Text.getUuidRfc4122()
+      requestId: `pull-lab/${tabId.value}/profile`
     })
     userId.value = Number((profile.getData()?.result as { ID?: number | string })?.ID ?? 0)
+    if (!Number.isFinite(userId.value) || userId.value <= 0) {
+      throw new Error('the profile call returned no user ID — the Pull client cannot start without one')
+    }
 
     pull = new B24PullClientManager({
       b24: $b24,
@@ -673,7 +952,7 @@ onMounted(async () => {
     refreshTimer = window.setInterval(refreshConnection, 2000)
     isInit.value = true
   } catch (error) {
-    initError.value = error instanceof Error ? error.message : String(error)
+    initError.value = errorText(error)
     $logger.error('pull lab init failed', { error })
   }
 })
@@ -682,6 +961,9 @@ onUnmounted(() => {
   if (refreshTimer) {
     window.clearInterval(refreshTimer)
   }
+  tappedSocket?.removeEventListener('message', onSocketFrame)
+  tappedSocket = null
+  pending.clear()
   unsubscribe?.()
   pull?.destroy()
 })
@@ -699,6 +981,11 @@ onUnmounted(() => {
       :description="`Init failed: ${initError}`"
     />
     <div v-else class="flex flex-col gap-4 p-3">
+      <B24Alert
+        color="air-primary-alert"
+        description="Test portals only. Every check from 4 onwards publishes to the SHARED application channel, which reaches every user who currently has this application open — including anything you type in the message box."
+      />
+
       <!-- Identity: the thing you read first when two tabs are side by side -->
       <div class="flex flex-wrap items-center gap-3">
         <div class="rounded-lg border border-(--ui-border) px-3 py-2">
@@ -732,9 +1019,9 @@ onUnmounted(() => {
       </div>
 
       <B24Alert
-        v-if="!protobufLive"
+        v-if="isInit && serverVersion > 0 && serverVersion !== 4"
         color="air-primary-alert"
-        :description="`WebSocket mode is &quot;${wsMode}&quot; — protobuf is NOT in use, so the two codecs cannot be told apart on this connection. Any result below is about the portal, not about the codec.`"
+        :description="`Push-server version is ${serverVersion}. The protobuf path is only used on version 4 — on 5 and above the client speaks JSON-RPC and neither codec runs, so nothing here would say anything about them.`"
       />
 
       <!-- Connection -->
@@ -745,10 +1032,10 @@ onUnmounted(() => {
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-xs md:grid-cols-3">
           <div>status: <b>{{ status }}</b></div>
           <div>transport: <b>{{ connectionType }}</b></div>
-          <div>ws mode: <b>{{ wsMode }}</b></div>
+          <div>ws mode (reported): <b>{{ wsMode }}</b></div>
+          <div>binary frame seen: <b>{{ sawBinaryFrame ? 'yes' : 'no' }}</b></div>
           <div>server version: <b>{{ serverVersion }}</b></div>
-          <div>user: <b>{{ userId }}</b></div>
-          <div>latency samples: <b>{{ latencies.length }}</b></div>
+          <div>publishing: <b>{{ publishingEnabled ? 'enabled' : 'disabled' }}</b></div>
         </div>
       </div>
 
@@ -777,7 +1064,7 @@ onUnmounted(() => {
             <div
               class="font-mono"
               :class="{
-                'opacity-50': check.state === 'idle' || check.state === 'running',
+                'opacity-50': check.state === 'idle' || check.state === 'running' || check.state === 'skip',
                 'text-(--ui-color-success-text)': check.state === 'pass',
                 'text-(--ui-color-warning-text)': check.state === 'warn',
                 'text-(--ui-color-danger-text) font-bold': check.state === 'fail'
@@ -792,6 +1079,32 @@ onUnmounted(() => {
           <div class="mt-1 opacity-50">
             {{ check.why }}
           </div>
+        </div>
+      </div>
+
+      <!-- Raw frames: the artefact the codec decision is actually waiting on -->
+      <div class="rounded-lg border border-(--ui-border) p-3">
+        <div class="mb-2 font-bold">
+          Raw frames — {{ frames.length }}/{{ MAX_FRAMES }} captured
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <B24Button
+            :label="isCapturing ? '■ Stop capturing' : '● Capture raw frames'"
+            :color="isCapturing ? 'air-primary-alert' : 'air-secondary'"
+            @click="toggleCapture"
+          />
+          <B24Button
+            label="Discard"
+            color="air-tertiary-no-accent"
+            :disabled="frames.length === 0"
+            @click="clearFrames"
+          />
+        </div>
+        <div class="mt-2 text-xs opacity-60">
+          These bytes are what `pull-protobuf.md` asks for before the vendored library can be
+          deleted — the decoded results above cannot settle it, because both codecs were built
+          from the same schema. <b>The tap records every frame on this connection, including other
+            applications' events.</b> Look at what you captured before you share the report.
         </div>
       </div>
 
@@ -826,13 +1139,13 @@ onUnmounted(() => {
         </div>
         <div class="max-h-80 overflow-auto font-mono text-xs">
           <div
-            v-for="(event, index) in [...events].reverse()"
-            :key="index"
+            v-for="event in reversedEvents"
+            :key="event.id"
             class="flex gap-2"
             :class="{
               'text-(--ui-color-success-text)': event.kind === 'received',
               'opacity-70': event.kind === 'sent',
-              'opacity-50': event.kind === 'note' || event.kind === 'status'
+              'opacity-50': event.kind === 'note' || event.kind === 'frame'
             }"
           >
             <span class="w-16 shrink-0 text-right opacity-60">{{ event.ms }}ms</span>
@@ -843,12 +1156,18 @@ onUnmounted(() => {
       </div>
 
       <!-- The thing to hand back -->
-      <details class="rounded-lg border border-(--ui-border) p-3">
-        <summary class="cursor-pointer font-bold">
-          Report (JSON) — this is what to send back
-        </summary>
-        <pre class="mt-2 max-h-96 overflow-auto font-mono text-xs whitespace-pre-wrap break-words">{{ reportText }}</pre>
-      </details>
+      <div class="rounded-lg border border-(--ui-border) p-3">
+        <B24Button
+          :label="isReportOpen ? 'Hide the report' : 'Show the report (JSON) — read it before you send it'"
+          color="air-tertiary-no-accent"
+          size="xs"
+          @click="isReportOpen = !isReportOpen"
+        />
+        <pre
+          v-if="isReportOpen"
+          class="mt-2 max-h-96 overflow-auto font-mono text-xs whitespace-pre-wrap break-words"
+        >{{ reportText }}</pre>
+      </div>
     </div>
   </ClientOnly>
 </template>

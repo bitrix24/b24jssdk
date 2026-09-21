@@ -578,6 +578,26 @@ async function checkUserPassHistoryStorage(arStoragesList: StorageInfoV2[]) {
         </ProseH3>
         <MessengerProbeHarness />
       </div>
+
+      <!--
+        The standalone pages. Each needs its own route — one for the frame
+        preflight it measures, one because its two-tab scheme needs two URLs —
+        so neither can be a component here. Without these links they are
+        reachable only by someone who already knows the path.
+      -->
+      <div class="mt-6">
+        <ProseH3 class="mb-2">
+          Standalone pages
+        </ProseH3>
+        <div class="flex flex-col gap-1 text-sm">
+          <NuxtLink to="/v3-batch-browser" class="underline">
+            /v3-batch-browser — does a v3 batch survive a real browser preflight (#455)
+          </NuxtLink>
+          <NuxtLink to="/pull-lab" class="underline">
+            /pull-lab — exercise the two Pull protobuf codecs against this portal
+          </NuxtLink>
+        </div>
+      </div>
     </template>
   </ClientOnly>
 </template>

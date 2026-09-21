@@ -154,6 +154,26 @@ overrides:
   # class of failure through a different import path.
   unhead: '>=3.3.2 <4'
   '@unhead/vue': '>=3.3.2 <4'
+  # Dedupe pin. Nothing in this repository declares `vue`, so its version is
+  # decided entirely by transitive resolution — and a bump can split it: `nuxt`,
+  # `vue-router` and `@nuxt/vite-builder` held 3.5.40 while `@bitrix24/b24ui-nuxt`,
+  # `@vueuse/core`, `@comark/vue` and friends resolved 3.5.43, so the tree carried
+  # two copies of vue at once.
+  #
+  # The failure is not a type error and not a version mismatch message. Vue's
+  # `useTemplateRef` starts with `i.refs === EMPTY_OBJ ? i.refs = {} : i.refs`, and
+  # `EMPTY_OBJ` is a module singleton — so when the instance comes from one copy of
+  # vue and the composable from the other, the identity check fails and the ref is
+  # defined, non-configurable, directly on the OTHER copy's shared `EMPTY_OBJ`. The
+  # first server render succeeds and every one after it dies with `Cannot redefine
+  # property: <key>`. In `nuxt generate` that is one 500 per page and
+  # `Exiting due to prerender errors`, with no mention of vue anywhere in the log;
+  # `nuxt build` passes, because it never renders twice.
+  #
+  # `docs/app/layouts/docs.vue` calls `useTemplateRef('input')`, which is what made
+  # the split visible here. Collapsing the tree onto one copy is the fix; avoiding
+  # the composable would only hide the next symptom of the same duplication.
+  vue: '>=3.5.43 <4'
   # GHSA-vmf3-w455-68vh — tar parser interpretation differential (file smuggling)
   tar: '>=7.5.16 <8'
   # GHSA-v6wh-96g9-6wx3 — launch-editor NTLMv2 hash disclosure via UNC path (Windows)

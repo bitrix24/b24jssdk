@@ -101,7 +101,8 @@ not null.
 and `usePullClient(prefix, userId, 'lite')` reaches it through the helper — which
 matters, because the helper is how most callers construct a Pull client at all.
 It is **opt-in, and the default stays on the vendored library**, because the
-lite codec has not yet run against a live portal.
+lite codec has not yet been proven against a live portal — `/pull-lab` in the
+Nuxt playground is how that evidence gets collected.
 
 The option is tagged **`@internal`**: it is the SDK's own migration switch, off
 the documentation site, and it will be removed without a deprecation cycle. That
@@ -157,6 +158,19 @@ That class of bug is only closed by bytes from a real server. The exit criterion
 for dropping the vendored library is therefore **not** a green suite: it is a
 recorded `ResponseBatch` from a live portal, committed as a fixture and decoded
 by both codecs. Until that fixture exists, the default must stay on the library.
+
+`/pull-lab` in the Nuxt playground is what produces it — see
+[`playgrounds/nuxt/README.md`](../../playgrounds/nuxt/README.md). Two things
+about it are worth knowing before reading a report it produced:
+
+- Its **Capture raw frames** button is the part that makes the fixture. The rest
+  of the page reports decoded results, which are a portal smoke test and not the
+  criterion above.
+- It sends over REST and receives over Pull, so it exercises **decoding**. Only
+  its last check reaches `encodeRequestBatch`, and only on a portal with
+  `publish_enabled`; otherwise it reports `skip`. Since two of the three traps
+  above are on the encode side, a run without that check is a partial answer and
+  says so.
 
 ### Known divergences from protobuf.js
 

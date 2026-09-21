@@ -9,6 +9,7 @@ The application requires the following Bitrix24 REST API scopes:
 - `crm`
 - `entity`
 - `user_brief`
+- `pull` — only for `/pull-lab`; without it `pull.application.event.add` fails
 
 ## Setup
 
@@ -112,3 +113,100 @@ and why the outcome column distinguishes a real answer from the timer firing.
 Give it [MESSENGER-PROBE-BRIEF.md](MESSENGER-PROBE-BRIEF.md) together with the
 console output. The harness shows what an app can see; the assistant works in the
 top window, where the answer actually lives.
+
+## Pull lab: exercising the two protobuf codecs (`/pull-lab`)
+
+Route: **`/pull-lab`**.
+
+The SDK ships two protobuf implementations — the vendored protobuf.js that has
+always been there, and a hand-written one — selected by an `@internal` switch.
+They are held byte-identical by unit tests, but those tests derive both sides
+from the same schema, so they prove the two *agree*, not that either is *right*.
+Only a real portal can go further. This page is how.
+
+### Read this before you run it
+
+**This is a smoke test, not the fixture.**
+[`pull-protobuf.md`](../../.github/contributing/pull-protobuf.md) sets the exit
+criterion for deleting the vendored library as *a recorded `ResponseBatch` from
+a live portal, committed as a fixture and decoded by both codecs*. Two green
+runs of this page are not that. What produces the fixture is the **Capture raw
+frames** button, and only on a WebSocket connection — see below.
+
+**Two of the three traps are on the encode side, and this page barely reaches
+them.** Everything except check 9 sends over REST and receives over Pull, so it
+exercises decoding. Check 9 is the only one that runs `encodeRequestBatch`, and
+it needs `publish_enabled` on the portal; without it the check reports `skip`
+and the encode half is untested by that run.
+
+**Test portals only.** Checks 4 and after publish to the shared application
+channel, which reaches every user with this application open — as does anything
+typed into the message box.
+
+### What it does
+
+Everything travels through `pull.application.event.add`: a `COMMAND` string, a
+free-form `PARAMS` object, and an optional `USER_ID` that switches between the
+shared channel and the caller's private one. That covers both directions asked
+of it — the server pushing to the front, and one tab reaching the other (which
+necessarily goes through the server; Pull has no browser-to-browser path).
+
+| # | check | what a failure would mean |
+| --- | --- | --- |
+| 1 | the client reaches `online` | nothing below is meaningful |
+| 2 | the codec is on the decode path | the portal speaks JSON-RPC; neither codec runs |
+| 3 | push-server version and the protobuf gate agree | the portal moved off version 4 |
+| 4 | a message on the **shared** channel comes back | the application channel is not wired |
+| 5 | a message on the **private** channel comes back | `USER_ID` routing or its signature is wrong |
+| 6 | a body of awkward values survives | the body was mangled in transit |
+| 7 | a large body survives | a three-byte length prefix or buffer-growth bug |
+| 8 | a sequence arrives complete and in order | messages lost or reordered |
+| 9 | the **encode** half runs | `encodeRequestBatch` produced something the server rejected |
+
+Check 7 is the most valuable of the payload checks: a 20 kB body forces a
+three-byte varint length prefix, which ordinary traffic never reaches. Check 6
+is weaker than it looks and says so on the page — the body is one opaque blob on
+the wire, so most of its values exercise JSON rather than protobuf.
+
+**The transport does not decide whether the codec runs.** On a version-4 portal
+long-polling also receives an `ArrayBuffer` and decodes through the same codec;
+what turns the codec off is JSON-RPC on push-server 5+. Check 2 keys on that
+gate, not on the WebSocket.
+
+### Running the lab
+
+1. Do the `## Setup` steps above first — `cp .env.example .env` and fill in the
+   credentials. The page cannot run outside a Bitrix24 frame.
+2. Add the `pull` scope to the application. Without it
+   `pull.application.event.add` fails, and the failure reads as
+   `ERROR_METHOD_NOT_FOUND` — it looks like a typo in the method name, not like
+   a permissions problem.
+3. `pnpm dev`, expose it through a tunnel, and install it as a placement app on
+   a **test** portal with the handler URL pointing at **`<tunnel>/pull-lab`** —
+   the route is not linked from the app's own navigation, so the placement is
+   how you reach it.
+4. Open the placement in **two portal tabs**. In one press `use vendored`, in
+   the other `use lite` (the buttons reload the page, since a codec is chosen
+   when the client is constructed; `?codec=lite` in the URL does the same).
+5. Press **▶ Run checks** in both. Then **Ping the other tab**, and send a line
+   through the message box — replies appear as lines in the **Log**, there is no
+   separate chat pane.
+6. If you want the fixture, press **● Capture raw frames** and run the checks
+   again.
+7. Press **Download JSON** in each tab and hand both files over.
+
+### What is in the report
+
+The connection panel, every check with its verdict, timing and the reason it
+exists, the latency samples, the event log, any captured frames, and the SDK's
+`getDebugInfo()` dump.
+
+The dump masks the push JWT and the private channel id; the page additionally
+masks the push host and `clientId`, which the SDK's redaction list does not
+cover. What remains is still a portal fingerprint — your user id, the server
+version, whether the portal is cloud or on-premise, and any portal error text a
+failed check produced. **Open the report and read it before you send it**; the
+page has a button for exactly that.
+
+Captured frames are *every* frame on the connection, including other
+applications' events. Look at what you captured before sharing.

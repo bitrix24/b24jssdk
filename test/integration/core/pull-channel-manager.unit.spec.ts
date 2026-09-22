@@ -95,15 +95,29 @@ describe('#277 ChannelManager.getPublicIds after the callMethod removal', () => 
     expect(calls).toHaveLength(1)
   })
 
-  it('resolves empty rather than rejecting when the request fails', async () => {
+  it('rejects when the request fails, rather than resolving empty', async () => {
     const { b24 } = makeB24(async () => {
       throw new Error('portal is down')
     })
 
     const manager = new ChannelManager({ b24, getPublicListMethod: 'pull.channel.public.list' } as never)
 
-    // Deliberate: a failed channel lookup must not reject into the caller's
-    // pull loop. The empty object is the documented outcome, not an oversight.
-    await expect(manager.getPublicIds([7])).resolves.toEqual({})
+    // This case used to assert the opposite, on the stated grounds that "a
+    // failed channel lookup must not reject into the caller's pull loop".
+    // That path does not exist: `getPublicIds` is reached only from
+    // `sendMessageBatch`, which is reached only from the public `sendMessage`
+    // / `sendMessageToChannels`, and neither has an internal caller anywhere
+    // in the SDK. Nothing in the receive loop can reach this.
+    //
+    // What the empty object did instead was turn an explicit, awaited publish
+    // into a silent no-op: it is a valid input to `encodeMessageBatch`, which
+    // then addressed the message to nobody and handed it to the server, which
+    // dropped it without a word. Measured on a live portal — the caller was
+    // told the message was accepted and it never arrived.
+    //
+    // See `test/integration/pull/publish-failure-is-reported.unit.spec.ts`.
+    await expect(manager.getPublicIds([7])).rejects.toMatchObject({
+      code: 'JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE'
+    })
   })
 })

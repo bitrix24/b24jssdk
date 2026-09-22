@@ -211,6 +211,14 @@ const checks = reactive<Check[]>([
     ms: 0
   },
   {
+    id: 'surrogate',
+    title: '10 · a lone surrogate in the body',
+    why: 'Measured, not assumed: on a live portal this does not reach the codec at all — the REST call is refused with "Wrong authorization data" before anything is published. It lives in its own check because when it shared the fidelity battery it failed that whole check, so fourteen values that would have passed reported nothing. A fail here is expected and is a fact about the transport, not about protobuf.',
+    state: 'idle',
+    detail: '',
+    ms: 0
+  },
+  {
     id: 'encode',
     title: '9 · the ENCODE half of the codec runs',
     why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs encodeRequestBatch — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled on the portal; without it the check reports skip, because a pass here would be a lie.',
@@ -648,10 +656,7 @@ async function runChecks(): Promise<void> {
       nullValue: null,
       list: [1, 'two', false, null, { deep: true }],
       nested: { a: { b: { c: 'deep' } } },
-      quotes: 'he said "hi"\nand a tab\there',
-      // The one divergence pull-protobuf.md records as unreachable: JSON escapes
-      // a lone surrogate, so this is where that claim is confirmed or broken.
-      loneSurrogate: '\uD800'
+      quotes: 'he said "hi"\nand a tab\there'
     }
     try {
       const result = await sendAndAwait('lab_probe', battery)
@@ -768,6 +773,26 @@ async function runChecks(): Promise<void> {
         }
         pending.delete(envelopeId)
       }
+    }
+    // ---- 10 · the lone surrogate, on its own ----------------------------------
+    setCheck('surrogate', 'running', '')
+    try {
+      const probe = { loneSurrogate: '\uD800' }
+      const result = await sendAndAwait('lab_probe', probe, { timeout: 20_000 })
+      setCheck(
+        'surrogate',
+        sameValue(result.envelope.payload, probe) ? 'pass' : 'warn',
+        sameValue(result.envelope.payload, probe)
+          ? 'survived the round trip unchanged'
+          : `came back changed: ${JSON.stringify(result.envelope.payload)}`,
+        result.ms
+      )
+    } catch (error) {
+      setCheck(
+        'surrogate',
+        'warn',
+        `did not travel: ${errorText(error)} — expected, and a transport fact rather than a codec one`
+      )
     }
   } finally {
     refreshConnection()

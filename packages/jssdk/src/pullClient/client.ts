@@ -1608,14 +1608,22 @@ export class PullClient implements ConnectorParent {
         }
       }
 
-      this._channelManager
-        ?.getPublicIds(Object.values(userIds))
+      // The promise is RETURNED. It used to be started and dropped, so this
+      // method resolved `undefined` before the channel lookup had even
+      // answered — `sendMessage()` reported success while the send was still
+      // pending, and any failure inside became an unhandled rejection. Measured
+      // against a live portal: the caller was told the message was accepted and
+      // nothing ever arrived.
+      if (!this._channelManager) {
+        return Promise.reject(new Error('Pull channel manager is not initialised'))
+      }
+
+      return this._channelManager
+        .getPublicIds(Object.values(userIds))
         .then((publicIds) => {
-          const response = this.connector?.send(
+          return this.connector?.send(
             this.encodeMessageBatch(messageBatchList, publicIds)
           )
-
-          return Promise.resolve(response)
         })
     }
   }

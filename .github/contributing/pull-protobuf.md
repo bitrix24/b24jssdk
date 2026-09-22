@@ -157,7 +157,23 @@ eye against the generated `model.js`, not by code; nothing parses it.
 That class of bug is only closed by bytes from a real server. The exit criterion
 for dropping the vendored library is therefore **not** a green suite: it is a
 recorded `ResponseBatch` from a live portal, committed as a fixture and decoded
-by both codecs. Until that fixture exists, the default must stay on the library.
+by both codecs.
+
+**That fixture now exists.** `test/integration/pull/fixtures/response-batch-frames.json`
+holds five frames captured by `/pull-lab` from a push-server v4 portal over a
+binary WebSocket — 22 157 bytes, including one of 20 424 that carries a body
+past the three-byte length prefix. `real-portal-frames.unit.spec.ts` decodes
+every one with both codecs and compares what the client reads. They agree.
+
+Two things that fixture is not. It is **decode-side only**: the encode half has
+still never run against a portal, because an application's Pull client is
+receive-only (see below). And five frames of `lab_probe` traffic are not the
+whole schema — no `channelStats` or `serverStats` frame was ever emitted during
+the capture, so the `oneof` still rests on the differential suite.
+
+One substitution was made in the fixture, in place and equal in length: the
+portal hostname inside `extra.server_name`. Every length prefix and every other
+byte is the server's.
 
 `/pull-lab` in the Nuxt playground is what produces it — see
 [`playgrounds/nuxt/README.md`](../../playgrounds/nuxt/README.md). Two things
@@ -166,11 +182,25 @@ about it are worth knowing before reading a report it produced:
 - Its **Capture raw frames** button is the part that makes the fixture. The rest
   of the page reports decoded results, which are a portal smoke test and not the
   criterion above.
-- It sends over REST and receives over Pull, so it exercises **decoding**. Only
-  its last check reaches `encodeRequestBatch`, and only on a portal with
-  `publish_enabled`; otherwise it reports `skip`. Since two of the three traps
-  above are on the encode side, a run without that check is a partial answer and
-  says so.
+- It sends over REST and receives over Pull, so it exercises **decoding**. Its
+  encode check reaches `encodeRequestBatch` through `PullClient.sendMessage()`
+  — but measured on a live portal, that path cannot complete in an application
+  at all: `sendMessage()` needs `pull.channel.public.list` to resolve the
+  recipients' channels, and that method is not part of the application REST
+  surface. Bitrix24's own documentation says an application's Pull client is
+  **receive-only**: the back end puts messages into the channel with
+  `pull.application.event.add`, the front end subscribes.
+
+  So the encode half of the codec has no route to a portal from an application,
+  and two of the three traps above sit on that half. That is a limit of the
+  evidence, not something a better harness fixes.
+
+  Finding that out took a while, because the SDK reported the failed publish as
+  a success — two defects fixed alongside this, pinned by
+  `publish-failure-is-reported.unit.spec.ts`: `sendMessageBatch` started the
+  channel lookup and dropped the promise, and `ChannelManager.getPublicIds`
+  caught the REST refusal and resolved an empty map, so the message was encoded
+  with no receivers and the server dropped it in silence.
 
 ### Known divergences from protobuf.js
 
@@ -178,8 +208,13 @@ Both are outside anything the push server sends, and are recorded so they are
 not rediscovered as bugs:
 
 - **Lone surrogates in a body.** `TextEncoder` substitutes U+FFFD; protobuf.js's
-  own UTF-8 writer emits the unpaired surrogate bytes. A JSON body cannot
-  contain one, so this never arises in practice.
+  own UTF-8 writer emits the unpaired surrogate bytes. **Measured on a live
+  portal, the question never arises**: a lone surrogate in the payload makes
+  `pull.application.event.add` fail with `Wrong authorization data` — the
+  request is refused before anything is published, so neither codec sees it.
+  `/pull-lab` keeps a check for it, on its own, because when it shared the
+  fidelity battery it failed that whole check and hid fourteen values that
+  passed.
 - **Sign extension.** The codec reads `uint32` for every numeric field in the
   schema, which is what the schema declares. It has no `int32` reader, so a
   negative value — which the schema cannot express — would not round-trip.

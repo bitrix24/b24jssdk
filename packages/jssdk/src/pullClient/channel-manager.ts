@@ -4,6 +4,7 @@ import type { TypeB24 } from '../types/b24'
 import type { SuccessPayload } from '../types/payloads'
 import type { LoggerInterface } from '../logger'
 import { LoggerFactory } from '../logger'
+import { SdkError } from '../core/sdk-error'
 
 export class ChannelManager {
   private _logger: LoggerInterface
@@ -16,7 +17,11 @@ export class ChannelManager {
     this._publicIds = new Map()
 
     this._restClient = params.b24
-    this._getPublicListMethod = params.getPublicListMethod
+    // Defaulted here as well as in `PullClient`, which is the only caller that
+    // passes it today. Without this the name reaches the failure message as
+    // `undefined`, and that message exists precisely to tell the reader which
+    // method was refused.
+    this._getPublicListMethod = params.getPublicListMethod || 'pull.channel.public.list'
   }
 
   setLogger(logger: LoggerInterface): void {
@@ -52,9 +57,23 @@ export class ChannelManager {
     }
 
     /**
-     * @memo we not use Promise.reject()
+     * This REJECTS on failure, and that is the point.
+     *
+     * It used to log and resolve `{}`, which turned a refused request into an
+     * empty channel map. The only caller then encoded a message with no
+     * receivers, the push server dropped it without a word, and
+     * `sendMessage()` reported success. Measured against a live portal: the
+     * message was "accepted" and never arrived, with nothing anywhere saying
+     * why.
+     *
+     * The failure this most often is: `pull.channel.public.list` is not part
+     * of the application REST surface. An application's Pull client is
+     * documented as RECEIVE-ONLY — its back end puts messages into the channel
+     * with `pull.application.event.add`, and the front end subscribes. So for
+     * an application this rejection is the correct, permanent answer, and the
+     * message it carries says so rather than leaving the caller to guess.
      */
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       // Was `callMethod`, removed in 3.0.0 (#277). `pull.server.time` and the
       // channel methods are `restApi:v2` only, which is what `callMethod`
       // resolved to anyway — so this is the same request, spelled the way the
@@ -83,7 +102,15 @@ export class ChannelManager {
         })
         .catch((error: Error | string) => {
           this.getLogger().error('some error in getPublicIds', { error }).catch(() => {})
-          return resolve({})
+
+          return reject(new SdkError({
+            code: 'JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE',
+            // No caller value is interpolated here: `SdkError` does not run its
+            // description through the log redaction, so it carries only the
+            // method name, which is a constant.
+            description: `Pull: could not resolve channel ids through \`${this._getPublicListMethod}\`, so there is nobody to send to. Publishing from the client needs that method; an application's Pull client is receive-only — put messages into the channel with \`pull.application.event.add\` from your back end instead.`,
+            status: 0
+          }))
         })
     })
   }

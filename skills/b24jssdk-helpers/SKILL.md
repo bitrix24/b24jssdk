@@ -119,6 +119,31 @@ startPullClient()
 
 > Subscribe **before** `startPullClient()` — the client connects after start. `useSubscribePullClient` and `startPullClient` throw if `usePullClient` was not called first.
 
+### The Pull client only RECEIVES
+
+There is no client-side send in an application. To put a message into the
+channel, call `pull.application.event.add` over REST — `MODULE_ID` is what your
+subscribers filter on:
+
+```ts
+import type { B24Frame } from '@bitrix24/b24jssdk'
+declare const $b24: B24Frame
+
+await $b24.actions.v2.call.make({
+  method: 'pull.application.event.add',
+  params: {
+    COMMAND: 'FEATURES_UPDATED',
+    PARAMS: { source: 'app' },
+    MODULE_ID: 'application'
+  }
+})
+```
+
+`PullClient` does expose `sendMessage()`, but it needs `pull.channel.public.list`
+to resolve the recipients' channels and that method is not in the application
+REST surface — it rejects with `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE`. Do not
+generate code that calls it from an app.
+
 Multiple subscriptions on different `moduleId`s are supported — call `useSubscribePullClient` once per channel:
 
 ```ts

@@ -221,7 +221,7 @@ const checks = reactive<Check[]>([
   {
     id: 'encode',
     title: '9 · the ENCODE half of the codec runs',
-    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs encodeRequestBatch — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled on the portal; without it the check reports skip, because a pass here would be a lie.',
+    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs encodeRequestBatch — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled on the portal; without it the check reports skip, because a pass here would be a lie. In an APPLICATION a fail carrying [JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE] is the expected outcome, not a defect: pull.channel.public.list is not in the application REST surface, and until 3.0.0 this same situation reported success and dropped the message in silence.',
     state: 'idle',
     detail: '',
     ms: 0
@@ -259,7 +259,20 @@ function log(kind: LogEvent['kind'], text: string, data?: unknown): void {
  * message is read before sending rather than trusted.
  */
 function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  if (!(error instanceof Error)) {
+    return String(error)
+  }
+
+  // The CODE first, because that is what a caller branches on and what tells
+  // the three Pull send failures apart — `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE`
+  // (nobody to send to), `JSSDK_PULL_SEND_REFUSED` (the transport would not
+  // take it) and `JSSDK_PULL_PUBLISHING_DISABLED` (the portal forbids it). The
+  // message alone reads the same for two of them.
+  const code = (error as { code?: unknown }).code
+
+  return typeof code === 'string' && code.length > 0
+    ? `[${code}] ${error.message}`
+    : error.message
 }
 
 function findCheck(id: string): Check {

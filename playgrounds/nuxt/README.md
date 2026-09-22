@@ -163,6 +163,13 @@ necessarily goes through the server; Pull has no browser-to-browser path).
 | 8 | a sequence arrives complete and in order | messages lost or reordered |
 | 9 | the **encode** half runs | `encodeRequestBatch` produced something the server rejected |
 
+In an **application**, check 9 is expected to fail with
+`[JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE]`. That is not a defect: `sendMessage()`
+needs `pull.channel.public.list` to resolve the recipients' channels, and that
+method is not part of the application REST surface. Until 3.0.0 the same
+situation reported **success** and the message was dropped in silence — seeing
+the code is the evidence that the fix is in the build you are running.
+
 Check 7 is the most valuable of the payload checks: a 20 kB body forces a
 three-byte varint length prefix, which ordinary traffic never reaches. Check 6
 is weaker than it looks and says so on the page — the body is one opaque blob on

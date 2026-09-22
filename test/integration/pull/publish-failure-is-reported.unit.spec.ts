@@ -81,6 +81,23 @@ function buildClient(b24: B24Hook): PullClient {
   return client
 }
 
+/** The portal's own descriptor shape: snake_case, ISO dates. */
+const DESCRIPTOR = {
+  user_id: '42',
+  public_id: 'public-42',
+  signature: 'sig-42',
+  start: new Date(Date.now() - 60_000).toISOString(),
+  end: new Date(Date.now() + 3_600_000).toISOString()
+}
+
+/** Put a connector in place whose `send()` answers however the case needs. */
+function withConnector(client: PullClient, send: () => boolean) {
+  ;(client as unknown as { _connectors: Record<string, unknown> })._connectors = {
+    webSocket: { send, connected: true }
+  }
+  ;(client as unknown as { _connectionType: string })._connectionType = 'webSocket'
+}
+
 /** Reach the manager the client built, rather than constructing a second one. */
 function managerOf(client: PullClient) {
   return (client as unknown as {
@@ -255,6 +272,53 @@ describe('pull: a refused channel lookup is reported, not swallowed', () => {
     // What went out must be the encoded batch, not an empty frame.
     expect((send.mock.calls[0] as unknown[])[0]).toBeInstanceOf(Uint8Array)
     expect(((send.mock.calls[0] as unknown[])[0] as Uint8Array).byteLength).toBeGreaterThan(0)
+  })
+
+  it('rejects when the connector refuses the frame', async () => {
+    // `send()` returns `false` when the frame did not leave — the socket is not
+    // open, or long-polling has no publication path. Returning that boolean to
+    // the caller reproduced this file's whole subject one layer further out: a
+    // publish that never happened, reported as a resolved promise.
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v2).ajaxClient, 'post')
+      .mockResolvedValue(axiosResponse({ result: { 42: DESCRIPTOR }, time: TIME }))
+
+    const client = buildClient(b24)
+    withConnector(client, () => false)
+
+    await expect(
+      client.sendMessage([42], 'application', 'probe', { hello: 'world' })
+    ).rejects.toMatchObject({ code: 'JSSDK_PULL_SEND_REFUSED' })
+  })
+
+  it('rejects when there is no connector at all', async () => {
+    b24 = buildHook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v2).ajaxClient, 'post')
+      .mockResolvedValue(axiosResponse({ result: { 42: DESCRIPTOR }, time: TIME }))
+
+    const client = buildClient(b24)
+    ;(client as unknown as { _connectors: Record<string, unknown> })._connectors = {}
+
+    await expect(
+      client.sendMessage([42], 'application', 'probe', { hello: 'world' })
+    ).rejects.toMatchObject({ code: 'JSSDK_PULL_SEND_REFUSED' })
+  })
+
+  it('rejects with an SdkError when the portal has not enabled publishing', async () => {
+    // The guard used to throw a bare `Error`, which the checklist forbids and
+    // which a caller cannot branch on.
+    b24 = buildHook()
+    const client = buildClient(b24)
+    ;(client as unknown as { _config: unknown })._config = {
+      server: { version: 4, publish_enabled: false }
+    }
+
+    const error = await client
+      .sendMessage([42], 'application', 'probe', {})
+      .catch((thrown: unknown) => thrown)
+
+    expect(error).toBeInstanceOf(SdkError)
+    expect(error).toMatchObject({ code: 'JSSDK_PULL_PUBLISHING_DISABLED' })
   })
 
   it('sendMessageToChannels() never reaches the lookup, so it cannot raise this code', async () => {

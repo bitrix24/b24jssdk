@@ -856,12 +856,28 @@ export class PullClient implements ConnectorParent {
   /**
    * Send a single message to the specified users.
    *
+   * **Not usable from an application.** Resolving the recipients' channels
+   * needs `pull.channel.public.list`, which is not part of the application
+   * REST surface: an application's Pull client is receive-only, and its back
+   * end publishes with `pull.application.event.add`. See
+   * {@link https://apidocs.bitrix24.ru/api-reference/interactivity/push-and-pull-in-browser.html}.
+   *
+   * Rejects with `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE` when that lookup fails.
+   * Until 3.0.0 it resolved instead, and the message was dropped by the push
+   * server without a word — so a caller with no `catch` sees a rejection where
+   * it previously saw a silent no-op.
+   *
+   * The rejection is not unconditional: when every recipient's channel is
+   * already cached the lookup is skipped, and nothing can fail.
+   *
    * @param users User ids of the message receivers.
    * @param moduleId Name of the module to receive a message,
    * @param command Command name.
    * @param {object} params Command parameters.
    * @param [expiry] Message expiry time in seconds.
-   * @return {Promise}
+   * @return {Promise} resolves with the connector's send result — `false` means
+   *   the socket would not take it, which is NOT reported as a rejection.
+   * @throws {SdkError} `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE`
    */
   public async sendMessage(
     users: number[],
@@ -892,6 +908,11 @@ export class PullClient implements ConnectorParent {
 
   /**
    * Send a single message to the specified public channels.
+   *
+   * Unlike {@link sendMessage}, this does **not** resolve anything through
+   * `pull.channel.public.list` — the caller supplies signed channel ids — so it
+   * cannot raise `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE` and is unaffected by that
+   * method's absence from the application REST surface.
    *
    * @param  publicChannels Public ids of the channels to receive a message.
    * @param moduleId Name of the module to receive a message,
@@ -1614,10 +1635,10 @@ export class PullClient implements ConnectorParent {
       // pending, and any failure inside became an unhandled rejection. Measured
       // against a live portal: the caller was told the message was accepted and
       // nothing ever arrived.
-      if (!this._channelManager) {
-        return Promise.reject(new Error('Pull channel manager is not initialised'))
-      }
-
+      // No `!this._channelManager` guard: the field is non-optional and the
+      // constructor assigns it unconditionally, so a guard here would be a
+      // bare `Error` on an unreachable branch — which the checklist forbids
+      // and no caller could ever receive.
       return this._channelManager
         .getPublicIds(Object.values(userIds))
         .then((publicIds) => {

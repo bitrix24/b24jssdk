@@ -160,20 +160,29 @@ recorded `ResponseBatch` from a live portal, committed as a fixture and decoded
 by both codecs.
 
 **That fixture now exists.** `test/integration/pull/fixtures/response-batch-frames.json`
-holds five frames captured by `/pull-lab` from a push-server v4 portal over a
-binary WebSocket — 22 157 bytes, including one of 20 424 that carries a body
-past the three-byte length prefix. `real-portal-frames.unit.spec.ts` decodes
-every one with both codecs and compares what the client reads. They agree.
+holds two frames captured by `/pull-lab` from a push-server v4 portal over a
+binary WebSocket — one small, one of 20 424 bytes whose body passes the
+three-byte length prefix. `real-portal-frames.unit.spec.ts` decodes both with
+both codecs and compares what the client reads. They agree.
 
-Two things that fixture is not. It is **decode-side only**: the encode half has
-still never run against a portal, because an application's Pull client is
-receive-only (see below). And five frames of `lab_probe` traffic are not the
-whole schema — no `channelStats` or `serverStats` frame was ever emitted during
-the capture, so the `oneof` still rests on the differential suite.
+The comparison is deliberately narrow, and that matters. An earlier version
+normalised every field with `??`, which erased proto2 **presence** — the one
+property a proto2 codec gets wrong — and reported agreement on frames where the
+codecs genuinely differ. `Sender.id` is absent on the wire in every frame:
+protobuf.js leaves it absent, the lite codec materialises an empty
+`Uint8Array`. That divergence is deliberate (#552 made the lite codec do it so
+`decodeId(undefined)` could not drop a whole batch) and is now **pinned by its
+own case** rather than smoothed away.
 
-One substitution was made in the fixture, in place and equal in length: the
-portal hostname inside `extra.server_name`. Every length prefix and every other
-byte is the server's.
+The fixture's own `knownGaps` field lists what it does not cover, and
+`regenerating` says how to make another one — including that the hostname
+substitution must be equal in length, because a shorter replacement invalidates
+four nested length prefixes and the frame stops parsing. The largest gaps:
+it is **decode-side only** (the encode half has never run against a portal, see
+below); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
+rests on the differential suite; every message carries all four scalars, so the
+decode defaults need a synthetic case; and the bodies are ASCII, so multi-byte
+UTF-8 decoding is not exercised by real bytes at all.
 
 `/pull-lab` in the Nuxt playground is what produces it — see
 [`playgrounds/nuxt/README.md`](../../playgrounds/nuxt/README.md). Two things

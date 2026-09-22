@@ -45,9 +45,20 @@ const bytesOf = (frame: { base64: string }) =>
 /**
  * What the client actually reads off a decoded batch.
  *
- * The library hands back message instances carrying prototype defaults and the
- * lite codec plain objects, so a raw deep-equal would compare the shape of two
- * implementations rather than the content of one frame.
+ * The library hands back message instances whose unset fields live on the
+ * prototype; the lite codec hands back plain objects that materialise the same
+ * defaults. A raw deep-equal would compare those two representations rather
+ * than the content of one frame.
+ *
+ * The normalisation is deliberately NARROW. An earlier version coalesced every
+ * field with `??`, which erased proto2 *presence* — exactly the property a
+ * proto2 codec gets wrong — and reported agreement on frames where the two
+ * codecs genuinely differ (`Sender.id` is absent on the wire in all five:
+ * protobuf.js reports it absent, the lite codec materialises an empty
+ * `Uint8Array`). Deleting the lite codec's whole default initialiser also left
+ * the suite green. So the scalars are compared WITHOUT defaulting, and the
+ * known divergence is pinned by its own case below instead of being smoothed
+ * away here.
  */
 function shape(batch: unknown) {
   const responses = (batch as { responses: Array<Record<string, any>> }).responses
@@ -55,13 +66,12 @@ function shape(batch: unknown) {
   return responses.map(response => ({
     command: response.command,
     messages: (response.outgoingMessages?.messages ?? []).map((message: Record<string, any>) => ({
-      id: [...(message.id ?? [])],
-      body: message.body ?? '',
-      expiry: message.expiry ?? 0,
-      created: message.created ?? 0,
-      sender: message.sender
-        ? { type: message.sender.type ?? 0, id: [...(message.sender.id ?? [])] }
-        : undefined
+      // `null` where the field is absent, so absent and empty stay distinct.
+      id: message.id === undefined ? null : [...message.id],
+      body: message.body,
+      expiry: message.expiry,
+      created: message.created,
+      senderType: message.sender === undefined ? null : message.sender.type
     }))
   }))
 }
@@ -71,7 +81,10 @@ describe('pull: frames recorded from a live portal', () => {
     // A fixture that silently emptied would make every case below vacuous.
     expect(fixture.portal.serverVersion).toBe(4)
     expect(fixture.portal.webSocketMode).toBe('protobuf')
-    expect(fixture.frames.length).toBeGreaterThanOrEqual(5)
+    // Two frames, not five: the other three were byte-near-copies of the
+    // first and exercised an identical path. What matters is one small frame
+    // and one whose body passes the three-byte length prefix.
+    expect(fixture.frames.length).toBeGreaterThanOrEqual(2)
     for (const frame of fixture.frames) {
       expect(bytesOf(frame).byteLength).toBe(frame.byteLength)
     }
@@ -108,11 +121,44 @@ describe('pull: frames recorded from a live portal', () => {
 
   it('covers a body past the three-byte length prefix', () => {
     // 16 384 bytes is where a varint length prefix grows to three bytes, and
-    // ordinary traffic never reaches it. Without this the fixture would only
-    // ever exercise the one-and-two-byte forms.
-    const largest = Math.max(...fixture.frames.map(frame => frame.byteLength))
+    // ordinary traffic never reaches it. The assertion is on the decoded BODY,
+    // not on the frame: a frame can exceed 16 384 bytes as many small messages
+    // with no three-byte prefix anywhere, so the frame size proves nothing.
+    const bodies = fixture.frames.flatMap(frame =>
+      decodeResponseBatch(bytesOf(frame)).responses.flatMap(
+        response => (response.outgoingMessages?.messages ?? []).map(message => (message.body ?? '').length)
+      )
+    )
 
-    expect(largest).toBeGreaterThan(16_384)
+    expect(Math.max(...bodies)).toBeGreaterThanOrEqual(16_384)
+  })
+
+  it('pins the one place the two codecs deliberately differ', () => {
+    // `Sender.id` is absent on the wire in every frame. protobuf.js leaves it
+    // absent; the lite codec materialises an empty `Uint8Array`, on purpose —
+    // #552 made it do that because `decodeId(undefined)` threw and, since the
+    // catch wraps the whole loop, dropped the entire batch.
+    //
+    // So this is a KNOWN divergence, not a defect. It is pinned rather than
+    // normalised away, because the moment it stops being true — in either
+    // direction — somebody has changed something they should be told about.
+    const bytes = bytesOf(fixture.frames[0]!)
+    const fromLibrary = (ResponseBatch.decode(bytes) as unknown as {
+      responses: Array<Record<string, any>>
+    }).responses[0]!.outgoingMessages.messages[0]
+    const fromLite = decodeResponseBatch(bytes).responses[0]!.outgoingMessages!.messages[0]!
+
+    expect(Object.hasOwn(fromLibrary.sender, 'id')).toBe(false)
+    expect(Object.hasOwn(fromLite.sender as object, 'id')).toBe(true)
+    expect((fromLite.sender!.id as Uint8Array).byteLength).toBe(0)
+
+    // Every one of these IS on the wire in all five frames, so their presence
+    // here says nothing about the codec's defaults — pinning those needs a
+    // message with a field absent, which no recorded frame supplies. That case
+    // lives in the differential spec, where synthetic frames belong.
+    for (const key of ['id', 'body', 'expiry', 'created'] as const) {
+      expect(fromLite[key], key).toBeDefined()
+    }
   })
 
   it('reads `created` as fixed32, not as a varint', () => {

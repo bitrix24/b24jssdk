@@ -6,6 +6,9 @@ import type { LoggerInterface } from '../logger'
 import { LoggerFactory } from '../logger'
 import { SdkError } from '../core/sdk-error'
 
+/** Named once: it is compared against as well as thrown. */
+const PUBLIC_IDS_UNAVAILABLE = 'JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE'
+
 export class ChannelManager {
   private _logger: LoggerInterface
   private _publicIds: Map<number, TypeChanel>
@@ -84,12 +87,28 @@ export class ChannelManager {
           params: { users: unknownUsers }
         })
         .then((response: AjaxResult) => {
-          const data = (response.getData() as SuccessPayload<Record<string, TypePublicIdDescriptor>>).result
+          // A refusal reaches here in TWO shapes, and only one of them throws.
+          // `AbstractHttp.call()` rejects with an `AjaxError` for most
+          // failures, but RESOLVES a non-success `AjaxResult` whenever
+          // `isSoftError()` is true — the built-in soft codes, anything a
+          // caller added through `softErrorCodes`, and v3-envelope 4xx outside
+          // 401/408/429. Without this branch that delivery fell through to
+          // `getData()` returning `undefined`, and the rejection below happened
+          // only because reading `.result` off it threw a `TypeError`. It
+          // worked, by accident, and it logged the `TypeError` instead of the
+          // portal's own message — so the one thing this change exists to
+          // provide, an answer to "why did my message go nowhere?", was exactly
+          // what it did not provide on that path.
+          if (!response.isSuccess) {
+            return reject(this.publicIdsUnavailable(
+              new Error(response.getErrorMessages().join('; '))
+            ))
+          }
 
-          /**
-           * @memo test this
-           */
-          this.setPublicIds(Object.values(data))
+          const payload = response.getData() as undefined | SuccessPayload<Record<string, TypePublicIdDescriptor>>
+          if (payload?.result) {
+            this.setPublicIds(Object.values(payload.result))
+          }
 
           for (const userId of unknownUsers) {
             const chanel = this._publicIds.get(userId)
@@ -98,20 +117,62 @@ export class ChannelManager {
             }
           }
 
+          // A successful answer that yielded no channel at all is the silent
+          // drop one level up: the caller asked for recipients, the portal did
+          // not refuse, and there is still nobody to send to. It reaches here
+          // when the body carries no usable descriptor — a 200 with no
+          // `result`, for instance, which `getData()` normalises into a
+          // result-shaped object rather than failing.
+          //
+          // Only the all-or-nothing case rejects. A PARTIAL answer still
+          // resolves, and that is a deliberate gap rather than a decision:
+          // sending to the subset that resolved is what the old code did, and
+          // changing it is a separate question from the one this fixes.
+          if (Object.keys(result).length === 0) {
+            return reject(this.publicIdsUnavailable(
+              new Error(`\`${this._getPublicListMethod}\` answered without a channel for any requested user`)
+            ))
+          }
+
           resolve(result)
         })
-        .catch((error: Error | string) => {
-          this.getLogger().error('some error in getPublicIds', { error }).catch(() => {})
+        .catch((error: unknown) => {
+          // `reject` above lands here too, so the already-wrapped error is
+          // passed through rather than wrapped twice. The test is the CODE, not
+          // `instanceof SdkError`: `AjaxError extends SdkError`, so an
+          // instance check would let every transport failure through unwrapped
+          // — which is exactly what it did on first run.
+          if (error instanceof SdkError && error.code === PUBLIC_IDS_UNAVAILABLE) {
+            return reject(error)
+          }
 
-          return reject(new SdkError({
-            code: 'JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE',
-            // No caller value is interpolated here: `SdkError` does not run its
-            // description through the log redaction, so it carries only the
-            // method name, which is a constant.
-            description: `Pull: could not resolve channel ids through \`${this._getPublicListMethod}\`, so there is nobody to send to. Publishing from the client needs that method; an application's Pull client is receive-only — put messages into the channel with \`pull.application.event.add\` from your back end instead.`,
-            status: 0
-          }))
+          return reject(this.publicIdsUnavailable(error))
         })
+    })
+  }
+
+  /**
+   * The one failure this class reports, built in one place.
+   *
+   * `originalError` carries the cause. It is deliberately non-enumerable on
+   * `SdkError`, so it does not reach a serializer, but it is what lets a caller
+   * tell a permanent refusal (the method is not in the application surface —
+   * retrying is pointless) from a transient one (a 503, a rate limit — retrying
+   * is right). The description alone asserts the former and cannot distinguish
+   * them.
+   *
+   * No caller value is interpolated into the description: `SdkError` does not
+   * run it through the log redaction, so only the method name — a constant —
+   * goes in.
+   */
+  private publicIdsUnavailable(cause: unknown): SdkError {
+    this.getLogger().error('some error in getPublicIds', { error: cause }).catch(() => {})
+
+    return new SdkError({
+      code: PUBLIC_IDS_UNAVAILABLE,
+      description: `Pull: could not resolve channel ids through \`${this._getPublicListMethod}\`, so there is nobody to send to. Publishing from the client needs that method; an application's Pull client is receive-only — put messages into the channel with \`pull.application.event.add\` from your back end instead.`,
+      status: 0,
+      ...(cause instanceof Error ? { originalError: cause } : {})
     })
   }
 

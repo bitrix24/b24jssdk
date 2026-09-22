@@ -9,10 +9,20 @@
  * a `// @memo test this` next to the very line that reads the response.
  *
  * So this pins the request *shape* rather than just "it resolves" — the method
- * name, the params, and that it goes out on `restApi:v2`. `getPublicIds`
- * swallows its own failures by design (it resolves `{}` rather than rejecting,
- * so a pull channel cannot take an application down), which is exactly why an
- * assertion on the answer alone cannot tell a right request from a wrong one.
+ * name, the params, and that it goes out on `restApi:v2`.
+ *
+ * That last point used to be justified here by saying `getPublicIds` "swallows
+ * its own failures by design … so a pull channel cannot take an application
+ * down". It no longer does, and the premise was wrong anyway: the only caller is
+ * `sendMessageBatch`, reached only from the public `sendMessage` /
+ * `sendMessageToChannels`, neither of which has an internal caller — nothing in
+ * the receive loop can reach it, so there was no pull loop to protect. What the
+ * empty resolve actually did was turn an awaited publish into a silent no-op.
+ * See the failure case below and
+ * `test/integration/pull/publish-failure-is-reported.unit.spec.ts`.
+ *
+ * The request-shape reasoning survives the change: a rejection tells you the
+ * request failed, not that it was addressed correctly.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { ChannelManager } from '../../../packages/jssdk/src/pullClient/channel-manager'
@@ -20,6 +30,12 @@ import type { TypeB24 } from '../../../packages/jssdk/src/types/b24'
 
 type Recorded = { method: string, params: unknown }
 
+/**
+ * A real `AjaxResult` always carries `isSuccess`, and `getPublicIds` now reads
+ * it — a refusal reaches it either as a thrown `AjaxError` or as a RESOLVED
+ * non-success result, and only the second is distinguishable by that flag. A
+ * fake that omits it looks like a failure to the code under test.
+ */
 function makeB24(answer: () => Promise<unknown>) {
   const calls: Recorded[] = []
   const v2Call = {
@@ -55,6 +71,7 @@ const DESCRIPTOR = {
 describe('#277 ChannelManager.getPublicIds after the callMethod removal', () => {
   it('asks the configured method, on restApi:v2, with the unknown user ids', async () => {
     const { b24, calls, v3Call } = makeB24(async () => ({
+      isSuccess: true,
       getData: () => ({ result: { 7: DESCRIPTOR } })
     }))
 
@@ -73,6 +90,7 @@ describe('#277 ChannelManager.getPublicIds after the callMethod removal', () => 
 
   it('returns the channels the portal answered with', async () => {
     const { b24 } = makeB24(async () => ({
+      isSuccess: true,
       getData: () => ({ result: { 7: DESCRIPTOR } })
     }))
 
@@ -84,6 +102,7 @@ describe('#277 ChannelManager.getPublicIds after the callMethod removal', () => 
 
   it('does not ask again for a channel it already holds', async () => {
     const { b24, calls } = makeB24(async () => ({
+      isSuccess: true,
       getData: () => ({ result: { 7: DESCRIPTOR } })
     }))
 

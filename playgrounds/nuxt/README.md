@@ -16,8 +16,13 @@ The application requires the following Bitrix24 REST API scopes:
 ```bash
 pnpm install
 cp .env.example .env
-# Fill in your Bitrix24 credentials in .env
 ```
+
+There are no credentials to fill in: the app authenticates through the Bitrix24
+frame, so the portal supplies the auth at runtime. The only variable is
+`NUXT_ALLOWED_HOSTS`, and it is needed only when serving through a tunnel —
+without the tunnel host listed there, Vite answers "Blocked request. This host is
+not allowed".
 
 ## Run
 
@@ -182,8 +187,9 @@ gate, not on the WebSocket.
 
 ### Running the lab
 
-1. Do the `## Setup` steps above first — `cp .env.example .env` and fill in the
-   credentials. The page cannot run outside a Bitrix24 frame.
+1. Do the `## Setup` steps above first. The page cannot run outside a Bitrix24
+   frame — opening `http://localhost:3001/pull-lab` directly will not work,
+   because `$initializeB24Frame()` has no parent portal to talk to.
 2. Add the `pull` scope to the application. Without it
    `pull.application.event.add` fails, and the failure reads as
    `ERROR_METHOD_NOT_FOUND` — it looks like a typo in the method name, not like

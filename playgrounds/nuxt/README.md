@@ -166,10 +166,11 @@ necessarily goes through the server; Pull has no browser-to-browser path).
 | 6 | a body of awkward values survives | the body was mangled in transit |
 | 7 | a large body survives | a three-byte length prefix or buffer-growth bug |
 | 8 | a sequence arrives complete and in order | messages lost or reordered |
-| 9 | the **encode** half runs | see below — this one has three non-defect outcomes |
+| 9 | the **encode** half runs | see below — this one has several non-defect outcomes |
 
-Check 9 is the only check that reaches the encoder, and it has three outcomes
-worth telling apart. None of them is a defect on its own.
+Check 9 is the only check that reaches the encoder. A `pass` means the message
+came back and everything worked. Below a pass there are four outcomes worth
+telling apart, and none of them is a defect on its own.
 
 - **`skip`** — the portal is on JSON-RPC (push-server 5+) or has not granted
   `publish_enabled`. Neither codec runs; the encode half is untested by that
@@ -179,6 +180,9 @@ worth telling apart. None of them is a defect on its own.
   `pull.channel.public.list`, which is not part of the application REST surface.
   Until 3.0.0 this same situation reported **success** and dropped the message
   in silence, so seeing the code is evidence the fix is in your build.
+- **`fail` with `[JSSDK_PULL_SEND_REFUSED]`** — the batch **was** encoded and
+  the transport then would not take it: the socket was not open, or
+  long-polling had no publication path. Worth retrying once reconnected.
 - **`warn`** — the batch **was** encoded and the socket took the frame, and only
   the echo did not come back. This happens when the lookup was skipped because
   every recipient already had an unexpired cached channel — the startup config
@@ -198,12 +202,13 @@ it up against `encodeWindow`:
 - an entry inside the window with `frameRefusal: true` names the reason —
   `4013` the frame did not parse, `4017` it addressed nobody, `4020` a private
   channel, `4021` the signature did not verify;
-- an entry with `frameRefusal: false` is an ordinary reconnect and means
-  nothing here;
-- **an empty list means nothing either way.** Only a structurally unparseable
-  frame trips `4013`. A scalar written at the wrong field number parses fine,
-  gets broadcast with an empty body, and produces no close code and no echo —
-  which is exactly what a `warn` looks like.
+- an entry with `frameRefusal: false` is usually an ordinary reconnect and
+  means nothing here — but `4010`, `4012` and `4029` land in that bucket too
+  and are worth reading;
+- **an empty list means nothing either way.** Only a frame the server cannot
+  *parse* trips `4013`. A scalar written at an unused field number parses fine
+  and is broadcast with an empty body — no close code, and nothing the page can
+  match as an echo, which is exactly what a `warn` looks like.
 
 A closure inside the window is a correlation, not a proof: the connection also
 carries subscriptions, heartbeats and config refreshes. And the page taps the
@@ -260,5 +265,4 @@ Captured frames are *every* frame on the connection, including other
 applications' events. Look at what you captured before sharing.
 
 `socketClosures[].reason` is the **server's** own text rather than the page's.
-It is truncated to the 123 bytes the WebSocket spec allows but is not masked,
-so read it along with the rest.
+It is length-capped but not masked, so read it along with the rest.

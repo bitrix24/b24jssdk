@@ -211,15 +211,22 @@ deletion actually moves:
    it says nothing about the receive side.
 2. **R2 — does the lite codec agree with `model.js`?** Affects only the lite
    codec, and is therefore the risk the deletion does move, in both directions.
-   **Open.** `protobuf-lite-differential.unit.spec.ts` compares the two
-   byte-for-byte on about a dozen hand-written inputs — a sample, not coverage.
-3. **R3 — does the lite codec BEHAVE like the library where the schema is
-   silent?** Also moved by the deletion, and invisible to both a `.proto` audit
-   and a byte-for-byte differential on well-formed input. `readSender` is the
-   worked example: returning `{}` instead of proto3 defaults threw inside
-   `decodeId` and, because the `catch` wraps the loop rather than the message,
-   took the whole batch with it. **Open**, and closed by malformed and
-   edge-shaped inputs rather than by agreement on good ones.
+   **Open.** `protobuf-lite-differential.unit.spec.ts` is better than a bare
+   byte comparison — it also carries an unknown-field battery at every nesting
+   depth, a `oneof` discriminator case, a decode-defaults case and a
+   lite→library round trip — but every input in it was written by hand. That
+   is a sample, not coverage, and the boundaries most likely to diverge are
+   exactly the ones nobody thinks to write down.
+3. **R3 — is the lite codec SAFE where the schema is silent?** Also moved by
+   the deletion, and not a question about agreement: the two are allowed to
+   differ there, and on `Sender.id` they deliberately do. What is not allowed
+   is for the lite codec to fail where the library copes. `readSender` is the
+   worked example: returning `{}` instead of materialised defaults threw inside
+   `decodeId` and, because the `catch` wraps the loop rather than one message,
+   took the whole batch with it — a failure-mode difference, invisible to a
+   `.proto` audit and to any byte comparison of well-formed output. **Open**,
+   and closed by malformed and edge-shaped inputs rather than by agreement on
+   good ones.
 
 R2 and R3 are closable without a portal. `client.ts` builds exactly
 `{ receivers: [{ id, signature }], body, expiry }` and never sets `sender` or
@@ -237,14 +244,20 @@ bad signature, among others, now named in `CloseReasons`. `/pull-lab` records
 the closures it observes.
 
 That is worth having and it is not a test. A close code is evidence when it
-arrives; its ABSENCE proves nothing about the encoder, because only a
-structurally unparseable frame trips `4013`. Write a scalar at the wrong field
-number and the frame still parses — proto3 skips the unknown field — addresses
-valid receivers, and is broadcast with an empty body. No close, no correct
-echo, nothing to see. The silent-drop reading this document has used
-throughout survives for exactly that class.
+arrives; its ABSENCE proves nothing about the encoder, because only a frame the
+server cannot PARSE trips `4013`. Write a scalar at an UNUSED field number and
+the frame still parses — proto2 skips what the descriptor does not declare —
+addresses valid receivers, and is broadcast with an empty body. No close, no
+echo anyone can match, nothing to see. The silent-drop reading this document
+has used throughout survives for exactly that class.
 
-**That fixture now exists.** `test/integration/pull/fixtures/response-batch-frames.json`
+The caveat on the caveat: this holds for an unused number. Collide with a
+DECLARED field of a different wire type — `body`, a string, written at 4 where
+`expiry` is a varint — and a generated decoder reads it by the declared type
+and throws, so `4013` does fire. Which of the two a given mistake produces is
+not something the author of the mistake gets to choose.
+
+**The recorded-frames fixture now exists.** `test/integration/pull/fixtures/response-batch-frames.json`
 holds two frames captured by `/pull-lab` from a push-server v4 portal over a
 binary WebSocket — one small, one of 20 424 bytes whose body passes the
 three-byte length prefix. `real-portal-frames.unit.spec.ts` decodes both with
@@ -263,9 +276,9 @@ The fixture's own `knownGaps` field lists what it does not cover, and
 `regenerating` says how to make another one — including that the hostname
 substitution must be equal in length, because a shorter replacement invalidates
 four nested length prefixes and the frame stops parsing. The largest gaps:
-it is **decode-side only** (the encode half has since run against a portal, but
-no encoded frame has ever been read BACK, which is the strongest evidence
-available and not what the deletion waits on — see R1/R2/R3 above); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
+it is **decode-side only** (the ENCODE direction has since run against a
+portal, but no encoded frame has ever been read BACK — the strongest evidence
+available, and not what the deletion waits on; see R1/R2/R3 above); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
 rests on the differential suite; every message carries all four scalars, so the
 decode defaults need a synthetic case; and the bodies are ASCII, so multi-byte
 UTF-8 decoding is not exercised by real bytes at all.
@@ -301,11 +314,14 @@ about it are worth knowing before reading a report it produced:
   every subscription, so this is no longer "the page did not see the echo" —
   nothing came back. Both codecs, same portal, same result.
 
-  The `.proto` audit then removed one of the two explanations for that. The
-  server does not exclude the publisher when it broadcasts, so an echo was
-  expected; and it refuses a frame by CLOSING the socket with a code rather
-  than by silence. Which means the run should have produced either an echo or
-  a close code, and the page was recording neither. It records closures now.
+  The audit report then argues away one of the two explanations: per that
+  report the server does not exclude the publisher when it broadcasts, so an
+  echo would have been expected, and it refuses a frame by CLOSING the socket
+  rather than by silence. If both hold, the run should have produced an echo
+  or a close code, and the page was recording neither — it records closures
+  now. If it produces neither once closures ARE recorded, then one of those
+  two server-side claims does not hold for this protocol version, which is
+  itself worth knowing. None of it is checkable from here.
 
   (An earlier round could not have seen an echo under any circumstances: the
   lab subscribed only to `SubscriptionType.Server`, while a client-published

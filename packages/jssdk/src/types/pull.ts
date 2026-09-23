@@ -187,13 +187,15 @@ export enum CloseReasons {
   WRONG_CHANNEL_ID = 4010,
 
   /**
-   * Codes the SERVER sends, below. Everything above is a code the CLIENT
-   * sends — `PullClient` passes those to `disconnect()` / `restart()` when it
-   * is the one ending the connection — and the two directions must not be
-   * mixed up: passing `TOO_MANY_MESSAGES` to `disconnect()` would be
-   * meaningless. They share an enum because `WRONG_CHANNEL_ID` always did, and
-   * because a single reverse lookup over one enum is what turns a numeric
-   * `CloseEvent.code` into a name.
+   * Codes the SERVER sends, below. Everything above EXCEPT `WRONG_CHANNEL_ID`
+   * is a code the CLIENT sends — `PullClient` passes those to `disconnect()` /
+   * `restart()` when it is the one ending the connection — and the two
+   * directions must not be mixed up: passing `TOO_MANY_MESSAGES` to
+   * `disconnect()` would be meaningless. `WRONG_CHANNEL_ID` is the exception
+   * and always was: it arrives on the `close` event like the ones below (see
+   * `PullClient.onWebSocketDisconnect`), which is why they share an enum, and
+   * why a single reverse lookup over it turns a numeric `CloseEvent.code` into
+   * a name.
    *
    * These arrive on the socket's `close` event, and that is the only place
    * they appear. The push server does not answer a refused frame and does not
@@ -249,9 +251,29 @@ export enum CloseReasons {
  * the connection is unusable, not that a particular publish was refused.
  */
 export function isFrameRefusalCloseCode(code: number): boolean {
-  return code >= CloseReasons.WRONG_REQUEST_DATA
-    && code <= CloseReasons.INVALID_CHANNEL_SIGNATURE
+  return FRAME_REFUSAL_CLOSE_CODES.has(code)
 }
+
+/**
+ * Membership by name, not by range.
+ *
+ * A range test over 4013-4021 gives the same answers today, and only because
+ * the allocation happens to be contiguous — nothing holds it that way. Adding
+ * a connection-level code inside the range, or a frame-level one outside it,
+ * would then need two edits that look unrelated, and the one nobody makes is
+ * the test. Listing the members makes it a single edit.
+ */
+const FRAME_REFUSAL_CLOSE_CODES: ReadonlySet<number> = new Set([
+  CloseReasons.WRONG_REQUEST_DATA,
+  CloseReasons.REQUEST_COMMAND_NOT_ALLOWED,
+  CloseReasons.WRONG_REQUEST_COMMAND,
+  CloseReasons.TOO_MANY_MESSAGES,
+  CloseReasons.NO_CHANNELS_FOUND,
+  CloseReasons.TOO_MANY_CHANNELS,
+  CloseReasons.INVALID_CHANNEL_ID,
+  CloseReasons.PRIVATE_CHANNEL_NOT_ALLOWED,
+  CloseReasons.INVALID_CHANNEL_SIGNATURE
+])
 
 export enum SystemCommands {
   CHANNEL_EXPIRE = 'CHANNEL_EXPIRE',

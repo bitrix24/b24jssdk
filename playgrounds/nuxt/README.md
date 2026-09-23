@@ -16,8 +16,13 @@ The application requires the following Bitrix24 REST API scopes:
 ```bash
 pnpm install
 cp .env.example .env
-# Fill in your Bitrix24 credentials in .env
 ```
+
+There are no credentials to fill in: the app authenticates through the Bitrix24
+frame, so the portal supplies the auth at runtime. The only variable is
+`NUXT_ALLOWED_HOSTS`, and it is needed only when serving through a tunnel —
+without the tunnel host listed there, Vite answers "Blocked request. This host is
+not allowed".
 
 ## Run
 
@@ -163,6 +168,13 @@ necessarily goes through the server; Pull has no browser-to-browser path).
 | 8 | a sequence arrives complete and in order | messages lost or reordered |
 | 9 | the **encode** half runs | `encodeRequestBatch` produced something the server rejected |
 
+In an **application**, check 9 is expected to fail with
+`[JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE]`. That is not a defect: `sendMessage()`
+needs `pull.channel.public.list` to resolve the recipients' channels, and that
+method is not part of the application REST surface. Until 3.0.0 the same
+situation reported **success** and the message was dropped in silence — seeing
+the code is the evidence that the fix is in the build you are running.
+
 Check 7 is the most valuable of the payload checks: a 20 kB body forces a
 three-byte varint length prefix, which ordinary traffic never reaches. Check 6
 is weaker than it looks and says so on the page — the body is one opaque blob on
@@ -175,8 +187,9 @@ gate, not on the WebSocket.
 
 ### Running the lab
 
-1. Do the `## Setup` steps above first — `cp .env.example .env` and fill in the
-   credentials. The page cannot run outside a Bitrix24 frame.
+1. Do the `## Setup` steps above first. The page cannot run outside a Bitrix24
+   frame — opening `http://localhost:3001/pull-lab` directly will not work,
+   because `$initializeB24Frame()` has no parent portal to talk to.
 2. Add the `pull` scope to the application. Without it
    `pull.application.event.add` fails, and the failure reads as
    `ERROR_METHOD_NOT_FOUND` — it looks like a typo in the method name, not like

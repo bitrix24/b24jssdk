@@ -18,8 +18,9 @@
  * The encode half is only reachable through `PullClient.sendMessage()`, which
  * needs `publish_enabled` from the portal and a portal that is not on JSON-RPC.
  * Check 9 runs it when both hold and reports `skip` when either does not — it
- * never quietly passes. This matters because two of the three traps named in
- * `.github/contributing/pull-protobuf.md` live on the encode side.
+ * never quietly passes. This matters because trap 3 in
+ * `.github/contributing/pull-protobuf.md` — protobuf.js's prototype defaults —
+ * is encode-only, and nothing else on this page can reach it.
  *
  * A message published by `sendMessage()` comes back on a DIFFERENT subscription
  * from one published by `pull.application.event.add`: the push server stamps it
@@ -469,14 +470,24 @@ function onSocketClose(event: Event): void {
   // the page did not author, and it goes into a file people paste into chats.
   const reason = String(closed.reason ?? '').slice(0, MAX_REASON_CHARS)
   socketClosures.value.push({
-    ms: Date.now() - startedAt,
+    ms: now(),
     code: closed.code,
     name,
     frameRefusal: isFrameRefusalCloseCode(closed.code),
     reason
   })
+  // Trim the oldest, and never a frame refusal. Checks 10 and 11 run after
+  // check 9, so a reconnect storm in that tail could otherwise evict the one
+  // entry the window exists to surface — leaving an empty list, which the
+  // report tells the reader "means nothing either way". A false negative on
+  // the single most informative field. Refusals are rare, so keeping all of
+  // them costs nothing.
   if (socketClosures.value.length > MAX_CLOSURES) {
-    socketClosures.value.splice(0, socketClosures.value.length - MAX_CLOSURES)
+    const refusals = socketClosures.value.filter(entry => entry.frameRefusal)
+    const rest = socketClosures.value.filter(entry => !entry.frameRefusal)
+    const keep = Math.max(0, MAX_CLOSURES - refusals.length)
+    socketClosures.value = [...refusals, ...rest.slice(-keep)]
+      .sort((left, right) => left.ms - right.ms)
   }
   log('note', `socket closed: ${closed.code} ${name}${reason ? ` — ${reason}` : ''}`)
 }
@@ -863,7 +874,7 @@ async function runChecks(): Promise<void> {
       pending.set(envelopeId, resolveFn)
       let timer = 0
       const startedWaiting = Date.now()
-      encodeWindow.value = { fromMs: startedWaiting - startedAt, toMs: 0 }
+      encodeWindow.value = { fromMs: now(), toMs: 0 }
       try {
         // This is the call that runs encodeRequestBatch under the chosen codec.
         await pull.sendMessage([userId.value], MODULE_ID, 'lab_probe', {
@@ -927,7 +938,7 @@ async function runChecks(): Promise<void> {
           window.clearTimeout(timer)
         }
         if (encodeWindow.value) {
-          encodeWindow.value.toMs = Date.now() - startedAt
+          encodeWindow.value.toMs = now()
         }
         pending.delete(envelopeId)
       }

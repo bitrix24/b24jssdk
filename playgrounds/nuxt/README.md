@@ -138,11 +138,13 @@ a live portal, committed as a fixture and decoded by both codecs*. Two green
 runs of this page are not that. What produces the fixture is the **Capture raw
 frames** button, and only on a WebSocket connection — see below.
 
-**Two of the three traps are on the encode side, and this page barely reaches
-them.** Everything except check 9 sends over REST and receives over Pull, so it
-exercises decoding. Check 9 is the only one that runs `encodeRequestBatch`, and
-it needs `publish_enabled` on the portal; without it the check reports `skip`
-and the encode half is untested by that run.
+**The encode side is what this page barely reaches.** Everything except check 9
+sends over REST and receives over Pull, so it exercises decoding. Check 9 is the
+only one that runs the encoder, and it needs `publish_enabled` on the portal and
+a portal that is not on JSON-RPC; without either the check reports `skip` and the
+encode direction is untested by that run. Trap 3 in `pull-protobuf.md` —
+protobuf.js's prototype defaults — is encode-only, so nothing else here can
+reach it.
 
 **Test portals only.** Checks 4 and after publish to the shared application
 channel, which reaches every user with this application open — as does anything

@@ -859,8 +859,9 @@ export class PullClient implements ConnectorParent {
    *
    * **Not the supported path in an application.** Resolving the recipients'
    * channels needs `pull.channel.public.list`, which is not part of the
-   * application REST surface: an application's Pull client is receive-only,
-   * and its back end publishes with `pull.application.event.add`. See
+   * application REST surface, and an application's Pull client is documented
+   * as receive-only, with its back end publishing through
+   * `pull.application.event.add`. See
    * {@link https://apidocs.bitrix24.ru/api-reference/interactivity/push-and-pull-in-browser.html}.
    *
    * Rejects with `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE` when that lookup fails.

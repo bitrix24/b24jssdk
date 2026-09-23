@@ -190,7 +190,7 @@ export class ChannelManager {
 
     return new SdkError({
       code: PUBLIC_IDS_UNAVAILABLE,
-      description: `Pull: could not resolve channel ids through \`${this._getPublicListMethod}\`, so there is nobody to send to. Publishing from the client needs that method; an application's Pull client is receive-only — put messages into the channel with \`pull.application.event.add\` from your back end instead.`,
+      description: `Pull: could not resolve channel ids through \`${this._getPublicListMethod}\`, so there is nobody to send to. Publishing from the client needs that method; that method is not part of the application REST surface — put messages into the channel with \`pull.application.event.add\` from your back end instead.`,
       status: 0,
       ...(cause instanceof Error ? { originalError: cause } : {})
     })

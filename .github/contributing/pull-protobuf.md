@@ -73,10 +73,14 @@ Facts established at the same time, worth not re-establishing:
 - **Long-polling is alive** and is the standard fallback. It is not removable.
 - No field in the schema is `required`.
 
-## The two traps
+## The three traps
 
-Both are places where a hand-written codec goes wrong quietly, and both are
-pinned by tests.
+All three are places where a hand-written codec goes wrong quietly, and all
+three are pinned by tests. The first two are in the wire format; the third is
+not, which is why it is numbered separately below. Worth knowing which side
+each falls on, because only one of them is reachable by encoding: trap 1 is
+mixed, trap 2 is decode-only (`created` does not exist on `IncomingMessage` at
+all), and trap 3 is encode-only.
 
 **1. What the client receives is not what it sends.** It sends
 `IncomingMessage` — `receivers`, `sender`, `body`, `expiry`, `type` — and
@@ -88,7 +92,7 @@ resolving the type through the schema.
 one in the schema. Read as a varint it yields a plausible wrong number instead
 of an error.
 
-A third trap is not in the wire format at all: `client.ts` builds
+**3. A trap that is not in the wire format at all.** `client.ts` builds
 `Receiver.create(...)` and `IncomingMessage.create(...)` **instances**, and
 protobuf.js puts `isPrivate = false` and `type = ''` on the prototype as
 defaults. An encoder that tests `!== undefined` writes two fields the library

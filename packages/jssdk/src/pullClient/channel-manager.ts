@@ -73,8 +73,18 @@ export class ChannelManager {
      * of the application REST surface. An application's Pull client is
      * documented as RECEIVE-ONLY — its back end puts messages into the channel
      * with `pull.application.event.add`, and the front end subscribes. So for
-     * an application this rejection is the correct, permanent answer, and the
-     * message it carries says so rather than leaving the caller to guess.
+     * an application this rejection is usually the correct, permanent answer,
+     * and the message it carries says so rather than leaving the caller to
+     * guess.
+     *
+     * Usually, not always, and the difference is the cache above rather than
+     * anything here. `PullClient` seeds it from `config.publicChannels`, which
+     * some portals return in `pull.config.get` — an ordinary application call.
+     * When the channel is already cached and unexpired this method makes no
+     * request at all, so there is nothing to refuse: the batch is encoded and
+     * handed to the socket. Measured on a live push-server v4 portal, where
+     * exactly that happened and the server then did not redeliver the frame.
+     * A send that reaches the transport is still not a delivery receipt.
      */
     return new Promise((resolve, reject) => {
       // Was `callMethod`, removed in 3.0.0 (#277). `pull.server.time` and the

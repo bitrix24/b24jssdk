@@ -131,6 +131,8 @@ const frames = ref<RawFrame[]>([])
 const isCapturing = ref(false)
 /** Set once a binary frame has actually been observed, not merely requested. */
 const sawBinaryFrame = ref(false)
+/** Set once `encodeRequestBatch` has demonstrably run against the portal. */
+const encodePathExercised = ref(false)
 const chatDraft = ref('')
 const startedAt = Date.now()
 let seq = 0
@@ -221,7 +223,7 @@ const checks = reactive<Check[]>([
   {
     id: 'encode',
     title: '9 · the ENCODE half of the codec runs',
-    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs encodeRequestBatch — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled on the portal; without it the check reports skip, because a pass here would be a lie. In an APPLICATION a fail carrying [JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE] is the expected outcome, not a defect: pull.channel.public.list is not in the application REST surface, and until 3.0.0 this same situation reported success and dropped the message in silence.',
+    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs encodeRequestBatch — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled on the portal; without it the check reports skip, because a pass here would be a lie. Two outcomes below a pass are both informative rather than defects, and the detail says which one happened. A fail carrying [JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE] means the channel lookup was refused, so nothing was encoded: pull.channel.public.list is not in the application REST surface. A warn means the opposite — the batch WAS encoded and the socket took the frame, and only the echo never arrived. Which of the two you get depends on whether pull.config.get carried publicChannels, because those prefill the ChannelManager cache and the REST lookup is then never made. Until 3.0.0 all three outcomes reported success alike.',
     state: 'idle',
     detail: '',
     ms: 0
@@ -769,16 +771,37 @@ async function runChecks(): Promise<void> {
             payload: { probe: 'encode', text: 'Проверка кодека 🚀', pad: 'z'.repeat(200) }
           } satisfies LabEnvelope
         })
+        // `sendMessage()` RETURNING is, since 3.0.0, a statement about the
+        // encoder and the socket: the batch was encoded by the codec under
+        // test and the connector accepted the frame. Anything short of that
+        // throws. So this, and not the arrival of an echo, is what says the
+        // encode half ran.
+        encodePathExercised.value = true
         const expired = new Promise<null>((resolve) => {
           timer = window.setTimeout(() => resolve(null), AWAIT_MS)
         })
         const winner = await Promise.race([received, expired])
         if (winner === null) {
-          setCheck('encode', 'fail', `sendMessage() was accepted but nothing came back within ${AWAIT_MS} ms`)
+          // NOT a fail, and the wording matters: an earlier version of this page
+          // said "accepted but nothing came back", which described the
+          // pre-3.0.0 client, where `sendMessage()` resolved before the channel
+          // lookup had even answered and an unsent message looked identical to
+          // this. It no longer can. What is missing here is the echo, which is
+          // a push-server delivery fact — a server may simply not redeliver a
+          // client-published frame — and says nothing about the codec.
+          setCheck(
+            'encode',
+            'warn',
+            `encodeRequestBatch ran under the "${codec.value}" codec and the connector accepted the frame — which is what a returning sendMessage() means since 3.0.0 — but no echo came back within ${AWAIT_MS} ms. The ENCODE half ran; DELIVERY is unproven, and that is a push-server fact rather than a codec one.`
+          )
         } else {
           setCheck('encode', 'pass', `encoded by the "${codec.value}" codec and returned in ${Date.now() - startedWaiting} ms`, Date.now() - startedWaiting)
         }
       } catch (error) {
+        // The code in the text is the whole point of reporting it:
+        // `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE` means the encoder never ran,
+        // while `JSSDK_PULL_SEND_REFUSED` means it ran and the transport would
+        // not take the result.
         setCheck('encode', 'fail', errorText(error))
       } finally {
         if (timer) {
@@ -907,7 +930,10 @@ const report = computed(() => ({
     binaryFrameObserved: sawBinaryFrame.value,
     serverVersion: serverVersion.value,
     publishingEnabled: publishingEnabled.value,
-    encodePathExercised: findCheck('encode').state === 'pass'
+    // Reported from what actually happened, not from the verdict: the check
+    // can end in `warn` with the encoder having run, which is precisely the
+    // case `pull-protobuf.md` asks about.
+    encodePathExercised: encodePathExercised.value
   },
   debugInfo: scrubDebugInfo(debugInfo.value),
   checks: checks.map(check => ({

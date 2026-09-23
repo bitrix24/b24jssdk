@@ -289,7 +289,7 @@ const checks = reactive<Check[]>([
   {
     id: 'encode',
     title: '9 · the ENCODE half of the codec runs',
-    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs the encoder, which nothing else here reaches. It needs publish_enabled AND a portal that is not on JSON-RPC, since push-server 5+ publishes as JSON and no codec runs; either one missing is a skip, because a pass there would be a lie. Below a pass there are two informative outcomes and the detail says which happened. A fail carrying [JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE] means the channel lookup was refused and NOTHING was encoded. A warn means the batch WAS encoded and the socket took it, and only the echo did not come back — which does not acquit the encoder: the server answers SOME bad frames by closing the socket with a code (look at socketClosures and encodeWindow in the report), but a scalar written at an unused field number parses cleanly and is broadcast with an empty body — no close code, and nothing this page can match as an echo. Whether you get the fail or the warn turns on whether every recipient already had an unexpired channel in the cache, which pull.application.config.get (pull.config.get outside an application) prefills from publicChannels; check 9 sends to the current user, whose own channel is usually in there. The report field encodePathExercised follows the send itself, so it is true for a warn and for a JSSDK_PULL_SEND_REFUSED fail, and false for a skip. Until 3.0.0 every one of these reported success alike.',
+    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs the encoder, which nothing else here reaches. It needs publish_enabled AND a portal that is not on JSON-RPC, since push-server 5+ publishes as JSON and no codec runs; either one missing is a skip, because a pass there would be a lie. Below a pass there are three informative outcomes and the detail says which happened. A fail carrying [JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE] means the channel lookup was refused and NOTHING was encoded. A fail carrying [JSSDK_PULL_SEND_REFUSED] means the batch WAS encoded and the transport then would not take it. A warn means the batch WAS encoded and the socket took it, and only the echo did not come back — which does not acquit the encoder: the server answers SOME bad frames by closing the socket with a code (look at socketClosures and encodeWindow in the report), but a scalar written at an unused field number parses cleanly and is broadcast with an empty body — no close code, and nothing this page can match as an echo. Whether you get the fail or the warn turns on whether every recipient already had an unexpired channel in the cache, which pull.application.config.get (pull.config.get outside an application) prefills from publicChannels; check 9 sends to the current user, whose own channel is usually in there. The report field encodePathExercised follows the send itself, so it is true for a warn and for a JSSDK_PULL_SEND_REFUSED fail, and false for a skip. Until 3.0.0 every one of these reported success alike.',
     state: 'idle',
     detail: '',
     ms: 0
@@ -485,8 +485,11 @@ function onSocketClose(event: Event): void {
   if (socketClosures.value.length > MAX_CLOSURES) {
     const refusals = socketClosures.value.filter(entry => entry.frameRefusal)
     const rest = socketClosures.value.filter(entry => !entry.frameRefusal)
-    const keep = Math.max(0, MAX_CLOSURES - refusals.length)
-    socketClosures.value = [...refusals, ...rest.slice(-keep)]
+    // `rest.slice(-keep)` would be wrong: `-0 === 0` and `slice(0)` copies the
+    // WHOLE array, so the moment refusals alone reach the cap the trim would
+    // silently stop trimming — in exactly the scenario it exists for.
+    const keep = Math.min(rest.length, Math.max(0, MAX_CLOSURES - refusals.length))
+    socketClosures.value = [...refusals, ...rest.slice(rest.length - keep)]
       .sort((left, right) => left.ms - right.ms)
   }
   log('note', `socket closed: ${closed.code} ${name}${reason ? ` — ${reason}` : ''}`)

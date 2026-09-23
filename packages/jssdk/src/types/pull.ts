@@ -198,8 +198,11 @@ export enum CloseReasons {
    * a name.
    *
    * These arrive on the socket's `close` event, and that is the only place
-   * they appear. The push server does not answer a refused frame and does not
-   * error: it closes the connection with one of these and a reason string.
+   * they appear — they never reach a caller as an error. A refused frame is
+   * reported to come back as a close with one of these and a reason string
+   * rather than as an answer, though the same audit describes at least one
+   * refusal path that produces no response at all, so "no close code" is not
+   * the same as "not refused".
    *
    * Frame-level, i.e. "the publish you just made was rejected":
    * `WRONG_REQUEST_DATA`, `REQUEST_COMMAND_NOT_ALLOWED`,
@@ -213,13 +216,13 @@ export enum CloseReasons {
    * publish failed" would misclassify all three.
    *
    * Reported by a third-party audit of an on-prem stand's push-server sources,
-   * which is not in this repository and cannot be verified from it. Treat the
-   * per-code semantics as informed documentation rather than as contract; the
-   * NUMBERS are what the `close` event gives you either way. See
+   * which is not in this repository and cannot be verified from it. Treat every
+   * per-code description below as informed documentation rather than as
+   * contract; the NUMBERS are what the `close` event gives you either way. See
    * `.github/contributing/pull-protobuf.md`.
+   *
+   * Connection-level: the connection has no public channel bound to it.
    */
-
-  /** Connection-level: the connection has no public channel bound to it. */
   NO_PUBLIC_CHANNEL_ID = 4012,
   /** `RequestBatch.decode` threw, or `requests` was empty — a structurally malformed frame. */
   WRONG_REQUEST_DATA = 4013,
@@ -227,19 +230,19 @@ export enum CloseReasons {
   REQUEST_COMMAND_NOT_ALLOWED = 4014,
   /** No handler for the command. */
   WRONG_REQUEST_COMMAND = 4015,
-  /** More than 100 messages in one batch. */
+  /** Per the audit: more than 100 messages in one batch. */
   TOO_MANY_MESSAGES = 4016,
   /** The message addressed nobody — `receivers` was empty. */
   NO_CHANNELS_FOUND = 4017,
-  /** More than 100 channels in one request. */
+  /** Per the audit: more than 100 channels in one request. */
   TOO_MANY_CHANNELS = 4018,
-  /** A trusted-connection check; not reachable from a browser client. */
+  /** Per the audit: a trusted-connection check, not reachable from a browser client. */
   INVALID_CHANNEL_ID = 4019,
   /** `Receiver.isPrivate` was true. A client may not publish to a private channel. */
   PRIVATE_CHANNEL_NOT_ALLOWED = 4020,
   /** `Receiver.signature` did not match the server's HMAC for that channel. */
   INVALID_CHANNEL_SIGNATURE = 4021,
-  /** Connection-level: more than 100 connections on one channel. */
+  /** Connection-level. Per the audit: more than 100 connections on one channel. */
   TOO_MANY_CONNECTIONS = 4029
 }
 

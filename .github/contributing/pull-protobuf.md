@@ -77,10 +77,11 @@ Facts established at the same time, worth not re-establishing:
 
 All three are places where a hand-written codec goes wrong quietly, and all
 three are pinned by tests. The first two are in the wire format; the third is
-not, which is why it is numbered separately below. Worth knowing which side
-each falls on, because only one of them is reachable by encoding: trap 1 is
-mixed, trap 2 is decode-only (`created` does not exist on `IncomingMessage` at
-all), and trap 3 is encode-only.
+not, which is why it reads differently from the other two. Worth knowing which
+side each falls on: trap 1 is reachable from both directions, trap 2 is
+decode-only (`created` does not exist on `IncomingMessage` at all), and trap 3
+is the only encode-only one — which is why `/pull-lab`, whose encode check is
+its weakest, can say so little about it.
 
 **1. What the client receives is not what it sends.** It sends
 `IncomingMessage` — `receivers`, `sender`, `body`, `expiry`, `type` — and
@@ -104,11 +105,12 @@ not null.
 `new PullClient({ ..., protobufCodec: 'lite' })` selects the hand-written codec,
 and `usePullClient(prefix, userId, 'lite')` reaches it through the helper — which
 matters, because the helper is how most callers construct a Pull client at all.
-It is **opt-in, and the default stays on the vendored library**, because R2 and
-R3 below are open — the lite codec has not been shown to agree with `model.js`
-across the reachable input space, nor to fail the same way on malformed input.
-That evidence comes from fuzz differentials, not from a portal; `/pull-lab`
-collects the separate, weaker portal evidence.
+It is **opt-in, and the default stays on the vendored library**, because R2,
+R3 and R4 below are open: the lite codec has not been shown to agree with
+`model.js` across the reachable input space, nor to cope with malformed input
+the same way, nor has its one deliberate divergence been signed off. That
+evidence comes from fuzz differentials, not from a portal; `/pull-lab` collects
+the separate, weaker portal evidence.
 
 The option is tagged **`@internal`**: it is the SDK's own migration switch, off
 the documentation site, and it will be removed without a deprecation cycle. That
@@ -228,11 +230,36 @@ deletion actually moves:
    worked example: returning `{}` instead of materialised defaults threw inside
    `decodeId` and, because the `catch` wraps the loop rather than one message,
    took the whole batch with it — a failure-mode difference, invisible to a
-   `.proto` audit and to any byte comparison of well-formed output. **Open**,
-   and closed by malformed and edge-shaped inputs rather than by agreement on
-   good ones.
+   `.proto` audit and to any byte comparison of well-formed output. **Open.**
 
-R2 and R3 are closable without a portal. `client.ts` builds exactly
+   Closed when a corpus of malformed and edge-shaped frames — truncated at
+   every nesting depth, unknown fields, wrong wire types, absent fields, an
+   empty batch, a length prefix that overruns — is decoded by both and the lite
+   codec never throws where the library returns, and never returns where the
+   library throws. That is a stopping rule rather than a feeling, and it is the
+   thing to write down before anyone claims R3 is done.
+
+4. **R4 — does the lite codec's deliberate divergence break a consumer?**
+   `Sender.id` is the live case: protobuf.js leaves it absent, the lite codec
+   materialises an empty `Uint8Array`, on purpose. R2 waives that by design and
+   R3 is satisfied by it, so neither owns it — but a caller writing
+   `if (message.sender.id)` sees a behaviour change, and after the deletion the
+   lite behaviour simply IS the behaviour. **Open**, and closed by deciding
+   whether each divergence is acceptable and writing it into the changelog, not
+   by a test.
+
+**The oracle disappears at the moment of deletion, and that sets the order of
+operations.** Every one of R2, R3 and R4 is measured against `model.js`.
+Deleting it does not reduce those risks — it removes the ability to measure
+them, so all three must be closed BEFORE the deletion, not after. Converting
+the differential suite into golden vectors (see above) preserves R2's oracle
+only over the inputs someone already wrote down, which is the sample this same
+section declines to call coverage; and R3's oracle — "where the library copes"
+— cannot be frozen into vectors at all, because it is a claim about inputs
+nobody has enumerated. Whatever is not settled before `protobuf/` goes stays
+unsettled.
+
+R2, R3 and R4 are closable without a portal. `client.ts` builds exactly
 `{ receivers: [{ id, signature }], body, expiry }` and never sets `sender` or
 `type`, so the space reachable FROM THE SDK TODAY is small enough to cover
 rather than sample — but `sendMessage()` is public API, and fuzzing it closes
@@ -255,11 +282,25 @@ addresses valid receivers, and is broadcast with an empty body. No close, no
 echo anyone can match, nothing to see. The silent-drop reading this document
 has used throughout survives for exactly that class.
 
-The caveat on the caveat: this holds for an unused number. Collide with a
-DECLARED field of a different wire type — `body`, a string, written at 4 where
-`expiry` is a varint — and a generated decoder reads it by the declared type
-and throws, so `4013` does fire. Which of the two a given mistake produces is
-not something the author of the mistake gets to choose.
+The caveat on the caveat: that holds for a number the descriptor does not
+declare. Collide with one it does, and the outcome depends on the two wire
+types — a generated decoder switches on the field number alone
+(`model.js`, `switch (tag >>> 3)`) and reads by the DECLARED type, so it is
+the mismatch that decides, not the decoder:
+
+- a **varint written where a length-delimited field is declared** reads the
+  value as a length prefix. `expiry` is a timestamp-scale number, so it
+  overruns the buffer immediately and `4013` fires. Reliable, and the case
+  worth remembering;
+- a **string written at `expiry`'s number** has its length byte consumed as
+  the value and the stream desynchronises. That usually derails, but a short
+  or favourably shaped body can re-align and parse to the end;
+- **length-delimited onto length-delimited** parses cleanly every time. And
+  four of `IncomingMessage`'s five fields are length-delimited, so most ways
+  of misplacing one of them land here.
+
+So the silent bucket is the larger one for this schema, which is the whole
+reason a quiet run cannot be read as a passing one.
 
 **The recorded-frames fixture now exists.** `test/integration/pull/fixtures/response-batch-frames.json`
 holds two frames captured by `/pull-lab` from a push-server v4 portal over a
@@ -282,7 +323,7 @@ substitution must be equal in length, because a shorter replacement invalidates
 four nested length prefixes and the frame stops parsing. The largest gaps:
 it is **decode-side only** (the ENCODE direction has since run against a
 portal, but no encoded frame has ever been read BACK — the strongest evidence
-available, and not what the deletion waits on; see R1/R2/R3 above); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
+available, and not what the deletion waits on; see the risk split above); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
 rests on the differential suite; every message carries all four scalars, so the
 decode defaults need a synthetic case; and the bodies are ASCII, so multi-byte
 UTF-8 decoding is not exercised by real bytes at all.
@@ -334,7 +375,8 @@ about it are worth knowing before reading a report it produced:
 
   So reading an encoded frame back would still be the strongest evidence
   available, and no route to it exists from an application today. It is not,
-  however, what the deletion waits on: that is R2 and R3, which need no portal.
+  however, what the deletion waits on: that is R2, R3 and R4, none of which
+  needs a portal.
   Until those are closed, the vendored library stays.
 
   The cheap experiment that would settle the echo question without relying on

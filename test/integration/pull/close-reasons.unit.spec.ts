@@ -11,8 +11,11 @@
  * published frame. A caller testing "is it 401x" — which is what the first
  * draft of the docblock invited — misclassifies all three.
  *
- * So this exists to fail when someone adds a code and updates only one of the
- * two places that decide membership.
+ * So this exists to fail when someone adds a code and classifies it in only
+ * one of the places that decide membership. The exhaustiveness case below is
+ * what makes that true rather than aspirational: the three lists here are
+ * hand-written, so without it a member added to the enum and left out of both
+ * the lists and the set would pass every other case in this file silently.
  */
 import { describe, it, expect } from 'vitest'
 import { CloseReasons, isFrameRefusalCloseCode } from '../../../packages/jssdk/src/'
@@ -68,6 +71,23 @@ describe('pull: which close codes mean "your publish was refused"', () => {
     for (const code of [4011, 4022, 4025, 4028, 4030, 1006, 0, -1, Number.NaN]) {
       expect(isFrameRefusalCloseCode(code), String(code)).toBe(false)
     }
+  })
+
+  it('classifies every member of the enum, so a new one cannot slip through', () => {
+    // The case that gives the file's opening claim its teeth. The three lists
+    // above are hand-written; this is the only thing tying them to the enum.
+    const declared = Object.values(CloseReasons).filter(
+      (value): value is number => typeof value === 'number'
+    )
+    const classified = [...FRAME_LEVEL, ...CONNECTION_LEVEL, ...CLIENT_SENT]
+
+    for (const code of declared) {
+      expect(
+        classified.filter(candidate => candidate === code),
+        `${CloseReasons[code]} (${code}) must appear in exactly one of the three lists`
+      ).toHaveLength(1)
+    }
+    expect(classified).toHaveLength(declared.length)
   })
 
   it('keeps every frame-level code reverse-mappable to its name', () => {

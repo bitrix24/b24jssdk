@@ -141,8 +141,15 @@ await $b24.actions.v2.call.make({
 
 `PullClient` does expose `sendMessage()`, but it needs `pull.channel.public.list`
 to resolve the recipients' channels and that method is not in the application
-REST surface — it rejects with `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE`. Do not
-generate code that calls it from an app.
+REST surface — it usually rejects with `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE`. Do
+not generate code that calls it from an app.
+
+"Usually" because the lookup is skipped when every recipient already has an
+unexpired cached channel, which the startup config call prefills from
+`publicChannels` — so a send to the current user can go out without rejecting.
+That is not a reason to use it: the send is still not a delivery receipt, and
+what comes back arrives on a `SubscriptionType.Client` subscription rather than
+the `Server` one `subscribe()` defaults to.
 
 Multiple subscriptions on different `moduleId`s are supported — call `useSubscribePullClient` once per channel:
 

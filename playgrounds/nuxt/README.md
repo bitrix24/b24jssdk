@@ -166,14 +166,29 @@ necessarily goes through the server; Pull has no browser-to-browser path).
 | 6 | a body of awkward values survives | the body was mangled in transit |
 | 7 | a large body survives | a three-byte length prefix or buffer-growth bug |
 | 8 | a sequence arrives complete and in order | messages lost or reordered |
-| 9 | the **encode** half runs | `encodeRequestBatch` produced something the server rejected |
+| 9 | the **encode** half runs | see below — this one has three non-defect outcomes |
 
-In an **application**, check 9 is expected to fail with
-`[JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE]`. That is not a defect: `sendMessage()`
-needs `pull.channel.public.list` to resolve the recipients' channels, and that
-method is not part of the application REST surface. Until 3.0.0 the same
-situation reported **success** and the message was dropped in silence — seeing
-the code is the evidence that the fix is in the build you are running.
+Check 9 is the only check that reaches the encoder, and it has three outcomes
+worth telling apart. None of them is a defect on its own.
+
+- **`skip`** — the portal is on JSON-RPC (push-server 5+) or has not granted
+  `publish_enabled`. Neither codec runs; the encode half is untested by that
+  run.
+- **`fail` with `[JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE]`** — the channel lookup was
+  refused, so **nothing was encoded**. `sendMessage()` needs
+  `pull.channel.public.list`, which is not part of the application REST surface.
+  Until 3.0.0 this same situation reported **success** and dropped the message
+  in silence, so seeing the code is evidence the fix is in your build.
+- **`warn`** — the batch **was** encoded and the socket took the frame, and only
+  the echo did not come back. This happens when the lookup was skipped because
+  every recipient already had an unexpired cached channel — the startup config
+  call prefills that cache from `publicChannels`, which carries your own
+  channel, and check 9 sends to you. It does **not** acquit the encoder: a frame
+  the server cannot parse or address is dropped in silence, which looks exactly
+  the same.
+
+`encodePathExercised` in the report follows the send itself, so it is `true` for
+a `warn` and for a `JSSDK_PULL_SEND_REFUSED` fail, and `false` for a `skip`.
 
 Check 7 is the most valuable of the payload checks: a 20 kB body forces a
 three-byte varint length prefix, which ordinary traffic never reaches. Check 6

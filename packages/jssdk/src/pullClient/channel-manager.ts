@@ -73,8 +73,28 @@ export class ChannelManager {
      * of the application REST surface. An application's Pull client is
      * documented as RECEIVE-ONLY — its back end puts messages into the channel
      * with `pull.application.event.add`, and the front end subscribes. So for
-     * an application this rejection is the correct, permanent answer, and the
-     * message it carries says so rather than leaving the caller to guess.
+     * an application this rejection is usually the correct, permanent answer,
+     * and the message it carries says so rather than leaving the caller to
+     * guess.
+     *
+     * Usually, not always, and the difference is the cache above rather than
+     * anything here. `PullClient` seeds it from `config.publicChannels`,
+     * returned by the config call it makes at startup —
+     * `pull.application.config.get` in an application, `pull.config.get`
+     * otherwise. That map carries the current user's own channel, so a send
+     * addressed to SELF commonly finds every recipient cached and unexpired,
+     * this method makes no request at all, and there is nothing to refuse: the
+     * batch is encoded and handed to the socket. A send to another user
+     * normally still needs the lookup, and still gets the rejection.
+     *
+     * Two things that follows does NOT prove, both measured rather than
+     * reasoned. The cache admits a channel on `end > now` by the CLIENT's
+     * clock, with no signature check, so a rotated or server-side-invalidated
+     * channel can still satisfy it — the frame then encodes and is addressed
+     * to something the server does not recognise. And reaching the transport
+     * is not a delivery receipt in any case: both connectors return `true` as
+     * soon as they have handed the bytes over, long-polling without even
+     * reading the response.
      */
     return new Promise((resolve, reject) => {
       // Was `callMethod`, removed in 3.0.0 (#277). `pull.server.time` and the

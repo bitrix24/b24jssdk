@@ -857,10 +857,10 @@ export class PullClient implements ConnectorParent {
   /**
    * Send a single message to the specified users.
    *
-   * **Not usable from an application.** Resolving the recipients' channels
-   * needs `pull.channel.public.list`, which is not part of the application
-   * REST surface: an application's Pull client is receive-only, and its back
-   * end publishes with `pull.application.event.add`. See
+   * **Not the supported path in an application.** Resolving the recipients'
+   * channels needs `pull.channel.public.list`, which is not part of the
+   * application REST surface: an application's Pull client is receive-only,
+   * and its back end publishes with `pull.application.event.add`. See
    * {@link https://apidocs.bitrix24.ru/api-reference/interactivity/push-and-pull-in-browser.html}.
    *
    * Rejects with `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE` when that lookup fails.
@@ -868,8 +868,14 @@ export class PullClient implements ConnectorParent {
    * server without a word — so a caller with no `catch` sees a rejection where
    * it previously saw a silent no-op.
    *
-   * The rejection is not unconditional: when every recipient's channel is
-   * already cached the lookup is skipped, and nothing can fail.
+   * "Not supported" rather than "impossible", and the difference is worth
+   * knowing before treating one outcome as the only one. The lookup is skipped
+   * entirely when every recipient already has an unexpired channel in
+   * `ChannelManager`'s cache, which the startup config call prefills from
+   * `publicChannels` — so a send addressed to the CURRENT USER frequently goes
+   * out with no lookup and no rejection. It is still not a delivery receipt,
+   * and a message published this way comes back to subscribers of
+   * {@link SubscriptionType.Client}, not of `Server`.
    *
    * @param users User ids of the message receivers.
    * @param moduleId Name of the module to receive a message,
@@ -903,7 +909,7 @@ export class PullClient implements ConnectorParent {
     } as TypePullClientMessageBatch
 
     if (this.isJsonRpc()) {
-      return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+      return this.requireJsonRpcAdapter().executeOutgoingRpcCommand(
         RpcMethod.Publish,
         message
       )
@@ -951,7 +957,7 @@ export class PullClient implements ConnectorParent {
     } as TypePullClientMessageBatch
 
     if (this.isJsonRpc()) {
-      return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+      return this.requireJsonRpcAdapter().executeOutgoingRpcCommand(
         RpcMethod.Publish,
         message
       )
@@ -1627,8 +1633,11 @@ export class PullClient implements ConnectorParent {
     }
 
     if (this.isJsonRpc()) {
-      const rpcRequest
-        = this._jsonRpcAdapter?.createPublishRequest(messageBatchList)
+      // Not `?.`: `JSON.stringify(undefined)` returns `undefined`, which the
+      // connector accepts and puts on the wire as the string "undefined" while
+      // this method resolves `true`. A publish that never happened, reported
+      // as a success — one layer further out than the defect 3.0.0 fixed.
+      const rpcRequest = this.requireJsonRpcAdapter().createPublishRequest(messageBatchList)
 
       // Same rule as the protobuf branch below: a refused frame is a failure,
       // not a resolved promise. This used to drop the connector's `false` and
@@ -1680,6 +1689,27 @@ export class PullClient implements ConnectorParent {
    * so a frame accepted here can still be lost in flight. The contract is
    * "the transport took it", and the JSDoc on the public methods says so.
    */
+  /**
+   * The JSON-RPC adapter, or a coded rejection instead of a silent no-op.
+   *
+   * `_jsonRpcAdapter` is `null` until `init()` assigns it, and every publish
+   * path reached it through `this._jsonRpcAdapter?.…`. On the optional-chain
+   * miss an `async` method RESOLVES `undefined`: nothing encoded, no frame, no
+   * error — the exact outcome 3.0.0 set out to remove, surviving on the branch
+   * nobody looked at because it is only taken by push-server 5+.
+   */
+  private requireJsonRpcAdapter(): JsonRpc {
+    if (!this._jsonRpcAdapter) {
+      throw new SdkError({
+        code: 'JSSDK_PULL_SEND_REFUSED',
+        description: 'Pull: the JSON-RPC adapter is not ready, so the message was not sent. The client has not finished starting.',
+        status: 0
+      })
+    }
+
+    return this._jsonRpcAdapter
+  }
+
   private handOverToConnector(buffer: ArrayBuffer | string): true {
     const connector = this.connector
     if (!connector) {

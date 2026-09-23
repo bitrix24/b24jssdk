@@ -15,12 +15,25 @@
  * on the way out and protobuf only on the way back, so **it exercises the
  * DECODE half of the codec and nothing else**.
  *
- * The encode half (`encodeRequestBatch`) is only reachable through
- * `PullClient.sendMessage()`, which the portal refuses unless it has granted
- * `publish_enabled`. Check 9 runs it when the portal allows and reports `skip`
- * when it does not — it never quietly passes. This matters because two of the
- * three traps named in `.github/contributing/pull-protobuf.md` live on the
- * encode side.
+ * The encode half is only reachable through `PullClient.sendMessage()`, which
+ * needs `publish_enabled` from the portal and a portal that is not on JSON-RPC.
+ * Check 9 runs it when both hold and reports `skip` when either does not — it
+ * never quietly passes. This matters because two of the three traps named in
+ * `.github/contributing/pull-protobuf.md` live on the encode side.
+ *
+ * A message published by `sendMessage()` comes back on a DIFFERENT subscription
+ * from one published by `pull.application.event.add`: the push server stamps it
+ * `sender.type = Client`, and `broadcastMessage` emits those to
+ * `SubscriptionType.Client` subscribers only. The page subscribes to both, and
+ * has to — with the server subscription alone, which is what `subscribe()`
+ * defaults to, check 9's own echo could never reach it and the check timed out
+ * on every portal it was ever run against.
+ *
+ * Even with that fixed, a missing echo does not acquit the encoder. The push
+ * server drops a frame it cannot parse or address without saying anything, so
+ * "encoded and accepted by the transport" is the most check 9 can assert on its
+ * own. Reading an encoded frame BACK is what would settle it, and no portal
+ * route for that exists from an application today.
  *
  * The transport does NOT decide whether the codec runs. On a version-4 portal
  * the long-polling connector sets `responseType = 'arraybuffer'` too, and
@@ -51,7 +64,7 @@
  */
 import { onMounted, onUnmounted, ref, computed, reactive } from 'vue'
 import type { B24Frame, TypePullMessage } from '@bitrix24/b24jssdk'
-import { B24PullClientManager, LoggerFactory, PullStatus, Text } from '@bitrix24/b24jssdk'
+import { B24PullClientManager, LoggerFactory, PullStatus, SubscriptionType, Text } from '@bitrix24/b24jssdk'
 
 const { $initializeB24Frame } = useNuxtApp()
 const $logger = LoggerFactory.createForBrowserDevelopment('[playground] PullLab')
@@ -131,6 +144,8 @@ const frames = ref<RawFrame[]>([])
 const isCapturing = ref(false)
 /** Set once a binary frame has actually been observed, not merely requested. */
 const sawBinaryFrame = ref(false)
+/** Set once `encodeRequestBatch` has demonstrably run against the portal. */
+const encodePathExercised = ref(false)
 const chatDraft = ref('')
 const startedAt = Date.now()
 let seq = 0
@@ -138,7 +153,7 @@ let eventId = 0
 
 let $b24: B24Frame
 let pull: B24PullClientManager | null = null
-let unsubscribe: (() => void) | null = null
+let unsubscribers: Array<() => void> = []
 let refreshTimer = 0
 let tappedSocket: WebSocket | null = null
 
@@ -221,7 +236,7 @@ const checks = reactive<Check[]>([
   {
     id: 'encode',
     title: '9 · the ENCODE half of the codec runs',
-    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs encodeRequestBatch — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled on the portal; without it the check reports skip, because a pass here would be a lie. In an APPLICATION a fail carrying [JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE] is the expected outcome, not a defect: pull.channel.public.list is not in the application REST surface, and until 3.0.0 this same situation reported success and dropped the message in silence.',
+    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs the encoder — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled AND a portal that is not on JSON-RPC, since push-server 5+ publishes as JSON and no codec runs; either one missing is a skip, because a pass there would be a lie. Below a pass there are two informative outcomes and the detail says which happened. A fail carrying [JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE] means the channel lookup was refused and NOTHING was encoded. A warn means the batch WAS encoded and the socket took it, and only the echo did not come back — which does not acquit the encoder, because a frame the server cannot parse or address is dropped in silence. Whether you get the fail or the warn turns on whether every recipient already had an unexpired channel in the cache, which pull.application.config.get (pull.config.get outside an application) prefills from publicChannels; check 9 sends to the current user, whose own channel is usually in there. The report field encodePathExercised follows the send itself, so it is true for a warn and for a JSSDK_PULL_SEND_REFUSED fail, and false for a skip. Until 3.0.0 every one of these reported success alike.',
     state: 'idle',
     detail: '',
     ms: 0
@@ -561,6 +576,10 @@ async function runChecks(): Promise<void> {
 
   isRunning.value = true
   latencies.value = []
+  // Per-run, like the check states below. It used to be derived from check 9's
+  // verdict, which reset itself; a sticky ref would report a PREVIOUS run's
+  // fact on a run where check 9 skipped or never got to run at all.
+  encodePathExercised.value = false
   for (const check of checks) {
     check.state = 'idle'
     check.detail = ''
@@ -741,7 +760,18 @@ async function runChecks(): Promise<void> {
 
     // ---- 9 · the encode path ---------------------------------------------------
     setCheck('encode', 'running', '')
-    if (!pull.isPublishingEnabled()) {
+    if (pull.isJsonRpc()) {
+      // `isPublishingEnabled()` is `version > 3`, so it is ALSO true on
+      // push-server 5+, where `sendMessage()` branches into the JSON-RPC
+      // adapter before `sendMessageBatch` and no codec runs at all. Gating
+      // only on publishing let this check send successfully on such a portal
+      // and then report that the codec had encoded the batch.
+      setCheck(
+        'encode',
+        'skip',
+        'this portal speaks JSON-RPC (push-server 5+), so sendMessage() does not go through either codec. The encode half is UNREACHABLE here, not merely untested — say so when reporting.'
+      )
+    } else if (!pull.isPublishingEnabled()) {
       setCheck(
         'encode',
         'skip',
@@ -769,16 +799,50 @@ async function runChecks(): Promise<void> {
             payload: { probe: 'encode', text: 'Проверка кодека 🚀', pad: 'z'.repeat(200) }
           } satisfies LabEnvelope
         })
+        // `sendMessage()` RETURNING is, since 3.0.0, a statement about the
+        // encoder and the socket: the batch was encoded and the connector
+        // accepted the frame. Anything short of that throws — on this branch,
+        // which is why the JSON-RPC portals are sent to `skip` above.
+        //
+        // It says the encoder RAN. It says nothing about whether the bytes it
+        // produced were right.
+        encodePathExercised.value = true
         const expired = new Promise<null>((resolve) => {
           timer = window.setTimeout(() => resolve(null), AWAIT_MS)
         })
         const winner = await Promise.race([received, expired])
         if (winner === null) {
-          setCheck('encode', 'fail', `sendMessage() was accepted but nothing came back within ${AWAIT_MS} ms`)
+          // NOT a fail, and not a clean bill of health either.
+          //
+          // The old text, "accepted but nothing came back", described the
+          // pre-3.0.0 client, where `sendMessage()` resolved before the channel
+          // lookup had answered and an unsent message looked exactly like this
+          // one. It no longer can, so that reading is gone.
+          //
+          // What replaced it must not overclaim in the other direction. A
+          // missing echo does NOT clear the encoder: the push server drops a
+          // frame it cannot address or cannot parse without a word, so a real
+          // encode bug — a wrong length prefix, a mis-encoded receiver id —
+          // produces this exact symptom. Encoded and accepted by the transport
+          // is all that can be asserted here.
+          setCheck(
+            'encode',
+            'warn',
+            `the batch was encoded by the "${codec.value}" codec and the connector accepted the frame — that is what a returning sendMessage() means since 3.0.0 — but no echo reached this page within ${AWAIT_MS} ms. The encoder RAN; whether its bytes were CORRECT is exactly what a missing echo cannot tell you, because a frame the server cannot parse or address is dropped silently.`
+          )
         } else {
           setCheck('encode', 'pass', `encoded by the "${codec.value}" codec and returned in ${Date.now() - startedWaiting} ms`, Date.now() - startedWaiting)
         }
       } catch (error) {
+        // The code in the text is the whole point of reporting it:
+        // `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE` means the encoder never ran,
+        // while `JSSDK_PULL_SEND_REFUSED` is thrown AFTER `encodeMessageBatch`
+        // — the transport refused a frame the codec had already produced. The
+        // flag follows that fact rather than the verdict, which is the whole
+        // reason it stopped being derived from the verdict.
+        if ((error as { code?: unknown } | null)?.code === 'JSSDK_PULL_SEND_REFUSED') {
+          encodePathExercised.value = true
+        }
         setCheck('encode', 'fail', errorText(error))
       } finally {
         if (timer) {
@@ -907,7 +971,10 @@ const report = computed(() => ({
     binaryFrameObserved: sawBinaryFrame.value,
     serverVersion: serverVersion.value,
     publishingEnabled: publishingEnabled.value,
-    encodePathExercised: findCheck('encode').state === 'pass'
+    // Reported from what actually happened, not from the verdict: the check
+    // can end in `warn` with the encoder having run, which is precisely the
+    // case `pull-protobuf.md` asks about.
+    encodePathExercised: encodePathExercised.value
   },
   debugInfo: scrubDebugInfo(debugInfo.value),
   checks: checks.map(check => ({
@@ -982,7 +1049,24 @@ onMounted(async () => {
       protobufCodec: codec.value
     })
 
-    unsubscribe = pull.subscribe({ moduleId: MODULE_ID, callback: onPullMessage })
+    // BOTH subscription types, and the second one is not optional here.
+    //
+    // `subscribe()` defaults `type` to `SubscriptionType.Server`, and
+    // `broadcastMessage` routes on the frame's own `extra.sender.type`: a
+    // message the BACK END published (`pull.application.event.add`, which is
+    // how checks 4-8 send) arrives as `Server`, while one a CLIENT published
+    // (`sendMessage()`, which is the only way to reach the encoder, and so the
+    // only thing check 9 can use) arrives as `Client` and is emitted on a
+    // different channel entirely.
+    //
+    // With the server subscription alone, check 9's echo was unroutable by
+    // construction: the frame could come back perfectly decoded and still
+    // never reach this page. It timed out every time, and the page blamed the
+    // push server for it.
+    unsubscribers = [
+      pull.subscribe({ type: SubscriptionType.Server, moduleId: MODULE_ID, callback: onPullMessage }),
+      pull.subscribe({ type: SubscriptionType.Client, moduleId: MODULE_ID, callback: onPullMessage })
+    ]
     await pull.start()
 
     log('note', `tab ${tabId.value} started on the "${codec.value}" codec as user ${userId.value}`)
@@ -1002,7 +1086,10 @@ onUnmounted(() => {
   tappedSocket?.removeEventListener('message', onSocketFrame)
   tappedSocket = null
   pending.clear()
-  unsubscribe?.()
+  for (const off of unsubscribers) {
+    off()
+  }
+  unsubscribers = []
   pull?.destroy()
 })
 </script>

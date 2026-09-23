@@ -155,9 +155,19 @@ rather than `fixed32`, nothing here would say so. `pull.proto` is checked by
 eye against the generated `model.js`, not by code; nothing parses it.
 
 That class of bug is only closed by bytes from a real server. The exit criterion
-for dropping the vendored library is therefore **not** a green suite: it is a
-recorded `ResponseBatch` from a live portal, committed as a fixture and decoded
-by both codecs.
+for dropping the vendored library is therefore **not** a green suite. It has two
+halves, and only one of them is met:
+
+1. **Decode** — a recorded `ResponseBatch` from a live portal, committed as a
+   fixture and decoded by both codecs. **Met**, see below.
+2. **Encode** — a `RequestBatch` produced by the lite codec, accepted by a live
+   portal **and read back decoded**, so the server's interpretation of those
+   bytes is observed rather than assumed. **Not met.** The encoder has now run
+   against a portal and the socket took its output (see `/pull-lab` below), but
+   no encoded frame has ever been read back, and a frame the push server cannot
+   parse or address is dropped in silence — so acceptance by the transport says
+   nothing about the bytes. Since two of the three traps above sit on the encode
+   half, dropping the library on decode evidence alone would be premature.
 
 **That fixture now exists.** `test/integration/pull/fixtures/response-batch-frames.json`
 holds two frames captured by `/pull-lab` from a push-server v4 portal over a
@@ -178,8 +188,8 @@ The fixture's own `knownGaps` field lists what it does not cover, and
 `regenerating` says how to make another one — including that the hostname
 substitution must be equal in length, because a shorter replacement invalidates
 four nested length prefixes and the frame stops parsing. The largest gaps:
-it is **decode-side only** (the encode half has never run against a portal, see
-below); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
+it is **decode-side only** (the encode half has since run against a portal, but
+no encoded frame has ever been read BACK — see the exit criterion above); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
 rests on the differential suite; every message carries all four scalars, so the
 decode defaults need a synthetic case; and the bodies are ASCII, so multi-byte
 UTF-8 decoding is not exercised by real bytes at all.
@@ -192,17 +202,29 @@ about it are worth knowing before reading a report it produced:
   of the page reports decoded results, which are a portal smoke test and not the
   criterion above.
 - It sends over REST and receives over Pull, so it exercises **decoding**. Its
-  encode check reaches `encodeRequestBatch` through `PullClient.sendMessage()`
-  — but measured on a live portal, that path cannot complete in an application
-  at all: `sendMessage()` needs `pull.channel.public.list` to resolve the
-  recipients' channels, and that method is not part of the application REST
-  surface. Bitrix24's own documentation says an application's Pull client is
-  **receive-only**: the back end puts messages into the channel with
-  `pull.application.event.add`, the front end subscribes.
+  encode check reaches the encoder through `PullClient.sendMessage()`, which
+  needs `pull.channel.public.list` to resolve the recipients' channels — and
+  that method is not part of the application REST surface. Bitrix24's own
+  documentation says an application's Pull client is **receive-only**: the back
+  end puts messages into the channel with `pull.application.event.add`, the
+  front end subscribes.
 
-  So the encode half of the codec has no route to a portal from an application,
-  and two of the three traps above sit on that half. That is a limit of the
-  evidence, not something a better harness fixes.
+  That was first written here as "the encode half has no route to a portal from
+  an application". It is not true, and the correction is worth keeping because
+  it is easy to make again. `ChannelManager` skips the lookup entirely when
+  every recipient already has an unexpired cached channel, and the startup
+  config call prefills that cache from `publicChannels` — which carries the
+  current user's own channel. Check 9 sends to the current user. Measured on a
+  live push-server v4 portal: no lookup was made, the batch was encoded under
+  both codecs, and the socket accepted the frame.
+
+  What that does **not** establish is that the bytes were right. No echo came
+  back, and a frame the server cannot parse or address is dropped without a
+  word, so a genuine encode bug produces the identical observation. (The first
+  runs could not have seen an echo in any case: the lab subscribed only to
+  `SubscriptionType.Server`, while a client-published message is emitted to
+  `SubscriptionType.Client` subscribers. Fixed since; if check 9 now reaches
+  `pass` on some portal, that portal closes half of criterion 2.)
 
   Finding that out took a while, because the SDK reported the failed publish as
   a success — two defects fixed alongside this, pinned by

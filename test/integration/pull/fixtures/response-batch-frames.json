@@ -16,14 +16,14 @@
     }
   ],
   "note": "Recorded from a live Bitrix24 push server by /pull-lab in the Nuxt playground (push-server v4, binary WebSocket). Nothing in this repository produced these bytes.",
-  "substitution": "One string is replaced IN PLACE and byte-for-byte equal in length: the portal hostname inside extra.server_name, now \"b24-sample.bitrix24.ru\". Equal length is mandatory \u2014 a shorter or longer replacement invalidates four nested length prefixes and the frame stops parsing. Every other byte is the server's.",
+  "substitution": "One string is replaced IN PLACE and byte-for-byte equal in length: the portal hostname inside extra.server_name, now \"b24-sample.bitrix24.ru\". Equal length is mandatory — a shorter or longer replacement invalidates four nested length prefixes and the frame stops parsing. Every other byte is the server's.",
   "regenerating": [
     "Run /pull-lab inside a Bitrix24 placement on a push-server v4 portal, confirm the connection panel reads webSocketMode=protobuf, press \"Capture raw frames\", then \"Run checks\", then \"Download JSON\".",
     "Take rawFrames[] from that report. The lab does NOT scrub them - scrubDebugInfo() only covers debugInfo.Path - so the portal hostname is present and must be substituted at equal length as described above.",
     "Keep one small frame and one over 16384 bytes of body: that is what covers the one-, two- and three-byte varint length prefixes. More frames of the same shape add size, not coverage."
   ],
   "knownGaps": [
-    "Decode side only. The encode half is unreachable from an application, so it has never run against a portal.",
+    "Decode side only. The encode half HAS since run against a portal (the channel lookup is skipped when the recipient is already cached, which a self-send usually is), but no encoded frame has ever been read back, so the server's interpretation of those bytes is still unobserved. See the exit criterion in .github/contributing/pull-protobuf.md.",
     "No channelStats or serverStats frame was ever emitted during capture, so the oneof discriminator rests on the synthetic differential suite.",
     "Every message here carries all four scalar fields, so the codec decode DEFAULTS are not covered by these bytes - see the synthetic case in the differential spec.",
     "One response per batch, one message per response: repeated-field accumulation is untested here.",

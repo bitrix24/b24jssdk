@@ -119,11 +119,10 @@ startPullClient()
 
 > Subscribe **before** `startPullClient()` — the client connects after start. `useSubscribePullClient` and `startPullClient` throw if `usePullClient` was not called first.
 
-### The Pull client only RECEIVES
+### Publish from the back end, not from the Pull client
 
-There is no client-side send in an application. To put a message into the
-channel, call `pull.application.event.add` over REST — `MODULE_ID` is what your
-subscribers filter on:
+To put a message into the channel, call `pull.application.event.add` over REST
+— `MODULE_ID` is what your subscribers filter on:
 
 ```ts
 import type { B24Frame } from '@bitrix24/b24jssdk'
@@ -150,6 +149,12 @@ unexpired cached channel, which the startup config call prefills from
 That is not a reason to use it: the send is still not a delivery receipt, and
 what comes back arrives on a `SubscriptionType.Client` subscription rather than
 the `Server` one `subscribe()` defaults to.
+
+Nothing in the SDK gates publishing on being an application, either —
+`isPublishingEnabled()` reads only `serverVersion > 3 && publish_enabled`. And
+`sendMessageToChannels()` takes channel ids from the caller, so it never makes
+the lookup and never raises that code at all. The guidance above is about which
+path is SUPPORTED, not about which one the code permits.
 
 Multiple subscriptions on different `moduleId`s are supported — call `useSubscribePullClient` once per channel:
 

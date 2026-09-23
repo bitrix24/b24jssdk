@@ -184,8 +184,99 @@ export enum CloseReasons {
   CONFIG_EXPIRED = 3003,
   MANUAL = 3004,
   STUCK = 3005,
-  WRONG_CHANNEL_ID = 4010
+  WRONG_CHANNEL_ID = 4010,
+
+  /**
+   * Codes the SERVER sends, below. Everything above EXCEPT `WRONG_CHANNEL_ID`
+   * is a code the CLIENT sends — `PullClient` passes those to `disconnect()` /
+   * `restart()` when it is the one ending the connection — and the two
+   * directions must not be mixed up: passing `TOO_MANY_MESSAGES` to
+   * `disconnect()` would be meaningless. `WRONG_CHANNEL_ID` is the exception
+   * and always was: it arrives on the `close` event like the ones below (see
+   * `PullClient.onWebSocketDisconnect`), which is why they share an enum, and
+   * why a single reverse lookup over it turns a numeric `CloseEvent.code` into
+   * a name.
+   *
+   * These arrive on the socket's `close` event, and that is the only place
+   * they appear — they never reach a caller as an error. A refused frame is
+   * reported to come back as a close with one of these and a reason string
+   * rather than as an answer, though the same audit describes at least one
+   * refusal path that produces no response at all, so "no close code" is not
+   * the same as "not refused".
+   *
+   * Frame-level, i.e. "the publish you just made was rejected":
+   * `WRONG_REQUEST_DATA`, `REQUEST_COMMAND_NOT_ALLOWED`,
+   * `WRONG_REQUEST_COMMAND`, `TOO_MANY_MESSAGES`, `NO_CHANNELS_FOUND`,
+   * `TOO_MANY_CHANNELS`, `INVALID_CHANNEL_ID`, `PRIVATE_CHANNEL_NOT_ALLOWED`,
+   * `INVALID_CHANNEL_SIGNATURE`.
+   *
+   * Connection-level, i.e. "this connection is not usable", and NOT a verdict
+   * on any particular frame: `WRONG_CHANNEL_ID` (above), `NO_PUBLIC_CHANNEL_ID`
+   * and `TOO_MANY_CONNECTIONS`. A caller branching on "is it 401x, so my
+   * publish failed" would misclassify all three.
+   *
+   * Reported by a third-party audit of an on-prem stand's push-server sources,
+   * which is not in this repository and cannot be verified from it. Treat every
+   * per-code description below as informed documentation rather than as
+   * contract; the NUMBERS are what the `close` event gives you either way. See
+   * `.github/contributing/pull-protobuf.md`.
+   *
+   * Connection-level: the connection has no public channel bound to it.
+   */
+  NO_PUBLIC_CHANNEL_ID = 4012,
+  /** `RequestBatch.decode` threw, or `requests` was empty — a structurally malformed frame. */
+  WRONG_REQUEST_DATA = 4013,
+  /** Not `incomingMessages` or `channelStats`. */
+  REQUEST_COMMAND_NOT_ALLOWED = 4014,
+  /** No handler for the command. */
+  WRONG_REQUEST_COMMAND = 4015,
+  /** Per the audit: more than 100 messages in one batch. */
+  TOO_MANY_MESSAGES = 4016,
+  /** The message addressed nobody — `receivers` was empty. */
+  NO_CHANNELS_FOUND = 4017,
+  /** Per the audit: more than 100 channels in one request. */
+  TOO_MANY_CHANNELS = 4018,
+  /** Per the audit: a trusted-connection check, not reachable from a browser client. */
+  INVALID_CHANNEL_ID = 4019,
+  /** `Receiver.isPrivate` was true. A client may not publish to a private channel. */
+  PRIVATE_CHANNEL_NOT_ALLOWED = 4020,
+  /** `Receiver.signature` did not match the server's HMAC for that channel. */
+  INVALID_CHANNEL_SIGNATURE = 4021,
+  /** Connection-level. Per the audit: more than 100 connections on one channel. */
+  TOO_MANY_CONNECTIONS = 4029
 }
+
+/**
+ * Is this close code the server rejecting the frame that was just published?
+ *
+ * Not simply "is it 401x". `WRONG_CHANNEL_ID`, `NO_PUBLIC_CHANNEL_ID` and
+ * `TOO_MANY_CONNECTIONS` are in that range and are connection-level — they say
+ * the connection is unusable, not that a particular publish was refused.
+ */
+export function isFrameRefusalCloseCode(code: number): boolean {
+  return FRAME_REFUSAL_CLOSE_CODES.has(code)
+}
+
+/**
+ * Membership by name, not by range.
+ *
+ * A range test over 4013-4021 gives the same answers today, and only because
+ * the allocation happens to be contiguous — nothing holds it that way. Adding
+ * a connection-level code inside the range, or a frame-level one outside it,
+ * would then need two edits that look unrelated, and the one nobody makes is
+ * the test. Listing the members makes it a single edit.
+ */
+const FRAME_REFUSAL_CLOSE_CODES: ReadonlySet<number> = new Set([
+  CloseReasons.WRONG_REQUEST_DATA,
+  CloseReasons.REQUEST_COMMAND_NOT_ALLOWED,
+  CloseReasons.WRONG_REQUEST_COMMAND,
+  CloseReasons.TOO_MANY_MESSAGES,
+  CloseReasons.NO_CHANNELS_FOUND,
+  CloseReasons.TOO_MANY_CHANNELS,
+  CloseReasons.INVALID_CHANNEL_ID,
+  CloseReasons.PRIVATE_CHANNEL_NOT_ALLOWED,
+  CloseReasons.INVALID_CHANNEL_SIGNATURE
+])
 
 export enum SystemCommands {
   CHANNEL_EXPIRE = 'CHANNEL_EXPIRE',

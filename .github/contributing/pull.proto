@@ -8,6 +8,13 @@ syntax = "proto2";
 // ======================= top level =======================
 
 // requestbatch.php:133-137
+//
+// `repeated`, but a third-party audit of the push-server sources reports that
+// the server reads `requests[0]` and IGNORES the rest of the list — a batch of
+// several requests loses all but the first, without an error. The SDK sends
+// exactly one (`protobuf-lite/messages.ts`, `encodeRequestBatch`), so this
+// costs nothing today; it is recorded because the schema says otherwise and
+// the difference is invisible at runtime.
 message RequestBatch {
   repeated Request requests = 1;
 }

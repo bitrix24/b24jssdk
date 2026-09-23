@@ -73,10 +73,15 @@ Facts established at the same time, worth not re-establishing:
 - **Long-polling is alive** and is the standard fallback. It is not removable.
 - No field in the schema is `required`.
 
-## The two traps
+## The three traps
 
-Both are places where a hand-written codec goes wrong quietly, and both are
-pinned by tests.
+All three are places where a hand-written codec goes wrong quietly, and all
+three are pinned by tests. The first two are in the wire format; the third is
+not, which is why it reads differently from the other two. Worth knowing which
+side each falls on: trap 1 is reachable from both directions, trap 2 is
+decode-only (`created` does not exist on `IncomingMessage` at all), and trap 3
+is the only encode-only one — which is why `/pull-lab`, whose encode check is
+its weakest, can say so little about it.
 
 **1. What the client receives is not what it sends.** It sends
 `IncomingMessage` — `receivers`, `sender`, `body`, `expiry`, `type` — and
@@ -88,7 +93,7 @@ resolving the type through the schema.
 one in the schema. Read as a varint it yields a plausible wrong number instead
 of an error.
 
-A third trap is not in the wire format at all: `client.ts` builds
+**3. A trap that is not in the wire format at all.** `client.ts` builds
 `Receiver.create(...)` and `IncomingMessage.create(...)` **instances**, and
 protobuf.js puts `isPrivate = false` and `type = ''` on the prototype as
 defaults. An encoder that tests `!== undefined` writes two fields the library
@@ -100,9 +105,12 @@ not null.
 `new PullClient({ ..., protobufCodec: 'lite' })` selects the hand-written codec,
 and `usePullClient(prefix, userId, 'lite')` reaches it through the helper — which
 matters, because the helper is how most callers construct a Pull client at all.
-It is **opt-in, and the default stays on the vendored library**, because the
-lite codec has not yet been proven against a live portal — `/pull-lab` in the
-Nuxt playground is how that evidence gets collected.
+It is **opt-in, and the default stays on the vendored library**, because R2,
+R3 and R4 below are open: the lite codec has not been shown to agree with
+`model.js` across the reachable input space, nor to cope with malformed input
+the same way, nor has its one deliberate divergence been signed off. That
+evidence comes from fuzz differentials, not from a portal; `/pull-lab` collects
+the separate, weaker portal evidence.
 
 The option is tagged **`@internal`**: it is the SDK's own migration switch, off
 the documentation site, and it will be removed without a deprecation cycle. That
@@ -154,22 +162,147 @@ schema is reproduced identically on both sides and stays green — if
 rather than `fixed32`, nothing here would say so. `pull.proto` is checked by
 eye against the generated `model.js`, not by code; nothing parses it.
 
-That class of bug is only closed by bytes from a real server. The exit criterion
-for dropping the vendored library is therefore **not** a green suite. It has two
-halves, and only one of them is met:
+That class of bug is closed by bytes from a real server, or by the schema
+itself. The schema has now been **examined**, which is not the same as closed,
+and the distance between those two words is the point of this paragraph.
 
-1. **Decode** — a recorded `ResponseBatch` from a live portal, committed as a
-   fixture and decoded by both codecs. **Met**, see below.
-2. **Encode** — a `RequestBatch` produced by the lite codec, accepted by a live
-   portal **and read back decoded**, so the server's interpretation of those
-   bytes is observed rather than assumed. **Not met.** The encoder has now run
-   against a portal and the socket took its output (see `/pull-lab` below), but
-   no encoded frame has ever been read back, and a frame the push server cannot
-   parse or address is dropped in silence — so acceptance by the transport says
-   nothing about the bytes. Since two of the three traps above sit on the encode
-   half, dropping the library on decode evidence alone would be premature.
+A third-party audit of an on-prem stand read the push server's own `.proto`
+files — `request`, `receiver`, `sender`, `response`, `notification`, under
+`lib/models/`, the same sources `pbjs` generates both the server's
+`lib/models/index.js` and Bitrix24's client `model.js` from. **That report is
+not in this repository and cannot be checked from here.** Two things about its
+provenance have to travel with every claim drawn from it:
 
-**That fixture now exists.** `test/integration/pull/fixtures/response-batch-frames.json`
+- it names the stand as push-server **2.0.0**, `pull` module 26.100.0, while
+  this document elsewhere uses "push-server version" to mean the PROTOCOL
+  number and states that protobuf is tied to version exactly 4. Whether 2.0.0
+  is a package version of a daemon implementing protocol 4, or a protocol 2
+  server the SDK never speaks to, is not determinable from here;
+- the same stand had publishing disabled and was not connected to Bitrix, so
+  the publish path it describes was not exercised there.
+
+With that said, the field numbers it reports match ours exactly, in both the
+vendored copy and the lite codec:
+
+```proto
+message Receiver { bytes id = 1; bool isPrivate = 2; bytes signature = 3; }
+```
+
+Verified locally against `protobuf/model.js` (`Receiver.encode`, tags 10/16/26)
+and `protobuf-lite/messages.ts` (`writeReceiver`). `isPrivate` is set by neither
+implementation, so a `Receiver` on the wire is `{1: id, 3: signature}`, which
+the report says is exactly what Bitrix24's own client sends. Their client
+likewise leaves `sender` and `type` unset; the report's explanation — the server
+overwrites `sender` unconditionally and `type` only feeds a statistics counter —
+is one of the server-side claims that cannot be checked here.
+
+Note what this covers and what it does not. Every message quoted is on the SEND
+side, and only `Receiver` is quoted at all — the three nesting field numbers the
+encoder hardcodes (`RequestBatch.requests`, `Request.incomingMessages`,
+`IncomingMessagesRequest.messages`, all `1`) come from `request.proto`, which
+the report does not reproduce. Nothing has been said about `OutgoingMessage`,
+`Sender`, `ResponseBatch` or the `oneof`, which is where the worked example
+above (`created` as `fixed32` rather than `sfixed32`) actually lives. The
+recorded fixture does not help there either: both codecs decode it with the
+same descriptors, so it proves they agree, and `fixed32` and `sfixed32` are
+four bytes either way.
+
+So the exit criterion for dropping the vendored library splits by WHICH RISK a
+deletion actually moves:
+
+1. **R1 — is the schema right?** Affects BOTH implementations identically, so
+   deleting one moves it **not at all**: a wrong descriptor is equally wrong in
+   `model.js`. That, and not the audit, is why R1 does not gate the deletion.
+   The audit raises confidence in it on the send side; it does not close it, and
+   it says nothing about the receive side.
+2. **R2 — does the lite codec agree with `model.js`?** Affects only the lite
+   codec, and is therefore the risk the deletion does move, in both directions.
+   **Open.** `protobuf-lite-differential.unit.spec.ts` is better than a bare
+   byte comparison — it also carries an unknown-field battery at every nesting
+   depth, a `oneof` discriminator case, a decode-defaults case and a
+   lite→library round trip — but every input in it was written by hand. That
+   is a sample, not coverage, and the boundaries most likely to diverge are
+   exactly the ones nobody thinks to write down.
+3. **R3 — is the lite codec SAFE where the schema is silent?** Also moved by
+   the deletion, and not a question about agreement: the two are allowed to
+   differ there, and on `Sender.id` they deliberately do. What is not allowed
+   is for the lite codec to fail where the library copes. `readSender` is the
+   worked example: returning `{}` instead of materialised defaults threw inside
+   `decodeId` and, because the `catch` wraps the loop rather than one message,
+   took the whole batch with it — a failure-mode difference, invisible to a
+   `.proto` audit and to any byte comparison of well-formed output. **Open.**
+
+   Closed when a corpus of malformed and edge-shaped frames — truncated at
+   every nesting depth, unknown fields, wrong wire types, absent fields, an
+   empty batch, a length prefix that overruns — is decoded by both and the lite
+   codec never throws where the library returns, and never returns where the
+   library throws. That is a stopping rule rather than a feeling, and it is the
+   thing to write down before anyone claims R3 is done.
+
+4. **R4 — does the lite codec's deliberate divergence break a consumer?**
+   `Sender.id` is the live case: protobuf.js leaves it absent, the lite codec
+   materialises an empty `Uint8Array`, on purpose. R2 waives that by design and
+   R3 is satisfied by it, so neither owns it — but a caller writing
+   `if (message.sender.id)` sees a behaviour change, and after the deletion the
+   lite behaviour simply IS the behaviour. **Open**, and closed by deciding
+   whether each divergence is acceptable and writing it into the changelog, not
+   by a test.
+
+**The oracle disappears at the moment of deletion, and that sets the order of
+operations.** Every one of R2, R3 and R4 is measured against `model.js`.
+Deleting it does not reduce those risks — it removes the ability to measure
+them, so all three must be closed BEFORE the deletion, not after. Converting
+the differential suite into golden vectors (see above) preserves R2's oracle
+only over the inputs someone already wrote down, which is the sample this same
+section declines to call coverage; and R3's oracle — "where the library copes"
+— cannot be frozen into vectors at all, because it is a claim about inputs
+nobody has enumerated. Whatever is not settled before `protobuf/` goes stays
+unsettled.
+
+R2, R3 and R4 are closable without a portal. `client.ts` builds exactly
+`{ receivers: [{ id, signature }], body, expiry }` and never sets `sender` or
+`type`, so the space reachable FROM THE SDK TODAY is small enough to cover
+rather than sample — but `sendMessage()` is public API, and fuzzing it closes
+R2 for the current call site, not for the codec's whole surface. Fuzzing that
+space against `model.js`, in both directions and including malformed input, is
+what remains. See #559.
+
+The audit also reports that the push server does not exclude the sender when it
+broadcasts — so an echo to one's own channel would be expected rather than
+hoped for — and that a frame it refuses is answered by a socket CLOSE carrying
+a code: `4013` unparseable, `4017` no receivers, `4020` private channel, `4021`
+bad signature, among others, now named in `CloseReasons`. `/pull-lab` records
+the closures it observes.
+
+That is worth having and it is not a test. A close code is evidence when it
+arrives; its ABSENCE proves nothing about the encoder, because only a frame the
+server cannot PARSE trips `4013`. Write a scalar at an UNUSED field number and
+the frame still parses — proto2 skips what the descriptor does not declare —
+addresses valid receivers, and is broadcast with an empty body. No close, no
+echo anyone can match, nothing to see. The silent-drop reading this document
+has used throughout survives for exactly that class.
+
+The caveat on the caveat: that holds for a number the descriptor does not
+declare. Collide with one it does, and the outcome depends on the two wire
+types — a generated decoder switches on the field number alone
+(`model.js`, `switch (tag >>> 3)`) and reads by the DECLARED type, so it is
+the mismatch that decides, not the decoder:
+
+- a **varint written where a length-delimited field is declared** reads the
+  value as a length prefix. `expiry` is a timestamp-scale number, so it
+  overruns the buffer immediately and `4013` fires. Reliable, and the case
+  worth remembering;
+- a **string written at `expiry`'s number** has its length byte consumed as
+  the value and the stream desynchronises. That usually derails, but a short
+  or favourably shaped body can re-align and parse to the end;
+- **length-delimited onto length-delimited** parses cleanly every time. And
+  four of `IncomingMessage`'s five fields are length-delimited, so most ways
+  of misplacing one of them land here.
+
+So the silent bucket is the larger one for this schema, which is the whole
+reason a quiet run cannot be read as a passing one.
+
+**The recorded-frames fixture now exists.** `test/integration/pull/fixtures/response-batch-frames.json`
 holds two frames captured by `/pull-lab` from a push-server v4 portal over a
 binary WebSocket — one small, one of 20 424 bytes whose body passes the
 three-byte length prefix. `real-portal-frames.unit.spec.ts` decodes both with
@@ -188,8 +321,9 @@ The fixture's own `knownGaps` field lists what it does not cover, and
 `regenerating` says how to make another one — including that the hostname
 substitution must be equal in length, because a shorter replacement invalidates
 four nested length prefixes and the frame stops parsing. The largest gaps:
-it is **decode-side only** (the encode half has since run against a portal, but
-no encoded frame has ever been read BACK — see the exit criterion above); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
+it is **decode-side only** (the ENCODE direction has since run against a
+portal, but no encoded frame has ever been read BACK — the strongest evidence
+available, and not what the deletion waits on; see the risk split above); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
 rests on the differential suite; every message carries all four scalars, so the
 decode defaults need a synthetic case; and the bodies are ASCII, so multi-byte
 UTF-8 decoding is not exercised by real bytes at all.
@@ -225,26 +359,42 @@ about it are worth knowing before reading a report it produced:
   every subscription, so this is no longer "the page did not see the echo" —
   nothing came back. Both codecs, same portal, same result.
 
-  That rules the lab out and leaves two indistinguishable explanations: the
-  server rejected the frame, or it simply does not redeliver a
-  client-published message to its own publisher. A genuine encode bug sits in
-  the first of those, and nothing observable separates them, because a frame
-  the server cannot parse or address is dropped without a word.
+  The audit report then argues away one of the two explanations: per that
+  report the server does not exclude the publisher when it broadcasts, so an
+  echo would have been expected, and it refuses a frame by CLOSING the socket
+  rather than by silence. If both hold, the run should have produced an echo
+  or a close code, and the page was recording neither — it records closures
+  now. If it produces neither once closures ARE recorded, then one of those
+  two server-side claims does not hold for this protocol version, which is
+  itself worth knowing. None of it is checkable from here.
 
   (An earlier round could not have seen an echo under any circumstances: the
   lab subscribed only to `SubscriptionType.Server`, while a client-published
   message is emitted to `SubscriptionType.Client` subscribers. That was fixed
   first, which is what makes the measurement above worth anything.)
 
-  So criterion 2 needs a portal that answers, or a route that reads an encoded
-  frame back some other way. Until one exists, the vendored library stays.
+  So reading an encoded frame back would still be the strongest evidence
+  available, and no route to it exists from an application today. It is not,
+  however, what the deletion waits on: that is R2, R3 and R4, none of which
+  needs a portal.
+  Until those are closed, the vendored library stays.
+
+  The cheap experiment that would settle the echo question without relying on
+  any server-side claim: a SECOND tab, subscribed to `SubscriptionType.Client`,
+  receiving a publish made by the first. If it arrives there and not in the
+  publisher, the server excludes the sender; if it arrives in neither, the
+  frame was refused or dropped.
 
   Finding that out took a while, because the SDK reported the failed publish as
   a success — two defects fixed alongside this, pinned by
   `publish-failure-is-reported.unit.spec.ts`: `sendMessageBatch` started the
   channel lookup and dropped the promise, and `ChannelManager.getPublicIds`
   caught the REST refusal and resolved an empty map, so the message was encoded
-  with no receivers and the server dropped it in silence.
+  with no receivers. That one really is silent on the client side: per the
+  audit the server answers an empty `receivers` with a `4017` close, but it
+  also reports the server returning early without a response when a publish
+  resolves to no channels at all — and either way nothing reached the caller,
+  which is what the fix addresses.
 
 ### Known divergences from protobuf.js
 

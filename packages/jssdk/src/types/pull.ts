@@ -184,7 +184,73 @@ export enum CloseReasons {
   CONFIG_EXPIRED = 3003,
   MANUAL = 3004,
   STUCK = 3005,
-  WRONG_CHANNEL_ID = 4010
+  WRONG_CHANNEL_ID = 4010,
+
+  /**
+   * Codes the SERVER sends, below. Everything above is a code the CLIENT
+   * sends — `PullClient` passes those to `disconnect()` / `restart()` when it
+   * is the one ending the connection — and the two directions must not be
+   * mixed up: passing `TOO_MANY_MESSAGES` to `disconnect()` would be
+   * meaningless. They share an enum because `WRONG_CHANNEL_ID` always did, and
+   * because a single reverse lookup over one enum is what turns a numeric
+   * `CloseEvent.code` into a name.
+   *
+   * These arrive on the socket's `close` event, and that is the only place
+   * they appear. The push server does not answer a refused frame and does not
+   * error: it closes the connection with one of these and a reason string.
+   *
+   * Frame-level, i.e. "the publish you just made was rejected":
+   * `WRONG_REQUEST_DATA`, `REQUEST_COMMAND_NOT_ALLOWED`,
+   * `WRONG_REQUEST_COMMAND`, `TOO_MANY_MESSAGES`, `NO_CHANNELS_FOUND`,
+   * `TOO_MANY_CHANNELS`, `INVALID_CHANNEL_ID`, `PRIVATE_CHANNEL_NOT_ALLOWED`,
+   * `INVALID_CHANNEL_SIGNATURE`.
+   *
+   * Connection-level, i.e. "this connection is not usable", and NOT a verdict
+   * on any particular frame: `WRONG_CHANNEL_ID` (above), `NO_PUBLIC_CHANNEL_ID`
+   * and `TOO_MANY_CONNECTIONS`. A caller branching on "is it 401x, so my
+   * publish failed" would misclassify all three.
+   *
+   * Reported by a third-party audit of an on-prem stand's push-server sources,
+   * which is not in this repository and cannot be verified from it. Treat the
+   * per-code semantics as informed documentation rather than as contract; the
+   * NUMBERS are what the `close` event gives you either way. See
+   * `.github/contributing/pull-protobuf.md`.
+   */
+
+  /** Connection-level: the connection has no public channel bound to it. */
+  NO_PUBLIC_CHANNEL_ID = 4012,
+  /** `RequestBatch.decode` threw, or `requests` was empty — a structurally malformed frame. */
+  WRONG_REQUEST_DATA = 4013,
+  /** Not `incomingMessages` or `channelStats`. */
+  REQUEST_COMMAND_NOT_ALLOWED = 4014,
+  /** No handler for the command. */
+  WRONG_REQUEST_COMMAND = 4015,
+  /** More than 100 messages in one batch. */
+  TOO_MANY_MESSAGES = 4016,
+  /** The message addressed nobody — `receivers` was empty. */
+  NO_CHANNELS_FOUND = 4017,
+  /** More than 100 channels in one request. */
+  TOO_MANY_CHANNELS = 4018,
+  /** A trusted-connection check; not reachable from a browser client. */
+  INVALID_CHANNEL_ID = 4019,
+  /** `Receiver.isPrivate` was true. A client may not publish to a private channel. */
+  PRIVATE_CHANNEL_NOT_ALLOWED = 4020,
+  /** `Receiver.signature` did not match the server's HMAC for that channel. */
+  INVALID_CHANNEL_SIGNATURE = 4021,
+  /** Connection-level: more than 100 connections on one channel. */
+  TOO_MANY_CONNECTIONS = 4029
+}
+
+/**
+ * Is this close code the server rejecting the frame that was just published?
+ *
+ * Not simply "is it 401x". `WRONG_CHANNEL_ID`, `NO_PUBLIC_CHANNEL_ID` and
+ * `TOO_MANY_CONNECTIONS` are in that range and are connection-level — they say
+ * the connection is unusable, not that a particular publish was refused.
+ */
+export function isFrameRefusalCloseCode(code: number): boolean {
+  return code >= CloseReasons.WRONG_REQUEST_DATA
+    && code <= CloseReasons.INVALID_CHANNEL_SIGNATURE
 }
 
 export enum SystemCommands {

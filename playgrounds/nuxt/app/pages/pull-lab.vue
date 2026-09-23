@@ -29,11 +29,13 @@
  * defaults to, check 9's own echo could never reach it and the check timed out
  * on every portal it was ever run against.
  *
- * Even with that fixed, a missing echo does not acquit the encoder. The push
- * server drops a frame it cannot parse or address without saying anything, so
- * "encoded and accepted by the transport" is the most check 9 can assert on its
- * own. Reading an encoded frame BACK is what would settle it, and no portal
- * route for that exists from an application today.
+ * Even with that fixed, a missing echo does not acquit the encoder. Some bad
+ * frames are refused with a socket close carrying a code — the page records
+ * those — but a frame that parses and merely addresses the wrong field number
+ * is broadcast with an empty body and says nothing at all. So "encoded and
+ * accepted by the transport" is the most check 9 can assert on its own.
+ * Reading an encoded frame BACK is what would settle it, and no portal route
+ * for that exists from an application today.
  *
  * The transport does NOT decide whether the codec runs. On a version-4 portal
  * the long-polling connector sets `responseType = 'arraybuffer'` too, and
@@ -64,7 +66,7 @@
  */
 import { onMounted, onUnmounted, ref, computed, reactive } from 'vue'
 import type { B24Frame, TypePullMessage } from '@bitrix24/b24jssdk'
-import { B24PullClientManager, LoggerFactory, PullStatus, SubscriptionType, Text } from '@bitrix24/b24jssdk'
+import { B24PullClientManager, CloseReasons, isFrameRefusalCloseCode, LoggerFactory, PullStatus, SubscriptionType, Text } from '@bitrix24/b24jssdk'
 
 const { $initializeB24Frame } = useNuxtApp()
 const $logger = LoggerFactory.createForBrowserDevelopment('[playground] PullLab')
@@ -76,6 +78,10 @@ const AWAIT_MS = 15_000
 const MAX_EVENTS = 2000
 /** Raw frames are large and carry other applications' traffic. */
 const MAX_FRAMES = 40
+/** Closures are the one collector that a reconnect loop can grow without end. */
+const MAX_CLOSURES = 50
+/** A close reason is the server's own text, and the spec allows 123 bytes. */
+const MAX_REASON_CHARS = 123
 
 type Codec = 'vendored' | 'lite'
 type CheckState = 'idle' | 'running' | 'pass' | 'warn' | 'skip' | 'fail'
@@ -146,6 +152,43 @@ const isCapturing = ref(false)
 const sawBinaryFrame = ref(false)
 /** Set once `encodeRequestBatch` has demonstrably run against the portal. */
 const encodePathExercised = ref(false)
+
+/**
+ * Every socket closure this page observed, with its code and reason.
+ *
+ * A refused publish is answered by a socket close, not by a reply, so when one
+ * of these lands inside check 9's window it is the most informative thing on
+ * the page. Three things keep it honest:
+ *
+ * - `frameRefusal` separates the codes that reject a FRAME from the ones that
+ *   say the connection is unusable and from the client's own disconnects,
+ *   which on a page left open for a full run are routine and would otherwise
+ *   outnumber the signal;
+ * - a closure INSIDE the window is a correlation, not a cause. The connection
+ *   is shared with subscriptions, heartbeats and config refreshes;
+ * - the absence of a closure proves nothing. Only a structurally unparseable
+ *   frame trips `4013`; a scalar written at the wrong field number parses
+ *   cleanly and is broadcast with an empty body, silently.
+ *
+ * And the tap is attached from a 2-second poll, so a socket opened and closed
+ * between two ticks is never seen at all. "Every closure observed" is the
+ * honest description; "every closure" is not.
+ */
+/**
+ * Check 9's window, so a reader can line a closure up against it.
+ *
+ * `checks[].ms` is a DURATION, not a start time, so without this the report
+ * invited a correlation it gave the reader no way to make.
+ */
+const encodeWindow = ref<null | { fromMs: number, toMs: number }>(null)
+
+const socketClosures = ref<Array<{
+  ms: number
+  code: number
+  name: string
+  frameRefusal: boolean
+  reason: string
+}>>([])
 const chatDraft = ref('')
 const startedAt = Date.now()
 let seq = 0
@@ -236,7 +279,7 @@ const checks = reactive<Check[]>([
   {
     id: 'encode',
     title: '9 · the ENCODE half of the codec runs',
-    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs the encoder — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled AND a portal that is not on JSON-RPC, since push-server 5+ publishes as JSON and no codec runs; either one missing is a skip, because a pass there would be a lie. Below a pass there are two informative outcomes and the detail says which happened. A fail carrying [JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE] means the channel lookup was refused and NOTHING was encoded. A warn means the batch WAS encoded and the socket took it, and only the echo did not come back — which does not acquit the encoder, because a frame the server cannot parse or address is dropped in silence. Whether you get the fail or the warn turns on whether every recipient already had an unexpired channel in the cache, which pull.application.config.get (pull.config.get outside an application) prefills from publicChannels; check 9 sends to the current user, whose own channel is usually in there. The report field encodePathExercised follows the send itself, so it is true for a warn and for a JSSDK_PULL_SEND_REFUSED fail, and false for a skip. Until 3.0.0 every one of these reported success alike.',
+    why: 'Everything above sends over REST, so it only ever exercises decoding. This is the one check that runs the encoder — and two of the three traps in pull-protobuf.md are on that side. It needs publish_enabled AND a portal that is not on JSON-RPC, since push-server 5+ publishes as JSON and no codec runs; either one missing is a skip, because a pass there would be a lie. Below a pass there are two informative outcomes and the detail says which happened. A fail carrying [JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE] means the channel lookup was refused and NOTHING was encoded. A warn means the batch WAS encoded and the socket took it, and only the echo did not come back — which does not acquit the encoder: the server answers SOME bad frames by closing the socket with a code (look at socketClosures and encodeWindow in the report), but a scalar written at the wrong field number parses cleanly, is broadcast with an empty body, and produces no close code and no echo at all. Whether you get the fail or the warn turns on whether every recipient already had an unexpired channel in the cache, which pull.application.config.get (pull.config.get outside an application) prefills from publicChannels; check 9 sends to the current user, whose own channel is usually in there. The report field encodePathExercised follows the send itself, so it is true for a warn and for a JSSDK_PULL_SEND_REFUSED fail, and false for a skip. Until 3.0.0 every one of these reported success alike.',
     state: 'idle',
     detail: '',
     ms: 0
@@ -402,8 +445,31 @@ function attachFrameTap(): void {
   }
 
   tappedSocket?.removeEventListener('message', onSocketFrame)
+  tappedSocket?.removeEventListener('close', onSocketClose)
   socket.addEventListener('message', onSocketFrame)
+  // Always, never gated on the capture toggle: a close code is a few bytes and
+  // is the single most informative thing this page can collect.
+  socket.addEventListener('close', onSocketClose)
   tappedSocket = socket
+}
+
+function onSocketClose(event: Event): void {
+  const closed = event as CloseEvent
+  const name = CloseReasons[closed.code] ?? 'unknown'
+  // The server's own text, bounded. It is the only string in this report that
+  // the page did not author, and it goes into a file people paste into chats.
+  const reason = String(closed.reason ?? '').slice(0, MAX_REASON_CHARS)
+  socketClosures.value.push({
+    ms: Date.now() - startedAt,
+    code: closed.code,
+    name,
+    frameRefusal: isFrameRefusalCloseCode(closed.code),
+    reason
+  })
+  if (socketClosures.value.length > MAX_CLOSURES) {
+    socketClosures.value.splice(0, socketClosures.value.length - MAX_CLOSURES)
+  }
+  log('note', `socket closed: ${closed.code} ${name}${reason ? ` — ${reason}` : ''}`)
 }
 
 function toggleCapture(): void {
@@ -580,6 +646,8 @@ async function runChecks(): Promise<void> {
   // verdict, which reset itself; a sticky ref would report a PREVIOUS run's
   // fact on a run where check 9 skipped or never got to run at all.
   encodePathExercised.value = false
+  socketClosures.value = []
+  encodeWindow.value = null
   for (const check of checks) {
     check.state = 'idle'
     check.detail = ''
@@ -786,6 +854,7 @@ async function runChecks(): Promise<void> {
       pending.set(envelopeId, resolveFn)
       let timer = 0
       const startedWaiting = Date.now()
+      encodeWindow.value = { fromMs: startedWaiting - startedAt, toMs: 0 }
       try {
         // This is the call that runs encodeRequestBatch under the chosen codec.
         await pull.sendMessage([userId.value], MODULE_ID, 'lab_probe', {
@@ -828,7 +897,7 @@ async function runChecks(): Promise<void> {
           setCheck(
             'encode',
             'warn',
-            `the batch was encoded by the "${codec.value}" codec and the connector accepted the frame — that is what a returning sendMessage() means since 3.0.0 — but no echo reached this page within ${AWAIT_MS} ms. The encoder RAN; whether its bytes were CORRECT is exactly what a missing echo cannot tell you, because a frame the server cannot parse or address is dropped silently.`
+            `the batch was encoded by the "${codec.value}" codec and the connector accepted the frame — that is what a returning sendMessage() means since 3.0.0 — but no echo reached this page within ${AWAIT_MS} ms. The encoder RAN; whether its bytes were CORRECT is exactly what a missing echo cannot tell you. Check socketClosures against encodeWindow in the report: a frameRefusal closure inside the window names the reason, and no closure at all means nothing either way, since a frame that parses but addresses the wrong field is dropped without a word.`
           )
         } else {
           setCheck('encode', 'pass', `encoded by the "${codec.value}" codec and returned in ${Date.now() - startedWaiting} ms`, Date.now() - startedWaiting)
@@ -847,6 +916,9 @@ async function runChecks(): Promise<void> {
       } finally {
         if (timer) {
           window.clearTimeout(timer)
+        }
+        if (encodeWindow.value) {
+          encodeWindow.value.toMs = Date.now() - startedAt
         }
         pending.delete(envelopeId)
       }
@@ -960,7 +1032,8 @@ const report = computed(() => ({
     'This file is a portal fingerprint, not just a debug dump. Read it before you send it.',
     'It contains: your portal user id, the push-server version, whether the portal is cloud or on-premise, timings, and any portal error text a failed check produced.',
     'The push JWT, the private channel id, the push host and clientId are masked.',
-    'Captured raw frames, if any, are EVERY frame on this connection — including other applications\' events. Check them before sharing.'
+    'Captured raw frames, if any, are EVERY frame on this connection — including other applications\' events. Check them before sharing.',
+    'socketClosures[].reason is the SERVER\'s own text, not this page\'s. It is truncated but not masked, so read it before sending.'
   ],
   tabId: tabId.value,
   codec: codec.value,
@@ -976,6 +1049,16 @@ const report = computed(() => ({
     // case `pull-protobuf.md` asks about.
     encodePathExercised: encodePathExercised.value
   },
+  /**
+   * Read this FIRST when check 9 did not pass, and read it with `encodeWindow`
+   * beside it: an entry whose `ms` falls between `fromMs` and `toMs`, with
+   * `frameRefusal: true`, is the best explanation this page can offer for a
+   * missing echo. An entry with `frameRefusal: false` is almost certainly an
+   * ordinary reconnect and means nothing here. An EMPTY list means nothing
+   * either way — see the comment on `socketClosures` in the source.
+   */
+  encodeWindow: encodeWindow.value,
+  socketClosures: socketClosures.value,
   debugInfo: scrubDebugInfo(debugInfo.value),
   checks: checks.map(check => ({
     id: check.id,
@@ -1084,6 +1167,7 @@ onUnmounted(() => {
     window.clearInterval(refreshTimer)
   }
   tappedSocket?.removeEventListener('message', onSocketFrame)
+  tappedSocket?.removeEventListener('close', onSocketClose)
   tappedSocket = null
   pending.clear()
   for (const off of unsubscribers) {

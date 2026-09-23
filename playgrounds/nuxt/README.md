@@ -183,12 +183,32 @@ worth telling apart. None of them is a defect on its own.
   the echo did not come back. This happens when the lookup was skipped because
   every recipient already had an unexpired cached channel — the startup config
   call prefills that cache from `publicChannels`, which carries your own
-  channel, and check 9 sends to you. It does **not** acquit the encoder: a frame
-  the server cannot parse or address is dropped in silence, which looks exactly
-  the same.
+  channel, and check 9 sends to you. It does **not** acquit the encoder — see
+  below.
 
 `encodePathExercised` in the report follows the send itself, so it is `true` for
 a `warn` and for a `JSSDK_PULL_SEND_REFUSED` fail, and `false` for a `skip`.
+
+#### Reading a `warn`
+
+The push server refuses a frame by **closing the socket with a code**, not by
+answering. So when check 9 warns, open `socketClosures` in the report and line
+it up against `encodeWindow`:
+
+- an entry inside the window with `frameRefusal: true` names the reason —
+  `4013` the frame did not parse, `4017` it addressed nobody, `4020` a private
+  channel, `4021` the signature did not verify;
+- an entry with `frameRefusal: false` is an ordinary reconnect and means
+  nothing here;
+- **an empty list means nothing either way.** Only a structurally unparseable
+  frame trips `4013`. A scalar written at the wrong field number parses fine,
+  gets broadcast with an empty body, and produces no close code and no echo —
+  which is exactly what a `warn` looks like.
+
+A closure inside the window is a correlation, not a proof: the connection also
+carries subscriptions, heartbeats and config refreshes. And the page taps the
+socket from a 2-second poll, so a socket opened and closed between ticks is
+never seen at all.
 
 Check 7 is the most valuable of the payload checks: a 20 kB body forces a
 three-byte varint length prefix, which ordinary traffic never reaches. Check 6
@@ -226,8 +246,8 @@ gate, not on the WebSocket.
 ### What is in the report
 
 The connection panel, every check with its verdict, timing and the reason it
-exists, the latency samples, the event log, any captured frames, and the SDK's
-`getDebugInfo()` dump.
+exists, the latency samples, the event log, any captured frames, the socket
+closures with `encodeWindow` beside them, and the SDK's `getDebugInfo()` dump.
 
 The dump masks the push JWT and the private channel id; the page additionally
 masks the push host and `clientId`, which the SDK's redaction list does not
@@ -238,3 +258,7 @@ page has a button for exactly that.
 
 Captured frames are *every* frame on the connection, including other
 applications' events. Look at what you captured before sharing.
+
+`socketClosures[].reason` is the **server's** own text rather than the page's.
+It is truncated to the 123 bytes the WebSocket spec allows but is not masked,
+so read it along with the rest.

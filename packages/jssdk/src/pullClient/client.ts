@@ -6,6 +6,7 @@ import { Browser } from '../tools/browser'
 import { redactSensitiveParams, redactSensitiveUrl, REDACTED_PLACEHOLDER } from '../core/http/redact'
 import { StorageManager } from './storage-manager'
 import { JsonRpc } from './json-rpc'
+import { SdkError } from '../core/sdk-error'
 import { SharedConfig } from './shared-config'
 import { ChannelManager } from './channel-manager'
 import { ResponseBatch, RequestBatch } from './protobuf'
@@ -856,12 +857,39 @@ export class PullClient implements ConnectorParent {
   /**
    * Send a single message to the specified users.
    *
+   * **Not the supported path in an application.** Resolving the recipients'
+   * channels needs `pull.channel.public.list`, which is not part of the
+   * application REST surface: an application's Pull client is receive-only,
+   * and its back end publishes with `pull.application.event.add`. See
+   * {@link https://apidocs.bitrix24.ru/api-reference/interactivity/push-and-pull-in-browser.html}.
+   *
+   * Rejects with `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE` when that lookup fails.
+   * Until 3.0.0 it resolved instead, and the message was dropped by the push
+   * server without a word — so a caller with no `catch` sees a rejection where
+   * it previously saw a silent no-op.
+   *
+   * "Not supported" rather than "impossible", and the difference is worth
+   * knowing before treating one outcome as the only one. The lookup is skipped
+   * entirely when every recipient already has an unexpired channel in
+   * `ChannelManager`'s cache, which the startup config call prefills from
+   * `publicChannels` — so a send addressed to the CURRENT USER frequently goes
+   * out with no lookup and no rejection. It is still not a delivery receipt,
+   * and a message published this way comes back to subscribers of
+   * {@link SubscriptionType.Client}, not of `Server`.
+   *
    * @param users User ids of the message receivers.
    * @param moduleId Name of the module to receive a message,
    * @param command Command name.
    * @param {object} params Command parameters.
    * @param [expiry] Message expiry time in seconds.
-   * @return {Promise}
+   * @return {Promise<true>} resolves only once the transport has ACCEPTED the
+   *   frame. That is not a delivery receipt: long-polling fires its request
+   *   without awaiting the response, so an accepted frame can still be lost.
+   * @throws {SdkError} `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE` — nobody to send to.
+   * @throws {SdkError} `JSSDK_PULL_SEND_REFUSED` — the transport would not take
+   *   the frame (socket closed, no publication path).
+   * @throws {SdkError} `JSSDK_PULL_PUBLISHING_DISABLED` — the portal has not
+   *   enabled client publishing.
    */
   public async sendMessage(
     users: number[],
@@ -881,7 +909,7 @@ export class PullClient implements ConnectorParent {
     } as TypePullClientMessageBatch
 
     if (this.isJsonRpc()) {
-      return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+      return this.requireJsonRpcAdapter().executeOutgoingRpcCommand(
         RpcMethod.Publish,
         message
       )
@@ -892,6 +920,17 @@ export class PullClient implements ConnectorParent {
 
   /**
    * Send a single message to the specified public channels.
+   *
+   * Unlike {@link sendMessage}, this does **not** resolve anything through
+   * `pull.channel.public.list` — the caller supplies signed channel ids — so it
+   * cannot raise `JSSDK_PULL_PUBLIC_IDS_UNAVAILABLE` and is unaffected by that
+   * method's absence from the application REST surface.
+   *
+   * It does share the other two failures: it rejects with
+   * `JSSDK_PULL_SEND_REFUSED` when the transport will not take the frame, and
+   * with `JSSDK_PULL_PUBLISHING_DISABLED` when the portal has not enabled
+   * client publishing. Both used to resolve as though the message had been
+   * sent.
    *
    * @param  publicChannels Public ids of the channels to receive a message.
    * @param moduleId Name of the module to receive a message,
@@ -918,7 +957,7 @@ export class PullClient implements ConnectorParent {
     } as TypePullClientMessageBatch
 
     if (this.isJsonRpc()) {
-      return this._jsonRpcAdapter?.executeOutgoingRpcCommand(
+      return this.requireJsonRpcAdapter().executeOutgoingRpcCommand(
         RpcMethod.Publish,
         message
       )
@@ -1585,17 +1624,25 @@ export class PullClient implements ConnectorParent {
   ): Promise<any> {
     if (!this.isPublishingEnabled()) {
       this.getLogger().error(`Client publishing is not supported or is disabled`).catch(() => {})
-      return Promise.reject(
-        new Error(`Client publishing is not supported or is disabled`)
-      )
+
+      return Promise.reject(new SdkError({
+        code: 'JSSDK_PULL_PUBLISHING_DISABLED',
+        description: 'Pull: this portal has not enabled client publishing, so the message cannot be sent. Publish from your back end with `pull.application.event.add` instead.',
+        status: 0
+      }))
     }
 
     if (this.isJsonRpc()) {
-      const rpcRequest
-        = this._jsonRpcAdapter?.createPublishRequest(messageBatchList)
-      this.connector?.send(JSON.stringify(rpcRequest))
+      // Not `?.`: `JSON.stringify(undefined)` returns `undefined`, which the
+      // connector accepts and puts on the wire as the string "undefined" while
+      // this method resolves `true`. A publish that never happened, reported
+      // as a success — one layer further out than the defect 3.0.0 fixed.
+      const rpcRequest = this.requireJsonRpcAdapter().createPublishRequest(messageBatchList)
 
-      return Promise.resolve(true)
+      // Same rule as the protobuf branch below: a refused frame is a failure,
+      // not a resolved promise. This used to drop the connector's `false` and
+      // resolve `true` unconditionally.
+      return Promise.resolve(this.handOverToConnector(JSON.stringify(rpcRequest)))
     } else {
       const userIds: Record<number, number> = {}
 
@@ -1608,16 +1655,83 @@ export class PullClient implements ConnectorParent {
         }
       }
 
-      this._channelManager
-        ?.getPublicIds(Object.values(userIds))
+      // The promise is RETURNED. It used to be started and dropped, so this
+      // method resolved `undefined` before the channel lookup had even
+      // answered — `sendMessage()` reported success while the send was still
+      // pending, and any failure inside became an unhandled rejection. Measured
+      // against a live portal: the caller was told the message was accepted and
+      // nothing ever arrived.
+      // No `!this._channelManager` guard: the field is non-optional and the
+      // constructor assigns it unconditionally, so a guard here would be a
+      // bare `Error` on an unreachable branch — which the checklist forbids
+      // and no caller could ever receive.
+      return this._channelManager
+        .getPublicIds(Object.values(userIds))
         .then((publicIds) => {
-          const response = this.connector?.send(
+          return this.handOverToConnector(
             this.encodeMessageBatch(messageBatchList, publicIds)
           )
-
-          return Promise.resolve(response)
         })
     }
+  }
+
+  /**
+   * Give the encoded batch to the connector, and treat a refusal as a failure.
+   *
+   * `send()` returns a `boolean`, and `false` means the frame did not leave:
+   * the WebSocket is not open, or long-polling has no publication path or no
+   * `XMLHttpRequest`. Returning that boolean to the caller reproduced the very
+   * defect this class was fixed for — a publish that never happened, reported
+   * as a resolved promise — one layer further out.
+   *
+   * What it still cannot promise is DELIVERY. `send()` hands the frame to the
+   * socket, and long-polling fires the request without awaiting the response,
+   * so a frame accepted here can still be lost in flight. The contract is
+   * "the transport took it", and the JSDoc on the public methods says so.
+   */
+  /**
+   * The JSON-RPC adapter, or a coded rejection instead of a silent no-op.
+   *
+   * `_jsonRpcAdapter` is `null` until `init()` assigns it, and every publish
+   * path reached it through `this._jsonRpcAdapter?.…`. On the optional-chain
+   * miss an `async` method RESOLVES `undefined`: nothing encoded, no frame, no
+   * error — the exact outcome 3.0.0 set out to remove, surviving on the branch
+   * nobody looked at because it is only taken by push-server 5+.
+   */
+  private requireJsonRpcAdapter(): JsonRpc {
+    if (!this._jsonRpcAdapter) {
+      throw new SdkError({
+        code: 'JSSDK_PULL_SEND_REFUSED',
+        description: 'Pull: the JSON-RPC adapter is not ready, so the message was not sent. The client has not finished starting.',
+        status: 0
+      })
+    }
+
+    return this._jsonRpcAdapter
+  }
+
+  private handOverToConnector(buffer: ArrayBuffer | string): true {
+    const connector = this.connector
+    if (!connector) {
+      throw new SdkError({
+        code: 'JSSDK_PULL_SEND_REFUSED',
+        description: 'Pull: there is no connector to send through — the client is not connected.',
+        status: 0
+      })
+    }
+
+    if (!connector.send(buffer)) {
+      throw new SdkError({
+        code: 'JSSDK_PULL_SEND_REFUSED',
+        // No caller value is interpolated: `SdkError` descriptions are not run
+        // through the log redaction. The connector has already logged the
+        // specific reason.
+        description: 'Pull: the connector refused the frame, so it never left — the socket is not open, or long-polling has no publication path. The connector log carries the specific reason.',
+        status: 0
+      })
+    }
+
+    return true
   }
 
   /**

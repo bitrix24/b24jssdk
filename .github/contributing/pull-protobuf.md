@@ -155,9 +155,44 @@ rather than `fixed32`, nothing here would say so. `pull.proto` is checked by
 eye against the generated `model.js`, not by code; nothing parses it.
 
 That class of bug is only closed by bytes from a real server. The exit criterion
-for dropping the vendored library is therefore **not** a green suite: it is a
-recorded `ResponseBatch` from a live portal, committed as a fixture and decoded
-by both codecs. Until that fixture exists, the default must stay on the library.
+for dropping the vendored library is therefore **not** a green suite. It has two
+halves, and only one of them is met:
+
+1. **Decode** — a recorded `ResponseBatch` from a live portal, committed as a
+   fixture and decoded by both codecs. **Met**, see below.
+2. **Encode** — a `RequestBatch` produced by the lite codec, accepted by a live
+   portal **and read back decoded**, so the server's interpretation of those
+   bytes is observed rather than assumed. **Not met.** The encoder has now run
+   against a portal and the socket took its output (see `/pull-lab` below), but
+   no encoded frame has ever been read back, and a frame the push server cannot
+   parse or address is dropped in silence — so acceptance by the transport says
+   nothing about the bytes. Since two of the three traps above sit on the encode
+   half, dropping the library on decode evidence alone would be premature.
+
+**That fixture now exists.** `test/integration/pull/fixtures/response-batch-frames.json`
+holds two frames captured by `/pull-lab` from a push-server v4 portal over a
+binary WebSocket — one small, one of 20 424 bytes whose body passes the
+three-byte length prefix. `real-portal-frames.unit.spec.ts` decodes both with
+both codecs and compares what the client reads. They agree.
+
+The comparison is deliberately narrow, and that matters. An earlier version
+normalised every field with `??`, which erased proto2 **presence** — the one
+property a proto2 codec gets wrong — and reported agreement on frames where the
+codecs genuinely differ. `Sender.id` is absent on the wire in every frame:
+protobuf.js leaves it absent, the lite codec materialises an empty
+`Uint8Array`. That divergence is deliberate (#552 made the lite codec do it so
+`decodeId(undefined)` could not drop a whole batch) and is now **pinned by its
+own case** rather than smoothed away.
+
+The fixture's own `knownGaps` field lists what it does not cover, and
+`regenerating` says how to make another one — including that the hostname
+substitution must be equal in length, because a shorter replacement invalidates
+four nested length prefixes and the frame stops parsing. The largest gaps:
+it is **decode-side only** (the encode half has since run against a portal, but
+no encoded frame has ever been read BACK — see the exit criterion above); no `channelStats` / `serverStats` frame was ever emitted, so the `oneof`
+rests on the differential suite; every message carries all four scalars, so the
+decode defaults need a synthetic case; and the bodies are ASCII, so multi-byte
+UTF-8 decoding is not exercised by real bytes at all.
 
 `/pull-lab` in the Nuxt playground is what produces it — see
 [`playgrounds/nuxt/README.md`](../../playgrounds/nuxt/README.md). Two things
@@ -166,11 +201,50 @@ about it are worth knowing before reading a report it produced:
 - Its **Capture raw frames** button is the part that makes the fixture. The rest
   of the page reports decoded results, which are a portal smoke test and not the
   criterion above.
-- It sends over REST and receives over Pull, so it exercises **decoding**. Only
-  its last check reaches `encodeRequestBatch`, and only on a portal with
-  `publish_enabled`; otherwise it reports `skip`. Since two of the three traps
-  above are on the encode side, a run without that check is a partial answer and
-  says so.
+- It sends over REST and receives over Pull, so it exercises **decoding**. Its
+  encode check reaches the encoder through `PullClient.sendMessage()`, which
+  needs `pull.channel.public.list` to resolve the recipients' channels — and
+  that method is not part of the application REST surface. Bitrix24's own
+  documentation says an application's Pull client is **receive-only**: the back
+  end puts messages into the channel with `pull.application.event.add`, the
+  front end subscribes.
+
+  That was first written here as "the encode half has no route to a portal from
+  an application". It is not true, and the correction is worth keeping because
+  it is easy to make again. `ChannelManager` skips the lookup entirely when
+  every recipient already has an unexpired cached channel, and the startup
+  config call prefills that cache from `publicChannels` — which carries the
+  current user's own channel. Check 9 sends to the current user. Measured on a
+  live push-server v4 portal: no lookup was made, the batch was encoded under
+  both codecs, and the socket accepted the frame.
+
+  What that does **not** establish is that the bytes were right, and a later
+  run with the raw-frame tap running makes that gap precise rather than
+  merely suspected: across the whole 15-second window of check 9, **not one
+  frame arrived on the WebSocket at all**. The tap sits on the socket, below
+  every subscription, so this is no longer "the page did not see the echo" —
+  nothing came back. Both codecs, same portal, same result.
+
+  That rules the lab out and leaves two indistinguishable explanations: the
+  server rejected the frame, or it simply does not redeliver a
+  client-published message to its own publisher. A genuine encode bug sits in
+  the first of those, and nothing observable separates them, because a frame
+  the server cannot parse or address is dropped without a word.
+
+  (An earlier round could not have seen an echo under any circumstances: the
+  lab subscribed only to `SubscriptionType.Server`, while a client-published
+  message is emitted to `SubscriptionType.Client` subscribers. That was fixed
+  first, which is what makes the measurement above worth anything.)
+
+  So criterion 2 needs a portal that answers, or a route that reads an encoded
+  frame back some other way. Until one exists, the vendored library stays.
+
+  Finding that out took a while, because the SDK reported the failed publish as
+  a success — two defects fixed alongside this, pinned by
+  `publish-failure-is-reported.unit.spec.ts`: `sendMessageBatch` started the
+  channel lookup and dropped the promise, and `ChannelManager.getPublicIds`
+  caught the REST refusal and resolved an empty map, so the message was encoded
+  with no receivers and the server dropped it in silence.
 
 ### Known divergences from protobuf.js
 
@@ -178,8 +252,13 @@ Both are outside anything the push server sends, and are recorded so they are
 not rediscovered as bugs:
 
 - **Lone surrogates in a body.** `TextEncoder` substitutes U+FFFD; protobuf.js's
-  own UTF-8 writer emits the unpaired surrogate bytes. A JSON body cannot
-  contain one, so this never arises in practice.
+  own UTF-8 writer emits the unpaired surrogate bytes. **Measured on a live
+  portal, the question never arises**: a lone surrogate in the payload makes
+  `pull.application.event.add` fail with `Wrong authorization data` — the
+  request is refused before anything is published, so neither codec sees it.
+  `/pull-lab` keeps a check for it, on its own, because when it shared the
+  fidelity battery it failed that whole check and hid fourteen values that
+  passed.
 - **Sign extension.** The codec reads `uint32` for every numeric field in the
   schema, which is what the schema declares. It has no `int32` reader, so a
   negative value — which the schema cannot express — would not round-trip.

@@ -212,6 +212,36 @@ describe('pull protobuf-lite — decoding agrees with the vendored library', () 
     expect(hex(encodeRequestBatch(sparse))).toBe(hex(encodeWithVendored(sparse)))
   })
 
+  it('a message with no fields at all decodes to the defaults, not to holes', () => {
+    // `0A 04 0A 02 0A 00` — a ResponseBatch holding one Response holding one
+    // OutgoingMessagesResponse holding one OutgoingMessage with nothing in it.
+    //
+    // protobuf.js leaves such fields absent and serves them from the prototype;
+    // the lite codec materialises them. That is deliberate — #552 made it do so
+    // because `decodeId(undefined)` threw and, because the catch wraps the whole
+    // loop, dropped the ENTIRE batch rather than the one message.
+    //
+    // Nothing pinned it: deleting the whole default initialiser left all 1145
+    // tests green. No recorded frame can cover it either — every real frame
+    // carries all four fields — so it has to be synthetic.
+    const raw = Uint8Array.from([0x0A, 0x04, 0x0A, 0x02, 0x0A, 0x00])
+
+    const message = decodeResponseBatch(raw).responses[0]!.outgoingMessages!.messages[0]!
+
+    expect(message.id).toBeInstanceOf(Uint8Array)
+    expect(message.id!.byteLength).toBe(0)
+    expect(message.body).toBe('')
+    expect(message.expiry).toBe(0)
+    expect(message.created).toBe(0)
+
+    // And the values the library serves for the same bytes, which is what these
+    // defaults are imitating.
+    const viaLibrary = ResponseBatch.decode(raw).responses[0]!.outgoingMessages!.messages[0]! as Record<string, unknown>
+    expect(viaLibrary.body).toBe('')
+    expect(viaLibrary.expiry).toBe(0)
+    expect(viaLibrary.created).toBe(0)
+  })
+
   it('an empty batch decodes to an empty list, not to a throw', () => {
     const raw = encodeResponseBatch([])
 

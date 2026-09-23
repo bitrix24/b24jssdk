@@ -218,13 +218,26 @@ about it are worth knowing before reading a report it produced:
   live push-server v4 portal: no lookup was made, the batch was encoded under
   both codecs, and the socket accepted the frame.
 
-  What that does **not** establish is that the bytes were right. No echo came
-  back, and a frame the server cannot parse or address is dropped without a
-  word, so a genuine encode bug produces the identical observation. (The first
-  runs could not have seen an echo in any case: the lab subscribed only to
-  `SubscriptionType.Server`, while a client-published message is emitted to
-  `SubscriptionType.Client` subscribers. Fixed since; if check 9 now reaches
-  `pass` on some portal, that portal closes half of criterion 2.)
+  What that does **not** establish is that the bytes were right, and a later
+  run with the raw-frame tap running makes that gap precise rather than
+  merely suspected: across the whole 15-second window of check 9, **not one
+  frame arrived on the WebSocket at all**. The tap sits on the socket, below
+  every subscription, so this is no longer "the page did not see the echo" —
+  nothing came back. Both codecs, same portal, same result.
+
+  That rules the lab out and leaves two indistinguishable explanations: the
+  server rejected the frame, or it simply does not redeliver a
+  client-published message to its own publisher. A genuine encode bug sits in
+  the first of those, and nothing observable separates them, because a frame
+  the server cannot parse or address is dropped without a word.
+
+  (An earlier round could not have seen an echo under any circumstances: the
+  lab subscribed only to `SubscriptionType.Server`, while a client-published
+  message is emitted to `SubscriptionType.Client` subscribers. That was fixed
+  first, which is what makes the measurement above worth anything.)
+
+  So criterion 2 needs a portal that answers, or a route that reads an encoded
+  frame back some other way. Until one exists, the vendored library stays.
 
   Finding that out took a while, because the SDK reported the failed publish as
   a success — two defects fixed alongside this, pinned by

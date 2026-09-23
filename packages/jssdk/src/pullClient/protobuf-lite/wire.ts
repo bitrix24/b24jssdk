@@ -118,6 +118,15 @@ export class Reader {
     return this.#pos >= this.#view.length
   }
 
+  /** Where the cursor is, so a caller can roll back a partly-read field. */
+  get position(): number {
+    return this.#pos
+  }
+
+  set position(value: number) {
+    this.#pos = value
+  }
+
   /**
    * A varint of up to ten bytes — protobuf's full legal width.
    *
@@ -190,6 +199,11 @@ export class Reader {
    * Skip a field this codec does not model — the statistics branches, and
    * anything a future server adds. Unknown fields are ordinary protobuf, not an
    * error: the vendored library ignored them silently and so must this.
+   *
+   * The throws below are not "give up". `readFields` catches them, rolls the
+   * cursor back and stops reading that message, so a damaged tail costs the
+   * fields after it and nothing else. Throwing is how this reader says "I
+   * cannot go further", not how it reports a failure to its caller.
    */
   skip(wireType: number): void {
     switch (wireType) {
@@ -207,9 +221,10 @@ export class Reader {
       }
       case 1: {
         // 64-bit. Nothing in this schema uses it; skipped rather than thrown so
-        // an unknown future field cannot break a working connection. Bounds are
-        // checked so a truncated frame fails here rather than silently ending
-        // the loop and reporting an empty batch.
+        // an unknown future field cannot break a working connection. The bounds
+        // check stays: `readFields` turns a throw here into "stop reading this
+        // message", which keeps what parsed, where advancing the cursor past
+        // the end would corrupt every field after it.
         if (this.#pos + 8 > this.#view.length) {
           throw new Error('pull protobuf: truncated 64-bit field')
         }

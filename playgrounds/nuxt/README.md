@@ -125,18 +125,20 @@ Route: **`/pull-lab`**.
 
 The SDK ships two protobuf implementations — the vendored protobuf.js that has
 always been there, and a hand-written one — selected by an `@internal` switch.
-They are held byte-identical by unit tests, but those tests derive both sides
-from the same schema, so they prove the two *agree*, not that either is *right*.
-Only a real portal can go further. This page is how.
+Unit tests check that the two agree — by hand-written cases and by a seeded
+fuzz over thousands of generated frames — but both sides come from the same
+schema, so agreement is not correctness against the server. Only a real portal
+can speak to that. This page is how.
 
 ### Read this before you run it
 
-**This is a smoke test, not the fixture.**
-[`pull-protobuf.md`](../../.github/contributing/pull-protobuf.md) sets the exit
-criterion for deleting the vendored library as *a recorded `ResponseBatch` from
-a live portal, committed as a fixture and decoded by both codecs*. Two green
-runs of this page are not that. What produces the fixture is the **Capture raw
-frames** button, and only on a WebSocket connection — see below.
+**This is a smoke test, not a gate.** Real portal frames were recorded with it
+once and are committed as a fixture, which is what showed the DECODE side is
+right against a live server. What the deletion of the vendored library now
+waits on is set out in
+[`pull-protobuf.md`](../../.github/contributing/pull-protobuf.md), and none of
+it is a run of this page. To record new frames, use the **Capture raw frames**
+button — on a WebSocket connection only; see below.
 
 **The encode side is what this page barely reaches.** Everything except check 9
 sends over REST and receives over Pull, so it exercises decoding. Check 9 is the

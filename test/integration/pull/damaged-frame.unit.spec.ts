@@ -1,0 +1,153 @@
+/**
+ * What the CLIENT does with a damaged frame, as opposed to what the codec does.
+ *
+ * `*.unit.spec.ts` (testing.md's exception): hand-built frames and a private
+ * method, nothing to reach a portal for.
+ *
+ * The lite codec now decodes a damaged frame as far as it goes instead of
+ * rejecting it (#559). Two things had to follow in `extractProtobufMessages`,
+ * and the fuzz differential cannot see either because it never reaches the
+ * client:
+ *
+ *  - the damage must still be LOGGED. The tolerant decode removed the only sign
+ *    a frame was broken; a push server or proxy cutting frames short would
+ *    otherwise have become invisible;
+ *  - a message whose `sender` was cut off must not take the rest of the batch
+ *    with it — that, damage confined inside one message, is the case the
+ *    tolerant decode actually rescues; a frame cut short at the END is not,
+ *    and the last case below says why. The client read `message.sender.type` inside the batch-wide
+ *    `try`, so one missing sender dropped every message after it — the exact
+ *    loss the tolerant decode exists to prevent, one layer further up.
+ */
+import { describe, it, expect } from 'vitest'
+import { PullClient } from '../../../packages/jssdk/src/pullClient/client'
+import { SenderType } from '../../../packages/jssdk/src/types/pull'
+import type { TypePullClientParams } from '../../../packages/jssdk/src/types/pull'
+
+type Logged = { level: string, message: string, context: unknown }
+
+function build(logged: Logged[]) {
+  const logger = new Proxy({}, {
+    get: (_target, level: string) => (message: string, context?: unknown) => {
+      logged.push({ level, message, context })
+      return Promise.resolve()
+    }
+  })
+  const b24 = { getLogger: () => logger } as unknown as TypePullClientParams['b24']
+  const client = new PullClient({ b24, userId: 1, skipStorageInit: true, protobufCodec: 'lite' })
+  client.setLogger(logger as never)
+
+  return client
+}
+
+function extract(client: PullClient, frame: Uint8Array) {
+  return (client as unknown as {
+    extractProtobufMessages: (event: ArrayBuffer) => Array<{ mid: string, text: Record<string, any> }>
+  }).extractProtobufMessages(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength) as ArrayBuffer)
+}
+
+const utf8 = new TextEncoder()
+
+/** A varint, so a nested list longer than 127 bytes still gets a correct length prefix. */
+function varint(value: number): number[] {
+  const out: number[] = []
+  let rest = value
+  while (rest > 0x7F) {
+    out.push((rest & 0x7F) | 0x80)
+    rest >>>= 7
+  }
+  out.push(rest)
+
+  return out
+}
+
+/** A length-delimited field: tag, length, payload. */
+function field(fieldNumber: number, payload: Uint8Array): number[] {
+  return [(fieldNumber << 3) | 2, ...varint(payload.length), ...payload]
+}
+
+/** An OutgoingMessage: id (1), body (2), and optionally raw trailing bytes for a damaged sender. */
+function outgoing(id: number, command: string, trailing: number[] = []): Uint8Array {
+  const body = utf8.encode(JSON.stringify({ module_id: 'main', command, params: {} }))
+
+  return Uint8Array.from([
+    ...field(1, Uint8Array.from([id])),
+    ...field(2, body),
+    ...trailing
+  ])
+}
+
+/** ResponseBatch { responses: [ Response { outgoingMessages: { messages } } ] } */
+function batchOf(messages: Uint8Array[]): Uint8Array {
+  const list = Uint8Array.from(messages.flatMap(message => field(1, message)))
+  const response = Uint8Array.from(field(1, list))
+
+  return Uint8Array.from(field(1, response))
+}
+
+describe('pull: the client on a damaged frame', () => {
+  it('keeps every message around one whose sender was cut off', () => {
+    // The middle message carries a `sender` (field 5) whose length prefix
+    // claims 127 bytes and supplies none. The codec stops reading THAT message
+    // and leaves `sender` unset; the other two are untouched.
+    const logged: Logged[] = []
+    const frame = batchOf([
+      outgoing(1, 'first'),
+      outgoing(2, 'second', [(5 << 3) | 2, 0x7F]),
+      outgoing(3, 'third')
+    ])
+
+    const events = extract(build(logged), frame)
+
+    expect(events.map(event => event.text.command)).toEqual(['first', 'second', 'third'])
+    // Absent, not invented: the one it could not read is reported as Unknown.
+    expect(events[1]!.text.extra.sender.type).toBe(SenderType.Unknown)
+  })
+
+  it('logs that the frame was damaged, with its length and nothing from inside it', () => {
+    const logged: Logged[] = []
+    const frame = batchOf([
+      outgoing(1, 'first'),
+      outgoing(2, 'second', [(5 << 3) | 2, 0x7F])
+    ])
+
+    extract(build(logged), frame)
+
+    const warning = logged.find(entry => entry.level === 'warning' && entry.message.includes('damaged'))
+    expect(warning, 'a damaged frame must not pass silently').toBeDefined()
+    // The frame may carry other applications' events, so only its size is
+    // logged — never its content (#43).
+    expect(warning!.context).toEqual({ byteLength: frame.byteLength })
+  })
+
+  it('logs nothing of the kind for a sound frame', () => {
+    const logged: Logged[] = []
+    const events = extract(build(logged), batchOf([outgoing(1, 'only')]))
+
+    expect(events).toHaveLength(1)
+    expect(logged.filter(entry => entry.message.includes('damaged'))).toHaveLength(0)
+  })
+
+  it('recovers NOTHING from a frame cut short at the end, and says so', () => {
+    // Pinned because it is the case people will assume is covered, and it is
+    // not. A frame truncated at the end breaks every ENCLOSING length prefix —
+    // the batch's, the response's, the list's — before it reaches a single
+    // message, so the top level stops first and nothing is delivered. Measured:
+    // 0 of 235 end-truncations of a five-message frame yielded any message, in
+    // either codec. What the tolerant decode does rescue is damage confined to
+    // ONE message whose own length prefix is intact, as in the first case.
+    //
+    // Clamping an overrunning length to the bytes that remain would recover
+    // this case, and was rejected: an inflated prefix mid-frame would then read
+    // the NEXT message's bytes as the current one's `id`, and deliver a message
+    // under a wrong id. That breaks de-duplication and `mack`, which is worse
+    // than losing it.
+    const logged: Logged[] = []
+    const frame = batchOf([outgoing(1, 'first'), outgoing(2, 'second')])
+
+    const events = extract(build(logged), frame.slice(0, frame.length - 5))
+
+    expect(events).toEqual([])
+    expect(logged.some(entry => entry.message.includes('damaged')), 'lost, but not silently').toBe(true)
+  })
+})

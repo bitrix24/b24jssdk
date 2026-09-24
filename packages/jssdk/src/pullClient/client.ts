@@ -2589,6 +2589,20 @@ export class PullClient implements ConnectorParent {
       const responseBatch = this._useLiteProtobuf
         ? decodeResponseBatch(new Uint8Array(pullEvent))
         : ResponseBatch.decode(new Uint8Array(pullEvent))
+
+      // The lite codec decodes a damaged frame as far as it goes instead of
+      // rejecting it, so the messages ahead of the damage still arrive. That
+      // removed the only sign a frame was broken, which this puts back: a
+      // push server or a proxy cutting frames short should be visible to
+      // whoever is watching this log. The byte length only — the frame itself
+      // may carry other applications' events and must not be logged (#43).
+      if ('damaged' in responseBatch && responseBatch.damaged) {
+        this.getLogger().warning(
+          `${Text.getDateForLog()}: Pull: a protobuf frame was damaged; the messages ahead of the damage were kept`,
+          { byteLength: pullEvent.byteLength }
+        ).catch(() => {})
+      }
+
       for (let i = 0; i < responseBatch.responses.length; i++) {
         const response = responseBatch.responses[i]
         if (response.command !== 'outgoingMessages') {
@@ -2611,11 +2625,16 @@ export class PullClient implements ConnectorParent {
           if (!messageFields.extra) {
             messageFields.extra = {}
           }
+          // `sender` is absent when the frame was cut inside it. Reading
+          // `.type` off `undefined` threw here, and since this loop sits
+          // inside the batch-wide `try`, one damaged sender dropped every
+          // message after it — the exact loss the tolerant decode exists to
+          // prevent, reintroduced one layer up.
           messageFields.extra.sender = {
-            type: message.sender.type
+            type: message.sender?.type ?? SenderType.Unknown
           }
 
-          if (message.sender.id instanceof Uint8Array) {
+          if (message.sender?.id instanceof Uint8Array) {
             messageFields.extra.sender.id = this.decodeId(message.sender.id)
           }
 

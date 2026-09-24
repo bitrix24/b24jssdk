@@ -262,7 +262,7 @@ function commandOf(response: Record<string, any>): string | null {
  *
  * Everything the client reads is here — `command`, and on each message `id`,
  * `body`, `expiry`, `created`, and the sender's `type` AND `id`. An earlier
- * version kept only `senderType`, and three mutations to the sender decoder
+ * version kept only `senderType`, and two mutations to the sender decoder
  * survived it, including the very `{}`-instead-of-defaults bug #552 fixed.
  */
 function shapeBatch(batch: unknown) {

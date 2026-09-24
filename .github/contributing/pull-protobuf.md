@@ -240,15 +240,15 @@ What a deletion of the vendored library actually moves splits by risk:
    the corpus it actually compared, because a generator that quietly stopped
    reaching them would still pass.
 
-   It was mutation-tested by hand, over three review rounds. The harness and
+   It was mutation-tested by hand, over four review rounds. The harness and
    the patches are not committed, so the list is given in full here — each is
    a one-line change to `wire.ts`, `messages.ts` or `client.ts`, planted alone,
-   and all twenty-seven fail the current suite:
+   and all twenty-eight fail the current suite:
 
-   - **Caught from the start (6):** `expiry` written at the wrong field number;
+   - **Caught from the start (5):** `expiry` written at the wrong field number;
      `isPrivate` not written; `created` read as a varint; `created` read as
-     signed; `sender.type` dropped; damage never reported.
-   - **Passed an earlier version of the tests (18)** — which is what the review
+     signed; `sender.type` dropped.
+   - **Passed an earlier version of the tests (19)** — which is what the review
      rounds were for. Round one: `sender.id` dropped; the sender's defaults
      reverted to `{}`; `expiry` unmasked; a statistics response labelled as
      messages. Round two: every error caught instead of `WireError`; the frame
@@ -258,13 +258,19 @@ What a deletion of the vendored library actually moves splits by risk:
      group cap at 65; at 63; its depth never incremented; the cap removed; the
      sender check written `!sender?.type`, which drops legitimate type-0
      senders; the damage warning's text changed; damage inside a sender not
-     reported.
-   - **Against code added during review, so no earlier version existed (3):** a
-     missing sender repaired instead of dropped; the group skip removed; the
-     sender-less skip not logged.
+     reported. Round four: the sender id tested by length instead of type,
+     which drops an empty id.
+   - **Against code added during review, so no earlier version existed (4):**
+     damage never reported; a missing sender repaired instead of dropped; the
+     group skip removed; the sender-less skip not logged.
+
+   Round four also tried four edits it judged implausible and did not add tests
+   for: a log field hard-coded, `has()` accepting `null` (no path passes one),
+   the varint length limit loosened by a byte, and an end-group check before
+   masking (differs only on invalid input).
 
    The small hand-built cases at the end of the fuzz file exist because most of
-   the eighteen live in edges a generator does not reach.
+   the nineteen live in edges a generator does not reach.
 
    Not covered: lone surrogates, which are an R4 divergence pinned separately;
    more than eight receivers; bodies above 16385 bytes. The seed is fixed, so a
@@ -305,8 +311,8 @@ What a deletion of the vendored library actually moves splits by risk:
    would create ALREADY EXISTS without it. A length prefix inflated to a value
    that still fits the buffer swallows the next list entry, undetected. Because
    that entry's tag, `0x0A`, is also `OutgoingMessage.id`'s, it lands as the
-   current message's `id` rather than being skipped as an unknown field. The next message is lost, this one carries a wrong
-   id, and nothing reports it — protobuf has no checksum, and the fuzz file
+   current message's `id` rather than being skipped as an unknown field. The
+   next message is lost, this one carries a wrong id, and nothing reports it — protobuf has no checksum, and the fuzz file
    pins this as undetected rather than pretending otherwise. Clamping would
    extend that silent case to every overrun as well, trading a reported loss
    for an unreported corruption. That is the reason.

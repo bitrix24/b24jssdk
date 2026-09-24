@@ -157,6 +157,9 @@ describe('pull: the client on a damaged frame', () => {
     expect(events.map(event => event.text.command)).toEqual(['type-zero', 'empty-sender'])
     for (const event of events) {
       expect(event.text.extra.sender.type).toBe(SenderType.Unknown)
+      // An empty id is still an id: `''`, not absent. A tidy-up testing the id's
+      // length instead of its type would drop it.
+      expect(event.text.extra.sender.id).toBe('')
     }
     expect(logged.filter(entry => entry.message.includes('no sender'))).toHaveLength(0)
   })

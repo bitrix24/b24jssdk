@@ -610,6 +610,8 @@ describe('pull protobuf-lite — R3, it is never less tolerant than the library'
       ['a group, closed', Uint8Array.from([0x0B, 0x08, 0x01, 0x0C]), false],
       ['a group, never closed', Uint8Array.from([0x0B, 0x08, 0x01]), true],
       ['a lone end-group tag', Uint8Array.from([0x0C]), true],
+      ['a group nested inside a group, both closed', Uint8Array.from([0x0B, 0x13, 0x14, 0x0C]), false],
+      ['groups nested past the depth cap', Uint8Array.from([...Array(65).fill(0x0B), ...Array(65).fill(0x0C)]), true],
       ['field number zero, which is illegal', Uint8Array.from([0x00, 0x01]), false]
     ]
 
@@ -667,12 +669,54 @@ describe('pull protobuf-lite — the edges a generator does not reach', () => {
     expect(shapeBatch(decoded)).toStrictEqual(shapeBatch(ResponseBatch.decode(frame)))
   })
 
+  it('skips a group NESTED in a group, not stopping at the inner end tag', () => {
+    // id, then group 6 containing group 7 containing a varint, then body. A
+    // skip that did not recurse would close the outer group at the inner end
+    // tag and misread everything after it.
+    const frame = wrapOne(Uint8Array.from([0x0A, 1, 1, 0x33, 0x3B, 0x08, 0x01, 0x3C, 0x34, 0x12, 2, 0x7B, 0x7D]))
+    const decoded = decodeResponseBatch(frame)
+
+    expect(decoded.damaged).toBe(false)
+    expect(decoded.responses[0]!.outgoingMessages!.messages[0]!.body).toBe('{}')
+  })
+
+  it('accepts groups nested exactly to the cap, and reports one level more as damage', () => {
+    // The cap is a deliberate divergence: protobuf.js recurses without limit.
+    const nested = (depth: number) => wrapOne(Uint8Array.from([
+      0x0A, 1, 1, ...Array(depth).fill(0x33), ...Array(depth).fill(0x34), 0x12, 2, 0x7B, 0x7D
+    ]))
+
+    expect(decodeResponseBatch(nested(64)).damaged).toBe(false)
+    expect(decodeResponseBatch(nested(65)).damaged).toBe(true)
+  })
+
+  it('survives groups nested far past the cap without overflowing the stack', () => {
+    // The reason the cap exists. Without it, recursion overflows the stack
+    // with a RangeError — not a WireError, so it escapes `readFields` and the
+    // whole batch is lost. protobuf.js has exactly that failure.
+    const frame = wrapOne(Uint8Array.from([0x0A, 1, 1, ...Array(200_000).fill(0x33)]))
+
+    expect(outcomeOf(() => decodeResponseBatch(frame))).toBe('returned')
+    expect(decodeResponseBatch(frame).damaged).toBe(true)
+  })
+
+  it('reports damage INSIDE a sender whose own length prefix is intact', () => {
+    // The sender reader's own `readFields`, reached only when the sender's
+    // length is right and its content is not: a one-byte sender holding a tag
+    // with no value after it.
+    const frame = wrapOne(Uint8Array.from([0x0A, 1, 1, 0x2A, 1, 0x08]))
+
+    expect(decodeResponseBatch(frame).damaged).toBe(true)
+  })
+
   it('reports a fixed32 cut short inside a message whose own length is intact', () => {
     // `created` is the schema's only fixed32; three bytes of it, then the end.
     const frame = wrapOne(Uint8Array.from([0x0A, 1, 1, 0x25, 1, 2, 3]))
     const decoded = decodeResponseBatch(frame)
 
     expect(decoded.damaged).toBe(true)
+    // What came before the cut survives; the cut field keeps its default.
+    expect([...decoded.responses[0]!.outgoingMessages!.messages[0]!.id!]).toEqual([1])
     expect(decoded.responses[0]!.outgoingMessages!.messages[0]!.created).toBe(0)
   })
 
@@ -740,7 +784,9 @@ describe('pull protobuf-lite — the edges a generator does not reach', () => {
 
     expect(decoded.damaged).toBe(false)
     expect(read).toHaveLength(2)
-    expect(read[1]!.id!.length).toBeGreaterThan(1)
+    // Exactly entry 3's content, as message 2's id: the precise failure, not
+    // merely "some wrong id".
+    expect([...read[1]!.id!]).toEqual(m3)
   })
 
   it('lets an error that is not a wire error escape, instead of hiding it as damage', () => {

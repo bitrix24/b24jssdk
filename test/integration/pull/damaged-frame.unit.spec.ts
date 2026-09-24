@@ -134,7 +134,31 @@ describe('pull: the client on a damaged frame', () => {
       ]))
 
       expect(events.map(event => event.text.command), codec).toEqual(['first', 'third'])
+
+      // Not silently. That a real server always sends a sender is inferred,
+      // not observed; if it is ever wrong for a system command, this warning
+      // is the only trace a skipped CHANNEL_EXPIRE would leave.
+      const skipped = logged.filter(entry => entry.message.includes('no sender'))
+      expect(skipped, codec).toHaveLength(1)
+      expect(skipped[0]!.args, codec).toEqual([skipped[0]!.message, { responseIndex: 0, moduleId: 'main' }])
     }
+  })
+
+  it('delivers a sender whose type is 0, which is well-formed and not missing', () => {
+    // `SenderType.Unknown` is 0, and so is an empty `sender {}`. Both are
+    // well-formed and were always delivered. The guard tests for an ABSENT
+    // sender; testing `!sender?.type` instead would have dropped these too.
+    const logged: Logged[] = []
+    const events = extract(build(logged), batchOf([
+      outgoing(1, 'type-zero', [(5 << 3) | 2, 0x02, 0x08, 0x00]),
+      outgoing(2, 'empty-sender', [(5 << 3) | 2, 0x00])
+    ]))
+
+    expect(events.map(event => event.text.command)).toEqual(['type-zero', 'empty-sender'])
+    for (const event of events) {
+      expect(event.text.extra.sender.type).toBe(SenderType.Unknown)
+    }
+    expect(logged.filter(entry => entry.message.includes('no sender'))).toHaveLength(0)
   })
 
   it('logs that the frame was damaged, with its length and nothing from inside it', () => {
@@ -152,6 +176,8 @@ describe('pull: the client on a damaged frame', () => {
     // logged — never its content (#43). Checked across EVERY argument, since a
     // leak is a leak whichever position it is passed in.
     expect(warning!.args).toEqual([warning!.message, { byteLength: frame.byteLength }])
+    // The text itself, since operators search for it. It starts with a date.
+    expect(warning!.message).toMatch(/: Pull: a protobuf frame was damaged; whatever could not be read was dropped$/)
   })
 
   it('logs nothing of the kind for a sound frame', () => {

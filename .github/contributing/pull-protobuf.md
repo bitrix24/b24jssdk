@@ -240,18 +240,31 @@ What a deletion of the vendored library actually moves splits by risk:
    the corpus it actually compared, because a generator that quietly stopped
    reaching them would still pass.
 
-   It was mutation-tested by hand, in two rounds; the patches are not
-   committed. Eighteen plausible defects were planted in the codec and the
-   client one at a time — a field at the wrong number, `isPrivate` dropped,
-   `created` read as a varint or as signed, each half of the sender dropped,
-   the sender's defaults reverted to `{}`, `expiry` unmasked, a statistics
-   response labelled as messages, damage never reported, every error caught
-   instead of `WireError`, a bounds check loosened by one byte, the 64-bit skip
-   advancing four bytes or losing its bounds check, the frame leaked into a log
-   argument, a missing sender repaired instead of dropped, the group skip
-   removed — and every one fails the suite. Ten of those survived an earlier
-   version of the tests. The small hand-built cases at the end of the fuzz file
-   exist because a generator does not reach those edges.
+   It was mutation-tested by hand, over three review rounds. The harness and
+   the patches are not committed, so the list is given in full here — each is
+   a one-line change to `wire.ts`, `messages.ts` or `client.ts`, planted alone,
+   and all twenty-seven fail the current suite:
+
+   - **Caught from the start (6):** `expiry` written at the wrong field number;
+     `isPrivate` not written; `created` read as a varint; `created` read as
+     signed; `sender.type` dropped; damage never reported.
+   - **Passed an earlier version of the tests (18)** — which is what the review
+     rounds were for. Round one: `sender.id` dropped; the sender's defaults
+     reverted to `{}`; `expiry` unmasked; a statistics response labelled as
+     messages. Round two: every error caught instead of `WireError`; the frame
+     leaked as a third logger argument; the `bytes` bound loosened by one; the
+     64-bit skip advancing four bytes; the fixed32 bound loosened by one; the
+     64-bit bounds check removed. Round three: group skip not recursing; the
+     group cap at 65; at 63; its depth never incremented; the cap removed; the
+     sender check written `!sender?.type`, which drops legitimate type-0
+     senders; the damage warning's text changed; damage inside a sender not
+     reported.
+   - **Against code added during review, so no earlier version existed (3):** a
+     missing sender repaired instead of dropped; the group skip removed; the
+     sender-less skip not logged.
+
+   The small hand-built cases at the end of the fuzz file exist because most of
+   the eighteen live in edges a generator does not reach.
 
    Not covered: lone surrogates, which are an R4 divergence pinned separately;
    more than eight receivers; bodies above 16385 bytes. The seed is fixed, so a
@@ -289,10 +302,10 @@ What a deletion of the vendored library actually moves splits by risk:
 
    Clamping an overrun to the bytes remaining would recover those, and was not
    done — but for a narrower reason than first written here. The hazard it
-   would create ALREADY EXISTS without it. A list entry's tag is `0x0A`, which
-   is also `OutgoingMessage.id`'s tag; so a length prefix inflated to a value
-   that still fits the buffer swallows the next entry, which parses as the
-   current message's `id`. The next message is lost, this one carries a wrong
+   would create ALREADY EXISTS without it. A length prefix inflated to a value
+   that still fits the buffer swallows the next list entry, undetected. Because
+   that entry's tag, `0x0A`, is also `OutgoingMessage.id`'s, it lands as the
+   current message's `id` rather than being skipped as an unknown field. The next message is lost, this one carries a wrong
    id, and nothing reports it — protobuf has no checksum, and the fuzz file
    pins this as undetected rather than pretending otherwise. Clamping would
    extend that silent case to every overrun as well, trading a reported loss
@@ -311,11 +324,21 @@ What a deletion of the vendored library actually moves splits by risk:
    did exactly that.
 
    On `mid`: it is set from each event the client processes, so after a
-   partial decode it points at the last message delivered. A message lost
-   AFTER it will be asked for again on reconnect; one lost in the MIDDLE, with
-   a later message delivered past it, will not. That was already true of a
-   body that fails `JSON.parse`, and is not new here. A decode that yields
-   nothing — every end-cut — still resets `mid` to null, as before.
+   partial decode it points at the last message delivered. `mid` is only sent
+   when the client reconnects, so this matters only then. A message lost AFTER
+   it will be asked for again on reconnect; one lost in the MIDDLE, with a later
+   message delivered past it, will not. That was already true of a body that
+   fails `JSON.parse`, and applies equally to a message skipped for a missing
+   sender. A decode that yields nothing — every end-cut — still resets `mid` to
+   null, as before.
+
+   A message skipped for a missing sender is logged, on both codecs. A real
+   push server is expected always to send one — an audit of its sources reports
+   so, and the client read `sender` unguarded for years without such losses
+   being reported — but that is an inference, and no recorded frame carries a
+   `pull` or `online` system command to confirm it for those. If it is ever
+   wrong, the warning is what separates a skipped `CHANNEL_EXPIRE` from a dead
+   connection.
 
    The criterion, over a corpus of damaged frames — truncated, bit-flipped,
    length-inflated, and with bytes appended: the lite codec **never throws
@@ -524,6 +547,12 @@ about it are worth knowing before reading a report it produced:
 
 The deliberate ones are listed under R4 above. These are recorded so they are
 not rediscovered as bugs:
+
+- **Group nesting is capped at 64.** The vendored protobuf.js `skipType`
+  recurses without limit, so a frame of deeply nested groups overflows its
+  stack with a `RangeError` — which is not a wire error, escapes, and loses the
+  batch. The lite codec reports it as damage instead. No push server sends
+  groups at all; this only decides how an absurd frame fails.
 
 - **Lone surrogates, on the REST path.** Separate from the codec divergence in
   R4: a lone surrogate in a payload makes `pull.application.event.add` fail with

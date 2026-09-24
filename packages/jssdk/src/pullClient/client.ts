@@ -100,10 +100,10 @@ export class PullClient implements ConnectorParent {
 
   /**
    * `true` selects the hand-written codec over the vendored protobuf.js.
-   * Off by default. The two agree byte for byte on well-formed input, checked
-   * by a hand-written and a fuzz differential, and differ deliberately in a
-   * handful of places recorded in `pull-protobuf.md`; the lite codec has very
-   * little production exposure, which is the reason the default stays put.
+   * Off by default. The two agree on well-formed input except for the
+   * deliberate divergences recorded in `pull-protobuf.md`, checked by a
+   * hand-written and a fuzz differential; the lite codec has very little
+   * production exposure, which is the reason the default stays put.
    */
   private _useLiteProtobuf: boolean = false
 
@@ -2631,7 +2631,7 @@ export class PullClient implements ConnectorParent {
           if (!messageFields.extra) {
             messageFields.extra = {}
           }
-          // A message with no `sender` is SKIPPED, not repaired.
+          // A message with no `sender` is SKIPPED, not repaired — and logged.
           //
           // `sender.type` decides who a message is for: `broadcastMessage`
           // routes `Client` to client subscribers and everything else to
@@ -2642,13 +2642,23 @@ export class PullClient implements ConnectorParent {
           //
           // Skipping it here, rather than letting `.type` throw, keeps the
           // rest of the batch: that read sat inside the batch-wide `try`, so
-          // one missing sender used to drop every message after it. It did so
-          // in both codecs — protobuf.js puts `sender = null` on the
+          // one missing sender used to drop it and every message after it. It
+          // did so in both codecs — protobuf.js puts `sender = null` on the
           // prototype, so a sender-less message threw there too.
           //
-          // A real push server always sends a sender; the old code would have
-          // lost every batch otherwise. So this only ever fires on damage.
+          // Expected to fire only on damage, and that is an inference, not an
+          // observation: an audit of the push-server sources reports it sets
+          // `sender` on every message it relays, and the unguarded read above
+          // shipped for years without such losses being reported. No recorded
+          // frame carries a `pull` or `online` system command, so it is not
+          // confirmed for those. Hence the warning: if the inference is ever
+          // wrong, a silently skipped CHANNEL_EXPIRE would look like a dead
+          // connection with nothing in the log to say why.
           if (!message.sender) {
+            this.getLogger().warning(
+              `${Text.getDateForLog()}: Pull: a protobuf message arrived with no sender and was skipped`,
+              { responseIndex: i, moduleId: typeof messageFields.module_id === 'string' ? messageFields.module_id : null }
+            ).catch(() => {})
             continue
           }
 

@@ -2628,6 +2628,19 @@ export class PullClient implements ConnectorParent {
             continue
           }
 
+          // Valid JSON that is not an object — `null`, a number, a string, a
+          // boolean. Reading `.extra` off `null`, or assigning it onto a
+          // primitive under strict mode, threw inside the batch-wide `try`,
+          // and dropped this message and every one after it (#562). Skipped,
+          // and logged without the body (#43). Arrays are objects and pass.
+          if (messageFields === null || typeof messageFields !== 'object') {
+            this.getLogger().warning(
+              `${Text.getDateForLog()}: Pull: a message body was not a JSON object and was skipped`,
+              { responseIndex: i, bodyType: messageFields === null ? 'null' : typeof messageFields }
+            ).catch(() => {})
+            continue
+          }
+
           if (!messageFields.extra) {
             messageFields.extra = {}
           }

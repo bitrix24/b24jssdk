@@ -3,8 +3,8 @@
  *
  * The schema it serves has no `required` fields, no packed repeats, no maps and
  * no 64-bit numbers — only `bytes`, `string`, `bool`, `uint32`, one `fixed32`
- * and nested messages. That is why roughly 5.5 kB minified replaces the 94 kB
- * vendored `protobuf/` directory (79 kB of it is protobuf.js itself, the rest
+ * and nested messages. That is why about 5 kB minified — `wire` and `messages`
+ * together — replaces the 94 kB vendored `protobuf/` directory (79 kB of it is protobuf.js itself, the rest
  * is the generated model); it is also why this file must never grow to cover protobuf
  * in general. If a new field type appears in `pull.proto`, add it here
  * deliberately. The doc records how those figures are measured.
@@ -28,6 +28,9 @@ export class WireError extends Error {
 export const WIRE_VARINT = 0
 export const WIRE_BYTES = 2
 export const WIRE_FIXED32 = 5
+const WIRE_START_GROUP = 3
+const WIRE_END_GROUP = 4
+const MAX_GROUP_DEPTH = 64
 
 /** `key = (fieldNumber << 3) | wireType`, the tag every field is prefixed with. */
 export function tag(fieldNumber: number, wireType: number): number {
@@ -209,7 +212,7 @@ export class Reader {
    * how it reports a failure to its caller — and it is always a `WireError`,
    * which is the only thing `readFields` catches.
    */
-  skip(wireType: number): void {
+  skip(wireType: number, depth = 0): void {
     switch (wireType) {
       case WIRE_VARINT: {
         this.varint()
@@ -235,9 +238,33 @@ export class Reader {
         this.#pos += 8
         break
       }
+      case WIRE_START_GROUP: {
+        // Groups are deprecated and no push server sends them. They are
+        // skipped anyway because protobuf.js skips them, and reporting a
+        // well-formed frame as damaged — dropping the fields after it — would
+        // be a divergence in the wrong direction. Skipped to the matching end
+        // tag, as the library does; a lone end tag is malformed there too.
+        this.#skipGroup(depth)
+        break
+      }
       default: {
         throw new WireError(`pull protobuf: unsupported wire type ${wireType}`)
       }
+    }
+  }
+
+  #skipGroup(depth: number): void {
+    // protobuf.js has no limit here and overflows the stack on deep nesting.
+    // A frame nested this deep is malformed by any reasonable standard.
+    if (depth >= MAX_GROUP_DEPTH) {
+      throw new WireError('pull protobuf: groups nested too deeply')
+    }
+    for (;;) {
+      const wireType = this.varint() & 7
+      if (wireType === WIRE_END_GROUP) {
+        return
+      }
+      this.skip(wireType, depth + 1)
     }
   }
 }

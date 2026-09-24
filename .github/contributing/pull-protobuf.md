@@ -130,8 +130,8 @@ It was not taken, for two reasons. `B24HelperManager` lives in the main entry an
 imports the vendored `PullClient` statically, so the most common way of using
 Pull would not have been covered without duplicating the helper too; and the UMD
 build is a single file with no subpaths, so `<script>` users would have been left
-behind either way. Revisit this if the lite codec is proven but the vendored one
-still has to ship for some other reason — that is the case the subpath answers
+behind either way. Revisit this once the deletion steps below are done but the
+vendored one still has to ship for some other reason — that is the case the subpath answers
 and the option does not.
 
 Until then both ship, and the honest accounting is that this **costs** rather
@@ -213,8 +213,7 @@ recorded fixture does not help there either: both codecs decode it with the
 same descriptors, so it proves they agree, and `fixed32` and `sfixed32` are
 four bytes either way.
 
-So the exit criterion for dropping the vendored library splits by WHICH RISK a
-deletion actually moves:
+What a deletion of the vendored library actually moves splits by risk:
 
 1. **R1 — is the schema right?** Affects BOTH implementations identically, so
    deleting one moves it **not at all**: a wrong descriptor is equally wrong in
@@ -241,12 +240,18 @@ deletion actually moves:
    the corpus it actually compared, because a generator that quietly stopped
    reaching them would still pass.
 
-   It was mutation-tested: ten plausible defects were planted in the lite codec
-   one at a time — a field at the wrong number, `isPrivate` dropped, `created`
-   read as a varint or as signed, each half of the sender dropped, the sender's
-   defaults reverted to `{}`, `expiry` unmasked, a statistics response labelled
-   as messages, damage never reported — and every one failed the suite. Four of
-   those survived the first version of this file.
+   It was mutation-tested by hand, in two rounds; the patches are not
+   committed. Eighteen plausible defects were planted in the codec and the
+   client one at a time — a field at the wrong number, `isPrivate` dropped,
+   `created` read as a varint or as signed, each half of the sender dropped,
+   the sender's defaults reverted to `{}`, `expiry` unmasked, a statistics
+   response labelled as messages, damage never reported, every error caught
+   instead of `WireError`, a bounds check loosened by one byte, the 64-bit skip
+   advancing four bytes or losing its bounds check, the frame leaked into a log
+   argument, a missing sender repaired instead of dropped, the group skip
+   removed — and every one fails the suite. Ten of those survived an earlier
+   version of the tests. The small hand-built cases at the end of the fuzz file
+   exist because a generator does not reach those edges.
 
    Not covered: lone surrogates, which are an R4 divergence pinned separately;
    more than eight receivers; bodies above 16385 bytes. The seed is fixed, so a
@@ -279,16 +284,38 @@ deletion actually moves:
    whose own length prefix is intact — a nested `sender` that overruns, a field
    that ends mid-varint. A frame cut short at the END is not rescued: the cut
    breaks every enclosing length prefix before reaching any message, so nothing
-   is recovered in either codec (measured: 0 of 235 cuts of a five-message
-   frame). Clamping an overrun to the bytes remaining would recover it, and was
-   rejected — an inflated prefix mid-frame would then read the next message's
-   bytes as the current one's `id`, delivering a message under a wrong id and
-   breaking de-duplication and `mack`.
+   is recovered in either codec. That is pinned, not just stated: the fuzz file
+   cuts a five-message frame at every byte and asserts no message comes back.
+
+   Clamping an overrun to the bytes remaining would recover those, and was not
+   done — but for a narrower reason than first written here. The hazard it
+   would create ALREADY EXISTS without it. A list entry's tag is `0x0A`, which
+   is also `OutgoingMessage.id`'s tag; so a length prefix inflated to a value
+   that still fits the buffer swallows the next entry, which parses as the
+   current message's `id`. The next message is lost, this one carries a wrong
+   id, and nothing reports it — protobuf has no checksum, and the fuzz file
+   pins this as undetected rather than pretending otherwise. Clamping would
+   extend that silent case to every overrun as well, trading a reported loss
+   for an unreported corruption. That is the reason.
 
    And the rescue is not silent. The decode reports `damaged`, and
    `extractProtobufMessages` logs a warning carrying the frame's byte length
    and nothing from inside it. Without that, a push server or proxy cutting
-   frames would have become invisible where it used to be logged.
+   frames would have become invisible where it used to be logged. `damaged` is
+   not a guarantee of integrity, for the reason above.
+
+   A message whose `sender` could not be read is DROPPED, not repaired.
+   `sender.type` decides who a message is for; filling in `Unknown` would route
+   a client-published message to server subscribers, or with `module_id:
+   'pull'` to the internal command handler. An earlier version of this change
+   did exactly that.
+
+   On `mid`: it is set from each event the client processes, so after a
+   partial decode it points at the last message delivered. A message lost
+   AFTER it will be asked for again on reconnect; one lost in the MIDDLE, with
+   a later message delivered past it, will not. That was already true of a
+   body that fails `JSON.parse`, and is not new here. A decode that yields
+   nothing — every end-cut — still resets `mid` to null, as before.
 
    The criterion, over a corpus of damaged frames — truncated, bit-flipped,
    length-inflated, and with bytes appended: the lite codec **never throws
@@ -493,19 +520,19 @@ about it are worth knowing before reading a report it produced:
   resolves to no channels at all — and either way nothing reached the caller,
   which is what the fix addresses.
 
-### Known divergences from protobuf.js
+### Other divergences from protobuf.js
 
-Both are outside anything the push server sends, and are recorded so they are
+The deliberate ones are listed under R4 above. These are recorded so they are
 not rediscovered as bugs:
 
-- **Lone surrogates in a body.** `TextEncoder` substitutes U+FFFD; protobuf.js's
-  own UTF-8 writer emits the unpaired surrogate bytes. **Measured on a live
-  portal, the question never arises**: a lone surrogate in the payload makes
-  `pull.application.event.add` fail with `Wrong authorization data` — the
-  request is refused before anything is published, so neither codec sees it.
-  `/pull-lab` keeps a check for it, on its own, because when it shared the
-  fidelity battery it failed that whole check and hid fourteen values that
-  passed.
+- **Lone surrogates, on the REST path.** Separate from the codec divergence in
+  R4: a lone surrogate in a payload makes `pull.application.event.add` fail with
+  `Wrong authorization data`, so a message published over REST never reaches
+  either codec. That is a measurement of the portal's REST endpoint, and says
+  nothing about what the push server does with a WTF-8 frame sent over the
+  socket — which has not been measured. `/pull-lab` keeps a check for it, on
+  its own, because when it shared the fidelity battery it failed that whole
+  check and hid fourteen values that passed.
 - **Sign extension.** The codec reads `uint32` for every numeric field in the
   schema, which is what the schema declares. It has no `int32` reader, so a
   negative value — which the schema cannot express — would not round-trip.

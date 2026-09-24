@@ -99,9 +99,11 @@ export class PullClient implements ConnectorParent {
   private _jsonRpcAdapter: null | JsonRpc = null
 
   /**
-   * `true` selects the hand-written codec over the vendored protobuf.js (#PULL).
-   * Off by default: the two are pinned byte-identical by a differential test,
-   * but only the vendored path has run against a live portal.
+   * `true` selects the hand-written codec over the vendored protobuf.js.
+   * Off by default. The two agree byte for byte on well-formed input, checked
+   * by a hand-written and a fuzz differential, and differ deliberately in a
+   * handful of places recorded in `pull-protobuf.md`; the lite codec has very
+   * little production exposure, which is the reason the default stays put.
    */
   private _useLiteProtobuf: boolean = false
 
@@ -2590,15 +2592,19 @@ export class PullClient implements ConnectorParent {
         ? decodeResponseBatch(new Uint8Array(pullEvent))
         : ResponseBatch.decode(new Uint8Array(pullEvent))
 
-      // The lite codec decodes a damaged frame as far as it goes instead of
-      // rejecting it, so the messages ahead of the damage still arrive. That
-      // removed the only sign a frame was broken, which this puts back: a
-      // push server or a proxy cutting frames short should be visible to
-      // whoever is watching this log. The byte length only — the frame itself
-      // may carry other applications' events and must not be logged (#43).
+      // The lite codec decodes a damaged frame as far as it can read instead
+      // of rejecting it, which can keep sound messages the damage did not
+      // touch — but it removed the only sign a frame was broken. This puts it
+      // back: a push server or a proxy mangling frames should be visible to
+      // whoever watches this log. Only the byte length — the frame may carry
+      // other applications' events and must not be logged (#43).
+      //
+      // Note what "damaged" does NOT cover: a length prefix inflated to a value
+      // that still fits the buffer reads the next message as part of this one
+      // and is not detectable at all. See `pull-protobuf.md`.
       if ('damaged' in responseBatch && responseBatch.damaged) {
         this.getLogger().warning(
-          `${Text.getDateForLog()}: Pull: a protobuf frame was damaged; the messages ahead of the damage were kept`,
+          `${Text.getDateForLog()}: Pull: a protobuf frame was damaged; whatever could not be read was dropped`,
           { byteLength: pullEvent.byteLength }
         ).catch(() => {})
       }
@@ -2625,16 +2631,32 @@ export class PullClient implements ConnectorParent {
           if (!messageFields.extra) {
             messageFields.extra = {}
           }
-          // `sender` is absent when the frame was cut inside it. Reading
-          // `.type` off `undefined` threw here, and since this loop sits
-          // inside the batch-wide `try`, one damaged sender dropped every
-          // message after it — the exact loss the tolerant decode exists to
-          // prevent, reintroduced one layer up.
-          messageFields.extra.sender = {
-            type: message.sender?.type ?? SenderType.Unknown
+          // A message with no `sender` is SKIPPED, not repaired.
+          //
+          // `sender.type` decides who a message is for: `broadcastMessage`
+          // routes `Client` to client subscribers and everything else to
+          // server subscribers — or, with `module_id: 'pull'`, to the internal
+          // command handler. Filling in `Unknown` for a sender that could not
+          // be read would deliver a client-published message as a SERVER one,
+          // across that trust boundary. Losing it is the safer failure.
+          //
+          // Skipping it here, rather than letting `.type` throw, keeps the
+          // rest of the batch: that read sat inside the batch-wide `try`, so
+          // one missing sender used to drop every message after it. It did so
+          // in both codecs — protobuf.js puts `sender = null` on the
+          // prototype, so a sender-less message threw there too.
+          //
+          // A real push server always sends a sender; the old code would have
+          // lost every batch otherwise. So this only ever fires on damage.
+          if (!message.sender) {
+            continue
           }
 
-          if (message.sender?.id instanceof Uint8Array) {
+          messageFields.extra.sender = {
+            type: message.sender.type
+          }
+
+          if (message.sender.id instanceof Uint8Array) {
             messageFields.extra.sender.id = this.decodeId(message.sender.id)
           }
 

@@ -133,8 +133,9 @@ can speak to that. This page is how.
 ### Read this before you run it
 
 **This is a smoke test, not a gate.** Real portal frames were recorded with it
-once and are committed as a fixture, which is what showed the DECODE side is
-right against a live server. What the deletion of the vendored library now
+once and are committed as a fixture: two frames a live push server produced,
+which both codecs read identically. That shows they agree on real bytes; it is
+not, on its own, proof either reads them correctly. What the deletion of the vendored library now
 waits on is set out in
 [`pull-protobuf.md`](../../.github/contributing/pull-protobuf.md), and none of
 it is a run of this page. To record new frames, use the **Capture raw frames**

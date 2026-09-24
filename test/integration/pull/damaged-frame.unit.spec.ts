@@ -24,17 +24,19 @@ import { PullClient } from '../../../packages/jssdk/src/pullClient/client'
 import { SenderType } from '../../../packages/jssdk/src/types/pull'
 import type { TypePullClientParams } from '../../../packages/jssdk/src/types/pull'
 
-type Logged = { level: string, message: string, context: unknown }
+type Logged = { level: string, message: string, context: unknown, args: unknown[] }
 
-function build(logged: Logged[]) {
+function build(logged: Logged[], protobufCodec: 'lite' | 'vendored' = 'lite') {
+  // Records EVERY argument. An earlier version kept only the first two, so a
+  // frame passed as a third argument would have leaked into the log unseen.
   const logger = new Proxy({}, {
-    get: (_target, level: string) => (message: string, context?: unknown) => {
-      logged.push({ level, message, context })
+    get: (_target, level: string) => (...args: unknown[]) => {
+      logged.push({ level, message: String(args[0]), context: args[1], args })
       return Promise.resolve()
     }
   })
   const b24 = { getLogger: () => logger } as unknown as TypePullClientParams['b24']
-  const client = new PullClient({ b24, userId: 1, skipStorageInit: true, protobufCodec: 'lite' })
+  const client = new PullClient({ b24, userId: 1, skipStorageInit: true, protobufCodec })
   client.setLogger(logger as never)
 
   return client
@@ -66,13 +68,20 @@ function field(fieldNumber: number, payload: Uint8Array): number[] {
   return [(fieldNumber << 3) | 2, ...varint(payload.length), ...payload]
 }
 
-/** An OutgoingMessage: id (1), body (2), and optionally raw trailing bytes for a damaged sender. */
-function outgoing(id: number, command: string, trailing: number[] = []): Uint8Array {
+/**
+ * An OutgoingMessage: id (1), body (2), a backend `sender` (5) as a real push
+ * server always sends, and optionally raw trailing bytes — used to plant a
+ * damaged sender after the good fields.
+ */
+function outgoing(id: number, command: string, trailing: number[] = [], withSender = true): Uint8Array {
   const body = utf8.encode(JSON.stringify({ module_id: 'main', command, params: {} }))
+  // Sender { type = Backend (2) }
+  const sender = withSender && trailing.length === 0 ? field(5, Uint8Array.from([0x08, SenderType.Backend])) : []
 
   return Uint8Array.from([
     ...field(1, Uint8Array.from([id])),
     ...field(2, body),
+    ...sender,
     ...trailing
   ])
 }
@@ -86,10 +95,16 @@ function batchOf(messages: Uint8Array[]): Uint8Array {
 }
 
 describe('pull: the client on a damaged frame', () => {
-  it('keeps every message around one whose sender was cut off', () => {
+  it('keeps the messages around one whose sender was cut off, and drops that one', () => {
     // The middle message carries a `sender` (field 5) whose length prefix
     // claims 127 bytes and supplies none. The codec stops reading THAT message
     // and leaves `sender` unset; the other two are untouched.
+    //
+    // The middle one is DROPPED, not repaired. `sender.type` decides who a
+    // message is for, and inventing one would route a client-published
+    // message to server subscribers — or, as `module_id: 'pull'`, to the
+    // internal command handler. An earlier version filled in `Unknown` and did
+    // exactly that.
     const logged: Logged[] = []
     const frame = batchOf([
       outgoing(1, 'first'),
@@ -99,9 +114,27 @@ describe('pull: the client on a damaged frame', () => {
 
     const events = extract(build(logged), frame)
 
-    expect(events.map(event => event.text.command)).toEqual(['first', 'second', 'third'])
-    // Absent, not invented: the one it could not read is reported as Unknown.
-    expect(events[1]!.text.extra.sender.type).toBe(SenderType.Unknown)
+    expect(events.map(event => event.text.command)).toEqual(['first', 'third'])
+    for (const event of events) {
+      expect(event.text.extra.sender.type).not.toBe(SenderType.Unknown)
+    }
+  })
+
+  it('drops a message with no sender at all, rather than throwing away the batch', () => {
+    // Well-formed, just sender-less. protobuf.js puts `sender = null` on the
+    // prototype, so this threw inside the batch-wide `try` in BOTH codecs and
+    // took every message after it. Real servers always send a sender; this
+    // pins that one missing is contained to its own message.
+    for (const codec of ['lite', 'vendored'] as const) {
+      const logged: Logged[] = []
+      const events = extract(build(logged, codec), batchOf([
+        outgoing(1, 'first'),
+        outgoing(2, 'no-sender', [], false),
+        outgoing(3, 'third')
+      ]))
+
+      expect(events.map(event => event.text.command), codec).toEqual(['first', 'third'])
+    }
   })
 
   it('logs that the frame was damaged, with its length and nothing from inside it', () => {
@@ -116,8 +149,9 @@ describe('pull: the client on a damaged frame', () => {
     const warning = logged.find(entry => entry.level === 'warning' && entry.message.includes('damaged'))
     expect(warning, 'a damaged frame must not pass silently').toBeDefined()
     // The frame may carry other applications' events, so only its size is
-    // logged — never its content (#43).
-    expect(warning!.context).toEqual({ byteLength: frame.byteLength })
+    // logged — never its content (#43). Checked across EVERY argument, since a
+    // leak is a leak whichever position it is passed in.
+    expect(warning!.args).toEqual([warning!.message, { byteLength: frame.byteLength }])
   })
 
   it('logs nothing of the kind for a sound frame', () => {

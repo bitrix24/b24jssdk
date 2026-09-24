@@ -31,7 +31,7 @@
  * Every one of these tests needs `model.js` as its oracle and will be deleted
  * with it. What must survive the deletion is recorded in the contributing doc.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { IncomingMessage, Receiver, RequestBatch, ResponseBatch } from '../../../packages/jssdk/src/pullClient/protobuf'
 import { decodeResponseBatch, encodeRequestBatch } from '../../../packages/jssdk/src/pullClient/protobuf-lite/messages'
 import type { LiteIncomingMessage } from '../../../packages/jssdk/src/pullClient/protobuf-lite/messages'
@@ -563,9 +563,12 @@ describe('pull protobuf-lite — R3, it is never less tolerant than the library'
       // its first response must decode exactly as it did before. The garbage
       // may add or break things AFTER it; it may not change what came first.
       if (kind === 'append') {
-        const before = shapeBatch(decodeResponseBatch(good))[0]
+        // Against the LIBRARY'S reading of the sound frame, not the lite
+        // codec's own: a self-comparison passes for any decoder bug that
+        // affects both runs alike, including one that returns nothing.
+        const before = shapeBatch(ResponseBatch.decode(good))[0]
         const after = shapeBatch(lite)[0]
-        if (JSON.stringify(after) !== JSON.stringify(before)) {
+        if (before === undefined || JSON.stringify(after) !== JSON.stringify(before)) {
           appendViolations.push(`run ${run}: the intact response changed when bytes were appended after it`)
         }
       }
@@ -596,21 +599,165 @@ describe('pull protobuf-lite — R3, it is never less tolerant than the library'
   })
 
   it('survives the degenerate frames a fuzzer rarely reaches', () => {
-    const cases: [string, Uint8Array][] = [
-      ['empty', Uint8Array.from([])],
-      ['a tag and nothing else', Uint8Array.from([0x0A])],
-      ['a length that overruns the buffer', Uint8Array.from([0x0A, 0x7F, 0x01])],
-      ['a varint with no terminator', Uint8Array.from([0x0A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])],
-      ['an unknown field at the top level', Uint8Array.from([0x7A, 0x01, 0x00])],
-      ['a fixed64 where the schema has none', Uint8Array.from([0x09, 1, 2, 3, 4, 5, 6, 7, 8])],
-      ['a group start, which protobuf removed', Uint8Array.from([0x0B, 0x0C])],
-      ['field number zero, which is illegal', Uint8Array.from([0x00, 0x01])]
+    const cases: [string, Uint8Array, boolean][] = [
+      ['empty', Uint8Array.from([]), false],
+      ['a tag and nothing else', Uint8Array.from([0x0A]), true],
+      ['a length that overruns the buffer', Uint8Array.from([0x0A, 0x7F, 0x01]), true],
+      ['a varint with no terminator', Uint8Array.from([0x0A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]), true],
+      ['an unknown field at the top level', Uint8Array.from([0x7A, 0x01, 0x00]), false],
+      ['a whole fixed64 where the schema has none', Uint8Array.from([0x09, 1, 2, 3, 4, 5, 6, 7, 8]), false],
+      ['a fixed64 one byte short', Uint8Array.from([0x09, 1, 2, 3, 4, 5, 6, 7]), true],
+      ['a group, closed', Uint8Array.from([0x0B, 0x08, 0x01, 0x0C]), false],
+      ['a group, never closed', Uint8Array.from([0x0B, 0x08, 0x01]), true],
+      ['a lone end-group tag', Uint8Array.from([0x0C]), true],
+      ['field number zero, which is illegal', Uint8Array.from([0x00, 0x01]), false]
     ]
 
-    for (const [name, frame] of cases) {
-      if (outcomeOf(() => ResponseBatch.decode(frame)) === 'returned') {
-        expect(outcomeOf(() => decodeResponseBatch(frame)), name).toBe('returned')
+    // Every case asserted, not only those the library copes with — gating on
+    // the library skipped five of these eight, which is how two mutations to
+    // the 64-bit skip survived.
+    for (const [name, frame, damaged] of cases) {
+      expect(outcomeOf(() => decodeResponseBatch(frame)), name).toBe('returned')
+      expect(decodeResponseBatch(frame).damaged, name).toBe(damaged)
+    }
+  })
+})
+
+/** `ResponseBatch { responses: [ { outgoingMessages: { messages: [ <message> ] } } ] }`, by hand. */
+function wrapOne(message: Uint8Array): Uint8Array {
+  const varint = (value: number) => {
+    const out: number[] = []
+    let rest = value
+    while (rest > 0x7F) {
+      out.push((rest & 0x7F) | 0x80)
+      rest >>>= 7
+    }
+    out.push(rest)
+    return out
+  }
+  const field1 = (payload: number[]) => [0x0A, ...varint(payload.length), ...payload]
+
+  return Uint8Array.from(field1(field1(field1([...message]))))
+}
+
+describe('pull protobuf-lite — the edges a generator does not reach', () => {
+  // Each of these killed a mutation that survived the fuzz. They are
+  // deliberately small: one property, one frame, built by hand.
+
+  it('skips an unknown 64-bit field inside a message and reads what follows', () => {
+    // id, then field 6 as fixed64, then body `{}`. No generated frame carries
+    // wire type 1, so without this the 64-bit skip could advance 4 bytes, or
+    // lose its bounds check, and nothing would notice.
+    const frame = wrapOne(Uint8Array.from([0x0A, 1, 1, 0x31, 1, 2, 3, 4, 5, 6, 7, 8, 0x12, 2, 0x7B, 0x7D]))
+    const decoded = decodeResponseBatch(frame)
+
+    expect(decoded.damaged).toBe(false)
+    expect(decoded.responses[0]!.outgoingMessages!.messages[0]!.body).toBe('{}')
+    expect(shapeBatch(decoded)).toStrictEqual(shapeBatch(ResponseBatch.decode(frame)))
+  })
+
+  it('skips a group the way the library does, and keeps the fields after it', () => {
+    // id, a group (field 6) holding one varint, then body. Groups are
+    // deprecated and never sent; they are skipped because protobuf.js skips
+    // them, so the fields after them are not lost.
+    const frame = wrapOne(Uint8Array.from([0x0A, 1, 1, 0x33, 0x08, 0x05, 0x34, 0x12, 2, 0x7B, 0x7D]))
+    const decoded = decodeResponseBatch(frame)
+
+    expect(decoded.damaged).toBe(false)
+    expect(shapeBatch(decoded)).toStrictEqual(shapeBatch(ResponseBatch.decode(frame)))
+  })
+
+  it('reports a fixed32 cut short inside a message whose own length is intact', () => {
+    // `created` is the schema's only fixed32; three bytes of it, then the end.
+    const frame = wrapOne(Uint8Array.from([0x0A, 1, 1, 0x25, 1, 2, 3]))
+    const decoded = decodeResponseBatch(frame)
+
+    expect(decoded.damaged).toBe(true)
+    expect(decoded.responses[0]!.outgoingMessages!.messages[0]!.created).toBe(0)
+  })
+
+  it('reports EVERY cut of a five-message frame, and recovers no message from any of them', () => {
+    // The committed form of a figure the documentation quotes. A cut at the end
+    // breaks each enclosing length prefix before reaching a single message, so
+    // the top level stops first — in the lite codec and the library alike.
+    // Exhaustive rather than sampled, because a random cut rarely lands one
+    // byte short, which is exactly where an off-by-one bounds check hides.
+    const messages = Array.from({ length: 5 }, (_, index) => ({
+      id: Uint8Array.from([index]),
+      body: JSON.stringify({ module_id: 'main', command: `c${index}` }),
+      expiry: 0,
+      created: 0,
+      sender: { type: 2 }
+    }))
+    const good = ResponseBatch.encode(ResponseBatch.create({ responses: [{ outgoingMessages: { messages } }] })).finish()
+
+    let recovered = 0
+    for (let cut = 1; cut < good.length; cut++) {
+      const decoded = decodeResponseBatch(good.slice(0, cut))
+      expect(decoded.damaged, `cut at ${cut} of ${good.length}`).toBe(true)
+      recovered += decoded.responses[0]?.outgoingMessages?.messages.length ?? 0
+    }
+    expect(recovered).toBe(0)
+  })
+
+  it('does NOT detect a length prefix inflated within the buffer — pinned, not solved', () => {
+    // The limit of `damaged`, stated as a test so nobody reads more into the
+    // flag than it gives. Message 2's prefix is inflated by exactly message 3's
+    // length: still in bounds, so it parses cleanly. The next list entry
+    // carries tag 0x0A — the same tag as `OutgoingMessage.id` — so message 3 is
+    // read as message 2's id. Message 3 is gone, message 2 carries a wrong id,
+    // and nothing reports it. Protobuf has no checksum; this layer cannot know.
+    const varint = (value: number) => {
+      const out: number[] = []
+      let rest = value
+      while (rest > 0x7F) {
+        out.push((rest & 0x7F) | 0x80)
+        rest >>>= 7
       }
+      out.push(rest)
+      return out
+    }
+    const field = (tagByte: number, payload: number[]) => [tagByte, ...varint(payload.length), ...payload]
+    const message = (index: number) => [
+      ...field(0x0A, [index]),
+      ...field(0x12, [...utf8.encode(JSON.stringify({ module_id: 'main', command: `c${index}` }))]),
+      ...field(0x2A, [0x08, 0x02])
+    ]
+    const m1 = message(1)
+    const m2 = message(2)
+    const m3 = message(3)
+    const m3Entry = field(0x0A, m3)
+    // Entry 2's length covers m2 AND the whole of entry 3 — in bounds.
+    const list = [
+      ...field(0x0A, m1),
+      0x0A, ...varint(m2.length + m3Entry.length), ...m2,
+      ...m3Entry
+    ]
+    const frame = Uint8Array.from(field(0x0A, field(0x0A, list)))
+
+    const decoded = decodeResponseBatch(frame)
+    const read = decoded.responses[0]!.outgoingMessages!.messages
+
+    expect(decoded.damaged).toBe(false)
+    expect(read).toHaveLength(2)
+    expect(read[1]!.id!.length).toBeGreaterThan(1)
+  })
+
+  it('lets an error that is not a wire error escape, instead of hiding it as damage', () => {
+    // `readFields` catches `WireError` only. Catching everything would turn a
+    // bug in a field handler into a silent truncation on exactly the inputs
+    // nobody tested. No real input makes a handler throw anything else, so
+    // one is forced here.
+    const good = ResponseBatch.encode(ResponseBatch.create({
+      responses: [{ outgoingMessages: { messages: [{ id: Uint8Array.from([1]), body: '{}', expiry: 0, created: 0 }] } }]
+    })).finish()
+    const spy = vi.spyOn(TextDecoder.prototype, 'decode').mockImplementation(() => {
+      throw new TypeError('forced')
+    })
+    try {
+      expect(() => decodeResponseBatch(good)).toThrow(TypeError)
+    } finally {
+      spy.mockRestore()
     }
   })
 })

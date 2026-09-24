@@ -35,10 +35,15 @@ export interface LiteOutgoingMessage {
  * What `decodeResponseBatch` returns.
  *
  * `damaged` is not decoration. A frame whose tail could not be read is now
- * decoded as far as it goes rather than rejected, which keeps the messages
- * that parsed — and removed the only signal a caller had that the frame was
- * broken at all. This puts it back: the caller logs it, and a push server or
- * proxy cutting frames short stays visible.
+ * decoded as far as it goes rather than rejected — which keeps the sound
+ * messages when the damage sits inside one message, and recovers nothing when
+ * a frame is cut short at the end — and that removed the only signal a caller
+ * had that the frame was broken at all. This puts it back: the caller logs it.
+ *
+ * It is not a guarantee of integrity. A length prefix inflated to a value that
+ * still fits the buffer reads the following bytes as part of the current
+ * message, parses cleanly, and leaves `damaged` false. Nothing at this layer
+ * can detect that; protobuf has no checksum.
  */
 export interface LiteResponseBatch {
   responses: LiteResponse[]

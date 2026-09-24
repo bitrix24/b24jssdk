@@ -413,7 +413,8 @@ export type TypePullClientParams = {
    *   with the SDK. Long in production, and 94 kB of the bundle.
    * - `'lite'` — the hand-written codec for the ten structures this client
    *   actually uses. Same bytes on well-formed input; more tolerant than the
-   *   library on damaged input, and deliberately different in three places.
+   *   library on damaged input, and deliberately different in a few places
+   *   listed in `.github/contributing/pull-protobuf.md`.
    *
    * Choosing `'lite'` does NOT make the bundle smaller: both codecs are
    * imported statically and chosen at runtime, so both ship regardless. The
@@ -429,11 +430,11 @@ export type TypePullClientParams = {
    *
    * @experimental Agreement between the two is checked by a hand-written
    * differential and by a seeded fuzz differential over thousands of generated
-   * frames in both directions (`test/integration/pull/protobuf-lite-*.spec.ts`).
-   * That shows they agree on the corpus, not that either is right against the
-   * server — a separate question the lite codec's decode side has been measured
-   * on with real portal frames. Its production exposure is still close to
-   * none, which is why the default stays on the vendored library.
+   * frames in both directions (`test/integration/pull/protobuf-lite-*.spec.ts`),
+   * and on two frames recorded from a live portal. All of that shows they
+   * AGREE, not that either is right against the server. The lite codec's
+   * production exposure is still close to none, which is why the default stays
+   * on the vendored library.
    *
    * What ends it is not a single fixture but four steps, in order: the three
    * deliberate divergences signed off; the fuzz corpus frozen into golden

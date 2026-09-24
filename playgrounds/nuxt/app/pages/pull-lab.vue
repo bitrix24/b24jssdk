@@ -50,13 +50,16 @@
  * being pushed onto long-polling can drag the other with it. The codec is the
  * only difference this page controls, not the only difference there is.
  *
- * ## What actually settles the codec question
+ * ## What this page contributes to the codec question
  *
- * `pull-protobuf.md` asks for a `ResponseBatch` recorded from a real portal and
- * committed as a fixture. Decoded results are not that. "Capture raw frames"
- * taps the WebSocket and puts the bytes in the report, which is the artefact —
+ * Recorded frames, not verdicts. Decoded results on this page prove little;
+ * "Capture raw frames" taps the WebSocket and puts the bytes in the report, and
+ * bytes a real server produced are what the committed fixture
+ * `test/integration/pull/fixtures/response-batch-frames.json` is made of —
  * and, incidentally, the only honest proof that binary protobuf frames are
- * arriving at all rather than the client merely having asked for them.
+ * arriving at all rather than the client merely having asked for them. What
+ * the deletion of the vendored library waits on is in `pull-protobuf.md`; a
+ * run of this page is not one of those steps.
  *
  * **The tap sees every frame on the connection, including events from other
  * applications and portal modules.** That is why it is a button and not the

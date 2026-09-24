@@ -99,9 +99,11 @@ export class PullClient implements ConnectorParent {
   private _jsonRpcAdapter: null | JsonRpc = null
 
   /**
-   * `true` selects the hand-written codec over the vendored protobuf.js (#PULL).
-   * Off by default: the two are pinned byte-identical by a differential test,
-   * but only the vendored path has run against a live portal.
+   * `true` selects the hand-written codec over the vendored protobuf.js.
+   * Off by default. The two agree on well-formed input except for the
+   * deliberate divergences recorded in `pull-protobuf.md`, checked by a
+   * hand-written and a fuzz differential; the lite codec has very little
+   * production exposure, which is the reason the default stays put.
    */
   private _useLiteProtobuf: boolean = false
 
@@ -2589,6 +2591,24 @@ export class PullClient implements ConnectorParent {
       const responseBatch = this._useLiteProtobuf
         ? decodeResponseBatch(new Uint8Array(pullEvent))
         : ResponseBatch.decode(new Uint8Array(pullEvent))
+
+      // The lite codec decodes a damaged frame as far as it can read instead
+      // of rejecting it, which can keep sound messages the damage did not
+      // touch — but it removed the only sign a frame was broken. This puts it
+      // back: a push server or a proxy mangling frames should be visible to
+      // whoever watches this log. Only the byte length — the frame may carry
+      // other applications' events and must not be logged (#43).
+      //
+      // Note what "damaged" does NOT cover: a length prefix inflated to a value
+      // that still fits the buffer reads the next message as part of this one
+      // and is not detectable at all. See `pull-protobuf.md`.
+      if ('damaged' in responseBatch && responseBatch.damaged) {
+        this.getLogger().warning(
+          `${Text.getDateForLog()}: Pull: a protobuf frame was damaged; whatever could not be read was dropped`,
+          { byteLength: pullEvent.byteLength }
+        ).catch(() => {})
+      }
+
       for (let i = 0; i < responseBatch.responses.length; i++) {
         const response = responseBatch.responses[i]
         if (response.command !== 'outgoingMessages') {
@@ -2611,6 +2631,37 @@ export class PullClient implements ConnectorParent {
           if (!messageFields.extra) {
             messageFields.extra = {}
           }
+          // A message with no `sender` is SKIPPED, not repaired — and logged.
+          //
+          // `sender.type` decides who a message is for: `broadcastMessage`
+          // routes `Client` to client subscribers and everything else to
+          // server subscribers — or, with `module_id: 'pull'`, to the internal
+          // command handler. Filling in `Unknown` for a sender that could not
+          // be read would deliver a client-published message as a SERVER one,
+          // across that trust boundary. Losing it is the safer failure.
+          //
+          // Skipping it here, rather than letting `.type` throw, keeps the
+          // rest of the batch: that read sat inside the batch-wide `try`, so
+          // one missing sender used to drop it and every message after it. It
+          // did so in both codecs — protobuf.js puts `sender = null` on the
+          // prototype, so a sender-less message threw there too.
+          //
+          // Expected to fire only on damage, and that is an inference, not an
+          // observation: an audit of the push-server sources reports it sets
+          // `sender` on every message it relays, and the unguarded read above
+          // shipped for years without such losses being reported. No recorded
+          // frame carries a `pull` or `online` system command, so it is not
+          // confirmed for those. Hence the warning: if the inference is ever
+          // wrong, a silently skipped CHANNEL_EXPIRE would look like a dead
+          // connection with nothing in the log to say why.
+          if (!message.sender) {
+            this.getLogger().warning(
+              `${Text.getDateForLog()}: Pull: a protobuf message arrived with no sender and was skipped`,
+              { responseIndex: i, moduleId: typeof messageFields.module_id === 'string' ? messageFields.module_id : null }
+            ).catch(() => {})
+            continue
+          }
+
           messageFields.extra.sender = {
             type: message.sender.type
           }

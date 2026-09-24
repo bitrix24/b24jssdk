@@ -410,9 +410,15 @@ export type TypePullClientParams = {
    * Which protobuf implementation encodes and decodes the push-server frames.
    *
    * - `'vendored'` (default) — the copy of protobuf.js that has always shipped
-   *   with the SDK. Proven, and 94 kB of the bundle.
+   *   with the SDK. Long in production, and 94 kB of the bundle.
    * - `'lite'` — the hand-written codec for the ten structures this client
-   *   actually uses. Same bytes, no library.
+   *   actually uses. Same bytes on well-formed input; more tolerant than the
+   *   library on damaged input, and deliberately different in a few places
+   *   listed in `.github/contributing/pull-protobuf.md`.
+   *
+   * Choosing `'lite'` does NOT make the bundle smaller: both codecs are
+   * imported statically and chosen at runtime, so both ship regardless. The
+   * saving arrives only when the vendored library is deleted.
    *
    * **Not part of the public contract.** This is the SDK's own migration switch,
    * visible only because the type it sits on is exported. It is kept off the
@@ -422,15 +428,19 @@ export type TypePullClientParams = {
    *
    * @internal
    *
-   * @experimental The two codecs are held byte-identical by
-   * `test/integration/pull/protobuf-lite-differential.unit.spec.ts`, but that
-   * proves they agree, not that they are right: both were derived from the same
-   * descriptors. The lite codec has never run against a live portal, which is
-   * exactly why the default stays on the proven path.
+   * @experimental Agreement between the two is checked by a hand-written
+   * differential and by a seeded fuzz differential over thousands of generated
+   * frames in both directions (`test/integration/pull/protobuf-lite-*.spec.ts`),
+   * and on two frames recorded from a live portal. All of that shows they
+   * AGREE, not that either is right against the server. The lite codec's
+   * production exposure is still close to none, which is why the default stays
+   * on the vendored library.
    *
-   * What ends it: a `ResponseBatch` recorded from a real portal and committed as
-   * a fixture. At that point the vendored library goes and this option goes with
-   * it. See `.github/contributing/pull-protobuf.md`.
+   * What ends it is not a single fixture but four steps, in order: the three
+   * deliberate divergences signed off; the fuzz corpus frozen into golden
+   * vectors while the library can still produce them; the oracle-free tests
+   * kept; and a release with `'lite'` as the default before the deletion.
+   * See `.github/contributing/pull-protobuf.md`.
    */
   protobufCodec?: 'vendored' | 'lite'
 }

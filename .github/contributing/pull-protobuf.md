@@ -105,12 +105,18 @@ not null.
 `new PullClient({ ..., protobufCodec: 'lite' })` selects the hand-written codec,
 and `usePullClient(prefix, userId, 'lite')` reaches it through the helper — which
 matters, because the helper is how most callers construct a Pull client at all.
-It is **opt-in, and the default stays on the vendored library**, because R2,
-R3 and R4 below are open: the lite codec has not been shown to agree with
-`model.js` across the reachable input space, nor to cope with malformed input
-the same way, nor has its one deliberate divergence been signed off. That
-evidence comes from fuzz differentials, not from a portal; `/pull-lab` collects
-the separate, weaker portal evidence.
+It is **opt-in, and the default stays on the vendored library**. R2 and R3
+below have been sampled densely and found nothing further, but R4 — three
+deliberate divergences — has not been signed off, and the lite codec has almost
+no production exposure: it is `@internal` and opt-in, so the tolerant decode in
+particular has run under fuzz and nowhere else.
+
+Note what opting in does NOT do: **it does not shrink the bundle.** `client.ts`
+imports both codecs statically and picks one at runtime, so `sideEffects: false`
+cannot drop the vendored library from a build that references it in a live
+branch. Everyone ships both today. The size saving that motivates this whole
+exercise arrives only with the deletion, which is why the deletion has to be
+earned.
 
 The option is tagged **`@internal`**: it is the SDK's own migration switch, off
 the documentation site, and it will be removed without a deprecation cycle. That
@@ -124,8 +130,8 @@ It was not taken, for two reasons. `B24HelperManager` lives in the main entry an
 imports the vendored `PullClient` statically, so the most common way of using
 Pull would not have been covered without duplicating the helper too; and the UMD
 build is a single file with no subpaths, so `<script>` users would have been left
-behind either way. Revisit this if the lite codec is proven but the vendored one
-still has to ship for some other reason — that is the case the subpath answers
+behind either way. Revisit this once the deletion steps below are done but the
+vendored one still has to ship for some other reason — that is the case the subpath answers
 and the option does not.
 
 Until then both ship, and the honest accounting is that this **costs** rather
@@ -207,8 +213,7 @@ recorded fixture does not help there either: both codecs decode it with the
 same descriptors, so it proves they agree, and `fixed32` and `sfixed32` are
 four bytes either way.
 
-So the exit criterion for dropping the vendored library splits by WHICH RISK a
-deletion actually moves:
+What a deletion of the vendored library actually moves splits by risk:
 
 1. **R1 — is the schema right?** Affects BOTH implementations identically, so
    deleting one moves it **not at all**: a wrong descriptor is equally wrong in
@@ -217,12 +222,66 @@ deletion actually moves:
    it says nothing about the receive side.
 2. **R2 — does the lite codec agree with `model.js`?** Affects only the lite
    codec, and is therefore the risk the deletion does move, in both directions.
-   **Open.** `protobuf-lite-differential.unit.spec.ts` is better than a bare
-   byte comparison — it also carries an unknown-field battery at every nesting
-   depth, a `oneof` discriminator case, a decode-defaults case and a
-   lite→library round trip — but every input in it was written by hand. That
-   is a sample, not coverage, and the boundaries most likely to diverge are
-   exactly the ones nobody thinks to write down.
+   **Sampled, and found nothing.** Not "closed": a fuzz run is a dense sample of
+   an input space, not an enumeration of it, and the difference matters because
+   this is the evidence the deletion rests on.
+
+   `protobuf-lite-fuzz.unit.spec.ts` drives both codecs over 2 000 batches per
+   direction from a fixed seed, weighted onto boundaries rather than middles:
+   bodies of EXACTLY 0, 1, 127, 128, 129, 16383, 16384 and 16385 bytes (built to
+   a byte count, since a body of two- and four-byte characters otherwise never
+   lands on 127 or 16383); `expiry` at every varint width, at `uint32`'s ceiling,
+   and at the values the public `sendMessage()` can pass that are not a valid
+   `uint32` at all — negative, fractional, above 2^32, `NaN` — on all of which
+   the two codecs were first checked to agree; up to eight receivers; ids and
+   signatures long enough to need a two-byte prefix; every sender shape; and
+   `sender` and `type`, which `client.ts` never sets and which therefore had no
+   oracle at all. The encode section asserts it hit each of those boundaries on
+   the corpus it actually compared, because a generator that quietly stopped
+   reaching them would still pass.
+
+   It was mutation-tested by hand, over four review rounds. The harness and
+   the patches are not committed, so the list is given in full here — each is
+   a one-line change to `wire.ts`, `messages.ts` or `client.ts`, planted alone,
+   and all twenty-eight fail the current suite:
+
+   - **Caught from the start (5):** `expiry` written at the wrong field number;
+     `isPrivate` not written; `created` read as a varint; `created` read as
+     signed; `sender.type` dropped.
+   - **Passed an earlier version of the tests (19)** — which is what the review
+     rounds were for. Round one: `sender.id` dropped; the sender's defaults
+     reverted to `{}`; `expiry` unmasked; a statistics response labelled as
+     messages. Round two: every error caught instead of `WireError`; the frame
+     leaked as a third logger argument; the `bytes` bound loosened by one; the
+     64-bit skip advancing four bytes; the fixed32 bound loosened by one; the
+     64-bit bounds check removed. Round three: group skip not recursing; the
+     group cap at 65; at 63; its depth never incremented; the cap removed; the
+     sender check written `!sender?.type`, which drops legitimate type-0
+     senders; the damage warning's text changed; damage inside a sender not
+     reported. Round four: the sender id tested by length instead of type,
+     which drops an empty id.
+   - **Against code added during review, so no earlier version existed (4):**
+     damage never reported; a missing sender repaired instead of dropped; the
+     group skip removed; the sender-less skip not logged.
+
+   Round four also tried four edits it judged implausible and did not add tests
+   for: a log field hard-coded, `has()` accepting `null` (no path passes one),
+   the varint length limit loosened by a byte, and an end-group check before
+   masking (differs only on invalid input).
+
+   The small hand-built cases at the end of the fuzz file exist because most of
+   the nineteen live in edges a generator does not reach.
+
+   Not covered: lone surrogates, which are an R4 divergence pinned separately;
+   more than eight receivers; bodies above 16385 bytes. The seed is fixed, so a
+   failure is a reproducible bug report rather than a lottery ticket; to search
+   wider, raise `RUNS` or change `SEED` deliberately and commit what found
+   something.
+
+   `protobuf-lite-differential.unit.spec.ts` remains as the hand-written
+   companion — an unknown-field battery at every nesting depth, a `oneof`
+   discriminator case, a decode-defaults case and a lite→library round trip.
+   Its cases document intent; the fuzz covers the space.
 3. **R3 — is the lite codec SAFE where the schema is silent?** Also moved by
    the deletion, and not a question about agreement: the two are allowed to
    differ there, and on `Sender.id` they deliberately do. What is not allowed
@@ -230,42 +289,137 @@ deletion actually moves:
    worked example: returning `{}` instead of materialised defaults threw inside
    `decodeId` and, because the `catch` wraps the loop rather than one message,
    took the whole batch with it — a failure-mode difference, invisible to a
-   `.proto` audit and to any byte comparison of well-formed output. **Open.**
+   `.proto` audit and to any byte comparison of well-formed output.
 
-   Closed when a corpus of malformed and edge-shaped frames — truncated at
-   every nesting depth, unknown fields, wrong wire types, absent fields, an
-   empty batch, a length prefix that overruns — is decoded by both and the lite
-   codec never throws where the library returns, and never returns where the
-   library throws. That is a stopping rule rather than a feeling, and it is the
-   thing to write down before anyone claims R3 is done.
+   **Met on the committed corpus, and it found a real defect.** The first fuzz
+   run over damaged frames turned up six in four hundred where the lite codec
+   threw and the library returned. Each would have dropped an entire batch,
+   including the sound messages in it. Fixed by `readFields` in
+   `protobuf-lite/messages.ts`: a tail that cannot be read ends that message
+   rather than the decode, and only a `WireError` is caught, so a bug in a field
+   handler still propagates instead of becoming a silent truncation.
+
+   Be precise about what that rescues. It is damage confined to ONE message
+   whose own length prefix is intact — a nested `sender` that overruns, a field
+   that ends mid-varint. A frame cut short at the END is not rescued: the cut
+   breaks every enclosing length prefix before reaching any message, so nothing
+   is recovered in either codec. That is pinned, not just stated: the fuzz file
+   cuts a five-message frame at every byte and asserts no message comes back.
+
+   Clamping an overrun to the bytes remaining would recover those, and was not
+   done — but for a narrower reason than first written here. The hazard it
+   would create ALREADY EXISTS without it. A length prefix inflated to a value
+   that still fits the buffer swallows the next list entry, undetected. Because
+   that entry's tag, `0x0A`, is also `OutgoingMessage.id`'s, it lands as the
+   current message's `id` rather than being skipped as an unknown field. The
+   next message is lost, this one carries a wrong id, and nothing reports it — protobuf has no checksum, and the fuzz file
+   pins this as undetected rather than pretending otherwise. Clamping would
+   extend that silent case to every overrun as well, trading a reported loss
+   for an unreported corruption. That is the reason.
+
+   And the rescue is not silent. The decode reports `damaged`, and
+   `extractProtobufMessages` logs a warning carrying the frame's byte length
+   and nothing from inside it. Without that, a push server or proxy cutting
+   frames would have become invisible where it used to be logged. `damaged` is
+   not a guarantee of integrity, for the reason above.
+
+   A message whose `sender` could not be read is DROPPED, not repaired.
+   `sender.type` decides who a message is for; filling in `Unknown` would route
+   a client-published message to server subscribers, or with `module_id:
+   'pull'` to the internal command handler. An earlier version of this change
+   did exactly that.
+
+   On `mid`: it is set from each event the client processes, so after a
+   partial decode it points at the last message delivered. `mid` is only sent
+   when the client reconnects, so this matters only then. A message lost AFTER
+   it will be asked for again on reconnect; one lost in the MIDDLE, with a later
+   message delivered past it, will not. That was already true of a body that
+   fails `JSON.parse`, and applies equally to a message skipped for a missing
+   sender. A decode that yields nothing — every end-cut — still resets `mid` to
+   null, as before.
+
+   A message skipped for a missing sender is logged, on both codecs. A real
+   push server is expected always to send one — an audit of its sources reports
+   so, and the client read `sender` unguarded for years without such losses
+   being reported — but that is an inference, and no recorded frame carries a
+   `pull` or `online` system command to confirm it for those. If it is ever
+   wrong, the warning is what separates a skipped `CHANNEL_EXPIRE` from a dead
+   connection.
+
+   The criterion, over a corpus of damaged frames — truncated, bit-flipped,
+   length-inflated, and with bytes appended: the lite codec **never throws
+   where the library returns**; bytes appended to a sound frame change nothing
+   before them; and every frame cut short is reported as damaged. The corpus
+   asserts each of the four kinds of damage occurs in real numbers.
+
+   It deliberately does NOT compare decoded values with the library on a frame
+   whose bytes were changed. The library switches on the field number alone and
+   reads by the declared type, so a flipped wire-type bit makes it read garbage
+   or throw; the lite codec checks the wire type and skips the field. Neither
+   result is correct, so neither is an oracle. An earlier draft compared them
+   anyway and reported 393 "mismatches" that were two kinds of garbage.
+
+   One-directional, and the asymmetry is the point. `extractProtobufMessages`
+   catches around the whole decode, so a throw does not cost one message, it
+   costs the batch — including the messages that had already parsed. Being MORE
+   tolerant than the library therefore keeps sound messages the library would
+   drop, which is an improvement. Requiring identical
+   outcomes would mean reimplementing protobuf.js's error model byte for byte
+   and would buy the client nothing. An earlier draft of this criterion asked
+   for both directions; the fuzz differential is what showed that to be the
+   wrong requirement.
 
 4. **R4 — does the lite codec's deliberate divergence break a consumer?**
-   `Sender.id` is the live case: protobuf.js leaves it absent, the lite codec
-   materialises an empty `Uint8Array`, on purpose. R2 waives that by design and
-   R3 is satisfied by it, so neither owns it — but a caller writing
-   `if (message.sender.id)` sees a behaviour change, and after the deletion the
-   lite behaviour simply IS the behaviour. **Open**, and closed by deciding
-   whether each divergence is acceptable and writing it into the changelog, not
-   by a test.
+   Three live cases, all pinned by tests rather than smoothed away — and the
+   count grew from one to three inside a single round of fuzzing, which is
+   itself a reason not to treat this list as closed:
+
+   - `Sender.id` — protobuf.js leaves it absent, the lite codec materialises an
+     empty `Uint8Array`, on purpose (#552, because `decodeId(undefined)` threw
+     and took the batch with it);
+   - **a lone surrogate in a string** — `TextEncoder` substitutes U+FFFD, where
+     protobuf.js emits the unpaired code point as WTF-8. Both are three bytes,
+     so no length prefix shifts. The library's output is not valid UTF-8; what
+     the push server does with it has not been measured. Unreachable from
+     `client.ts` on any ES2019+ engine, since its only encoded strings are
+     `JSON.stringify` output and well-formed `JSON.stringify` escapes lone
+     surrogates;
+   - **a known field arriving with the wrong wire type** — protobuf.js reads it
+     by the declared type anyway, which on damaged input means garbage or a
+     throw; the lite codec skips it as unknown, which is what the protobuf spec
+     asks of a decoder. Reachable only from a damaged frame, or from a server
+     that changed a field's type.
+
+   R2 waives these by design and R3 is satisfied by them, so neither of those
+   owns them — but a caller writing `if (message.sender.id)` sees a behaviour
+   change, and after the deletion the lite behaviour simply IS the behaviour.
+   **Open**, and closed by deciding whether each divergence is acceptable and
+   writing it into the changelog, not by a test.
 
 **The oracle disappears at the moment of deletion, and that sets the order of
 operations.** Every one of R2, R3 and R4 is measured against `model.js`.
 Deleting it does not reduce those risks — it removes the ability to measure
-them, so all three must be closed BEFORE the deletion, not after. Converting
-the differential suite into golden vectors (see above) preserves R2's oracle
-only over the inputs someone already wrote down, which is the sample this same
-section declines to call coverage; and R3's oracle — "where the library copes"
-— cannot be frozen into vectors at all, because it is a claim about inputs
-nobody has enumerated. Whatever is not settled before `protobuf/` goes stays
-unsettled.
+them. Both fuzz files and the hand-written differential import the vendored
+library and die with it; after the deletion nothing tests agreement with
+anything. So the deletion needs these, in order:
 
-R2, R3 and R4 are closable without a portal. `client.ts` builds exactly
-`{ receivers: [{ id, signature }], body, expiry }` and never sets `sender` or
-`type`, so the space reachable FROM THE SDK TODAY is small enough to cover
-rather than sample — but `sendMessage()` is public API, and fuzzing it closes
-R2 for the current call site, not for the codec's whole surface. Fuzzing that
-space against `model.js`, in both directions and including malformed input, is
-what remains. See #559.
+1. **R4 signed off.** A decision on each of the three divergences, written into
+   the changelog. No test can make it.
+2. **The corpus frozen.** Generate the fuzz corpus once more, record the
+   library's encodings and decodings of it as a committed fixture, and convert
+   both fuzz sections into golden-vector tests against that fixture. It
+   preserves agreement only over that corpus — which is the most that can be
+   preserved once the oracle is gone, and far more than the hand-written cases.
+3. **The oracle-free properties kept.** Lite encode → lite decode round trips;
+   never throwing on damaged input; appended bytes changing nothing before
+   them; every cut reported as damaged; the boundary-reach assertions. None of
+   these needs `model.js`, and all of them survive.
+4. **A release with lite as the DEFAULT, before the deletion.** The tolerant
+   decode has run under fuzz and nowhere else. Flipping the default while the
+   vendored codec is still one option away gives it real traffic with a way
+   back; deleting first makes it every user's behaviour at once with none.
+
+Whatever is not settled before `protobuf/` goes stays unsettled. See #559.
 
 The audit also reports that the push server does not exclude the sender when it
 broadcasts — so an echo to one's own channel would be expected rather than
@@ -375,9 +529,8 @@ about it are worth knowing before reading a report it produced:
 
   So reading an encoded frame back would still be the strongest evidence
   available, and no route to it exists from an application today. It is not,
-  however, what the deletion waits on: that is R2, R3 and R4, none of which
-  needs a portal.
-  Until those are closed, the vendored library stays.
+  however, what the deletion waits on: that is the four steps above, none of
+  which needs a portal. Until they are done, the vendored library stays.
 
   The cheap experiment that would settle the echo question without relying on
   any server-side claim: a SECOND tab, subscribed to `SubscriptionType.Client`,
@@ -396,19 +549,25 @@ about it are worth knowing before reading a report it produced:
   resolves to no channels at all — and either way nothing reached the caller,
   which is what the fix addresses.
 
-### Known divergences from protobuf.js
+### Other divergences from protobuf.js
 
-Both are outside anything the push server sends, and are recorded so they are
+The deliberate ones are listed under R4 above. These are recorded so they are
 not rediscovered as bugs:
 
-- **Lone surrogates in a body.** `TextEncoder` substitutes U+FFFD; protobuf.js's
-  own UTF-8 writer emits the unpaired surrogate bytes. **Measured on a live
-  portal, the question never arises**: a lone surrogate in the payload makes
-  `pull.application.event.add` fail with `Wrong authorization data` — the
-  request is refused before anything is published, so neither codec sees it.
-  `/pull-lab` keeps a check for it, on its own, because when it shared the
-  fidelity battery it failed that whole check and hid fourteen values that
-  passed.
+- **Group nesting is capped at 64.** The vendored protobuf.js `skipType`
+  recurses without limit, so a frame of deeply nested groups overflows its
+  stack with a `RangeError` — which is not a wire error, escapes, and loses the
+  batch. The lite codec reports it as damage instead. No push server sends
+  groups at all; this only decides how an absurd frame fails.
+
+- **Lone surrogates, on the REST path.** Separate from the codec divergence in
+  R4: a lone surrogate in a payload makes `pull.application.event.add` fail with
+  `Wrong authorization data`, so a message published over REST never reaches
+  either codec. That is a measurement of the portal's REST endpoint, and says
+  nothing about what the push server does with a WTF-8 frame sent over the
+  socket — which has not been measured. `/pull-lab` keeps a check for it, on
+  its own, because when it shared the fidelity battery it failed that whole
+  check and hid fourteen values that passed.
 - **Sign extension.** The codec reads `uint32` for every numeric field in the
   schema, which is what the schema declares. It has no `int32` reader, so a
   negative value — which the schema cannot express — would not round-trip.

@@ -3,9 +3,9 @@
  *
  * The schema it serves has no `required` fields, no packed repeats, no maps and
  * no 64-bit numbers — only `bytes`, `string`, `bool`, `uint32`, one `fixed32`
- * and nested messages. That is why 4.5 kB minified replaces the 94 kB vendored
- * `protobuf/` directory (79 kB of it is protobuf.js itself, the rest is the
- * generated model); it is also why this file must never grow to cover protobuf
+ * and nested messages. That is why about 5 kB minified — `wire` and `messages`
+ * together — replaces the 94 kB vendored `protobuf/` directory (79 kB of it is protobuf.js itself, the rest
+ * is the generated model); it is also why this file must never grow to cover protobuf
  * in general. If a new field type appears in `pull.proto`, add it here
  * deliberately. The doc records how those figures are measured.
  *
@@ -13,9 +13,24 @@
  * not reverse-engineered from traffic — see `.github/contributing/pull-protobuf.md`.
  */
 
+/**
+ * The input is not a well-formed protobuf frame — and nothing else.
+ *
+ * A dedicated type so that a caller recovering from a damaged frame can catch
+ * exactly this and let everything else through. Catching bare `Error` there
+ * would also swallow a bug in a field handler, silently, on precisely the
+ * inputs nobody thought to test.
+ */
+export class WireError extends Error {
+  override name = 'WireError'
+}
+
 export const WIRE_VARINT = 0
 export const WIRE_BYTES = 2
 export const WIRE_FIXED32 = 5
+const WIRE_START_GROUP = 3
+const WIRE_END_GROUP = 4
+const MAX_GROUP_DEPTH = 64
 
 /** `key = (fieldNumber << 3) | wireType`, the tag every field is prefixed with. */
 export function tag(fieldNumber: number, wireType: number): number {
@@ -136,7 +151,7 @@ export class Reader {
     let shift = 0
     for (;;) {
       if (this.done) {
-        throw new Error('pull protobuf: truncated varint')
+        throw new WireError('pull protobuf: truncated varint')
       }
       const byte = this.#view[this.#pos++]!
       result += (byte & 0x7F) * 2 ** shift
@@ -145,7 +160,7 @@ export class Reader {
       }
       shift += 7
       if (shift >= 70) {
-        throw new Error('pull protobuf: varint longer than ten bytes')
+        throw new WireError('pull protobuf: varint longer than ten bytes')
       }
     }
   }
@@ -162,7 +177,7 @@ export class Reader {
 
   fixed32(): number {
     if (this.#pos + 4 > this.#view.length) {
-      throw new Error('pull protobuf: truncated fixed32')
+      throw new WireError('pull protobuf: truncated fixed32')
     }
     const v = this.#view[this.#pos]! | (this.#view[this.#pos + 1]! << 8)
       | (this.#view[this.#pos + 2]! << 16) | (this.#view[this.#pos + 3]! << 24)
@@ -174,7 +189,7 @@ export class Reader {
   bytes(): Uint8Array {
     const length = this.varint()
     if (this.#pos + length > this.#view.length) {
-      throw new Error('pull protobuf: length-delimited field runs past the end')
+      throw new WireError('pull protobuf: length-delimited field runs past the end')
     }
     const out = this.#view.subarray(this.#pos, this.#pos + length)
     this.#pos += length
@@ -190,8 +205,14 @@ export class Reader {
    * Skip a field this codec does not model — the statistics branches, and
    * anything a future server adds. Unknown fields are ordinary protobuf, not an
    * error: the vendored library ignored them silently and so must this.
+   *
+   * The throws below are not "give up". `readFields` catches them and stops
+   * reading that message, so a damaged tail costs the fields after it and
+   * nothing else. Throwing is how this reader says "I cannot go further", not
+   * how it reports a failure to its caller — and it is always a `WireError`,
+   * which is the only thing `readFields` catches.
    */
-  skip(wireType: number): void {
+  skip(wireType: number, depth = 0): void {
     switch (wireType) {
       case WIRE_VARINT: {
         this.varint()
@@ -207,18 +228,43 @@ export class Reader {
       }
       case 1: {
         // 64-bit. Nothing in this schema uses it; skipped rather than thrown so
-        // an unknown future field cannot break a working connection. Bounds are
-        // checked so a truncated frame fails here rather than silently ending
-        // the loop and reporting an empty batch.
+        // an unknown future field cannot break a working connection. The bounds
+        // check stays: `readFields` turns a throw here into "stop reading this
+        // message", which keeps what parsed, where advancing the cursor past
+        // the end would read garbage as the fields after it.
         if (this.#pos + 8 > this.#view.length) {
-          throw new Error('pull protobuf: truncated 64-bit field')
+          throw new WireError('pull protobuf: truncated 64-bit field')
         }
         this.#pos += 8
         break
       }
-      default: {
-        throw new Error(`pull protobuf: unsupported wire type ${wireType}`)
+      case WIRE_START_GROUP: {
+        // Groups are deprecated and no push server sends them. They are
+        // skipped anyway because protobuf.js skips them, and reporting a
+        // well-formed frame as damaged — dropping the fields after it — would
+        // be a divergence in the wrong direction. Skipped to the matching end
+        // tag, as the library does; a lone end tag is malformed there too.
+        this.#skipGroup(depth)
+        break
       }
+      default: {
+        throw new WireError(`pull protobuf: unsupported wire type ${wireType}`)
+      }
+    }
+  }
+
+  #skipGroup(depth: number): void {
+    // protobuf.js has no limit here and overflows the stack on deep nesting.
+    // A frame nested this deep is malformed by any reasonable standard.
+    if (depth >= MAX_GROUP_DEPTH) {
+      throw new WireError('pull protobuf: groups nested too deeply')
+    }
+    for (;;) {
+      const wireType = this.varint() & 7
+      if (wireType === WIRE_END_GROUP) {
+        return
+      }
+      this.skip(wireType, depth + 1)
     }
   }
 }

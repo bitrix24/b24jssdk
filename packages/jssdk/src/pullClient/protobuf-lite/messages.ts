@@ -13,7 +13,7 @@
  *  - **`created` is `fixed32`**, the only one in the schema. Read as four
  *    little-endian bytes, not as a varint.
  */
-import { Reader, Writer, tag, WIRE_BYTES, WIRE_FIXED32, WIRE_VARINT } from './wire'
+import { Reader, Writer, WireError, tag, WIRE_BYTES, WIRE_FIXED32, WIRE_VARINT } from './wire'
 
 export interface LiteReceiver { id?: Uint8Array, isPrivate?: boolean, signature?: Uint8Array }
 export interface LiteSender { type?: number, id?: Uint8Array }
@@ -31,6 +31,26 @@ export interface LiteOutgoingMessage {
   created?: number
   sender?: LiteSender
 }
+/**
+ * What `decodeResponseBatch` returns.
+ *
+ * `damaged` is not decoration. A frame whose tail could not be read is now
+ * decoded as far as it goes rather than rejected — which keeps the sound
+ * messages when the damage sits inside one message, and recovers nothing when
+ * a frame is cut short at the end — and that removed the only signal a caller
+ * had that the frame was broken at all. This puts it back: the caller logs it.
+ *
+ * It is not a guarantee of integrity. A length prefix inflated to a value that
+ * still fits the buffer reads the following bytes as part of the current
+ * message, parses cleanly, and leaves `damaged` false. Nothing at this layer
+ * can detect that; protobuf has no checksum.
+ */
+export interface LiteResponseBatch {
+  responses: LiteResponse[]
+  /** True when any level stopped early on a tail it could not read. */
+  damaged: boolean
+}
+
 export interface LiteResponse {
   /** The `oneof` discriminator the client switches on. */
   command?: 'outgoingMessages' | 'channelStats' | 'serverStats'
@@ -125,18 +145,61 @@ export function encodeRequestBatch(messages: LiteIncomingMessage[]): Uint8Array 
 
 // region decode ////
 
-function readSender(view: Uint8Array): LiteSender {
+/**
+ * Walk the fields of one message, and stop at a tail that cannot be read.
+ *
+ * A message whose OWN length prefix is intact but whose contents are damaged —
+ * a nested `sender` whose length overruns, a field that ends mid-varint — used
+ * to throw from inside it. Because the `catch` in `extractProtobufMessages`
+ * wraps the whole decode, that one bad message dropped every message in the
+ * batch, including its sound neighbours. protobuf.js copes with several of
+ * these; a fuzz differential against it found six in four hundred where this
+ * codec threw and the library did not.
+ *
+ * So a malformed tail now ends THIS message instead of the batch, keeping what
+ * was read. Be precise about the reach of that: it rescues damage confined to
+ * one message. A frame cut short at the END is not rescued — the cut breaks
+ * every enclosing length prefix before reaching any message, so the top level
+ * stops first and nothing is recovered, in either codec. Clamping an overrun to
+ * the bytes that remain would recover it, and was rejected: an inflated prefix
+ * mid-frame would then read the next message's bytes as this one's `id` and
+ * deliver a message under a wrong id, breaking de-duplication and `mack`.
+ *
+ * Only a `WireError` is caught. Anything else — a bug in a field handler, say —
+ * propagates, so this cannot turn a defect into a silent truncation. And the
+ * damage is reported through `flag`, so it is not silent either.
+ */
+function readFields(
+  view: Uint8Array,
+  flag: DamageFlag,
+  onField: (field: number, wireType: number, r: Reader) => void
+): void {
   const r = new Reader(view)
+  while (!r.done) {
+    try {
+      const key = r.varint()
+      onField(key >>> 3, key & 7, r)
+    } catch (error) {
+      if (!(error instanceof WireError)) {
+        throw error
+      }
+      flag.damaged = true
+      return
+    }
+  }
+}
+
+/** Shared by every level of one decode, so a nested truncation surfaces at the top. */
+interface DamageFlag { damaged: boolean }
+
+function readSender(view: Uint8Array, flag: DamageFlag): LiteSender {
   // Defaults, not `{}`. protobuf.js hands the caller a message whose unset
   // fields carry the schema's defaults; leaving them `undefined` here is what
   // made a frame without `id` throw inside `decodeId` and take the whole batch
   // with it (the catch in `extractProtobufMessages` is around the loop, not
   // around one message).
   const sender: LiteSender = { type: 0, id: new Uint8Array(0) }
-  while (!r.done) {
-    const key = r.varint()
-    const field = key >>> 3
-    const wireType = key & 7
+  readFields(view, flag, (field, wireType, r) => {
     if (field === 1 && wireType === WIRE_VARINT) {
       sender.type = r.uint32()
     } else if (field === 2 && wireType === WIRE_BYTES) {
@@ -144,13 +207,12 @@ function readSender(view: Uint8Array): LiteSender {
     } else {
       r.skip(wireType)
     }
-  }
+  })
 
   return sender
 }
 
-function readOutgoingMessage(view: Uint8Array): LiteOutgoingMessage {
-  const r = new Reader(view)
+function readOutgoingMessage(view: Uint8Array, flag: DamageFlag): LiteOutgoingMessage {
   // See `readSender`: these are protobuf.js's defaults for the field types —
   // `bytes` empty, `string` empty, numbers zero. `sender` stays absent, as the
   // library leaves an unset message field null.
@@ -160,10 +222,7 @@ function readOutgoingMessage(view: Uint8Array): LiteOutgoingMessage {
     expiry: 0,
     created: 0
   }
-  while (!r.done) {
-    const key = r.varint()
-    const field = key >>> 3
-    const wireType = key & 7
+  readFields(view, flag, (field, wireType, r) => {
     if (field === 1 && wireType === WIRE_BYTES) {
       message.id = r.bytes()
     } else if (field === 2 && wireType === WIRE_BYTES) {
@@ -176,41 +235,33 @@ function readOutgoingMessage(view: Uint8Array): LiteOutgoingMessage {
       // The schema's only fixed32.
       message.created = r.fixed32()
     } else if (field === 5 && wireType === WIRE_BYTES) {
-      message.sender = readSender(r.bytes())
+      message.sender = readSender(r.bytes(), flag)
     } else {
       r.skip(wireType)
     }
-  }
+  })
 
   return message
 }
 
-function readOutgoingMessagesResponse(view: Uint8Array): { messages: LiteOutgoingMessage[] } {
-  const r = new Reader(view)
+function readOutgoingMessagesResponse(view: Uint8Array, flag: DamageFlag): { messages: LiteOutgoingMessage[] } {
   const messages: LiteOutgoingMessage[] = []
-  while (!r.done) {
-    const key = r.varint()
-    const field = key >>> 3
-    const wireType = key & 7
+  readFields(view, flag, (field, wireType, r) => {
     if (field === 1 && wireType === WIRE_BYTES) {
-      messages.push(readOutgoingMessage(r.bytes()))
+      messages.push(readOutgoingMessage(r.bytes(), flag))
     } else {
       r.skip(wireType)
     }
-  }
+  })
 
   return { messages }
 }
 
-function readResponse(view: Uint8Array): LiteResponse {
-  const r = new Reader(view)
+function readResponse(view: Uint8Array, flag: DamageFlag): LiteResponse {
   const response: LiteResponse = {}
-  while (!r.done) {
-    const key = r.varint()
-    const field = key >>> 3
-    const wireType = key & 7
+  readFields(view, flag, (field, wireType, r) => {
     if (field === 1 && wireType === WIRE_BYTES) {
-      response.outgoingMessages = readOutgoingMessagesResponse(r.bytes())
+      response.outgoingMessages = readOutgoingMessagesResponse(r.bytes(), flag)
       response.command = 'outgoingMessages'
     } else if (field === 2 && wireType === WIRE_BYTES) {
       // Statistics. The client skips these by command name, so the payload is
@@ -225,26 +276,23 @@ function readResponse(view: Uint8Array): LiteResponse {
     } else {
       r.skip(wireType)
     }
-  }
+  })
 
   return response
 }
 
-export function decodeResponseBatch(view: Uint8Array): { responses: LiteResponse[] } {
-  const r = new Reader(view)
+export function decodeResponseBatch(view: Uint8Array): LiteResponseBatch {
+  const flag: DamageFlag = { damaged: false }
   const responses: LiteResponse[] = []
-  while (!r.done) {
-    const key = r.varint()
-    const field = key >>> 3
-    const wireType = key & 7
+  readFields(view, flag, (field, wireType, r) => {
     if (field === 1 && wireType === WIRE_BYTES) {
-      responses.push(readResponse(r.bytes()))
+      responses.push(readResponse(r.bytes(), flag))
     } else {
       r.skip(wireType)
     }
-  }
+  })
 
-  return { responses }
+  return { responses, damaged: flag.damaged }
 }
 
 // endregion ////

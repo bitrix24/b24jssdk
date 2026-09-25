@@ -327,8 +327,9 @@ describe('pull: the client on a JSON-RPC batch with a bad message', () => {
     }
   })
 
-  it('merges user_params and dictionary into a missing `params`, and keeps the rest of the batch', () => {
-    // #566. `Object.assign(undefined, …)` threw and lost every later command.
+  it('merges user_params and dictionary into a non-object `params`, and keeps the rest of the batch', () => {
+    // #566. A missing or null `params` threw and lost every later command; a
+    // primitive one silently dropped the merged values.
     for (const key of ['user_params', 'dictionary']) {
       for (const params of [undefined, null, 5]) {
         const { commands, delivered } = rpcBatch(
@@ -339,6 +340,11 @@ describe('pull: the client on a JSON-RPC batch with a bad message', () => {
         expect(delivered[1].params, `${key} ${params}`).toEqual({ a: 1 })
       }
     }
+  })
+
+  it('leaves a primitive `params` untouched when there is nothing to merge', () => {
+    const { delivered } = rpcBatch([{ command: 'a', params: 5 }])
+    expect(delivered[0].params).toBe(5)
   })
 
   it('leaves an object `params` in place when merging into it', () => {

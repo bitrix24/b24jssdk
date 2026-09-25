@@ -2258,6 +2258,13 @@ export class PullClient implements ConnectorParent {
     }
     body.extra.sender = messageFields.sender
 
+    // `Object.assign` onto a missing `params` throws and loses the rest of
+    // the batch (#566); merge into a fresh object instead.
+    const mergesParams = Type.isPlainObject(messageFields.user_params) || Type.isPlainObject(messageFields.dictionary)
+    if (mergesParams && (body.params === null || typeof body.params !== 'object')) {
+      body.params = {}
+    }
+
     if (
       'user_params' in messageFields
       && Type.isPlainObject(messageFields.user_params)

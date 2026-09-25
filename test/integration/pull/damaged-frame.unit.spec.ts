@@ -283,7 +283,7 @@ describe('pull: the client on a damaged frame', () => {
 describe('pull: the client on a JSON-RPC batch with a bad message', () => {
   // #564. `handleRpcIncomingMessage` runs inside the JSON-RPC batch loop with
   // no per-command catch: a throw lost every command after the bad one.
-  function rpcBatch(bodies: unknown[]): { commands: string[], logged: Logged[], delivered: any[] } {
+  function rpcBatch(bodies: unknown[], extraParams: Record<string, unknown> = {}): { commands: string[], logged: Logged[], delivered: any[] } {
     const logged: Logged[] = []
     const client = build(logged)
     const commands: string[] = []
@@ -294,7 +294,7 @@ describe('pull: the client on a JSON-RPC batch with a bad message', () => {
     }
     const frame = bodies.map((body, i) => ({
       jsonrpc: '2.0', method: 'incoming.message', id: i + 1,
-      params: { mid: `m${i}`, sender: { type: 1 }, body }
+      params: { mid: `m${i}`, sender: { type: 1 }, body, ...extraParams }
     }))
     // The adapter is created in `init()`; wire one the same way it does.
     const rpc = new JsonRpc({
@@ -325,5 +325,30 @@ describe('pull: the client on a JSON-RPC batch with a bad message', () => {
       const skipped = logged.filter(entry => entry.message.includes('rpc message body was not an object'))
       expect(skipped[0]?.args[1], String(body)).toEqual({ bodyType })
     }
+  })
+
+  it('merges user_params and dictionary into a non-object `params`, and keeps the rest of the batch', () => {
+    // #566. A missing or null `params` threw and lost every later command; a
+    // primitive one silently dropped the merged values.
+    for (const key of ['user_params', 'dictionary']) {
+      for (const params of [undefined, null, 5]) {
+        const { commands, delivered } = rpcBatch(
+          [{ command: 'first', params: {} }, { command: 'second', params }, { command: 'third', params: {} }],
+          { [key]: { a: 1 } }
+        )
+        expect(commands, `${key} ${params}`).toEqual(['first', 'second', 'third'])
+        expect(delivered[1].params, `${key} ${params}`).toEqual({ a: 1 })
+      }
+    }
+  })
+
+  it('leaves a primitive `params` untouched when there is nothing to merge', () => {
+    const { delivered } = rpcBatch([{ command: 'a', params: 5 }])
+    expect(delivered[0].params).toBe(5)
+  })
+
+  it('leaves an object `params` in place when merging into it', () => {
+    const { delivered } = rpcBatch([{ command: 'a', params: { b: 2 } }], { user_params: { a: 1 } })
+    expect(delivered[0].params).toEqual({ b: 2, a: 1 })
   })
 })

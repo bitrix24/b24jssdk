@@ -800,7 +800,14 @@ export abstract class AbstractHttp implements TypeHttp {
     // it earns a portal error that names neither the header nor the token, where
     // the body fallback at least fails the way this transport already fails.
     const hasAccessToken = 'string' === typeof authData.access_token && authData.access_token.trim().length > 0
-    const canSendAuthHeader = isBareArrayBody && !isHook && hasAccessToken && !isCorsEnforcedRuntime()
+    // An idempotent call needs the token out of the body too: the portal
+    // fingerprints the raw body for `Idempotency-Key`, so a token in it makes a
+    // retry after the token rotates look like a different request (422
+    // `IDEMPOTENCYKEYREUSED`) instead of a replay. Measured in #570.
+    const hasIdempotencyKey = ApiVersion.v3 === this._version
+      && 'string' === typeof (requestConfig?.headers as Record<string, unknown> | undefined)?.[IDEMPOTENCY_KEY_HEADER]
+    const authOutOfBody = (isBareArrayBody || hasIdempotencyKey) && !isHook && hasAccessToken
+    const canSendAuthHeader = authOutOfBody && !isCorsEnforcedRuntime()
     // Same conditions as the header, on the other side of the CORS question: a
     // browser cannot send `Authorization`, so the token rides in the query
     // string. A hook is excluded for the same reason it is excluded above — its
@@ -824,12 +831,16 @@ export abstract class AbstractHttp implements TypeHttp {
     // `http` (Node only) to `fetch`, and the fetch adapter does read it, as
     // `redirect: 'manual'`. Inert on the common path, load-bearing on that one:
     // reason enough to set it rather than reason to leave it out.
-    const useQueryAuth = isBareArrayBody && !isHook && hasAccessToken && isCorsEnforcedRuntime()
+    const useQueryAuth = authOutOfBody && isCorsEnforcedRuntime()
     const sendBareArray = isBareArrayBody && (isHook || canSendAuthHeader || useQueryAuth)
 
     const paramsFormatted = sendBareArray
       ? params as unknown as TypePrepareParams
       : this._prepareParams(authData, params)
+
+    if (authOutOfBody && !sendBareArray) {
+      delete paramsFormatted.auth
+    }
 
     // Merged into whatever the caller's own config already carries — today the
     // `Idempotency-Key` header — rather than replacing it.
@@ -926,9 +937,8 @@ export abstract class AbstractHttp implements TypeHttp {
     ).catch(() => {})
 
     if (useQueryAuth) {
-      // `_prepareMethod` always emits a query string for a `batch` (the `task.`
-      // carve-out cannot match it), so a separator is not in question — but ask
-      // rather than assume, since that carve-out is one regex away from moving.
+      // `_prepareMethod` may or may not have emitted a query string already
+      // (an idempotent non-batch call reaches here too), so ask.
       const separator = methodFormatted.includes('?') ? '&' : '?'
       methodFormatted += `${separator}auth=${encodeURIComponent(authData.access_token)}`
     }

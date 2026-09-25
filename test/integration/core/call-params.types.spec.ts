@@ -9,7 +9,7 @@
  * typecheck mode makes these `expectTypeOf` pins capable of failing.
  */
 import { describe, it, expectTypeOf } from 'vitest'
-import type { TypeCallParamsV2, TypeCallParamsV3 } from '../../../packages/jssdk/src/types/http'
+import type { TypeCallParamsV2, TypeCallParamsV3, TypeFilterV3 } from '../../../packages/jssdk/src/types/http'
 import { FilterV3 as F } from '../../../packages/jssdk/src/tools/filter-v3'
 
 describe('#153 request-side filter typing', () => {
@@ -30,6 +30,12 @@ describe('#153 request-side filter typing', () => {
     // annotation above is what actually pins it, and it is a compile error if
     // the triples are dropped from the union.
     expectTypeOf<[['id', '>', 100]]>().toMatchTypeOf<TypeCallParamsV3['filter']>()
+  })
+
+  it('v3 accepts the two-element [field, value] equality shorthand (#570)', () => {
+    const filter: TypeFilterV3 = [['id', 94], ['stageId', '=', 'NEW']]
+    expectTypeOf(filter).not.toBeAny()
+    expectTypeOf<[['id', 94]]>().toMatchTypeOf<TypeFilterV3>()
   })
 
   it('v3 accepts FilterV3.build() output, including groups', () => {

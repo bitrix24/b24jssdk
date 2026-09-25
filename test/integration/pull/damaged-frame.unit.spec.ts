@@ -283,11 +283,15 @@ describe('pull: the client on a damaged frame', () => {
 describe('pull: the client on a JSON-RPC batch with a bad message', () => {
   // #564. `handleRpcIncomingMessage` runs inside the JSON-RPC batch loop with
   // no per-command catch: a throw lost every command after the bad one.
-  function rpcBatch(bodies: unknown[]): { commands: string[], logged: Logged[] } {
+  function rpcBatch(bodies: unknown[]): { commands: string[], logged: Logged[], delivered: any[] } {
     const logged: Logged[] = []
     const client = build(logged)
     const commands: string[] = []
-    ;(client as any).broadcastMessage = (message: { command: string }) => commands.push(message.command)
+    const delivered: any[] = []
+    ;(client as any).broadcastMessage = (message: { command: string }) => {
+      commands.push(message.command)
+      delivered.push(message)
+    }
     const frame = bodies.map((body, i) => ({
       jsonrpc: '2.0', method: 'incoming.message', id: i + 1,
       params: { mid: `m${i}`, sender: { type: 1 }, body }
@@ -298,8 +302,14 @@ describe('pull: the client on a JSON-RPC batch with a bad message', () => {
       handlers: { 'incoming.message': (client as any).handleRpcIncomingMessage.bind(client) }
     })
     rpc.parseJsonRpcMessage(JSON.stringify(frame))
-    return { commands, logged }
+    return { commands, logged, delivered }
   }
+
+  it('keeps an `extra` that is an object', () => {
+    // `server_time_unix` feeds the staleness check; the guard must not reset it.
+    const { delivered } = rpcBatch([{ command: 'a', extra: { server_time_unix: 7 } }])
+    expect(delivered[0].extra.server_time_unix).toBe(7)
+  })
 
   it('replaces an `extra` that is not an object, and keeps the rest of the batch', () => {
     for (const extra of [5, 'x', true, null]) {

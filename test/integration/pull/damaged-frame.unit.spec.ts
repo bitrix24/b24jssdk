@@ -205,6 +205,23 @@ describe('pull: the client on a damaged frame', () => {
     expect(logged.filter(entry => entry.message.includes('not a JSON object'))).toHaveLength(0)
   })
 
+  it('replaces an `extra` that is not an object, and keeps the rest of the batch', () => {
+    // #564. `extra.sender = …` onto a primitive threw inside the batch-wide
+    // `try` and took the good message after it too. `extra` is now replaced.
+    for (const codec of ['lite', 'vendored'] as const) {
+      for (const extra of ['5', '"x"', 'true']) {
+        const events = extract(build([], codec), batchOf([
+          outgoing(1, 'first'),
+          outgoingRaw(2, `{"command":"second","extra":${extra}}`),
+          outgoing(3, 'third')
+        ]))
+
+        expect(events.map(event => event.text.command), `${codec} ${extra}`).toEqual(['first', 'second', 'third'])
+        expect(events[1]!.text.extra.sender, `${codec} ${extra}`).toBeDefined()
+      }
+    }
+  })
+
   it('logs that the frame was damaged, with its length and nothing from inside it', () => {
     const logged: Logged[] = []
     const frame = batchOf([

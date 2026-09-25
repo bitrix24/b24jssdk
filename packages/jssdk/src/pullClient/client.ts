@@ -2641,7 +2641,9 @@ export class PullClient implements ConnectorParent {
             continue
           }
 
-          if (!messageFields.extra) {
+          // A primitive `extra` would make the `sender` assignment below
+          // throw and drop the rest of the frame (#564); replace it.
+          if (messageFields.extra === null || typeof messageFields.extra !== 'object') {
             messageFields.extra = {}
           }
           // A message with no `sender` is SKIPPED, not repaired — and logged.

@@ -39,18 +39,20 @@ function buildClient(restrictionOverrides: Partial<RestrictionParams> = {}): B24
     }
   })
 
-  // Synthesise the REST response shape the real server would produce for a 400.
+  // Synthesise the REST response shape the real server would produce for a 500.
   // `_convertAxiosErrorToAjaxError` reads `response.data.error.code` from the
   // AxiosError, so the SDK ends up seeing CUSTOM_CODE as if it came from B24.
+  // A 500, not a 400: a 4xx now fails fast whatever its code, so a 400 would
+  // never reach the code lists these tests are about.
   b24.getHttpClient(ApiVersion.v2).ajaxClient.interceptors.request.use(() => {
     const err = new AxiosError(
-      'Request failed with status code 400',
-      'ERR_BAD_REQUEST',
+      'Request failed with status code 500',
+      'ERR_BAD_RESPONSE',
       undefined,
       undefined,
       {
-        status: 400,
-        statusText: 'Bad Request',
+        status: 500,
+        statusText: 'Internal Server Error',
         headers: {},
         config: {} as never,
         data: { error: CUSTOM_CODE, error_description: 'simulated business failure' }
@@ -88,7 +90,9 @@ describe('core.limiters custom hardErrorCodes / softErrorCodes @apiV2 (issue #24
     }
 
     expect(thrown).toBeDefined()
-    expect(thrown.code).toBe('JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED')
+    // Since #143 the final attempt rethrows its own error, so the caller sees
+    // the portal's code rather than a generic "all attempts exhausted".
+    expect(thrown.code).toBe(CUSTOM_CODE)
 
     const stats = b24.getHttpClient(ApiVersion.v2).getStats()
     expect(stats.retries).toBeGreaterThan(0)

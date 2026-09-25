@@ -20,6 +20,7 @@
  *    loss the tolerant decode exists to prevent, one layer further up.
  */
 import { describe, it, expect } from 'vitest'
+import { JsonRpc } from '../../../packages/jssdk/src/pullClient/json-rpc'
 import { PullClient } from '../../../packages/jssdk/src/pullClient/client'
 import { SenderType } from '../../../packages/jssdk/src/types/pull'
 import type { TypePullClientParams } from '../../../packages/jssdk/src/types/pull'
@@ -209,7 +210,7 @@ describe('pull: the client on a damaged frame', () => {
     // #564. `extra.sender = …` onto a primitive threw inside the batch-wide
     // `try` and took the good message after it too. `extra` is now replaced.
     for (const codec of ['lite', 'vendored'] as const) {
-      for (const extra of ['5', '"x"', 'true']) {
+      for (const extra of ['5', '"x"', 'true', 'null']) {
         const events = extract(build([], codec), batchOf([
           outgoing(1, 'first'),
           outgoingRaw(2, `{"command":"second","extra":${extra}}`),
@@ -220,6 +221,12 @@ describe('pull: the client on a damaged frame', () => {
         expect(events[1]!.text.extra.sender, `${codec} ${extra}`).toBeDefined()
       }
     }
+  })
+
+  it('keeps an `extra` that is an object', () => {
+    // `server_time_unix` feeds the staleness check; the guard must not reset it.
+    const events = extract(build([]), batchOf([outgoingRaw(1, '{"command":"a","extra":{"server_time_unix":7}}')]))
+    expect(events[0]!.text.extra.server_time_unix).toBe(7)
   })
 
   it('logs that the frame was damaged, with its length and nothing from inside it', () => {
@@ -270,5 +277,43 @@ describe('pull: the client on a damaged frame', () => {
 
     expect(events).toEqual([])
     expect(logged.some(entry => entry.message.includes('damaged')), 'lost, but not silently').toBe(true)
+  })
+})
+
+describe('pull: the client on a JSON-RPC batch with a bad message', () => {
+  // #564. `handleRpcIncomingMessage` runs inside the JSON-RPC batch loop with
+  // no per-command catch: a throw lost every command after the bad one.
+  function rpcBatch(bodies: unknown[]): { commands: string[], logged: Logged[] } {
+    const logged: Logged[] = []
+    const client = build(logged)
+    const commands: string[] = []
+    ;(client as any).broadcastMessage = (message: { command: string }) => commands.push(message.command)
+    const frame = bodies.map((body, i) => ({
+      jsonrpc: '2.0', method: 'incoming.message', id: i + 1,
+      params: { mid: `m${i}`, sender: { type: 1 }, body }
+    }))
+    // The adapter is created in `init()`; wire one the same way it does.
+    const rpc = new JsonRpc({
+      connector: { send: () => {} } as never,
+      handlers: { 'incoming.message': (client as any).handleRpcIncomingMessage.bind(client) }
+    })
+    rpc.parseJsonRpcMessage(JSON.stringify(frame))
+    return { commands, logged }
+  }
+
+  it('replaces an `extra` that is not an object, and keeps the rest of the batch', () => {
+    for (const extra of [5, 'x', true, null]) {
+      const { commands } = rpcBatch([{ command: 'first' }, { command: 'second', extra }, { command: 'third' }])
+      expect(commands, String(extra)).toEqual(['first', 'second', 'third'])
+    }
+  })
+
+  it('skips a body that is not an object, logs its type, and keeps the rest of the batch', () => {
+    for (const [body, bodyType] of [[null, 'null'], [5, 'number'], ['x', 'string']] as const) {
+      const { commands, logged } = rpcBatch([{ command: 'first' }, body, { command: 'third' }])
+      expect(commands, String(body)).toEqual(['first', 'third'])
+      const skipped = logged.filter(entry => entry.message.includes('rpc message body was not an object'))
+      expect(skipped[0]?.args[1], String(body)).toEqual({ bodyType })
+    }
   })
 })

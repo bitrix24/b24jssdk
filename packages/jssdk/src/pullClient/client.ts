@@ -2243,7 +2243,17 @@ export class PullClient implements ConnectorParent {
     this._session.mid = messageFields.mid
     const body = messageFields.body
 
-    if (!messageFields.body.extra) {
+    // A throw here escapes the JSON-RPC batch loop and loses every command
+    // after this one (#564): skip a body that is not an object, and replace
+    // an `extra` that is not one.
+    if (body === null || typeof body !== 'object') {
+      this.getLogger().warning(
+        `${Text.getDateForLog()}: Pull: an rpc message body was not an object and was skipped`,
+        { bodyType: body === null ? 'null' : typeof body }
+      ).catch(() => {})
+      return {}
+    }
+    if (body.extra === null || typeof body.extra !== 'object') {
       body.extra = {}
     }
     body.extra.sender = messageFields.sender

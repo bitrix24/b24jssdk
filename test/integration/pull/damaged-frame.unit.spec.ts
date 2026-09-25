@@ -86,6 +86,15 @@ function outgoing(id: number, command: string, trailing: number[] = [], withSend
   ])
 }
 
+/** An OutgoingMessage whose body is the given raw text, with a backend sender. */
+function outgoingRaw(id: number, body: string): Uint8Array {
+  return Uint8Array.from([
+    ...field(1, Uint8Array.from([id])),
+    ...field(2, utf8.encode(body)),
+    ...field(5, Uint8Array.from([0x08, SenderType.Backend]))
+  ])
+}
+
 /** ResponseBatch { responses: [ Response { outgoingMessages: { messages } } ] } */
 function batchOf(messages: Uint8Array[]): Uint8Array {
   const list = Uint8Array.from(messages.flatMap(message => field(1, message)))
@@ -162,6 +171,38 @@ describe('pull: the client on a damaged frame', () => {
       expect(event.text.extra.sender.id).toBe('')
     }
     expect(logged.filter(entry => entry.message.includes('no sender'))).toHaveLength(0)
+  })
+
+  it('skips a body that is JSON but not an object, and keeps the rest of the batch', () => {
+    // #562. Every one of these parses; none is an object. Reading `.extra` off
+    // `null`, or assigning it onto a primitive, threw inside the batch-wide
+    // `try` and took the good message after it too. Now only the bad one goes,
+    // on both codecs, and it is logged with its type — never its content.
+    for (const codec of ['lite', 'vendored'] as const) {
+      for (const [body, bodyType] of [['null', 'null'], ['5', 'number'], ['"x"', 'string'], ['true', 'boolean']] as const) {
+        const logged: Logged[] = []
+        const events = extract(build(logged, codec), batchOf([
+          outgoing(1, 'first'),
+          outgoingRaw(2, body),
+          outgoing(3, 'third')
+        ]))
+
+        expect(events.map(event => event.text.command), `${codec} ${body}`).toEqual(['first', 'third'])
+        const skipped = logged.filter(entry => entry.message.includes('not a JSON object'))
+        expect(skipped, `${codec} ${body}`).toHaveLength(1)
+        expect(skipped[0]!.args, `${codec} ${body}`).toEqual([skipped[0]!.message, { responseIndex: 0, bodyType }])
+      }
+    }
+  })
+
+  it('still delivers a body that is a JSON array, as it always has', () => {
+    // Arrays are objects: `extra` is set on them and nothing throws. Not what
+    // any real payload looks like, but the guard must not narrow what passed.
+    const logged: Logged[] = []
+    const events = extract(build(logged), batchOf([outgoingRaw(1, '[]')]))
+
+    expect(events).toHaveLength(1)
+    expect(logged.filter(entry => entry.message.includes('not a JSON object'))).toHaveLength(0)
   })
 
   it('logs that the frame was damaged, with its length and nothing from inside it', () => {

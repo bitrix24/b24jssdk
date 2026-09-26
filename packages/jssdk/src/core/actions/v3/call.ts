@@ -43,6 +43,7 @@ export class CallV3 extends AbstractAction {
    *     - `requestId?: string` - Unique request identifier for tracking and debugging — sent as the `bx24_request_id` query parameter. It does not deduplicate anything; for that see `idempotencyKey` (restApi:v3).
    *     - `idempotencyKey?: string` - `Idempotency-Key` header; a repeat with the same key and body
    *       replays the stored response instead of writing again.
+   *       Server-side only: in a browser it throws `JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER` (#573).
    *
    * @returns {Promise<AjaxResult<T>>} A promise that resolves to the result of an REST API call.
    *

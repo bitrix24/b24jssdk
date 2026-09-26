@@ -144,6 +144,14 @@ describe('FilterV3 builder', () => {
     expect(() => F.build('status = NEW' as never)).toThrow(/each node must be/)
   })
 
+  it('build() accepts the [field, value] equality shorthand, also inside a group (#570)', () => {
+    expect(F.build(['id', 94], F.eq('status', 'NEW'))).toEqual([['id', 94], ['status', '=', 'NEW']])
+    expect(F.build(F.or(['id', 1], ['id', 2]))).toEqual([{ logic: 'or', conditions: [['id', 1], ['id', 2]] }])
+    // two nodes passed as one array still read as a forgotten spread
+    expect(() => F.build([F.eq('a', 1), F.eq('b', 2)] as never)).toThrow(/each node must be/)
+    expect(() => F.build(['', 1] as never)).toThrow(/each node must be/)
+  })
+
   it('golden payload: the exact wire shape verified live is stable and JSON-serializable', () => {
     // status = NEW AND (id in [1,2] OR id > 100) AND createdTime between [a,b]
     const filter = F.build(

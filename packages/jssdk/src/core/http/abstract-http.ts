@@ -845,7 +845,8 @@ export abstract class AbstractHttp implements TypeHttp {
     // Merged into whatever the caller's own config already carries — today the
     // `Idempotency-Key` header — rather than replacing it.
     //
-    // `maxRedirects: 0` comes with the header and only with it. A credential in
+    // `maxRedirects: 0` comes with a credential outside the body — the header or
+    // the query string — and only with it. A credential in
     // the body was safe across a redirect by accident: a 301/302 turns POST into
     // GET and drops the body, so the old `auth` never travelled. A header does —
     // `follow-redirects` strips `Authorization` when the host changes, but keeps
@@ -856,8 +857,10 @@ export abstract class AbstractHttp implements TypeHttp {
     // Set here rather than on the axios instance because the instance carries
     // every request the SDK makes, and a redirect somewhere in that traffic may
     // be load-bearing for someone. This branch is different: it is reached only
-    // by a v3 batch on a non-hook transport, which fails on every portal today —
-    // there is no working behaviour here to preserve. A deployment that does
+    // by a v3 batch or an idempotent v3 call on a non-hook transport. For the
+    // batch there was no working behaviour to preserve; an idempotent call did
+    // follow a redirect before, with its token in a body the redirect dropped,
+    // so it failed there anyway — now it fails legibly. A deployment that does
     // redirect gets an error instead of a silent hop with a credential attached —
     // a legible 301 through `validateStatus` on the Node adapter, and on `fetch`,
     // where `redirect: 'manual'` is what `maxRedirects: 0` becomes and the
@@ -966,8 +969,8 @@ export abstract class AbstractHttp implements TypeHttp {
     // that a caller who sets `maxRedirects: 0` themselves puts every status-0
     // answer in this bucket, retries included — stated in the error text and on
     // the Http page rather than left to be discovered. A caller who does not set
-    // it is unaffected: the only branch that sets it is a `restApi:v3` batch on
-    // a non-hook transport.
+    // it is unaffected: the only branches that set it are a `restApi:v3` batch
+    // and an idempotent `restApi:v3` call, both on a non-hook transport.
     const effectiveMaxRedirects = effectiveConfig?.maxRedirects
       ?? this._clientAxios.defaults.maxRedirects
 
@@ -976,8 +979,8 @@ export abstract class AbstractHttp implements TypeHttp {
         code: 'JSSDK_HTTP_REDIRECT_BLOCKED',
         description: 'This request does not follow redirects (`maxRedirects: 0`) and the answer carried no status of its own — '
           + 'which is what a refused redirect looks like on the fetch adapter, and what a dropped connection can look like too. '
-          + 'The SDK sets `maxRedirects: 0` on one request, a `restApi:v3` batch on a non-hook transport, because it carries an '
-          + 'access token a redirect to a subdomain would take along. Point the SDK at the final URL instead.',
+          + 'The SDK sets `maxRedirects: 0` on a `restApi:v3` batch and on a `restApi:v3` call with `idempotencyKey`, both on a '
+          + 'non-hook transport, because they carry an access token a redirect would take along. Point the SDK at the final URL instead.',
         status: 0,
         requestInfo: { method, params, requestId }
       })

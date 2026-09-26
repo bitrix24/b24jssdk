@@ -15,6 +15,13 @@ const FILTER_V3_OPERATORS: readonly FilterV3Operator[] = ['=', '!=', '>', '>=', 
 export type FilterV3Condition = [string, FilterV3Operator, unknown]
 
 /**
+ * The two-element equality shorthand, `[field, value]` — `['id', 94]` means
+ * `['id', '=', 94]`. The portal documents and accepts it; `FilterV3.eq()` is
+ * the builder's own way to write the same thing.
+ */
+export type FilterV3Shorthand = [string, unknown]
+
+/**
  * A logical group of conditions / nested groups. `logic` defaults to `'and'`;
  * `negative: true` wraps the whole group in a NOT.
  */
@@ -24,7 +31,7 @@ export interface FilterV3Group {
   conditions: FilterV3Node[]
 }
 
-export type FilterV3Node = FilterV3Condition | FilterV3Group
+export type FilterV3Node = FilterV3Condition | FilterV3Shorthand | FilterV3Group
 
 function condition(field: string, operator: FilterV3Operator, value: unknown): FilterV3Condition {
   if (typeof field !== 'string' || field.length === 0) {
@@ -160,13 +167,14 @@ function assertNode(node: FilterV3Node): void {
     return
   }
   const ok = Array.isArray(node)
-    && node.length === 3
     && typeof node[0] === 'string'
-    && FILTER_V3_OPERATORS.includes(node[1] as FilterV3Operator)
+    && node[0].length > 0
+    && (node.length === 2
+      || (node.length === 3 && FILTER_V3_OPERATORS.includes(node[1] as FilterV3Operator)))
   if (!ok) {
     throw new SdkError({
       code: 'JSSDK_FILTER_V3_INVALID_NODE',
-      description: `FilterV3.build: each node must be a [field, operator, value] condition or a group — got ${JSON.stringify(node)}. Did you forget to spread (build(...nodes)) or build a condition with FilterV3 helpers?`,
+      description: `FilterV3.build: each node must be a [field, operator, value] condition, a [field, value] equality or a group — got ${JSON.stringify(node)}. Did you forget to spread (build(...nodes)) or build a condition with FilterV3 helpers?`,
       status: 400
     })
   }

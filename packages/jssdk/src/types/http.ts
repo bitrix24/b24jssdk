@@ -22,10 +22,12 @@ export type TypeFilterV2 = Record<string, unknown>
 /**
  * `restApi:v3` filter — an array of `[field, operator, value]` triples (joined
  * with AND at the top level), e.g. `[['id', '>', 100], ['stageId', '=', 'NEW']]`.
+ * The two-element `[field, value]` shorthand means equality (`['id', 94]` is
+ * `['id', '=', 94]`); the portal documents and accepts it (#570).
  * Nested AND/OR/NOT groups are allowed too, so the output of the `FilterV3`
  * builder (`FilterV3.build(...)`) assigns directly.
  */
-export type TypeFilterV3 = Array<[string, string, unknown] | FilterV3Group>
+export type TypeFilterV3 = Array<[string, string, unknown] | [string, unknown] | FilterV3Group>
 
 export type TypeCallParams = {
   order?: Record<string, 'ASC' | 'DESC' | 'asc' | 'desc' | string>

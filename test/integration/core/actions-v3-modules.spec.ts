@@ -84,13 +84,17 @@ describe('core.actions.call @apiV3 — modules from #203', () => {
 
   describe('humanresources', () => {
     it('humanresources.node.list @apiV3 isSuccess', async () => {
-      await smokeList(getB24Client(), 'humanresources.node.list')
+      // `type` is required by the portal (DEPARTMENT or TEAM).
+      await smokeList(getB24Client(), 'humanresources.node.list', { type: 'DEPARTMENT' })
     })
   })
 
   describe('timeman', () => {
     it('timeman.record.list @apiV3 isSuccess', async () => {
-      await smokeList(getB24Client(), 'timeman.record.list')
+      // `filter.userId` is required by the portal; use the webhook's own user,
+      // read from the `/rest/<userId>/` segment of its URL.
+      const userId = Number(/\/rest\/(\d+)\//.exec(process.env.B24_HOOK ?? '')?.[1] ?? 1)
+      await smokeList(getB24Client(), 'timeman.record.list', { filter: [['userId', userId]] })
     })
   })
 })

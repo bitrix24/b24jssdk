@@ -800,7 +800,14 @@ export abstract class AbstractHttp implements TypeHttp {
     // it earns a portal error that names neither the header nor the token, where
     // the body fallback at least fails the way this transport already fails.
     const hasAccessToken = 'string' === typeof authData.access_token && authData.access_token.trim().length > 0
-    const canSendAuthHeader = isBareArrayBody && !isHook && hasAccessToken && !isCorsEnforcedRuntime()
+    // An idempotent call needs the token out of the body too: the portal
+    // fingerprints the raw body for `Idempotency-Key`, so a token in it makes a
+    // retry after the token rotates look like a different request (422
+    // `IDEMPOTENCYKEYREUSED`) instead of a replay. Measured in #570.
+    const hasIdempotencyKey = ApiVersion.v3 === this._version
+      && 'string' === typeof (requestConfig?.headers as Record<string, unknown> | undefined)?.[IDEMPOTENCY_KEY_HEADER]
+    const authOutOfBody = (isBareArrayBody || hasIdempotencyKey) && !isHook && hasAccessToken
+    const canSendAuthHeader = authOutOfBody && !isCorsEnforcedRuntime()
     // Same conditions as the header, on the other side of the CORS question: a
     // browser cannot send `Authorization`, so the token rides in the query
     // string. A hook is excluded for the same reason it is excluded above — its
@@ -824,17 +831,22 @@ export abstract class AbstractHttp implements TypeHttp {
     // `http` (Node only) to `fetch`, and the fetch adapter does read it, as
     // `redirect: 'manual'`. Inert on the common path, load-bearing on that one:
     // reason enough to set it rather than reason to leave it out.
-    const useQueryAuth = isBareArrayBody && !isHook && hasAccessToken && isCorsEnforcedRuntime()
+    const useQueryAuth = authOutOfBody && isCorsEnforcedRuntime()
     const sendBareArray = isBareArrayBody && (isHook || canSendAuthHeader || useQueryAuth)
 
     const paramsFormatted = sendBareArray
       ? params as unknown as TypePrepareParams
       : this._prepareParams(authData, params)
 
+    if (authOutOfBody && !sendBareArray) {
+      delete paramsFormatted.auth
+    }
+
     // Merged into whatever the caller's own config already carries — today the
     // `Idempotency-Key` header — rather than replacing it.
     //
-    // `maxRedirects: 0` comes with the header and only with it. A credential in
+    // `maxRedirects: 0` comes with a credential outside the body — the header or
+    // the query string — and only with it. A credential in
     // the body was safe across a redirect by accident: a 301/302 turns POST into
     // GET and drops the body, so the old `auth` never travelled. A header does —
     // `follow-redirects` strips `Authorization` when the host changes, but keeps
@@ -845,8 +857,10 @@ export abstract class AbstractHttp implements TypeHttp {
     // Set here rather than on the axios instance because the instance carries
     // every request the SDK makes, and a redirect somewhere in that traffic may
     // be load-bearing for someone. This branch is different: it is reached only
-    // by a v3 batch on a non-hook transport, which fails on every portal today —
-    // there is no working behaviour here to preserve. A deployment that does
+    // by a v3 batch or an idempotent v3 call on a non-hook transport. For the
+    // batch there was no working behaviour to preserve; an idempotent call did
+    // follow a redirect before, with its token in a body the redirect dropped,
+    // so it failed there anyway — now it fails legibly. A deployment that does
     // redirect gets an error instead of a silent hop with a credential attached —
     // a legible 301 through `validateStatus` on the Node adapter, and on `fetch`,
     // where `redirect: 'manual'` is what `maxRedirects: 0` becomes and the
@@ -926,9 +940,8 @@ export abstract class AbstractHttp implements TypeHttp {
     ).catch(() => {})
 
     if (useQueryAuth) {
-      // `_prepareMethod` always emits a query string for a `batch` (the `task.`
-      // carve-out cannot match it), so a separator is not in question — but ask
-      // rather than assume, since that carve-out is one regex away from moving.
+      // `_prepareMethod` may or may not have emitted a query string already
+      // (an idempotent non-batch call reaches here too), so ask.
       const separator = methodFormatted.includes('?') ? '&' : '?'
       methodFormatted += `${separator}auth=${encodeURIComponent(authData.access_token)}`
     }
@@ -956,8 +969,8 @@ export abstract class AbstractHttp implements TypeHttp {
     // that a caller who sets `maxRedirects: 0` themselves puts every status-0
     // answer in this bucket, retries included — stated in the error text and on
     // the Http page rather than left to be discovered. A caller who does not set
-    // it is unaffected: the only branch that sets it is a `restApi:v3` batch on
-    // a non-hook transport.
+    // it is unaffected: the only branches that set it are a `restApi:v3` batch
+    // and an idempotent `restApi:v3` call, both on a non-hook transport.
     const effectiveMaxRedirects = effectiveConfig?.maxRedirects
       ?? this._clientAxios.defaults.maxRedirects
 
@@ -966,8 +979,8 @@ export abstract class AbstractHttp implements TypeHttp {
         code: 'JSSDK_HTTP_REDIRECT_BLOCKED',
         description: 'This request does not follow redirects (`maxRedirects: 0`) and the answer carried no status of its own — '
           + 'which is what a refused redirect looks like on the fetch adapter, and what a dropped connection can look like too. '
-          + 'The SDK sets `maxRedirects: 0` on one request, a `restApi:v3` batch on a non-hook transport, because it carries an '
-          + 'access token a redirect to a subdomain would take along. Point the SDK at the final URL instead.',
+          + 'The SDK sets `maxRedirects: 0` on a `restApi:v3` batch and on a `restApi:v3` call with `idempotencyKey`, both on a '
+          + 'non-hook transport, because they carry an access token a redirect would take along. Point the SDK at the final URL instead.',
         status: 0,
         requestInfo: { method, params, requestId }
       })

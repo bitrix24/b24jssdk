@@ -44,7 +44,9 @@
  *   - the query-string scrub only masks a `key=value` pair whose key is itself
  *     a sensitive key; a bracketed/encoded query key (`auth[application_token]=`)
  *     is not matched by the string pass (its `auth` prefix object form is,
- *     though, via pass 1).
+ *     though, via pass 1). This covers the v2 file links
+ *     (`uf.php?…&auth[ap]=…`, e.g. `task.item.getfiles` `DOWNLOAD_URL`). The
+ *     decision was made in PR #235 and is closed; do not reopen it.
  *   - `key` is deliberately broad: any property literally named `key` (and any
  *     `?key=…` query pair) is masked. In Bitrix24 REST `key` is a credential
  *     parameter (e.g. the Pull shared config), so this is a conservative,

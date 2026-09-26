@@ -35,6 +35,21 @@ Both projects load `.env.test` (gitignored) via `dotenv`, from [test/0_setup/env
 
 3. `setupB24Client()` in [test/0_setup/setup-integration-jssdk.ts](../../test/0_setup/setup-integration-jssdk.ts) throws if `B24_HOOK` is missing — that is the intended fast-fail.
 
+4. On a fresh clone, prepare two things the suites import rather than build:
+
+   ```bash
+   pnpm run docs:prepare          # the docs tsconfig that test/integration/docs/* loads
+   pnpm run package-jssdk:build   # the contributing/* specs import `@bitrix24/b24jssdk` from dist
+   ```
+
+   Without the first, the `docs` specs fail with `Tsconfig not found`; without
+   the second, the `contributing` specs fail with `Failed to resolve entry for
+   package "@bitrix24/b24jssdk"`. Neither is an SDK defect.
+
+5. `actions-v2-batch.spec.ts` and the `CallListV2` docs spec read CRM companies
+   by id. A portal with fewer than a dozen companies returns empty lists and the
+   specs report `expected 0 to be greater than 0`; add some companies first.
+
 ### Which `B24_HOOK` wins
 
 **The environment, not the file.** `dotenv` never overwrites a variable that is already set, so a `B24_HOOK` exported in your shell, baked into a container image or inherited from a CI job takes precedence over `.env.test`. The precedence is deliberate: `B24_HOOK=… pnpm vitest` has to keep working, and [`smoke-retry.yml`](../workflows/smoke-retry.yml) sets the variable from a repository secret on purpose.
@@ -59,7 +74,11 @@ The webhook must have at minimum the `crm`, `tasks`, `user`, `im`, and `main` sc
 `timeman`. Unlike the ones above, `mail` and `humanresources` depend on the
 portal's plan and may not be available at all. The spec does not skip itself in
 that case — it reports red — so a portal without those modules is a reason to
-exclude that spec locally, not a failure to chase. Its assertions carry the portal's own error text so the three
+exclude that spec locally, not a failure to chase. On a plan without them the
+portal answers «Функция недоступна на текущем тарифе» / "Feature is not
+available on the current plan". `timeman.record.list` also needs
+`filter.userId` and `humanresources.node.list` needs `type`; the spec passes
+both. Its assertions carry the portal's own error text so the three
 causes stay apart: `insufficient_scope` is a webhook fix, `METHODNOTFOUND` means
 the module is absent, anything else is a real shape problem.
 

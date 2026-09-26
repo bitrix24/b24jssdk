@@ -37,7 +37,7 @@ describe('core.limiters retryOnNetworkError @apiV2 (issue #24)', () => {
     b24 = null
   })
 
-  it('default behaviour: SDK retries on REQUEST_TIMEOUT and throws JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED', async () => {
+  it('default behaviour: SDK retries on REQUEST_TIMEOUT and then throws REQUEST_TIMEOUT', async () => {
     b24 = buildClient()
 
     let thrown: any
@@ -48,15 +48,14 @@ describe('core.limiters retryOnNetworkError @apiV2 (issue #24)', () => {
     }
 
     expect(thrown).toBeDefined()
-    expect(thrown.code).toBe('JSSDK_CALL_ALL_ATTEMPTS_EXHAUSTED')
+    // Since #143 the final attempt rethrows its own error, not a generic one.
+    expect(thrown.code).toBe('REQUEST_TIMEOUT')
 
     const stats = b24.getHttpClient(ApiVersion.v2).getStats()
-    // maxRetries defaults to 3 → 3 attempts total, 3 failures.
-    // The retries counter is incremented after each failed attempt that
-    // schedules another try, including on the final iteration before the
-    // loop's bound check exits, so it ends at maxRetries (3), not 2.
+    // maxRetries defaults to 3 → 3 attempts total, 3 failures. The retries
+    // counter goes up only when another attempt is scheduled, so it ends at 2.
     expect(stats.failedRequests).toBe(3)
-    expect(stats.retries).toBe(3)
+    expect(stats.retries).toBe(2)
   })
 
   it('retryOnNetworkError=false: SDK throws REQUEST_TIMEOUT immediately, no retries', async () => {

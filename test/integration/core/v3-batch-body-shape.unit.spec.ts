@@ -420,9 +420,10 @@ describe('the body of a v3 batch', () => {
     }
   })
 
-  it('@apiV3 a call with an idempotency key keeps its header untouched', async () => {
-    // The `else` branch: an object body never gets an Authorization header, and
-    // the caller's own config reaches axios unchanged.
+  it('@apiV3 an idempotent OAuth call moves the token out of the body into a header', async () => {
+    // #570. The portal fingerprints the raw body for `Idempotency-Key`, so a
+    // token inside it made a retry after the token rotated a 422 instead of a
+    // replay. The key header is kept; the token rides beside it.
     b24 = oauthClient()
     const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
       .mockResolvedValue({
@@ -439,9 +440,70 @@ describe('the body of a v3 batch', () => {
       idempotencyKey: 'key-42'
     })
 
-    const headers = (post.mock.calls[0]![2] as { headers?: Record<string, string> })?.headers
+    const [url, body, config] = post.mock.calls[0]!
+    const headers = (config as { headers?: Record<string, string> })?.headers
     expect(headers?.['Idempotency-Key']).toBe('key-42')
-    expect(headers?.Authorization).toBeUndefined()
+    expect(headers?.Authorization).toBe('Bearer ACCESS_TOKEN_PLACEHOLDER')
+    expect((config as { maxRedirects?: number }).maxRedirects).toBe(0)
+    expect(body).toEqual({ select: ['id'] })
+    expect(String(url)).not.toContain('auth=')
+  })
+
+  it('@apiV3 an idempotent OAuth call in a browser puts the token in the query string', async () => {
+    const originalWindow = (globalThis as { window?: unknown }).window
+    ;(globalThis as { window?: unknown }).window = { document: {} }
+
+    try {
+      b24 = oauthClient()
+      const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+        .mockResolvedValue({
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: {} as never,
+          data: { result: { items: [] }, time: BATCH_OK.data.time }
+        } as never)
+
+      await b24.actions.v3.call.make({
+        method: 'main.eventlog.list',
+        params: { select: ['id'] },
+        idempotencyKey: 'key-42'
+      })
+
+      const [url, body, config] = post.mock.calls[0]!
+      expect(String(url)).toContain('auth=ACCESS_TOKEN_PLACEHOLDER')
+      expect(body).toEqual({ select: ['id'] })
+      expect((config as { headers?: Record<string, string> })?.headers?.Authorization).toBeUndefined()
+    } finally {
+      if (typeof originalWindow === 'undefined') {
+        delete (globalThis as { window?: unknown }).window
+      } else {
+        ;(globalThis as { window?: unknown }).window = originalWindow
+      }
+    }
+  })
+
+  it('@apiV3 an idempotent call on a hook is unchanged: no header, nothing removed', async () => {
+    b24 = B24Hook.fromWebhookUrl('https://example.bitrix24.com/rest/1/SECRETSECRET')
+    const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
+      .mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as never,
+        data: { result: { items: [] }, time: BATCH_OK.data.time }
+      } as never)
+
+    await b24.actions.v3.call.make({
+      method: 'main.eventlog.list',
+      params: { select: ['id'] },
+      idempotencyKey: 'key-42'
+    })
+
+    const [url, body, config] = post.mock.calls[0]!
+    expect((config as { headers?: Record<string, string> })?.headers?.Authorization).toBeUndefined()
+    expect(String(url)).not.toContain('auth=')
+    expect(body).toEqual({ select: ['id'] })
   })
 
   it('@apiV3 merges Authorization into the caller config rather than replacing it', async () => {

@@ -8,7 +8,9 @@ import { ParseRow } from '../../interaction/batch/parse-row'
 
 /**
  * Where a deferred batch job is. `pending` and `processing` are still running;
- * `done` and `error` are final.
+ * `done` and `error` are final. (Measured live: `pending → done`; `processing`
+ * and `error` are the rest of the portal's enum, not yet observed.) Any other
+ * value is treated as still running until `timeout`.
  */
 export type DeferredBatchStatus = 'pending' | 'processing' | 'done' | 'error'
 
@@ -38,8 +40,11 @@ export type DeferredBatchCalls = BatchCommandsUniversal
 export type ActionDeferredBatchAddV3 = {
   calls: DeferredBatchCalls
   /**
-   * `Idempotency-Key` for the `add` call: a retry with the same key and the
-   * same commands returns the job already created instead of a second one.
+   * `Idempotency-Key` for the `add` call. `add` is a create call, so the
+   * portal's idempotency rules apply (a repeat with the same key and body
+   * replays the first answer) — observed only as far as the key being echoed.
+   * Give each run its own key: a key reused after the job was deleted replays
+   * the id of a job that no longer exists.
    */
   idempotencyKey?: string
   requestId?: string
@@ -85,11 +90,13 @@ const DEFAULT_TIMEOUT = 600_000
  *   request and collected in another, a queue worker, a UI with its own polling).
  * - {@link DeferredBatchV3.decode} turns the downloaded bytes into rows.
  *
- * A row is what that command returned, in command order — the same shape as one
- * entry of a synchronous v3 `batch` result (`{ item }`, `{ items }`, …).
+ * A row is what that command returned, in command order — measured to be the
+ * same shape as one entry of a synchronous v3 `batch` result (`{ item }`,
+ * `{ items }`, …). How a failed command appears in the rows is not yet measured.
  *
- * Needs the `rest` scope and a portal plan that includes deferred batches; on
- * other plans every call answers `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN`.
+ * Needs a portal plan that includes deferred batches; on other plans every
+ * call answers `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN`. The whole result file is
+ * held in memory while it is decoded.
  */
 export class DeferredBatchV3 extends AbstractAction {
   /**
@@ -105,7 +112,8 @@ export class DeferredBatchV3 extends AbstractAction {
    *
    * @param {ActionDeferredBatchV3} options
    *     - `calls` - the commands, `[['method', params], …]` or `[{ method, params }, …]`.
-   *     - `idempotencyKey?` - makes a retried `make()` reuse the job instead of adding a second one.
+   *     - `idempotencyKey?` - sent with `add`; use one per run, so that a retry of an interrupted
+   *       `make()` does not start a second job.
    *     - `requestId?` - sent as `bx24_request_id` on the `add` call.
    *     - `pollInterval?` - ms between status checks (default 2000).
    *     - `timeout?` - ms to wait for a final status (default 600000).
@@ -116,8 +124,10 @@ export class DeferredBatchV3 extends AbstractAction {
    * @returns {Promise<Result<T[]>>} The rows in command order. On failure the
    *     `Result` carries the errors; `JSSDK_DEFERRED_BATCH_FAILED` when the job
    *     ended in `error`, `JSSDK_DEFERRED_BATCH_TIMEOUT` / `JSSDK_DEFERRED_BATCH_ABORTED`
-   *     when waiting stopped. The job is left on the portal in those cases, so
-   *     it can be collected later with {@link DeferredBatchV3.waitFor}.
+   *     when waiting stopped, or a download error. The job is left on the portal
+   *     in those cases; its id reaches you through `onStatus`, which is called
+   *     with the job as soon as it is first read, so it can be collected later
+   *     with {@link DeferredBatchV3.waitFor}.
    * @throws {SdkError} `JSSDK_DEFERRED_BATCH_EMPTY` for an empty `calls`,
    *     `JSSDK_INTERACTION_BATCH_ROW_FAIL` for a command that is neither a
    *     tuple nor a `{ method, params }` object.
@@ -223,7 +233,13 @@ export class DeferredBatchV3 extends AbstractAction {
    * @returns {Promise<Result<DeferredBatchJob[]>>}
    */
   public async list(): Promise<Result<DeferredBatchJob[]>> {
-    return this.#call<{ items: DeferredBatchJob[] }, DeferredBatchJob[]>('rest.deferredbatch.list', {}, payload => payload.items ?? [])
+    // Measured only empty, as `[]`; the usual v3 list envelope is `{ items }`.
+    // Both are read, and anything else is an error rather than an empty list.
+    return this.#call<DeferredBatchJob[] | { items?: DeferredBatchJob[] }, DeferredBatchJob[]>(
+      'rest.deferredbatch.list',
+      {},
+      payload => Array.isArray(payload) ? payload : (Array.isArray(payload.items) ? payload.items : undefined)
+    )
   }
 
   /**
@@ -248,8 +264,8 @@ export class DeferredBatchV3 extends AbstractAction {
    * })
    */
   public async waitFor(id: number, options: ActionDeferredBatchWaitV3 = {}): Promise<Result<DeferredBatchJob>> {
-    const pollInterval = Math.max(MIN_POLL_INTERVAL, options.pollInterval ?? DEFAULT_POLL_INTERVAL)
-    const timeout = options.timeout ?? DEFAULT_TIMEOUT
+    const pollInterval = Math.max(MIN_POLL_INTERVAL, finiteOr(options.pollInterval, DEFAULT_POLL_INTERVAL))
+    const timeout = Math.max(0, finiteOr(options.timeout, DEFAULT_TIMEOUT))
     const deadline = Date.now() + timeout
     const result = new Result<DeferredBatchJob>()
     let lastStatus: DeferredBatchStatus | undefined
@@ -271,11 +287,18 @@ export class DeferredBatchV3 extends AbstractAction {
 
       if (job.status !== lastStatus) {
         lastStatus = job.status
-        try {
-          options.onStatus?.(job)
-        } catch (error) {
-          // A throwing callback must not stop the wait or lose the job.
+        // A throwing callback — or an async one that rejects — must not stop
+        // the wait, lose the job, or surface as an unhandled rejection.
+        const report = (error: unknown) => {
           this._logger.warning('deferredBatch: onStatus threw', { id, error: String(error) }).catch(() => {})
+        }
+        try {
+          const returned: unknown = options.onStatus?.(job)
+          if (returned && typeof (returned as PromiseLike<unknown>).then === 'function') {
+            Promise.resolve(returned).catch(report)
+          }
+        } catch (error) {
+          report(error)
         }
       }
 
@@ -309,7 +332,7 @@ export class DeferredBatchV3 extends AbstractAction {
    * Gets the result file's download link (`rest.deferredbatch.downloadresult`).
    *
    * **The link is a credential**: on a webhook it contains the webhook secret,
-   * on OAuth an access token. Do not log it or send it anywhere you would not
+   * on OAuth (per the portal's code, not yet measured) an access token. Do not log it or send it anywhere you would not
    * send those. Most callers want {@link DeferredBatchV3.download} instead.
    *
    * @param {number} id - The job id. The job must be `done`.
@@ -347,6 +370,15 @@ export class DeferredBatchV3 extends AbstractAction {
         responseType: 'arraybuffer',
         maxRedirects: 0
       })
+      // A refused redirect on the fetch adapter is an opaque response with
+      // status 0, which axios resolves instead of rejecting.
+      if (!response.status) {
+        return result.addError(new SdkError({
+          code: 'JSSDK_DEFERRED_BATCH_DOWNLOAD_FAILED',
+          description: 'deferredBatch: the result file could not be downloaded (no status: a refused redirect or a dropped connection).',
+          status: 0
+        }), 'base-error')
+      }
       bytes = response.data
     } catch (error) {
       // The URL is deliberately left out of the error: it carries the secret.
@@ -380,9 +412,11 @@ export class DeferredBatchV3 extends AbstractAction {
    *     runtime has no `DecompressionStream`.
    *
    * @example
-   * declare const url: string
-   * // The file was downloaded some other way, e.g. by a separate worker:
-   * const rows = await $b24.actions.v3.deferredBatch.decode(await fetch(url).then(r => r.arrayBuffer()))
+   * declare const bytes: Uint8Array
+   * // The file was fetched some other way, e.g. by a separate worker. If you
+   * // fetch the link yourself, refuse redirects (`redirect: 'error'`): the link
+   * // is a credential.
+   * const rows = await $b24.actions.v3.deferredBatch.decode(bytes)
    */
   public async decode(bytes: ArrayBuffer | Uint8Array): Promise<unknown[]> {
     const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
@@ -431,15 +465,16 @@ export class DeferredBatchV3 extends AbstractAction {
   }
 
   /**
-   * One `rest.deferredbatch.*` call, as a `Result`. A hard error the transport
-   * throws (a 403 for a plan without the feature, a missing scope) becomes an
-   * error on the `Result` too, so `make()` and the steps never throw for what
-   * the portal answered.
+   * One `rest.deferredbatch.*` call, as a `Result`. A portal refusal on v3 (a
+   * 403 for a plan without the feature) already comes back as a failed
+   * `AjaxResult`; anything the transport throws instead — a key it refuses
+   * before sending, a network error after its retries — becomes an error on
+   * the `Result` too, so `make()` and the steps never throw for either.
    */
   async #call<P, D>(
     method: string,
     params: Record<string, unknown>,
-    pick: (payload: P) => D,
+    pick: (payload: P) => D | undefined,
     requestId?: string,
     idempotencyKey?: string
   ): Promise<Result<D>> {
@@ -458,7 +493,16 @@ export class DeferredBatchV3 extends AbstractAction {
     if (!response.isSuccess) {
       return this.#carryErrors(response, result)
     }
-    return result.setData(pick(response.getData()!.result))
+    const data = response.getData()?.result
+    const picked = data === undefined || data === null ? undefined : pick(data)
+    if (picked === undefined || picked === null) {
+      return result.addError(new SdkError({
+        code: 'JSSDK_DEFERRED_BATCH_UNEXPECTED_RESPONSE',
+        description: `deferredBatch: ${method} answered without the expected data.`,
+        status: 500
+      }), 'base-error')
+    }
+    return result.setData(picked)
   }
 
   #carryErrors<D>(from: Result<unknown>, to: Result<D>): Result<D> {
@@ -470,6 +514,10 @@ export class DeferredBatchV3 extends AbstractAction {
 
   #sleep(ms: number, signal?: AbortSignal): Promise<void> {
     return new Promise((resolve) => {
+      if (signal?.aborted) {
+        resolve()
+        return
+      }
       const timer = setTimeout(done, ms)
       function done() {
         clearTimeout(timer)
@@ -479,6 +527,10 @@ export class DeferredBatchV3 extends AbstractAction {
       signal?.addEventListener('abort', done, { once: true })
     })
   }
+}
+
+function finiteOr(value: number | undefined, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
 async function gunzip(data: Uint8Array): Promise<Uint8Array> {

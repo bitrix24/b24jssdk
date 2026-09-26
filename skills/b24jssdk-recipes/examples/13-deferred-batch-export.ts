@@ -5,7 +5,7 @@
  * per 50 commands, and writes them to a JSON Lines file:
  *   1. Builds one `tasks.task.get` command per id
  *   2. `actions.v3.deferredBatch.make` — adds the job, reports its status as it
- *      goes (pending → processing → done), downloads and decodes the result
+ *      goes (e.g. pending → done), downloads and decodes the result
  *      file, deletes the job
  *   3. Writes one line per task that was found
  *
@@ -62,7 +62,8 @@ function reportStatus(job: DeferredBatchJob): void {
 }
 
 async function writeRows(rows: TaskRow[], file: string): Promise<number> {
-  // A task that does not exist comes back as a row without `item`.
+  // Keep only rows that carry a task. How the portal reports a command that
+  // failed (a task that does not exist) is not measured yet, so do not assume.
   const found = rows.flatMap(row => row.item ? [JSON.stringify(row.item)] : [])
   await writeFile(file, found.join('\n') + '\n')
   return found.length
@@ -87,8 +88,9 @@ async function run($b24: TypeB24, from: number, to: number): Promise<void> {
 async function start($b24: TypeB24, from: number, to: number): Promise<void> {
   const added = await $b24.actions.v3.deferredBatch.add({
     calls: commandsFor(from, to),
-    // Starting the same export twice (a retried cron) reuses the job.
-    idempotencyKey: `tasks-export-${from}-${to}`
+    // One key per run: a retry of this run reuses the job, while tomorrow's run
+    // over the same range gets a job of its own.
+    idempotencyKey: `tasks-export-${from}-${to}-${new Date().toISOString().slice(0, 10)}`
   })
   if (!added.isSuccess) {
     throw new Error(added.getErrorMessages().join('; '))

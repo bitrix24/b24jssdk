@@ -298,7 +298,7 @@ const items = data.map((row) => row.item)
 
 ## `deferredBatch` — thousands of commands as a background job (`restApi:v3`)
 
-The portal's `rest.deferredbatch.*`: one `add` takes all commands (5000 measured),
+The portal's `rest.deferredbatch.*`: one `add` takes all commands (5000 measured, #570),
 the portal runs them in the background, and the results come back as a gzip JSON
 file. `make()` does all of it and resolves with the rows in command order:
 
@@ -311,7 +311,7 @@ const calls: BatchCommandsArrayUniversal = ids.map(id => ['tasks.task.get', { id
 
 const response = await $b24.actions.v3.deferredBatch.make<{ item?: { id: number, title: string } }>({
   calls,
-  onStatus: job => console.log(`job #${job.id}: ${job.status}`) // pending → processing → done
+  onStatus: job => console.log(`job #${job.id}: ${job.status}`) // e.g. pending → done
 })
 
 if (!response.isSuccess) throw new Error(response.getErrorMessages().join('; '))
@@ -325,7 +325,9 @@ To start a job in one request and collect it in another, use the steps:
 yourself into rows.
 
 - Needs a plan with deferred batches; otherwise `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN` — fall back to `batchByChunk`.
-- Never throws for what the portal answered: check `isSuccess`. Codes: `JSSDK_DEFERRED_BATCH_FAILED` (job `error`, message on `getData().errorMessage` of `waitFor`), `_TIMEOUT`, `_ABORTED` (the job keeps running), `_DOWNLOAD_FAILED`, `_DECODE_FAILED`.
+- Never throws for what the portal answered: check `isSuccess`. Codes: `JSSDK_DEFERRED_BATCH_FAILED` (job `error`; `waitFor(id)` returns the job with its `errorMessage`), `_TIMEOUT`, `_ABORTED` (the job keeps running — keep its id from `onStatus`), `_DOWNLOAD_FAILED`, `_DECODE_FAILED`, `_UNEXPECTED_RESPONSE`, `_GZIP_UNSUPPORTED`; thrown before sending: `_EMPTY`.
+- One `idempotencyKey` per run, not per range: a key reused after the job was deleted replays a dead id.
+- Measured on a webhook from Node; a browser (`B24Frame`) is unverified — collect the file on a server if it fails there.
 - `getDownloadUrl(id)` returns a URL that carries the webhook secret or access token — do not log it; prefer `download(id)`.
 
 ## `callList.make` — small lists in memory

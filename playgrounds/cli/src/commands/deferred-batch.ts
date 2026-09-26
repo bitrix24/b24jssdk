@@ -8,7 +8,7 @@ import { createB24Client } from '../utils'
 /**
  * CLI command — the deferred (background) batch, `actions.v3.deferredBatch`.
  *
- * Three modes, one per way of using it:
+ * Four modes:
  *
  *   - `run`     — everything in one call: `make()` adds the job, prints each
  *                 status change through `onStatus`, downloads and decodes the
@@ -46,6 +46,9 @@ export default defineCommand({
     const mode = String(args.mode)
     const count = Number.parseInt(String(args.count), 10)
     const pollInterval = Number.parseInt(String(args.pollInterval), 10)
+    if (Number.isNaN(pollInterval) || pollInterval < 250) {
+      throw invalid('--pollInterval must be an integer of at least 250 (ms).')
+    }
     if (!['run', 'start', 'collect', 'list'].includes(mode)) {
       throw invalid(`Unknown --mode=${mode}. Allowed: run | start | collect | list.`)
     }
@@ -71,6 +74,7 @@ export default defineCommand({
         })
         if (!response.isSuccess) {
           logger.error('deferred batch failed', { errors: response.getErrorMessages() }).catch(() => {})
+          process.exitCode = 1
           return
         }
         const rows = response.getData()!
@@ -87,6 +91,7 @@ export default defineCommand({
         const added = await batch.add({ calls })
         if (!added.isSuccess) {
           logger.error('add failed', { errors: added.getErrorMessages() }).catch(() => {})
+          process.exitCode = 1
           return
         }
         const job = added.getData()!
@@ -105,11 +110,13 @@ export default defineCommand({
             errors: finished.getErrorMessages(),
             errorMessage: finished.getData()?.errorMessage
           }).catch(() => {})
+          process.exitCode = 1
           return
         }
         const rows = await batch.download(id)
         if (!rows.isSuccess) {
           logger.error('download failed', { errors: rows.getErrorMessages() }).catch(() => {})
+          process.exitCode = 1
           return
         }
         logger.info('collected', { rows: rows.getData()!.length }).catch(() => {})
@@ -121,6 +128,7 @@ export default defineCommand({
       const jobs = await batch.list()
       if (!jobs.isSuccess) {
         logger.error('list failed', { errors: jobs.getErrorMessages() }).catch(() => {})
+        process.exitCode = 1
         return
       }
       for (const job of jobs.getData()!) {

@@ -41,6 +41,14 @@ export * from './core/version-manager'
 export * from './core/abstract-b24'
 export * from './core/http/v2'
 export * from './core/http/v3'
+export type {
+  DeferredBatchJob,
+  DeferredBatchStatus,
+  DeferredBatchCalls,
+  ActionDeferredBatchV3,
+  ActionDeferredBatchAddV3,
+  ActionDeferredBatchWaitV3
+} from './core/actions/v3/deferred-batch'
 
 export * from './tools/scroll-size'
 export * from './tools/use-formatters'

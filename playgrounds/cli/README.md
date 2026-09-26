@@ -287,6 +287,38 @@ pnpm run dev list tasks [--limit=<number>]
 |----------|----------|---------|-------------|
 | `--limit` | No | `50` | Page size per request (the server caps `tasks.task.list` at 50) |
 
+### Deferred Batch
+
+Runs a deferred (background) batch with `actions.v3.deferredBatch` — the portal
+takes all commands in one call, runs them as a job, and the SDK decodes the
+gzip result file into rows. The commands are `user.current` repeated `--count`
+times. Needs a portal plan with deferred batches; otherwise every call answers
+`FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN`.
+
+**Syntax:**
+
+```bash
+pnpm run dev deferred-batch [--mode=<run|start|collect|list>] [--count=<n>] [--id=<jobId>] [--pollInterval=<ms>] [--keep=<true|false>]
+```
+
+**Arguments:**
+
+| Argument | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `--mode` | No | `run` | `run` — `make()`: add, print each status change, download, decode, delete. `start` — `add()` only, prints the job id. `collect` — `waitFor()` → `download()` → `delete()` for `--id`. `list` — the jobs on the portal. |
+| `--count` | No | `100` | Number of commands for `run` / `start` |
+| `--id` | For `collect` | — | Job id printed by `start` |
+| `--pollInterval` | No | `2000` | Milliseconds between status checks |
+| `--keep` | No | `false` | `run` only: keep the job instead of deleting it |
+
+**Examples:**
+
+```bash
+pnpm run dev deferred-batch --mode=run --count=2000
+pnpm run dev deferred-batch --mode=start --count=5000   # prints: started job #12 …
+pnpm run dev deferred-batch --mode=collect --id=12
+```
+
 ### Smoke Retry
 
 Manual smoke tests for the retry-policy fix.

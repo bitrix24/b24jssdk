@@ -10,11 +10,11 @@ Project skills for the `@bitrix24/b24jssdk` workspace. Source of truth:
 | Skill | When to use |
 | --- | --- |
 | **b24jssdk-core** | First skill to load. Picks the right entry point (B24Hook / B24Frame / B24OAuth), shows boot/teardown, error handling, hardErrorCodes/softErrorCodes/retryOnNetworkError tuning. |
-| **b24jssdk-rest** | The canonical REST surface: `actions.v{2,3}.{call,batch,callList,fetchList,batchByChunk}.make()`. Picking between v2 and v3, AjaxResult shape, batch semantics. |
+| **b24jssdk-rest** | The canonical REST surface: `actions.v{2,3}.{call,batch,callList,fetchList,batchByChunk}.make()`, and `actions.v3.deferredBatch`. Picking between v2 and v3, AjaxResult shape, batch semantics. |
 | **b24jssdk-filtering** | Two filter dialects — v2 prefix-keyed objects (`'>=createdTime'`) and v3 array-of-triples (`[['fld', '>=', v]]`). NOT, IN, dates via `Text.toB24Format`, the `order`-stripping rule of `callList`. |
 | **b24jssdk-frame-ui** | UI managers available only inside Bitrix24 iframe: slider, dialog (`selectUser/Users/CRM/Access`), parent, placement (with `setValue`), options, auth. |
 | **b24jssdk-helpers** | `useB24Helper`, `B24HelperManager`, Pull client, currency formatting, app/user options. |
-| **b24jssdk-recipes** | Twelve end-to-end mini-apps (CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling, event registration, OAuth install) — built on `actions.v{2,3}.*`. |
+| **b24jssdk-recipes** | Thirteen end-to-end mini-apps (CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling, event registration, OAuth install, deferred-batch export) — built on `actions.v{2,3}.*`. |
 | **b24jssdk-vibecode** | How to use the SDK alongside the VibeCode HTTP API. Mostly: don't — keep them apart. The "AI add-on" pattern is the only sane mix. |
 
 ## Verification status

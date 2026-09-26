@@ -277,7 +277,7 @@ describe('actions.v3.deferredBatch', () => {
 
     expect([...finished.errors.values()].map(e => (e as { code?: string }).code)).toEqual(['JSSDK_DEFERRED_BATCH_ABORTED'])
     expect(Date.now() - startedAt).toBeLessThan(2_000)
-  })
+  }, 3_000)
 
   it('@apiV3 a non-finite pollInterval falls back to the default instead of polling in a tight loop', async () => {
     const b24 = hook()
@@ -287,7 +287,7 @@ describe('actions.v3.deferredBatch', () => {
 
     expect(finished.isSuccess).toBe(false)
     expect(p.called('rest.deferredbatch.get').length).toBeLessThanOrEqual(2)
-  })
+  }, 3_000)
 
   it('@apiV3 a download answered with no status (a refused redirect on fetch) is a download failure', async () => {
     const b24 = hook()
@@ -358,6 +358,67 @@ describe('actions.v3.deferredBatch', () => {
     await b24.actions.v3.deferredBatch.waitFor(7, { pollInterval: 1, timeout: 200 })
 
     expect(p.called('rest.deferredbatch.get')).toHaveLength(1)
+  })
+
+  it('@apiV3 make() hands the new job to onStatus before waiting, so an early abort does not lose its id', async () => {
+    const b24 = hook()
+    const p = portal(b24, { statuses: [job('processing')] })
+    const controller = new AbortController()
+    const ids: number[] = []
+
+    const response = await b24.actions.v3.deferredBatch.make({
+      calls: [['user.current']],
+      signal: controller.signal,
+      onStatus: (j) => {
+        ids.push(j.id)
+        controller.abort()
+      }
+    })
+
+    expect([...response.errors.values()].map(e => (e as { code?: string }).code)).toEqual(['JSSDK_DEFERRED_BATCH_ABORTED'])
+    expect(ids).toEqual([7])
+    expect(p.called('rest.deferredbatch.get')).toHaveLength(0)
+  }, 3_000)
+
+  it('@apiV3 make() with an already-aborted signal adds nothing', async () => {
+    const b24 = hook()
+    const p = portal(b24)
+    const controller = new AbortController()
+    controller.abort()
+
+    const response = await b24.actions.v3.deferredBatch.make({ calls: [['user.current']], signal: controller.signal })
+
+    expect([...response.errors.values()].map(e => (e as { code?: string }).code)).toEqual(['JSSDK_DEFERRED_BATCH_ABORTED'])
+    expect(p.sent).toHaveLength(0)
+  })
+
+  it('@apiV3 a negative timeout is treated as 0', async () => {
+    const b24 = hook()
+    portal(b24, { statuses: [job('processing')] })
+
+    const finished = await b24.actions.v3.deferredBatch.waitFor(7, { timeout: -5 })
+
+    expect(finished.getErrorMessages().join(' ')).toContain('within 0 ms')
+  })
+
+  it('@apiV3 timeout: Infinity waits until the signal aborts', async () => {
+    const b24 = hook()
+    portal(b24, { statuses: [job('processing')] })
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 600)
+
+    const finished = await b24.actions.v3.deferredBatch.waitFor(7, { pollInterval: 250, timeout: Number.POSITIVE_INFINITY, signal: controller.signal })
+
+    expect([...finished.errors.values()].map(e => (e as { code?: string }).code)).toEqual(['JSSDK_DEFERRED_BATCH_ABORTED'])
+  }, 3_000)
+
+  it('@apiV3 delete() counts any success, whatever the answer carries', async () => {
+    const b24 = hook()
+    vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(ok(null) as never)
+
+    const deleted = await b24.actions.v3.deferredBatch.delete(7)
+
+    expect(deleted.isSuccess).toBe(true)
   })
 
   describe('decode()', () => {

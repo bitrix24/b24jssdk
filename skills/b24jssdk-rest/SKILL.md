@@ -326,7 +326,7 @@ yourself into rows.
 
 - Needs a plan with deferred batches; otherwise `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN` — fall back to `batchByChunk`.
 - Never throws for what the portal answered: check `isSuccess`. Codes: `JSSDK_DEFERRED_BATCH_FAILED` (job `error`; `waitFor(id)` returns the job with its `errorMessage`), `_TIMEOUT`, `_ABORTED` (the job keeps running — keep its id from `onStatus`), `_DOWNLOAD_FAILED`, `_DECODE_FAILED`, `_UNEXPECTED_RESPONSE`, `_GZIP_UNSUPPORTED`; thrown before sending: `_EMPTY`.
-- One `idempotencyKey` per run, not per range: a key reused after the job was deleted replays a dead id.
+- One `idempotencyKey` per run, not per range: by the portal's idempotency contract (not measured for deferred batches), a key reused after the job was deleted would replay a dead id.
 - Measured on a webhook from Node; a browser (`B24Frame`) is unverified — collect the file on a server if it fails there.
 - `getDownloadUrl(id)` returns a URL that carries the webhook secret or access token — do not log it; prefer `download(id)`.
 

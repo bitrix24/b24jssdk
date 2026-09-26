@@ -5,7 +5,7 @@ description: End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}
 
 # b24jssdk recipes
 
-Thirteen end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each function body takes `$b24: TypeB24` so the same code works in-frame too — just swap the boot for `initializeB24Frame()`.
+Thirteen end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each function body takes `$b24: TypeB24` so the same code works in-frame too — just swap the boot for `initializeB24Frame()`. (Recipe 13 is the exception until a browser is verified: its result file is downloaded from the portal, see the DeferredBatch guide.)
 
 All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The legacy `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` was removed in 3.0.0 — do not generate code against it.
 

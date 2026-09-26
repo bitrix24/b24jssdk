@@ -5,7 +5,8 @@ import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
  * Live round trip of `actions.v3.deferredBatch` (#570).
  *
  * Needs a portal whose plan includes deferred batches and a webhook with the
- * `rest` and `user` scopes. On other plans the portal answers
+ * `user` scope (for the `user.current` commands); what scope the
+ * `rest.deferredbatch.*` methods need has not been measured. On other plans the portal answers
  * `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN` and this spec reports red with that
  * text — a reason to exclude it locally, not a regression.
  *

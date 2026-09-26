@@ -20,7 +20,9 @@
  *   B24_HOOK=https://your.bitrix24.com/rest/1/secret \
  *   npx tsx 13-deferred-batch-export.ts run 1 5000        # ids 1..5000, all in one go
  *
- *   ... 13-deferred-batch-export.ts start 1 5000           # prints the job id
+ *   ... 13-deferred-batch-export.ts start 1 5000 <runId>   # prints the job id
+ *                                                          # runId: your scheduler's run id,
+ *                                                          # the same on a retry of that run
  *   ... 13-deferred-batch-export.ts collect <jobId>         # waits, writes, deletes
  */
 
@@ -85,12 +87,13 @@ async function run($b24: TypeB24, from: number, to: number): Promise<void> {
 }
 
 /** Step 1 of 2: start the job and print its id. */
-async function start($b24: TypeB24, from: number, to: number): Promise<void> {
+async function start($b24: TypeB24, from: number, to: number, runId: string): Promise<void> {
   const added = await $b24.actions.v3.deferredBatch.add({
     calls: commandsFor(from, to),
-    // One key per run: a retry of this run reuses the job, while tomorrow's run
-    // over the same range gets a job of its own.
-    idempotencyKey: `tasks-export-${from}-${to}-${new Date().toISOString().slice(0, 10)}`
+    // One key per run, from the scheduler's run id: a retry of the same run
+    // sends the same key, any other run a new one. (The portal's idempotency
+    // contract; not measured for deferred batches.)
+    idempotencyKey: `tasks-export-${from}-${to}-${runId}`
   })
   if (!added.isSuccess) {
     throw new Error(added.getErrorMessages().join('; '))
@@ -119,13 +122,13 @@ async function collect($b24: TypeB24, jobId: number): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const [mode, a, b] = process.argv.slice(2)
+  const [mode, a, b, runId] = process.argv.slice(2)
   const $b24 = bootB24()
   try {
     if (mode === 'run') await run($b24, Number(a ?? 1), Number(b ?? 100))
-    else if (mode === 'start') await start($b24, Number(a ?? 1), Number(b ?? 100))
+    else if (mode === 'start') await start($b24, Number(a ?? 1), Number(b ?? 100), runId ?? new Date().toISOString())
     else if (mode === 'collect') await collect($b24, Number(a))
-    else throw new Error('usage: run <from> <to> | start <from> <to> | collect <jobId>')
+    else throw new Error('usage: run <from> <to> | start <from> <to> [runId] | collect <jobId>')
   } finally {
     $b24.destroy()
   }

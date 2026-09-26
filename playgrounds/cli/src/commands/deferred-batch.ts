@@ -17,12 +17,13 @@ import { createB24Client } from '../utils'
  *                 running on the portal.
  *   - `collect` — `waitFor()` → `download()` → `delete()` for a job id from
  *                 `start`, e.g. in a later run.
- *   - `list`    — the jobs this webhook has on the portal.
+ *   - `list`    — the jobs `rest.deferredbatch.list` returns for this webhook.
  *
- * Commands are `user.current` repeated `--count` times: it needs only the
- * `user` scope and returns the same row every time, so the summary is easy to
+ * Commands are `user.current` repeated `--count` times: the webhook needs the
+ * `user` scope for them, and every row is the same, so the summary is easy to
  * check. The portal's plan must include deferred batches; otherwise every call
- * answers FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN.
+ * answers FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN. Which scope the
+ * `rest.deferredbatch.*` methods themselves need has not been measured.
  *
  * Required env (in `playgrounds/cli/.env`):
  *

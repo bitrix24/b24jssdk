@@ -42,8 +42,9 @@ export type ActionDeferredBatchAddV3 = {
   /**
    * `Idempotency-Key` for the `add` call. `add` is a create call, so the
    * portal's idempotency rules apply (a repeat with the same key and body
-   * replays the first answer) — observed only as far as the key being echoed.
-   * Give each run its own key: a key reused after the job was deleted replays
+   * replays the first answer) — observed only as far as the key being echoed;
+   * a repeat was not measured for deferred batches. Give each run its own key:
+   * by the same contract, a key reused after the job was deleted would replay
    * the id of a job that no longer exists.
    */
   idempotencyKey?: string
@@ -112,7 +113,8 @@ export class DeferredBatchV3 extends AbstractAction {
    *
    * @param {ActionDeferredBatchV3} options
    *     - `calls` - the commands, `[['method', params], …]` or `[{ method, params }, …]`.
-   *     - `idempotencyKey?` - sent with `add`; use one per run, so that a retry of an interrupted
+   *     - `idempotencyKey?` - sent with `add`; use one per run, so that — per the portal's
+   *       idempotency contract, not measured for deferred batches — a retry of an interrupted
    *       `make()` does not start a second job.
    *     - `requestId?` - sent as `bx24_request_id` on the `add` call.
    *     - `pollInterval?` - ms between status checks (default 2000).
@@ -126,8 +128,9 @@ export class DeferredBatchV3 extends AbstractAction {
    *     ended in `error`, `JSSDK_DEFERRED_BATCH_TIMEOUT` / `JSSDK_DEFERRED_BATCH_ABORTED`
    *     when waiting stopped, or a download error. The job is left on the portal
    *     in those cases; its id reaches you through `onStatus`, which is called
-   *     with the job as soon as it is first read, so it can be collected later
-   *     with {@link DeferredBatchV3.waitFor}.
+   *     with the job as soon as `add` returns it, so it can be collected later
+   *     with {@link DeferredBatchV3.waitFor}. An already-aborted `signal` adds
+   *     nothing.
    * @throws {SdkError} `JSSDK_DEFERRED_BATCH_EMPTY` for an empty `calls`,
    *     `JSSDK_INTERACTION_BATCH_ROW_FAIL` for a command that is neither a
    *     tuple nor a `{ method, params }` object.
@@ -153,13 +156,23 @@ export class DeferredBatchV3 extends AbstractAction {
   public override async make<T = unknown>(options: ActionDeferredBatchV3): Promise<Result<T[]>> {
     const result = new Result<T[]>()
 
+    // Nothing is added once the caller has given up already.
+    if (options.signal?.aborted) {
+      return result.addError(abortedError(), 'base-error')
+    }
+
     const added = await this.add(options)
     if (!added.isSuccess) {
       return this.#carryErrors(added, result)
     }
-    const id = added.getData()!.id
+    const job = added.getData()!
+    const id = job.id
 
-    const finished = await this.waitFor(id, options)
+    // The new job goes to `onStatus` at once, so its id reaches the caller even
+    // if waiting ends before the first status check — an abort, a failed `get`.
+    this.#reportStatus(options.onStatus, job, id)
+
+    const finished = await this.#wait(id, options, job.status)
     if (!finished.isSuccess) {
       return this.#carryErrors(finished, result)
     }
@@ -228,7 +241,8 @@ export class DeferredBatchV3 extends AbstractAction {
   }
 
   /**
-   * Lists the jobs of this webhook or application (`rest.deferredbatch.list`).
+   * Lists the caller's deferred batch jobs (`rest.deferredbatch.list`). Measured
+   * only empty; which jobs it includes is the portal's rule.
    *
    * @returns {Promise<Result<DeferredBatchJob[]>>}
    */
@@ -264,19 +278,24 @@ export class DeferredBatchV3 extends AbstractAction {
    * })
    */
   public async waitFor(id: number, options: ActionDeferredBatchWaitV3 = {}): Promise<Result<DeferredBatchJob>> {
+    return this.#wait(id, options, undefined)
+  }
+
+  async #wait(
+    id: number,
+    options: ActionDeferredBatchWaitV3,
+    reportedStatus: DeferredBatchStatus | undefined
+  ): Promise<Result<DeferredBatchJob>> {
     const pollInterval = Math.max(MIN_POLL_INTERVAL, finiteOr(options.pollInterval, DEFAULT_POLL_INTERVAL))
-    const timeout = Math.max(0, finiteOr(options.timeout, DEFAULT_TIMEOUT))
+    // `Infinity` is allowed (wait until `signal` aborts); only NaN falls back.
+    const timeout = Math.max(0, typeof options.timeout === 'number' && !Number.isNaN(options.timeout) ? options.timeout : DEFAULT_TIMEOUT)
     const deadline = Date.now() + timeout
     const result = new Result<DeferredBatchJob>()
-    let lastStatus: DeferredBatchStatus | undefined
+    let lastStatus = reportedStatus
 
     for (;;) {
       if (options.signal?.aborted) {
-        return result.addError(new SdkError({
-          code: 'JSSDK_DEFERRED_BATCH_ABORTED',
-          description: 'deferredBatch: waiting was aborted; the job keeps running on the portal.',
-          status: 499
-        }), 'base-error')
+        return result.addError(abortedError(), 'base-error')
       }
 
       const current = await this.get(id)
@@ -287,19 +306,7 @@ export class DeferredBatchV3 extends AbstractAction {
 
       if (job.status !== lastStatus) {
         lastStatus = job.status
-        // A throwing callback — or an async one that rejects — must not stop
-        // the wait, lose the job, or surface as an unhandled rejection.
-        const report = (error: unknown) => {
-          this._logger.warning('deferredBatch: onStatus threw', { id, error: String(error) }).catch(() => {})
-        }
-        try {
-          const returned: unknown = options.onStatus?.(job)
-          if (returned && typeof (returned as PromiseLike<unknown>).then === 'function') {
-            Promise.resolve(returned).catch(report)
-          }
-        } catch (error) {
-          report(error)
-        }
+        this.#reportStatus(options.onStatus, job, id)
       }
 
       if (job.status === 'done') {
@@ -447,7 +454,8 @@ export class DeferredBatchV3 extends AbstractAction {
    * @returns {Promise<Result<boolean>>}
    */
   public async delete(id: number): Promise<Result<boolean>> {
-    return this.#call<unknown, boolean>('rest.deferredbatch.delete', { id }, () => true)
+    // What `delete` answers was not measured, so any success counts.
+    return this.#call<unknown, boolean>('rest.deferredbatch.delete', { id }, () => true, undefined, undefined, false)
   }
 
   #toCommands(calls: DeferredBatchCalls): Array<{ method: string, query: Record<string, unknown> }> {
@@ -476,7 +484,8 @@ export class DeferredBatchV3 extends AbstractAction {
     params: Record<string, unknown>,
     pick: (payload: P) => D | undefined,
     requestId?: string,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    requireResult = true
   ): Promise<Result<D>> {
     const result = new Result<D>()
     let response: AjaxResult<P>
@@ -494,7 +503,7 @@ export class DeferredBatchV3 extends AbstractAction {
       return this.#carryErrors(response, result)
     }
     const data = response.getData()?.result
-    const picked = data === undefined || data === null ? undefined : pick(data)
+    const picked = data === undefined || data === null ? (requireResult ? undefined : pick(data as P)) : pick(data)
     if (picked === undefined || picked === null) {
       return result.addError(new SdkError({
         code: 'JSSDK_DEFERRED_BATCH_UNEXPECTED_RESPONSE',
@@ -503,6 +512,24 @@ export class DeferredBatchV3 extends AbstractAction {
       }), 'base-error')
     }
     return result.setData(picked)
+  }
+
+  /**
+   * Calls `onStatus`. A throwing callback — or an async one that rejects — must
+   * not stop the wait, lose the job, or surface as an unhandled rejection.
+   */
+  #reportStatus(onStatus: ((job: DeferredBatchJob) => void) | undefined, job: DeferredBatchJob, id: number): void {
+    const report = (error: unknown) => {
+      this._logger.warning('deferredBatch: onStatus threw', { id, error: String(error) }).catch(() => {})
+    }
+    try {
+      const returned: unknown = onStatus?.(job)
+      if (returned && typeof (returned as PromiseLike<unknown>).then === 'function') {
+        Promise.resolve(returned).catch(report)
+      }
+    } catch (error) {
+      report(error)
+    }
   }
 
   #carryErrors<D>(from: Result<unknown>, to: Result<D>): Result<D> {
@@ -527,6 +554,14 @@ export class DeferredBatchV3 extends AbstractAction {
       signal?.addEventListener('abort', done, { once: true })
     })
   }
+}
+
+function abortedError(): SdkError {
+  return new SdkError({
+    code: 'JSSDK_DEFERRED_BATCH_ABORTED',
+    description: 'deferredBatch: waiting was aborted; a job already added keeps running on the portal.',
+    status: 499
+  })
 }
 
 function finiteOr(value: number | undefined, fallback: number): number {

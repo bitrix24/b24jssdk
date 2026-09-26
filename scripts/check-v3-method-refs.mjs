@@ -5,9 +5,10 @@
  * portal's real v3 surface. Two layers, both pure static text analysis.
  *
  * **Phantom v3 actions** (#216). `ActionsManagerV3` exposes only call /
- * callList / fetchList / callTail / fetchTail / batch / batchByChunk. Any other
- * `actions.v3.<x>` — e.g. the `actions.v3.aggregate` that #164 had to walk back
- * — resolves to `undefined` at runtime, so it is flagged wherever it appears.
+ * callList / fetchList / callTail / fetchTail / aggregate / batch /
+ * batchByChunk / deferredBatch. Any other `actions.v3.<x>` resolves to
+ * `undefined` at runtime, so it is flagged wherever it appears. (#164 once
+ * had to walk back an `actions.v3.aggregate` that did not exist then.)
  *
  * **Phantom v3 method names** (#463). This is the layer the old NOTE here said
  * had been dropped with the hardcoded `version-manager` allowlist. It is back,
@@ -51,7 +52,7 @@ const SNAPSHOT_DIR = process.env.V3_SNAPSHOT_DIR
   ? resolve(process.env.V3_SNAPSHOT_DIR)
   : join(ROOT, 'scripts', 'data')
 
-const V3_ACTIONS = new Set(['call', 'callList', 'fetchList', 'callTail', 'fetchTail', 'aggregate', 'batch', 'batchByChunk'])
+const V3_ACTIONS = new Set(['call', 'callList', 'fetchList', 'callTail', 'fetchTail', 'aggregate', 'batch', 'batchByChunk', 'deferredBatch'])
 const REAL_ACTIONS = [...V3_ACTIONS].join(' / ')
 
 const args = new Set(process.argv.slice(2))

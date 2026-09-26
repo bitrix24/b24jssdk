@@ -1,11 +1,11 @@
 ---
 name: b24jssdk-recipes
-description: End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling cookbook, event registration, OAuth install handshake. Each recipe is a single TypeScript program using B24Hook on the server side. Load when the user asks for a working example or a starting template.
+description: End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling cookbook, event registration, OAuth install handshake, deferred-batch export. Each recipe is a single TypeScript program using B24Hook on the server side. Load when the user asks for a working example or a starting template.
 ---
 
 # b24jssdk recipes
 
-Twelve end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each function body takes `$b24: TypeB24` so the same code works in-frame too — just swap the boot for `initializeB24Frame()`.
+Thirteen end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each function body takes `$b24: TypeB24` so the same code works in-frame too — just swap the boot for `initializeB24Frame()`. (Recipe 13 is the exception until a browser is verified: its result file is downloaded from the portal, see the DeferredBatch guide.)
 
 All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The legacy `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` was removed in 3.0.0 — do not generate code against it.
 
@@ -23,6 +23,7 @@ All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The le
 | 10 | `examples/10-error-handling.ts` | Node | any | Error-handling cookbook: AjaxError vs SdkError taxonomy; `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` knobs via `setRestrictionManagerParams`; non-idempotent-call safety, with `idempotencyKey` as the v3 answer |
 | 11 | `examples/11-event-registration.ts` | Node | `crm` | CLI tool — list / bind / unbind outbound webhook events (`event.get`, `event.bind`, `event.unbind`). Pairs with recipe 7. |
 | 12 | `examples/12-oauth-install.ts` | Node, `express` | OAuth app | OAuth install handshake: handle `ONAPPINSTALL` / `ONAPPUPDATE` / `ONAPPUNINSTALL` events, persist tokens per portal, build `B24OAuth` on demand, refresh callback writes new tokens back to storage |
+| 13 | `examples/13-deferred-batch-export.ts` | Node | `task` | Bulk export of thousands of tasks (list pages, since one failing command fails the job) as ONE background job via `actions.v3.deferredBatch` — `make()` with an `onStatus` progress callback, or the `add` → `waitFor` → `download` → `delete` steps across two runs; writes JSON Lines |
 
 ## Shared library (`lib/`)
 
@@ -33,7 +34,7 @@ primitive, or logic with edge cases a test pins. It is not for shared plumbing: 
 are recipes, and every extraction costs a reader the ability to lift one file and run
 it. When in doubt, leave the code in the recipe.
 
-Worked example of the rule: `bootB24()` is byte-identical in eleven of the twelve
+Worked example of the rule: `bootB24()` is byte-identical in twelve of the thirteen
 recipes and stays that way on purpose. It has no edge cases to pin and no security
 weight, and it is the first thing a reader needs to see when they open a recipe —
 hiding it behind an import would cost more than the duplication does.
@@ -59,7 +60,7 @@ binding a port. Keep it when copying those two recipes. Before adding it to a th
 `lib/` route above: extract the logic and test it there. Reach for the guard only when
 the function cannot reasonably leave the recipe — `tick` closes over a live bot and the
 poll cursor, `handleUninstall` is an Express handler — because two shapes of recipe is
-already one more than ideal, and the guard spreading to all twelve would quietly retire
+already one more than ideal, and the guard spreading to all thirteen would quietly retire
 the `lib/` convention. The exported `function`s in those files are exported for the same
 reason, and `export` is inert when the file runs directly.
 

@@ -1,6 +1,6 @@
 ---
 name: b24jssdk-rest
-description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk (and the v3-only native-keyset callTail/fetchTail) for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface was removed in 3.0.0 — do not generate code against it.
+description: Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk (and the v3-only native-keyset callTail/fetchTail and the background deferredBatch) for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface was removed in 3.0.0 — do not generate code against it.
 ---
 
 # b24jssdk REST patterns (actions API)
@@ -30,6 +30,7 @@ Rule of thumb:
 | Single REST call | `actions.v{2,3}.call.make` |
 | 2–50 related calls in one HTTP round-trip | `actions.v{2,3}.batch.make` |
 | Many independent calls (>50) | `actions.v{2,3}.batchByChunk.make` |
+| Thousands of calls that may run in the background on the portal (`restApi:v3`, plan permitting) | `actions.v3.deferredBatch.make` — one request to start, `onStatus` for progress, decoded rows at the end |
 | Read a list small enough to hold in memory and process it there | `actions.v{2,3}.callList.make` |
 | Read a large list with low memory footprint | `actions.v{2,3}.fetchList.make` (async iterator) |
 | Read a v3 method that exposes a native `tail` (keyset) action — e.g. `main.eventlog.tail` | `actions.v3.callTail.make` / `actions.v3.fetchTail.make` (v3 only) |
@@ -295,6 +296,44 @@ const data = response.getData()! // Flat array of { item: CrmItem }
 const items = data.map((row) => row.item)
 ```
 
+## `deferredBatch` — thousands of commands as a background job (`restApi:v3`)
+
+The portal's `rest.deferredbatch.*`: one `add` takes all commands (5000 measured, #570),
+the portal runs them in the background, and the results come back as a gzip JSON
+file. `make()` does all of it and resolves with the rows in command order:
+
+```ts
+import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
+
+// List pages, not a `get` per id: one failing command fails the whole job.
+const calls: BatchCommandsArrayUniversal = Array.from({ length: 200 }, (_, i) =>
+  ['tasks.task.list', { select: ['id', 'title'], order: { id: 'ASC' }, pagination: { page: i + 1, limit: 50 } }]
+)
+
+const response = await $b24.actions.v3.deferredBatch.make<{ items: Array<{ id: number, title: string }> }>({
+  calls,
+  onStatus: job => console.log(`job #${job.id}: ${job.status}`) // pending → processing → done
+})
+
+if (!response.isSuccess) throw new Error(response.getErrorMessages().join('; '))
+
+const titles = response.getData()!.flatMap(page => page.items.map(task => task.title))
+```
+
+To start a job in one request and collect it in another, use the steps:
+`add({ calls })` → keep `getData()!.id` → later `get(id)` / `waitFor(id)` →
+`download(id)` → `delete(id)`. `decode(bytes)` turns a file you downloaded
+yourself into rows.
+
+- Needs a plan with deferred batches; otherwise `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN` — fall back to `batchByChunk`.
+- **v3 methods only**: a v2 method (`user.current`) is refused at `add` with `INVALID_METHOD`.
+- **All or nothing** (measured): one failing command (`tasks.task.get` of a missing id) ends the job in `error` with **no result file** — no partial rows. Use commands that cannot fail on data, e.g. list pages.
+- Duration depends on the method (5000 cheap `get`s: seconds; 500 `rest.scope.list`: over 15 min) — set `timeout`. A `processing` job cannot be deleted (`BATCH_PROCESSING`).
+- Never throws for what the portal answered: check `isSuccess`. Codes: `JSSDK_DEFERRED_BATCH_FAILED` (job `error`; `waitFor(id)` returns the job with its `errorMessage`), `_TIMEOUT`, `_ABORTED` (the job keeps running — keep its id from `onStatus`), `_DOWNLOAD_FAILED`, `_DECODE_FAILED`, `_UNEXPECTED_RESPONSE`, `_GZIP_UNSUPPORTED`; thrown before sending: `_EMPTY`.
+- One `idempotencyKey` per run, not per range: by the portal's idempotency contract (not measured for deferred batches), a key reused after the job was deleted would replay a dead id.
+- Measured through a webhook from Node; a browser (`B24Frame`) is unverified — collect the file on a server if it fails there.
+- `getDownloadUrl(id)` returns a URL that carries the webhook secret or access token — do not log it; prefer `download(id)`.
+
 ## `callList.make` — small lists in memory
 
 Pages through the **whole** result set and returns it as one array — there is no item ceiling; `limit` sizes a page, not the total. Internally pages with a keyset cursor on `cursorIdKey` (which defaults to `idKey`).
@@ -482,6 +521,7 @@ Only `call.make` has a `result` property. Reading `.result` off the others gives
 | `batch.make` | the keyed map, or an array for the array form | `getData()!.myKey` |
 | `callList.make` | a flat array | `getData()![0]` |
 | `batchByChunk.make` | a flat array | `getData()![0]` |
+| `deferredBatch.make` / `.download` | a flat array, one row per command | `getData()![0]` |
 | `fetchList.make` | *(async generator)* — yields arrays | `for await (const chunk of …)` |
 
 With `options.returnAjaxResult: true`, each entry of a batch result is an `AjaxResult` rather than the raw payload, so you reach a row with `getData()!.myKey.getData()!.result`.

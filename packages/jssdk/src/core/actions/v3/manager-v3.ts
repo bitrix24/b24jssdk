@@ -10,6 +10,7 @@ import { FetchTailV3 } from './fetch-tail'
 import { AggregateV3 } from './aggregate'
 import { BatchV3 } from './batch'
 import { BatchByChunkV3 } from './batch-by-chunk'
+import { DeferredBatchV3 } from './deferred-batch'
 
 const callName = Symbol('call_V3')
 const callListName = Symbol('callList_V3')
@@ -19,6 +20,7 @@ const fetchTailName = Symbol('fetchTail_V3')
 const aggregateName = Symbol('aggregate_V3')
 const batchName = Symbol('batch_V3')
 const batchByChunkName = Symbol('batchByChunk_V3')
+const deferredBatchName = Symbol('deferredBatch_V3')
 /**
  * Some actions for TypeB24 by Api:v3
  */
@@ -97,5 +99,12 @@ export class ActionsManagerV3 {
       this._mapActions.set(batchByChunkName, new BatchByChunkV3(this._b24, this._logger))
     }
     return this._mapActions.get(batchByChunkName)! as BatchByChunkV3
+  }
+
+  get deferredBatch(): DeferredBatchV3 {
+    if (!this._mapActions.has(deferredBatchName)) {
+      this._mapActions.set(deferredBatchName, new DeferredBatchV3(this._b24, this._logger))
+    }
+    return this._mapActions.get(deferredBatchName)! as DeferredBatchV3
   }
 }

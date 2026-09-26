@@ -5,8 +5,9 @@ import { setupB24Tests } from '../../0_setup/hooks-integration-jssdk'
  * Live round trip of `actions.v3.deferredBatch` (#570).
  *
  * Needs a portal whose plan includes deferred batches and a webhook with the
- * `user` scope (for the `user.current` commands); what scope the
- * `rest.deferredbatch.*` methods need has not been measured. On other plans the portal answers
+ * scopes the commands need. It uses `rest.scope.list`, a v3 method: a deferred
+ * batch takes v3 methods only (a v2 method such as `user.current` is refused at
+ * `add` with `INVALID_METHOD`). On other plans the portal answers
  * `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN` and this spec reports red with that
  * text — a reason to exclude it locally, not a regression.
  *
@@ -22,9 +23,9 @@ describe('core.actions.deferredBatch @apiV3', () => {
 
     const response = await b24.actions.v3.deferredBatch.make<Record<string, unknown>>({
       calls: [
-        ['user.current', {}],
-        ['user.current', {}],
-        ['user.current', {}]
+        ['rest.scope.list', {}],
+        ['rest.scope.list', {}],
+        ['rest.scope.list', {}]
       ],
       pollInterval: 1_000,
       timeout: 120_000,
@@ -40,7 +41,7 @@ describe('core.actions.deferredBatch @apiV3', () => {
     const b24 = getB24Client()
     const batch = b24.actions.v3.deferredBatch
 
-    const added = await batch.add({ calls: [['user.current', {}]] })
+    const added = await batch.add({ calls: [['rest.scope.list', {}]] })
     expect(added.isSuccess, `add failed: ${added.getErrorMessages().join('; ')}`).toBe(true)
     const id = added.getData()!.id
 

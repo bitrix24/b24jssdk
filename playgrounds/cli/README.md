@@ -291,7 +291,8 @@ pnpm run dev list tasks [--limit=<number>]
 
 Runs a deferred (background) batch with `actions.v3.deferredBatch` — the portal
 takes all commands in one call, runs them as a job, and the SDK decodes the
-gzip result file into rows. The commands are `user.current` repeated `--count`
+gzip result file into rows. The commands are `rest.scope.list` (a v3 method —
+a deferred batch takes v3 methods only) repeated `--count`
 times. Needs a portal plan with deferred batches; otherwise every call answers
 `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN`.
 

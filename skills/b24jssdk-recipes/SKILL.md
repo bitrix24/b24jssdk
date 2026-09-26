@@ -23,7 +23,7 @@ All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The le
 | 10 | `examples/10-error-handling.ts` | Node | any | Error-handling cookbook: AjaxError vs SdkError taxonomy; `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` knobs via `setRestrictionManagerParams`; non-idempotent-call safety, with `idempotencyKey` as the v3 answer |
 | 11 | `examples/11-event-registration.ts` | Node | `crm` | CLI tool — list / bind / unbind outbound webhook events (`event.get`, `event.bind`, `event.unbind`). Pairs with recipe 7. |
 | 12 | `examples/12-oauth-install.ts` | Node, `express` | OAuth app | OAuth install handshake: handle `ONAPPINSTALL` / `ONAPPUPDATE` / `ONAPPUNINSTALL` events, persist tokens per portal, build `B24OAuth` on demand, refresh callback writes new tokens back to storage |
-| 13 | `examples/13-deferred-batch-export.ts` | Node | `task` | Bulk export of thousands of tasks as ONE background job via `actions.v3.deferredBatch` — `make()` with an `onStatus` progress callback, or the `add` → `waitFor` → `download` → `delete` steps across two runs; writes JSON Lines |
+| 13 | `examples/13-deferred-batch-export.ts` | Node | `task` | Bulk export of thousands of tasks (list pages, since one failing command fails the job) as ONE background job via `actions.v3.deferredBatch` — `make()` with an `onStatus` progress callback, or the `add` → `waitFor` → `download` → `delete` steps across two runs; writes JSON Lines |
 
 ## Shared library (`lib/`)
 

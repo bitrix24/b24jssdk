@@ -19,9 +19,9 @@ import { createB24Client } from '../utils'
  *                 `start`, e.g. in a later run.
  *   - `list`    — the jobs `rest.deferredbatch.list` returns for this webhook.
  *
- * Commands are `user.current` repeated `--count` times: the webhook needs the
- * `user` scope for them, and every row is the same, so the summary is easy to
- * check. The portal's plan must include deferred batches; otherwise every call
+ * Commands are `rest.scope.list` repeated `--count` times — a v3 method, since a
+ * deferred batch takes v3 methods only — and every row is the same, so the
+ * summary is easy to check. The portal's plan must include deferred batches; otherwise every call
  * answers FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN. Which scope the
  * `rest.deferredbatch.*` methods themselves need has not been measured.
  *
@@ -59,7 +59,7 @@ export default defineCommand({
 
     const { b24, logger } = createB24Client('deferred-batch', { restrictionParams: ParamsFactory.getDefault() })
     const batch = b24.actions.v3.deferredBatch
-    const calls: BatchCommandsArrayUniversal = Array.from({ length: count }, () => ['user.current', {}])
+    const calls: BatchCommandsArrayUniversal = Array.from({ length: count }, () => ['rest.scope.list', {}])
     const onStatus = (job: DeferredBatchJob): void => {
       logger.info(`job #${job.id}: ${job.status}`).catch(() => {})
     }

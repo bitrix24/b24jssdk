@@ -8,8 +8,7 @@ import { ParseRow } from '../../interaction/batch/parse-row'
 
 /**
  * Where a deferred batch job is. `pending` and `processing` are still running;
- * `done` and `error` are final. (Measured live: `pending → done`; `processing`
- * and `error` are the rest of the portal's enum, not yet observed.) Any other
+ * `done` and `error` are final. All four are observed live (#570). Any other
  * value is treated as still running until `timeout`.
  */
 export type DeferredBatchStatus = 'pending' | 'processing' | 'done' | 'error'
@@ -91,9 +90,19 @@ const DEFAULT_TIMEOUT = 600_000
  *   request and collected in another, a queue worker, a UI with its own polling).
  * - {@link DeferredBatchV3.decode} turns the downloaded bytes into rows.
  *
- * A row is what that command returned, in command order — measured to be the
- * same shape as one entry of a synchronous v3 `batch` result (`{ item }`,
- * `{ items }`, …). How a failed command appears in the rows is not yet measured.
+ * A row is what that command returned, in command order — the same shape as
+ * one entry of a synchronous v3 `batch` result (`{ item }`, `{ items }`, …).
+ *
+ * Measured on the portal (#570):
+ * - **v3 methods only.** A v2 or unknown method is refused at `add` with
+ *   `INVALID_METHOD`, and no job is created.
+ * - **All or nothing.** One failing command (a `get` of a missing record)
+ *   ends the whole job in `error` with no result file — there are no partial
+ *   rows. Build commands that cannot fail on data, e.g. list pages rather than
+ *   a `get` per id.
+ * - **Duration depends on the method.** 5000 cheap `get`s took seconds; 500
+ *   `rest.scope.list` took over 15 minutes.
+ * - **A running job cannot be deleted** (`BATCH_PROCESSING`).
  *
  * Needs a portal plan that includes deferred batches; on other plans every
  * call answers `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN`. The whole result file is
@@ -138,11 +147,13 @@ export class DeferredBatchV3 extends AbstractAction {
    * @example
    * import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
    *
-   * const calls: BatchCommandsArrayUniversal = Array.from({ length: 2000 }, (_, i) =>
-   *   ['tasks.task.get', { id: i + 1, select: ['id', 'title'] }]
+   * // 200 pages of 50 tasks: a list page cannot fail on a missing record the
+   * // way a `get` per id can, and one failing command fails the whole job.
+   * const calls: BatchCommandsArrayUniversal = Array.from({ length: 200 }, (_, i) =>
+   *   ['tasks.task.list', { select: ['id', 'title'], order: { id: 'ASC' }, pagination: { page: i + 1, limit: 50 } }]
    * )
    *
-   * const response = await $b24.actions.v3.deferredBatch.make<{ item?: { id: number, title: string } }>({
+   * const response = await $b24.actions.v3.deferredBatch.make<{ items: Array<{ id: number, title: string }> }>({
    *   calls,
    *   onStatus: job => console.log(`deferred batch #${job.id}: ${job.status}`)
    * })
@@ -150,7 +161,7 @@ export class DeferredBatchV3 extends AbstractAction {
    * if (!response.isSuccess) {
    *   throw new Error(response.getErrorMessages().join('; '))
    * }
-   * const titles = response.getData()!.flatMap(row => row.item ? [row.item.title] : [])
+   * const titles = response.getData()!.flatMap(row => row.items.map(task => task.title))
    * console.log(`${titles.length} tasks read`)
    */
   public override async make<T = unknown>(options: ActionDeferredBatchV3): Promise<Result<T[]>> {
@@ -207,7 +218,10 @@ export class DeferredBatchV3 extends AbstractAction {
    *
    * @example
    * const added = await $b24.actions.v3.deferredBatch.add({
-   *   calls: [['tasks.task.get', { id: 1 }], ['tasks.task.get', { id: 2 }]],
+   *   calls: [
+   *     ['tasks.task.list', { select: ['id'], pagination: { page: 1, limit: 50 } }],
+   *     ['tasks.task.list', { select: ['id'], pagination: { page: 2, limit: 50 } }]
+   *   ],
    *   idempotencyKey: 'nightly-export-2026-09-26'
    * })
    * const jobId = added.getData()!.id // keep it, e.g. in your queue
@@ -448,7 +462,8 @@ export class DeferredBatchV3 extends AbstractAction {
 
   /**
    * Deletes a job and its result file (`rest.deferredbatch.delete`). The
-   * download link stops working.
+   * download link stops working. A job that is still `processing` cannot be
+   * deleted: the portal answers `BATCH_PROCESSING`.
    *
    * @param {number} id - The job id.
    * @returns {Promise<Result<boolean>>}

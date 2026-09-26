@@ -331,7 +331,7 @@ yourself into rows.
 - Duration depends on the method (5000 cheap `get`s: seconds; 500 `rest.scope.list`: over 15 min) — set `timeout`. A `processing` job cannot be deleted (`BATCH_PROCESSING`).
 - Never throws for what the portal answered: check `isSuccess`. Codes: `JSSDK_DEFERRED_BATCH_FAILED` (job `error`; `waitFor(id)` returns the job with its `errorMessage`), `_TIMEOUT`, `_ABORTED` (the job keeps running — keep its id from `onStatus`), `_DOWNLOAD_FAILED`, `_DECODE_FAILED`, `_UNEXPECTED_RESPONSE`, `_GZIP_UNSUPPORTED`; thrown before sending: `_EMPTY`.
 - One `idempotencyKey` per run, not per range: by the portal's idempotency contract (not measured for deferred batches), a key reused after the job was deleted would replay a dead id.
-- Measured through a webhook from Node; a browser (`B24Frame`) is unverified — collect the file on a server if it fails there.
+- Measured through a webhook from Node. In a browser the result file is readable (`Access-Control-Allow-Origin: *`), but `idempotencyKey` is refused there (`JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER`, #573).
 - `getDownloadUrl(id)` returns a URL that carries the webhook secret or access token — do not log it; prefer `download(id)`.
 
 ## `callList.make` — small lists in memory

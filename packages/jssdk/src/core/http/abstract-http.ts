@@ -1051,6 +1051,19 @@ export abstract class AbstractHttp implements TypeHttp {
       })
     }
 
+    // A browser never sends it: the portal's CORS preflight allows only
+    // `origin, content-type, accept`, and no query or body form is honoured
+    // (measured, #573). Fail here, before anything is sent, instead of as a
+    // network error the retry loop would repeat.
+    if (ApiVersion.v3 === this._version && isCorsEnforcedRuntime()) {
+      throw new SdkError({
+        code: 'JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER',
+        description: '`idempotencyKey` cannot be used from a browser: the portal\'s CORS preflight does not allow the '
+          + '`Idempotency-Key` header, so the request would never be sent. Make idempotent writes from a server. See https://github.com/bitrix24/b24jssdk/issues/573',
+        status: 400
+      })
+    }
+
     return { headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey } }
   }
 

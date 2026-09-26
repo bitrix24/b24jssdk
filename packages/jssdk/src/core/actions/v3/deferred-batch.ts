@@ -20,7 +20,8 @@ export interface DeferredBatchJob {
   id: number
   status: DeferredBatchStatus
   /** The commands as the portal stored them: `{ method, query }` each. */
-  commands?: Array<{ method: string, query: Record<string, unknown> }>
+  /** Not included by `list`. An empty query comes back as `[]` (a PHP empty array). */
+  commands?: Array<{ method: string, query: Record<string, unknown> | unknown[] }>
   createdAt?: string
   updatedAt?: string
   /** Set once the job is `done`: the disk file that holds the results. */
@@ -72,6 +73,7 @@ export type ActionDeferredBatchV3 = ActionDeferredBatchAddV3 & ActionDeferredBat
 const DEFAULT_POLL_INTERVAL = 2_000
 const MIN_POLL_INTERVAL = 250
 const DEFAULT_TIMEOUT = 600_000
+const MAX_TIMER_DELAY = 2_147_483_647
 
 /**
  * Deferred (background) batch for large command sets. `restApi:v3`
@@ -133,13 +135,16 @@ export class DeferredBatchV3 extends AbstractAction {
    *     - `deleteAfter?` - delete the job after reading it (default `true`).
    *
    * @returns {Promise<Result<T[]>>} The rows in command order. On failure the
-   *     `Result` carries the errors; `JSSDK_DEFERRED_BATCH_FAILED` when the job
-   *     ended in `error`, `JSSDK_DEFERRED_BATCH_TIMEOUT` / `JSSDK_DEFERRED_BATCH_ABORTED`
-   *     when waiting stopped, or a download error. The job is left on the portal
-   *     in those cases; its id reaches you through `onStatus`, which is called
-   *     with the job as soon as `add` returns it, so it can be collected later
-   *     with {@link DeferredBatchV3.waitFor}. An already-aborted `signal` adds
-   *     nothing.
+   *     `Result` carries the errors, each naming the job id:
+   *     - `JSSDK_DEFERRED_BATCH_FAILED` when the job ended in `error` — the
+   *       portal's `errorMessage` is logged and the job is deleted unless
+   *       `deleteAfter: false`;
+   *     - `JSSDK_DEFERRED_BATCH_TIMEOUT` / `JSSDK_DEFERRED_BATCH_ABORTED` when
+   *       waiting stopped — the job keeps running (and cannot be deleted while
+   *       it does), so collect it later with {@link DeferredBatchV3.waitFor};
+   *     - a download error.
+   *     `onStatus` also receives the job as soon as `add` returns it. An
+   *     already-aborted `signal` adds nothing.
    * @throws {SdkError} `JSSDK_DEFERRED_BATCH_EMPTY` for an empty `calls`,
    *     `JSSDK_INTERACTION_BATCH_ROW_FAIL` for a command that is neither a
    *     tuple nor a `{ method, params }` object.
@@ -167,7 +172,10 @@ export class DeferredBatchV3 extends AbstractAction {
   public override async make<T = unknown>(options: ActionDeferredBatchV3): Promise<Result<T[]>> {
     const result = new Result<T[]>()
 
-    // Nothing is added once the caller has given up already.
+    // Malformed `calls` throw first, whatever the signal says: that is a bug in
+    // the caller, and an abort must not hide it. Then nothing is added once the
+    // caller has given up already.
+    this.#toCommands(options.calls)
     if (options.signal?.aborted) {
       return result.addError(abortedError(), 'base-error')
     }
@@ -185,6 +193,19 @@ export class DeferredBatchV3 extends AbstractAction {
 
     const finished = await this.#wait(id, options, job.status)
     if (!finished.isSuccess) {
+      // A job that ended in `error` is final and has no result file, so it can
+      // be deleted like a finished one; the portal's reason is logged, since
+      // the `Result` here carries no job. A timed-out or aborted job is still
+      // running and cannot be deleted — its id is in the error.
+      if (finished.getData()?.status === 'error') {
+        this._logger.warning('deferredBatch: the job ended with status "error"', {
+          id,
+          errorMessage: finished.getData()?.errorMessage
+        }).catch(() => {})
+        if (options.deleteAfter !== false) {
+          await this.#deleteQuietly(id)
+        }
+      }
       return this.#carryErrors(finished, result)
     }
 
@@ -194,18 +215,21 @@ export class DeferredBatchV3 extends AbstractAction {
     }
 
     if (options.deleteAfter !== false) {
-      // A failed delete does not spoil rows already read: it is logged, and the
-      // job expires on the portal's own schedule.
-      const deleted = await this.delete(id)
-      if (!deleted.isSuccess) {
-        this._logger.warning('deferredBatch: the job was read but could not be deleted', {
-          id,
-          errors: deleted.getErrorMessages()
-        }).catch(() => {})
-      }
+      await this.#deleteQuietly(id)
     }
 
     return result.setData(rows.getData())
+  }
+
+  /** A failed delete does not spoil the outcome already known: it is logged. */
+  async #deleteQuietly(id: number): Promise<void> {
+    const deleted = await this.delete(id)
+    if (!deleted.isSuccess) {
+      this._logger.warning('deferredBatch: the job could not be deleted', {
+        id,
+        errors: deleted.getErrorMessages()
+      }).catch(() => {})
+    }
   }
 
   /**
@@ -255,14 +279,15 @@ export class DeferredBatchV3 extends AbstractAction {
   }
 
   /**
-   * Lists the caller's deferred batch jobs (`rest.deferredbatch.list`). Measured
-   * only empty; which jobs it includes is the portal's rule.
+   * Lists the caller's deferred batch jobs (`rest.deferredbatch.list`).
+   * Measured: `{ items }`, whose items carry no `commands`. Which jobs it
+   * includes is the portal's rule.
    *
    * @returns {Promise<Result<DeferredBatchJob[]>>}
    */
   public async list(): Promise<Result<DeferredBatchJob[]>> {
-    // Measured only empty, as `[]`; the usual v3 list envelope is `{ items }`.
-    // Both are read, and anything else is an error rather than an empty list.
+    // Measured as `{ items }` (and once, empty, as `[]`). Both are read, and
+    // anything else is an error rather than an empty list.
     return this.#call<DeferredBatchJob[] | { items?: DeferredBatchJob[] }, DeferredBatchJob[]>(
       'rest.deferredbatch.list',
       {},
@@ -300,7 +325,8 @@ export class DeferredBatchV3 extends AbstractAction {
     options: ActionDeferredBatchWaitV3,
     reportedStatus: DeferredBatchStatus | undefined
   ): Promise<Result<DeferredBatchJob>> {
-    const pollInterval = Math.max(MIN_POLL_INTERVAL, finiteOr(options.pollInterval, DEFAULT_POLL_INTERVAL))
+    // Capped too: `setTimeout` wraps a delay above 2^31-1 ms to about 1 ms.
+    const pollInterval = Math.min(MAX_TIMER_DELAY, Math.max(MIN_POLL_INTERVAL, finiteOr(options.pollInterval, DEFAULT_POLL_INTERVAL)))
     // `Infinity` is allowed (wait until `signal` aborts); only NaN falls back.
     const timeout = Math.max(0, typeof options.timeout === 'number' && !Number.isNaN(options.timeout) ? options.timeout : DEFAULT_TIMEOUT)
     const deadline = Date.now() + timeout
@@ -309,7 +335,7 @@ export class DeferredBatchV3 extends AbstractAction {
 
     for (;;) {
       if (options.signal?.aborted) {
-        return result.addError(abortedError(), 'base-error')
+        return result.addError(abortedError(id), 'base-error')
       }
 
       const current = await this.get(id)
@@ -333,14 +359,14 @@ export class DeferredBatchV3 extends AbstractAction {
           // Static text: the portal's own `errorMessage` stays on the job
           // (`getData().errorMessage`), since an `SdkError` description is not
           // redacted and that message is free text.
-          description: 'deferredBatch: the job ended with status "error"; see the job\'s errorMessage.',
+          description: `deferredBatch: job #${id} ended with status "error"; see the job's errorMessage (waitFor / get).`,
           status: 500
         }), 'base-error')
       }
       if (Date.now() + pollInterval > deadline) {
         return result.addError(new SdkError({
           code: 'JSSDK_DEFERRED_BATCH_TIMEOUT',
-          description: `deferredBatch: no final status within ${timeout} ms; the job keeps running on the portal.`,
+          description: `deferredBatch: job #${id} reached no final status within ${timeout} ms; it keeps running on the portal.`,
           status: 408
         }), 'base-error')
       }
@@ -469,7 +495,8 @@ export class DeferredBatchV3 extends AbstractAction {
    * @returns {Promise<Result<boolean>>}
    */
   public async delete(id: number): Promise<Result<boolean>> {
-    // What `delete` answers was not measured, so any success counts.
+    // Measured: `{ result: true }`. Any success counts, so a shape change on the
+    // portal side does not turn a completed delete into a reported failure.
     return this.#call<unknown, boolean>('rest.deferredbatch.delete', { id }, () => true, undefined, undefined, false)
   }
 
@@ -571,10 +598,12 @@ export class DeferredBatchV3 extends AbstractAction {
   }
 }
 
-function abortedError(): SdkError {
+function abortedError(id?: number): SdkError {
   return new SdkError({
     code: 'JSSDK_DEFERRED_BATCH_ABORTED',
-    description: 'deferredBatch: waiting was aborted; a job already added keeps running on the portal.',
+    description: undefined === id
+      ? 'deferredBatch: aborted before anything was added.'
+      : `deferredBatch: waiting for job #${id} was aborted; it keeps running on the portal.`,
     status: 499
   })
 }

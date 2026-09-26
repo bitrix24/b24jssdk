@@ -299,7 +299,7 @@ times. Needs a portal plan with deferred batches; otherwise every call answers
 **Syntax:**
 
 ```bash
-pnpm run dev deferred-batch [--mode=<run|start|collect|list>] [--count=<n>] [--id=<jobId>] [--pollInterval=<ms>] [--keep=<true|false>]
+pnpm run dev deferred-batch [--mode=<run|start|collect|list>] [--count=<n>] [--id=<jobId>] [--pollInterval=<ms>] [--timeout=<ms>] [--keep=<true|false>]
 ```
 
 **Arguments:**
@@ -307,16 +307,17 @@ pnpm run dev deferred-batch [--mode=<run|start|collect|list>] [--count=<n>] [--i
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `--mode` | No | `run` | `run` — `make()`: add, print each status change, download, decode, delete. `start` — `add()` only, prints the job id. `collect` — `waitFor()` → `download()` → `delete()` for `--id`. `list` — the jobs on the portal. |
-| `--count` | No | `100` | Number of commands for `run` / `start` |
+| `--count` | No | `20` | Number of commands for `run` / `start`. `rest.scope.list` is slow as a deferred command: 20 took about 4 s, 500 were still running after 15 minutes — and a running job cannot be deleted. |
 | `--id` | For `collect` | — | Job id printed by `start` |
 | `--pollInterval` | No | `2000` | Milliseconds between status checks |
+| `--timeout` | No | `600000` | Milliseconds to wait for a final status (`run`, `collect`). The job keeps running after a timeout; collect it later with `--mode=collect`. |
 | `--keep` | No | `false` | `run` only: keep the job instead of deleting it |
 
 **Examples:**
 
 ```bash
-pnpm run dev deferred-batch --mode=run --count=2000
-pnpm run dev deferred-batch --mode=start --count=5000   # prints: started job #12 …
+pnpm run dev deferred-batch --mode=run --count=20
+pnpm run dev deferred-batch --mode=start --count=20     # prints: started job #12 …
 pnpm run dev deferred-batch --mode=collect --id=12
 ```
 

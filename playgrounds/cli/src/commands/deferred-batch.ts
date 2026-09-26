@@ -29,7 +29,7 @@ import { createB24Client } from '../utils'
  *
  *   B24_HOOK=https://<portal>/rest/<userId>/<secret>/
  *
- * @usage pnpm --filter @bitrix24/b24jssdk-cli dev deferred-batch --mode=run --count=500
+ * @usage pnpm --filter @bitrix24/b24jssdk-cli dev deferred-batch --mode=run --count=20
  */
 export default defineCommand({
   meta: {
@@ -38,9 +38,10 @@ export default defineCommand({
   },
   args: {
     mode: { description: 'run | start | collect | list', default: 'run' },
-    count: { description: 'Number of commands for run / start', default: '100' },
+    count: { description: 'Number of commands for run / start (rest.scope.list is slow: 20 took ~4 s, 500 over 15 min)', default: '20' },
     id: { description: 'Job id for collect', default: '' },
     pollInterval: { description: 'Milliseconds between status checks', default: '2000' },
+    timeout: { description: 'Milliseconds to wait for a final status (run / collect)', default: '600000' },
     keep: { description: 'run: keep the job instead of deleting it (true | false)', default: 'false' }
   },
   async setup({ args }) {
@@ -49,6 +50,10 @@ export default defineCommand({
     const pollInterval = Number.parseInt(String(args.pollInterval), 10)
     if (Number.isNaN(pollInterval) || pollInterval < 250) {
       throw invalid('--pollInterval must be an integer of at least 250 (ms).')
+    }
+    const timeout = Number.parseInt(String(args.timeout), 10)
+    if (Number.isNaN(timeout) || timeout < 0) {
+      throw invalid('--timeout must be a non-negative integer (ms).')
     }
     if (!['run', 'start', 'collect', 'list'].includes(mode)) {
       throw invalid(`Unknown --mode=${mode}. Allowed: run | start | collect | list.`)
@@ -70,6 +75,7 @@ export default defineCommand({
         const response = await batch.make<Record<string, unknown>>({
           calls,
           pollInterval,
+          timeout,
           onStatus,
           deleteAfter: String(args.keep) !== 'true'
         })
@@ -105,7 +111,7 @@ export default defineCommand({
         if (Number.isNaN(id)) {
           throw invalid('--id is required for --mode=collect.')
         }
-        const finished = await batch.waitFor(id, { pollInterval, onStatus })
+        const finished = await batch.waitFor(id, { pollInterval, timeout, onStatus })
         if (!finished.isSuccess) {
           logger.error('the job did not finish', {
             errors: finished.getErrorMessages(),
@@ -133,7 +139,7 @@ export default defineCommand({
         return
       }
       for (const job of jobs.getData()!) {
-        logger.info(`job #${job.id}: ${job.status}`, { createdAt: job.createdAt, commands: job.commands?.length }).catch(() => {})
+        logger.info(`job #${job.id}: ${job.status}`, { createdAt: job.createdAt, errorMessage: job.errorMessage }).catch(() => {})
       }
     } finally {
       b24.destroy()

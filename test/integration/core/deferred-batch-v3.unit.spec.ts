@@ -2,10 +2,12 @@
  * `actions.v3.deferredBatch` — the `rest.deferredbatch.*` family (#570).
  *
  * The request and response shapes are the ones measured on a cloud portal and
- * recorded on #570 (issuecomment 5844466488): `add` takes
+ * recorded on #570 (issuecomments 5844466488 and 5844638165): `add` takes
  * `{ fields: { commands: [{ method, query }] } }` and answers `{ item }`; `get`
- * went `pending → done`; `downloadresult` answers `{ downloadUrl }`, and that
- * URL serves a gzip-compressed JSON array in command order.
+ * goes `pending → processing → done`, or `error`; `downloadresult` answers
+ * `{ downloadUrl }`, and that URL serves a gzip-compressed JSON array in
+ * command order; `list` answers `{ items }`; `delete` answers `{ result: true }`.
+ * Commands here are v3 methods, as the portal requires.
  *
  * `*.unit.spec.ts` — no real Bitrix24 portal required (axios is mocked).
  */
@@ -84,7 +86,7 @@ describe('actions.v3.deferredBatch', () => {
     const seen: string[] = []
 
     const response = await b24.actions.v3.deferredBatch.make<{ item?: { id: number } }>({
-      calls: [['tasks.task.get', { id: 1 }], { method: 'tasks.task.list', params: { select: ['id'] } }],
+      calls: [['tasks.task.list', { pagination: { page: 1 } }], { method: 'tasks.task.list', params: { select: ['id'] } }],
       pollInterval: 250,
       onStatus: j => seen.push(j.status)
     })
@@ -101,12 +103,12 @@ describe('actions.v3.deferredBatch', () => {
     const p = portal(b24)
 
     await b24.actions.v3.deferredBatch.add({
-      calls: [['tasks.task.get', { id: 1 }], { method: 'user.current' }]
+      calls: [['tasks.task.list', { pagination: { page: 2 } }], { method: 'rest.scope.list' }]
     })
 
     expect(p.called('rest.deferredbatch.add')[0]!.body.fields.commands).toEqual([
-      { method: 'tasks.task.get', query: { id: 1 } },
-      { method: 'user.current', query: {} }
+      { method: 'tasks.task.list', query: { pagination: { page: 2 } } },
+      { method: 'rest.scope.list', query: {} }
     ])
   })
 
@@ -114,7 +116,7 @@ describe('actions.v3.deferredBatch', () => {
     const b24 = hook()
     const p = portal(b24)
 
-    await b24.actions.v3.deferredBatch.add({ calls: [['user.current']], idempotencyKey: 'export-42' })
+    await b24.actions.v3.deferredBatch.add({ calls: [['rest.scope.list']], idempotencyKey: 'export-42' })
 
     expect(p.called('rest.deferredbatch.add')[0]!.headers['Idempotency-Key']).toBe('export-42')
   })
@@ -123,7 +125,7 @@ describe('actions.v3.deferredBatch', () => {
     const b24 = hook()
     const p = portal(b24)
 
-    const response = await b24.actions.v3.deferredBatch.make({ calls: [['user.current']], pollInterval: 250, deleteAfter: false })
+    const response = await b24.actions.v3.deferredBatch.make({ calls: [['rest.scope.list']], pollInterval: 250, deleteAfter: false })
 
     expect(response.isSuccess).toBe(true)
     expect(p.called('rest.deferredbatch.delete')).toHaveLength(0)
@@ -133,7 +135,7 @@ describe('actions.v3.deferredBatch', () => {
     const b24 = hook()
     const p = portal(b24, { statuses: [job('processing'), job('error', { errorMessage: 'boom' })] })
 
-    const response = await b24.actions.v3.deferredBatch.make({ calls: [['user.current']], pollInterval: 250 })
+    const response = await b24.actions.v3.deferredBatch.make({ calls: [['rest.scope.list']], pollInterval: 250 })
 
     expect(response.isSuccess).toBe(false)
     expect([...response.errors.values()].map(e => (e as { code?: string }).code)).toContain('JSSDK_DEFERRED_BATCH_FAILED')
@@ -201,7 +203,7 @@ describe('actions.v3.deferredBatch', () => {
       }
     ))
 
-    const response = await b24.actions.v3.deferredBatch.make({ calls: [['user.current']] })
+    const response = await b24.actions.v3.deferredBatch.make({ calls: [['rest.scope.list']] })
 
     expect(response.isSuccess).toBe(false)
     expect(response.getErrorMessages().join(' ')).toContain('not on this plan')
@@ -302,7 +304,7 @@ describe('actions.v3.deferredBatch', () => {
     const b24 = hook()
     portal(b24, { addResult: {} })
 
-    const response = await b24.actions.v3.deferredBatch.make({ calls: [['user.current']] })
+    const response = await b24.actions.v3.deferredBatch.make({ calls: [['rest.scope.list']] })
 
     expect([...response.errors.values()].map(e => (e as { code?: string }).code)).toEqual(['JSSDK_DEFERRED_BATCH_UNEXPECTED_RESPONSE'])
   })
@@ -325,7 +327,7 @@ describe('actions.v3.deferredBatch', () => {
     const b24 = hook()
     const p = portal(b24)
 
-    const response = await b24.actions.v3.deferredBatch.make({ calls: [['user.current']], idempotencyKey: 'has space' })
+    const response = await b24.actions.v3.deferredBatch.make({ calls: [['rest.scope.list']], idempotencyKey: 'has space' })
 
     expect(response.isSuccess).toBe(false)
     expect([...response.errors.values()].map(e => (e as { code?: string }).code)).toEqual(['JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY'])
@@ -346,7 +348,7 @@ describe('actions.v3.deferredBatch', () => {
     const b24 = hook()
     const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post').mockResolvedValue(ok({ item: job('pending') }) as never)
 
-    await b24.actions.v3.deferredBatch.add({ calls: [['user.current']], requestId: 'req-42' })
+    await b24.actions.v3.deferredBatch.add({ calls: [['rest.scope.list']], requestId: 'req-42' })
 
     expect(String(post.mock.calls[0]![0])).toContain('bx24_request_id=req-42')
   })
@@ -367,7 +369,7 @@ describe('actions.v3.deferredBatch', () => {
     const ids: number[] = []
 
     const response = await b24.actions.v3.deferredBatch.make({
-      calls: [['user.current']],
+      calls: [['rest.scope.list']],
       signal: controller.signal,
       onStatus: (j) => {
         ids.push(j.id)
@@ -386,7 +388,7 @@ describe('actions.v3.deferredBatch', () => {
     const controller = new AbortController()
     controller.abort()
 
-    const response = await b24.actions.v3.deferredBatch.make({ calls: [['user.current']], signal: controller.signal })
+    const response = await b24.actions.v3.deferredBatch.make({ calls: [['rest.scope.list']], signal: controller.signal })
 
     expect([...response.errors.values()].map(e => (e as { code?: string }).code)).toEqual(['JSSDK_DEFERRED_BATCH_ABORTED'])
     expect(p.sent).toHaveLength(0)
@@ -419,6 +421,61 @@ describe('actions.v3.deferredBatch', () => {
     const deleted = await b24.actions.v3.deferredBatch.delete(7)
 
     expect(deleted.isSuccess).toBe(true)
+  })
+
+  it('@apiV3 make() deletes a job that ended in error, and names it in the error', async () => {
+    const b24 = hook()
+    const p = portal(b24, { statuses: [job('error', { errorMessage: 'Result does not exists' })] })
+
+    const response = await b24.actions.v3.deferredBatch.make({ calls: [['rest.scope.list']], pollInterval: 250 })
+
+    expect(response.getErrorMessages().join(' ')).toContain('job #7')
+    expect(p.called('rest.deferredbatch.delete')).toHaveLength(1)
+  })
+
+  it('@apiV3 make() with deleteAfter: false keeps a job that ended in error', async () => {
+    const b24 = hook()
+    const p = portal(b24, { statuses: [job('error')] })
+
+    await b24.actions.v3.deferredBatch.make({ calls: [['rest.scope.list']], pollInterval: 250, deleteAfter: false })
+
+    expect(p.called('rest.deferredbatch.delete')).toHaveLength(0)
+  })
+
+  it('@apiV3 a timeout names the job, which keeps running and is not deleted', async () => {
+    const b24 = hook()
+    const p = portal(b24, { statuses: [job('processing')] })
+
+    const response = await b24.actions.v3.deferredBatch.make({ calls: [['rest.scope.list']], pollInterval: 250, timeout: 300 })
+
+    expect(response.getErrorMessages().join(' ')).toContain('job #7')
+    expect(p.called('rest.deferredbatch.delete')).toHaveLength(0)
+  })
+
+  it('@apiV3 malformed calls throw even when the signal is already aborted', async () => {
+    const b24 = hook()
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(b24.actions.v3.deferredBatch.make({ calls: [], signal: controller.signal }))
+      .rejects.toMatchObject({ code: 'JSSDK_DEFERRED_BATCH_EMPTY' })
+  })
+
+  it('@apiV3 timeout: Infinity is not capped at the default 10 minutes', async () => {
+    const b24 = hook()
+    portal(b24, { statuses: [job('processing')] })
+    const controller = new AbortController()
+    const now = Date.now()
+    // The deadline is taken at `now`; every later check sees 11 minutes gone.
+    vi.spyOn(Date, 'now').mockReturnValueOnce(now).mockReturnValue(now + 660_000)
+
+    const finished = await b24.actions.v3.deferredBatch.waitFor(7, {
+      timeout: Number.POSITIVE_INFINITY,
+      signal: controller.signal,
+      onStatus: () => controller.abort()
+    })
+
+    expect([...finished.errors.values()].map(e => (e as { code?: string }).code)).toEqual(['JSSDK_DEFERRED_BATCH_ABORTED'])
   })
 
   describe('decode()', () => {

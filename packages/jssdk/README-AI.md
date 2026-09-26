@@ -169,7 +169,7 @@ Patterns
 - Destroy on page/component unmount with $b24.destroy().
 - For large result sets prefer `actions.v{2,3}.callList.make` (collect) or `actions.v{2,3}.fetchList.make` (stream).
 - For big batches use `actions.v{2,3}.batchByChunk.make` to respect limits.
-- For thousands of commands on a plan that has deferred batches, `actions.v3.deferredBatch.make({ calls, onStatus })` runs them as one background job on the portal and resolves with the decoded rows; `add` / `get` / `waitFor` / `download` / `delete` are the single steps. See docs: working-with-the-rest-api/deferred-batch-rest-api-ver3.
+- For thousands of commands on a plan that has deferred batches, `actions.v3.deferredBatch.make({ calls, onStatus })` runs them as one background job on the portal and resolves with the decoded rows; `add` / `get` / `waitFor` / `download` / `delete` are the single steps. Commands must be v3 methods (a v2 method is refused with `INVALID_METHOD`), and one failing command fails the whole job with no result file — use list pages, not a `get` per id. See docs: working-with-the-rest-api/deferred-batch-rest-api-ver3.
 - A per-command `result` inside a batch can be `null` when the underlying REST method legitimately returns `null` (e.g. `im.chat.get` with non-matching params). Declare the generic as `T | null` and handle the `null` branch — the SDK no longer coerces it to `{}` (see issue #23).
 - `restApi:v3` batch is all-or-nothing: per-command errors are not returned. If any call fails, the whole batch fails and `response.getErrorMessages()` carries the error.
 

@@ -941,7 +941,8 @@ export abstract class AbstractHttp implements TypeHttp {
 
     if (useQueryAuth) {
       // `_prepareMethod` may or may not have emitted a query string already
-      // (an idempotent non-batch call reaches here too), so ask.
+      // (an idempotent non-batch call on a server, if a caller forced the fetch
+      // adapter's CORS mode, would too), so ask.
       const separator = methodFormatted.includes('?') ? '&' : '?'
       methodFormatted += `${separator}auth=${encodeURIComponent(authData.access_token)}`
     }
@@ -1031,6 +1032,8 @@ export abstract class AbstractHttp implements TypeHttp {
    *
    * @throws {SdkError} `JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY` when the key is not
    *   1-255 printable ASCII characters.
+   * @throws {SdkError} `JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER` when a v3 call with a
+   *   key runs where CORS applies (#573).
    */
   protected _prepareRequestConfig(_requestId: string, _method: string, options?: TypeCallOptions): AxiosRequestConfig | undefined {
     const idempotencyKey = options?.idempotencyKey
@@ -1047,6 +1050,19 @@ export abstract class AbstractHttp implements TypeHttp {
         code: 'JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY',
         description: '`idempotencyKey` must be 1-255 printable ASCII characters with no whitespace or control characters. '
           + 'A `crypto.randomUUID()` value satisfies this. See https://apidocs.bitrix24.ru/api-reference/rest-v3.html',
+        status: 500
+      })
+    }
+
+    // A browser never sends it: the portal's CORS preflight allows only
+    // `origin, content-type, accept`, and no query or body form is honoured
+    // (measured, #573). Fail here, before anything is sent, instead of as a
+    // network error the retry loop would repeat.
+    if (ApiVersion.v3 === this._version && isCorsEnforcedRuntime()) {
+      throw new SdkError({
+        code: 'JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER',
+        description: '`idempotencyKey` cannot be used from a browser: the portal\'s CORS preflight does not allow the '
+          + '`Idempotency-Key` header, so a cross-origin request carrying it is refused. Make idempotent writes from a server. See https://github.com/bitrix24/b24jssdk/issues/573',
         status: 500
       })
     }

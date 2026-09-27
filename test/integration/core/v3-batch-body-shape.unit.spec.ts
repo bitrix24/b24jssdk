@@ -449,31 +449,22 @@ describe('the body of a v3 batch', () => {
     expect(String(url)).not.toContain('auth=')
   })
 
-  it('@apiV3 an idempotent OAuth call in a browser puts the token in the query string', async () => {
+  it('@apiV3 an idempotent call in a browser fails before sending (#573)', async () => {
+    // The portal's CORS preflight does not allow `Idempotency-Key`, so the
+    // request could never leave the browser; the SDK says so instead.
     const originalWindow = (globalThis as { window?: unknown }).window
     ;(globalThis as { window?: unknown }).window = { document: {} }
 
     try {
       b24 = oauthClient()
       const post = vi.spyOn(b24.getHttpClient(ApiVersion.v3).ajaxClient, 'post')
-        .mockResolvedValue({
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: {} as never,
-          data: { result: { items: [] }, time: BATCH_OK.data.time }
-        } as never)
 
-      await b24.actions.v3.call.make({
+      await expect(b24.actions.v3.call.make({
         method: 'main.eventlog.list',
         params: { select: ['id'] },
         idempotencyKey: 'key-42'
-      })
-
-      const [url, body, config] = post.mock.calls[0]!
-      expect(String(url)).toContain('auth=ACCESS_TOKEN_PLACEHOLDER')
-      expect(body).toEqual({ select: ['id'] })
-      expect((config as { headers?: Record<string, string> })?.headers?.Authorization).toBeUndefined()
+      })).rejects.toMatchObject({ code: 'JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER' })
+      expect(post).not.toHaveBeenCalled()
     } finally {
       if (typeof originalWindow === 'undefined') {
         delete (globalThis as { window?: unknown }).window

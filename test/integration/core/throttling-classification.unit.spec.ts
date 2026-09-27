@@ -117,6 +117,17 @@ describe('throttling errors: which branch claims which (#459)', () => {
     expect(wait).toBe(RATE_WAIT_MS)
   })
 
+  // A webhook the portal has put on hold answers `OVERLOAD_LIMIT` at 401,
+  // per the portal's code (#570). Two paths stop the retry — the 4xx
+  // fail-fast branch and the built-in hard-code list — and this pins that
+  // neither the rate- nor the operating-limit branch claims it instead. Not measurable on
+  // demand: the portal holds a webhook itself, under overload.
+  it('a blocked webhook (overload limit at 401) is not retried', async () => {
+    const wait = await callHandleError({ code: 'OVERLOAD_LIMIT', status: 401 })
+
+    expect(wait).toBe(0)
+  })
+
   it('an overload limit with no status is not retried at all', async () => {
     const wait = await callHandleError({ code: 'OVERLOAD_LIMIT', status: 0 })
 

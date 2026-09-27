@@ -941,7 +941,8 @@ export abstract class AbstractHttp implements TypeHttp {
 
     if (useQueryAuth) {
       // `_prepareMethod` may or may not have emitted a query string already
-      // (an idempotent non-batch call reaches here too), so ask.
+      // (an idempotent non-batch call on a server, if a caller forced the fetch
+      // adapter's CORS mode, would too), so ask.
       const separator = methodFormatted.includes('?') ? '&' : '?'
       methodFormatted += `${separator}auth=${encodeURIComponent(authData.access_token)}`
     }
@@ -1031,6 +1032,8 @@ export abstract class AbstractHttp implements TypeHttp {
    *
    * @throws {SdkError} `JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY` when the key is not
    *   1-255 printable ASCII characters.
+   * @throws {SdkError} `JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER` when a v3 call with a
+   *   key runs where CORS applies (#573).
    */
   protected _prepareRequestConfig(_requestId: string, _method: string, options?: TypeCallOptions): AxiosRequestConfig | undefined {
     const idempotencyKey = options?.idempotencyKey
@@ -1059,8 +1062,8 @@ export abstract class AbstractHttp implements TypeHttp {
       throw new SdkError({
         code: 'JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER',
         description: '`idempotencyKey` cannot be used from a browser: the portal\'s CORS preflight does not allow the '
-          + '`Idempotency-Key` header, so the request would never be sent. Make idempotent writes from a server. See https://github.com/bitrix24/b24jssdk/issues/573',
-        status: 400
+          + '`Idempotency-Key` header, so a cross-origin request carrying it is refused. Make idempotent writes from a server. See https://github.com/bitrix24/b24jssdk/issues/573',
+        status: 500
       })
     }
 

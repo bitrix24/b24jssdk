@@ -118,8 +118,9 @@ describe('throttling errors: which branch claims which (#459)', () => {
   })
 
   // A webhook the portal has put on hold answers `OVERLOAD_LIMIT` at 401,
-  // per the portal's code (`rest/lib/apauth/auth.php`, #570). A 4xx fails
-  // fast, so a blocked webhook is not retried either. Not measurable on
+  // per the portal's code (#570). Two paths stop the retry — the 4xx
+  // fail-fast branch and the built-in hard-code list — and this pins that
+  // neither the rate- nor the operating-limit branch claims it instead. Not measurable on
   // demand: the portal holds a webhook itself, under overload.
   it('a blocked webhook (overload limit at 401) is not retried', async () => {
     const wait = await callHandleError({ code: 'OVERLOAD_LIMIT', status: 401 })

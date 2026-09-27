@@ -125,7 +125,8 @@ export function getEnvironment(): Environment {
  * A false **no** in a browser context asks for a header the portal's preflight
  * does not allow, and the request never leaves at all: an opaque network error
  * after the retry budget burns. A false **yes** in a runtime that enforces none
- * of this now costs three things, not one — a credential kept in the body rather
+ * of this now costs four things, not one — `idempotencyKey` refused outright
+ * (`JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER`), a credential kept in the body rather
  * than a header (which the portal answers visibly), a dropped `User-Agent`, and
  * a "this webhook is client-side" warning on a runtime where the secret is in
  * fact private. The third is a false security alarm, which is why the worker

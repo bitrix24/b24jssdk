@@ -53,6 +53,35 @@ Needs a scope the batch's commands can use; the page ships with
 `main.eventlog.list` and `rest.scope.list`, so swap them for whatever the app
 holds.
 
+## Slider lab (issue #486)
+
+Route: **`/slider-lab`**. Open it inside a Bitrix24 frame.
+
+It measures three things about `$b24.slider.openSliderAppPage()` on a live
+portal:
+
+1. **When the promise settles, and with what.** Button 1 opens a slider. Close
+   it (✕, or the button in the slider), and the row shows how long after the
+   call the promise settled and the value it settled with.
+2. **Where it never settles.** The page never `await`s the call. A run that
+   has not settled after 120 s is marked `NOT SETTLED`. Repeat run 1 in the
+   Bitrix24 desktop app and the mobile app to find the clients where this
+   happens.
+3. **How large the parameters may be.** Buttons 0 B … 8192 B send a payload
+   of that size. The opened frame reports what arrived: `received / expected`
+   with ✓ or ✗ in the "child received" column.
+
+How the opened frame is found: `openSliderAppPage` opens the app's
+**registered handler URL**, which is the index page. The index page sees
+`slider_lab_role: 'child'` in the placement options and routes to
+`/slider-lab`, which then runs in child mode and writes its report to
+`localStorage`. Both frames are on the app's origin, so the parent reads the
+report back when the slider settles.
+
+**Download JSON report** saves every run. `isSafely` is deliberately not used:
+it would settle the promise with `{ isSafely: true }` while the slider is still
+open.
+
 ## Deprecation trigger (issue #331)
 
 All four messenger methods this SDK exposes are deprecated upstream, and all

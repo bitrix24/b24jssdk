@@ -24,6 +24,12 @@ onMounted(async () => {
   try {
     $logger.notice('onMounted')
     $b24 = await $initializeB24Frame()
+    // A slider opened by /slider-lab lands here — `openSliderAppPage` opens the
+    // app's registered handler URL — so hand it to that page (#486).
+    if (($b24.placement.options as Record<string, unknown>)['slider_lab_role'] === 'child') {
+      await navigateTo('/slider-lab')
+      return
+    }
     // @todo fix this
     // $b24.setLogger($logger)
     b24CurrentLang.value = $b24.getLang()
@@ -595,6 +601,9 @@ async function checkUserPassHistoryStorage(arStoragesList: StorageInfoV2[]) {
           </NuxtLink>
           <NuxtLink to="/pull-lab" class="underline">
             /pull-lab — exercise the two Pull protobuf codecs against this portal
+          </NuxtLink>
+          <NuxtLink to="/slider-lab" class="underline">
+            /slider-lab — when openSliderAppPage settles, and how much it can carry (#486)
           </NuxtLink>
         </div>
       </div>

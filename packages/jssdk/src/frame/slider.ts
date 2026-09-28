@@ -49,7 +49,7 @@ export class SliderManager {
    * @example
    * // Open, and refresh the list once the user closes the slider
    * $b24.slider.openSliderAppPage({ bx24_title: 'Deal', place: 'deal', id: 42 })
-   *   .then(() => { /* the slider was closed: refresh your list */ })
+   *   .then(() => console.log('the slider was closed'))
    *   .catch(() => {})
    *
    * @return {Promise<string>} `''`, once the slider is closed

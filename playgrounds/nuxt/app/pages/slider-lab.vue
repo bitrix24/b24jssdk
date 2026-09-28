@@ -65,6 +65,7 @@ const runs = ref<RunRecord[]>([])
 const busy = ref(false)
 const childReport = ref<ChildReport | null>(null)
 const env = ref<Record<string, unknown>>({})
+let activeRun = ''
 const timers = new Set<ReturnType<typeof setTimeout>>()
 
 function payloadOf(size: number): string {
@@ -98,6 +99,7 @@ function start(kind: RunRecord['kind'], payloadSize: number): void {
     child: null,
     note: 'waiting — close the slider when it has opened'
   }
+  activeRun = runId
   runs.value.unshift(record)
   const row = runs.value[0]!
 
@@ -107,7 +109,7 @@ function start(kind: RunRecord['kind'], payloadSize: number): void {
     if (settled) return
     row.note = `NOT SETTLED after ${WATCHDOG_MS / 1000} s — this is the "never settles" case`
     row.child = readChildReport(runId)
-    busy.value = false
+    if (activeRun === runId) busy.value = false
   }, WATCHDOG_MS)
   timers.add(watchdog)
 
@@ -123,7 +125,7 @@ function start(kind: RunRecord['kind'], payloadSize: number): void {
     settled = true
     row.settledAfterMs = Date.now() - row.startedAt
     row.settledWith = value
-    row.note = 'settled'
+    row.note = row.note.startsWith('NOT SETTLED') ? `${row.note}; settled later` : 'settled'
   }).catch((error: unknown) => {
     settled = true
     row.settledAfterMs = Date.now() - row.startedAt
@@ -133,7 +135,8 @@ function start(kind: RunRecord['kind'], payloadSize: number): void {
     clearTimeout(watchdog)
     timers.delete(watchdog)
     row.child = readChildReport(runId)
-    busy.value = false
+    // A late settle of a timed-out run must not unlock a newer run's buttons.
+    if (activeRun === runId) busy.value = false
   })
 }
 
@@ -157,7 +160,8 @@ function downloadReport(): void {
   link.href = url
   link.download = `slider-lab-${Date.now().toString(36)}.json`
   link.click()
-  URL.revokeObjectURL(url)
+  // Revoked later: revoking right after click() can cancel the download.
+  setTimeout(() => URL.revokeObjectURL(url), 1_000)
 }
 
 onMounted(async () => {

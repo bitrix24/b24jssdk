@@ -52,11 +52,12 @@ export class SliderManager {
    *   .then(() => console.log('the slider was closed'))
    *   .catch(() => {})
    *
-   * @return {Promise<string>} `''`, once the slider is closed
+   * @return {Promise<unknown>} `''` on every measured close; typed `unknown` because the
+   *   portal could answer with any JSON
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-open-application.html
    */
-  async openSliderAppPage(params: Record<string, unknown> = {}): Promise<string> {
+  async openSliderAppPage(params: object = {}): Promise<unknown> {
     return this.#messageManager.send(MessageCommands.openApplication, params)
   }
 
@@ -64,8 +65,9 @@ export class SliderManager {
    * Asks the portal to close the modal window holding the application.
    *
    * Sent with `isSafely: false`, so only the portal's answer settles the
-   * promise — and on some builds that answer never arrives (#328). Do the
-   * cleanup first, then close without awaiting; `.catch()` because
+   * promise — and that answer may never arrive (#328; on a measured cloud
+   * portal it never did, see below). Do the cleanup first, then close
+   * without awaiting; `.catch()` because
    * `destroy()` rejects commands still in flight.
    *
    * Prefer letting the user close the slider with the portal's ✕. Measured on a
@@ -77,7 +79,7 @@ export class SliderManager {
    * @example
    * await $b24.options.appSet('draft', 'value')
    *
-   * $b24.parent.closeApplication().catch(() => {})
+   * $b24.slider.closeSliderAppPage().catch(() => {})
    *
    * @return {Promise<void>}
    *

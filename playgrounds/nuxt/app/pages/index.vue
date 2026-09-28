@@ -27,6 +27,10 @@ onMounted(async () => {
     // A slider opened by /slider-lab lands here — `openSliderAppPage` opens the
     // app's registered handler URL — so hand it to that page (#486).
     if (($b24.placement.options as Record<string, unknown>)['slider_lab_role'] === 'child') {
+      // Destroy here, not in onUnmounted: that may run after /slider-lab has
+      // already taken the cached frame. The second destroy() in onUnmounted
+      // then hits this old frame only.
+      $b24.destroy()
       await navigateTo('/slider-lab')
       return
     }

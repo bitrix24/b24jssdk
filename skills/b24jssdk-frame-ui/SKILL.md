@@ -25,14 +25,19 @@ if (status.isOpenAtNewWindow) {
   // Mobile fallback: it opened a new tab and polled for close
 }
 
-// 2. Open YOUR app's page as a slider, then close it
-await $b24.slider.openSliderAppPage({ some: 'param' })
-await $b24.slider.closeSliderAppPage()
+// 2. Open YOUR app's page as a slider. Settles with '' when it is CLOSED — don't await to "open"
+$b24.slider.openSliderAppPage({ some: 'param' }).then(() => { /* the slider was closed */ }).catch(() => {})
+
+// Inside the slider: closing from code never settles, and on a cloud portal it
+// left the page unclickable (#486). Prefer the portal's ✕.
+$b24.slider.closeSliderAppPage().catch(() => {})
 ```
 
 `openPath` returns when the slider closes (or the popup is closed on mobile). Always check `isOpenAtNewWindow` if you depend on close-detection.
 
 `openPath` opens a **portal** path; `openSliderAppPage` re-opens **your own registered handler URL**. Pointing `openPath` at an application page yields a 404 on the portal side.
+
+`openSliderAppPage` settles on **close**, never on open, always with `''` (measured, #486). It never settles if the calling page reloads while the slider is open.
 
 Everything you pass to `openSliderAppPage` is forwarded to the new frame as `PLACEMENT_OPTIONS`, so `place` is an ordinary call parameter — **not** a registered placement, and no `placement.bind` is needed. `bx24_width` below your own mobile breakpoint silently renders the mobile layout.
 

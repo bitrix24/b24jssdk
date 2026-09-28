@@ -125,9 +125,20 @@ export async function initializeB24Frame(
   initPromise = pending
 
   // Drop the cached promise on failure so a subsequent call retries from
-  // scratch; keep it on success so the resolved frame is reused. The caller's
-  // own rejection still propagates via the returned `pending`.
-  pending.catch(() => {
+  // scratch; keep it on success so the resolved frame is reused, until that
+  // frame is destroyed. The caller's own rejection still propagates via the returned `pending`.
+  pending.then((frame) => {
+    // `destroy()` removes the frame's `message` listener, so a destroyed frame
+    // still posts commands but never hears an answer: every call on it hangs.
+    // Forget it on destroy, so the next call builds a fresh frame (#486).
+    const destroy = frame.destroy.bind(frame)
+    frame.destroy = () => {
+      if (initPromise === pending) {
+        initPromise = null
+      }
+      destroy()
+    }
+  }, () => {
     if (initPromise === pending) {
       initPromise = null
     }

@@ -213,4 +213,25 @@ describe('#142 initializeB24Frame() failure handling', () => {
       vi.useRealTimers()
     }
   })
+
+  it('builds a fresh frame after the cached one is destroyed (#486)', async () => {
+    // A destroyed frame has no `message` listener: returning it again made
+    // every later call hang without settling.
+    setWindow(VALID_NAME)
+    const { initializeB24Frame } = await loadLoader()
+
+    const first = await initializeB24Frame()
+    expect(await initializeB24Frame()).toBe(first)
+
+    first.destroy()
+    expect(frameDestroyCount).toBe(1)
+
+    const second = await initializeB24Frame()
+    expect(second).not.toBe(first)
+    expect(frameConstructCount).toBe(2)
+
+    // Destroying the old frame again must not drop the new cached one.
+    first.destroy()
+    expect(await initializeB24Frame()).toBe(second)
+  })
 })

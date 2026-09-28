@@ -78,6 +78,9 @@ How the opened frame is found: `openSliderAppPage` opens the app's
 `localStorage`. Both frames are on the app's origin, so the parent reads the
 report back when the slider settles.
 
+Results of the first live run are in the slider docs page ("When the promise
+settles"): it settles on close with `''`, and 8 KB arrived intact.
+
 **Download JSON report** saves every run. `isSafely` is deliberately not used:
 it would settle the promise with `{ isSafely: true }` while the slider is still
 open.

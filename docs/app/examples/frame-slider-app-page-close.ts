@@ -4,8 +4,9 @@ export async function Action_frameSliderAppPageClose() {
   // region: start ////
   const $b24 = useB24().get() as B24Frame
 
-  async function closePage() {
-    return $b24.slider.closeSliderAppPage()
+  function closePage() {
+    // Never settles; the portal's close button is safer (#486)
+    $b24.slider.closeSliderAppPage().catch(() => {})
   }
 
   closePage()

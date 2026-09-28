@@ -308,9 +308,10 @@ if (result.isOpenAtNewWindow) {
   // On mobile, falls back to window.open and returns close status after polling
 }
 
-// Open your application page as a slider and then close it
-await $b24.slider.openSliderAppPage({ some: 'params' })
-await $b24.slider.closeSliderAppPage()
+// Open your application page as a slider. Settles with '' when the slider is CLOSED
+$b24.slider.openSliderAppPage({ some: 'params' }).then(() => { /* the slider was closed */ }).catch(() => {})
+// Inside the slider (never settles; prefer the portal's close button, #486)
+$b24.slider.closeSliderAppPage().catch(() => {})
 ```
 
 Dialogs

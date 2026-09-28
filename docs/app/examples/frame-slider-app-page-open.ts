@@ -8,8 +8,9 @@ export async function Action_frameSliderAppPageOpen() {
   const $logger = LoggerFactory.createForBrowser('Example:B24FrameSliderOpenPath', true)
   const $b24 = useB24().get() as B24Frame
 
-  async function openAppPage() {
-    const response = await $b24.slider.openSliderAppPage(
+  function openAppPage() {
+    // Settles when the slider is CLOSED, with '' — so it is not awaited (#486)
+    $b24.slider.openSliderAppPage(
       {
         // The 'place' parameter will be available in placement
         // It should be processed in middleware to redirect to the desired route.
@@ -17,11 +18,11 @@ export async function Action_frameSliderAppPageOpen() {
         bx24_width: 650,
         bx24_title: 'Page title in the browser'
       }
-    )
-
-    $logger.debug('response', { response })
+    ).then(() => {
+      $logger.debug('the slider was closed')
+    }).catch(() => {})
   }
 
-  await openAppPage()
+  openAppPage()
   // endregion: start ////
 }

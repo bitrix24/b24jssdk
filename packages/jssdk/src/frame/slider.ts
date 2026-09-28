@@ -35,10 +35,29 @@ export class SliderManager {
    * Settings are passed via `bx24_`-prefixed keys (e.g. `bx24_title`, `bx24_width`).
    * `bx24_title` sets the slider title; the portal also reflects it to the browser tab title
    * (`document.title`) — unlike `ParentManager.setTitle`, which only updates the in-layout `#pagetitle`.
+   * Every other key reaches the opened frame as `placement.options`; 8 KB arrived intact (#486).
+   *
+   * The promise settles when the slider is **closed**, not when it opens, and
+   * always with an empty string: the portal answers from the slider's `onClose`
+   * and passes nothing back from the opened frame (measured, #486). So `await`
+   * blocks until the user closes the slider — attach `.then()` when you only
+   * need to open it.
+   *
+   * It never settles when the page that called it is reloaded while the
+   * slider is open: the answer reaches a new document that does not know it.
+   *
+   * @example
+   * // Open, and refresh the list once the user closes the slider
+   * $b24.slider.openSliderAppPage({ bx24_title: 'Deal', place: 'deal', id: 42 })
+   *   .then(() => console.log('the slider was closed'))
+   *   .catch(() => {})
+   *
+   * @return {Promise<unknown>} `''` on every measured close; typed `unknown` because the
+   *   portal could answer with any JSON
    *
    * @link https://apidocs.bitrix24.com/sdk/bx24-js-sdk/additional-functions/bx24-open-application.html
    */
-  async openSliderAppPage(params: any = {}): Promise<any> {
+  async openSliderAppPage(params: object = {}): Promise<unknown> {
     return this.#messageManager.send(MessageCommands.openApplication, params)
   }
 
@@ -46,14 +65,21 @@ export class SliderManager {
    * Asks the portal to close the modal window holding the application.
    *
    * Sent with `isSafely: false`, so only the portal's answer settles the
-   * promise — and on some builds that answer never arrives (#328). Do the
-   * cleanup first, then close without awaiting; `.catch()` because
+   * promise — and that answer may never arrive (#328; on a measured cloud
+   * portal it never did, see below). Do the cleanup first, then close
+   * without awaiting; `.catch()` because
    * `destroy()` rejects commands still in flight.
+   *
+   * Prefer letting the user close the slider with the portal's ✕. Measured on a
+   * cloud portal (#486): after this call the portal fails while finishing the
+   * close (`JSON.stringify` of the slider throws), so this promise never
+   * settles, and the portal page stayed unclickable (`inert`) until a reload.
+   * The opener's `openSliderAppPage` promise still settles.
    *
    * @example
    * await $b24.options.appSet('draft', 'value')
    *
-   * $b24.parent.closeApplication().catch(() => {})
+   * $b24.slider.closeSliderAppPage().catch(() => {})
    *
    * @return {Promise<void>}
    *

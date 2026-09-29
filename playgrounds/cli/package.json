@@ -11,7 +11,7 @@
   "dependencies": {
     "@bitrix24/b24jssdk": "workspace:*",
     "citty": "^0.2.2",
-    "dotenv": "^17.4.2"
+    "dotenv": "^18.0.4"
   },
   "devDependencies": {
     "tsx": "^4.23.15",

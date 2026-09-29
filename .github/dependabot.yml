@@ -51,6 +51,9 @@ updates:
     # registries, which typecheck and the build both pass without noticing. docs imports
     # `Slot` from it directly, so the dependency has to stay declared; it just has to
     # match whatever `@bitrix24/b24ui-nuxt` pins. Bump it only when b24ui-nuxt does.
+    # `@vueuse/*` majors follow the same rule: b24ui-nuxt depends on
+    # @vueuse/core and @vueuse/integrations 14, so a docs-only 15 installs a second
+    # copy beside it (#578, #579). Minor/patch still flow through the group.
     # The three below are blocked by a peer range in a dependency we do not
     # control, so the major lands as a PR that can never go green. Only the
     # majors are ignored — minor/patch still flow through the group. Drop the
@@ -62,6 +65,8 @@ updates:
     #                         core/helpers have to stay on one major together.
     ignore:
       - dependency-name: "reka-ui"
+      - dependency-name: "@vueuse/*"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
       - dependency-name: "better-sqlite3"

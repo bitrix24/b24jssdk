@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import AlertIcon from '@bitrix24/b24icons-vue/outline/AlertIcon'
+import RocketIcon from '@bitrix24/b24icons-vue/outline/RocketIcon'
 </script>
 
 <template>
   <B24Banner
-    id="node20-drop-3-0-0-banner"
-    title="Node 20 is no longer supported as of 3.0.0 — move to Node 22 or newer"
-    to="/docs/getting-started/migration/v3/#runtime-node-20-was-dropped-in-300"
-    :icon="AlertIcon"
+    id="v3-0-0-released-banner"
+    title="Bitrix24 JS SDK 3.0.0 is out — see what changed and how to upgrade"
+    to="/docs/getting-started/migration/v3/"
+    :icon="RocketIcon"
     close
-    color="air-primary-alert"
+    color="air-primary"
   />
 </template>

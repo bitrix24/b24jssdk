@@ -76,7 +76,14 @@ overrides:
   # (unbounded dot-notation nesting in `parseBody()`) and GHSA-crvj-82cr-hjcx
   # (the query parser reads parameters after the URL fragment).
   hono: '>=4.13.5 <5'
-  ip-address: '>=10.1.1 <11'
+  # GHSA-rpw4-54j3-4h4q — isLinkLocal() recognises fe80::/64, not fe80::/10;
+  # GHSA-2vr4-cq9g-pvrc — the NAT64 local-use range is not classified. Both
+  # allow an SSRF / trust-boundary bypass, and both are fixed in 10.5.1.
+  ip-address: '>=10.5.1 <11'
+  # GHSA-3wwx-pv8p-q78v — DoS via an unhandled error in WebSocket
+  # permessage-deflate decompression. Only the 8.x line is affected
+  # (>=8.1.0 <8.10.2), so the 7.x copy is left alone.
+  'undici@>=8.0.0 <9': '>=8.10.2 <9'
   # GHSA-rgw5-rvv9-x895 — DoS via unbounded intermediate arrays (bypasses the
   # CVE-2026-14257 mitigation)
   brace-expansion: '>=5.0.9 <6'

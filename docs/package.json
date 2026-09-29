@@ -34,7 +34,7 @@
     "@shikijs/themes": "^4.4.2",
     "@takumi-rs/core": "^1.8.7",
     "@vueuse/core": "^14.4.0",
-    "@vueuse/integrations": "^14.4.0",
+    "@vueuse/integrations": "^15.0.0",
     "ai": "^7.0.106",
     "better-sqlite3": "^12.11.1",
     "joi": "^18.2.9",

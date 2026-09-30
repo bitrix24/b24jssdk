@@ -65,8 +65,9 @@ catalog:
 overrides:
   # GHSA-7p8r-x3mc-p8w7 — fast-uri host confusion via backslash authority
   # introducer. Floor raised to 3.1.6 for the follow-up advisory on the same
-  # parser; 3.1.5 no longer clears the audit.
-  fast-uri: '>=3.1.6 <4'
+  # parser; 3.1.5 no longer clears the audit. Raised again to 3.1.8 for
+  # GHSA-hrr3-gc8f-f4qj (host case normalisation via percent-encoding).
+  fast-uri: '>=3.1.8 <4'
   # GHSA-8j4g-w8fx-2239 — ReDoS in CORS middleware; GHSA-f23p-vx2j-j53r — `memo()`
   # retains SSR output across requests; GHSA-54fx-42gc-7vw4 — DoS in Language
   # middleware; GHSA-79qm-7rj5-m7r9 — Proxy Helper leaves `Connection`-listed
@@ -92,9 +93,10 @@ overrides:
   # brace pattern throws (`expand is not a function` on minimatch 5.x,
   # `brace_expansion_1.default is not a function` on 9.x; plain patterns are
   # unaffected, which is why nothing caught it). `minimatch@10` legitimately wants
-  # v5, so the exemption is scoped by version. 2.1.4 is the patched 2.x line for
-  # the same advisory chain, so this stays audit-clean.
-  'minimatch@<10>brace-expansion': '>=2.1.4 <3'
+  # v5, so the exemption is scoped by version. The 2.x floor tracks the patched
+  # 2.x line: 2.1.7 clears GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7 (both
+  # recursion DoS) and GHSA-q2hr-2g5m-vwhr (quadratic `{a},b}` rewrite).
+  'minimatch@<10>brace-expansion': '>=2.1.7 <3'
   # GHSA-2v37-7h3g-55p8 — custom generators can loop indefinitely when size is zero.
   # The tree carries only the 3.x line, so the ceiling is that major.
   nanoid: '>=3.3.18 <4'

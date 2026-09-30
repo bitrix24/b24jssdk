@@ -179,7 +179,7 @@ Patterns
 When you can’t bundle ESM, load the global B24Js from a CDN inside your iframe app.
 
 ```html
-<script src="https://unpkg.com/@bitrix24/b24jssdk@latest/dist/umd/index.min.js"></script>
+<script src="https://unpkg.com/@bitrix24/b24jssdk@3/dist/umd/index.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', async () => {
     try {

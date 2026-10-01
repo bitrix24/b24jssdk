@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.0.1](https://github.com/bitrix24/b24jssdk/compare/v3.0.0...v3.0.1) (2026-10-01)
+
+
+### Dependencies
+
+* raise the brace-expansion 2.x and fast-uri floors past four new advisories ([#588](https://github.com/bitrix24/b24jssdk/issues/588)) ([4dde84b](https://github.com/bitrix24/b24jssdk/commit/4dde84b14f2aa71e91d5b232157d8b7bf29e2f59))
+
+
+### Changed
+
+* move the package manager to pnpm 12.8.1 ([#590](https://github.com/bitrix24/b24jssdk/issues/590)) ([9992396](https://github.com/bitrix24/b24jssdk/commit/99923961a1ea5b78a08460665067da99805e5e5e))
+
+
+### Docs
+
+* replace the Node 20 banner with a 3.0.0 release banner ([#584](https://github.com/bitrix24/b24jssdk/issues/584)) ([6fcbe88](https://github.com/bitrix24/b24jssdk/commit/6fcbe882fd7eb615b95af439230726feda6043a0))
+* **umd:** add a current user and placement frame example ([#589](https://github.com/bitrix24/b24jssdk/issues/589)) ([132a386](https://github.com/bitrix24/b24jssdk/commit/132a386dabccf8eca26c8e792cbf1a5bad8eb5c9)), closes [#586](https://github.com/bitrix24/b24jssdk/issues/586)
+* **umd:** pin the CDN script to [@3](https://github.com/3) instead of [@latest](https://github.com/latest) ([#587](https://github.com/bitrix24/b24jssdk/issues/587)) ([79a25c2](https://github.com/bitrix24/b24jssdk/commit/79a25c23c51c6285958e5c211be8952728747154)), closes [#586](https://github.com/bitrix24/b24jssdk/issues/586)
+
 ## [3.0.0](https://github.com/bitrix24/b24jssdk/compare/v2.2.0...v3.0.0) (2026-09-29)
 
 

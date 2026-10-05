@@ -59,10 +59,10 @@
     "@nuxt/devtools": "^3.4.2",
     "@nuxt/module-builder": "^1.0.3",
     "@nuxt/schema": "^4.5.2",
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.4",
     "nuxt": "^4.5.2",
     "typescript": "^6.0.3",
     "unbuild": "^3.6.1",
-    "vue-tsc": "^3.3.11"
+    "vue-tsc": "^3.3.12"
   }
 }

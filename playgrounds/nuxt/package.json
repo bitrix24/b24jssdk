@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "@bitrix24/b24jssdk": "workspace:*",
-    "@bitrix24/b24ui-nuxt": "^2.13.0",
-    "nuxt": "^4.5.2"
+    "@bitrix24/b24ui-nuxt": "^2.15.0",
+    "nuxt": "^4.6.2"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
-    "vue-tsc": "^3.3.11"
+    "vue-tsc": "^3.3.13"
   }
 }

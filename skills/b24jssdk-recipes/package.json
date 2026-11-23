@@ -9,15 +9,15 @@
   },
   "dependencies": {
     "@bitrix24/b24jssdk": "link:../../packages/jssdk",
-    "express": "^5.2.1",
+    "express": "^5.3.0",
     "grammy": "^1.46.0",
     "node-cron": "^4.6.0",
-    "openai": "^7.23.0"
+    "openai": "^7.62.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "@types/node": "^24.10.4",
+    "@types/node": "^26.6.6",
     "@types/node-cron": "^3.0.11",
-    "typescript": "^5.6.3 || ^6.0.0"
+    "typescript": "^7.0.2"
   }
 }
